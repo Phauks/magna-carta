@@ -5,15 +5,23 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
-import type { MeetingMessageId, UserId } from "@magna-carta/identifiers/types";
-import type { MeetingId } from "@magna-carta/identifiers/types";
+import type {
+  MeetingGuestInvitationId,
+  MeetingGuestStayId,
+  MeetingId,
+  MeetingMessageId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import {
+  insertGuestMeetingMessageStatement,
   insertMeetingMessageStatement,
   readMeetingMessage,
   redactMeetingMessageStatement,
 } from "./chat-statements.ts";
 import type { MeetingMessageEntry } from "./chat-types.ts";
 import { assertMessageBody, refuseChat } from "./chat-validation.ts";
+import { readGuestStayInMeeting, readMeetingForGuest } from "./guest-statements.ts";
+import type { MeetingGuestStayRow } from "./guest-types.ts";
 import { readMeeting, readOpenAttendance } from "./meeting-statements.ts";
 import { refuse } from "./validation.ts";
 
@@ -85,8 +93,8 @@ export async function postMeetingMessage(
     message: {
       id: messageId,
       meetingId,
-      // The member kind, which is the only one this package writes: an external guest's stay is a
-      // different table, and the path that opens one writes its own rows.
+      // The member kind: a guest's line is written by `postGuestMeetingMessage` below, with its own
+      // statement against the same table.
       participantKind: "member",
       participantId: stay.id,
       userId: options.actorUserId,
@@ -124,6 +132,101 @@ export async function postMeetingMessage(
       outboxMessages: [],
     },
   };
+}
+
+/**
+ * Saying something in a meeting FROM A GUEST'S STAY — the same record, on the same terms.
+ *
+ * A guest's line is on the record like everybody else's: retained under the matter, personal data,
+ * redactable by a host. What differs is who the author is. The line hangs from the guest's stay,
+ * written with the `guest` kind, and the Directory entity behind it is reached through the stay's
+ * invitation; there is no member, so the audit row's actor is null and the stay is who it is about.
+ *
+ * THE STAY MUST BE IN THE ROOM, not merely open. A guest at the door has not been let in, and what is
+ * being said inside a meeting on a matter is exactly what somebody standing at the door must not
+ * reach — so a guest who has not been admitted can neither speak nor, in the route, read.
+ */
+export async function postGuestMeetingMessage(
+  database: SqlDatabase,
+  credential: {
+    readonly meetingId: MeetingId;
+    readonly invitationId: MeetingGuestInvitationId;
+    readonly stayId: MeetingGuestStayId;
+  },
+  input: { readonly body: string },
+  options: { readonly clock: { now(): string }; readonly randomSource?: RandomSource },
+): Promise<{ message: MeetingMessageEntry; effect: EffectWrite }> {
+  const stay = await requireGuestInTheRoom(database, credential);
+  const body = assertMessageBody(input.body);
+  const now = options.clock.now();
+  const messageId = newIdentifier("meetingMessage", options.randomSource);
+  return {
+    message: {
+      id: messageId,
+      meetingId: credential.meetingId,
+      participantKind: "guest",
+      participantId: stay.id,
+      userId: null,
+      sentAt: now,
+      body,
+      redactedAt: null,
+      redactedByUserId: null,
+    },
+    effect: {
+      statements: [
+        insertGuestMeetingMessageStatement(database, {
+          id: messageId,
+          meetingId: credential.meetingId,
+          stayId: stay.id,
+          body,
+          now,
+        }),
+        domainAuditStatement(database, {
+          event: "meetings.chat.messageSent",
+          subjectId: messageId,
+          // Nobody in the member column: a guest is not one. The stay says who spoke.
+          actorUserId: null,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            meetingId: credential.meetingId,
+            participantKind: "guest",
+            participantId: stay.id,
+            sentAt: now,
+            bodyLength: body.length,
+          },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * The guest's stay, answered only when it is IN THE ROOM — open and admitted — in a meeting that has
+ * not ended. What the guest chat routes ask before a guest may speak or read.
+ */
+export async function requireGuestInTheRoom(
+  database: SqlDatabase,
+  credential: {
+    readonly meetingId: MeetingId;
+    readonly invitationId: MeetingGuestInvitationId;
+    readonly stayId: MeetingGuestStayId;
+  },
+): Promise<MeetingGuestStayRow> {
+  const meeting = await readMeetingForGuest(database, credential.meetingId);
+  if (meeting === undefined) refuse("guest-link-not-valid", "this link does not open a meeting");
+  if (meeting.status === "ended") refuse("meeting-already-ended", "this meeting has ended");
+  const stay = await readGuestStayInMeeting(database, credential.meetingId, credential.stayId);
+  if (
+    stay === undefined ||
+    stay.invitation_id !== credential.invitationId ||
+    stay.left_at !== null ||
+    stay.admitted_at === null
+  ) {
+    refuse("meeting-not-joined", "you are not in this meeting");
+  }
+  return stay;
 }
 
 /**

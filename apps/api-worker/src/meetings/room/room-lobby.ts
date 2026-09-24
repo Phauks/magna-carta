@@ -6,7 +6,7 @@ import {
   type WaitingParticipant,
 } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
-import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
+import { announceRoster, rosterEntriesFor, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   recordAdmitted,
   recordDenied,
@@ -28,6 +28,7 @@ import {
   storedParticipants,
   storedWaiting,
   trySend,
+  viewerKindOf,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredWaiting,
@@ -78,6 +79,11 @@ export async function admitToLobby(
     const existing = await readWaiting(room, attachment.attendanceId);
     await putWaiting(room, attachment.attendanceId, {
       userId: attachment.userId,
+      // A GUEST STANDS AT THIS DOOR WITH TWO NAMES — the one typed at it and the Directory name the
+      // link was minted for — and the hosts' list carries both. Off the upgrade, which read them off
+      // the stay and the invitation the route authorized it against.
+      participantKind: viewerKindOf(attachment),
+      invitedName: viewerKindOf(attachment) === "guest" ? (attachment.invitedName ?? "") : null,
       displayName: attachment.displayName,
       // OFF THE RECORD, which is where the instant actually lives — the route reads it from the
       // stay the upgrade was authorized against, so the lobby route and this frame cannot show a
@@ -128,16 +134,28 @@ function lobbyStateFrameFor(
   return lobbyFrame(index < 0 ? 0 : index + 1, waiting.size, new Date().toISOString());
 }
 
-/** The door as the hosts' own frame carries it. */
+/**
+ * The door as the hosts' own frame carries it — a guest marked, with both names and no user id.
+ *
+ * The pair is the whole of what stands between a forwarded link and a stranger in the room: the name
+ * typed at the door beside the Directory name the link was minted for, read by a host BEFORE they
+ * admit. A row showing only the typed name would make a forwarded link invisible at the one moment it
+ * is still cheap to catch.
+ */
 export function waitingParticipantsFrom(
   waiting: ReadonlyMap<string, StoredWaiting>,
 ): WaitingParticipant[] {
-  return [...waiting].map(([participantId, one]) => ({
-    participantId,
-    userId: one.userId,
-    displayName: one.displayName,
-    waitingFrom: one.waitingFrom,
-  }));
+  return [...waiting].map(([participantId, one]) => {
+    const kind = one.participantKind ?? "member";
+    return {
+      participantId,
+      kind,
+      userId: kind === "guest" ? null : one.userId,
+      displayName: one.displayName,
+      invitedName: kind === "guest" ? (one.invitedName ?? "") : null,
+      waitingFrom: one.waitingFrom,
+    };
+  });
 }
 
 /**
@@ -233,6 +251,9 @@ export async function participantsAdmitted(
       await deleteWaiting(room, attendanceId);
       await putParticipant(room, attendanceId, {
         userId: waiting.userId,
+        // A guest admitted is a guest in the room: the kind travels from the door to the roster, so
+        // every roster frame goes on marking them and keeps their identifier-free entry.
+        participantKind: waiting.participantKind ?? "member",
         displayName: waiting.displayName,
         sfuSessionId: null,
         tracks: [],
@@ -267,7 +288,18 @@ export async function participantsAdmitted(
       // A HOST'S OWN LOBBY LIST IS EMPTY HERE, and correctly: somebody who has just been let in is
       // not running the meeting yet. The hosting route's `hostingChanged` is what changes that, and
       // the lobby frame that follows it is where a claimer learns who is still at the door.
-      trySend(socket, welcomeFrame(attendanceId, roster, roomState, []));
+      //
+      // The roster is the one built for WHO IS BEING WELCOMED: a guest let in is sent it with the
+      // identifiers taken out, on the rule every roster frame to their socket follows.
+      trySend(
+        socket,
+        welcomeFrame(
+          attendanceId,
+          rosterEntriesFor(roster, viewerKindOf(attachment)),
+          roomState,
+          [],
+        ),
+      );
       // IN THE ROOM FROM HERE, and `waiting` lowered in the same write: the attachment is what
       // room-frames.ts reads to decide whether this socket may signal at all.
       socket.serializeAttachment({ ...attachment, waiting: false, welcomed: true });

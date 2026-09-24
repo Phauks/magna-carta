@@ -95,13 +95,13 @@ const SendMessageRequest = z
   })
   .openapi("SendMeetingMessageRequest");
 
-const MeetingMessage = z
+export const MeetingMessage = z
   .object({
     id: z.string(),
     meetingId: z.string(),
     // The STAY it was said from, which is who said it at the time, as a kind and a handle. Two
     // kinds because there are two stay tables: a firm member's attendance row, and the guest stay
-    // an external participant will hold. Only `member` is written today.
+    // an external participant holds on a signed link.
     participantKind: z.enum(MEETING_PARTICIPANT_KINDS),
     participantId: z.string(),
     // The firm member behind that stay, resolved through it rather than stored beside it. Null for
@@ -138,7 +138,7 @@ const RedactedMeetingMessage = z
 // no convergence — every body on it is already whatever the record now holds — and it may repeat a
 // redaction on a later poll, which costs a client nothing: blanking a body that is already blank is
 // the same act twice.
-const MeetingMessagePage = paginated(MeetingMessage)
+export const MeetingMessagePage = paginated(MeetingMessage)
   .extend({ redacted: z.array(RedactedMeetingMessage) })
   .openapi("MeetingMessagePage");
 
@@ -152,7 +152,7 @@ const MeetingMessagePage = paginated(MeetingMessage)
 //
 // Both are the caller's to send, and both are safe to derive: two instants compare the same in every
 // zone on earth, which is why this one may be derived where the meetings list's `today` may not.
-const listMessagesQuery = cursorQuery.extend({
+export const listMessagesQuery = cursorQuery.extend({
   since: z.string().datetime().optional(),
   sinceId: z.string().optional(),
 });
@@ -416,7 +416,7 @@ type ChatOutcome =
  * gone — and the caller reads the settled row exactly as the ordinary already-redacted path does, so
  * the race answers 200 like the sequence does rather than handing somebody an Error ID for it.
  */
-async function commitChatEffect(
+export async function commitChatEffect(
   c: Context,
   database: BatchDatabase,
   idempotency: { key: string | undefined; fingerprint: string },
@@ -483,7 +483,7 @@ const WORDS_NOT_REPLAYED = "";
  * caller's mistake — the write it came from has committed — so it is a fault with an Error ID rather
  * than a 404 that would tell a member their own message is not there.
  */
-async function messageOnTheRecord(
+export async function messageOnTheRecord(
   database: BatchDatabase,
   meetingId: MeetingId,
   messageId: string,

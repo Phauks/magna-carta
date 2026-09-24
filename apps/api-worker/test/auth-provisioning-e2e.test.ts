@@ -603,6 +603,37 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
  */
 const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set(["meetings.inspect"]);
 
+/**
+ * THE FOURTH POPULATION, AND THE ONE ON THE APP SURFACE: a MEETING GUEST's lane.
+ *
+ * Somebody from outside the firm holding a signed, expiring link minted for one Directory entity on
+ * one meeting. They hold no session and never will, so these routes are `authenticated: false` with
+ * no permission — and they are NOT anonymous in the sense the joining set is: every one is admitted
+ * by the chokepoint's guest lane (`x-mc-guestLane`), which verifies the credential's signature before
+ * anything is read, reads the invitation row it names on every request, and stashes no user id. They
+ * are on the app surface because the guest page is served from the firm's own origin.
+ *
+ * Enumerated rather than allowed by shape, like the three above: a route that dropped its session
+ * would otherwise hide behind this one.
+ */
+const GUEST_LANE_OPERATIONS: ReadonlySet<string> = new Set([
+  "guest.meetingSummary",
+  "guest.arrive",
+  "guest.meetingSocket",
+  "guest.depart",
+  "guest.listMessages",
+  "guest.sendMessage",
+]);
+
+/** The shape every guest-lane operation must have, asserted wherever the sweeps meet one. */
+function expectGuestLaneShape(operation: OpenApiOperation, label: string): void {
+  expect(operation["x-mc-authenticated"], label).toBe(false);
+  expect(operation["x-mc-permission"], label).toBeNull();
+  expect(operation["x-mc-surface"], label).toBe("app");
+  expect(operation["x-mc-resource"], label).toBe("firm");
+  expect(["invitation", "grant"], label).toContain(operation["x-mc-guestLane"]);
+}
+
 interface EmittedOperation {
   readonly path: string;
   readonly method: string;
@@ -678,6 +709,11 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         expect(operation["x-mc-permission"], label).toBeNull();
         // And it rides the tightest bucket, which is the only enforcement left standing on it.
         expect(operation["x-mc-rateLimit"], label).toBe("auth");
+        continue;
+      }
+      // A meeting guest's write: admitted by the guest lane's verified credential, never a session.
+      if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
+        expectGuestLaneShape(operation, label);
         continue;
       }
       expect(operation["x-mc-authenticated"], label).toBe(true);
@@ -800,8 +836,22 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     // contract without this literal being edited in the same change.
     for (const { operation, label } of emittedOperations(document, MUTATING_METHODS)) {
       if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) continue;
+      // A guest's write creates no account and no credential of any kind a session could become;
+      // it is admitted by a signed link the firm sent, and the lane's shape is asserted.
+      if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
+        expectGuestLaneShape(operation, label);
+        continue;
+      }
       expect(operation["x-mc-authenticated"], label).toBe(true);
     }
+    // AND THE GUEST SET, every member present and nothing else wearing its shape: an operation that
+    // declares the lane without being enumerated here is a new way in nobody decided on.
+    expect(
+      emittedOperations(document, ALL_METHODS)
+        .filter((entry) => entry.operation["x-mc-guestLane"] !== undefined)
+        .map((entry) => entry.operation["operationId"])
+        .toSorted(),
+    ).toEqual([...GUEST_LANE_OPERATIONS].toSorted());
   });
 
   it("ENFORCES every declared-authenticated operation behaviorally: a credential-less request answers 401", async () => {

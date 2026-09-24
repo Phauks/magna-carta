@@ -31,6 +31,11 @@
    * it runs, and the people it happens to are standing outside with nothing left to press. So deny
    * all goes behind the one panel the product asks acts in, and admit all stays immediate.
    *
+   * A GUEST'S ROW CARRIES TWO NAMES AND A MARK. The name they typed at the door, and beneath it the
+   * Directory name the link was minted for — the pair a forwarded link cannot hide, shown at the one
+   * moment it is still cheap to act on. Neither replaces the other, and the mark sits in a column of
+   * its own rather than inside the name, so a long name truncates without taking the mark with it.
+   *
    * THE ROW STATES WHEN SOMEBODY ARRIVED, NOT HOW LONG THEY HAVE BEEN THERE. A duration counting up
    * beside a control moves the control under the pointer every minute, which is the one thing a row
    * carrying Admit and Deny must never do.
@@ -41,7 +46,9 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Button from "@magna-carta/design-system/button";
   import { formatTimeOfDay } from "@magna-carta/design-system/formatters";
+  import Badge from "@magna-carta/design-system/badge";
   import { participantInitials } from "./screen/meeting-tiles.ts";
+  import { GUEST_LABEL, invitedAsLabel } from "./screen/meeting-host-labels.ts";
   import type { WaitingParticipant } from "./client/meeting-client.svelte.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -120,8 +127,17 @@
             <Avatar.Root>
               <Avatar.Fallback>{participantInitials(name)}</Avatar.Fallback>
             </Avatar.Root>
-            <span class="min-w-0 flex-1 truncate text-sm" title={name}>{name}</span>
-            <span class="text-xs text-text-muted">{formatTimeOfDay(person.waitingFrom)}</span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="truncate text-sm" title={name}>{name}</span>
+              {#if person.kind === "guest" && person.invitedName !== null}
+                {@const invited = invitedAsLabel(person.invitedName)}
+                <span class="truncate text-xs text-text-muted" title={invited}>{invited}</span>
+              {/if}
+            </span>
+            {#if person.kind === "guest"}
+              <Badge class="shrink-0" variant="info" caps>{GUEST_LABEL}</Badge>
+            {/if}
+            <span class="shrink-0 text-xs text-text-muted">{formatTimeOfDay(person.waitingFrom)}</span>
             <!-- Each control names the person it is about, because a panel of five rows otherwise
                  offers a reader five controls all called Admit. -->
             <Button

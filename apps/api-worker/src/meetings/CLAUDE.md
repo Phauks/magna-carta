@@ -58,6 +58,14 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   person's role, presence, counts and last connection report, the door, the sockets, the alarm and
   which of its deadlines are pending, the storage size, the routing sessions, the ended marker. One
   pass over storage, and it changes nothing.
+- `guest-token.ts` — a meeting guest's two credentials on the one signed-token format
+  (`../signed-token.ts`): the INVITATION the mail carries (with the link's secret) and the GRANT an
+  arrival answers with (with the guest's stay, and no secret). Each has its own `typ`, so neither is
+  the other and neither is a support session.
+- `guest-invitation-mail.ts` — the invitation letter, pure, and the instant an event ends in its own
+  zone, which is what a link's life is measured from.
+- `guest-refusals.ts` — the one table from a link's refusal code to the problem a guest is told,
+  read by both the chokepoint's guest lane and the guest routes so one condition says one sentence.
 - `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit, and the test
   seam a meeting-room test installs a fake through.
 - `sfu/turn-credentials.ts` — minting relay credentials from Realtime's TURN service, shared with
@@ -169,6 +177,14 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   resolved. The service has no notion of a meeting and would honour a subscription to any session in
   the fleet, which is exactly what somebody standing outside a confidential matter discussion must
   not be able to reach. The socket stays open: they are at the door, and the door may open.
+- **A guest's socket is told nothing that names a firm user.** The socket's KIND rides the
+  attachment, set by the route that authorized it and never by the browser, and every frame that
+  carries a user identifier — `welcome`, `roster`, `roster-delta`, `message` — is built per viewer
+  (`broadcastPerViewer` in `room-state.ts`, `rosterEntryFor(…, viewer)` in `room-roster.ts`), so a
+  guest's copy carries `userId: null` for everybody and a member's carries `null` only for a guest,
+  who has no user to name. A new frame carrying a user identifier goes through the same projection;
+  a broadcast of one shared payload would hand a guest the firm's identifiers. The hosts' `waiting`
+  list carries `kind` and, for a guest, `invitedName` beside the name typed at the door.
 - **The media never crosses this directory.** Audio, video and screen share go directly between a
   browser and Realtime. Nothing here has a redaction step because there is nothing here to redact —
   and an upstream body is never carried into a refusal, because it can name the application the whole

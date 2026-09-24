@@ -1,5 +1,5 @@
 ---
-slice: Meetings — members-only meetings and calls from a calendar event, in rooms of up to three hundred
+slice: Meetings — meetings and calls from a calendar event, in rooms of up to three hundred, with guests from outside the firm on a signed link
 group: cross-cutting
 order: 45
 research: n/a
@@ -11,7 +11,7 @@ load-profile: n/a
 tested: in-progress by="Claude"
 branch: claude/focused-edison-ylxfiy
 active-work: docs/active-work/claude/focused-edison-ylxfiy.md
-next: External guests on a signed one-time join link — the lobby is their door and they always wait, so the door is built and what is missing is the link. Then breakout rooms, and dial-in once the telephony port has an adapter
+next: The external guests' web half — the arrival page, the host's Guests panel and the guest mark in the lobby — on the server half already built. Then breakout rooms, and dial-in once the telephony port has an adapter
 link-spec: docs/specs/2026-09-18-meetings-design.md
 link-plan:
 adrs:
@@ -55,3 +55,17 @@ drives three hundred fake clients against the real object so the fan-out cost is
 an argument. It falsified a design claim on its first run: every deferred presence transition was
 arming the alarm through a reconciliation that reads the whole roster and the whole door, which took
 the room to 1.2 storage lists per frame against a design that claims one, and is now 0.4.
+
+External guests are the first people outside the firm to use this product, and they arrive without a
+session, a cookie or a member row — so the chokepoint gained a lane of its own rather than a
+widening of the session path. A route declares `guestLane`, a signed credential stands where the
+session would, and the handler is handed a firm and the credential's names but never a user id, so a
+member handler pointed at a guest route fails on its first line. A host mints a link for a Directory
+person or organization on the event and it is mailed; the row keeps only the SHA-256 of the link's
+secret, and the row is the authority, so a rotation or a withdrawal refuses a perfectly-signed link at
+once. Opening the link spends nothing — a mail client that prefetches it costs the guest none of their
+twenty arrivals — and pressing Join opens a stay of its own table, always at the door. Presence is now
+a union over both stay tables with one home, so a guest counts against the room's and the door's
+ceilings exactly as a member does. The room builds every frame that names a user per viewer, so a
+guest's socket never holds a firm's user identifiers. The server half is built and tested; the arrival
+page, the host's Guests panel and the guest mark in the lobby are the web half, in build beside it.

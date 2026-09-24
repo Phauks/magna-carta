@@ -36,11 +36,15 @@ import {
 } from "@magna-carta/meetings/meeting-statements";
 import {
   MAX_MEETING_PARTICIPANTS,
+  MEETING_DEPARTURE_REASONS,
   MEETING_EVENT_KINDS,
   MEETING_LIST_SCOPES,
   MEETING_MEDIA,
+  MEETING_PARTICIPANT_KINDS,
 } from "@magna-carta/meetings/types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
+import type { MeetingParticipantHandle } from "@magna-carta/meetings/types";
+import { identifierPattern } from "@magna-carta/identifiers/validate";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -167,7 +171,7 @@ const MeetingSummaryResponse = z
   })
   .openapi("MeetingSummary");
 
-const IceServer = z
+export const IceServer = z
   .object({
     urls: z.union([z.string(), z.array(z.string())]),
     username: z.string().optional(),
@@ -199,12 +203,32 @@ const JoinedMeeting = z
 
 const MeetingAttendanceEntry = z
   .object({
+    // The STAY's own handle — a member's `meetingAttendance_` or a guest's `meetingGuestStay_`.
     id: z.string(),
-    userId: z.string(),
+    // WHICH KIND OF STAY, because there are two tables and one record: a firm member's attendance,
+    // or an external guest's stay on a signed link. Every reader says what it does with each.
+    participantKind: z.enum(MEETING_PARTICIPANT_KINDS),
+    // The firm member behind the stay, and NULL for a guest, who has none. Widened rather than a
+    // parallel guest list, so a reader cannot quietly under-report the meeting by reading one of two.
+    userId: z.string().nullable(),
+    // The member's name, or for a guest the name they gave at the door.
+    displayName: z.string(),
+    // A guest's only: the Directory entity the link was minted for, and its name at mint — so a
+    // reader sees at a glance when the person who attended is not the person who was invited. Null
+    // for a member.
+    entityId: z.string().nullable(),
+    invitedName: z.string().nullable(),
     joinedAt: z.string(),
     // Null while the person is still in the room. Ending the meeting closes every open stay at ONE
     // instant, so nobody's stay runs forever because they closed a laptop.
     leftAt: z.string().nullable(),
+    // The door, in two instants: when this stay reached it (null for somebody who never waited —
+    // a guest always waits), and when a host let them in (null while they were still outside).
+    waitingFrom: z.string().nullable(),
+    admittedAt: z.string().nullable(),
+    // How the stay ended — left, the connection went, removed, or denied at the door. Null while it
+    // is open, and on a stay the meeting's ending closed.
+    endedReason: z.enum(MEETING_DEPARTURE_REASONS).nullable(),
   })
   .openapi("MeetingAttendanceEntry");
 
@@ -233,6 +257,30 @@ const StartedMeeting = z
   .openapi("StartedMeeting");
 
 const Acknowledged = z.object({ ok: z.literal(true) }).openapi("MeetingAcknowledged");
+
+/**
+ * A STAY'S HANDLE, WHICHEVER KIND — the one validator for every route that names somebody in a
+ * meeting by their stay (the removal's path, the lobby's decisions).
+ *
+ * A member's stay is a `meetingAttendance_` handle and a guest's a `meetingGuestStay_` one, and the
+ * room has always treated the handle as opaque; the SERVICE resolves which table it names by the
+ * prefix. One helper named once, rather than a guest-shaped copy of every host route. As a path
+ * parameter when `name` is given, as a body field otherwise.
+ */
+export function meetingParticipantHandle(
+  name?: string,
+): z.ZodType<MeetingParticipantHandle, string> {
+  const pattern = new RegExp(
+    `(?:${identifierPattern("meetingAttendance").source})|(?:${identifierPattern("meetingGuestStay").source})`,
+  );
+  const field = z.string().regex(pattern);
+  return (name === undefined
+    ? field
+    : field.openapi({ param: { name, in: "path" } })) as unknown as z.ZodType<
+    MeetingParticipantHandle,
+    string
+  >;
+}
 
 const meetingIdParam = z.object({ meetingId: identifierPathParam("meeting", "meetingId") });
 const eventIdParam = z.object({ eventId: identifierPathParam("matterEvent", "eventId") });
@@ -618,10 +666,28 @@ export function meetingErrorResponse(
         status: 409,
         detail: caught.message,
       });
+    // THE GUEST LINK'S OWN CODES, which only the guest routes and the host's guest routes raise and
+    // which those routes answer through their own mapping (routes/meetings-guest.ts), with the 410s
+    // and 422s their contracts declare. No member route can raise one — none of them reaches the
+    // guest trio — so if one ever arrived here it is answered as the conflict it would be rather than
+    // as a fault with an Error ID.
+    case "guest-link-not-valid":
+    case "guest-link-expired":
+    case "guest-link-revoked":
+    case "guest-link-exhausted":
+    case "guest-not-invitable":
+    case "guest-name-not-valid":
+      return problemJson(c, {
+        type: "conflict",
+        title: "This cannot be done here",
+        status: 409,
+        detail: caught.message,
+      });
   }
 }
 
-function notConfigured(c: Context): ProblemResponse<503> {
+/** The 503 every meeting route answers where this deployment cannot route a meeting's media. */
+export function notConfigured(c: Context): ProblemResponse<503> {
   return problemJson(c, {
     type: "meetings-not-configured",
     status: 503,
@@ -756,7 +822,7 @@ async function displayNameOf(database: SqlDatabase, userId: string): Promise<str
  * alone, never an empty list: a browser handed no servers at all gathers only its local addresses,
  * and one behind a home router would then never learn how it looks from outside.
  */
-async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServer>[]> {
+export async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServer>[]> {
   const mint = await generateIceServers(c.env, RELAY_CREDENTIAL_TTL_SECONDS);
   if (mint.kind === "minted") return [...mint.servers];
   if (mint.kind === "failed") {
@@ -791,7 +857,7 @@ async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServe
  * declared origin where one is configured and the two differ because a proxy re-addressed the
  * request.
  */
-function isSameOriginUpgrade(c: MeetingContext): boolean {
+export function isSameOriginUpgrade(c: MeetingContext): boolean {
   const origin = c.req.header("origin");
   if (origin === undefined || origin === "") return true;
   const allowed = new Set([new URL(c.req.url).origin]);
@@ -1143,9 +1209,16 @@ export function registerMeetingsRoutes(
         {
           data: rows.map((row) => ({
             id: row.id,
+            participantKind: row.participant_kind,
             userId: row.user_id,
+            displayName: row.display_name,
+            entityId: row.entity_id,
+            invitedName: row.invited_name,
             joinedAt: row.joined_at,
             leftAt: row.left_at,
+            waitingFrom: row.waiting_from,
+            admittedAt: row.admitted_at,
+            endedReason: row.ended_reason,
           })),
           // Keyed on the same expression the list is ordered by, so the walk cannot skip or repeat.
           nextCursor: hasMore && last !== undefined ? encodeCursor(last.joined_at, last.id) : null,

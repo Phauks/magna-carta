@@ -634,14 +634,18 @@ describe("the lobby list", () => {
     expect(await listMeetingLobby(database.database, meetingId, deciding())).toEqual([
       {
         participantId: first.attendanceId,
+        kind: "member",
         userId: GUEST,
         displayName: "A Guest",
+        invitedName: null,
         waitingFrom: "2026-09-18T12:05:00.000Z",
       },
       {
         participantId: second.attendanceId,
+        kind: "member",
         userId: THIRD,
         displayName: "Attendee 0",
+        invitedName: null,
         waitingFrom: "2026-09-18T12:06:00.000Z",
       },
     ]);

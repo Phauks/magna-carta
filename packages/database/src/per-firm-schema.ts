@@ -122,6 +122,8 @@ import type {
   MatterTaskId,
   MatterTypeId,
   MeetingAttendanceId,
+  MeetingGuestInvitationId,
+  MeetingGuestStayId,
   MeetingHostId,
   MeetingId,
   MeetingMessageId,
@@ -8075,6 +8077,171 @@ export const meetingHost = sqliteTable(
     check(
       "meeting_host_revoked_shape_check",
       sql`(${table.revokedAt} IS NULL) = (${table.revokedByUserId} IS NULL)`,
+    ),
+  ],
+);
+
+// ONE SIGNED, EXPIRING LINK FOR ONE NAMED GUEST ON ONE MEETING — the durable authority behind a
+// bearer token that is never stored.
+//
+// THE GUEST IS A DIRECTORY ENTITY, never a free address. An invitation names somebody the firm knows
+// and the conflicts corpus can see; a record saying "a link went to somebody@example.test" names
+// nobody the firm can later identify. The entity is carried BY VALUE with no foreign key, on the
+// matter_event_participant precedent, because it is a person or an organization and a column can
+// point at one table only.
+//
+// THE ROW IS THE AUTHORITY AND THE TOKEN IS ONLY WHAT TRAVELS. What is stored is the SHA-256 of the
+// token's secret — never the secret, never the token — so a read of this table cannot mint a
+// working link, while a revoked row, a rotated `secret_version` or an expired instant refuses a
+// perfectly-signed token the moment it changes rather than at the token's own expiry.
+//
+// THE ADDRESS IS NOT HERE. `directory_email_id` records WHICH contact point the link was sent to;
+// the address itself stays the Directory's fact, because a second copy of a client's e-mail address
+// is a second thing to protect, redact and keep current.
+//
+// `invited_name` is the Directory's display name AT MINT, frozen, and it is deliberately a second
+// name beside the one the guest types at the door (`meeting_guest_stay.confirmed_name`). The
+// difference between the two is the whole of what a forwarded link leaves behind.
+//
+// Revoked, never deleted: who was invited to a meeting is part of what the record says happened, and
+// a deleted row would make a withdrawn invitation indistinguishable from one never sent. The client
+// portal's grant model subsumes this table when it lands.
+export const meetingGuestInvitation = sqliteTable(
+  "meeting_guest_invitation",
+  {
+    id: text("id").primaryKey().$type<MeetingGuestInvitationId>(), // meetingGuestInvitation_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    entityKind: text("entity_kind", { enum: ["person", "organization"] }).notNull(),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key.
+    entityId: text("entity_id").notNull(),
+    invitedName: text("invited_name").notNull(),
+    // Which contact point the link was sent to, by value. Null only where the mail went to no
+    // recorded row, which the service does not do today.
+    directoryEmailId: text("directory_email_id"),
+    // SHA-256 of the secret, lowercase hex. Never the secret and never the token.
+    tokenSecretHash: text("token_secret_hash").notNull(),
+    // Incremented by every rotation, so every token of an older version stops verifying at once.
+    secretVersion: integer("secret_version").notNull().default(1),
+    issuedByUserId: text("issued_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // An instant, computed once at mint and never re-derived at read time.
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant
+    revokedAt: text("revoked_at"), // ISO-8601 instant
+    revokedByUserId: text("revoked_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // How many times the link has been spent at the door, bounded so a link forwarded to a crowd
+    // cannot be spent without limit while a bad connection's retries still fit comfortably.
+    arrivalCount: integer("arrival_count").notNull().default(0),
+    lastArrivalAt: text("last_arrival_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // ONE LIVE LINK PER ENTITY PER MEETING. A second mint against the same pair rotates this row
+    // rather than creating another: two links for one guest would be two revocations to perform and
+    // one to forget. The index's leading column also serves "every invitation on this meeting",
+    // which is the only other read this table answers.
+    uniqueIndex("meeting_guest_invitation_meeting_entity_unique_index").on(
+      table.meetingId,
+      table.entityId,
+    ),
+    check(
+      "meeting_guest_invitation_entity_kind_check",
+      sql`${table.entityKind} IN ('person', 'organization')`,
+    ),
+    check("meeting_guest_invitation_invited_name_check", sql`length(${table.invitedName}) > 0`),
+    check("meeting_guest_invitation_secret_hash_check", sql`length(${table.tokenSecretHash}) = 64`),
+    check("meeting_guest_invitation_secret_version_check", sql`${table.secretVersion} >= 1`),
+    check("meeting_guest_invitation_arrival_count_check", sql`${table.arrivalCount} >= 0`),
+    // A withdrawal says who withdrew it and when, or neither — the line meeting_host sits on.
+    check(
+      "meeting_guest_invitation_revoked_shape_check",
+      sql`(${table.revokedAt} IS NULL) = (${table.revokedByUserId} IS NULL)`,
+    ),
+  ],
+);
+
+// A GUEST'S STAY IN ONE ROOM — `meeting_attendance`'s shape, for somebody with no user id.
+//
+// A SECOND TABLE RATHER THAN A NULLABLE COLUMN, and the reason is mechanical. SQLite cannot drop a
+// NOT NULL in place, so relaxing `meeting_attendance.user_id` is a table rebuild on a table other
+// tables point at — the one thing this schema refuses. Adding a table is free. `joined_at`,
+// `waiting_from`, `admitted_at`, `left_at` and `ended_reason` mean here exactly what they mean there,
+// which is what lets the two presence predicates compose over both tables without a second
+// definition of "in the room" (packages/meetings/src/meeting-statements.ts).
+//
+// The three differences are the three facts a member's stay has no room for: the invitation it was
+// spent from, the name the guest typed at the door, and the absence of a user id. And `waiting_from`
+// is NOT NULL, because a guest always waits, whatever the meeting's lobby setting says: the link
+// proves possession of a mailbox and nothing more, so it gets a person to the door and a host
+// decides the rest.
+export const meetingGuestStay = sqliteTable(
+  "meeting_guest_stay",
+  {
+    id: text("id").primaryKey().$type<MeetingGuestStayId>(), // meetingGuestStay_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    invitationId: text("invitation_id")
+      .notNull()
+      .$type<MeetingGuestInvitationId>()
+      .references(() => meetingGuestInvitation.id),
+    // What the guest typed at the door: untrusted display text, whitespace-normalized and bounded,
+    // and never written over the Directory's name anywhere.
+    confirmedName: text("confirmed_name").notNull(),
+    joinedAt: text("joined_at").notNull(), // ISO-8601 instant — for a guest, at the door
+    waitingFrom: text("waiting_from").notNull(), // ISO-8601 instant — never null, a guest always waits
+    admittedAt: text("admitted_at"), // ISO-8601 instant
+    admittedByUserId: text("admitted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    leftAt: text("left_at"), // ISO-8601 instant
+    endedReason: text("ended_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The live count and the roster: the open rows of one meeting.
+    index("meeting_guest_stay_meeting_left_at_index").on(table.meetingId, table.leftAt),
+    // WHO IS AT THE DOOR, in arrival order, partial on exactly the set the lobby list and the door's
+    // own ceiling are asked of — the member table's waiting index, for the second table.
+    index("meeting_guest_stay_waiting_index")
+      .on(table.meetingId, table.waitingFrom)
+      .where(sql`${table.leftAt} IS NULL AND ${table.admittedAt} IS NULL`),
+    // ONE OPEN STAY PER INVITATION PER MEETING. A spend of the link while a stay is open returns
+    // that stay rather than opening a second, and this is what holds that under a race: two
+    // browsers pressing Join on one link at once end with one stay. Partial on the open row,
+    // because the closed ones are the record.
+    uniqueIndex("meeting_guest_stay_open_stay_unique_index")
+      .on(table.meetingId, table.invitationId)
+      .where(sql`${table.leftAt} IS NULL`),
+    check(
+      "meeting_guest_stay_confirmed_name_check",
+      sql`length(${table.confirmedName}) > 0 AND length(${table.confirmedName}) <= 80`,
+    ),
+    // Who let them in and when, together or neither — the lock's line.
+    check(
+      "meeting_guest_stay_admission_shape_check",
+      sql`(${table.admittedAt} IS NULL) = (${table.admittedByUserId} IS NULL)`,
+    ),
+    check(
+      "meeting_guest_stay_span_check",
+      sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,
+    ),
+    // The member table's departure vocabulary, and the same pairing: a reason on a stay that is
+    // still open would say how somebody left a room they are sitting in.
+    check(
+      "meeting_guest_stay_ended_reason_check",
+      sql`${table.endedReason} IS NULL
+        OR (${table.leftAt} IS NOT NULL
+          AND ${table.endedReason} IN ('left', 'socket-lost', 'removed', 'denied'))`,
     ),
   ],
 );

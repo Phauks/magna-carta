@@ -63,6 +63,9 @@
       "path": "../../packages/decryption/tsconfig.build.json"
     },
     {
+      "path": "../../packages/design-system/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/directory/tsconfig.build.json"
     },
     {

@@ -7,6 +7,7 @@ import {
 import type {
   MeetingHostRole,
   MeetingLobbyMode,
+  MeetingParticipantKind,
   MeetingRoomState,
   MeetingSpotlight,
 } from "@magna-carta/meeting-protocol/types";
@@ -121,7 +122,14 @@ export interface StoredTrack {
 
 /** One connected participant, as the room holds them between frames. */
 export interface StoredParticipant {
+  // The firm member behind the stay, or the EMPTY STRING for a guest — who has none. Never put on the
+  // wire as it stands: the roster module projects it, and a guest's entry, and every entry sent to a
+  // guest's socket, carries null. Nothing authorizes from it but the hosting rewrite, which matches it
+  // against grants a guest can never hold.
   readonly userId: string;
+  // Which kind of stay this is. Optional, because a record written before guests existed carries
+  // none, which reads as a member — which is what it was.
+  readonly participantKind?: MeetingParticipantKind;
   readonly displayName: string;
   // The routing-service session this browser publishes through. Null until its first publish: a
   // session costs nothing to have and something to make, and somebody who joined to listen may never
@@ -243,10 +251,17 @@ export interface StoredParticipant {
  * leave an open stay in the firm's record forever.
  */
 export interface StoredWaiting {
+  /** The empty string for a guest, who has no user id; see `StoredParticipant`. */
   readonly userId: string;
   readonly displayName: string;
   readonly waitingFrom: string;
   readonly socketLostAt: string | null;
+  // A GUEST AT THE DOOR CARRIES TWO NAMES — the one typed there (`displayName`) and the Directory name
+  // the link was minted for — and the hosts' `waiting` frame carries both, because the difference
+  // between them is what a forwarded link leaves behind. Optional: a record from before guests reads
+  // as a member with no invitation.
+  readonly participantKind?: MeetingParticipantKind;
+  readonly invitedName?: string | null;
 }
 
 /** Which meeting, in which firm, this room is the signaling side of. */
@@ -328,6 +343,15 @@ export interface MeetingSocketAttachment {
   // budget — both read as a full bucket, which is what they are.
   readonly frameBudgetTokens?: number;
   readonly frameBudgetAt?: string;
+  // WHICH KIND OF PERSON HOLDS THIS SOCKET, derived by the route that authorized the upgrade — the
+  // guest route writes `guest`, every member route `member` — and never named by the browser. It is
+  // what every roster, welcome and relayed message is redacted by: a guest's socket is sent display
+  // names and never a firm's user identifiers. Absent on a socket accepted before guests existed,
+  // which reads as a member.
+  readonly participantKind?: MeetingParticipantKind;
+  // A guest's Directory name at mint, carried to the door so the hosts can read it beside the name the
+  // guest typed. Absent for a member.
+  readonly invitedName?: string;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -638,6 +662,43 @@ export function connectedAttendanceIds(room: RoomContext): Set<string> {
  */
 export function broadcast(room: RoomContext, payload: string, except?: WebSocket): number {
   return sendToRoom(room, payload, (socket) => socket === except);
+}
+
+/** Which kind of person holds this socket — a member unless the upgrade said otherwise. */
+export function viewerKindOf(attachment: MeetingSocketAttachment | null): MeetingParticipantKind {
+  return attachment?.participantKind === "guest" ? "guest" : "member";
+}
+
+/**
+ * ONE FRAME TO EVERYBODY IN THE ROOM, BUILT FOR WHO IS READING IT — a member's socket and a guest's
+ * are sent different payloads of the same frame.
+ *
+ * A guest sees display names, who is talking and which tracks exist, and never a firm's user
+ * identifiers; so every frame that names a member is built twice at most — once per kind of reader,
+ * lazily, and only the second time if a guest is actually in the room — rather than once per socket.
+ * The welcome gate and the send are `broadcast`'s own, and the count is of sockets reached.
+ */
+export function broadcastPerViewer(
+  room: RoomContext,
+  payloadFor: (viewer: MeetingParticipantKind) => string,
+  except?: WebSocket,
+): number {
+  const built = new Map<MeetingParticipantKind, string>();
+  let sent = 0;
+  for (const socket of room.ctx.getWebSockets()) {
+    if (socket === except) continue;
+    const attachment = attachmentOf(socket);
+    if (attachment?.welcomed !== true) continue;
+    const viewer = viewerKindOf(attachment);
+    let payload = built.get(viewer);
+    if (payload === undefined) {
+      payload = payloadFor(viewer);
+      built.set(viewer, payload);
+    }
+    trySend(socket, payload);
+    sent += 1;
+  }
+  return sent;
 }
 
 /** How many sockets are in the ROOM — welcomed, and therefore able to receive a broadcast. */

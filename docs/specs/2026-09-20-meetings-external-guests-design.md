@@ -323,3 +323,33 @@ What is genuinely new in `apps/web` is two files: the arrival route and a device
 ## 13. What this does not settle
 
 A guest who is not on the event's participant list (the link is minted from a participant, always). Dial-in for a guest (there is no telephony port). A guest on the desktop shell (parity holds — the guest page is web, and Tauri adds nothing to a link somebody opens from an e-mail). A host setting that admits a known guest without the lobby (deliberately absent, not deferred). A per-guest watermark or recording consent stronger than the announcement. And the portal itself, which is the design this one is standing in for.
+
+## Amendments taken during the build of the server half (2026-09-24)
+
+Each is a place the built server differs from the sections above, and why. None changes a ruling in section 1.
+
+**The guest concern is a trio of its own, plus one module the member side reaches.** Section 12 put the guest statements and service in `meeting-statements.ts`, `meeting-service.ts` and `types.ts`. They are `packages/meetings/src/guest-types.ts`, `guest-statements.ts` and `guest-service.ts`, on the hosting and lobby precedent of one trio per concern, and `guest-removal.ts` holds the two pieces the member-side host acts need (`isGuestStayHandle`, `removalOfGuestStatements`) so that no member-side service imports the guest service, which itself composes `requireHostGrant` — the two importing each other was an import cycle. What `meeting-statements.ts` did take is the union: `MEETING_STAY_TABLES`, `inTheRoomCount` and `waitingCount`, the one home every count, ceiling and list composes.
+
+**The host routes live beside the guest routes.** Section 12 put the four host routes in `routes/meetings.ts`. They are in `routes/meetings-guest.ts` with the guest routes, so the whole of the link's life — mint, list, rotate, withdraw, open, arrive — is one file; `meetings.ts` only exports the helpers both need (`iceServersFor`, `isSameOriginUpgrade`, `notConfigured`) and widens the attendance entry.
+
+**The invitation is asked for by entity, not by participant row.** The mint's body is `{ entityId, directoryEmailId? }`. The entity is what the invitation names, the event participant is checked rather than addressed, and an absent `directoryEmailId` takes the Directory's own choice — primary, then preferred, never an address the person has asked the firm not to use.
+
+**Two more guest routes: the chat.** Section 8 lets a guest use in-meeting chat; section 4.3 listed no route for it. `GET` and `POST /api/v1/guest/meeting/messages` are on the grant lane, for a guest who is in the room — admitted, not merely at the door — and answer the member's transcript with every firm user identifier taken out. There is deliberately no guest redaction act: a guest's line has no member behind it, so only a host may take it back, which falls out of the existing author comparison.
+
+**A sixth refusal code, `guest-name-not-valid`.** The name at the door is untrusted display text — control and format characters stripped, whitespace collapsed, one to eighty code points — and a name that is empty after that is refused as a 422 rather than stored.
+
+**The invitation list is paged.** The platform's pagination gate holds every list read to a keyset page; `GET /api/v1/meetings/{meetingId}/guests` pages at fifty, oldest first.
+
+**One index is not built.** Section 6.1's separate index on `meeting_guest_invitation(meeting_id)` is omitted: the unique index on `(meeting_id, entity_id)` has it as its prefix and answers every read that one would.
+
+**Rotation refuses a withdrawn link; minting again reinstates it.** Section 3.3 left the pairing open. Rotation of a withdrawn link answers `guest-link-revoked`, so bringing a withdrawn guest back is always the deliberate act of inviting them again, which reuses the one row with a fresh secret.
+
+**A rotation also closes the socket on the old link.** A guest in the room on a link that has just been replaced is sent `refused: superseded` and closed, after the commit, so every copy of the old link stops working at once rather than at the socket's next reconnect.
+
+**A member route presented with a guest credential answers the reserved 404** before a session is looked for — the other direction of section 5's lane — so a browser holding a member's cookie and a guest's link at once meets one answer rather than a session path deciding what to make of a credential it was never built to read.
+
+**An ended meeting's refusal is the existing `meeting-ended` problem type** (409), not a new `meeting-already-ended` type: the condition and the sentence are the member's, and a second name for them would be a second thing a client has to map.
+
+**An arrival is not replayed from an Idempotency-Key.** Its answer carries a grant, and a credential is never written to the idempotency store — so an arrival that is retried is simply a second arrival on an open stay, answered with that stay and a fresh grant. The host routes store the invitation and never the token, and mail only on the call that committed.
+
+**The frames are widened, and no frame type is added.** `RosterParticipant` and `WaitingParticipant` in `@magna-carta/meeting-protocol` carry `userId: string | null` and an optional `kind`; `WaitingParticipant` carries an optional `invitedName`. The fields are optional on the wire so a client built before them keeps parsing.

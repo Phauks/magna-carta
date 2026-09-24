@@ -18,6 +18,25 @@ export function meetingSocketUrl(meetingId: string, documentUrl: string = locati
   return socketUrl(`/api/v1/meetings/${encodeURIComponent(meetingId)}/socket`, documentUrl);
 }
 
+/**
+ * The socket a GUEST's signaling rides, carrying the grant their arrival was answered with.
+ *
+ * THE GRANT RIDES THE QUERY STRING BECAUSE NOTHING ELSE CAN CARRY IT. A browser cannot set a header
+ * on a WebSocket upgrade, and a guest holds no session cookie, so the address is the only part of
+ * the upgrade a credential can travel in. The server accepts the parameter on this one route alone,
+ * so no ordinary request can be driven by an address somebody was persuaded to open, and the
+ * exposure is bounded the way the room bounds it: a socket address is not a navigation, so it never
+ * reaches the browser's history, it sends no referrer, and the grant dies with the meeting.
+ *
+ * THE MEETING IS NOT IN THE PATH. It is a fact of the grant rather than of the request line, so a
+ * guest has no identifier to change and cannot address a meeting the link was not minted for.
+ */
+export function guestMeetingSocketUrl(grant: string, documentUrl: string = location.href): string {
+  const url = new URL(socketUrl("/api/v1/guest/meeting/socket", documentUrl));
+  url.searchParams.set("guest", grant);
+  return url.href;
+}
+
 /** A relative contract path, resolved against the document and switched to the socket scheme. */
 function socketUrl(path: string, documentUrl: string): string {
   const url = new URL(path, documentUrl);

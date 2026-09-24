@@ -3,8 +3,9 @@
 _You can start a video meeting from any calendar event, join one other people have started, see and
 hear everybody in the room, share your screen, and read back afterwards who was there and when. It is
 part of Magna Carta, so your firm needs no separate conferencing account and the record of the meeting
-sits on the event it belongs to. Only people at your firm can join: there is no way yet to invite a
-client or another party, no recording or transcript, and no telephone number to dial in on._
+sits on the event it belongs to. People at your firm join from the event; a client, opposing counsel or
+anybody else on the event can be sent a link that brings them to the meeting's door, where a host lets
+them in. There is no recording or transcript, and no telephone number to dial in on._
 
 ## What it does
 
@@ -21,7 +22,9 @@ who presses the button on the same event ends up in the same room.
 
 **Who may join is who may see the event.** A meeting on a matter's event can be joined by the people
 who can see that matter; a firm event's meeting is open to the firm. Nobody gets into a room by
-knowing an address, and nothing about a meeting reveals a matter you would not otherwise see.
+knowing an address, and nothing about a meeting reveals a matter you would not otherwise see. Somebody
+from outside the firm comes in only on a link a host sent them, and only as far as the door until a
+host lets them in — see **Inviting a guest** below.
 
 **What was said is not kept; who was there is.** Nothing in the meeting is recorded — no video, no
 audio, no transcript, no chat. What the record keeps is attendance: each person who joined, when they
@@ -86,8 +89,8 @@ meeting and would rather not go looking for the event it belongs to. It has thre
 - **Upcoming** — the meetings already opened on events today or later, with the day and time of the
   event they belong to, in that event's own time zone. **Join** works here too, so you can be first
   into a room rather than waiting for somebody else to arrive.
-- **Recently ended** — what finished in the last thirty days, with when it ended and a way back to
-  the event, where the attendance record is.
+- **Recently ended** — what finished in the last thirty days, with when it ended, **Attendance** for
+  who was in the room, and a way back to the event.
 
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
 matter, the row links back to it.
@@ -367,6 +370,79 @@ nothing at all. It is this meeting they are barred from and nothing else: a meet
 entry is a new room, their place on this entry is untouched, and the record keeps when they
 arrived and when their stay closed.
 
+## Inviting a guest
+
+A client call, a settlement conference, a hearing with an expert: most of the meetings worth having
+include somebody who is not at your firm. You can send any of them a link to the meeting, and it brings
+them to the meeting's door rather than into the room.
+
+**A guest is somebody already on the event.** The link goes to a person or an organization in the
+Directory who is listed on the event, at the e-mail address the Directory holds for them. You do not
+type an address anywhere, which means the meeting's record always names somebody your firm knows.
+
+1. Open the meeting's event, or the meeting itself, and press **Guests**. It is there for anybody who
+   may start meetings, once a meeting has been opened on the event.
+2. The panel lists everybody on the event from outside the firm, with whether each has a link, until
+   when it works, and how many times it has been used.
+3. Press **Invite** beside the person you want. They are sent an e-mail with the meeting's title, its
+   day and time, your firm's name and the link, and nothing else about the matter.
+
+**Sending an organization a link** works the same way. Whoever the organization sends types their own
+name when they arrive, so a client company can send whichever of its people is free.
+
+**How long a link works.** Until two hours after the event is due to end, so a hearing that runs late
+does not lock anybody out, and never longer than fourteen days from when it was sent. A link also stops
+working the moment the meeting ends. It can be used to reach the door twenty times, which is plenty for
+a bad connection and not enough for a link forwarded to a crowd.
+
+**A link that went to the wrong place.** **Send a new link** replaces it: a fresh e-mail goes out and
+the old link stops working at once, including for anybody in the meeting on it. **Withdraw** stops it
+working without sending another. Both ask first. A withdrawn link stays on the list, marked as
+withdrawn, because that somebody was invited and then was not is part of the record.
+
+**The link on its own gets nobody into the room.** Every guest waits at the door until a host lets
+them in, whatever the waiting-room switch says. At the door you see two names for each guest: the name
+they typed, and underneath it the name the link was sent to. If a link for Acme Corporation arrives
+under a name you do not know, that is the moment to find out who it is, before they are in the room.
+
+**What a guest can do in the meeting**: see and hear everybody, turn their microphone and camera on
+and off, share their screen, raise their hand and react, write in the meeting's chat, and leave. What
+a guest writes is kept on the meeting's record like every other line, and a guest cannot take a line
+back. They cannot end the meeting, let
+anybody in, or see anything else in Magna Carta: there is no way from their screen to any other part
+of it. Everything a host can do to a member — muting, asking to unmute, spotlighting, removing —
+works the same on a guest. Removing a guest, or turning one away at the door, also stops their link
+bringing them back to this meeting.
+
+## Joining as a guest
+
+This part is for the person outside the firm who was sent a link.
+
+1. **Open the link from the e-mail.** You see the meeting's title, its day and time and the firm's
+   name. Opening it does nothing else, so it does not matter if your mail program opened it first or
+   you click it twice. If the link does not open, the e-mail also carries it as text you can paste
+   into your browser.
+2. **Check your name.** It starts as the name the firm invited. If the link was sent to your company,
+   or you go by another name, change it to yours. The host sees what you type.
+3. **Check your microphone and camera.** Choose which to use, and look at the preview. Say something:
+   the line under the preview says whether your microphone is picking you up. Your browser will ask
+   permission first; if you say no you can still join and listen.
+4. **Press Join.** You wait at the door until somebody at the firm lets you in. Nothing from your
+   microphone or camera is sent while you wait, and nobody inside can see or hear you. The screen says
+   how many people are ahead of you, if anybody is.
+5. **Once you are let in** you are in the meeting: the people in it, the controls for your
+   microphone, camera and screen, the meeting's chat, and **Leave**. What you write in the chat is
+   kept by the firm as part of the meeting's record.
+
+If you leave, or your connection drops, the same link takes you back to the door until it stops
+working. If the meeting is locked when you arrive, the page says so and you can try again once the
+host opens it.
+
+**When a link does not work** the page says why: it has expired, the firm has withdrawn it or sent a
+newer one, it has been used too many times, or the meeting is over. In each case ask the firm for a
+new link. A link that was forwarded to you gets you only as far as the door; the host sees the name it
+was sent to beside yours and decides whether to let you in.
+
 ## Ending a meeting
 
 The control bar carries **End meeting** for whoever is running the meeting. It ends it for everybody:
@@ -383,8 +459,11 @@ including none.
 
 ## What the attendance record shows
 
-Once the meeting has ended, the event shows who was in the room: a line per person with the time they
-joined and the time they left. Somebody who dropped out and came back shows twice, which is the honest
+Once the meeting has ended, **Attendance** on its row under **Recently ended** on the Meetings page
+shows who was in the room: a line per person with the time they joined and the time they left. A guest
+is on it beside everybody else, under the name they gave at the door, marked as a guest and with the
+name their link was sent to beside it — for example **Jane Hollis (Guest, invited as Acme
+Corporation)** — so you can see months later that the person who came is not the one the link named. Somebody who dropped out and came back shows twice, which is the honest
 account of what happened. When a host ends a meeting, everybody still in the room is recorded as
 leaving at that one moment, and somebody a host removed is recorded as leaving when they were removed.
 
@@ -400,9 +479,10 @@ room.
 
 ## What is not built yet
 
-- **Guests from outside the firm.** A client, opposing counsel or an expert cannot be let into a
-  meeting yet. Everybody in the room has to be somebody at your firm with their own sign-in. A
-  one-time invitation link for a person on the event is the next piece of this feature.
+- **Inviting somebody who is not in the Directory.** A link is sent to a person or an organization
+  in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
+  shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
+  them in the Directory and put that record on the event in their place.
 - **Recording and transcripts.** Nothing is captured, and this is not simply a switch waiting to be
   flipped: recording a conversation needs everybody's consent in about a dozen states, and the part of
   Magna Carta that knows which rule applies where is still being designed.

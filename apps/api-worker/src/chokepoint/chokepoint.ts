@@ -3,6 +3,9 @@
 // (contracts/route-meta.ts), not per-handler discipline — the chokepoint reads that metadata and
 // enforces, in ONE fixed order, what the route declared. The order IS the security contract:
 //
+//   0. a meeting guest's lane         (ONLY for a route declaring `guestLane`, and INSTEAD of 1-3:
+//                                      signed credential → firm → live invitation row; never a
+//                                      session, a user id or a permission — see GuestLanePort)
 //   1. resolve session → firm        (cookie → Better Auth → { userId, firmId }; firm from the
 //                                      session, never the URL)
 //   2. authn                          (meta.authenticated && no session → 401)
@@ -25,8 +28,13 @@ import { assertPermission, isPermission } from "@magna-carta/access-control/regi
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { problemJson } from "../contracts/problem.ts";
+import type { ProblemTypeKey } from "../contracts/problem-types.ts";
 import { routeMetaOf, type ResolvedRouteMeta, type RouteMeta } from "../contracts/route-meta.ts";
-import type { RateLimiter } from "./rate-limiter.ts";
+import {
+  GUEST_CREDENTIAL_HEADER,
+  GUEST_CREDENTIAL_QUERY_PARAMETER,
+} from "../meetings/guest-token.ts";
+import type { RateLimiter, RateLimitVerdict } from "./rate-limiter.ts";
 
 // What resolveSession yields: the authenticated principal and the firm it is scoped to (from the
 // session cookie — never the URL). Mirrors session-context.ts's SessionContext; redeclared here so
@@ -83,6 +91,79 @@ export interface ChokepointPorts<FirmContext> {
   idempotency: ChokepointIdempotency;
   // Step 5: the rate-limit verdict (the chokepoint owns the 429 reply and the tenant-scoped key).
   rateLimiter: RateLimiter;
+  // Step 0, and only for a route declaring `guestLane`: the meeting guest's lane (see below). Absent,
+  // a guest route answers the reserved 404 — fail closed rather than fall through to the session path.
+  guestLane?: GuestLanePort<FirmContext>;
+}
+
+// THE MEETING GUEST'S LANE, as the chokepoint sees it.
+//
+// A guest holds no session, no cookie, no member row and no capability, and the first three steps
+// above are all about a session — so a guest route is admitted through a lane of its own, as STEP 0,
+// which runs only for a route that declared `guestLane` and runs INSTEAD of steps 1-3. It refuses by
+// default at every point, and what it stashes is the structural guarantee rather than a rule: the firm
+// and the credential, never a user id and never a permission set, so a member handler pointed at a
+// guest route throws on its first `requireChokepointUserId`.
+
+/** What a verified guest credential names — stashed for the handler, WITHOUT the secret it carried. */
+export interface ChokepointGuestGrant {
+  readonly lane: "invitation" | "grant";
+  readonly firmId: FirmId;
+  readonly meetingId: string;
+  readonly invitationId: string;
+  readonly secretVersion: number;
+  /** The guest's own stay — present on a grant, null on an invitation. */
+  readonly stayId: string | null;
+}
+
+/** A signed credential that cannot be used right now, said to the person holding it. */
+export interface GuestLaneRefusal {
+  readonly type: ProblemTypeKey;
+  readonly status: 409 | 410;
+  readonly title: string;
+  readonly detail: string;
+}
+
+/**
+ * The lane's three questions, each asked only if the one before it answered.
+ *
+ * 1. Is this a credential this deployment signed, of the lane's kind, not past its own expiry? A null
+ *    is the FLAT refusal — no read has happened, so nothing is billed and nothing is disclosed.
+ * 2. Is its firm one this deployment serves? Deliberately NOT a widening of `resolveFirmContext`,
+ *    whose member-active check is the thing a guest cannot pass and a member must never skip: two
+ *    methods cannot be confused where one method with a flag can.
+ * 3. Is the invitation row it names still live? A refusal here is SPECIFIC, because only somebody the
+ *    firm sent a link to can present a signed one, and they already know everything it says.
+ */
+export interface GuestLanePort<FirmContext> {
+  verifyGuestCredential: (
+    c: Context,
+    presented: string | null,
+    lane: "invitation" | "grant",
+  ) => Promise<(ChokepointGuestGrant & { readonly secret: string | null }) | null>;
+  resolveGuestFirmContext: (c: Context, grant: ChokepointGuestGrant) => Promise<FirmContext | null>;
+  confirmGuestCredentialIsLive: (
+    c: Context,
+    firmContext: FirmContext,
+    credential: ChokepointGuestGrant & { readonly secret: string | null },
+  ) => Promise<GuestLaneRefusal | null>;
+}
+
+/**
+ * Where a guest's credential is on this request, or null.
+ *
+ * The header on every request; the query parameter ONLY on a grant route's WebSocket upgrade, because
+ * a browser cannot set a header on a socket and for no other reason — so no ordinary request can be
+ * driven by an address somebody was persuaded to click. A navigation never carries `Upgrade:
+ * websocket`, which is what makes the upgrade the one place the address may speak.
+ */
+function guestCredentialOf(c: Context, lane: "invitation" | "grant"): string | null {
+  const header = c.req.header(GUEST_CREDENTIAL_HEADER);
+  if (header !== undefined && header !== "") return header;
+  const upgrade = c.req.header("upgrade")?.toLowerCase() === "websocket";
+  if (lane !== "grant" || !upgrade) return null;
+  const parameter = c.req.query(GUEST_CREDENTIAL_QUERY_PARAMETER);
+  return parameter !== undefined && parameter !== "" ? parameter : null;
 }
 
 // The idempotency port (step 4). Given the request context and the route's resolved meta, returns
@@ -118,6 +199,28 @@ function clientRateLimitKey(c: Context): string {
   // edge ALWAYS sets cf-connecting-ip, so collapsing every caller into one shared `ip:unknown`
   // bucket on absence is the safe fail-closed degradation, never a path real traffic takes.
   return `ip:${ip !== undefined && ip !== "" ? ip : "unknown"}`;
+}
+
+// The 429, with the budget riding the BODY as well as the header. Retry-After alone tells a caller
+// when to come back and nothing about how much room it had, so a surface that wants to warn before the
+// wall — the sign-in ladder is the one that made this necessary — had to invent the number or say
+// nothing. Both fields come off the verdict, never a constant here, so the limiter stays the one
+// authority on its own arithmetic.
+function rateLimitedResponse(c: Context, verdict: RateLimitVerdict): Response {
+  const response = problemJson(c, {
+    type: "rate-limited",
+    status: 429,
+    title: "Too many requests",
+    detail: "Rate limit exceeded; retry after the interval in the Retry-After header.",
+    attemptsRemaining: verdict.remaining,
+    ...(verdict.retryAfterSeconds !== undefined && {
+      retryAfterSeconds: verdict.retryAfterSeconds,
+    }),
+  });
+  if (verdict.retryAfterSeconds !== undefined) {
+    response.headers.set("retry-after", String(verdict.retryAfterSeconds));
+  }
+  return response;
 }
 
 export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext>): Chokepoint {
@@ -164,6 +267,56 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
     return meta;
   }
 
+  // The lane itself: three questions, each asked only if the one before answered, and every refusal
+  // decided before a later port is touched — the same fail-closed order the session path keeps.
+  async function admitGuest(
+    c: Context,
+    meta: RouteMeta,
+    lane: "invitation" | "grant",
+    continueToHandler: () => Promise<Response | void>,
+  ): Promise<Response | void> {
+    const reservedAbsence = () =>
+      problemJson(c, {
+        type: "not-found",
+        status: 404,
+        title: "Not found",
+        detail: "No such resource in this firm.",
+      });
+    const port = ports.guestLane;
+    if (port === undefined) return reservedAbsence();
+
+    const credential = await port.verifyGuestCredential(c, guestCredentialOf(c, lane), lane);
+    if (credential === null) {
+      // THE FLAT REFUSAL, and the one place the lane spends the limiter before answering: no read has
+      // happened, so what this bounds is somebody guessing at the route — keyed by the client address,
+      // separately from any real guest's own bucket.
+      const verdict = await ports.rateLimiter.check(meta.rateLimit, clientRateLimitKey(c));
+      return verdict.allowed ? reservedAbsence() : rateLimitedResponse(c, verdict);
+    }
+
+    // What is stashed for the handler is named field by field, so the secret an invitation carried
+    // is structurally unable to ride along into anything a handler could log or echo.
+    const grant: ChokepointGuestGrant = {
+      lane: credential.lane,
+      firmId: credential.firmId,
+      meetingId: credential.meetingId,
+      invitationId: credential.invitationId,
+      secretVersion: credential.secretVersion,
+      stayId: credential.stayId,
+    };
+    const firmContext = await port.resolveGuestFirmContext(c, grant);
+    if (firmContext === null) return reservedAbsence();
+
+    const refusal = await port.confirmGuestCredentialIsLive(c, firmContext, credential);
+    if (refusal !== null) return problemJson(c, refusal);
+
+    // THE STRUCTURAL GUARANTEE: the firm and the credential, and never a user id or a permission set.
+    c.set("chokepointGuestGrant", grant);
+    c.set("chokepointFirmId", grant.firmId);
+    c.set("chokepointFirmContext", firmContext);
+    return await continueToHandler();
+  }
+
   function forRoute(meta: RouteMeta): MiddlewareHandler {
     if (meta === undefined || meta === null) {
       throw new Error(
@@ -204,31 +357,21 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           // public surface, and a signed-in person who has no firm yet, whose requests cost the
           // platform what an anonymous one does. A client cannot pick or rotate its bucket.
           const firmId = c.get("chokepointFirmId") as FirmId | undefined;
-          const rateLimitKey = firmId !== undefined ? `firm:${firmId}` : clientRateLimitKey(c);
+          // A GUEST is keyed by the INVITATION rather than by the firm: one shared link is one
+          // bucket however many people hold it, and a guest's traffic cannot spend the firm's.
+          const guestGrant = c.get("chokepointGuestGrant") as ChokepointGuestGrant | undefined;
+          const rateLimitKey =
+            guestGrant !== undefined
+              ? `guest:${guestGrant.invitationId}`
+              : firmId !== undefined
+                ? `firm:${firmId}`
+                : clientRateLimitKey(c);
           const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
           if (!verdict.allowed) {
-            // The budget rides the BODY as well as the header. Retry-After alone tells a caller
-            // when to come back and nothing about how much room it had, so a surface that wants to
-            // warn before the wall — the sign-in ladder is the one that made this necessary — had
-            // to invent the number or say nothing. Both fields come off the verdict, never a
-            // constant here, so the limiter stays the one authority on its own arithmetic.
-            const response = problemJson(c, {
-              type: "rate-limited",
-              status: 429,
-              title: "Too many requests",
-              detail: "Rate limit exceeded; retry after the interval in the Retry-After header.",
-              attemptsRemaining: verdict.remaining,
-              ...(verdict.retryAfterSeconds !== undefined && {
-                retryAfterSeconds: verdict.retryAfterSeconds,
-              }),
-            });
-            if (verdict.retryAfterSeconds !== undefined) {
-              response.headers.set("retry-after", String(verdict.retryAfterSeconds));
-            }
             // Inside this tail closure (an idempotency-middleware next() OR the direct path) the
             // verdict is published via c.res, not returned — short-circuiting the handler without
             // calling the downstream next().
-            c.res = response;
+            c.res = rateLimitedResponse(c, verdict);
             return;
           }
 
@@ -257,6 +400,26 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         }
         return await idempotencyTail();
       };
+
+      // Step 0 — THE MEETING GUEST'S LANE, for a route that declared it and for no other. It runs
+      // INSTEAD of steps 1-3 and then joins steps 4-6 unchanged, so a guest route crosses the same
+      // idempotency and rate-limit gates every route does.
+      if (meta.guestLane !== undefined) {
+        return await admitGuest(c, meta, meta.guestLane, runIdempotencyAndHandler);
+      }
+      // AND THE OTHER DIRECTION: a guest's credential is never a key to anything else. A request
+      // carrying one to a route that did not declare the lane gets the reserved absence before a
+      // session is even looked for — so a guest page that called a member route, or a browser holding
+      // a member's cookie and a guest's link at once, meets one answer rather than a session path
+      // deciding what to make of a credential it was never built to read.
+      if (guestCredentialOf(c, "grant") !== null) {
+        return problemJson(c, {
+          type: "not-found",
+          status: 404,
+          title: "Not found",
+          detail: "No such resource in this firm.",
+        });
+      }
 
       // Steps 1–3 — session, authn, RBAC — apply ONLY to non-public surfaces. A public route
       // (e.g. POST /v1/firms, platform-admin-secret-guarded) carries no cookie/CSRF assumption;

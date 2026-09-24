@@ -349,6 +349,18 @@ export async function participantRemoved(room: RoomContext, attendanceId: string
 }
 
 /**
+ * A guest's link was rotated: every socket holding their stay was opened on the old link, and goes.
+ *
+ * `superseded` rather than `removed`, because the person is not barred — a newer credential has taken
+ * over, and the person the fresh mail reached arrives on it and takes the stay back. The roster entry
+ * and the record are left to the ordinary grace, exactly as for any socket that closed: if nobody
+ * comes back inside it, the sweep closes the stay.
+ */
+export async function guestCredentialReplaced(room: RoomContext, stayId: string): Promise<void> {
+  for (const socket of socketsFor(room, stayId)) refuseAndClose(socket, "superseded");
+}
+
+/**
  * The grants changed — rewrite the roles on the stored participants and tell the room.
  *
  * This is the other half of the stored-record rule: the record the room authorizes from has to be

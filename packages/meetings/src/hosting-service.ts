@@ -16,9 +16,16 @@ import {
   setMeetingLockStatement,
 } from "./hosting-statements.ts";
 import type { MeetingHostRole, MeetingHostRow } from "./hosting-types.ts";
+import { isGuestStayHandle, removalOfGuestStatements } from "./guest-removal.ts";
+import { readGuestStayInMeeting } from "./guest-statements.ts";
 import { admitWaitingAttendanceStatement } from "./lobby-statements.ts";
 import { closeAttendanceStatement, readMeeting, readOpenAttendance } from "./meeting-statements.ts";
-import type { MeetingAttendanceRow, MeetingRow } from "./types.ts";
+import type {
+  MeetingAttendanceRow,
+  MeetingDepartureReason,
+  MeetingParticipantHandle,
+  MeetingRow,
+} from "./types.ts";
 import { refuse } from "./validation.ts";
 
 // RUNNING A MEETING: who holds the room, who they share it with, who is put out of it, and whether
@@ -57,7 +64,7 @@ export const ADMIT_HOST_GUARD = "meeting.hosting.admit";
 
 // The label the departure row carries for somebody a host put out. Named once so the column, the
 // audit metadata and the barred-entry read cannot drift on a string.
-const REMOVED = "removed";
+const REMOVED = "removed" satisfies MeetingDepartureReason;
 
 export interface MeetingHostingOptions {
   readonly clock: { now(): string };
@@ -475,13 +482,44 @@ export async function revokeHosting(
 export async function removeParticipant(
   database: SqlDatabase,
   meetingId: MeetingId,
-  attendanceId: MeetingAttendanceId,
+  attendanceId: MeetingParticipantHandle,
   options: MeetingHostingOptions,
-): Promise<{ userId: UserId; effect: EffectWrite }> {
+): Promise<{ userId: UserId | null; effect: EffectWrite }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
 
   const caller = await requireHostGrant(database, meetingId, options.actorUserId);
+
+  // A GUEST IS PUT OUT ON THE SAME TERMS AS A MEMBER — the stay closes `removed`, the arrival path
+  // then refuses their link for the life of the meeting, and the two audit rows a removal writes are
+  // written. There is no grant to take with them (a guest can hold none) and no host rule to apply (a
+  // guest cannot be the host), so the whole of the difference is which table the stay is in.
+  if (isGuestStayHandle(attendanceId)) {
+    const guestStay = await readGuestStayInMeeting(database, meetingId, attendanceId);
+    if (guestStay === undefined || guestStay.left_at !== null) {
+      refuse("meeting-not-joined", "that is not somebody who is in this meeting");
+    }
+    const now = options.clock.now();
+    return {
+      userId: null,
+      effect: {
+        statements: removalOfGuestStatements(
+          database,
+          meetingId,
+          guestStay.id,
+          guestStay.invitation_id,
+          now,
+          {
+            ...options,
+            reason: REMOVED,
+            joinedAt: guestStay.joined_at,
+            guard: REMOVE_PARTICIPANT_GUARD,
+          },
+        ),
+        outboxMessages: [],
+      },
+    };
+  }
 
   const stay = await readAttendanceInMeeting(database, meetingId, attendanceId);
   if (stay === undefined || stay.left_at !== null) {

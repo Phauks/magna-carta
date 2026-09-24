@@ -311,8 +311,12 @@ describe("arriving at a door", () => {
     expect(await lobbyOf(meetingId)).toEqual([
       {
         participantId: arrival.participantId,
+        // A member of the firm; a guest on a link is marked `guest` and carries the name it was
+        // invited under beside the one it gave at the door.
+        kind: "member",
         userId: billingUserId,
         displayName: "Lobby Bookkeeper",
+        invitedName: null,
         waitingFrom: expect.any(String) as string,
       },
     ]);

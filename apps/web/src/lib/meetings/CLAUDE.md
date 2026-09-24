@@ -46,6 +46,10 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 - `presence.ts` — the meter on this browser's own microphone, and the transition test that keeps a
   presence frame from being sent twice.
 - `audio-level-meter.ts` — the analyser itself, which is a device and therefore a seam.
+- `guest-devices.ts` — the device check a guest makes at the door: the seams it reaches the browser
+  through, the pickers' device lists, and `withChosenDevices`, which is how the choice reaches the
+  room's own capture by wrapping `getUserMedia` on `MeetingClientSeams` rather than by teaching the
+  client about a picker.
 - `connection-quality.ts` — the pure reading of one `RTCStatsReport` against the one before it, and
   the thresholds a mark is judged by. Counters in, rates over the interval out; nothing in it
   touches a browser, so the numbers that decide whether a member is told their meeting is poor are
@@ -90,11 +94,31 @@ screen component here.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
 contract, chat's three included), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
-page), and `meeting-entry-action.svelte` (Start or Join, on a calendar entry).
+page), `meeting-attendance.ts` / `meeting-attendance-panel.svelte` (who was in an ended meeting,
+members and guests in one record), `meeting-guests-panel.svelte` (the host's Guests panel: who on
+the event may be sent a link, and the send, replace and withdraw acts), and
+`meeting-entry-action.svelte` (Start or Join, and Guests, on a calendar entry).
+
+**The guest's side, outside the application:** `guest-api.ts` (the guest's own calls on the link's
+token or the arrival's grant, the host's four guest calls, the chat seams for a guest, and the one
+table of what a refused link says), `guest-arrival.svelte` (the name at the door and the device
+check) and `guest-meeting.svelte` (the whole of a guest's page: the door, the member's waiting
+surface, and the room with the identifiers taken out). The route is `src/routes/join/[token]/`,
+outside the `(app)` group.
 `meeting-client.svelte.ts` at the top level is a re-export of `client/meeting-client.svelte.ts`, kept
 so those modules can take the `MeetingMedium` union without reaching into the room's own directory.
 
 ## Local rules
+
+- **A guest's page is structurally unable to reach the application.** It lives outside `(app)`, so
+  it inherits no shell, no session bootstrap and no back-navigation registry; every guest call sends
+  `credentials: "omit"`, so a member session the same browser holds never rides along; and nothing
+  on it links into the application. A component added to it that reads a member route, or a header
+  that offers a way back, breaks the one property the whole arrangement rests on.
+- **The room a guest sees is the member's, with the identifiers out.** `MeetingClient`, the tiles,
+  the controls and `meeting-lobby-wait.svelte` are reused unchanged; the roster takes
+  `showIdentifiers={false}`, and the controls take `canEnd={false}` and `hosting={false}`. A guest
+  variant of any of those is a second place to keep a sentence right.
 
 - **The frames come from the protocol package, never from here.** Every frame name, refusal reason,
   cap and version on the wire is `@magna-carta/meeting-protocol`, which the room imports too. This

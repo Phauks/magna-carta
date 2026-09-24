@@ -20,10 +20,35 @@
  * `not-admitted` is the room saying this socket asked for something the door has not opened for yet,
  * and it leaves everything exactly where it was.
  */
-import type { MeetingLobbyMode, WaitingParticipant } from "@magna-carta/meeting-protocol/types";
+import type {
+  MeetingLobbyMode,
+  MeetingParticipantKind,
+  WaitingParticipant as WaitingParticipantOnTheWire,
+} from "@magna-carta/meeting-protocol/types";
 import { isRecord, readString } from "./signaling.ts";
 
-export type { MeetingLobbyMode, WaitingParticipant };
+export type { MeetingLobbyMode, MeetingParticipantKind };
+
+/**
+ * Somebody at the door, as a host's screen holds them: the wire's entry with its two optional
+ * fields settled, so no surface has to decide what an absent kind means.
+ *
+ * TWO NAMES FOR A GUEST, AND BOTH ARE KEPT. `displayName` is what the person typed at the door;
+ * `invitedName` is the Directory name the link was minted for. The difference between the two is
+ * the whole of what a forwarded link leaves behind, and the lobby is the one moment it is still
+ * cheap to act on — so a host reads both before deciding, and neither ever replaces the other.
+ * A member has no invitation, so their `invitedName` is null and their `kind` is `member`.
+ */
+export interface WaitingParticipant extends Omit<
+  WaitingParticipantOnTheWire,
+  "userId" | "kind" | "invitedName"
+> {
+  /** The member behind the stay, or empty for a guest, who has no member identity at all. */
+  readonly userId: string;
+  readonly kind: MeetingParticipantKind;
+  /** The Directory name a guest's link was minted for. Null for a member. */
+  readonly invitedName: string | null;
+}
 
 /**
  * Where somebody stands at the door, as the room last stated it.
@@ -80,7 +105,7 @@ export function readWaitingPlace(frame: Record<string, unknown>): MeetingWaiting
 }
 
 /**
- * Who is at the door, as a `waiting` frame or a host's own `welcome` carries them.
+ * Who is at the door, as a `waiting` frame, a host's own `welcome`, or the lobby read carries them.
  *
  * Read defensively and whole: the frame is the list rather than a change to it, so a browser that
  * receives one REPLACES what it holds and there is no ordering question to get wrong. An entry with
@@ -94,11 +119,17 @@ export function readWaitingParticipants(value: unknown): readonly WaitingPartici
     if (!isRecord(entry)) continue;
     const participantId = readString(entry, "participantId");
     if (participantId === null) continue;
+    // A row that does not say it is a guest is a member: every list the room sent before guests
+    // existed meant exactly that, and reading an absent kind as a guest would mark a colleague as a
+    // stranger at the one moment a host is deciding whether to let them in.
+    const kind: MeetingParticipantKind = entry.kind === "guest" ? "guest" : "member";
     waiting.push({
       participantId,
       userId: readString(entry, "userId") ?? "",
       displayName: readString(entry, "displayName") ?? "",
       waitingFrom: readString(entry, "waitingFrom") ?? "",
+      kind,
+      invitedName: kind === "guest" ? readString(entry, "invitedName") : null,
     });
   }
   return waiting;

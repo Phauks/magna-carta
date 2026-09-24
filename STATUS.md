@@ -741,7 +741,7 @@ the offset is coalesced to one write per frame. The rows carry a **grip** now, b
 cursor only answers once the pointer is already on the row. And the Soon badge on an unbuilt tool was
 invisible: it rode inside the label, which carries the row's overflow, so every long row clipped it —
 the row is a three-track grid now and the trailing column never shrinks. |
-| Meetings — members-only meetings and calls from a calendar event, in rooms of up to three hundred | [-] | [x] Claude | [x] | [~] Claude | [~] Claude | [-] | [~] Claude | A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said.
+| Meetings — meetings and calls from a calendar event, in rooms of up to three hundred, with guests from outside the firm on a signed link | [-] | [x] Claude | [x] | [~] Claude | [~] Claude | [-] | [~] Claude | A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said.
 
 Slice 3 lifts the room from twelve people to three hundred, which is work on the two ends rather than in the routing service: each browser pulls video only for the tiles it shows and audio only for the people talking, cameras publish three simulcast layers and subscribers choose between them, the room sends what changed rather than the whole roster above sixteen participants, and who is talking is measured by each browser and relayed by the room.
 
@@ -777,7 +777,21 @@ description. A platform operator can read one live room through a guarded route,
 drives three hundred fake clients against the real object so the fan-out cost is a number instead of
 an argument. It falsified a design claim on its first run: every deferred presence transition was
 arming the alarm through a reconciliation that reads the whole roster and the whole door, which took
-the room to 1.2 storage lists per frame against a design that claims one, and is now 0.4. |
+the room to 1.2 storage lists per frame against a design that claims one, and is now 0.4.
+
+External guests are the first people outside the firm to use this product, and they arrive without a
+session, a cookie or a member row — so the chokepoint gained a lane of its own rather than a
+widening of the session path. A route declares `guestLane`, a signed credential stands where the
+session would, and the handler is handed a firm and the credential's names but never a user id, so a
+member handler pointed at a guest route fails on its first line. A host mints a link for a Directory
+person or organization on the event and it is mailed; the row keeps only the SHA-256 of the link's
+secret, and the row is the authority, so a rotation or a withdrawal refuses a perfectly-signed link at
+once. Opening the link spends nothing — a mail client that prefetches it costs the guest none of their
+twenty arrivals — and pressing Join opens a stay of its own table, always at the door. Presence is now
+a union over both stay tables with one home, so a guest counts against the room's and the door's
+ceilings exactly as a member does. The room builds every frame that names a user per viewer, so a
+guest's socket never holds a firm's user identifiers. The server half is built and tested; the arrival
+page, the host's Guests panel and the guest mark in the lobby are the web half, in build beside it. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

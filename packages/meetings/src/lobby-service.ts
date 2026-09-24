@@ -2,11 +2,14 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectStatement, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import type { MeetingAttendanceId, MeetingId } from "@magna-carta/identifiers/types";
+import type { MeetingId } from "@magna-carta/identifiers/types";
+import { isGuestStayHandle } from "./guest-removal.ts";
+import { closeGuestStayStatement, readGuestStayInMeeting } from "./guest-statements.ts";
 import { requireHostGrant } from "./hosting-service.ts";
 import { readAttendanceInMeeting } from "./hosting-statements.ts";
 import {
   admitAttendanceUnderCapStatement,
+  admitGuestStayUnderCapStatement,
   listWaitingAttendance,
   setMeetingLobbyStatement,
 } from "./lobby-statements.ts";
@@ -27,6 +30,7 @@ import {
   MAX_MEETING_PARTICIPANTS,
   type MeetingAttendanceRow,
   type MeetingDepartureReason,
+  type MeetingParticipantHandle,
   type MeetingRow,
 } from "./types.ts";
 import { refuse } from "./validation.ts";
@@ -157,7 +161,7 @@ export async function setMeetingLobby(
 export async function admitParticipants(
   database: SqlDatabase,
   meetingId: MeetingId,
-  participantIds: readonly MeetingAttendanceId[],
+  participantIds: readonly MeetingParticipantHandle[],
   options: MeetingHostingOptions,
 ): Promise<{
   decisions: readonly MeetingLobbyDecision<MeetingAdmissionOutcome>[];
@@ -168,11 +172,54 @@ export async function admitParticipants(
   await requireHostGrant(database, meetingId, options.actorUserId);
 
   const now = options.clock.now();
+  // ONE COUNT OVER BOTH KINDS OF STAY, spent down the list in the order the host sent it: a guest
+  // takes a seat exactly as a member does.
   let seats = MAX_MEETING_PARTICIPANTS - (await countOpenAttendance(database, meetingId));
   const decisions: MeetingLobbyDecision<MeetingAdmissionOutcome>[] = [];
   const statements: EffectStatement[] = [];
 
   for (const participantId of distinct(participantIds)) {
+    // A GUEST AT THE DOOR is the same decision about a named person, written to the second table
+    // under the same one ceiling — the host sees both names in the lobby before pressing Admit.
+    if (isGuestStayHandle(participantId)) {
+      const guestStay = await readGuestStayInMeeting(database, meetingId, participantId);
+      if (guestStay === undefined || guestStay.left_at !== null || guestStay.admitted_at !== null) {
+        decisions.push({ participantId, outcome: "not-waiting" });
+        continue;
+      }
+      if (seats <= 0) {
+        decisions.push({ participantId, outcome: "room-full" });
+        continue;
+      }
+      seats -= 1;
+      decisions.push({ participantId, outcome: "admitted" });
+      statements.push(
+        guarded(
+          admitGuestStayUnderCapStatement(database, {
+            id: participantId,
+            meetingId,
+            admittedByUserId: options.actorUserId,
+            capacity: MAX_MEETING_PARTICIPANTS,
+            now,
+          }),
+          ADMIT_PARTICIPANT_GUARD,
+        ),
+        domainAuditStatement(database, {
+          event: "meetings.guest.admitted",
+          subjectId: meetingId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            stayId: participantId,
+            invitationId: guestStay.invitation_id,
+            waitingFrom: guestStay.waiting_from,
+            admittedAt: now,
+          },
+        }),
+      );
+      continue;
+    }
     const stay = await readAttendanceInMeeting(database, meetingId, participantId);
     if (stay === undefined || !isWaiting(stay)) {
       decisions.push({ participantId, outcome: "not-waiting" });
@@ -229,7 +276,7 @@ export async function admitParticipants(
 export async function denyParticipants(
   database: SqlDatabase,
   meetingId: MeetingId,
-  participantIds: readonly MeetingAttendanceId[],
+  participantIds: readonly MeetingParticipantHandle[],
   options: MeetingHostingOptions,
 ): Promise<{
   decisions: readonly MeetingLobbyDecision<MeetingDenialOutcome>[];
@@ -244,6 +291,50 @@ export async function denyParticipants(
   const statements: EffectStatement[] = [];
 
   for (const participantId of distinct(participantIds)) {
+    // A GUEST TURNED AWAY closes `denied`, and the arrival path then refuses their link for the life
+    // of the meeting — the guest half of barred entry.
+    if (isGuestStayHandle(participantId)) {
+      const guestStay = await readGuestStayInMeeting(database, meetingId, participantId);
+      if (guestStay === undefined || guestStay.left_at !== null || guestStay.admitted_at !== null) {
+        decisions.push({ participantId, outcome: "not-waiting" });
+        continue;
+      }
+      decisions.push({ participantId, outcome: "denied" });
+      statements.push(
+        guarded(
+          closeGuestStayStatement(database, { id: participantId, reason: DENIED, now }),
+          DENY_PARTICIPANT_GUARD,
+        ),
+        domainAuditStatement(database, {
+          event: "meetings.guest.left",
+          subjectId: meetingId,
+          actorUserId: null,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            stayId: participantId,
+            invitationId: guestStay.invitation_id,
+            joinedAt: guestStay.joined_at,
+            leftAt: now,
+            reason: DENIED,
+          },
+        }),
+        domainAuditStatement(database, {
+          event: "meetings.guest.denied",
+          subjectId: meetingId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            stayId: participantId,
+            invitationId: guestStay.invitation_id,
+            waitingFrom: guestStay.waiting_from,
+            deniedAt: now,
+          },
+        }),
+      );
+      continue;
+    }
     const stay = await readAttendanceInMeeting(database, meetingId, participantId);
     if (stay === undefined || !isWaiting(stay)) {
       decisions.push({ participantId, outcome: "not-waiting" });
@@ -305,7 +396,9 @@ export function isWaiting(stay: MeetingAttendanceRow): boolean {
 // A host naming the same person twice in one batch must not spend two seats on them, and must not
 // write two admissions over one stay. The first mention decides, which is the order the panel was
 // showing.
-function distinct(participantIds: readonly MeetingAttendanceId[]): readonly MeetingAttendanceId[] {
+function distinct(
+  participantIds: readonly MeetingParticipantHandle[],
+): readonly MeetingParticipantHandle[] {
   return [...new Set(participantIds)];
 }
 

@@ -696,6 +696,9 @@ describe("joining the room", () => {
         {
           participantId: "meetingAttendance_one",
           userId: "user_meetingAttendance_one",
+          // A member of the firm, or a guest on a link — what every roster row and tile says about
+          // somebody from outside the firm.
+          kind: "member",
           displayName: "A Host",
           sfuSessionId: null,
           tracks: [],
@@ -998,6 +1001,7 @@ describe("telling a large room what changed", () => {
         {
           participantId: "meetingAttendance_large",
           userId: "user_meetingAttendance_large",
+          kind: "member",
           displayName: "A Guest",
           sfuSessionId: null,
           tracks: [],
@@ -3711,5 +3715,224 @@ describe("what the room records about itself", () => {
       participantCount: 2,
       waitingCount: 0,
     });
+  });
+});
+
+describe("a guest in the room — somebody from outside the firm, on a link", () => {
+  const HOST_STAY = "meetingAttendance_guestRoomHost";
+  const MEMBER_STAY = "meetingAttendance_guestRoomMember";
+  const GUEST_STAY = "meetingGuestStay_guestRoomGuest";
+
+  /**
+   * A socket for a guest's stay, built as the guest route builds it: no user id, marked a guest's, and
+   * carrying the Directory name the link was minted for beside the name typed at the door.
+   */
+  async function connectGuest(
+    stub: ReturnType<typeof roomStub>,
+    meetingId: string,
+    options: { waiting: boolean; displayName?: string; invitedName?: string },
+  ): Promise<Participant> {
+    const response = await stub.fetch(
+      new Request(
+        meetingSocketRequestUrl({
+          firmId: FIRM,
+          meetingId,
+          userId: "",
+          attendanceId: GUEST_STAY,
+          displayName: options.displayName ?? "Jane at the door",
+          medium: "video",
+          hostRole: null,
+          locked: false,
+          lobby: "on",
+          waiting: options.waiting,
+          waitingFrom: options.waiting ? new Date().toISOString() : "",
+          participantKind: "guest",
+          invitedName: options.invitedName ?? "Jane Hollis",
+        }),
+        { headers: { Upgrade: "websocket" } },
+      ),
+    );
+    expect(response.status).toBe(101);
+    const socket = response.webSocket;
+    if (socket === null || socket === undefined) throw new Error("no WebSocket on the 101");
+    const frames: Record<string, unknown>[] = [];
+    const raw: string[] = [];
+    let closeCode: number | null = null;
+    socket.accept();
+    socket.addEventListener("message", (event) => {
+      const text = String(event.data);
+      raw.push(text);
+      frames.push(JSON.parse(text) as Record<string, unknown>);
+    });
+    socket.addEventListener("close", (event) => {
+      closeCode = event.code;
+    });
+    await waitFor(() => frames.length > 0);
+    return {
+      frames,
+      raw,
+      send: (data) => {
+        socket.send(data as string);
+      },
+      close: () => {
+        socket.close(1000, "test closed");
+      },
+      closeCode: () => closeCode,
+    };
+  }
+
+  /** Every user identifier this socket was ever sent, in any frame — the thing a guest must never hold. */
+  function userIdsSeenBy(participant: Participant): string[] {
+    const found: string[] = [];
+    for (const text of participant.raw) {
+      for (const match of text.matchAll(/"(?:userId|redactedByUserId)":"([^"]*)"/g)) {
+        if (match[1] !== undefined && match[1] !== "") found.push(match[1]);
+      }
+    }
+    return found;
+  }
+
+  it("sends a guest's socket a roster with no firm user identifier in it — the members' own included", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const guest = await connectGuest(stub, meetingId, { waiting: false });
+
+    const welcome = guest.frames[0] as { type: string; roster: RosterEntry[] };
+    expect(welcome.type).toBe("welcome");
+    const memberEntry = welcome.roster.find((one) => one.participantId === MEMBER_STAY);
+    expect(memberEntry).toMatchObject({ userId: null, kind: "member", displayName: "A Member" });
+    expect(welcome.roster.find((one) => one.participantId === GUEST_STAY)).toMatchObject({
+      userId: null,
+      kind: "guest",
+    });
+
+    // THE MEMBER'S SOCKET IS TOLD THE SAME ARRIVAL with the member's own identifiers intact, and
+    // the guest's entry carrying none — there is no user behind it to name.
+    await waitFor(() =>
+      (rosterOf(member)?.participants ?? []).some((one) => one.participantId === GUEST_STAY),
+    );
+    const seenByMember = rosterOf(member)?.participants ?? [];
+    expect(seenByMember.find((one) => one.participantId === GUEST_STAY)).toMatchObject({
+      userId: null,
+      kind: "guest",
+      displayName: "Jane at the door",
+    });
+    expect(seenByMember.find((one) => one.participantId === MEMBER_STAY)?.userId).toBe(
+      `user_${MEMBER_STAY}`,
+    );
+
+    // And a later roster the guest asks for is redacted the same way.
+    guest.send(JSON.stringify({ v: 1, type: "sync" }));
+    await waitFor(() => rosterOf(guest) !== undefined);
+    expect(userIdsSeenBy(guest)).toEqual([]);
+  });
+
+  it("sends a waiting guest `lobby` and never a `welcome`, and tells the hosts who is at the door", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const guest = await connectGuest(stub, meetingId, {
+      waiting: true,
+      displayName: "Jane H.",
+      invitedName: "Jane Hollis",
+    });
+
+    expect(guest.frames[0]).toMatchObject({ type: "lobby", position: 1, waiting: 1 });
+    expect(lastFrame(guest, "welcome")).toBeUndefined();
+
+    // BOTH NAMES, so a host can tell the name typed at the door from the one the link was sent to —
+    // and the kind, so the panel can say this person is from outside the firm.
+    await waitFor(() => lastFrame(host, "waiting") !== undefined);
+    expect(lastFrame(host, "waiting")).toMatchObject({
+      participants: [
+        {
+          participantId: GUEST_STAY,
+          kind: "guest",
+          userId: null,
+          displayName: "Jane H.",
+          invitedName: "Jane Hollis",
+        },
+      ],
+    });
+  });
+
+  it("tells the hosts a waiting member is a member, with no invited name", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    await connect(stub, meetingId, MEMBER_STAY, "A Member", "video", null, false, true);
+    await waitFor(() => lastFrame(host, "waiting") !== undefined);
+    expect(lastFrame(host, "waiting")).toMatchObject({
+      participants: [
+        {
+          participantId: MEMBER_STAY,
+          kind: "member",
+          userId: `user_${MEMBER_STAY}`,
+          invitedName: null,
+        },
+      ],
+    });
+  });
+
+  it("admits a guest on the wire: `admitted`, then a redacted `welcome`, then a roster join to the room", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const guest = await connectGuest(stub, meetingId, { waiting: true });
+
+    await stub.participantsAdmitted([GUEST_STAY]);
+    await waitFor(() => lastFrame(guest, "welcome") !== undefined);
+
+    const types = guest.frames.map((frame) => frame["type"]);
+    expect(types.indexOf("welcome")).toBe(types.indexOf("admitted") + 1);
+    const welcome = lastFrame(guest, "welcome") as { participantId: string; roster: RosterEntry[] };
+    expect(welcome.participantId).toBe(GUEST_STAY);
+    expect(welcome.roster.every((one) => one.userId === null)).toBe(true);
+
+    await waitFor(() =>
+      (rosterOf(member)?.participants ?? []).some((one) => one.participantId === GUEST_STAY),
+    );
+    expect(
+      rosterOf(member)?.participants.find((one) => one.participantId === GUEST_STAY),
+    ).toMatchObject({ kind: "guest", userId: null });
+    expect(userIdsSeenBy(guest)).toEqual([]);
+  });
+
+  it("relays a message to a guest without the speaker's user identifier", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const guest = await connectGuest(stub, meetingId, { waiting: false });
+    const said = {
+      id: "meetingMessage_guestRelayOne",
+      meetingId,
+      participantKind: "member",
+      participantId: MEMBER_STAY,
+      userId: `user_${MEMBER_STAY}`,
+      sentAt: "2026-09-21T10:00:00.000Z",
+      body: "The exhibits are in the shared folder.",
+      redactedAt: null,
+      redactedByUserId: null,
+    } as const;
+
+    await stub.messageSent(said);
+    await waitFor(() => lastFrame(guest, "message") !== undefined);
+    await waitFor(() => lastFrame(member, "message") !== undefined);
+    expect(lastFrame(guest, "message")).toEqual({
+      v: 1,
+      type: "message",
+      message: { ...said, userId: null },
+    });
+    // The member's copy is the record's.
+    expect(lastFrame(member, "message")).toEqual({ v: 1, type: "message", message: said });
+    expect(userIdsSeenBy(guest)).toEqual([]);
+  });
+
+  it("closes a guest's socket when the link it arrived on is replaced", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const guest = await connectGuest(stub, meetingId, { waiting: false });
+
+    await stub.guestCredentialReplaced(GUEST_STAY);
+    await waitFor(() => guest.closeCode() !== null);
+    expect(lastFrame(guest, "refused")).toMatchObject({ reason: "superseded" });
+    // Nobody else's socket is touched.
+    expect(member.closeCode()).toBeNull();
   });
 });

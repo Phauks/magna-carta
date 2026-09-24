@@ -13,10 +13,10 @@
    * yet", which is what the product's one search control is for. It searches what is already in the
    * browser, so it narrows on the keystroke.
    *
-   * IT IS NOT A DIRECTORY RECORD. A participant here is a firm member with a session, not a person
-   * or an organization out of the directory, so the mark is the avatar and the name rather than
-   * `EntityIdentity` — which carries the directory's own kind glyph and a way through to a record
-   * this row does not have.
+   * IT IS NOT A DIRECTORY RECORD. A participant here is a stay in the room — a firm member, or a
+   * guest under the name they gave at the door — not a person or an organization out of the
+   * directory, so the mark is the avatar and the name rather than `EntityIdentity`, which carries the
+   * directory's own kind glyph and a way through to a record this row does not have.
    */
   import AudioLines from "@lucide/svelte/icons/audio-lines";
   import Focus from "@lucide/svelte/icons/focus";
@@ -47,6 +47,7 @@
     qualityOf = () => "unknown",
     spotlightedParticipantId = null,
     hostMenu,
+    showIdentifiers = true,
   }: {
     /** Everybody the roster names, this browser included. */
     participants: readonly MeetingParticipant[];
@@ -79,7 +80,20 @@
      * who is not hosting, and absent on their own row.
      */
     hostMenu?: Snippet<[MeetingParticipant]>;
+    /**
+     * Whether anything on the rail may reach a member's identity. False for a guest.
+     *
+     * THE BROWSER'S HALF OF A REDACTION THE ROOM ALREADY MAKES. A guest's socket is sent roster rows
+     * with the member handle taken out, and this is the belt to that brace: with it off, nothing on
+     * the rail is keyed to, labelled with or handed a member handle — no host menu, which is the one
+     * part of a row that acts on one, and no hover naming anything beyond what the tile shows. A
+     * guest sees who is in the room by the names they go by and nothing else.
+     */
+    showIdentifiers?: boolean;
   } = $props();
+
+  /** The per-row menu, where the reader may be handed one at all. */
+  const rowMenu = $derived(showIdentifiers ? hostMenu : undefined);
 
   let query = $state("");
 
@@ -141,7 +155,7 @@
           <MicOff class="size-16 text-text-muted" aria-label="Microphone off" />
         {/if}
         {#if participant.participantId !== ownParticipantId}
-          {@render hostMenu?.(participant)}
+          {@render rowMenu?.(participant)}
         {/if}
       </li>
     {:else}

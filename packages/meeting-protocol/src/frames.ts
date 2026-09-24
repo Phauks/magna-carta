@@ -657,6 +657,11 @@ function frame(body: Record<string, unknown>): string {
  * room who is outside it is the leak the door was shut to prevent.
  *
  * It is never sent to a waiting socket at all. That one gets `lobby` instead.
+ *
+ * A GUEST'S SOCKET IS SENT THE SAME FRAMES WITH THE IDENTIFIERS TAKEN OUT: every roster entry on a
+ * `welcome`, `roster` or `roster-delta` it receives carries `userId: null`, because somebody from
+ * outside the firm sees names and tiles and never a firm's user identifiers. The room builds that
+ * second payload; the frame's shape is the same.
  */
 export function welcomeFrame(
   participantId: string,
@@ -942,6 +947,7 @@ export type {
   MeetingConnectionQuality,
   MeetingHostRole,
   MeetingLobbyMode,
+  MeetingParticipantKind,
   MeetingReaction,
   MeetingRoomState,
   MeetingSpotlight,

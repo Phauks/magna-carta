@@ -2,10 +2,11 @@ import {
   rosterDeltaFrame,
   rosterFrame,
   ROSTER_DELTA_THRESHOLD,
+  type MeetingParticipantKind,
   type RosterParticipant,
 } from "@magna-carta/meeting-protocol/frames";
 import {
-  broadcast,
+  broadcastPerViewer,
   storedParticipants,
   type RoomContext,
   type StoredParticipant,
@@ -34,14 +35,25 @@ export interface RosterChange {
   readonly updated?: readonly RosterParticipant[];
 }
 
-/** One roster entry as everybody else sees it, from the participant as the room stores them. */
+/**
+ * One roster entry as everybody else sees it, from the participant as the room stores them.
+ *
+ * `viewer` is WHO IS READING IT, and it is the room's half of the guest redaction: a guest's socket
+ * is sent every entry with `userId: null`, because somebody from outside the firm sees names, tiles
+ * and who is talking and never a firm's user identifiers. A guest's own entry carries null to every
+ * reader, because a guest has no user id to carry. The browser hides the field as well; this is the
+ * half it cannot undo.
+ */
 export function rosterEntryFor(
   participantId: string,
   participant: StoredParticipant,
+  viewer: MeetingParticipantKind = "member",
 ): RosterParticipant {
+  const kind = participant.participantKind ?? "member";
   return {
     participantId,
-    userId: participant.userId,
+    userId: kind === "guest" || viewer === "guest" ? null : participant.userId,
+    kind,
     displayName: participant.displayName,
     sfuSessionId: participant.sfuSessionId,
     speaking: participant.speaking,
@@ -68,15 +80,30 @@ export function rosterEntryFor(
   };
 }
 
-export function rosterFrom(stored: ReadonlyMap<string, StoredParticipant>): RosterParticipant[] {
+export function rosterFrom(
+  stored: ReadonlyMap<string, StoredParticipant>,
+  viewer: MeetingParticipantKind = "member",
+): RosterParticipant[] {
   return [...stored].map(([participantId, participant]) =>
-    rosterEntryFor(participantId, participant),
+    rosterEntryFor(participantId, participant, viewer),
   );
 }
 
 /**
+ * Entries built for a member, re-shaped for whoever is reading them — the identifiers taken out for a
+ * guest's socket. For the call sites that build a change once, before they know who it goes to.
+ */
+export function rosterEntriesFor(
+  entries: readonly RosterParticipant[],
+  viewer: MeetingParticipantKind,
+): RosterParticipant[] {
+  return viewer === "guest" ? entries.map((entry) => ({ ...entry, userId: null })) : [...entries];
+}
+
+/**
  * Tells the room what changed — as the difference, or as the whole list in a room small enough
- * that the whole list is the cheaper of the two.
+ * that the whole list is the cheaper of the two. Built once per KIND of reader, so a guest's socket
+ * receives the same change with the identifiers taken out.
  */
 export function announceRoster(
   room: RoomContext,
@@ -84,11 +111,18 @@ export function announceRoster(
   change: RosterChange,
   except?: WebSocket,
 ): void {
-  const payload =
-    stored.size > ROSTER_DELTA_THRESHOLD
-      ? rosterDeltaFrame(change.joined ?? [], change.left ?? [], change.updated ?? [])
-      : rosterFrame(rosterFrom(stored));
-  broadcast(room, payload, except);
+  broadcastPerViewer(
+    room,
+    (viewer) =>
+      stored.size > ROSTER_DELTA_THRESHOLD
+        ? rosterDeltaFrame(
+            rosterEntriesFor(change.joined ?? [], viewer),
+            change.left ?? [],
+            rosterEntriesFor(change.updated ?? [], viewer),
+          )
+        : rosterFrame(rosterFrom(stored, viewer)),
+    except,
+  );
 }
 
 /** One participant's entry has changed — a session opened, a track published or stopped. */

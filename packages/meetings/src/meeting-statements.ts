@@ -10,6 +10,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import type { MeetingLobbyMode } from "./lobby-types.ts";
 import type {
+  MeetingAttendanceRecord,
   MeetingAttendanceRow,
   MeetingDepartureReason,
   MeetingEventKind,
@@ -24,6 +25,11 @@ import type {
 // fitness test.
 export const MEETING_TABLE = "meeting";
 export const MEETING_ATTENDANCE_TABLE = "meeting_attendance";
+// A GUEST'S STAY AND THE LINK IT WAS SPENT FROM. Named here rather than in the guest trio because
+// the two presence counts below read the stay table and the attendance read joins the invitation —
+// and the guest statements import from this module, so taking the names back would be a cycle.
+export const MEETING_GUEST_STAY_TABLE = "meeting_guest_stay";
+export const MEETING_GUEST_INVITATION_TABLE = "meeting_guest_invitation";
 
 // THE GATE, and it is the one thing in this module worth reading before anything else.
 //
@@ -90,6 +96,12 @@ export const MEETING_ATTENDANCE_COLUMNS =
 //
 // Qualified with the table name, so both survive a join and a correlated subquery. A caller that
 // aliases `meeting_attendance` has to spell its own predicate, which no caller does.
+//
+// THESE TWO ARE THE MEMBER TABLE'S HALF. A guest's stay is a row in a second table (see below), so
+// "who is present" is a question about TWO tables, and the counts a ceiling or a screen reads are
+// the composers further down — `inTheRoomCount` and `waitingCount` — which union these with the guest
+// table's own two. The member half stays exported on its own for the one read that is genuinely about
+// members alone: whether a HOST is in the room, and a guest can hold no grant.
 export const IN_THE_ROOM_PREDICATE =
   `${MEETING_ATTENDANCE_TABLE}.left_at IS NULL ` +
   `AND (${MEETING_ATTENDANCE_TABLE}.waiting_from IS NULL ` +
@@ -99,6 +111,69 @@ export const WAITING_PREDICATE =
   `${MEETING_ATTENDANCE_TABLE}.left_at IS NULL ` +
   `AND ${MEETING_ATTENDANCE_TABLE}.waiting_from IS NOT NULL ` +
   `AND ${MEETING_ATTENDANCE_TABLE}.admitted_at IS NULL`;
+
+// THE GUEST TABLE'S HALF, and it is the same two sentences over a stay that ALWAYS waited: a guest's
+// `waiting_from` is never null, so in the room means admitted and not left, and at the door means
+// neither.
+export const GUEST_IN_THE_ROOM_PREDICATE =
+  `${MEETING_GUEST_STAY_TABLE}.left_at IS NULL ` +
+  `AND ${MEETING_GUEST_STAY_TABLE}.admitted_at IS NOT NULL`;
+
+export const GUEST_WAITING_PREDICATE =
+  `${MEETING_GUEST_STAY_TABLE}.left_at IS NULL ` +
+  `AND ${MEETING_GUEST_STAY_TABLE}.admitted_at IS NULL`;
+
+/**
+ * EVERY TABLE A STAY CAN LIVE IN, with its two presence sentences — the one list the counts below are
+ * built from.
+ *
+ * A second table is the price of admitting somebody with no user id without rebuilding the member
+ * table, and its real cost is that a read of "who is in this meeting" that forgets the second table
+ * silently under-reports the record. So nothing counts presence by naming a table: every count is
+ * composed from this list, and a fitness test holds that the list names every stay table the schema
+ * declares — a third kind of stay added without touching this list fails it.
+ */
+export const MEETING_STAY_TABLES = Object.freeze([
+  {
+    table: MEETING_ATTENDANCE_TABLE,
+    inTheRoom: IN_THE_ROOM_PREDICATE,
+    waiting: WAITING_PREDICATE,
+  },
+  {
+    table: MEETING_GUEST_STAY_TABLE,
+    inTheRoom: GUEST_IN_THE_ROOM_PREDICATE,
+    waiting: GUEST_WAITING_PREDICATE,
+  },
+] as const);
+
+// One count per stay table, summed. `meetingIdExpression` is SQL — a column of an outer query or a
+// numbered binding — and never a value: it is spliced, so only this module's own call sites pass it.
+function presenceCount(
+  meetingIdExpression: string,
+  predicateOf: (stayTable: (typeof MEETING_STAY_TABLES)[number]) => string,
+): string {
+  return `(${MEETING_STAY_TABLES.map(
+    (stayTable) =>
+      `(SELECT COUNT(*) FROM ${stayTable.table} ` +
+      `WHERE ${stayTable.table}.meeting_id = ${meetingIdExpression} AND ${predicateOf(stayTable)})`,
+  ).join(" + ")})`;
+}
+
+/**
+ * HOW MANY PEOPLE ARE IN THE ROOM, members and guests together, as one SQL expression.
+ *
+ * `MAX_MEETING_PARTICIPANTS` is one ceiling over both kinds: a guest in the room occupies a seat
+ * exactly as a member does. The live count, the arrival's capacity guard and the admission's capacity
+ * guard all compose this, which is what keeps the three from disagreeing about who is present.
+ */
+export function inTheRoomCount(meetingIdExpression: string): string {
+  return presenceCount(meetingIdExpression, (stayTable) => stayTable.inTheRoom);
+}
+
+/** How many people are AT THE DOOR, both kinds — what `MAX_MEETING_LOBBY` is measured against. */
+export function waitingCount(meetingIdExpression: string): string {
+  return presenceCount(meetingIdExpression, (stayTable) => stayTable.waiting);
+}
 
 // The event's own facts, joined rather than copied. LEFT JOIN on both parents, because exactly one
 // of them matches and an inner join on either would drop every meeting of the other kind while
@@ -122,11 +197,8 @@ const EVENT_JOIN =
 // disagree the first time a socket closes without a leave.
 //
 // Over the stays that are IN THE ROOM and not merely open: somebody at the door is not somebody a
-// screen should count as present.
-const LIVE_COUNT_COLUMN =
-  `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} ` +
-  `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ${MEETING_TABLE}.id ` +
-  `AND ${IN_THE_ROOM_PREDICATE}) AS live_count`;
+// screen should count as present. Members and guests alike — a guest on a tile is somebody present.
+const LIVE_COUNT_COLUMN = `${inTheRoomCount(`${MEETING_TABLE}.id`)} AS live_count`;
 
 type MeetingSummaryColumns = MeetingRow & MeetingEventRow & { readonly live_count: number };
 
@@ -389,17 +461,47 @@ export async function listAttendance(
   database: SqlDatabase,
   meetingId: MeetingId,
   options: { readonly cursor?: SortCursor; readonly limit: number },
-): Promise<readonly MeetingAttendanceRow[]> {
-  const bindings: unknown[] = [meetingId];
-  const keyset = keysetClause(bindings, options.cursor, "joined_at", "id", true);
+): Promise<readonly MeetingAttendanceRecord[]> {
+  // BOTH STAY TABLES, IN ONE ORDERING. A guest's stay is a row in a second table, and a record of
+  // who was in the room that read only the member table would under-report the meeting silently —
+  // the cost of the second table, named in the note on `MEETING_STAY_TABLES`. `(joined_at, id)` is
+  // the sort key the cursor already encodes, so the paged walk is unchanged by the union: a stay
+  // handle is unique across both tables because each carries its own prefix.
+  //
+  // The name is the MEMBER's current display name for a member and the name typed AT THE DOOR for a
+  // guest, with the Directory name the guest's link was minted for beside it — so a reader can see at
+  // a glance that the person who attended is not the person who was invited.
+  const bindings: unknown[] = [meetingId, meetingId];
+  const keyset = keysetClause(bindings, options.cursor, "stays.joined_at", "stays.id", true);
   const { results } = await database
     .prepare(
-      `SELECT ${MEETING_ATTENDANCE_COLUMNS} ` +
-        `FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ? ${keyset}` +
-        `ORDER BY joined_at ASC, id ASC LIMIT ?`,
+      `SELECT stays.* FROM (` +
+        `SELECT ${MEETING_ATTENDANCE_TABLE}.id AS id, 'member' AS participant_kind, ` +
+        `${MEETING_ATTENDANCE_TABLE}.user_id AS user_id, ` +
+        `COALESCE(member.display_name, '') AS display_name, NULL AS entity_id, ` +
+        `NULL AS invited_name, ${MEETING_ATTENDANCE_TABLE}.joined_at AS joined_at, ` +
+        `${MEETING_ATTENDANCE_TABLE}.left_at AS left_at, ` +
+        `${MEETING_ATTENDANCE_TABLE}.ended_reason AS ended_reason, ` +
+        `${MEETING_ATTENDANCE_TABLE}.waiting_from AS waiting_from, ` +
+        `${MEETING_ATTENDANCE_TABLE}.admitted_at AS admitted_at ` +
+        `FROM ${MEETING_ATTENDANCE_TABLE} ` +
+        `LEFT JOIN member ON member.user_id = ${MEETING_ATTENDANCE_TABLE}.user_id ` +
+        `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ? ` +
+        `UNION ALL ` +
+        `SELECT ${MEETING_GUEST_STAY_TABLE}.id, 'guest', NULL, ` +
+        `${MEETING_GUEST_STAY_TABLE}.confirmed_name, ${MEETING_GUEST_INVITATION_TABLE}.entity_id, ` +
+        `${MEETING_GUEST_INVITATION_TABLE}.invited_name, ${MEETING_GUEST_STAY_TABLE}.joined_at, ` +
+        `${MEETING_GUEST_STAY_TABLE}.left_at, ${MEETING_GUEST_STAY_TABLE}.ended_reason, ` +
+        `${MEETING_GUEST_STAY_TABLE}.waiting_from, ${MEETING_GUEST_STAY_TABLE}.admitted_at ` +
+        `FROM ${MEETING_GUEST_STAY_TABLE} ` +
+        `JOIN ${MEETING_GUEST_INVITATION_TABLE} ` +
+        `ON ${MEETING_GUEST_INVITATION_TABLE}.id = ${MEETING_GUEST_STAY_TABLE}.invitation_id ` +
+        `WHERE ${MEETING_GUEST_STAY_TABLE}.meeting_id = ?` +
+        `) AS stays WHERE 1 = 1 ${keyset}` +
+        `ORDER BY stays.joined_at ASC, stays.id ASC LIMIT ?`,
     )
     .bind(...bindings, options.limit + 1)
-    .all<MeetingAttendanceRow>();
+    .all<MeetingAttendanceRecord>();
   return results;
 }
 
@@ -454,11 +556,9 @@ export async function countOpenAttendance(
   database: SqlDatabase,
   meetingId: MeetingId,
 ): Promise<number> {
+  // Both kinds of stay: the ceiling is one ceiling over members and guests.
   const { results } = await database
-    .prepare(
-      `SELECT COUNT(*) AS count FROM ${MEETING_ATTENDANCE_TABLE} ` +
-        `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ? AND ${IN_THE_ROOM_PREDICATE}`,
-    )
+    .prepare(`SELECT ${inTheRoomCount("?1")} AS count`)
     .bind(meetingId)
     .all<{ readonly count: number }>();
   return results[0]?.count ?? 0;
@@ -602,6 +702,10 @@ export function endScheduledMeetingStatement(
       `UPDATE ${MEETING_TABLE} SET status = 'ended', ended_at = ?1, ended_by_user_id = ?2, ` +
         `updated_at = ?1 WHERE id = ?3 AND status = 'scheduled' AND ended_at IS NULL ` +
         `AND NOT EXISTS (SELECT 1 FROM ${MEETING_ATTENDANCE_TABLE} ` +
+        `WHERE meeting_id = ?3 AND left_at IS NULL) ` +
+        // A GUEST AT THE DOOR IS SOMEBODY THERE TOO. The cancel closes no stays (the caller's note
+        // says why), so a meeting with a guest waiting is not one this statement may end under them.
+        `AND NOT EXISTS (SELECT 1 FROM ${MEETING_GUEST_STAY_TABLE} ` +
         `WHERE meeting_id = ?3 AND left_at IS NULL)`,
     )
     .bind(input.now, input.endedByUserId, input.id);
@@ -682,8 +786,7 @@ export function insertAttendanceUnderCapStatement(
       `INSERT INTO ${MEETING_ATTENDANCE_TABLE} (id, meeting_id, user_id, joined_at, left_at, ` +
         `waiting_from, admitted_at, created_at, updated_at) ` +
         `SELECT ?1, ?2, ?3, ?4, NULL, NULL, NULL, ?4, ?4 WHERE ` +
-        `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ?2 ` +
-        `AND ${IN_THE_ROOM_PREDICATE}) < ?5 ` +
+        `${inTheRoomCount("?2")} < ?5 ` +
         `AND ${DOOR_ADMITS_DIRECTLY_PREDICATE}`,
     )
     .bind(input.id, input.meetingId, input.userId, input.now, input.capacity);
@@ -727,6 +830,25 @@ export function closeAllAttendanceStatement(
   return database
     .prepare(
       `UPDATE ${MEETING_ATTENDANCE_TABLE} SET left_at = ?1, updated_at = ?1 ` +
+        `WHERE meeting_id = ?2 AND left_at IS NULL`,
+    )
+    .bind(input.now, input.meetingId);
+}
+
+// AND EVERY OPEN GUEST STAY, AT THE SAME INSTANT — the sibling the second stay table needs, composed
+// into the same batch as the member statement above so the meeting still ends once: members and
+// guests, waiting and admitted, all carry one `left_at`. No reason, for the member statement's
+// reason: the meeting row already says the gathering ended.
+//
+// fitness:unguarded-write — a zero is the ordinary outcome for a meeting no guest attended, and the
+// end itself is guarded on the meeting row.
+export function closeAllGuestStaysStatement(
+  database: SqlDatabase,
+  input: { readonly meetingId: MeetingId; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_GUEST_STAY_TABLE} SET left_at = ?1, updated_at = ?1 ` +
         `WHERE meeting_id = ?2 AND left_at IS NULL`,
     )
     .bind(input.now, input.meetingId);

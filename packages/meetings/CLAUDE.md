@@ -128,8 +128,6 @@ package enforces, which is why nothing here has a redaction step.
   routing service are the Worker's (`apps/api-worker/src/meetings/`). Nothing in this package knows
   whether meetings are configured at all — that is a fact about bindings, so the route carries it
   beside a summary rather than inside one.
-- **External guests.** A participant is a firm member with a session. A signed one-time join link for
-  a client or opposing counsel is the rung after this one.
 - **Recording.** Server-side media processing and a consent gate on the jurisdiction profile, neither
   of which is basic. Nothing here is shaped around it.
 
@@ -252,7 +250,46 @@ Three rules travel with it. A message hangs from the **stay**, so being in the r
 the permission to post (`readOpenAttendance`, the same row the socket upgrade demands) and the member
 is resolved through the stay rather than copied beside it. The stay is named **by value** —
 `participant_kind` plus `participant_id`, no foreign key — because a member's stay is a
-`meeting_attendance` row and a guest's will be a `meeting_guest_stay` row; this package writes the
-literal `'member'` and nothing writes `'guest'` yet. And **removal is a redaction, never a delete**:
+`meeting_attendance` row and a guest's is a `meeting_guest_stay` row; `postMeetingMessage` writes
+the literal `'member'` and `postGuestMeetingMessage` the literal `'guest'`, each from its own open,
+in-the-room stay. A guest's line has no member behind it, so only a host may take it back — that
+falls out of the author comparison rather than needing a branch, and there is deliberately no guest
+redaction act. And **removal is a redaction, never a delete**:
 the body is blanked and the row stays, guarded so the batch rolls back whole, and a second removal
 produces no statements rather than moving an instant somebody's record already carries.
+
+## A guest is a second kind of stay, and every read of who was present sees both
+
+`guest-types.ts` / `guest-statements.ts` / `guest-service.ts` are the guest concern's trio, and
+`guest-removal.ts` holds the two pieces the member-side host acts reach (`isGuestStayHandle` and
+`removalOfGuestStatements`) so that `hosting-service.ts`, `lobby-service.ts` and `meeting-service.ts`
+never import the guest service, which itself composes `requireHostGrant`. A guest is somebody from
+outside the firm on a signed link: a `meeting_guest_invitation` row per Directory entity per meeting
+(the link, holding only the SHA-256 of its secret), and a `meeting_guest_stay` row per stay.
+
+Four rules travel with it.
+
+**Presence is unioned, and the union has one home.** `MEETING_STAY_TABLES` in
+`meeting-statements.ts` names both stay tables, and `inTheRoomCount` / `waitingCount` compose the
+in-the-room and waiting predicates over both. The live count, the room's ceiling, the door's ceiling,
+the roster read, the lobby list and ending a meeting all go through them, so a guest counts against
+`MAX_MEETING_PARTICIPANTS` and `MAX_MEETING_LOBBY` exactly as a member does. A fitness test in
+`test/guests.test.ts` enumerates every table carrying the stay columns and fails when one is not in
+the list — a third kind of stay would otherwise be invisible to every count.
+
+**The link proves possession of a mailbox and nothing more.** A guest always waits at the door, the
+lobby setting notwithstanding; what the host reads there is the name typed at the door beside the
+Directory name the link was minted for, which is what catches a forwarded link. The secret, the token
+and the address are never written anywhere this package reaches — the audit rows carry identifiers
+and instants, with a null actor for the guest's own acts.
+
+**The row is the authority for a link.** `guestCredentialRefusal` decides a signed credential against
+the invitation and the meeting — withdrawn, a stale secret version, a secret that does not hash to
+the row's, expired, or the meeting ended — and `recordGuestArrivalStatement` carries every condition
+that makes a link spendable in its own `WHERE`, guarded, so a withdrawal or a rotation racing an
+arrival rolls the arrival back rather than seating somebody on a dead link.
+
+**Minting again replaces; it never adds.** The unique index on `(meeting_id, entity_id)` holds one
+invitation per person per meeting, and a second mint rotates that row's secret (reinstating it when
+it was withdrawn). Rotation refuses a withdrawn link, so reinstating is always the deliberate act of
+inviting again. A removal or a denial bars the link for the life of the meeting, as it bars a member.

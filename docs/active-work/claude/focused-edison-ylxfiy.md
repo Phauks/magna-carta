@@ -1,8 +1,8 @@
 ---
 worktree: (none — this stream runs in the primary checkout)
-area: Meetings slices 3-5 — large rooms to 300 participants, host controls as a grant on the meeting, and the waiting room (one lobby per meeting)
+area: Meetings slices 3-5 — large rooms to 300 participants, host controls as a grant on the meeting, and the waiting room (one lobby per meeting); then external guests on a signed link
 status: building
-touches: packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/, packages/meetings/, packages/meeting-protocol/, packages/telemetry/src/events.ts, packages/api-client/, packages/design-system/src/lib/styles/, apps/api-worker/src/meetings/, apps/api-worker/src/routes/meeting-chat.ts, apps/api-worker/src/routes/meeting-lobby.ts, apps/api-worker/src/routes/meetings.ts, apps/api-worker/src/routes/meeting-hosting.ts, apps/api-worker/src/routes/meeting-inspect.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test/, apps/web/src/lib/meetings/, apps/web/src/lib/calendar/, apps/web/src/routes/(app)/meetings/[id]/, apps/web/test/, tooling/lint-modal-headers/modal-headers.mjs, docs/specs/, docs/decisions/pending/, roadmap.d/meetings.md, docs/now.md, status.d/meetings.md, STATUS.md, docs/user/features/meetings.md, changelog.d/
+touches: packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/, packages/identifiers/src/, packages/data-access/src/pii-registry.ts, packages/meetings/, packages/meeting-protocol/, packages/telemetry/src/events.ts, packages/api-client/, packages/design-system/src/lib/styles/, apps/api-worker/package.json, apps/api-worker/tsconfig.build.json, apps/api-worker/tsconfig.test.json, apps/api-worker/src/app.ts, apps/api-worker/src/per-firm-migrations.ts, apps/api-worker/src/signed-token.ts, apps/api-worker/src/support/support-session-token.ts, apps/api-worker/src/chokepoint/, apps/api-worker/src/contracts/problem-types.ts, apps/api-worker/src/contracts/route-meta.ts, apps/api-worker/src/routes/meetings-guest.ts, apps/api-worker/CLAUDE.md, pnpm-lock.yaml, apps/api-worker/src/meetings/, apps/api-worker/src/routes/meeting-chat.ts, apps/api-worker/src/routes/meeting-lobby.ts, apps/api-worker/src/routes/meetings.ts, apps/api-worker/src/routes/meeting-hosting.ts, apps/api-worker/src/routes/meeting-inspect.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test/, apps/web/src/lib/meetings/, apps/web/src/lib/calendar/, apps/web/src/routes/(app)/meetings/[id]/, apps/web/test/, tooling/lint-modal-headers/modal-headers.mjs, docs/specs/, docs/decisions/pending/, roadmap.d/meetings.md, docs/now.md, status.d/meetings.md, STATUS.md, docs/user/features/meetings.md, changelog.d/
 ---
 
 Lifts the meeting cap from twelve to three hundred and makes a room of that size work: cameras
@@ -37,3 +37,14 @@ their own, a hostless room is claimed only from inside it, a reconnect is welcom
 room holds rather than the one the upgrade read, and an operator's read into a live room is audited.
 Two questions stay open for the owner in the host-controls design's amendments: a socket that
 outlives its session, and a transcript readable without ever having joined.
+
+External guests follow, against `docs/specs/2026-09-20-meetings-external-guests-design.md`. The
+server half is built: two additive per-firm tables (`meeting_guest_invitation`,
+`meeting_guest_stay`), presence unioned over both stay tables, a step-zero guest lane at the
+chokepoint (`guestLane` on the route meta — the shared surface every route depends on, additive and
+inert for a route that does not declare it), the signed credentials on the support session's format,
+four host routes and six guest routes in `routes/meetings-guest.ts`, and per-viewer redaction of every
+room frame that names a user. The worker now depends on `@magna-carta/design-system` for its
+formatters (the invitation mail's date and time), which is one lockfile importer line. The arrival
+page, the host's Guests panel and the guest mark in the lobby are the web half, by a concurrent
+stream in `apps/web` and `docs/user`.

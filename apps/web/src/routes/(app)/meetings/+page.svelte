@@ -40,6 +40,7 @@
   import { calendarManageRefusal } from "$lib/calendar/calendar-permission.ts";
   import RecordEventDialog from "$lib/calendar/record-event-dialog.svelte";
   import MeetingsScreen from "$lib/meetings/meetings-screen.svelte";
+  import MeetingAttendancePanel from "$lib/meetings/meeting-attendance-panel.svelte";
   import type { MeetingScope, MeetingSectionState } from "$lib/meetings/meeting-list.ts";
   import type { MeetingSummary } from "@magna-carta/api-client";
 
@@ -119,6 +120,19 @@
   function scheduled(): void {
     void upcoming.refetch();
   }
+
+  /*
+   * WHO WAS THERE, for an ended row. One panel for the screen, pointed at whichever row asked, and
+   * read only when it opens: the record of a long hearing is long, and nobody arriving here has
+   * asked for every meeting's record at once.
+   */
+  let attendanceOf = $state<MeetingSummary | null>(null);
+  let attendanceOpen = $state(false);
+
+  function openAttendance(meeting: MeetingSummary): void {
+    attendanceOf = meeting;
+    attendanceOpen = true;
+  }
 </script>
 
 <svelte:head><title>Meetings · Magna Carta</title></svelte:head>
@@ -134,8 +148,14 @@
       />
     {/snippet}
   </ScreenHeader>
-  <MeetingsScreen {sections} {configured} />
+  <MeetingsScreen {sections} {configured} onAttendance={openAttendance} />
 </div>
+
+<MeetingAttendancePanel
+  bind:open={attendanceOpen}
+  meetingId={attendanceOf?.id ?? ""}
+  subject={{ facts: attendanceOf === null ? [] : [attendanceOf.title] }}
+/>
 
 <RecordEventDialog
   bind:open={scheduleOpen}

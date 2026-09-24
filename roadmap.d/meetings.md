@@ -77,9 +77,11 @@
 - id: meetings.guests
   name: External guests
   scope: A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
-  status: designed
+  status: in-build
+  surface: awaiting-screen
   spec: docs/specs/2026-09-20-meetings-external-guests-design.md
-  evidence: No code; designed 2026-09-20 — a Directory entity on the event, a signed expiring link, a narrow guest lane at the chokepoint and a guest stay of its own. Sequenced after the waiting room, whose lobby is the door; the portal grant model will subsume the link when it lands.
+  evidence: The server half is built — meeting_guest_invitation and meeting_guest_stay in packages/database/src/per-firm-schema.ts (migration 20260924T090000); packages/meetings/src/guest-types.ts, guest-statements.ts, guest-service.ts and guest-removal.ts, with presence unioned over both stay tables through MEETING_STAY_TABLES in meeting-statements.ts; the chokepoint's guest lane (guestLane in apps/api-worker/src/contracts/route-meta.ts, step 0 in chokepoint/chokepoint.ts, makeGuestLane in chokepoint/ports.ts); the credentials in apps/api-worker/src/meetings/guest-token.ts over src/signed-token.ts; the four host routes and six guest routes in apps/api-worker/src/routes/meetings-guest.ts; guest sockets redacted per viewer in apps/api-worker/src/meetings/room/. Tests: test/guest-lane.test.ts, test/guest-token.test.ts, test/guest-invitation-mail.test.ts, test/meetings-guest-routes.test.ts, the guest block in test/meeting-room.test.ts, and packages/meetings/test/guests.test.ts.
+  notes: The guest arrival page, the host's Guests panel and the lobby rows' guest mark are the web half, in build beside this in the stream at docs/active-work/claude/focused-edison-ylxfiy.md. The portal grant model will subsume the link when it lands.
   audience: public
   public-summary: Invite a client or another party to a meeting with a one-time link.
 

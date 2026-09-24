@@ -142,6 +142,15 @@ which is the asymmetry `@magna-carta/notifications` exists to prevent — it wan
   `RouteMeta`; a route mounted without meta (or naming an unregistered permission) throws at startup.
   Changing a route's responses or any `x-mc-*` meta changes the contract — re-emit the snapshot and the
   client in the same commit, and update the conformance not-vacuous operation list when adding a route.
+- **A meeting guest is the one principal with no session, and it has a lane of its own.** A route
+  declaring `guestLane: "invitation" | "grant"` is admitted by a signed credential in the
+  `x-meeting-guest` header (or, on the socket upgrade alone, the `guest` query parameter) INSTEAD of
+  the session, member-active and permission steps; the handler is handed a firm and the credential's
+  names through `requireChokepointGuestGrant` and never a user id, so a member handler pointed at a
+  guest route throws. Registration refuses a guest route that names a permission, is authenticated,
+  or sits anywhere but `surface: "app"` / `resource: "firm"`, and a guest credential presented to any
+  other route is answered the reserved 404 before a session is looked for. The routes are
+  `routes/meetings-guest.ts`; the credential format is `meetings/guest-token.ts`.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with

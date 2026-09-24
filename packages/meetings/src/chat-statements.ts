@@ -2,6 +2,7 @@ import { keysetClause, type SortCursor } from "@magna-carta/data-access/cursor-p
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   MeetingAttendanceId,
+  MeetingGuestStayId,
   MeetingId,
   MeetingMessageId,
   UserId,
@@ -218,7 +219,7 @@ export async function readMeetingMessage(
 export interface InsertMeetingMessageInput {
   readonly id: MeetingMessageId;
   readonly meetingId: MeetingId;
-  /** The member's stay. The guest kind is written by no path in this package — see below. */
+  /** The member's stay. A guest's line is written by its own statement — see below. */
   readonly attendanceId: MeetingAttendanceId;
   readonly body: string;
   readonly now: string;
@@ -229,9 +230,9 @@ export interface InsertMeetingMessageInput {
 //
 // `participant_kind` is the LITERAL 'member' rather than a parameter, on the call and text log's
 // reasoning for writing its own producer as a literal: a shared insert that took the kind as an
-// argument is how a row eventually claims to be a guest's when it is a member's. The guest path,
-// when it exists, writes its own statement against the same table and the same columns — which is
-// what makes this a real seam rather than a column nobody fills.
+// argument is how a row eventually claims to be a guest's when it is a member's. The guest path
+// writes its own statement against the same table and the same columns — see
+// `insertGuestMeetingMessageStatement` below.
 //
 // `sent_at` and `created_at` are the same instant and are both stored, which looks redundant and is
 // not: `sent_at` is the fact the transcript is ordered by and the thing a reader is told, while
@@ -249,6 +250,29 @@ export function insertMeetingMessageStatement(
         `VALUES (?1, ?2, 'member', ?3, ?4, ?5, NULL, NULL, ?4)`,
     )
     .bind(input.id, input.meetingId, input.attendanceId, input.now, input.body);
+}
+
+// SAID FROM A GUEST'S STAY. The member statement's twin, with the kind a literal for the same reason
+// that one's is: the table a handle belongs to is decided by the statement that writes it, never by an
+// argument a caller could get wrong. The line hangs from the stay exactly as a member's does, and the
+// Directory entity behind it is reached through the stay's invitation rather than copied here.
+export function insertGuestMeetingMessageStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingMessageId;
+    readonly meetingId: MeetingId;
+    readonly stayId: MeetingGuestStayId;
+    readonly body: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${MEETING_MESSAGE_TABLE} (id, meeting_id, participant_kind, participant_id, ` +
+        `sent_at, body, redacted_at, redacted_by_user_id, created_at) ` +
+        `VALUES (?1, ?2, 'guest', ?3, ?4, ?5, NULL, NULL, ?4)`,
+    )
+    .bind(input.id, input.meetingId, input.stayId, input.now, input.body);
 }
 
 // TAKING IT BACK, which is not a delete. The body is blanked and the row stays, so the file keeps

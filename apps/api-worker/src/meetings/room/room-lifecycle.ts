@@ -47,6 +47,7 @@ import {
   storedParticipants,
   storedWaiting,
   trySend,
+  viewerKindOf,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredParticipant,
@@ -124,6 +125,7 @@ export async function admitParticipant(
     const existing = await readParticipant(room, attachment.attendanceId);
     await putParticipant(room, attachment.attendanceId, {
       userId: attachment.userId,
+      participantKind: viewerKindOf(attachment),
       displayName: attachment.displayName,
       sfuSessionId: null,
       tracks: [],
@@ -208,9 +210,16 @@ export async function admitParticipant(
   // the record ends up holding — a grant withdrawn between the route's read and this welcome must
   // not still open the door, which is the same reason the record keeps its own role above.
   const doorList = hostRole === null ? [] : waitingParticipantsFrom(await storedWaiting(room));
+  // Built for WHO IS ARRIVING: a guest's welcome carries the same roster with the identifiers taken
+  // out, which is the rule every later roster frame to their socket follows too.
   trySend(
     server,
-    welcomeFrame(attachment.attendanceId, rosterFrom(stored), await roomStateOf(room), doorList),
+    welcomeFrame(
+      attachment.attendanceId,
+      rosterFrom(stored, viewerKindOf(attachment)),
+      await roomStateOf(room),
+      doorList,
+    ),
   );
   await recordWelcomed(room, attachment, attachment.attendanceId, stored.size, doorList.length);
   // IN THE ROOM FROM HERE, and not before: until this frame is on the wire the browser holds no

@@ -13,6 +13,7 @@ import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import type { CloudflareEmailBinding } from "./email-cloudflare.ts";
+import type { SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
@@ -48,6 +49,7 @@ import { registerMeetingsRoutes } from "./routes/meetings.ts";
 import { registerMeetingChatRoutes } from "./routes/meeting-chat.ts";
 import { registerMeetingHostingRoutes } from "./routes/meeting-hosting.ts";
 import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
+import { registerMeetingGuestRoutes } from "./routes/meetings-guest.ts";
 import { registerMeetingInspectRoutes } from "./routes/meeting-inspect.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
@@ -490,6 +492,10 @@ export interface CreateAppOptions {
   // environment inside the handler; no secret is set anywhere, so the default everywhere is the
   // not-configured verifier.
   humanVerification?: HumanVerificationGateOptions;
+  // Overrides the sender of a meeting guest's invitation letter for tests, which read the link
+  // out of the captured message because the server hands it to nobody else. Production sends
+  // through the environment's email adapter.
+  meetingGuestMail?: (env: Bindings) => SendEmail;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -777,6 +783,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // staff briefing. Its own file because it is its own resource, and the one read in this family
   // that the room may not see.
   registerMeetingLobbyRoutes(app, chokepoint);
+  // A meeting's GUESTS — somebody from outside the firm on a signed, expiring link for one Directory
+  // entity. The host's four routes mint, list, rotate and withdraw links on the ordinary member path;
+  // the guest's six ride the chokepoint's guest lane, which admits a signed credential rather than a
+  // session and never stashes a user id, so nothing a guest calls can reach a member handler. The
+  // mail goes through the same outbound port every other transactional message does.
+  registerMeetingGuestRoutes(app, chokepoint, options.meetingGuestMail ?? emailAdapterForEnv);
   // The operator's read into one live room, behind the platform-operator guard rather than the
   // firm door every other meeting route goes through: a meeting holds no rows and deletes its own
   // state as it goes, so from outside it there is nothing to look at when one goes wrong.

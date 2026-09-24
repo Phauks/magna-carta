@@ -3,6 +3,7 @@ import type {
   MatterEventId,
   MatterId,
   MeetingAttendanceId,
+  MeetingGuestStayId,
   MeetingId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -100,6 +101,24 @@ export type MeetingDepartureReason = (typeof MEETING_DEPARTURE_REASONS)[number];
 // ceiling (`MAX_MEETING_LOBBY` in ./lobby-types.ts).
 export const MAX_MEETING_PARTICIPANTS = 300;
 
+// WHICH KIND OF STAY SOMEBODY HOLDS. Two kinds because there are two stay tables: a firm member's is
+// a `meeting_attendance` row, and an external guest's is a `meeting_guest_stay` row — a second table
+// rather than a nullable user column, because relaxing that NOT NULL would be a rebuild of a table
+// other tables point at. Every read that says who was present carries this, so a reader always
+// knows which of the two it is looking at.
+export const MEETING_PARTICIPANT_KINDS = Object.freeze(["member", "guest"] as const);
+export type MeetingParticipantKind = (typeof MEETING_PARTICIPANT_KINDS)[number];
+
+/**
+ * A STAY'S HANDLE, WHICHEVER TABLE IT IS IN.
+ *
+ * Every frame on the signaling wire, the lobby's decisions and the removal route name somebody by
+ * their stay, and a guest's stay is a `meetingGuestStay_` handle where a member's is a
+ * `meetingAttendance_` one. The prefix says which table, so the two can never be confused and a
+ * service resolves which it was handed without a second argument.
+ */
+export type MeetingParticipantHandle = MeetingAttendanceId | MeetingGuestStayId;
+
 // ---------------------------------------------------------------------------------------------
 // The stored rows, in the database's own column names.
 // ---------------------------------------------------------------------------------------------
@@ -158,6 +177,30 @@ export interface MeetingAttendanceRow {
   readonly admitted_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+/**
+ * ONE STAY IN THE ATTENDANCE RECORD, whichever table it lives in — the row the attendance read
+ * returns, in the database's own column names.
+ *
+ * `user_id` is null for a guest, who has none, and that is a widening rather than a parallel guest
+ * list on purpose: every reader then has to say, once, what it does with the absent case, instead of
+ * a silent under-report nobody catches. `display_name` is the member's name for a member and the name
+ * typed at the door for a guest; `entity_id` and `invited_name` are the Directory entity the guest's
+ * link was minted for and its name at mint, and are null for a member.
+ */
+export interface MeetingAttendanceRecord {
+  readonly id: MeetingParticipantHandle;
+  readonly participant_kind: MeetingParticipantKind;
+  readonly user_id: UserId | null;
+  readonly display_name: string;
+  readonly entity_id: string | null;
+  readonly invited_name: string | null;
+  readonly joined_at: string;
+  readonly left_at: string | null;
+  readonly ended_reason: MeetingDepartureReason | null;
+  readonly waiting_from: string | null;
+  readonly admitted_at: string | null;
 }
 
 // The event's own facts, resolved by the read rather than copied onto the meeting row. A firm event

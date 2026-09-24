@@ -8,7 +8,7 @@ import {
 } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MeetingAttendanceId, MeetingId, UserId } from "@magna-carta/identifiers/types";
+import type { MeetingId, UserId } from "@magna-carta/identifiers/types";
 import {
   grantHosting,
   HANDOVER_GUARD,
@@ -39,7 +39,7 @@ import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.t
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
-import { meetingErrorResponse, meetingRoomFor } from "./meetings.ts";
+import { meetingErrorResponse, meetingParticipantHandle, meetingRoomFor } from "./meetings.ts";
 
 // WHO IS RUNNING A MEETING, and the acts that need somebody's name against them afterwards.
 //
@@ -107,8 +107,9 @@ const hostParams = z.object({
 const participantParams = z.object({
   meetingId: identifierPathParam("meeting", "meetingId"),
   // THE STAY'S OWN HANDLE, which is what the roster names and what every frame carries. A member
-  // handle would not distinguish two stays, and the room has never had one.
-  participantId: identifierPathParam("meetingAttendance", "participantId"),
+  // handle would not distinguish two stays, and the room has never had one. A guest's stay is put
+  // out through the same route: the handle's prefix says which table it is in.
+  participantId: meetingParticipantHandle("participantId"),
 });
 
 const commonErrors = {
@@ -543,7 +544,7 @@ export function registerMeetingHostingRoutes(
           await removeParticipant(
             firm.firmDatabase,
             meetingId as MeetingId,
-            participantId as MeetingAttendanceId,
+            participantId,
             hostingOptions(c),
           )
         ).effect,

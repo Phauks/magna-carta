@@ -62,6 +62,9 @@
   import MeetingHostsPanel from "$lib/meetings/meeting-hosts-panel.svelte";
   import MeetingLobbyPanel from "$lib/meetings/meeting-lobby-panel.svelte";
   import MeetingLobbyWait from "$lib/meetings/meeting-lobby-wait.svelte";
+  import MeetingGuestsPanel from "$lib/meetings/meeting-guests-panel.svelte";
+  import { readWaitingParticipants } from "$lib/meetings/client/lobby.ts";
+  import UsersRound from "@lucide/svelte/icons/users-round";
   import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
   import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
   import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
@@ -292,6 +295,11 @@
   let hostingRefusal = $state<Failure | null>(null);
   /** Whether the panel naming who runs this meeting is open. */
   let hostsOpen = $state(false);
+  /**
+   * Whether the panel naming who from outside the firm may come is open. Offered to a member who
+   * holds the key to host meetings, which is what sending, replacing and withdrawing a link ride on.
+   */
+  let guestsOpen = $state(false);
   /** The live grants, or null while the read is in flight. */
   let hostGrants = $state<readonly MeetingHostGrant[] | null>(null);
   let hostsReading = $state(false);
@@ -366,7 +374,9 @@
       return;
     }
     lobbyRefusal = null;
-    client.noteWhoIsWaiting(outcome.value);
+    // Read through the same reader the frames are, so a guest at the door is marked as one and
+    // carries the name their link was minted for whichever way the list arrived.
+    client.noteWhoIsWaiting(readWaitingParticipants(outcome.value));
   }
 
   /*
@@ -846,12 +856,26 @@
   {/if}
 {/snippet}
 
+<!-- Who from outside the firm may come. In the header rather than the control bar: it is about the
+     meeting's guest list, not about what is happening in the room this second. Passed only to a
+     member who may send a link, so nobody else's header carries an empty actions column. -->
+{#snippet guestsControl()}
+  <Button variant="secondary" onclick={() => (guestsOpen = true)}>
+    <UsersRound class="size-16" aria-hidden="true" />
+    Guests
+  </Button>
+{/snippet}
+
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
 
 <svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader {title} back="meetings">
+  <ScreenHeader
+    {title}
+    back="meetings"
+    actions={canHost && summary !== null && !over ? guestsControl : undefined}
+  >
     {#snippet meta()}
       {#if summary !== null}
         <span>{formatDate(summary.startsOn)}</span>
@@ -873,6 +897,18 @@
       {/if}
     {/snippet}
   </ScreenHeader>
+
+  {#if canHost && summary !== null}
+    <!-- Beside the header whose control opens it, rather than inside the room: a host who has not
+         walked in yet, or whose join was refused, can still see who has a link. -->
+    <MeetingGuestsPanel
+      bind:open={guestsOpen}
+      subject={endSubject}
+      {meetingId}
+      eventKind={summary.eventKind}
+      eventId={summary.eventId}
+    />
+  {/if}
 
   <LoadingRegion
     class="flex min-h-0 flex-1 flex-col gap-16"

@@ -308,6 +308,9 @@ importers:
       '@magna-carta/decryption':
         specifier: workspace:*
         version: link:../../packages/decryption
+      '@magna-carta/design-system':
+        specifier: workspace:*
+        version: link:../../packages/design-system
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory

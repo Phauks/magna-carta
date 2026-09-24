@@ -8,7 +8,7 @@ import {
 } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MeetingAttendanceId, MeetingId } from "@magna-carta/identifiers/types";
+import type { MeetingId } from "@magna-carta/identifiers/types";
 import type { MeetingHostingOptions } from "@magna-carta/meetings/hosting-service";
 import {
   admitParticipants,
@@ -26,6 +26,7 @@ import {
   type MeetingAdmissionOutcome,
   type MeetingDenialOutcome,
 } from "@magna-carta/meetings/lobby-types";
+import { MEETING_PARTICIPANT_KINDS } from "@magna-carta/meetings/types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -42,7 +43,7 @@ import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.t
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
-import { meetingErrorResponse, meetingRoomFor } from "./meetings.ts";
+import { meetingErrorResponse, meetingParticipantHandle, meetingRoomFor } from "./meetings.ts";
 
 // THE DOOR OF ONE MEETING: whether arrivals wait at it, who is at it, and a host's decision about
 // each of them.
@@ -75,12 +76,12 @@ const SetLobbyRequest = z
 // after the host looked at the screen, which is precisely the person the host did not decide about.
 //
 // Bounded by the door's own ceiling, so one request can name at most the whole lobby.
+//
+// A member's stay or a guest's: a host decides about a named person at the door whichever table the
+// stay is in, and the service resolves which by the handle's prefix.
 const LobbyDecisionRequest = z
   .object({
-    participantIds: z
-      .array(identifierPathParam("meetingAttendance", "participantId"))
-      .min(1)
-      .max(MAX_MEETING_LOBBY),
+    participantIds: z.array(meetingParticipantHandle()).min(1).max(MAX_MEETING_LOBBY),
   })
   .openapi("MeetingLobbyDecisionRequest");
 
@@ -89,8 +90,16 @@ const MeetingLobbyEntry = z
     // The STAY, which is what every frame on the signaling wire is addressed by and what an
     // admission names. A member handle would not distinguish two stays.
     participantId: z.string(),
-    userId: z.string(),
+    // A firm member, or a guest on a signed link — marked, because a host reads the two differently.
+    kind: z.enum(MEETING_PARTICIPANT_KINDS),
+    // Null for a guest, who has no member identity.
+    userId: z.string().nullable(),
+    // A member's name, or the name a guest typed at the door.
     displayName: z.string(),
+    // A GUEST'S SECOND NAME: the Directory name the link was minted for, beside the one typed at the
+    // door. The difference between them is the whole of what a forwarded link leaves behind, and the
+    // door is the one moment it is still cheap to catch. Null for a member.
+    invitedName: z.string().nullable(),
     waitingFrom: z.string(),
   })
   .openapi("MeetingLobbyEntry");
@@ -495,7 +504,7 @@ export function registerMeetingLobbyRoutes(
           const admitted = await admitParticipants(
             firm.firmDatabase,
             meetingId as MeetingId,
-            participantIds as MeetingAttendanceId[],
+            participantIds,
             hostingOptions(c),
           );
           return { value: { data: [...admitted.decisions] }, effect: admitted.effect };
@@ -535,7 +544,7 @@ export function registerMeetingLobbyRoutes(
           const denied = await denyParticipants(
             firm.firmDatabase,
             meetingId as MeetingId,
-            participantIds as MeetingAttendanceId[],
+            participantIds,
             hostingOptions(c),
           );
           return { value: { data: [...denied.decisions] }, effect: denied.effect };

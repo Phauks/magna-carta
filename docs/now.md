@@ -31,8 +31,8 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 336 | 47% |
-| Part-built | partial, in-build | 125 | 17% |
-| Ahead | designed, planned, researching, not-started | 215 | 30% |
+| Part-built | partial, in-build | 126 | 17% |
+| Ahead | designed, planned, researching, not-started | 214 | 30% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **718** | **100%** |
 
@@ -42,8 +42,8 @@ not](#what-a-roll-up-is-not).
 | --- | ---: | ---: |
 | `shipped` | 336 | 47% |
 | `partial` | 125 | 17% |
-| `in-build` | 0 | 0% |
-| `designed` | 52 | 7% |
+| `in-build` | 1 | 0% |
+| `designed` | 51 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 143 | 20% |
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**461 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**462 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -82,10 +82,10 @@ ledger records it separately, in `surface:`.
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 119 | 26% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 156 | 34% |
 | No user surface by nature (`internal`) | 187 | 40% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **461** | **100%** |
+| **Everything with something built** | **462** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 13 | 1 | 0 | 6 | 0 | 0 | 10 | 0 | 0 | 30 | 43% |
+| Meetings | 13 | 1 | 1 | 5 | 0 | 0 | 10 | 0 | 0 | 30 | 43% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **336** | **125** | **0** | **52** | **15** | **5** | **143** | **38** | **4** | **718** | **47%** |
+| **All areas** | **336** | **125** | **1** | **51** | **15** | **5** | **143** | **38** | **4** | **718** | **47%** |
 
 ## Where we have been
 
@@ -317,7 +317,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-_No capability is marked `in-build`._
+- `meetings.guests` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
 
 ## Next up
 
@@ -360,7 +360,6 @@ _No capability is marked `in-build`._
 - `financial.billing.automations.payment-plans` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied.
 - `financial.billing.automations.replenishment` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
-- `meetings.guests` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
 - `meetings.recording` · **Recording** — Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.
 - `meetings.polls` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through.
 - `meetings.transcription` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
@@ -1059,7 +1058,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Meetings
 
-[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 30 units of work, 43% shipped. 13 done, 1 part-built, 16 ahead, 0 parked.
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 30 units of work, 43% shipped. 13 done, 2 part-built, 15 ahead, 0 parked.
 
 - `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
   - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
@@ -1069,7 +1068,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.screen` · `shipped` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event; the Meetings page under the sidebar's Communications group listing what is live, ahead and recently ended.
   - `meetings.screen-share` · `shipped` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
   - `meetings.audio-calls` · `shipped` · **Audio calls** — A meeting whose medium is audio alone — chosen at start, enforced by the room (video and screen tracks refused), started from the calendar as Start call, shown on the Meetings page with its own glyph.
-  - `meetings.guests` · `designed` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
+  - `meetings.guests` · `in-build` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model. _Note: The guest arrival page, the host's Guests panel and the lobby rows' guest mark are the web half, in build beside this in the stream at docs/active-work/claude/focused-edison-ylxfiy.md. The portal grant model will subsume the link when it lands._
   - `meetings.recording` · `designed` · **Recording** — Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs. _Note: The owner's ruling of 2026-09-20 — the announcement and the persistent indicator are the consent mechanism, on the precedent every conferencing product uses, so recording no longer waits on the jurisdiction-profile machinery. Late arrivals get the announcement too, and stopping is announced the same way. Audio only — video cannot be recorded memory-safely today, and the three ways to get it are priced in the design._
   - `meetings.large-rooms` · `shipped` · **Large rooms (300 participants)** — The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin. _Note: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier._
   - `meetings.host-controls` · `shipped` · **Host controls** — Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone — over a grant on the meeting rather than a permission key, so ending it needs one too. _Note: Open — the signaling socket outlives the session and the permission that opened it. Authority is read once at the upgrade and the socket then runs for the length of the meeting, so a session revoked elsewhere, a suspended member or a withdrawn meetings-join key changes nothing until that browser reconnects. The hosting half is already covered (a withdrawn grant binds on the next frame, because the routes rewrite the stored record); the rest wants a bounded socket lifetime or a revalidation, and the shape is an owner question recorded in the amendments of docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md._

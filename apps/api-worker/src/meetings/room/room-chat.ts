@@ -4,7 +4,7 @@ import {
   type MeetingChatMessage,
 } from "@magna-carta/meeting-protocol/frames";
 import { recordMessageRelayed } from "./room-diagnostics.ts";
-import { broadcast, type RoomContext } from "./room-state.ts";
+import { broadcast, broadcastPerViewer, type RoomContext } from "./room-state.ts";
 
 // A COPY OF SOMETHING ALREADY ON THE RECORD, carried to the people in the room.
 //
@@ -27,9 +27,19 @@ import { broadcast, type RoomContext } from "./room-state.ts";
 // redaction long after the meeting ended — and the answer is a broadcast that reaches nobody and an
 // event that is not recorded because there is no room record to correlate it by.
 
-/** Somebody said something, relayed to everybody in the room. */
+/**
+ * Somebody said something, relayed to everybody in the room.
+ *
+ * BUILT FOR THE READER: a guest's socket is sent the same message with the firm's user identifiers
+ * taken out — who said it is the stay, which the roster names, and who took it back is a member a
+ * guest has no business being able to identify.
+ */
 export async function relayMessage(room: RoomContext, message: MeetingChatMessage): Promise<void> {
-  const recipientCount = broadcast(room, messageFrame(message));
+  const recipientCount = broadcastPerViewer(room, (viewer) =>
+    messageFrame(
+      viewer === "guest" ? { ...message, userId: null, redactedByUserId: null } : message,
+    ),
+  );
   await recordMessageRelayed(room, undefined, recipientCount, false);
 }
 

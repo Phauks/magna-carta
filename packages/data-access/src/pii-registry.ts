@@ -332,6 +332,55 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "who withdrew a grant, and when, is the fact that closes the interval it names",
   },
+  // External guests. An invitation names a Directory entity and a stay names what the person typed
+  // at the door, and both are retained on the attendance row's own basis: who was invited to a
+  // meeting on a matter, and who actually arrived on that link, is part of what the record says
+  // happened. The two names are kept apart on purpose — the difference between the Directory name a
+  // link was minted for and the name typed at the door is the whole of what a forwarded link leaves
+  // behind, and erasing either half would erase the evidence. The address the link went to is not
+  // here at all; the invitation names the Directory row, and the address stays the Directory's fact.
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "entity_id",
+    action: "retain-under-matter",
+    note: "who a meeting's guest link was minted for is part of what the record says happened",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "invited_name",
+    action: "retain-under-matter",
+    note: "the Directory name at mint, frozen beside the name typed at the door so a forwarded link stays visible in the record",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "directory_email_id",
+    action: "retain-under-matter",
+    note: "which contact point the link was sent to — the row, never the address, which stays the Directory's fact",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "issued_by_user_id",
+    action: "retain-under-matter",
+    note: "who sent a guest a way into a meeting on a matter is provenance on the invitation, the line meeting.created_by_user_id sits on",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "revoked_by_user_id",
+    action: "retain-under-matter",
+    note: "who withdrew a guest link, and when, closes the interval the invitation stood for",
+  },
+  {
+    table: "meeting_guest_stay",
+    subjectKey: "confirmed_name",
+    action: "retain-under-matter",
+    note: "the name a guest gave at the door is who the record says attended on that link",
+  },
+  {
+    table: "meeting_guest_stay",
+    subjectKey: "admitted_by_user_id",
+    action: "retain-under-matter",
+    note: "who let somebody from outside the firm into a meeting on a matter is the act the record is read for",
+  },
   // In-meeting chat, which is the ONE place the meeting subsystem holds content. The paragraph above
   // said there was no content residue to report; there is now, and it is here rather than anywhere
   // else. A chat message is correspondence that happened inside a meeting on a matter, so it takes

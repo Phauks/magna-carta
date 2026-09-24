@@ -47,6 +47,7 @@ import {
   recordRoomFailure,
   storedParticipants,
   trySend,
+  viewerKindOf,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredParticipant,
@@ -337,7 +338,11 @@ async function routeClientFrame(
     // ONE SOCKET, and the whole list. This is the way back to the truth for a client that has been
     // applying differences: without it, a browser that suspects a gap could only reconnect, which
     // costs it every track it holds.
-    trySend(socket, rosterFrame(rosterFrom(await storedParticipants(room))));
+    // Built for the reader, like every roster frame: a guest's socket gets it without identifiers.
+    trySend(
+      socket,
+      rosterFrame(rosterFrom(await storedParticipants(room), viewerKindOf(attachment))),
+    );
     return "sync";
   }
 

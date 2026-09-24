@@ -16,7 +16,12 @@ import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { relayMessage, relayMessageRedaction } from "./room/room-chat.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
 import { inspectRoom, type MeetingRoomInspection } from "./room/room-inspect.ts";
-import { hostingChanged, participantRemoved, roomStateChanged } from "./room/room-hosting.ts";
+import {
+  guestCredentialReplaced,
+  hostingChanged,
+  participantRemoved,
+  roomStateChanged,
+} from "./room/room-hosting.ts";
 import {
   admitToLobby,
   lobbyChanged,
@@ -84,6 +89,8 @@ const LOCKED_PARAMETER = "locked";
 const LOBBY_PARAMETER = "lobby";
 const WAITING_PARAMETER = "waiting";
 const WAITING_FROM_PARAMETER = "waitingFrom";
+const KIND_PARAMETER = "kind";
+const INVITED_NAME_PARAMETER = "invitedName";
 
 /** What the route resolves before it addresses the room — every value of it server-derived. */
 export type MeetingSocketContext = Omit<MeetingSocketAttachment, "protocolVersion">;
@@ -108,6 +115,12 @@ export function meetingSocketRequestUrl(attachment: MeetingSocketContext): strin
     [WAITING_PARAMETER]: attachment.waiting === true ? "true" : "false",
     // Off the stay, so the room never stamps a second instant for a fact the record already holds.
     [WAITING_FROM_PARAMETER]: attachment.waitingFrom ?? "",
+    // WHICH KIND OF STAY THIS SOCKET HOLDS, decided by the route that authorized it — the guest
+    // route for a guest, every member route for a member — and never named by the browser. It is
+    // what the room redacts every roster frame by, so it must not be a thing a caller can choose.
+    [KIND_PARAMETER]: attachment.participantKind ?? "member",
+    // A guest's Directory name at mint, which the hosts read beside the name typed at the door.
+    [INVITED_NAME_PARAMETER]: attachment.invitedName ?? "",
   });
   return `https://meeting-room.invalid/socket?${parameters.toString()}`;
 }
@@ -131,13 +144,18 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
   const displayName = parameters.get(DISPLAY_NAME_PARAMETER);
   const medium = parameters.get(MEDIUM_PARAMETER);
   const hostRole = parameters.get(HOST_ROLE_PARAMETER);
+  // A value this build does not recognise reads as a MEMBER only where a user id came with it; a
+  // socket naming neither kind of person is refused below rather than guessed at.
+  const participantKind = parameters.get(KIND_PARAMETER) === "guest" ? "guest" : "member";
   if (
     firmId === null ||
     firmId === "" ||
     meetingId === null ||
     meetingId === "" ||
     userId === null ||
-    userId === "" ||
+    // A GUEST HAS NO USER ID, and that is the one socket that may arrive without one. A member's
+    // socket without one is a socket the room cannot say who it belongs to.
+    (userId === "" && participantKind === "member") ||
     attendanceId === null ||
     attendanceId === ""
   ) {
@@ -171,6 +189,11 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
     // Absent on a socket from a build that predated the door; `admitToLobby` then falls back to the
     // instant it is reading this at, which is the closest thing it can know.
     waitingFrom: parameters.get(WAITING_FROM_PARAMETER) ?? "",
+    participantKind,
+    // A guest's only; a member carries none.
+    ...(participantKind === "guest"
+      ? { invitedName: parameters.get(INVITED_NAME_PARAMETER) ?? "" }
+      : {}),
   };
 }
 
@@ -253,6 +276,19 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** A host removed somebody: the roster, the media and their socket all go. */
   async participantRemoved(attendanceId: string): Promise<void> {
     await participantRemoved(this.room, attendanceId);
+  }
+
+  /**
+   * A guest's link was ROTATED, and every socket holding their stay was opened on the old one.
+   *
+   * Called by the rotation route after its write commits. The grant that socket's upgrade carried no
+   * longer verifies, and a socket is authorized once, at upgrade — so without this a guest the firm
+   * believes it has cut off would go on working for as long as their socket stayed open. The socket
+   * is refused `superseded` and closed; the stay is left to the ordinary grace, so the person the
+   * fresh mail reached can arrive on the new link and take their own place back.
+   */
+  async guestCredentialReplaced(stayId: string): Promise<void> {
+    await guestCredentialReplaced(this.room, stayId);
   }
 
   /**

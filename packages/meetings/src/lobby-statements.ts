@@ -1,14 +1,24 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import type { MeetingAttendanceId, MeetingId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  MeetingAttendanceId,
+  MeetingGuestStayId,
+  MeetingId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { MeetingLobbyEntry, MeetingLobbyMode } from "./lobby-types.ts";
 import {
   DOOR_QUEUES_PREDICATE,
-  IN_THE_ROOM_PREDICATE,
+  GUEST_WAITING_PREDICATE,
+  inTheRoomCount,
   MEETING_ATTENDANCE_TABLE,
+  MEETING_GUEST_INVITATION_TABLE,
+  MEETING_GUEST_STAY_TABLE,
   MEETING_TABLE,
   WAITING_PREDICATE,
+  waitingCount,
   type InsertAttendanceInput,
 } from "./meeting-statements.ts";
+import type { MeetingParticipantHandle, MeetingParticipantKind } from "./types.ts";
 
 // THE DOOR'S OWN SQL: who is waiting at one meeting, how many, the setting that puts them there, and
 // the two ways a stay stops waiting.
@@ -32,11 +42,9 @@ export async function countWaitingAttendance(
   database: SqlDatabase,
   meetingId: MeetingId,
 ): Promise<number> {
+  // Both kinds of stay: the door is one door, and its ceiling is one ceiling over members and guests.
   const { results } = await database
-    .prepare(
-      `SELECT COUNT(*) AS count FROM ${MEETING_ATTENDANCE_TABLE} ` +
-        `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ? AND ${WAITING_PREDICATE}`,
-    )
+    .prepare(`SELECT ${waitingCount("?1")} AS count`)
     .bind(meetingId)
     .all<{ readonly count: number }>();
   return results[0]?.count ?? 0;
@@ -59,29 +67,44 @@ export async function listWaitingAttendance(
   meetingId: MeetingId,
   limit: number,
 ): Promise<readonly MeetingLobbyEntry[]> {
+  // BOTH STAY TABLES, in one arrival order. A guest at the door carries the name typed there and the
+  // Directory name the link was minted for, side by side, because that pair is what a host reads
+  // before deciding — see `MeetingLobbyEntry`.
   const { results } = await database
     .prepare(
-      `SELECT ${MEETING_ATTENDANCE_TABLE}.id AS participant_id, ` +
+      `SELECT door.* FROM (` +
+        `SELECT ${MEETING_ATTENDANCE_TABLE}.id AS participant_id, 'member' AS kind, ` +
         `${MEETING_ATTENDANCE_TABLE}.user_id AS user_id, ` +
-        `COALESCE(member.display_name, '') AS display_name, ` +
+        `COALESCE(member.display_name, '') AS display_name, NULL AS invited_name, ` +
         `${MEETING_ATTENDANCE_TABLE}.waiting_from AS waiting_from ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} ` +
         `LEFT JOIN member ON member.user_id = ${MEETING_ATTENDANCE_TABLE}.user_id ` +
-        `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ? AND ${WAITING_PREDICATE} ` +
-        `ORDER BY ${MEETING_ATTENDANCE_TABLE}.waiting_from ASC, ${MEETING_ATTENDANCE_TABLE}.id ASC ` +
-        `LIMIT ?`,
+        `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ?1 AND ${WAITING_PREDICATE} ` +
+        `UNION ALL ` +
+        `SELECT ${MEETING_GUEST_STAY_TABLE}.id, 'guest', NULL, ` +
+        `${MEETING_GUEST_STAY_TABLE}.confirmed_name, ${MEETING_GUEST_INVITATION_TABLE}.invited_name, ` +
+        `${MEETING_GUEST_STAY_TABLE}.waiting_from ` +
+        `FROM ${MEETING_GUEST_STAY_TABLE} ` +
+        `JOIN ${MEETING_GUEST_INVITATION_TABLE} ` +
+        `ON ${MEETING_GUEST_INVITATION_TABLE}.id = ${MEETING_GUEST_STAY_TABLE}.invitation_id ` +
+        `WHERE ${MEETING_GUEST_STAY_TABLE}.meeting_id = ?1 AND ${GUEST_WAITING_PREDICATE}` +
+        `) AS door ORDER BY door.waiting_from ASC, door.participant_id ASC LIMIT ?2`,
     )
     .bind(meetingId, limit)
     .all<{
-      readonly participant_id: MeetingAttendanceId;
-      readonly user_id: UserId;
+      readonly participant_id: MeetingParticipantHandle;
+      readonly kind: MeetingParticipantKind;
+      readonly user_id: UserId | null;
       readonly display_name: string;
+      readonly invited_name: string | null;
       readonly waiting_from: string;
     }>();
   return results.map((row) => ({
     participantId: row.participant_id,
+    kind: row.kind,
     userId: row.user_id,
     displayName: row.display_name,
+    invitedName: row.invited_name,
     waitingFrom: row.waiting_from,
   }));
 }
@@ -132,8 +155,7 @@ export function insertWaitingAttendanceUnderCapStatement(
       `INSERT INTO ${MEETING_ATTENDANCE_TABLE} (id, meeting_id, user_id, joined_at, left_at, ` +
         `waiting_from, admitted_at, created_at, updated_at) ` +
         `SELECT ?1, ?2, ?3, ?4, NULL, ?4, NULL, ?4, ?4 WHERE ` +
-        `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ?2 ` +
-        `AND ${WAITING_PREDICATE}) < ?5 ` +
+        `${waitingCount("?2")} < ?5 ` +
         // AND THE DOOR ITSELF, at the instant of the write rather than a round trip earlier — the
         // arrival's own predicate inverted, because this row belongs at a door that is there to
         // stand at. See `DOOR_QUEUES_PREDICATE`.
@@ -167,10 +189,36 @@ export function admitAttendanceUnderCapStatement(
     .prepare(
       `UPDATE ${MEETING_ATTENDANCE_TABLE} SET admitted_at = ?1, updated_at = ?1 ` +
         `WHERE id = ?2 AND meeting_id = ?3 AND left_at IS NULL AND waiting_from IS NOT NULL ` +
-        `AND admitted_at IS NULL AND (SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} ` +
-        `WHERE meeting_id = ?3 AND ${IN_THE_ROOM_PREDICATE}) < ?4`,
+        `AND admitted_at IS NULL AND ${inTheRoomCount("?3")} < ?4`,
     )
     .bind(input.now, input.id, input.meetingId, input.capacity);
+}
+
+// A GUEST LET IN, under the same one ceiling. The guest table's twin of the admission above, in the
+// same batch and under the same count — `MAX_MEETING_PARTICIPANTS` is one number over members and
+// guests, so a host admitting a guest into a full room is refused that one admission exactly as they
+// would be for a member, and the guest stays at the door rather than being dropped.
+//
+// It carries the host who decided, which a member's admission does not: a guest's stay has a column
+// for it because letting somebody from outside the firm into a meeting on a matter is the act the
+// record is read for afterwards.
+export function admitGuestStayUnderCapStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingGuestStayId;
+    readonly meetingId: MeetingId;
+    readonly admittedByUserId: UserId;
+    readonly capacity: number;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_GUEST_STAY_TABLE} SET admitted_at = ?1, admitted_by_user_id = ?2, ` +
+        `updated_at = ?1 WHERE id = ?3 AND meeting_id = ?4 AND left_at IS NULL ` +
+        `AND admitted_at IS NULL AND ${inTheRoomCount("?4")} < ?5`,
+    )
+    .bind(input.now, input.admittedByUserId, input.id, input.meetingId, input.capacity);
 }
 
 /**

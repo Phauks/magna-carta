@@ -37,7 +37,29 @@ export type MeetingValidationCode =
   | "meeting-lobby-full"
   // A host turned this member away at the door, and they are arriving again. The twin of
   // `meeting-removed` — barred entry is one rule with two labels, and only the sentence differs.
-  | "meeting-not-admitted";
+  | "meeting-not-admitted"
+  // THE GUEST LINK'S OWN FIVE, and each is said to a person holding a CORRECTLY SIGNED token. A
+  // token whose signature does not verify never reaches this vocabulary at all — it gets one flat
+  // absence at the chokepoint — because somebody guessing at the route must learn nothing. A signed
+  // one could only have come from the firm, so its holder is told what they can act on.
+  //
+  // Signed, but it matches no live invitation: the secret was rotated since it was sent, or the
+  // secret does not hash to what the row holds. Fixed by asking the firm for a new link.
+  | "guest-link-not-valid"
+  // Past the instant computed when the link was minted — a couple of hours after the event ends,
+  // and never more than a fortnight after it was sent.
+  | "guest-link-expired"
+  // A host withdrew it. The row stays, because who was invited is part of the record.
+  | "guest-link-revoked"
+  // Spent at the door as many times as a link may be. Bounds a link forwarded to a crowd without
+  // punishing a guest whose connection keeps dropping.
+  | "guest-link-exhausted"
+  // Asked to invite somebody the record cannot resolve to a person the firm knows and can write to:
+  // not an entity on the event, an entity with no usable address, or an external participant
+  // carrying only a name — who is promoted to the Directory deliberately, never as a side effect.
+  | "guest-not-invitable"
+  // The name typed at the door is empty, or longer than a name at the door may be.
+  | "guest-name-not-valid";
 
 export class MeetingValidationError extends Error {
   constructor(

@@ -22,9 +22,21 @@ import {
   resolveSession,
   type SessionContext,
 } from "../session-context.ts";
-import type { ChokepointPorts, ResolvedSession } from "./chokepoint.ts";
+import type {
+  ChokepointGuestGrant,
+  ChokepointPorts,
+  GuestLanePort,
+  ResolvedSession,
+} from "./chokepoint.ts";
 import { resolveSupportSession } from "../support/resolve-support-session.ts";
 import { resolveSupportPermissions } from "../support/tier-permissions.ts";
+import { hashGuestSecret, guestCredentialRefusal } from "@magna-carta/meetings/guest-service";
+import { readGuestInvitation, readMeetingForGuest } from "@magna-carta/meetings/guest-statements";
+import type { MeetingGuestInvitationId, MeetingId } from "@magna-carta/identifiers/types";
+import { meetingGuestRefused } from "@magna-carta/telemetry/events";
+import { constantTimeStringEquals } from "../constant-time.ts";
+import { verifyGuestCredential } from "../meetings/guest-token.ts";
+import { guestLinkRefusalFor } from "../meetings/guest-refusals.ts";
 
 // What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
 // the session firm's per-firm database handle, an on-demand reader for its name, and its bucket.
@@ -90,6 +102,10 @@ export type AppVariables = ChokepointVariables & {
   // authorized-principal handle, parallel to chokepointUserId but for the "public" surface routes
   // that skip the per-firm chokepoint entirely (see platform-operator-guard.ts).
   platformOperatorUserId?: import("@magna-carta/identifiers/types").UserId;
+  // Set by the chokepoint's guest lane (step 0) and on no other path: the meeting guest credential it
+  // verified, without the secret. A guest route stashes this, the firm id and the firm context — and
+  // never chokepointUserId, which is what keeps a guest out of every member handler structurally.
+  chokepointGuestGrant?: ChokepointGuestGrant;
 };
 
 // resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth
@@ -256,6 +272,130 @@ function makeLoadPermissions(): (
       : resolveSupportPermissions(session.support.tier, firmContext.firmDatabase, session.userId);
 }
 
+// THE MEETING GUEST'S LANE (chokepoint.ts step 0), over the deployment's own signing secret, the
+// control plane's firm row and the firm's own invitation row. Kept apart from the member resolvers
+// above on purpose: the member-active check in `makeResolveFirmContext` is the thing a guest cannot
+// pass and a member must never skip, and two methods cannot be confused where one with a flag can.
+//
+// EVERY REFUSAL IS COUNTED (`meetings.guest.refused`), the flat one most of all — a gate that is silent
+// when it works is a gate nobody notices has stopped. Nothing here ever logs, counts or echoes the
+// credential itself.
+function makeGuestLane(): GuestLanePort<FirmContext> {
+  const recordRefusal = (
+    c: Context,
+    lane: "invitation" | "grant",
+    reason: string,
+    grant: ChokepointGuestGrant | null,
+  ): void => {
+    const context = c as Context<{ Bindings: Bindings; Variables: AppVariables }>;
+    context.get("logger")?.log(
+      meetingGuestRefused(
+        { correlationId: context.get("correlationId") ?? "", now: new Date().toISOString() },
+        {
+          lane,
+          reason,
+          firmId: grant?.firmId ?? null,
+          meetingId: grant?.meetingId ?? null,
+          invitationId: grant?.invitationId ?? null,
+        },
+      ),
+    );
+  };
+
+  return {
+    verifyGuestCredential: async (c, presented, lane) => {
+      const env = (c as Context<{ Bindings: Bindings }>).env;
+      const verified =
+        presented === null
+          ? null
+          : await verifyGuestCredential(
+              env.AUTH_SECRET,
+              presented,
+              lane,
+              Math.floor(Date.now() / 1000),
+            );
+      if (verified === null) {
+        recordRefusal(c, lane, "credential", null);
+        return null;
+      }
+      return {
+        lane: verified.lane,
+        firmId: verified.firmId,
+        meetingId: verified.meetingId,
+        invitationId: verified.invitationId,
+        secretVersion: verified.secretVersion,
+        stayId: verified.stayId,
+        secret: verified.secret,
+      };
+    },
+
+    // The firm this deployment serves, and nothing about any member of it. A firm the control plane
+    // does not answer for is the same reserved absence a cross-firm request gets.
+    resolveGuestFirmContext: async (c, grant) => {
+      const env = (c as Context<{ Bindings: Bindings }>).env;
+      const firmRow = await env.DB_CONTROL.prepare(
+        "SELECT name, display_name, bucket_name FROM firm WHERE id = ?1",
+      )
+        .bind(grant.firmId)
+        .first<{ name: string; display_name: string | null; bucket_name: string | null }>();
+      if (firmRow === null) {
+        recordRefusal(c, grant.lane, "firm-absent", grant);
+        return null;
+      }
+      return {
+        firmDatabase: firmDatabaseFor(env.FIRM_DATABASE, grant.firmId),
+        migrationState: () => firmDatabaseMigrationStateFor(env.FIRM_DATABASE, grant.firmId),
+        // The name a guest's page and mail read — `display_name` first, for the reason the member
+        // resolver gives: a self-serve firm's `name` is machinery.
+        readFirmName: () => Promise.resolve(firmRow.display_name ?? firmRow.name),
+        bucketName: firmRow.bucket_name,
+      };
+    },
+
+    // THE ROW IS THE AUTHORITY. A withdrawn, rotated or expired invitation, a secret that does not
+    // hash to what the row holds, or a meeting that has ended refuses a perfectly-signed credential
+    // here, at once — and the refusal is specific, because only somebody the firm sent a link to can
+    // present a signed one.
+    confirmGuestCredentialIsLive: async (c, firmContext, credential) => {
+      const [invitation, meeting] = await Promise.all([
+        readGuestInvitation(
+          firmContext.firmDatabase,
+          credential.invitationId as MeetingGuestInvitationId,
+        ),
+        readMeetingForGuest(firmContext.firmDatabase, credential.meetingId as MeetingId),
+      ]);
+      const onThisMeeting =
+        invitation?.meeting_id === credential.meetingId ? invitation : undefined;
+      // Constant-time over the two digests, and only for the credential that carries a secret — the
+      // grant was minted after one matched, and carries none.
+      const secretMatches =
+        credential.secret === null || onThisMeeting === undefined
+          ? null
+          : await constantTimeStringEquals(
+              await hashGuestSecret(credential.secret),
+              onThisMeeting.token_secret_hash,
+            );
+      const code = guestCredentialRefusal({
+        invitation: onThisMeeting,
+        meetingStatus: meeting?.status,
+        secretVersion: credential.secretVersion,
+        secretMatches,
+        now: new Date().toISOString(),
+      });
+      if (code === null) return null;
+      recordRefusal(c, credential.lane, code, credential);
+      return (
+        guestLinkRefusalFor(code) ?? {
+          type: "guest-link-not-valid",
+          status: 410,
+          title: "This link no longer works",
+          detail: "This link does not open a meeting. Ask the firm for a new link.",
+        }
+      );
+    },
+  };
+}
+
 // Assembles the production ports MINUS the idempotency port (app.ts adds createChokepointIdempotency
 // — it lives in its own module to avoid a value-import cycle through this one). The rate limiter is
 // injected because app.ts owns its lifetime: one per worker isolate, never one per request.
@@ -268,5 +408,6 @@ export function createChokepointPorts(
     resolveFirmContext: makeResolveFirmContext(),
     loadPermissions: makeLoadPermissions(),
     rateLimiter,
+    guestLane: makeGuestLane(),
   };
 }

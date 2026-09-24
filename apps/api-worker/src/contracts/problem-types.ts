@@ -673,6 +673,22 @@ export const PROBLEM_TYPES = {
   // long as the meeting runs. Its own type because a screen has to say the right thing: one is
   // being put out of the room, the other is never having been let in.
   "meeting-not-admitted": "meeting-not-admitted",
+  // A MEETING GUEST'S LINK THAT CANNOT BE USED, said to somebody holding a correctly SIGNED one — which
+  // only somebody the firm sent it to can hold, so each is specific and actionable. A token whose
+  // signature does not verify never reaches any of these: it gets the reserved `not-found`, one flat
+  // answer that says nothing about whether a meeting or a firm exists.
+  //
+  // Signed, but it matches no live invitation — the firm sent a newer link in its place (HTTP 410).
+  "guest-link-not-valid": "guest-link-not-valid",
+  // Past the instant computed when the link was minted (HTTP 410).
+  "guest-link-expired": "guest-link-expired",
+  // A host withdrew it (HTTP 410). The invitation row stays; the link does not work.
+  "guest-link-revoked": "guest-link-revoked",
+  // Spent at the door as many times as one link may be (HTTP 409).
+  "guest-link-exhausted": "guest-link-exhausted",
+  // A host asked to invite somebody the record cannot resolve to a Directory entity on the event with
+  // an address the firm may use (HTTP 422). The remedy is in the Directory, not in retrying.
+  "guest-not-invitable": "guest-not-invitable",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

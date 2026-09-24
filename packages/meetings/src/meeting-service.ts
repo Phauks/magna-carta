@@ -12,8 +12,11 @@ import type {
   MeetingId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { isGuestStayHandle } from "./guest-removal.ts";
+import { closeGuestStayAfterSocketLoss } from "./guest-service.ts";
 import {
   closeAllAttendanceStatement,
+  closeAllGuestStaysStatement,
   closeAttendanceStatement,
   countOpenAttendance,
   endMeetingStatement,
@@ -44,6 +47,7 @@ import {
   type MeetingDepartureReason,
   type MeetingEventKind,
   type MeetingMedium,
+  type MeetingParticipantHandle,
   type MeetingRow,
 } from "./types.ts";
 import { refuse } from "./validation.ts";
@@ -526,9 +530,16 @@ export interface SocketLossOptions {
  */
 export async function closeAttendanceAfterSocketLoss(
   database: SqlDatabase,
-  attendanceId: MeetingAttendanceId,
+  attendanceId: MeetingParticipantHandle,
   options: SocketLossOptions,
 ): Promise<{ closed: boolean; effect: EffectWrite }> {
+  // A GUEST'S STAY IS A ROW IN THE SECOND TABLE, and the room holds nothing but its handle — so the
+  // sweep is handed either kind and the prefix says which. One entry point rather than two, because
+  // the room's sweep is one act over everybody whose grace ran out, and a room that had to know
+  // which table to ask would be a room that knew about tables.
+  if (isGuestStayHandle(attendanceId)) {
+    return await closeGuestStayAfterSocketLoss(database, attendanceId, options);
+  }
   const stay = await readAttendance(database, attendanceId);
   if (stay === undefined || stay.left_at !== null) {
     return { closed: false, effect: { statements: [], outboxMessages: [] } };
@@ -594,7 +605,11 @@ export async function endMeeting(
   return {
     effect: {
       statements: [
+        // Every open stay of BOTH kinds, at the one instant — members and guests, waiting and
+        // admitted. The guest table is the second statement of the same batch rather than a later
+        // write, so the record never holds a meeting that ended with a guest still in it.
         closeAllAttendanceStatement(database, { meetingId, now }),
+        closeAllGuestStaysStatement(database, { meetingId, now }),
         guarded(
           endMeetingStatement(database, {
             id: meetingId,

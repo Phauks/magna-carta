@@ -1,12 +1,12 @@
 import type { MeetingId, MeetingMessageId, UserId } from "@magna-carta/identifiers/types";
 
-// WHOSE STAY A MESSAGE WAS SAID FROM. Two kinds because there will be two stay TABLES: a firm
-// member's is a `meeting_attendance` row and an external guest's will be a `meeting_guest_stay` row,
-// which is why the handle on the message is carried by value with no foreign key. Only `member` is
-// written by anything today — the guest half is the column a guest path fills when it lands, the way
-// `communication.producer` names a carrier nothing writes yet.
-export const MEETING_PARTICIPANT_KINDS = Object.freeze(["member", "guest"] as const);
-export type MeetingParticipantKind = (typeof MEETING_PARTICIPANT_KINDS)[number];
+// WHOSE STAY A MESSAGE WAS SAID FROM. Two kinds because there are two stay TABLES: a firm member's is
+// a `meeting_attendance` row and an external guest's is a `meeting_guest_stay` row, which is why the
+// handle on the message is carried by value with no foreign key. The vocabulary is the stay's own and
+// lives with the stay types; it is re-exported here because every chat reader already takes it from
+// this module.
+export { MEETING_PARTICIPANT_KINDS, type MeetingParticipantKind } from "./types.ts";
+import type { MeetingParticipantKind } from "./types.ts";
 
 // THE MEETING'S ONE STORED CONTENT. Everything else the subsystem holds is identifiers and instants:
 // the audio, the video and the screen share are routed between browsers and reach no storage here.
@@ -57,7 +57,7 @@ export interface MeetingMessageRow {
  * `userId` is resolved through the join rather than stored beside the message, for the reason the
  * meeting summary resolves its title through the event — a second copy is a second answer, and the
  * two disagree the first time one of them is corrected. It is NULL for a message said from a guest
- * stay, which is a stay with no firm member behind it at all; nothing writes one today.
+ * stay, which is a stay with no firm member behind it at all.
  */
 export interface MeetingMessageEntry {
   readonly id: MeetingMessageId;

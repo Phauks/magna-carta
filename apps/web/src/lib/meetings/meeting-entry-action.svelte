@@ -20,6 +20,7 @@
    * a refusal on every entry window they opened.
    */
   import Lock from "@lucide/svelte/icons/lock";
+  import UsersRound from "@lucide/svelte/icons/users-round";
   import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import Button from "@magna-carta/design-system/button";
@@ -35,6 +36,7 @@
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
   import { startMeeting } from "./meetings-api.ts";
+  import MeetingGuestsPanel from "./meeting-guests-panel.svelte";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
@@ -143,7 +145,33 @@
       ? "A host has locked this call, so nobody else can come in."
       : "A host has locked this meeting, so nobody else can come in.",
   );
+
+  /*
+   * WHO FROM OUTSIDE THE FIRM MAY COME, from the entry the meeting hangs on. A host is as likely to
+   * send a client their link the morning before as from inside the room, and the entry window is
+   * where the event's participants — the only people a link can be sent to — are already read.
+   * Offered once a meeting exists on the entry, because a link is minted for a meeting.
+   */
+  let guestsOpen = $state(false);
 </script>
+
+{#if canJoin && configured && canHost && running !== null}
+  <Button
+    variant="secondary"
+    title="Who from outside the firm may come to this meeting"
+    onclick={() => (guestsOpen = true)}
+  >
+    <UsersRound class="size-16" aria-hidden="true" />
+    Guests
+  </Button>
+  <MeetingGuestsPanel
+    bind:open={guestsOpen}
+    subject={{ facts: [running.title] }}
+    meetingId={running.id}
+    {eventKind}
+    {eventId}
+  />
+{/if}
 
 {#if canJoin && configured}
   {#if locked}

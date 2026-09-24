@@ -2494,6 +2494,8 @@ describe("who is at the door, for a host", () => {
         userId: "usr_7",
         displayName: "Rosalind Chase",
         waitingFrom: "2026-09-20T15:00:00.000Z",
+        kind: "member",
+        invitedName: null,
       },
     ]);
 

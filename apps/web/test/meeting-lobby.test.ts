@@ -40,6 +40,8 @@ function waiter(ordinal: number, displayName: string) {
     userId: `usr_${ordinal}`,
     displayName,
     waitingFrom: `2026-09-20T15:0${ordinal}:00.000Z`,
+    kind: "member" as const,
+    invitedName: null,
   };
 }
 

@@ -336,6 +336,14 @@ export const ENTITY_PREFIXES = {
   // about an interval. `meeting.created_by_user_id` stays what it is: who opened the room, which
   // never changes and is the same person only until the first hand-over.
   meetingHost: "meetingHost",
+  // A `meetingGuestInvitation` is one signed, expiring link minted for one Directory entity on one
+  // meeting — the durable authority behind a bearer token that is never stored. A
+  // `meetingGuestStay` is that guest's stay in the room: shaped exactly like a member's attendance
+  // row, but a table of its own, because a guest has no user id and the member stay's user column
+  // is NOT NULL with a foreign key to the member table. Both are what the client portal's grant
+  // model absorbs when it lands.
+  meetingGuestInvitation: "meetingGuestInvitation",
+  meetingGuestStay: "meetingGuestStay",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

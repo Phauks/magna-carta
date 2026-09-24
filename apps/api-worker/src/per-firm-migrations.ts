@@ -38,6 +38,7 @@ import aMeetingHasAMediumSql from "@magna-carta/database/drizzle/per-firm/202609
 import meetingChatOnTheRecordSql from "@magna-carta/database/drizzle/per-firm/20260920T183000_meeting-chat-on-the-record.sql";
 import hostingIsAGrantOnTheMeetingSql from "@magna-carta/database/drizzle/per-firm/20260920T190000_hosting-is-a-grant-on-the-meeting.sql";
 import arrivalsWaitInALobbySql from "@magna-carta/database/drizzle/per-firm/20260920T210000_arrivals-wait-in-a-lobby.sql";
+import aGuestHoldsASignedLinkAndAStayOfItsOwnSql from "@magna-carta/database/drizzle/per-firm/20260924T090000_a-guest-holds-a-signed-link-and-a-stay-of-its-own.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -71,6 +72,8 @@ export function perFirmMigrations(): Migration[] {
     "20260920T183000_meeting-chat-on-the-record": meetingChatOnTheRecordSql,
     "20260920T190000_hosting-is-a-grant-on-the-meeting": hostingIsAGrantOnTheMeetingSql,
     "20260920T210000_arrivals-wait-in-a-lobby": arrivalsWaitInALobbySql,
+    "20260924T090000_a-guest-holds-a-signed-link-and-a-stay-of-its-own":
+      aGuestHoldsASignedLinkAndAStayOfItsOwnSql,
   });
 }
 

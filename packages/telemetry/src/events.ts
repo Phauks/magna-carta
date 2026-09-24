@@ -499,6 +499,32 @@ export const meetingRoomClientReport = defineEvent("meetings.room.clientReport",
   "inboundCount",
 ] as const);
 
+// ── A meeting's guest lane ───────────────────────────────────────────────────
+//
+// A GATE THAT IS SILENT WHEN IT IS WORKING IS A GATE NOBODY NOTICES HAS STOPPED. Every refusal at the
+// chokepoint's guest lane and at the guest's own arrival is counted here — the flat refusal of a token
+// whose signature did not verify most of all, because that is the one a stranger guessing at the
+// route produces, and a rising count of it is the only sign anybody is.
+//
+// WHAT IS STRUCTURALLY ABSENT: the token, the secret, the grant, the address the link went to, the
+// name typed at the door. None has a slot, so none can be added without being argued for here.
+
+/**
+ * A guest credential refused.
+ *
+ * `lane` is the route's lane (`invitation` or `grant`); `reason` is `credential` for the flat refusal
+ * of a token that is not one — absent, unsigned, the wrong kind, or expired by its own clock — and
+ * otherwise the subsystem's own refusal code for a signed one that cannot be used now. The three
+ * handles are null on the flat refusal, because nothing about an unverified token is believed.
+ */
+export const meetingGuestRefused = defineEvent("meetings.guest.refused", [
+  "lane",
+  "reason",
+  "firmId",
+  "meetingId",
+  "invitationId",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -542,4 +568,5 @@ export const EVENT_NAMES = [
   meetingRoomAlarmRan,
   meetingRoomStorageReadBudget,
   meetingRoomClientReport,
+  meetingGuestRefused,
 ].map((builder) => builder.eventName);

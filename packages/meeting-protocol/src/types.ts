@@ -106,16 +106,35 @@ export interface MeetingRoomState {
 }
 
 /**
+ * WHICH KIND OF PERSON HOLDS A STAY: a firm member, or a guest from outside the firm on a signed link.
+ *
+ * Two identical string literals to the domain's own `MEETING_PARTICIPANT_KINDS`, meeting at the seam
+ * that carries them — the arrangement the medium, the host role and the lobby mode already have.
+ */
+export type MeetingParticipantKind = "member" | "guest";
+
+/**
  * One person at the door, as the host's own `waiting` frame carries them.
  *
  * Addressed by the STAY, like everything else on this wire: a member handle would not distinguish
  * two stays, and admitting somebody is addressed to the stay the host's panel was showing.
+ *
+ * A GUEST CARRIES TWO NAMES, and a host reads both before pressing Admit. `displayName` is what the
+ * person typed at the door; `invitedName` is the Directory name the link was minted for. The
+ * difference between the two is the whole of what a forwarded link leaves behind, and the door is the
+ * one moment it is still cheap to catch — a lobby row showing only the typed name would make a
+ * forwarded link invisible exactly then. `userId` is null for a guest, who has none.
+ *
+ * `kind` and `invitedName` are written by the room on every entry; they are optional in the type only
+ * because a list sent by a room that predates guests carries neither, and that reads as a member.
  */
 export interface WaitingParticipant {
   readonly participantId: string;
-  readonly userId: string;
+  readonly userId: string | null;
   readonly displayName: string;
   readonly waitingFrom: string;
+  readonly kind?: MeetingParticipantKind;
+  readonly invitedName?: string | null;
 }
 
 /**
@@ -148,7 +167,16 @@ export interface RosterTrack {
 /** One person in the room, as every other participant sees them. */
 export interface RosterParticipant {
   readonly participantId: string;
-  readonly userId: string;
+  // THE FIRM MEMBER BEHIND THE STAY, and null in two cases that are the same rule seen from two sides.
+  // A GUEST has no member identity at all. And a roster sent TO a guest's socket carries null for
+  // everybody: a guest sees display names, who is talking, who is muted and which tracks exist —
+  // what a tile needs and no more — and never a firm's user identifiers. The room redacts it per
+  // socket in its roster module; the browser's roster also hides it, as a second line.
+  readonly userId: string | null;
+  // Whether this stay is a member's or a guest's, so a tile can mark somebody from outside the firm.
+  // Written by the room on every entry; optional only because a roster from a room that predates
+  // guests carries none, which reads as a member.
+  readonly kind?: MeetingParticipantKind;
   readonly displayName: string;
   // The routing-service session they publish through, or null until they have published anything.
   // A browser needs it to ask for their tracks, and there is nothing to ask for until it exists.
