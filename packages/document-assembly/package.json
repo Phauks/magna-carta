@@ -28,6 +28,7 @@
     "./macros": "./src/macros.ts",
     "./merge-statements": "./src/merge-statements.ts",
     "./normalize": "./src/normalize.ts",
+    "./ooxml-accept-tracked-changes": "./src/ooxml/accept-tracked-changes.ts",
     "./ooxml-image": "./src/ooxml/image.ts",
     "./ooxml-package": "./src/ooxml/package.ts",
     "./ooxml-parts": "./src/ooxml/parts.ts",

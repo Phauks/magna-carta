@@ -26,6 +26,9 @@ const file = (
   versionId: `${id}-v` as FileVersionId,
   r2Key: `files/${id}/${id}-v`,
   sizeBytes: size,
+  exportCopyState: null,
+  exportR2Key: null,
+  exportSizeBytes: null,
 });
 
 describe("resolveZipSelection", () => {
