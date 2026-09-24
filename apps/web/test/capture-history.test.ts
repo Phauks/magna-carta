@@ -25,6 +25,7 @@ function entry(name: string) {
     view: name,
     capturedAt: 1700000000000,
     elapsedMs: 1200,
+    mode: "static" as const,
   };
 }
 
@@ -70,8 +71,20 @@ describe("pushCapture", () => {
   });
 
   it("keeps each entry's own completion time and duration through pushes and stepping", () => {
-    const first = { enteredUrl: "https://a.example/", view: "a", capturedAt: 100, elapsedMs: 40 };
-    const second = { enteredUrl: "https://b.example/", view: "b", capturedAt: 200, elapsedMs: 60 };
+    const first = {
+      enteredUrl: "https://a.example/",
+      view: "a",
+      capturedAt: 100,
+      elapsedMs: 40,
+      mode: "static" as const,
+    };
+    const second = {
+      enteredUrl: "https://b.example/",
+      view: "b",
+      capturedAt: 200,
+      elapsedMs: 60,
+      mode: "static" as const,
+    };
     const history = pushCapture(pushCapture(emptyHistory<string>(), first), second);
     expect(currentEntry(history)?.capturedAt).toBe(200);
     expect(currentEntry(history)?.elapsedMs).toBe(60);

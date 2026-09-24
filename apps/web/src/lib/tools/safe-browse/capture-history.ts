@@ -22,6 +22,12 @@ export interface CaptureEntry<View> {
   capturedAt: number;
   /** How long the capture took, milliseconds measured around the request. */
   elapsedMs: number;
+  /**
+   * Which browser produced it. Recorded on the entry rather than read from the toggle, because a
+   * member can capture in one mode, switch, then step back to the older capture — and a held Live
+   * browser and a fresh Static one can see the same address differently.
+   */
+  mode: "static" | "live";
 }
 
 export interface CaptureHistory<View> {

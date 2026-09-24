@@ -52,6 +52,7 @@
     type SafeWebsiteView,
   } from "$lib/tools/safe-browse/safe-browse.ts";
   import { finalHost, screenshotFilename } from "$lib/tools/safe-browse/capture-facts.ts";
+  import { downloadCaptureArchive } from "$lib/tools/safe-browse/capture-export.ts";
   import {
     back,
     canGoBack,
@@ -149,6 +150,7 @@
         view: result.view,
         capturedAt: Date.now(),
         elapsedMs,
+        mode,
       };
       history =
         historyMode === "replace" ? replaceCurrent(history, entry) : pushCapture(history, entry);
@@ -187,6 +189,28 @@
       release();
     };
   });
+
+  // Everything on screen for the capture being shown, in one archive. The registration record is
+  // included only when it belongs to THIS capture's host — the cache survives stepping back through
+  // history, and a registry answer for a different site in the export would be a wrong fact.
+  function downloadCapture() {
+    const current = currentCapture;
+    if (current === null) return;
+    const host = finalHost(current.view.finalUrl);
+    const outcome = registration?.host === host ? registration.outcome : null;
+    const record =
+      outcome !== null &&
+      (outcome.kind === "rdap" || outcome.kind === "raw" || outcome.kind === "empty")
+        ? outcome.result
+        : null;
+    void downloadCaptureArchive({
+      view: current.view,
+      capturedAt: current.capturedAt,
+      elapsedMs: current.elapsedMs,
+      mode: current.mode,
+      registration: record,
+    });
+  }
 
   function runCapture() {
     if (!canSubmit || normalized === null) return;
@@ -314,6 +338,7 @@
           : "The page opens in an isolated remote browser and comes back as a static snapshot. It never loads in your own browser."}
       {mode}
       onmodechange={setMode}
+      ondownloadcapture={displayView === null ? undefined : downloadCapture}
       canGoBack={canGoBack(history)}
       canGoForward={canGoForward(history)}
       canRefresh={currentEntry(history) !== null}
