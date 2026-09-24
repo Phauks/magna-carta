@@ -72,6 +72,16 @@
   import MeetingConnectionPanel from "$lib/meetings/screen/meeting-connection-panel.svelte";
   import MeetingChatPanel from "$lib/meetings/screen/meeting-chat-panel.svelte";
   import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
+  import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
+  import MeetingQuestionsPanel from "$lib/meetings/screen/meeting-questions-panel.svelte";
+  import { MeetingPolls } from "$lib/meetings/client/polls.svelte.ts";
+  import {
+    MAX_MEETING_QUESTION_LENGTH,
+    MeetingQuestions,
+    type MeetingQuestionView,
+  } from "$lib/meetings/client/questions.svelte.ts";
+  import type { MediaEffectSettings } from "$lib/meetings/client/media-effects.ts";
+  import { meetingEffectsPreference } from "$lib/meetings/meeting-effects-preference.svelte.ts";
   import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
   import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
@@ -90,6 +100,8 @@
     joinMeeting,
     leaveMeeting,
     MAX_MEETING_MESSAGE_LENGTH,
+    meetingPollSeams,
+    meetingQuestionSeams,
     readMeetingHosts,
     readMeetingLobby,
     refusedAs,
@@ -114,6 +126,22 @@
   const summary = $derived(summaryRead.data ?? null);
 
   const client = new MeetingClient(browserMeetingSeams());
+
+  /*
+   * What this member chose for their own sound and picture, remembered in this browser rather than on
+   * their record: whether an effect is possible at all is a fact about this machine.
+   */
+  const effectsPreference = meetingEffectsPreference();
+  $effect(() => effectsPreference.followAcrossTabs());
+
+  /**
+   * A change made in the Effects panel: remembered first, so the next capture on this machine asks
+   * for it, and then asked of the tracks already running, whose answer is what the panel shows.
+   */
+  function changeEffects(settings: MediaEffectSettings): void {
+    effectsPreference.set(settings);
+    void client.changeEffects(settings);
+  }
 
   /** The join's refusal, where joining is what failed. Null while nothing has. */
   let joinFailure = $state<Failure | null>(null);
@@ -197,6 +225,9 @@
       // Whether this stay is at the DOOR. The server decides it — the lobby is on, and this member
       // is not running the room — and it is what stops anything being captured below.
       waiting: outcome.value.waiting,
+      // What this member chose for their own sound and picture on this machine, applied at the
+      // capture below and at every rejoin, so a choice made once is not made again.
+      effects: effectsPreference.current,
     });
     /*
      * Asked for on every arrival, including one that is waiting: the client refuses it at the door
@@ -615,6 +646,133 @@
     }
     if (refusedAs(chat.writeFailure, "meeting-not-joined")) {
       return "Your stay in this meeting has closed, so nothing can be said in it from here.";
+    }
+    return "That did not reach this meeting's record.";
+  });
+
+  /*
+   * WHAT A HOST ASKS THE ROOM, AND WHAT THE ROOM ASKS A HOST.
+   *
+   * Both are records on the transcript's own terms: written by routes, read back by pages, and
+   * relayed by the room as copies of committed rows so they arrive as they happen. The screen holds
+   * them for the reason it holds the transcript — the client is what is torn down when a connection
+   * drops, and a record does not go with it.
+   */
+  const polls = new MeetingPolls(meetingPollSeams(() => meetingId));
+  const questions = new MeetingQuestions(meetingQuestionSeams(() => meetingId));
+  client.relayPollsTo(polls);
+  client.relayQuestionsTo(questions);
+  let pollsOpen = $state(false);
+  let questionsOpen = $state(false);
+  /** What is typed and not yet asked. Held by the screen, so closing the panel does not lose it. */
+  let questionDraft = $state("");
+
+  /*
+   * Followed while this browser is IN the room and never before, for the transcript's reason: a
+   * socket at the door has no stay the routes would accept an answer or a question from.
+   */
+  $effect(() => {
+    if (client.state !== "live") return;
+    polls.start();
+    questions.start();
+    return () => {
+      polls.stop();
+      questions.stop();
+    };
+  });
+
+  $effect(() => {
+    if (pollsOpen) polls.noteOpened();
+    else polls.noteClosed();
+  });
+
+  $effect(() => {
+    if (questionsOpen) questions.noteOpened();
+  });
+
+  /** True once the member has been told a poll opened, so a burst of polls is said once. */
+  let pollAnnounced = $state(false);
+
+  /*
+   * A POLL IS OPEN, SAID ONCE AND NAMING NOTHING BUT THE ACT, on the lobby toast's precedent: a count
+   * on a control a member is not looking at is a poll nobody answers. Opening the panel is what
+   * re-arms it, because then the member has seen what there was to see.
+   */
+  $effect(() => {
+    if (polls.openedUnseen === 0) {
+      pollAnnounced = false;
+      return;
+    }
+    if (pollAnnounced || pollsOpen) return;
+    pollAnnounced = true;
+    toast("A poll is open.");
+  });
+
+  /** Who gave an answer, out of the roster, and the member behind the stay where it has closed. */
+  function nameOfStay(participantId: string, userId: string | null): string {
+    const stay = client.participants.find((one) => one.participantId === participantId);
+    if (stay !== undefined) return participantName(stay);
+    const member =
+      userId === null ? undefined : client.participants.find((one) => one.userId === userId);
+    return member === undefined ? "Somebody who left" : participantName(member);
+  }
+
+  /**
+   * Whether this reader asked a question, which is what offers them Redact on their own row: the
+   * stay they are in now, or the member behind it where they asked from an earlier stay.
+   */
+  function askedByMe(question: MeetingQuestionView): boolean {
+    if (question.participantId === client.participantId) return true;
+    return question.userId !== null && question.userId === sessionPermissions.session?.user.id;
+  }
+
+  /** What a refused poll act reads as: the refusals with words of their own, and the rest. */
+  const pollWriteTitle = $derived.by(() => {
+    if (refusedAs(polls.writeFailure, "meeting-poll-closed")) return "That Poll Is Closed";
+    if (refusedAs(polls.writeFailure, "meeting-poll-already-answered")) {
+      return "You Have Answered This Poll";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-not-host")) return "You Are Not Hosting This Meeting";
+    if (refusedAs(polls.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    return "Nothing Changed";
+  });
+  const pollWriteSentence = $derived.by(() => {
+    if (refusedAs(polls.writeFailure, "meeting-poll-closed")) {
+      return "A host closed this poll, so it takes no more answers.";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-poll-already-answered")) {
+      return "An answer cannot be changed once it is given.";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-not-host")) {
+      return "Only somebody hosting this meeting can open or close a poll.";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-not-joined")) {
+      return "Your stay in this meeting has closed, so nothing can be answered from here.";
+    }
+    return "That did not reach this meeting's record.";
+  });
+
+  const questionWriteTitle = $derived.by(() => {
+    if (refusedAs(questions.writeFailure, "meeting-question-too-long")) {
+      return "That Question Is Too Long";
+    }
+    if (refusedAs(questions.writeFailure, "meeting-question-limit-reached")) {
+      return "This Meeting Has Too Many Questions";
+    }
+    if (refusedAs(questions.writeFailure, "meeting-not-joined")) {
+      return "You Are Not in This Meeting";
+    }
+    return "Nothing Changed";
+  });
+  const questionWriteSentence = $derived.by(() => {
+    if (refusedAs(questions.writeFailure, "meeting-question-too-long")) {
+      return `A question holds ${String(MAX_MEETING_QUESTION_LENGTH)} characters at most, and this one is longer.`;
+    }
+    if (refusedAs(questions.writeFailure, "meeting-question-limit-reached")) {
+      return "No more questions can be asked in this meeting.";
+    }
+    if (refusedAs(questions.writeFailure, "meeting-not-joined")) {
+      return "Your stay in this meeting has closed, so nothing can be asked from here.";
     }
     return "That did not reach this meeting's record.";
   });
@@ -1131,6 +1289,13 @@
         waitingCount={client.lobbyList.length}
         spotlighted={client.roomState.spotlight !== null}
         subtitle={endSubject}
+        appliedEffects={client.appliedEffects}
+        effectSettings={client.effectSettings}
+        pollsWaiting={myRole === null ? polls.waitingForAnswer : 0}
+        questionsWaiting={questions.waiting}
+        onChangeEffects={changeEffects}
+        onOpenPolls={() => (pollsOpen = true)}
+        onOpenQuestions={() => (questionsOpen = true)}
         onToggleMicrophone={() => client.toggleMicrophone()}
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
@@ -1192,6 +1357,94 @@
         onLowerHand={(participantId) => client.lowerHands(participantId)}
         onLowerAll={() => client.lowerHands(null)}
       />
+
+      <!-- What a host has asked the room. Everybody answers from here, and a host asks from the top
+           of the same panel. -->
+      <MeetingPollsPanel
+        bind:open={pollsOpen}
+        subject={endSubject}
+        polls={polls.polls}
+        hosting={myRole !== null}
+        inRoom={client.participants.length}
+        loading={polls.reading}
+        failed={polls.readFailure !== null && polls.polls.length === 0}
+        opening={polls.opening}
+        answering={polls.answering}
+        onOpenPoll={(draft) => polls.open(draft)}
+        onAnswer={(pollId, optionIds) => polls.answer(pollId, optionIds)}
+        onClosePoll={(pollId) => polls.close(pollId)}
+        onReadAnswers={(pollId, cursor) => polls.whoAnswered(pollId, cursor)}
+        nameOfAnswer={(answer) => nameOfStay(answer.participantId, answer.userId)}
+      >
+        {#snippet readFailure()}
+          {#if polls.readFailure !== null}
+            <FailureNotice
+              failure={polls.readFailure}
+              subject="This meeting"
+              title="Nothing Could Be Read"
+              fallback="This meeting's polls could not be read."
+              whenSilent="Nothing answered. This meeting's polls could not be read."
+              onRetry={() => void polls.refresh()}
+            />
+          {/if}
+        {/snippet}
+
+        {#snippet writeFailure()}
+          {#if polls.writeFailure !== null}
+            <FailureNotice
+              failure={polls.writeFailure}
+              subject="This meeting"
+              title={pollWriteTitle}
+              fallback={pollWriteSentence}
+              whenSilent="Nothing answered, so nothing changed in this meeting's polls."
+            />
+          {/if}
+        {/snippet}
+      </MeetingPollsPanel>
+
+      <!-- What the room has asked, in the order a host works it. -->
+      <MeetingQuestionsPanel
+        bind:open={questionsOpen}
+        bind:draft={questionDraft}
+        subject={endSubject}
+        queue={questions.queue}
+        hosting={myRole !== null}
+        loading={questions.reading}
+        failed={questions.readFailure !== null && questions.questions.length === 0}
+        asking={questions.asking}
+        upvoting={questions.upvoting}
+        nameOf={(question) => nameOfStay(question.participantId, question.userId)}
+        isMine={askedByMe}
+        onAsk={(body) => questions.ask(body)}
+        onToggleUpvote={(questionId) => void questions.toggleUpvote(questionId)}
+        onMarkAnswered={(questionId, answered) => void questions.markAnswered(questionId, answered)}
+        onRedact={(questionId) => void questions.redact(questionId)}
+      >
+        {#snippet readFailure()}
+          {#if questions.readFailure !== null}
+            <FailureNotice
+              failure={questions.readFailure}
+              subject="This meeting"
+              title="Nothing Could Be Read"
+              fallback="The questions asked in this meeting could not be read."
+              whenSilent="Nothing answered. The questions asked in this meeting could not be read."
+              onRetry={() => void questions.refresh()}
+            />
+          {/if}
+        {/snippet}
+
+        {#snippet writeFailure()}
+          {#if questions.writeFailure !== null}
+            <FailureNotice
+              failure={questions.writeFailure}
+              subject="This meeting"
+              title={questionWriteTitle}
+              fallback={questionWriteSentence}
+              whenSilent="Nothing answered, so nothing changed in this meeting's questions."
+            />
+          {/if}
+        {/snippet}
+      </MeetingQuestionsPanel>
 
       <!-- Who is at the door. Opened from a control that is absent for everybody who is not running
            the meeting, and it would have nothing to draw for them either: the room sends the list

@@ -297,6 +297,27 @@ export interface RoomFrameHandlers {
   message(frame: Record<string, unknown>): void;
   /** A message taken back, as the handle and the instant alone — the body is already blank. */
   messageRedacted(frame: Record<string, unknown>): void;
+  /**
+   * A host asked the room a question: the poll WHOLE, options and all, rather than a handle.
+   *
+   * Whole because a bare handle would send every browser in the room to the read in the instant a
+   * poll opens, which is the stampede the relay exists to prevent. The route is still the record,
+   * and a browser that misses this is caught up by the read behind it.
+   */
+  pollOpened(frame: Record<string, unknown>): void;
+  /** A host closed a poll, with its final tally. A closed poll takes no more answers. */
+  pollClosed(frame: Record<string, unknown>): void;
+  /**
+   * A poll's tally as it stands, once a second while people are answering. The room holds the
+   * latest count rather than a sum, so every frame is the whole of the current truth.
+   */
+  pollTally(frame: Record<string, unknown>): void;
+  /** Somebody put a question to the room: the question whole, on the poll's own reasoning. */
+  questionAsked(frame: Record<string, unknown>): void;
+  /** A question was marked answered, unmarked, or taken back. A redacted one carries no body. */
+  questionUpdated(frame: Record<string, unknown>): void;
+  /** Upvote counts, coalesced to one frame a second for the whole room. Never who upvoted. */
+  questionTally(frame: Record<string, unknown>): void;
   layered(frame: Record<string, unknown>): void;
   published(frame: Record<string, unknown>): void;
   subscribed(frame: Record<string, unknown>): void;
@@ -561,6 +582,24 @@ export class MeetingSignaling {
         return;
       case "message-redacted":
         this.#handlers.messageRedacted(parsed);
+        return;
+      case "poll-opened":
+        this.#handlers.pollOpened(parsed);
+        return;
+      case "poll-closed":
+        this.#handlers.pollClosed(parsed);
+        return;
+      case "poll-tally":
+        this.#handlers.pollTally(parsed);
+        return;
+      case "question-asked":
+        this.#handlers.questionAsked(parsed);
+        return;
+      case "question-updated":
+        this.#handlers.questionUpdated(parsed);
+        return;
+      case "question-tally":
+        this.#handlers.questionTally(parsed);
         return;
       case "layered":
         this.#handlers.layered(parsed);

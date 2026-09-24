@@ -20,6 +20,8 @@ export const CROWD: readonly UserId[] = Array.from(
   { length: MAX_MEETING_PARTICIPANTS + 1 },
   (_unused, index) => `user_meetingCrowd${String(index).padStart(4, "0")}` as UserId,
 );
+/** The crowd's first member by name, for a test that needs one other person rather than the crowd. */
+export const FIRST_OF_CROWD: UserId = "user_meetingCrowd0000" as UserId;
 
 // Two matters: the ordinary one, and the platform-owned holding matter the custody register creates,
 // which must never be reachable through the visible-matter predicate. The walled case is simulated

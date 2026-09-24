@@ -205,9 +205,12 @@ describe("event catalog", () => {
     expect(event.fields["outboundRid"]).toBe("q");
   });
 
-  it("every meeting-room event is named under the one family prefix", () => {
+  it("every meetings event is named under the room's family or the guest lane's", () => {
+    // Two families and no third: the room's own events, and the guest lane's refusals, which happen
+    // at the chokepoint before any room is addressed and so cannot honestly be called room events.
     const family = EVENT_NAMES.filter((name) => name.startsWith("meetings."));
     expect(family.length).toBeGreaterThan(15);
-    for (const name of family) expect(name.startsWith("meetings.room.")).toBe(true);
+    for (const name of family)
+      expect(name.startsWith("meetings.room.") || name.startsWith("meetings.guest.")).toBe(true);
   });
 });

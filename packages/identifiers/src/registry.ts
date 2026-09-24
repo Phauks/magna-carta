@@ -344,6 +344,19 @@ export const ENTITY_PREFIXES = {
   // model absorbs when it lands.
   meetingGuestInvitation: "meetingGuestInvitation",
   meetingGuestStay: "meetingGuestStay",
+  // A `meetingPoll` is one closed question a host asked the room, and its `meetingPollOption`s are
+  // the choices it offered, a row each so an answer can only ever name one that exists. The two
+  // halves of answering are split across two handles on purpose: a `meetingPollRespondent` says THAT
+  // a stay answered and nothing about what, and a `meetingPollAnswer` says WHAT was chosen and — on a
+  // poll that does not show names — nothing about who. A `meetingQuestion` is one question somebody
+  // put to the room, content on the chat message's own terms, and a `meetingQuestionUpvote` is one
+  // stay's vote for it, a row rather than a counter so a stay can see and withdraw its own.
+  meetingPoll: "meetingPoll",
+  meetingPollOption: "meetingPollOption",
+  meetingPollRespondent: "meetingPollRespondent",
+  meetingPollAnswer: "meetingPollAnswer",
+  meetingQuestion: "meetingQuestion",
+  meetingQuestionUpvote: "meetingQuestionUpvote",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

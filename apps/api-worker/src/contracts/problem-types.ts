@@ -648,6 +648,27 @@ export const PROBLEM_TYPES = {
   // long thing on the file as a document — and because a message silently truncated to fit would be
   // a record of something nobody said.
   "meeting-message-too-long": "meeting-message-too-long",
+  // A POLL nothing can reach (HTTP 404) — a handle naming no poll, and a poll in another meeting, on
+  // the chat message's reasoning.
+  "meeting-poll-not-found": "meeting-poll-not-found",
+  // A host closed it, so it takes no more answers (HTTP 409).
+  "meeting-poll-closed": "meeting-poll-closed",
+  // This member has already answered it, from this stay or an earlier one (HTTP 409). An answer
+  // cannot be changed; a host who wants the room asked again opens a second poll.
+  "meeting-poll-already-answered": "meeting-poll-already-answered",
+  // Who answered what, asked of a poll that does not show names (HTTP 409). Refused rather than
+  // answered with an empty page, which would read as "nobody answered".
+  "meeting-poll-answers-not-attributed": "meeting-poll-answers-not-attributed",
+  // A poll body — or an answer's choices — that is not one this poll accepts (HTTP 422). ONE type for
+  // the question's length, the option count, an option's length and the choices, because they are
+  // one validation of one body; the problem's `errors` names the field that failed.
+  "meeting-poll-invalid": "meeting-poll-invalid",
+  // A QUESTION from the queue nothing can reach (HTTP 404), on the chat message's reasoning.
+  "meeting-question-not-found": "meeting-question-not-found",
+  // A question longer than a question may be (HTTP 422) — refused rather than truncated.
+  "meeting-question-too-long": "meeting-question-too-long",
+  // The meeting's queue already holds as many questions as a queue may (HTTP 409).
+  "meeting-question-limit-reached": "meeting-question-limit-reached",
   // The caller is not running this meeting (HTTP 403). A 403 rather than a 409 because it is an
   // authority question and retrying changes nothing; its OWN type rather than the chokepoint's
   // `permission-denied` because the member holds the permission and the remedy is different —

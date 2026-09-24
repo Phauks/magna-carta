@@ -20,7 +20,22 @@
    * ending closes it for everybody and is the host's alone, so it is asked for behind the one panel
    * the product asks acts in. Only one of the two wears the loud register, because a band with two
    * red controls tells a reader nothing about which one is the dangerous one.
+   *
+   * THE EFFECTS PANEL DRAWS NO CONTROL THAT CANNOT ACT. What a browser can do to somebody's sound
+   * and picture is read off their own tracks, so the panel is built from that reading: a background
+   * the product may blur is offered as two rows; one the machine decides, or one this browser cannot
+   * blur at all, is a single line saying so rather than a disabled toggle promising something that
+   * will not happen here. It is a POPOVER, like the connection and chat panels beside it, rather than
+   * a menu: what it holds is a switch, two choice rows and a failure band, none of which is a menu
+   * item, and a menu role over them would announce a list of commands that is not there.
+   *
+   * THE POLLS AND Q&A CONTROLS CARRY THEIR OWN COUNTS, on the lobby's argument: a poll nobody has
+   * answered and a question nobody has taken are both things a member learns about by SEEING a number
+   * on a control they were not looking at, never by opening a panel to check.
    */
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
+  import MessageCircleQuestionMark from "@lucide/svelte/icons/message-circle-question-mark";
+  import Vote from "@lucide/svelte/icons/vote";
   import DoorClosed from "@lucide/svelte/icons/door-closed";
   import DoorOpen from "@lucide/svelte/icons/door-open";
   import Focus from "@lucide/svelte/icons/focus";
@@ -39,12 +54,25 @@
   import VideoOff from "@lucide/svelte/icons/video-off";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import ChoiceRow from "@magna-carta/design-system/choice-row";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import FailureBand from "@magna-carta/design-system/failure-band";
+  import Label from "@magna-carta/design-system/label";
+  import * as Popover from "@magna-carta/design-system/popover";
+  import Switch from "@magna-carta/design-system/switch";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { MeetingLobbyMode, MeetingMedium } from "@magna-carta/meeting-protocol/types";
+  import {
+    audioTreatmentStatement,
+    BLUR_UNAVAILABLE_STATEMENT,
+    DEFAULT_EFFECT_SETTINGS,
+    platformBlurStatement,
+    type AppliedEffects,
+    type MediaEffectSettings,
+  } from "$lib/meetings/client/media-effects.ts";
   import type { Snippet } from "svelte";
 
   let {
@@ -62,6 +90,10 @@
     waitingCount = 0,
     spotlighted = false,
     subtitle = {},
+    appliedEffects = null,
+    effectSettings = DEFAULT_EFFECT_SETTINGS,
+    pollsWaiting = 0,
+    questionsWaiting = 0,
     onToggleMicrophone,
     onToggleCamera,
     onToggleSharing,
@@ -75,6 +107,9 @@
     onOpenLobby,
     onClearSpotlight,
     onOpenHosts,
+    onChangeEffects,
+    onOpenPolls,
+    onOpenQuestions,
     onLeave,
     onEnd,
     connection,
@@ -125,6 +160,25 @@
     spotlighted?: boolean;
     /** Which meeting is being ended, for the confirmation panel to name. */
     subtitle?: RecordSubject;
+    /**
+     * What this browser's tracks report about their own treatment, once something is captured.
+     * Null before a capture — and then there is nothing to treat, so the Effects control is not
+     * drawn at all rather than drawn over a panel with nothing in it that could act.
+     */
+    appliedEffects?: AppliedEffects | null;
+    /**
+     * What the member asked for. Read only where the track does not say: the switch's position is
+     * the track's answer wherever the track gives one, because a browser may decline a treatment
+     * and the member has to see that it did.
+     */
+    effectSettings?: MediaEffectSettings;
+    /**
+     * How many open polls this member has not answered. On the Polls control, for the lobby's
+     * reason: a poll nobody sees is a poll nobody answers.
+     */
+    pollsWaiting?: number;
+    /** How many questions are still waiting for an answer. On the Q&A control, for the same reason. */
+    questionsWaiting?: number;
     onToggleMicrophone: () => void;
     onToggleCamera: () => void;
     onToggleSharing: () => void;
@@ -162,6 +216,15 @@
     /** Open the panel naming who is running this meeting. */
     onOpenHosts?: () => void;
     /**
+     * Change what is done to this member's own sound and picture. The room screen remembers the
+     * choice and hands it to the client, which asks the tracks and reads back what they did.
+     */
+    onChangeEffects?: (settings: MediaEffectSettings) => void;
+    /** Open the polls. Absent where the room screen offers no polls panel. */
+    onOpenPolls?: () => void;
+    /** Open the question queue. Absent where the room screen offers no queue. */
+    onOpenQuestions?: () => void;
+    /**
      * The connection control, which the room screen supplies because the panel behind it is built
      * from what the room's own diagnostics hold. The band owns WHERE it sits; the control owns what
      * it says and what it opens.
@@ -191,7 +254,103 @@
   const endLabel = $derived(medium === "audio" ? "End Call" : "End Meeting");
   /** The word the confirmation uses for the room itself, for the same reason. */
   const roomNoun = $derived(medium === "audio" ? "call" : "meeting");
+
+  /**
+   * Where the noise switch stands: what the TRACK says, and what was asked only where the track does
+   * not say. A browser can decline a treatment, and a switch that showed the preference would tell a
+   * member their sound is cleaned up when it is not.
+   */
+  const reducingNoise = $derived(
+    appliedEffects?.audio.noiseSuppression ?? effectSettings.reduceNoise,
+  );
+
+  function chooseBackground(background: MediaEffectSettings["background"]): void {
+    if (appliedEffects === null) return;
+    const current = appliedEffects.blur === "on" ? "blur" : "none";
+    if (background === current) return;
+    onChangeEffects?.({ ...effectSettings, background });
+  }
+
+  function chooseNoiseReduction(reduceNoise: boolean): void {
+    onChangeEffects?.({ ...effectSettings, reduceNoise });
+  }
 </script>
+
+<!--
+  What is done to this member's own sound and picture, read off their tracks. Every section draws
+  only what can act here: the background is two rows where the product may set it and one line where
+  it may not, and a call has no background section at all because it has no picture.
+-->
+{#snippet effectsControl(applied: AppliedEffects)}
+  <Popover.Root>
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <Popover.Trigger
+            {...props}
+            class={buttonClasses({ variant: "ghost", size: "icon" })}
+            aria-label="Effects"
+          >
+            <SlidersHorizontal class="size-16" aria-hidden="true" />
+          </Popover.Trigger>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content side="top">Effects</Tooltip.Content>
+    </Tooltip.Root>
+
+    <Popover.Content class="flex flex-col gap-16" style="inline-size: var(--mc-size-popover)">
+      <h2 class="text-sm font-medium">Effects</h2>
+
+      {#if medium === "video"}
+        <section class="flex flex-col gap-8" aria-labelledby="meeting-effects-background">
+          <h3 id="meeting-effects-background" class="text-xs font-medium text-text-muted">
+            Background
+          </h3>
+          {#if applied.blur === "on" || applied.blur === "off"}
+            <div class="flex flex-col gap-4">
+              <ChoiceRow
+                selected={applied.blur === "off"}
+                onclick={() => chooseBackground("none")}
+              >
+                None
+              </ChoiceRow>
+              <ChoiceRow
+                selected={applied.blur === "on"}
+                onclick={() => chooseBackground("blur")}
+              >
+                Blur
+              </ChoiceRow>
+            </div>
+          {:else if applied.blur === "platform-controlled"}
+            <p class="text-sm">{platformBlurStatement(applied.platformBlur)}</p>
+          {:else}
+            <p class="text-sm">{BLUR_UNAVAILABLE_STATEMENT}</p>
+          {/if}
+        </section>
+      {/if}
+
+      <section class="flex flex-col gap-8" aria-labelledby="meeting-effects-microphone">
+        <h3 id="meeting-effects-microphone" class="text-xs font-medium text-text-muted">
+          Microphone
+        </h3>
+        <div class="flex items-center gap-8">
+          <Switch
+            aria-labelledby="meeting-effects-noise-label"
+            bind:checked={() => reducingNoise, chooseNoiseReduction}
+          />
+          <Label id="meeting-effects-noise-label">Reduce background noise</Label>
+        </div>
+        <p class="text-xs text-text-muted">{audioTreatmentStatement(applied.audio)}</p>
+      </section>
+
+      {#if applied.refusal !== null}
+        <!-- In the panel's own band and never a toast: a toast is gone by the time somebody looks
+             back to see whether the thing they pressed happened. -->
+        <FailureBand variant="warning" title="Not Applied" message={applied.refusal} />
+      {/if}
+    </Popover.Content>
+  </Popover.Root>
+{/snippet}
 
 <div
   class="flex flex-wrap items-center gap-8"
@@ -242,7 +401,13 @@
       </Tooltip.Trigger>
       <Tooltip.Content side="top">Camera</Tooltip.Content>
     </Tooltip.Root>
+  {/if}
 
+  {#if appliedEffects !== null}
+    {@render effectsControl(appliedEffects)}
+  {/if}
+
+  {#if medium === "video"}
     <Tooltip.Root>
       <Tooltip.Trigger>
         {#snippet child({ props })}
@@ -324,6 +489,29 @@
   <!-- What is being said, beside what is being sent. It carries its own count, which is how a
        member learns something was said while they were watching the room rather than the panel. -->
   {@render chat?.()}
+
+  {#if onOpenPolls !== undefined}
+    <!-- The polls, for everybody: a member answers from here, and a host asks from here too. The
+         count is the open polls this member has not answered, so it goes the moment they answer. -->
+    <Button variant="secondary" onclick={onOpenPolls}>
+      <Vote class="size-16" aria-hidden="true" />
+      Polls
+      {#if pollsWaiting > 0}
+        <Badge variant="primary">{pollsWaiting}</Badge>
+      {/if}
+    </Button>
+  {/if}
+
+  {#if onOpenQuestions !== undefined}
+    <!-- The question queue, for everybody. The count is what is still waiting for an answer. -->
+    <Button variant="secondary" onclick={onOpenQuestions}>
+      <MessageCircleQuestionMark class="size-16" aria-hidden="true" />
+      Q&amp;A
+      {#if questionsWaiting > 0}
+        <Badge variant="primary">{questionsWaiting}</Badge>
+      {/if}
+    </Button>
+  {/if}
 
   {#if hosting && onOpenLobby !== undefined}
     <!-- THE ONE ROOM ACT THAT EARNS ITS OWN CONTROL, because it is the only one that has something

@@ -60,6 +60,14 @@ export interface MeetingRoomLoadReport {
   /** Storage get operations across the same phase. */
   readonly storageGets: number;
   /**
+   * THE SINGLE-KEY READS ONE FRAME SPENDS, per frame type — measured beside the lists because a
+   * frame that walked the roster one key at a time would pass the list bound and cost the same.
+   *
+   * The number a change to the publish path is read against: a publish is the frame that opens a
+   * routing session, so an extra read taken to open one shows up here and nowhere else.
+   */
+  readonly storageGetsPerFrameByType: Readonly<Record<string, number>>;
+  /**
    * WHAT A SECOND OF APPLAUSE COSTS EACH SOCKET, which is the coalescing claim as a number.
    *
    * Everybody in the room reacting at once is the worst fan-out shape in this subsystem: relayed one
@@ -259,12 +267,15 @@ export async function runMeetingRoomLoad(
   // which is the number the room's rule is actually about. The mean over the whole pass is kept as
   // well, because it is what the two earlier runs were reported at, but it is not what is asserted.
   const listsPerFrameByType: Record<string, number> = {};
+  const getsPerFrameByType: Record<string, number> = {};
   const measurePhase = async (frameType: string, send: () => number): Promise<void> => {
     const before = counted.lists;
+    const getsBeforePhase = counted.gets;
     const sent = send();
     framesSent += sent;
     await waitUntilQuiet(clients);
     listsPerFrameByType[frameType] = sent === 0 ? 0 : (counted.lists - before) / sent;
+    getsPerFrameByType[frameType] = sent === 0 ? 0 : (counted.gets - getsBeforePhase) / sent;
   };
 
   // ---- everybody publishes a microphone and a camera ----
@@ -359,6 +370,7 @@ export async function runMeetingRoomLoad(
     storageListsPerFrame: framesSent === 0 ? 0 : (listsAfter - listsBefore) / framesSent,
     storageListsPerFrameByType: listsPerFrameByType,
     storageGets: getsAfter - getsBefore,
+    storageGetsPerFrameByType: getsPerFrameByType,
     reactionFramesOnBusiestSocket: clients.reduce(
       (most, client) => Math.max(most, client.reactionFrames),
       0,
@@ -443,6 +455,9 @@ export function reportLine(report: MeetingRoomLoadReport): string {
       ([frameType, perFrame]) => `lists/${frameType}=${perFrame.toFixed(3)}`,
     ),
     `storageGets=${String(report.storageGets)}`,
+    ...Object.entries(report.storageGetsPerFrameByType).map(
+      ([frameType, perFrame]) => `gets/${frameType}=${perFrame.toFixed(3)}`,
+    ),
     `reactionsSent=${String(report.reactionsSent)}`,
     `reactionFramesOnBusiestSocket=${String(report.reactionFramesOnBusiestSocket)}`,
     `alarmsArmed=${String(report.alarmsArmed)}`,

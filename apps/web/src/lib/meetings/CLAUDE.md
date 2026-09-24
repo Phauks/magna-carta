@@ -33,9 +33,12 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   room that has gone quiet never lets its last speaker go.
 - `capture.ts` — what this browser captures and how it is offered: the constraints a medium calls
   for, the camera's three simulcast layers, the screen share's single one.
-- `media-effects.ts` — the stage between capture and publish. The identity today; the seam is here so
-  that a processing stage does not have to be retrofitted into every caller that reaches for
-  `localStream`.
+- `media-effects.ts` — the stage between capture and publish, reached through
+  `MeetingClientSeams.createMediaEffects`: what to capture with (the microphone's treatment asked for
+  by name, as plain booleans and never `exact`), the three-valued read-back of what the track did, the
+  blur probe, and `passThroughEffects`, the identity on the stream with that description attached. A
+  stage that throws leaves the member published unprocessed, never not at all. The member's choice is
+  `meeting-effects-preference.svelte.ts` beside this directory, kept per browser.
 - `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
   reader for what the room says about itself, and the two sentences a member reads when a host acts on
   them. A concern is a module, so none of it is a set of fields on the client.
@@ -72,11 +75,20 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   instead, and the pure sort that puts a host's queue in the order the hands went up. The DWELL is a
   client constant because only the browser reads it, and it reaches the design system's motion
   recipe as `--mc-reaction-dwell` rather than being written down a second time in CSS.
+- `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
+  rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`), with a fifteen-second
+  backstop read. A poll's counts only ever grow, so the two doors are merged by keeping the larger; the
+  question queue is walked whole on the record's own key and sorted here, unanswered then upvotes, so
+  it moves on a tally frame without a read. Whether THIS member answered or upvoted comes from the
+  read and their own press, never from a frame.
 
 **`screen/` — what is drawn.** `meeting-reactions.svelte` (the control-bar menu of six),
 `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
+`meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who
+answered) and `meeting-questions-panel.svelte` (the queue and the composer) are reading
+`ActionDialog`s on the lobby panel's precedent, where the design named a sheet.
 `meeting-tiles.ts` projects the client's state into tile models and
 `meeting-connection.ts` projects its diagnostics into the connection surface's models;
 `meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
@@ -93,7 +105,8 @@ things missing). All of them take models and handlers rather than the client, li
 screen component here.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
-contract, chat's three included), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
+contract, chat's three and the calls for polls and questions included, with the seams those two
+records take), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
 page), `meeting-attendance.ts` / `meeting-attendance-panel.svelte` (who was in an ended meeting,
 members and guests in one record), `meeting-guests-panel.svelte` (the host's Guests panel: who on
 the event may be sent a link, and the send, replace and withdraw acts), and
@@ -101,7 +114,11 @@ the event may be sent a link, and the send, replace and withdraw acts), and
 
 **The guest's side, outside the application:** `guest-api.ts` (the guest's own calls on the link's
 token or the arrival's grant, the host's four guest calls, the chat seams for a guest, and the one
-table of what a refused link says), `guest-arrival.svelte` (the name at the door and the device
+table of what a refused link says; every call sends `credentials: "omit"` and
+`referrerPolicy: "no-referrer"`, because the page's own address carries the link's secret),
+`guest-failure.svelte` and `guest-render-boundary.svelte` (the guest page's own crash screen: an
+Error ID, a Reload, no route and no link into the application; the root layout picks it for every
+address under `/join`), `guest-arrival.svelte` (the name at the door and the device
 check) and `guest-meeting.svelte` (the whole of a guest's page: the door, the member's waiting
 surface, and the room with the identifiers taken out). The route is `src/routes/join/[token]/`,
 outside the `(app)` group.

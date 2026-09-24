@@ -262,3 +262,69 @@ export interface MeetingChatMessage {
   readonly redactedAt: string | null;
   readonly redactedByUserId: string | null;
 }
+
+/** One option's standing on a poll: where it sits, what it says, and how many chose it. */
+export interface MeetingPollOptionStanding {
+  readonly optionId: string;
+  readonly position: number;
+  readonly label: string;
+  readonly count: number;
+}
+
+/** One option's count, as a tally frame carries it — the label is already on the poll. */
+export interface MeetingPollOptionCount {
+  readonly optionId: string;
+  readonly count: number;
+}
+
+/**
+ * ONE POLL, AS THE ROOM RELAYS A COPY OF IT — the shape `GET /api/v1/meetings/{meetingId}/polls/{pollId}`
+ * returns, less `answeredByCaller`, which is a fact about one reader and cannot ride a frame every
+ * socket receives. Restated here in plain strings for the reason the chat message is.
+ *
+ * `askedByUserId` and `closedByUserId` are NULL on a guest's copy, because a guest's socket is told
+ * nothing that names a firm user — the room builds that second payload.
+ */
+export interface MeetingPollSnapshot {
+  readonly id: string;
+  readonly meetingId: string;
+  readonly askedByUserId: string | null;
+  readonly question: string;
+  /** True when the answers are kept without names — the panel says so before the answer. */
+  readonly anonymous: boolean;
+  readonly maxChoices: number;
+  readonly openedAt: string;
+  readonly closedAt: string | null;
+  readonly closedByUserId: string | null;
+  /** Every option in `position` order, including the ones nobody chose. */
+  readonly options: readonly MeetingPollOptionStanding[];
+  /** How many took part — people, not answers. */
+  readonly respondents: number;
+}
+
+/**
+ * ONE QUESTION FROM THE QUEUE, AS THE ROOM RELAYS A COPY OF IT — the shape the question routes return,
+ * less `upvotedByCaller`, for the poll snapshot's reason. Every user identifier on it is null on a
+ * guest's copy.
+ */
+export interface MeetingQuestionSnapshot {
+  readonly id: string;
+  readonly meetingId: string;
+  readonly participantKind: string;
+  readonly participantId: string;
+  readonly userId: string | null;
+  /** Empty exactly when the question has been taken back. */
+  readonly body: string;
+  readonly askedAt: string;
+  readonly answeredAt: string | null;
+  readonly answeredByUserId: string | null;
+  readonly redactedAt: string | null;
+  readonly redactedByUserId: string | null;
+  readonly upvotes: number;
+}
+
+/** One question's count, as a tally frame carries it. */
+export interface MeetingQuestionUpvoteCount {
+  readonly questionId: string;
+  readonly upvotes: number;
+}

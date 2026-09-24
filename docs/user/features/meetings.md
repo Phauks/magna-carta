@@ -210,6 +210,70 @@ what it offers.
 instead of rising. It stays for the same four seconds, because how long it is there is part of what
 it says.
 
+## Polls and questions
+
+Two more ways for a room to talk to whoever is running it, and unlike a hand or a reaction, **both
+are kept on the meeting's record**, the way chat is. A poll is a host asking the room a question with
+set answers; a question is the room asking the host.
+
+**Polls** in the control bar opens the polls. A number on the control counts the open polls you have
+not answered yet, and when a poll opens while the panel is shut you are told once, in a short note at
+the corner of the screen, so a poll does not sit unanswered because nobody was looking at a button.
+
+Each poll is a card. Where you may choose one answer the options are a set of round buttons; where
+you may choose several they are tick boxes, and the card says how many you may pick. **Answer**
+sends your choice and stays unavailable until what you have picked is something the poll will take.
+**An answer cannot be changed**: once it is sent, the card turns into the result, one bar per option
+with how many chose it, and a line such as "12 of 30 answered". A poll a host has closed shows its
+result to everybody.
+
+**"Answers are not shown with names"** at the top of a poll means exactly that: nothing in the
+product, including what the host sees, says who chose what. It does not hide that you took part.
+The card says it before you answer, so you know what you are answering into.
+
+**Asking the room (hosts).** Whoever is running the meeting sees **New Poll** at the top of the same
+panel: the question, between two and ten answers (add and remove them as you go), whether to show
+names with answers, and how many answers each person may choose. **Open Poll** puts it in front of the
+room at once, and the result moves as people answer. Several polls can be open together. **Close
+Poll** asks first, because a closed poll takes no more answers and cannot be opened again. On a poll
+that shows names, **See Who Answered** lists each person and what they chose.
+
+**Q&A** in the control bar opens the questions. Anybody in the room can ask one from the box at the
+foot of the panel; a question holds 1,000 characters and the panel counts down what is left. The
+number on the control is how many questions are still waiting for an answer.
+
+**The queue sorts itself.** Questions nobody has answered come first, and among those, the ones with
+the most upvotes. Press the arrow beside a question to add your upvote, and press it again to take
+your upvote back; the order moves as the room votes, without you having to reopen anything.
+
+**Working the queue (hosts).** A host sees **Mark Answered** on each question, and **Mark
+Unanswered** to take the mark back if the wrong one was marked. **Redact** blanks a question and
+leaves a line where it was, the same way taking back a chat message does; a host can redact any
+question, and you can redact your own.
+
+## Sound and picture treatment
+
+**Effects** in the control bar, beside the camera, shows what your browser is doing to your sound and
+your picture before they reach anybody else. Nothing about it leaves your computer or reaches the
+meeting's record, and the room sees and hears only the result.
+
+**Reduce background noise** asks your browser to clean up your microphone: it takes out steady noise
+such as a fan or a road, and alongside it the browser cancels echo and evens out your volume. It is
+on unless you turn it off. The line under the switch says what your browser reports it is doing;
+some browsers apply these without saying so, and then the line says your browser decides this
+itself. The switch shows what the browser actually did, so if it could not do what you asked, the
+switch stays where it was and the panel says so.
+
+**Background blur** depends on your browser and your computer, and most browsers do not offer it to
+a website at all. Where yours does, the panel offers **None** and **Blur**. Where your computer
+controls blur itself (some laptops do this in their own settings), the panel tells you whether it is
+on and that it is set there. Where neither is possible, the panel says "Background blur is not
+available in this browser." In a call there is no picture, so there is no background to choose.
+
+**Your choice is remembered on this computer**, and applied every time you join a meeting from it.
+It is kept by this browser rather than on your account, because what a computer can do is a fact
+about that computer: a laptop that cannot blur should not be told you always blur.
+
 ## Large meetings
 
 A room holds up to three hundred people, and a meeting that size is read differently from a meeting
@@ -400,6 +464,10 @@ the old link stops working at once, including for anybody in the meeting on it. 
 working without sending another. Both ask first. A withdrawn link stays on the list, marked as
 withdrawn, because that somebody was invited and then was not is part of the record.
 
+**Taking somebody off the event does not take back their link.** A link already sent keeps working
+until it expires or is withdrawn, so it stays in the Guests panel under the name it was sent to,
+marked **No longer on the event**, with **Withdraw** beside it for as long as it still works.
+
 **The link on its own gets nobody into the room.** Every guest waits at the door until a host lets
 them in, whatever the waiting-room switch says. At the door you see two names for each guest: the name
 they typed, and underneath it the name the link was sent to. If a link for Acme Corporation arrives
@@ -435,12 +503,17 @@ This part is for the person outside the firm who was sent a link.
    kept by the firm as part of the meeting's record.
 
 If you leave, or your connection drops, the same link takes you back to the door until it stops
-working. If the meeting is locked when you arrive, the page says so and you can try again once the
+working. You come back to the door even if you had already been let in, and a host lets you in
+again. If the meeting is locked when you arrive, the page says so and you can try again once the
 host opens it.
 
+**A link stops working once the event's time has passed**: two hours after the event is due to
+end. If you still need to join after that, the firm can send you a new link.
+
 **When a link does not work** the page says why: it has expired, the firm has withdrawn it or sent a
-newer one, it has been used too many times, or the meeting is over. In each case ask the firm for a
-new link. A link that was forwarded to you gets you only as far as the door; the host sees the name it
+newer one, it has been used too many times, or the meeting is over. The firm can send you a new link
+in each case. If the page itself goes wrong, it says so and gives an Error ID the firm can quote;
+reload the page, or ask the firm for a new link. A link that was forwarded to you gets you only as far as the door; the host sees the name it
 was sent to beside yours and decides whether to let you in.
 
 ## Ending a meeting
@@ -491,9 +564,9 @@ room.
   want an unscheduled meeting, record the event first and start the meeting on it.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
-- **Polls and a question queue.** Asking the room a question and seeing the answers, and a queue the
-  room asks the host through, are the next piece of this feature. A raised hand is what a room has
-  until then.
+- **Background replacement, and blur where the browser does not offer it.** Blurring or replacing a
+  background on a computer whose browser cannot do it itself needs processing the product does not
+  carry yet. Until it does, Effects says plainly where blur is not available.
 
 ## Related
 

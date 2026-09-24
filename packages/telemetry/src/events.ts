@@ -340,6 +340,43 @@ export const meetingRoomMessageRelayed = defineEvent("meetings.room.messageRelay
 ] as const);
 
 /**
+ * A poll's copy carried to the people in the room: opened, closed, or a second's tallies.
+ *
+ * The route is the record here exactly as it is for chat, so what is worth recording is whether the
+ * copy reached anybody (`recipientCount`) and, for a tally, how many polls one flush covered
+ * (`pollCount`) — the number that says whether the per-second bucket is earning its place. `act` is
+ * `opened`, `closed` or `tally`.
+ *
+ * THERE IS NO FIELD FOR THE QUESTION, AN OPTION, A COUNT PER OPTION OR THE POLL'S HANDLE, and there
+ * will not be one: the question and the labels are content the firm's own record holds under the
+ * matter's retention, and a per-option count on a poll that does not show names is one join away
+ * from the thing that promise withholds.
+ */
+export const meetingRoomPollRelayed = defineEvent("meetings.room.pollRelayed", [
+  "firmId",
+  "meetingId",
+  "act",
+  "recipientCount",
+  "pollCount",
+] as const);
+
+/**
+ * A question's copy carried to the people in the room: asked, its state changed, or a second's
+ * upvote counts.
+ *
+ * On the chat event's terms: the socket count, and for a tally how many questions one flush covered
+ * (`questionCount`). `act` is `asked`, `updated` or `tally`. No field for the body, the asker or the
+ * question's handle — what somebody asked the room is the transcript's to hold.
+ */
+export const meetingRoomQuestionRelayed = defineEvent("meetings.room.questionRelayed", [
+  "firmId",
+  "meetingId",
+  "act",
+  "recipientCount",
+  "questionCount",
+] as const);
+
+/**
  * A frame the room would not act on.
  *
  * The reason is the protocol's own closed vocabulary and the Error ID is the handle the member is
@@ -555,6 +592,8 @@ export const EVENT_NAMES = [
   meetingRoomPresenceRelayed,
   meetingRoomReactionsRelayed,
   meetingRoomMessageRelayed,
+  meetingRoomPollRelayed,
+  meetingRoomQuestionRelayed,
   meetingRoomRefused,
   meetingRoomSocketLost,
   meetingRoomSwept,

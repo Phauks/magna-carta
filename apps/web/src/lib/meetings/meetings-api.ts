@@ -13,6 +13,9 @@
  */
 import {
   meetingsAdmitToLobby,
+  meetingsAnswerPoll,
+  meetingsAskQuestion,
+  meetingsClosePoll,
   meetingsDenyFromLobby,
   meetingsEnd,
   meetingsGrantHosting,
@@ -20,14 +23,22 @@ import {
   meetingsJoin,
   meetingsLeave,
   meetingsListMessages,
+  meetingsListPollAnswers,
+  meetingsListPolls,
+  meetingsListQuestions,
   meetingsLobby,
+  meetingsOpenPoll,
   meetingsRedactMessage,
+  meetingsRedactQuestion,
   meetingsRemoveParticipant,
   meetingsRevokeHosting,
   meetingsSendMessage,
   meetingsSetLobby,
   meetingsSetLocked,
+  meetingsSetQuestionAnswered,
   meetingsStart,
+  meetingsUpvoteQuestion,
+  meetingsWithdrawQuestionUpvote,
   type JoinedMeeting,
   type MeetingAcknowledged,
   type MeetingHostGrant,
@@ -37,12 +48,28 @@ import {
   type MeetingLobbyEntry,
   type MeetingMessage,
   type MeetingMessagePage,
+  type MeetingPoll,
+  type MeetingPollAnswer,
+  type MeetingQuestion,
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
 import type { MeetingHostRole, MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "./meeting-client.svelte.ts";
 import type { Failure } from "$lib/api/problem.ts";
+import type {
+  MeetingPollAnswerPageView,
+  MeetingPollAnswerView,
+  MeetingPollDraft,
+  MeetingPollPageView,
+  MeetingPollSeams,
+  MeetingPollView,
+} from "./client/polls.svelte.ts";
+import type {
+  MeetingQuestionPageView,
+  MeetingQuestionSeams,
+  MeetingQuestionView,
+} from "./client/questions.svelte.ts";
 
 /** What a write answered: the value, or the record a failure surface renders from. */
 export type MeetingWrite<T> =
@@ -410,6 +437,300 @@ export function redactMeetingMessage(
       throwOnError: true,
     }),
   );
+}
+
+/*
+ * WHAT A HOST ASKS THE ROOM, AND WHAT THE ROOM ASKS A HOST: the meeting's second and third stored
+ * content, on chat's own terms.
+ *
+ * Every act is a route and never a frame. The room relays a copy of each committed row so three
+ * hundred browsers learn of it at once, but a write that went through the socket would put a firm's
+ * record in a Durable Object's transient storage, which empties when the room does. The pages are
+ * turned into the shapes the panels draw here, beside the calls, so the panels never learn the
+ * contract's field names and a rename there is one edit here.
+ */
+
+/** A poll as the contract states it, in the shape the polls panel draws. */
+function pollView(poll: MeetingPoll): MeetingPollView {
+  return {
+    pollId: poll.id,
+    question: poll.question,
+    anonymous: poll.anonymous,
+    maxChoices: poll.maxChoices,
+    openedAt: poll.openedAt,
+    closedAt: poll.closedAt,
+    options: poll.options
+      .map((option) => ({
+        optionId: option.optionId,
+        position: option.position,
+        label: option.label,
+        count: option.count,
+      }))
+      .toSorted((first, second) => first.position - second.position),
+    respondents: poll.respondents,
+    answered: poll.answeredByCaller,
+  };
+}
+
+function pollAnswerView(answer: MeetingPollAnswer): MeetingPollAnswerView {
+  return {
+    participantId: answer.participantId,
+    participantKind: answer.participantKind,
+    userId: answer.userId,
+    answeredAt: answer.answeredAt,
+    optionIds: answer.optionIds,
+  };
+}
+
+/** A question as the contract states it, in the shape the queue draws. */
+function questionView(question: MeetingQuestion): MeetingQuestionView {
+  return {
+    questionId: question.id,
+    participantId: question.participantId,
+    participantKind: question.participantKind,
+    userId: question.userId,
+    body: question.body,
+    askedAt: question.askedAt,
+    answeredAt: question.answeredAt,
+    redactedAt: question.redactedAt,
+    upvotes: question.upvotes,
+    upvotedByMe: question.upvotedByCaller,
+  };
+}
+
+/**
+ * Ask the room a closed question. A host act: the key to host meetings AND a grant on this one.
+ *
+ * The poll is open from the instant it is written — there is no draft, because a poll row exists
+ * only where somebody was actually asked.
+ */
+export function openMeetingPoll(
+  meetingId: string,
+  draft: MeetingPollDraft,
+): Promise<MeetingWrite<MeetingPollView>> {
+  return write(async () => {
+    const { data } = await meetingsOpenPoll({
+      path: { meetingId },
+      body: {
+        question: draft.question,
+        options: [...draft.options],
+        anonymous: draft.anonymous,
+        maxChoices: draft.maxChoices,
+      },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: pollView(data) };
+  });
+}
+
+/** One page of this meeting's polls, newest first, each with its tally and the caller's standing. */
+export function readMeetingPolls(
+  meetingId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingPollPageView>> {
+  return write(async () => {
+    const { data } = await meetingsListPolls({
+      path: { meetingId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    });
+    return { data: { polls: data.data.map(pollView), nextCursor: data.nextCursor } };
+  });
+}
+
+/** Close a poll. It cannot be undone, and a closed poll refuses answers. A host act. */
+export function closeMeetingPoll(
+  meetingId: string,
+  pollId: string,
+): Promise<MeetingWrite<MeetingPollView>> {
+  return write(async () => {
+    const { data } = await meetingsClosePoll({
+      path: { meetingId, pollId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: pollView(data) };
+  });
+}
+
+/**
+ * Answer a poll from this member's open stay. Being in the room is the whole of the permission, and
+ * an answer cannot be changed: a second is refused rather than replacing the first.
+ */
+export function answerMeetingPoll(
+  meetingId: string,
+  pollId: string,
+  optionIds: readonly string[],
+): Promise<MeetingWrite<MeetingPollView>> {
+  return write(async () => {
+    const { data } = await meetingsAnswerPoll({
+      path: { meetingId, pollId },
+      body: { optionIds: [...optionIds] },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: pollView(data) };
+  });
+}
+
+/**
+ * Who answered what, on a poll that shows names. A host read, refused on a poll that does not —
+ * rather than answered with an empty page, which would read as nobody having answered.
+ */
+export function readMeetingPollAnswers(
+  meetingId: string,
+  pollId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingPollAnswerPageView>> {
+  return write(async () => {
+    const { data } = await meetingsListPollAnswers({
+      path: { meetingId, pollId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    });
+    return { data: { answers: data.data.map(pollAnswerView), nextCursor: data.nextCursor } };
+  });
+}
+
+/** Put a question to the room from this member's open stay. */
+export function askMeetingQuestion(
+  meetingId: string,
+  body: string,
+): Promise<MeetingWrite<MeetingQuestionView>> {
+  return write(async () => {
+    const { data } = await meetingsAskQuestion({
+      path: { meetingId },
+      body: { body },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: questionView(data) };
+  });
+}
+
+/**
+ * One page of the queue, oldest first on the record's own stable key. The panel sorts what it holds;
+ * a cursor walking a count that changes while it pages would repeat rows and skip rows.
+ */
+export function readMeetingQuestions(
+  meetingId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingQuestionPageView>> {
+  return write(async () => {
+    const { data } = await meetingsListQuestions({
+      path: { meetingId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    });
+    return { data: { questions: data.data.map(questionView), nextCursor: data.nextCursor } };
+  });
+}
+
+/** Upvote a question: one per stay, and asking twice is the same upvote. */
+export function upvoteMeetingQuestion(
+  meetingId: string,
+  questionId: string,
+): Promise<MeetingWrite<MeetingQuestionView>> {
+  return write(async () => {
+    const { data } = await meetingsUpvoteQuestion({
+      path: { meetingId, questionId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: questionView(data) };
+  });
+}
+
+/** Take an upvote back. An upvote that could not be taken back would be a vote, not a signal. */
+export function withdrawMeetingQuestionUpvote(
+  meetingId: string,
+  questionId: string,
+): Promise<MeetingWrite<MeetingQuestionView>> {
+  return write(async () => {
+    const { data } = await meetingsWithdrawQuestionUpvote({
+      path: { meetingId, questionId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: questionView(data) };
+  });
+}
+
+/**
+ * Mark a question answered, or take the mark back. A boolean rather than a one-way act, because a
+ * host working a queue fast marks the wrong row, and the record must not keep saying a question was
+ * answered when it was not.
+ */
+export function markMeetingQuestionAnswered(
+  meetingId: string,
+  questionId: string,
+  answered: boolean,
+): Promise<MeetingWrite<MeetingQuestionView>> {
+  return write(async () => {
+    const { data } = await meetingsSetQuestionAnswered({
+      path: { meetingId, questionId },
+      body: { answered },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: questionView(data) };
+  });
+}
+
+/**
+ * Take a question back: the body is blanked and the row stays. The author may take back their own,
+ * and somebody hosting may take back any, on chat's own rule.
+ */
+export function redactMeetingQuestion(
+  meetingId: string,
+  questionId: string,
+): Promise<MeetingWrite<MeetingQuestionView>> {
+  return write(async () => {
+    const { data } = await meetingsRedactQuestion({
+      path: { meetingId, questionId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    });
+    return { data: questionView(data) };
+  });
+}
+
+/** Start ticking, and answer with the way to stop. The one timer the two records share. */
+function every(milliseconds: number, tick: () => void): () => void {
+  const ticking = setInterval(tick, milliseconds);
+  return () => clearInterval(ticking);
+}
+
+/**
+ * The polls' seams as the app supplies them.
+ *
+ * The meeting arrives as an accessor rather than a value because the room screen is reused across
+ * an address change, and a meeting captured when the module was built would read the last room's.
+ */
+export function meetingPollSeams(meetingId: () => string): MeetingPollSeams {
+  return {
+    list: (cursor) => readMeetingPolls(meetingId(), cursor),
+    open: (draft) => openMeetingPoll(meetingId(), draft),
+    answer: (pollId, optionIds) => answerMeetingPoll(meetingId(), pollId, optionIds),
+    close: (pollId) => closeMeetingPoll(meetingId(), pollId),
+    answers: (pollId, cursor) => readMeetingPollAnswers(meetingId(), pollId, cursor),
+    every,
+  };
+}
+
+/** The question queue's seams as the app supplies them, on the same terms. */
+export function meetingQuestionSeams(meetingId: () => string): MeetingQuestionSeams {
+  return {
+    list: (cursor) => readMeetingQuestions(meetingId(), cursor),
+    ask: (body) => askMeetingQuestion(meetingId(), body),
+    upvote: (questionId) => upvoteMeetingQuestion(meetingId(), questionId),
+    withdrawUpvote: (questionId) => withdrawMeetingQuestionUpvote(meetingId(), questionId),
+    markAnswered: (questionId, answered) =>
+      markMeetingQuestionAnswered(meetingId(), questionId, answered),
+    redact: (questionId) => redactMeetingQuestion(meetingId(), questionId),
+    every,
+  };
 }
 
 /**

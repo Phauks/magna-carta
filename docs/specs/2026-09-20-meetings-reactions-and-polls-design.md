@@ -472,3 +472,33 @@ Web:
 - `apps/web/src/routes/(app)/meetings/[id]/+page.svelte` — the two sheets and the toast
 - `apps/web/test/meeting-polls.test.ts`, `meeting-questions.test.ts` (new), `meeting-room-page.test.ts`
 - `docs/user/features/meetings.md` — polls and the question queue
+
+---
+
+## 22b. Amendments taken during the build of slice two (2026-09-24)
+
+Each is named where the built thing differs from sections 11 to 22. The frames and the routes are the contract the web half builds against in parallel, so those come first.
+
+**Two rulings from later designs are carried in while the migration is unlanded.** Every `participant_kind` CHECK on `meeting_poll_respondent`, `meeting_poll_answer`, `meeting_question` and `meeting_question_upvote` accepts `'member'`, `'guest'` **and `'attendee'`** — the webinar audience the webinars design adds a stay table for — with `participant_id` by value and no foreign key, on `meeting_message`'s precedent. And `meeting_poll` and `meeting_question` each carry a nullable **`breakout_id` by value**, null for the main room, so the breakout-rooms design can scope them without a rebuild. Both are free now and a table rebuild later. The domain names the three-kind vocabulary `MEETING_CONTRIBUTOR_KINDS`, separate from `MEETING_PARTICIPANT_KINDS`, because the chat CHECK and the roster still carry two. Nothing writes `attendee` yet.
+
+**The frames carry the snapshot nested, in the read's own shape.** Section 17 listed flat fields with `pollId`. The built frames are `poll-opened { poll }` and `question-asked { question }` / `question-updated { question }`, where `poll` and `question` are exactly what the read returns (`MeetingPollSnapshot`, `MeetingQuestionSnapshot` in `packages/meeting-protocol/src/types.ts`) less the one field about a single reader (`answeredByCaller`, `upvotedByCaller`) — so a browser applies the frame and the read with one code path, the chat message's argument. `poll-closed { pollId, closedAt, counts, respondents }`, `poll-tally { pollId, counts, respondents, at }` and `question-tally { questions: [{ questionId, upvotes }], at }` are flat; `counts` is `[{ optionId, count }]` in `position` order including zeros. A guest's socket receives every one of the six with its user identifiers null.
+
+**One participation per MEMBER, not per stay.** Section 12's respondent index holds one per stay, and on its own that lets somebody leave, rejoin as a new stay and answer again — a tally moved by walking out and back in. The respondent insert therefore also carries, in its own guarded `WHERE`, that none of this member's stays in the meeting has answered; the upvote insert does the same. The unique indexes still stand behind both for the instant the guard cannot see.
+
+**The answer's option is a composite foreign key.** Section 12 wrote `option_id -> meeting_poll_option.id`, which an answer naming another poll's option satisfies. The built answer names the pair `(poll_id, option_id)` against a unique index on the option table's `(poll_id, id)`, which is what makes section 20's "an answer to another poll's option fails at the foreign key" true.
+
+**The tally is read by the route after the commit, not produced by the batch.** Section 17 has the answer's own batch produce the counts. The effect-batch seam hands back no statement results, so the route reads the tally — one indexed aggregate, bounded by the room — after the commit, stamping the instant BEFORE the read; the room's bucket keeps the tally with the latest instant, so two routes reaching the room in the other order from the one they committed in cannot move a count backwards.
+
+**The per-second bucket is extracted, shares the reactions' storage key, and is not opened in an empty room.** `room/room-coalescing.ts` holds it now, with the reactions summed and the two tallies replaced. It is the same storage key the reactions bucket had, so the alarm's reconciliation still pays one `get` and the operator's read still names the pending flush. `room-lifecycle.ts` is unchanged and still calls `flushReactions` and `reactionFlushDeadlineOf` in `room-reactions.ts`, which now cover the whole bucket; `meetings.room.alarmRan`'s `reactionsFlushed` still counts reactions only, and a flush of tallies is recorded under `meetings.room.pollRelayed` and `meetings.room.questionRelayed`. **Open:** renaming those two entry points and giving the alarm's event a tally count is a change to `room-lifecycle.ts` and `room-diagnostics.ts` together.
+
+**Redaction's "host" is the grant.** Section 16 says "host or the author" on chat's rule, and chat asks the permission key. The built redaction asks for a live grant on this meeting, like every other host act in these two slices.
+
+**Audit events, and what they carry.** `meetings.question.upvoteWithdrawn` is added beside section 18's seven, because withdrawal is its own route. `meetings.question.answered` carries `answered: true | false` for marking and unmarking, one event name with a label rather than two. `meetings.poll.opened` carries the poll's shape — `optionCount`, `maxChoices`, `anonymous` — and `meetings.question.asked` the body's length; `meetings.poll.answered` carries the poll, the stay and the instant and not how many options were chosen, since on a "choose up to three" poll the count alone narrows the choice.
+
+**A retry is answered without the words.** The idempotency record's stored body — served verbatim to a retry — holds a poll with its question and labels empty and a question with its body empty, on the chat route's rule.
+
+**`meeting-poll-invalid` names the field twice**: at the head of `detail` (`question: …`) and as the path of one entry in the problem's `errors`. It also covers an answer's choices (`optionIds`).
+
+**The question list's `nextCursor` is null on the last page**, the ordinary envelope, rather than the chat transcript's always-a-position; a panel following the queue sends `since` with `sinceId`. There is no redacted-since list beside the page: the room relays `question-updated`, and a panel that reconnects re-reads a queue bounded at five pages.
+
+**Member routes only.** Every table names a guest's stay, and the guest lane for answering a poll and asking a question is not built.

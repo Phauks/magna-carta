@@ -3934,5 +3934,309 @@ describe("a guest in the room — somebody from outside the firm, on a link", ()
     expect(lastFrame(guest, "refused")).toMatchObject({ reason: "superseded" });
     // Nobody else's socket is touched.
     expect(member.closeCode()).toBeNull();
+    // AND THE TILE GOES WITH IT, at once rather than after a grace: the stay was closed, or put back
+    // at the door, by the write that called this, so whoever held it is not in the room any more.
+    await waitFor(() =>
+      (rosterOf(member)?.participants ?? []).every((one) => one.participantId !== GUEST_STAY),
+    );
+    expect((rosterOf(member)?.participants ?? []).map((one) => one.participantId)).toEqual([
+      MEMBER_STAY,
+    ]);
+    const inspected = await runInDurableObject(stub, async (_instance, state) => ({
+      participant: await state.storage.get(`participant:${GUEST_STAY}`),
+      waiting: await state.storage.get(`waiting:${GUEST_STAY}`),
+    }));
+    expect(inspected).toEqual({ participant: undefined, waiting: undefined });
+  });
+
+  it("takes a waiting guest off the door when the stay is handed to a newer arrival", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const guest = await connectGuest(stub, meetingId, { waiting: true, displayName: "Jane H." });
+    await waitFor(() => lastFrame(host, "waiting") !== undefined);
+
+    await stub.guestCredentialReplaced(GUEST_STAY);
+    await waitFor(() => guest.closeCode() !== null);
+    expect(lastFrame(guest, "refused")).toMatchObject({ reason: "superseded" });
+    // The hosts' list no longer offers to admit somebody under a name the stay no longer carries.
+    await waitFor(
+      () =>
+        (lastFrame(host, "waiting") as { participants: unknown[] } | undefined)?.participants
+          .length === 0,
+    );
+    expect(lastFrame(host, "waiting")).toMatchObject({ participants: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Polls and the question queue — six relays of rows the routes have already committed.
+// ---------------------------------------------------------------------------------------------
+
+// THE ROOM READS NOTHING FROM THE RECORD TO BUILD ANY OF THESE, and this suite is where that is
+// measured: the firm these rooms belong to has no database rows at all, so a frame the room built by
+// reading the record would come out empty. Everything below is what the routes hand the room.
+
+const POLL_ROOM_OPTIONS = [
+  { optionId: "meetingPollOption_roomTestA0", position: 0, label: "Monday", count: 0 },
+  { optionId: "meetingPollOption_roomTestB0", position: 1, label: "Tuesday", count: 0 },
+];
+
+function pollSnapshotFor(meetingId: string, pollId: string) {
+  return {
+    id: pollId,
+    meetingId,
+    askedByUserId: "user_pollRoomHost00000",
+    question: "Which date suits?",
+    anonymous: false,
+    maxChoices: 1,
+    openedAt: new Date().toISOString(),
+    closedAt: null,
+    closedByUserId: null,
+    options: POLL_ROOM_OPTIONS,
+    respondents: 0,
+  };
+}
+
+function questionSnapshotFor(meetingId: string, questionId: string) {
+  return {
+    id: questionId,
+    meetingId,
+    participantKind: "member",
+    participantId: "meetingAttendance_pollRoomAsker",
+    userId: "user_pollRoomAsker0000",
+    body: "When is the next hearing?",
+    askedAt: new Date().toISOString(),
+    answeredAt: null,
+    answeredByUserId: null,
+    redactedAt: null,
+    redactedByUserId: null,
+    upvotes: 0,
+  };
+}
+
+/** A guest's socket, opened as the guest route opens one: the kind rides the upgrade. */
+async function connectPollGuest(
+  stub: ReturnType<typeof roomStub>,
+  meetingId: string,
+  stayId: string,
+): Promise<Participant> {
+  const response = await stub.fetch(
+    new Request(
+      meetingSocketRequestUrl({
+        firmId: FIRM,
+        meetingId,
+        userId: "",
+        attendanceId: stayId,
+        displayName: "Jane Guest",
+        medium: "video",
+        hostRole: null,
+        locked: false,
+        lobby: "off",
+        waiting: false,
+        participantKind: "guest",
+        invitedName: "Jane Guest",
+      }),
+      { headers: { Upgrade: "websocket" } },
+    ),
+  );
+  const socket = response.webSocket;
+  if (socket === null || socket === undefined) throw new Error("no WebSocket on the 101");
+  const frames: Record<string, unknown>[] = [];
+  const raw: string[] = [];
+  socket.accept();
+  socket.addEventListener("message", (event) => {
+    raw.push(String(event.data));
+    frames.push(JSON.parse(String(event.data)) as Record<string, unknown>);
+  });
+  await waitFor(() => frames.length > 0);
+  return {
+    frames,
+    raw,
+    send: (data) => socket.send(data as string),
+    close: () => socket.close(1000, "test closed"),
+    closeCode: () => null,
+  };
+}
+
+describe("polls and the question queue in the room", () => {
+  it("relays a poll whole to every socket, and a guest's copy names no firm user", async () => {
+    const { meetingId, stub } = freshRoom();
+    const one = await connect(stub, meetingId, "meetingAttendance_pollOpenOne", "Member One");
+    const two = await connect(stub, meetingId, "meetingAttendance_pollOpenTwo", "Member Two");
+    const guest = await connectPollGuest(stub, meetingId, "meetingGuestStay_pollOpenGuest");
+    const poll = pollSnapshotFor(meetingId, "meetingPoll_roomOpened0000");
+
+    await stub.pollOpened(poll);
+    await waitFor(() =>
+      [one, two, guest].every((socket) => lastFrame(socket, "poll-opened") !== undefined),
+    );
+    expect(lastFrame(one, "poll-opened")).toEqual({ v: 1, type: "poll-opened", poll });
+    expect(lastFrame(two, "poll-opened")).toEqual({ v: 1, type: "poll-opened", poll });
+    expect(lastFrame(guest, "poll-opened")).toEqual({
+      v: 1,
+      type: "poll-opened",
+      poll: { ...poll, askedByUserId: null, closedByUserId: null },
+    });
+  });
+
+  it("coalesces three hundred answers in one second into ONE tally frame carrying the latest counts", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_pollTallyWatch", "Watching");
+    const pollId = "meetingPoll_roomTally00000";
+    const start = Date.now();
+    // All three hundred at once, as three hundred routes committing in the same second would reach
+    // the room: whichever order they land in, the bucket keeps the latest by the route's own instant.
+    await Promise.all(
+      Array.from({ length: 300 }, async (_unused, index) => {
+        const answered = index + 1;
+        await stub.pollAnswered(pollId, {
+          counts: [
+            { optionId: "meetingPollOption_roomTestA0", count: answered },
+            { optionId: "meetingPollOption_roomTestB0", count: 0 },
+          ],
+          respondents: answered,
+          readAt: new Date(start + answered).toISOString(),
+        });
+      }),
+    );
+    await settle();
+    // Nothing yet: the bucket is open and its second has not run.
+    expect(watching.frames.filter((frame) => frame["type"] === "poll-tally")).toHaveLength(0);
+
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    await waitFor(() => lastFrame(watching, "poll-tally") !== undefined);
+    await settle();
+    const tallies = watching.frames.filter((frame) => frame["type"] === "poll-tally");
+    expect(tallies).toHaveLength(1);
+    expect(tallies[0]).toMatchObject({
+      pollId,
+      respondents: 300,
+      counts: [
+        { optionId: "meetingPollOption_roomTestA0", count: 300 },
+        { optionId: "meetingPollOption_roomTestB0", count: 0 },
+      ],
+    });
+  });
+
+  it("keeps the latest tally by the instant the route read it, not by the order it arrived", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_pollLatest", "Watching");
+    const pollId = "meetingPoll_roomLatest0000";
+    const later = new Date().toISOString();
+    const earlier = new Date(Date.parse(later) - 50).toISOString();
+    await stub.pollAnswered(pollId, { counts: [], respondents: 5, readAt: later });
+    await stub.pollAnswered(pollId, { counts: [], respondents: 4, readAt: earlier });
+
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await waitFor(() => lastFrame(watching, "poll-tally") !== undefined);
+    expect(lastFrame(watching, "poll-tally")).toMatchObject({ respondents: 5 });
+  });
+
+  it("drops a pending tally when the poll closes, because the close carries the final count", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_pollClose", "Watching");
+    const pollId = "meetingPoll_roomClosed0000";
+    await stub.pollAnswered(pollId, {
+      counts: [{ optionId: "meetingPollOption_roomTestA0", count: 1 }],
+      respondents: 1,
+      readAt: new Date().toISOString(),
+    });
+    const closedAt = new Date().toISOString();
+    await stub.pollClosed(pollId, closedAt, {
+      counts: [{ optionId: "meetingPollOption_roomTestA0", count: 2 }],
+      respondents: 2,
+    });
+    await waitFor(() => lastFrame(watching, "poll-closed") !== undefined);
+    expect(lastFrame(watching, "poll-closed")).toEqual({
+      v: 1,
+      type: "poll-closed",
+      pollId,
+      closedAt,
+      counts: [{ optionId: "meetingPollOption_roomTestA0", count: 2 }],
+      respondents: 2,
+    });
+
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await settle();
+    expect(watching.frames.filter((frame) => frame["type"] === "poll-tally")).toHaveLength(0);
+  });
+
+  it("relays a question's new state whole, and a redacted question's copy carries an empty body", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_questionUpdate", "Watching");
+    const guest = await connectPollGuest(stub, meetingId, "meetingGuestStay_questionGuest");
+    const asked = questionSnapshotFor(meetingId, "meetingQuestion_roomUpdated00");
+    await stub.questionAsked(asked);
+    await waitFor(() => lastFrame(watching, "question-asked") !== undefined);
+    expect(lastFrame(watching, "question-asked")).toEqual({
+      v: 1,
+      type: "question-asked",
+      question: asked,
+    });
+    await waitFor(() => lastFrame(guest, "question-asked") !== undefined);
+    expect(
+      (lastFrame(guest, "question-asked") as { question: { userId: unknown } }).question.userId,
+    ).toBeNull();
+
+    const redacted = {
+      ...asked,
+      body: "",
+      redactedAt: new Date().toISOString(),
+      redactedByUserId: "user_pollRoomHost00000",
+    };
+    await stub.questionUpdated(redacted);
+    await waitFor(() => lastFrame(watching, "question-updated") !== undefined);
+    expect(lastFrame(watching, "question-updated")).toEqual({
+      v: 1,
+      type: "question-updated",
+      question: redacted,
+    });
+    expect(
+      (lastFrame(watching, "question-updated") as { question: { body: string } }).question.body,
+    ).toBe("");
+  });
+
+  it("coalesces upvotes into one question-tally frame for the whole queue", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_questionTally", "Watching");
+    const start = Date.now();
+    await Promise.all(
+      Array.from({ length: 50 }, async (_unused, index) => {
+        const upvotes = index + 1;
+        const readAt = new Date(start + upvotes).toISOString();
+        await stub.questionUpvoted("meetingQuestion_roomTallyOne0", upvotes, readAt);
+        await stub.questionUpvoted("meetingQuestion_roomTallyTwo0", upvotes * 2, readAt);
+      }),
+    );
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await waitFor(() => lastFrame(watching, "question-tally") !== undefined);
+    await settle();
+    const tallies = watching.frames.filter((frame) => frame["type"] === "question-tally");
+    expect(tallies).toHaveLength(1);
+    expect(
+      (tallies[0] as { questions: { questionId: string; upvotes: number }[] }).questions.toSorted(
+        (first, second) => (first.questionId < second.questionId ? -1 : 1),
+      ),
+    ).toEqual([
+      { questionId: "meetingQuestion_roomTallyOne0", upvotes: 50 },
+      { questionId: "meetingQuestion_roomTallyTwo0", upvotes: 100 },
+    ]);
+  });
+
+  it("opens no bucket in a room nobody is in", async () => {
+    const { stub } = freshRoom();
+    await stub.pollAnswered("meetingPoll_roomEmpty00000", {
+      counts: [],
+      respondents: 1,
+      readAt: new Date().toISOString(),
+    });
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect(await state.storage.get("reactions")).toBeUndefined();
+      expect(await state.storage.getAlarm()).toBeNull();
+    });
   });
 });

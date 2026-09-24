@@ -11,9 +11,11 @@
  * THIS FILE IS THE COMPOSITION, and the state. Every concern of a meeting lives in its own module
  * beside it — the socket and the frames (signaling.ts), the peer connection and the serialized
  * chain (negotiation.ts), what is coming in against what the plan wants (subscriptions.ts, over the
- * pure policy in subscription-policy.ts), what is captured and how it is offered (capture.ts,
- * through the effects stage in media-effects.ts), what this browser says about its own microphone
- * (presence.ts), and the door somebody may be waiting at (lobby.ts). What is HERE is the runes
+ * pure policy in subscription-policy.ts), what is captured and how it is offered (the effects stage
+ * in media-effects.ts says what to capture with, and capture.ts offers it), what this browser says
+ * about its own microphone (presence.ts), and the door somebody may be waiting at (lobby.ts). The
+ * polls and the question queue are records the screen holds (polls.svelte.ts, questions.svelte.ts);
+ * the room relays copies of them here and this file hands each one on. What is HERE is the runes
  * state a screen renders from and the wiring
  * that turns one module's answer into another's question. A new concern is a new module, not another
  * field on this class.
@@ -40,7 +42,6 @@ import type { ConnectionQuality } from "./connection-quality.ts";
 import { MeetingDiagnostics } from "./diagnostics.svelte.ts";
 import { MeetingClock } from "./meeting-clock.svelte.ts";
 import {
-  captureLocalMedia,
   captureScreenShare,
   offerCapturedTracks,
   offerMicrophoneTrack,
@@ -74,7 +75,22 @@ import {
   type MeetingWaitingPlace,
   type WaitingParticipant,
 } from "./lobby.ts";
-import type { EffectedCapture } from "./media-effects.ts";
+import {
+  DEFAULT_EFFECT_SETTINGS,
+  NO_EFFECTS,
+  passThroughEffects,
+  type AppliedEffects,
+  type EffectedCapture,
+  type MediaEffectSettings,
+  type MediaEffectsStage,
+} from "./media-effects.ts";
+import { NO_POLL_RELAY, readPoll, readPollTally, type MeetingPollRelay } from "./polls.svelte.ts";
+import {
+  NO_QUESTION_RELAY,
+  readQuestion,
+  readQuestionTally,
+  type MeetingQuestionRelay,
+} from "./questions.svelte.ts";
 import { MeetingNegotiation } from "./negotiation.ts";
 import { MeetingPresence } from "./presence.ts";
 import {
@@ -168,6 +184,8 @@ export const SUPERSEDED_REASON = "superseded";
  * inviting somebody to be told no. It is the MEETING they are barred from and not the event.
  */
 export const REMOVED_REASON = "removed";
+/** The firm withdrew the guest link this socket arrived on; nobody is barred, inviting again is the way back. */
+export const WITHDRAWN_REASON = "withdrawn";
 
 /**
  * The refusals that END this browser's meeting. Everything else the room refuses is a setback: it
@@ -277,6 +295,14 @@ export interface MeetingJoinRequest {
    * because the queue's own frames arrive on it and giving up is a frame sent along it.
    */
   readonly waiting?: boolean;
+  /**
+   * What this member chose for their own sound and picture, as this browser remembers it. Left out,
+   * it is the default: no background treatment, and the browser's noise reduction on.
+   *
+   * It rides the join because it is applied at every capture, and a rejoin is a capture: somebody who
+   * blurred once is blurred every time on this machine without opening the panel again.
+   */
+  readonly effects?: MediaEffectSettings;
 }
 
 /**
@@ -295,6 +321,14 @@ export interface MeetingClientSeams {
    * browser's own microphone: who else is talking is a fact the room relays.
    */
   createAudioLevelMeter: (track: MediaStreamTrack) => AudioLevelMeter;
+  /**
+   * The stage between capture and publish: what to capture with, and what is done to the capture
+   * before it is offered to the room.
+   *
+   * Left out, it is the pass-through with no platform question asked — which is what a fake in a test
+   * wants, and exactly what a browser gets apart from the one name the real seam looks up.
+   */
+  createMediaEffects?: () => MediaEffectsStage;
 }
 
 /** The seams as a real browser supplies them. */
@@ -306,7 +340,23 @@ export function browserMeetingSeams(): MeetingClientSeams {
     getDisplayMedia: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
     createMediaStream: () => new MediaStream(),
     createAudioLevelMeter: (track) => createBrowserAudioLevelMeter(track),
+    // The one question about the platform the stage needs answered: whether this browser knows the
+    // name `voiceIsolation` at all. Asked here because this is the one function in the client that
+    // may touch `navigator`.
+    createMediaEffects: () => passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
   };
+}
+
+/**
+ * Whether this browser has heard of voice isolation. Read through `Reflect` because the typings do
+ * not list it, and answered no wherever the browser offers no list at all: a page served without a
+ * secure context has no media devices, and a question about a name must not be what stops a room
+ * from opening.
+ */
+function knowsVoiceIsolation(): boolean {
+  const devices: MediaDevices | undefined = Reflect.get(navigator, "mediaDevices");
+  if (devices === undefined || typeof devices.getSupportedConstraints !== "function") return false;
+  return Reflect.get(devices.getSupportedConstraints(), "voiceIsolation") === true;
 }
 
 /**
@@ -446,6 +496,18 @@ export class MeetingClient {
    * so a client that changed its mind would only be refused.
    */
   medium = $state<MeetingMedium>("video");
+
+  /**
+   * What this member asked for their own sound and picture. Set by the join, and by the member
+   * changing it in the Effects panel; applied at every capture.
+   */
+  effectSettings = $state<MediaEffectSettings>(DEFAULT_EFFECT_SETTINGS);
+  /**
+   * What the browser reported doing once the effects were asked for — read off the tracks, never
+   * assumed from what was asked. Null until something has been captured, which is also what tells
+   * the Effects control there is nothing yet to treat.
+   */
+  appliedEffects = $state<AppliedEffects | null>(null);
 
   /** The gallery page being shown, counted from zero. */
   page = $state(0);
@@ -630,12 +692,19 @@ export class MeetingClient {
     noteMessageFrame: () => {},
     noteMessageRedacted: () => {},
   };
+  /** Where a relayed poll goes. A no-op until the screen that holds the polls wires itself in. */
+  #polls: MeetingPollRelay = NO_POLL_RELAY;
+  /** Where a relayed question goes, on the same terms. */
+  #questions: MeetingQuestionRelay = NO_QUESTION_RELAY;
+  /** The stage every capture passes through on its way to the room. */
+  readonly #effects: MediaEffectsStage;
 
   constructor(
     seams: MeetingClientSeams,
     diagnostics: MeetingDiagnostics = new MeetingDiagnostics(),
   ) {
     this.#seams = seams;
+    this.#effects = seams.createMediaEffects?.() ?? passThroughEffects();
     this.diagnostics = diagnostics;
     this.reactions = new MeetingReactions(
       browserReactionSeams(
@@ -684,6 +753,34 @@ export class MeetingClient {
           if (messageId !== null && redactedAt !== null) {
             this.#chat.noteMessageRedacted(messageId, redactedAt);
           }
+        },
+        // The poll and the question queue are records the SCREEN holds, like the transcript: each of
+        // these is a copy of a committed row, handed on through the relay the screen wired in.
+        pollOpened: (frame) => {
+          const poll = readPoll(frame.poll);
+          if (poll !== null) this.#polls.notePollOpened(poll);
+        },
+        pollClosed: (frame) => {
+          const pollId = readString(frame, "pollId");
+          const closedAt = readString(frame, "closedAt");
+          if (pollId === null || closedAt === null) return;
+          this.#polls.notePollClosed(pollId, closedAt, readPollTally(frame));
+        },
+        pollTally: (frame) => {
+          const pollId = readString(frame, "pollId");
+          const tally = readPollTally(frame);
+          if (pollId !== null && tally !== null) this.#polls.notePollTally(pollId, tally);
+        },
+        questionAsked: (frame) => {
+          const question = readQuestion(frame.question);
+          if (question !== null) this.#questions.noteQuestionAsked(question);
+        },
+        questionUpdated: (frame) => {
+          const question = readQuestion(frame.question);
+          if (question !== null) this.#questions.noteQuestionUpdated(question);
+        },
+        questionTally: (frame) => {
+          this.#questions.noteQuestionTally(readQuestionTally(frame));
         },
         layered: (frame) => this.#handleLayered(frame),
         published: (frame) =>
@@ -747,6 +844,7 @@ export class MeetingClient {
     this.meetingId = request.meetingId;
     this.participantId = request.participantId;
     this.medium = request.medium ?? "video";
+    this.effectSettings = request.effects ?? DEFAULT_EFFECT_SETTINGS;
     // The clock starts with the meeting, because what it ages — who spoke recently — starts being
     // recorded the moment the first roster arrives.
     this.#clock.start(() => this.#subscriptions.schedule());
@@ -800,6 +898,36 @@ export class MeetingClient {
    */
   relayMessagesTo(chat: MeetingChatRelay): void {
     this.#chat = chat;
+  }
+
+  /**
+   * Let the polls and the question queue hear what the room relays.
+   *
+   * On the transcript's own terms: both are records the screen holds, written by routes and read
+   * back by pages, and the room's frames are copies of committed rows that reach three hundred
+   * browsers at once rather than on each one's next read.
+   */
+  relayPollsTo(polls: MeetingPollRelay): void {
+    this.#polls = polls;
+  }
+
+  relayQuestionsTo(questions: MeetingQuestionRelay): void {
+    this.#questions = questions;
+  }
+
+  /**
+   * Change what is done to this member's own sound and picture, without capturing again.
+   *
+   * What comes back is read off the tracks, so the panel shows what the browser did rather than what
+   * was asked; where nothing has been captured yet, the choice is held and applied at the capture.
+   */
+  async changeEffects(settings: MediaEffectSettings): Promise<void> {
+    this.effectSettings = settings;
+    const capture = this.#capture;
+    if (capture === null) return;
+    const applied = await capture.update(settings);
+    // A capture that went away while the browser was answering is not one to report on.
+    if (this.#capture === capture) this.appliedEffects = applied;
   }
 
   /**
@@ -884,15 +1012,30 @@ export class MeetingClient {
     if (this.#waitingAtTheDoor) return;
 
     const wantsPicture = this.medium === "video";
-    const captured = await captureLocalMedia(this.#seams, this.medium);
-    if (captured === null) {
+    const settings = this.effectSettings;
+    /*
+     * CAPTURE, THEN EFFECTS, THEN PUBLISH. The stage says what to capture with — the microphone's
+     * treatment asked for by name as plain booleans, never exactly, so a device that cannot give one
+     * is captured untreated rather than not at all — and whatever it hands back is what everything
+     * below treats as this browser's own stream.
+     */
+    let captured: MediaStream;
+    try {
+      captured = await this.#seams.getUserMedia(
+        this.#effects.captureConstraints(this.medium, settings),
+      );
+    } catch {
+      // A member who declined the camera is still in the room and can still see and hear
+      // everybody else, so the refusal is stated rather than thrown.
       this.captureRefusal = wantsPicture
         ? "The microphone and camera are not available in this browser."
         : "The microphone is not available in this browser.";
       return;
     }
-    const stream = captured.stream;
-    this.#capture = captured;
+    const effected = await this.#applyEffects(captured, settings);
+    const stream = effected.stream;
+    this.#capture = effected;
+    this.appliedEffects = effected.applied;
     this.localStream = stream;
     this.captureRefusal = null;
     this.microphoneOn = stream.getAudioTracks().length > 0;
@@ -924,6 +1067,36 @@ export class MeetingClient {
         })),
       });
     });
+  }
+
+  /**
+   * Put a capture through the effects stage, and never lose the capture to the stage.
+   *
+   * A STAGE THAT THROWS LEAVES THE MEMBER CAPTURING UNPROCESSED, RATHER THAN NOT AT ALL. The member
+   * agreed to be seen and heard; an effect is something extra they asked for. A processing stage
+   * failing is therefore a reason to publish the capture as it came and say the effects are not
+   * running — never a reason to stand them in the room silent and invisible.
+   */
+  async #applyEffects(
+    captured: MediaStream,
+    settings: MediaEffectSettings,
+  ): Promise<EffectedCapture> {
+    try {
+      return await this.#effects.applyEffects(captured, settings);
+    } catch {
+      const unprocessed = await passThroughEffects().applyEffects(captured, NO_EFFECTS);
+      return {
+        stream: unprocessed.stream,
+        applied: {
+          ...unprocessed.applied,
+          refusal:
+            "Your sound and picture are being sent as captured, without the effects you chose.",
+        },
+        update: (next) => unprocessed.update(next),
+        setSourceEnabled: (kind, enabled) => unprocessed.setSourceEnabled(kind, enabled),
+        close: () => unprocessed.close(),
+      };
+    }
   }
 
   /**
@@ -1650,6 +1823,7 @@ export class MeetingClient {
     this.reactions.clear();
     this.#capture?.close();
     this.#capture = null;
+    this.appliedEffects = null;
     const screen = this.screenStream;
     if (screen !== null) for (const track of screen.getTracks()) track.stop();
     this.localStream = null;
@@ -1680,6 +1854,7 @@ export class MeetingClient {
     this.participants = [];
     this.remoteStreams = new Map();
     this.remoteScreens = new Map();
+    this.appliedEffects = null;
     this.microphoneOn = true;
     this.cameraOn = true;
     this.sharing = false;

@@ -11,7 +11,7 @@ load-profile: n/a
 tested: in-progress by="Claude"
 branch: claude/focused-edison-ylxfiy
 active-work: docs/active-work/claude/focused-edison-ylxfiy.md
-next: The external guests' web half — the arrival page, the host's Guests panel and the guest mark in the lobby — on the server half already built. Then breakout rooms, and dial-in once the telephony port has an adapter
+next: Recording on the audio-only path behind the announcement and the mark, then captions and the transcript, then breakout rooms, webinars and booking pages from their designs
 link-spec: docs/specs/2026-09-18-meetings-design.md
 link-plan:
 adrs:
@@ -69,3 +69,17 @@ a union over both stay tables with one home, so a guest counts against the room'
 ceilings exactly as a member does. The room builds every frame that names a user per viewer, so a
 guest's socket never holds a firm's user identifiers. The server half is built and tested; the arrival
 page, the host's Guests panel and the guest mark in the lobby are the web half, in build beside it.
+
+Polls and the question queue are the meeting's second and third stored content, on chat's terms
+exactly: every act is a route that writes through the firm-scoped data-access layer with an audit row
+of identifiers and instants, and the room relays a copy after the commit. A poll is four tables, and
+the split is the anonymity — the answer row holds what was chosen and, on a poll that shows no names,
+nothing about who; the respondent row holds that a stay answered and nothing about what, and is the
+one home of when. Options are rows so an answer can only name one of its own poll's, which the
+database holds with a composite foreign key. One participation per member per poll, including from a
+later stay after leaving and rejoining. A question is the chat message with a second pair — answered
+by whom — and upvotes are rows so a member can see and take back their own. The two tallies ride the
+per-second bucket the reactions already had, now shared, so three hundred answers in a second is one
+frame. Every participant column accepts a webinar's attendee as well as a member and a guest, and
+every poll and question row carries a breakout room by value, both now while the migration is
+unlanded. The server half is built and tested; the panels are the web half, in build beside it.

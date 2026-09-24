@@ -165,10 +165,11 @@
 - id: meetings.polls
   name: Polls and questions
   scope: A host asks the room a question and sees the answers; a question queue the host works through.
-  status: designed
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-09-20-meetings-reactions-and-polls-design.md
-  evidence: No code; designed 2026-09-20 — four tables on chat's own terms, routes as the record with the room relaying the tallies, and an anonymous poll that splits what was chosen from who answered so the count stays honest without naming anybody. Sequenced after host controls, whose grant gates opening, closing and marking a question answered.
-  notes: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen.
+  evidence: Both halves built. The server half — six tables in packages/database/src/per-firm-schema.ts (meeting_poll, meeting_poll_option, meeting_poll_respondent, meeting_poll_answer, meeting_question, meeting_question_upvote) by one additive per-firm migration, the poll and question trios in packages/meetings, the twelve routes in apps/api-worker/src/routes/meeting-polls.ts and meeting-questions.ts, the six room frames in packages/meeting-protocol, and the relay in apps/api-worker/src/meetings/room/room-polls.ts over the per-second bucket the reactions now share (room/room-coalescing.ts). The screen is the web half, in flight. The web half — the concern in apps/web/src/lib/meetings/client/polls.svelte.ts and questions.svelte.ts, the Polls and Q&A panels in screen/meeting-polls-panel.svelte and meeting-questions-panel.svelte opened from the control bar with count badges, the six frame handlers in client/signaling.ts, and the once-only toast on the room page. Nothing yet seen in a browser.
+  notes: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen. Member routes only — a guest's stay can be named on every row, and the guest lane for answering and asking is not built.
 
 - id: meetings.whiteboard
   name: Whiteboard and annotation
@@ -197,9 +198,10 @@
 - id: meetings.backgrounds-and-noise
   name: Backgrounds and noise suppression
   scope: A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-09-20-meetings-media-effects-design.md
-  evidence: No code. The design sequences three slices: the browser's own capture constraints and the media-effects seam first, then a Rust-to-WASM segmentation path measured against a TypeScript-and-WebGL fallback, then nnnoiseless in an AudioWorklet. The research behind it is docs/research/2026-09-20-browser-media-effects.md.
+  evidence: Slice one built — apps/web/src/lib/meetings/client/media-effects.ts asks the browser for noise suppression, echo cancellation and gain control as plain booleans (never exact, so a device that cannot honour one is not a member with no microphone), reads back what the track reports as true, false or not reported, probes the platform's own background blur and draws no control that cannot act, and the MediaEffects seam sits between capture and publish with a pass-through stage; the remembered preference in meeting-effects-preference.svelte.ts and the Effects popover in the control bar. Slices two and three, the picture and the sound in Rust, are not started. The design sequences three slices: the browser's own capture constraints and the media-effects seam first, then a Rust-to-WASM segmentation path measured against a TypeScript-and-WebGL fallback, then nnnoiseless in an AudioWorklet. The research behind it is docs/research/2026-09-20-browser-media-effects.md.
   awaiting-owner: Asked only if both memory-safe segmentation runtimes miss the frame budget. Every off-the-shelf way of blurring a background in a browser — MediaPipe, ONNX Runtime Web, Transformers.js, the TensorFlow.js wasm backend — is C++ compiled to WebAssembly, which golden rule 14 says needs explicit consent. Do we adopt MediaPipe for background blur alone if the Rust and the TypeScript-and-WebGL paths both fall short, or ship without background blur and keep the audio effects, which need no such dependency? Media effects design, flag M1.
   notes: The noise-suppression half raises no such question: nnnoiseless is RNNoise's network in safe Rust, on the same Rust-to-WASM precedent the PDF, decryption, email and seven-zip cores already take.
 

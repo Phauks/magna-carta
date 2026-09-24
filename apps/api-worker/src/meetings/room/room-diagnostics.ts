@@ -9,7 +9,9 @@ import {
   meetingRoomLocked,
   meetingRoomMessageRelayed,
   meetingRoomMuted,
+  meetingRoomPollRelayed,
   meetingRoomPresenceRelayed,
+  meetingRoomQuestionRelayed,
   meetingRoomReactionsRelayed,
   meetingRoomPublished,
   meetingRoomRefused,
@@ -502,6 +504,47 @@ export async function recordMessageRelayed(
   if (where === undefined) return;
   emit(room, (logger) => {
     logger.log(meetingRoomMessageRelayed(eventContext(), { ...where, recipientCount, redaction }));
+  });
+}
+
+/**
+ * A poll's copy carried into the room — opened, closed, or a second's tallies — as the socket count
+ * and, for a tally, how many polls the flush covered. Nothing about what was asked or chosen has a
+ * field in the catalog to travel in.
+ */
+export async function recordPollRelayed(
+  room: RoomContext,
+  identity: RoomIdentity | undefined,
+  act: "opened" | "closed" | "tally",
+  recipientCount: number,
+  pollCount: number,
+): Promise<void> {
+  const where = await identityFor(room, identity);
+  if (where === undefined) return;
+  emit(room, (logger) => {
+    logger.log(
+      meetingRoomPollRelayed(eventContext(), { ...where, act, recipientCount, pollCount }),
+    );
+  });
+}
+
+/**
+ * A question's copy carried into the room — asked, its state changed, or a second's upvote counts —
+ * on the poll event's terms.
+ */
+export async function recordQuestionRelayed(
+  room: RoomContext,
+  identity: RoomIdentity | undefined,
+  act: "asked" | "updated" | "tally",
+  recipientCount: number,
+  questionCount: number,
+): Promise<void> {
+  const where = await identityFor(room, identity);
+  if (where === undefined) return;
+  emit(room, (logger) => {
+    logger.log(
+      meetingRoomQuestionRelayed(eventContext(), { ...where, act, recipientCount, questionCount }),
+    );
   });
 }
 

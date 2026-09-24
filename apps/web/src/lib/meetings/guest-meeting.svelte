@@ -44,6 +44,7 @@
     PROTOCOL_MISMATCH_REASON,
     refusalStatement,
     REMOVED_REASON,
+    WITHDRAWN_REASON,
     SUPERSEDED_REASON,
     type MeetingClientSeams,
   } from "./client/meeting-client.svelte.ts";
@@ -287,7 +288,8 @@
       client.state === "ended" ||
       reason === SUPERSEDED_REASON ||
       reason === DENIED_REASON ||
-      reason === REMOVED_REASON
+      reason === REMOVED_REASON ||
+      reason === WITHDRAWN_REASON
     ) {
       grant = null;
     }
@@ -348,6 +350,7 @@
 
   const denied = $derived(client.failureReason === DENIED_REASON);
   const removed = $derived(client.failureReason === REMOVED_REASON);
+  const withdrawn = $derived(client.failureReason === WITHDRAWN_REASON);
   const superseded = $derived(client.failureReason === SUPERSEDED_REASON);
   const outOfDate = $derived(client.failureReason === PROTOCOL_MISMATCH_REASON);
   const over = $derived(
@@ -364,7 +367,7 @@
   const inTheRoom = $derived(
     linkRefusal === null &&
       (client.state === "live" ||
-        (client.state === "failed" && !denied && !removed) ||
+        (client.state === "failed" && !denied && !removed && !withdrawn) ||
         superseded ||
         outOfDate),
   );
@@ -692,6 +695,8 @@
         {:else if denied}
           {@render refusalCard(guestRefusalNamed("meeting-not-admitted"))}
         {:else if removed}
+          {@render refusalCard(guestRefusalNamed("meeting-removed"))}
+        {:else if withdrawn}
           {@render refusalCard(guestRefusalNamed("meeting-removed"))}
         {:else if summary !== null && atTheDoor}
           <!-- The member's own waiting surface, unchanged: what somebody at the door sees does not

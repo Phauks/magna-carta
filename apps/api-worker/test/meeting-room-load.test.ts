@@ -113,6 +113,15 @@ describe("what a room of this size costs", () => {
       // And the mean is still bounded, which is what the two earlier runs were reported at.
       expect(report.storageListsPerFrame).toBeLessThanOrEqual(1);
 
+      // THE PUBLISH THAT OPENS A SESSION SPENDS THE SAME HANDFUL OF READS AS ANY OTHER. Every publish
+      // in this phase is somebody's first, so each one opens a routing session — and the session is
+      // written in the same write as the tracks rather than in one of its own after the call, which
+      // is what keeps opening sessions concurrently from costing each arrival an extra read.
+      expect(
+        report.storageGetsPerFrameByType["publish"],
+        "a publish spends more single-key reads than one frame is allowed",
+      ).toBeLessThanOrEqual(5);
+
       // A SECOND OF APPLAUSE COSTS A SOCKET ONE FRAME, whatever the size of the room. Relayed
       // individually this phase would be one frame per reactor per socket — sixteen hundred on this
       // variant and ninety thousand on the full one — arriving inside a single second.

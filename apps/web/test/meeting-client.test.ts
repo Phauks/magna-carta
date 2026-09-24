@@ -36,6 +36,16 @@ import { SYNC_LATCH_MILLISECONDS } from "$lib/meetings/client/signaling.ts";
 import { MAX_CLOSE_MIDS, MAX_SUBSCRIBE_TRACKS } from "@magna-carta/meeting-protocol/frames";
 import { meetingTiles, sharedScreenTile } from "$lib/meetings/screen/meeting-tiles.ts";
 import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
+import {
+  passThroughEffects,
+  type EffectedCapture,
+  type MediaEffectsStage,
+} from "$lib/meetings/client/media-effects.ts";
+import { MeetingPolls, type MeetingPollSeams } from "$lib/meetings/client/polls.svelte.ts";
+import {
+  MeetingQuestions,
+  type MeetingQuestionSeams,
+} from "$lib/meetings/client/questions.svelte.ts";
 
 /** Lets every queued negotiation step settle; each one is a handful of microtasks deep. */
 async function settle(remaining = 20): Promise<void> {
@@ -327,6 +337,8 @@ interface Harness {
   readonly captured: FakeStream;
   readonly displayed: FakeStream;
   readonly meter: FakeAudioLevelMeter;
+  /** Every capture the client asked for, in order, as it asked for it. */
+  readonly askedFor: MediaStreamConstraints[];
 }
 
 /**
@@ -350,6 +362,8 @@ function harness(
    * sent a welcome, so a case that passes this passes `welcomed` as false beside it.
    */
   waiting = false,
+  /** The effects stage to capture through. Left out, the client's own pass-through. */
+  effects?: MediaEffectsStage,
 ): Harness {
   const socket = new FakeSocket();
   const peerConnection = new FakePeerConnection();
@@ -363,15 +377,19 @@ function harness(
   const displayed = new FakeStream([new FakeTrack("video")]);
 
   const meter = new FakeAudioLevelMeter();
+  const askedFor: MediaStreamConstraints[] = [];
 
   const seams = {
     createPeerConnection: () => peerConnection,
     openSocket: () => socket,
-    getUserMedia: (constraints: MediaStreamConstraints) =>
-      Promise.resolve(constraints.video === false ? audioOnly : captured),
+    getUserMedia: (constraints: MediaStreamConstraints) => {
+      askedFor.push(constraints);
+      return Promise.resolve(constraints.video === false ? audioOnly : captured);
+    },
     getDisplayMedia: () => Promise.resolve(displayed),
     createMediaStream: () => new FakeStream([]),
     createAudioLevelMeter: () => meter,
+    ...(effects === undefined ? {} : { createMediaEffects: () => effects }),
   } as unknown as MeetingClientSeams;
 
   const client = new MeetingClient(seams);
@@ -394,6 +412,7 @@ function harness(
     captured: medium === "audio" ? audioOnly : captured,
     displayed,
     meter,
+    askedFor,
   };
 }
 
@@ -2500,5 +2519,283 @@ describe("who is at the door, for a host", () => {
     ]);
 
     expect(client.lobbyList).toHaveLength(1);
+  });
+});
+
+/**
+ * A stage that captures with the pass-through's constraints and does what the case says with the
+ * stream, so a case can ask what the client did with whatever the stage handed back.
+ */
+function stageThat(apply: (stream: MediaStream) => Promise<EffectedCapture>): MediaEffectsStage {
+  const passing = passThroughEffects();
+  return {
+    captureConstraints: (medium, settings) => passing.captureConstraints(medium, settings),
+    applyEffects: (stream) => apply(stream),
+  };
+}
+
+describe("capture, then effects, then publish", () => {
+  it("asks for the microphone's treatment by name, as plain booleans", async () => {
+    const { client, askedFor } = harness();
+    await client.publish();
+
+    expect(askedFor).toHaveLength(1);
+    expect(askedFor[0]?.audio).toEqual({
+      noiseSuppression: true,
+      echoCancellation: true,
+      autoGainControl: true,
+    });
+    expect(JSON.stringify(askedFor[0])).not.toContain("exact");
+  });
+
+  it("asks a call for no camera", async () => {
+    const { client, askedFor } = harness("attendance_1", "audio");
+    await client.publish();
+    expect(askedFor[0]?.video).toBe(false);
+  });
+
+  it("captures with the member's own choice where they changed it before the capture", async () => {
+    const { client, askedFor } = harness();
+    await client.changeEffects({ background: "none", reduceNoise: false });
+    await client.publish();
+    expect(askedFor[0]?.audio).toHaveProperty("noiseSuppression", false);
+  });
+
+  it("publishes what the stage handed back, not what was captured", async () => {
+    const processedAudio = new FakeTrack("audio");
+    const processedVideo = new FakeTrack("video");
+    const processed = new FakeStream([processedAudio, processedVideo]);
+    const stage = stageThat(async () => ({
+      stream: processed as unknown as MediaStream,
+      applied: {
+        audio: {
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true,
+          voiceIsolation: null,
+        },
+        blur: "on",
+        platformBlur: null,
+        refusal: null,
+      },
+      update: () => Promise.reject(new Error("not asked")),
+      setSourceEnabled: () => {},
+      close: () => {},
+    }));
+    const { client, socket, peerConnection } = harness("attendance_1", "video", true, false, stage);
+
+    await client.publish();
+
+    expect(client.localStream).toBe(processed);
+    expect(client.appliedEffects?.blur).toBe("on");
+    // The connection carries the stage's tracks: what the room is offered is what was processed.
+    expect(peerConnection.transceivers.map((transceiver) => transceiver.sender.track)).toEqual([
+      processedAudio,
+      processedVideo,
+    ]);
+    expect(socket.framesOfType("publish")).toHaveLength(1);
+  });
+
+  it("publishes the capture unprocessed where the stage throws, rather than not at all", async () => {
+    const stage = stageThat(() => Promise.reject(new Error("the stage fell over")));
+    const { client, socket, captured } = harness("attendance_1", "video", true, false, stage);
+
+    await client.publish();
+
+    expect(client.localStream).toBe(captured);
+    expect(client.captureRefusal).toBeNull();
+    expect(client.appliedEffects?.refusal).toBe(
+      "Your sound and picture are being sent as captured, without the effects you chose.",
+    );
+    expect(socket.framesOfType("publish")).toHaveLength(1);
+  });
+
+  it("asks the capture to change, and shows what the tracks said rather than what was asked", async () => {
+    const asked: unknown[] = [];
+    const reported = {
+      audio: {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+        voiceIsolation: null,
+      },
+      blur: "unavailable" as const,
+      platformBlur: null,
+      refusal: "Your browser did not change how it treats your microphone.",
+    };
+    const stage = stageThat(async (stream) => {
+      const passing = await passThroughEffects().applyEffects(stream, {
+        background: "none",
+        reduceNoise: true,
+      });
+      return {
+        ...passing,
+        stream: passing.stream,
+        applied: passing.applied,
+        update: (settings) => {
+          asked.push(settings);
+          return Promise.resolve(reported);
+        },
+      };
+    });
+    const { client } = harness("attendance_1", "video", true, false, stage);
+    await client.publish();
+
+    await client.changeEffects({ background: "none", reduceNoise: false });
+
+    expect(asked).toEqual([{ background: "none", reduceNoise: false }]);
+    expect(client.effectSettings).toEqual({ background: "none", reduceNoise: false });
+    // The track kept its noise suppression, and the panel is told so.
+    expect(client.appliedEffects).toEqual(reported);
+  });
+
+  it("lets go of what was applied when the member leaves", async () => {
+    const { client } = harness();
+    await client.publish();
+    expect(client.appliedEffects).not.toBeNull();
+
+    client.leave();
+
+    expect(client.appliedEffects).toBeNull();
+  });
+});
+
+/** A write nobody expected a case to make. */
+function refuse(): Promise<never> {
+  return Promise.reject(new Error("not asked"));
+}
+
+/** Seams for the two records that reach nothing: every read is empty and nothing is ticking. */
+function quietPollSeams(): MeetingPollSeams {
+  return {
+    list: () => Promise.resolve({ kind: "ok", value: { polls: [], nextCursor: null } }),
+    open: refuse,
+    answer: refuse,
+    close: refuse,
+    answers: refuse,
+    every: () => () => {},
+  };
+}
+
+function quietQuestionSeams(): MeetingQuestionSeams {
+  return {
+    list: () => Promise.resolve({ kind: "ok", value: { questions: [], nextCursor: null } }),
+    ask: refuse,
+    upvote: refuse,
+    withdrawUpvote: refuse,
+    markAnswered: refuse,
+    redact: refuse,
+    every: () => () => {},
+  };
+}
+
+describe("a poll and a question on the wire", () => {
+  const snapshot = {
+    id: "meetingPoll_1",
+    meetingId: "meeting_1",
+    askedByUserId: "usr_1",
+    question: "Which date works?",
+    anonymous: false,
+    maxChoices: 1,
+    openedAt: "2026-09-20T15:00:00.000Z",
+    closedAt: null,
+    closedByUserId: null,
+    options: [
+      { optionId: "meetingPollOption_2", position: 1, label: "Friday", count: 0 },
+      { optionId: "meetingPollOption_1", position: 0, label: "Thursday", count: 0 },
+    ],
+    respondents: 0,
+  };
+
+  it("hands an opened poll to the polls the screen holds, in the order the room was shown", () => {
+    const { client, socket } = harness();
+    const polls = new MeetingPolls(quietPollSeams());
+    client.relayPollsTo(polls);
+
+    socket.deliver({ v: 1, type: "poll-opened", poll: snapshot });
+
+    expect(polls.polls).toHaveLength(1);
+    expect(polls.polls[0]?.options.map((option) => option.label)).toEqual(["Thursday", "Friday"]);
+    // Nobody has been asked whether this member answered; the frame is the same for every socket.
+    expect(polls.waitingForAnswer).toBe(1);
+  });
+
+  it("moves the bars on a tally and settles them on a close", () => {
+    const { client, socket } = harness();
+    const polls = new MeetingPolls(quietPollSeams());
+    client.relayPollsTo(polls);
+    socket.deliver({ v: 1, type: "poll-opened", poll: snapshot });
+
+    socket.deliver({
+      v: 1,
+      type: "poll-tally",
+      pollId: "meetingPoll_1",
+      counts: [
+        { optionId: "meetingPollOption_1", count: 3 },
+        { optionId: "meetingPollOption_2", count: 1 },
+      ],
+      respondents: 4,
+      at: "2026-09-20T15:00:05.000Z",
+    });
+    expect(polls.polls[0]?.respondents).toBe(4);
+    expect(polls.polls[0]?.options[0]?.count).toBe(3);
+
+    socket.deliver({
+      v: 1,
+      type: "poll-closed",
+      pollId: "meetingPoll_1",
+      closedAt: "2026-09-20T15:02:00.000Z",
+      counts: [
+        { optionId: "meetingPollOption_1", count: 5 },
+        { optionId: "meetingPollOption_2", count: 2 },
+      ],
+      respondents: 7,
+    });
+    expect(polls.polls[0]?.closedAt).toBe("2026-09-20T15:02:00.000Z");
+    expect(polls.polls[0]?.respondents).toBe(7);
+    expect(polls.waitingForAnswer).toBe(0);
+  });
+
+  it("hands a question, its new state and its count to the queue the screen holds", () => {
+    const { client, socket } = harness();
+    const questions = new MeetingQuestions(quietQuestionSeams());
+    client.relayQuestionsTo(questions);
+    const question = {
+      id: "meetingQuestion_1",
+      meetingId: "meeting_1",
+      participantKind: "member",
+      participantId: "attendance_2",
+      userId: "usr_2",
+      body: "When is the filing due?",
+      askedAt: "2026-09-20T15:00:00.000Z",
+      answeredAt: null,
+      answeredByUserId: null,
+      redactedAt: null,
+      redactedByUserId: null,
+      upvotes: 0,
+    };
+
+    socket.deliver({ v: 1, type: "question-asked", question });
+    expect(questions.waiting).toBe(1);
+
+    socket.deliver({
+      v: 1,
+      type: "question-tally",
+      questions: [{ questionId: "meetingQuestion_1", upvotes: 4 }],
+      at: "2026-09-20T15:00:01.000Z",
+    });
+    expect(questions.questions[0]?.upvotes).toBe(4);
+
+    socket.deliver({
+      v: 1,
+      type: "question-updated",
+      question: {
+        ...question,
+        answeredAt: "2026-09-20T15:01:00.000Z",
+        answeredByUserId: "usr_1",
+        upvotes: 4,
+      },
+    });
+    expect(questions.waiting).toBe(0);
   });
 });

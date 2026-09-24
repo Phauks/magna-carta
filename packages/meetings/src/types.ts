@@ -109,6 +109,15 @@ export const MAX_MEETING_PARTICIPANTS = 300;
 export const MEETING_PARTICIPANT_KINDS = Object.freeze(["member", "guest"] as const);
 export type MeetingParticipantKind = (typeof MEETING_PARTICIPANT_KINDS)[number];
 
+// WHICH KIND OF STAY A POLL ANSWER, A QUESTION OR AN UPVOTE MAY COME FROM — the two above, and a
+// webinar's `attendee`, whose stay table a later slice adds. It is a separate vocabulary rather than
+// a widening of the one above because the chat message's CHECK accepts two kinds and the roster
+// draws two; the poll and question tables accept three NOW, because widening a CHECK later is a
+// rebuild of a table other tables point at, and a column added before its first writer costs
+// nothing. Nothing in this package writes `attendee` yet — every write path here writes `member`.
+export const MEETING_CONTRIBUTOR_KINDS = Object.freeze(["member", "guest", "attendee"] as const);
+export type MeetingContributorKind = (typeof MEETING_CONTRIBUTOR_KINDS)[number];
+
 /**
  * A STAY'S HANDLE, WHICHEVER TABLE IT IS IN.
  *

@@ -1005,12 +1005,13 @@ export function registerMeetingGuestRoutes(
       if (!outcome.ok) return outcome.problem;
 
       // AFTER the commit: the guest on this link, in the room or at the door, is put out — the roster,
-      // the door, the media and their socket — by the room's removal, whose refusal is the one a
-      // guest's screen treats as final. Their STAY closed `left`, so inviting them again brings them
-      // back; the socket's refusal only says this connection is over.
+      // the door, the media and their socket — the same release a rotation performs, refused
+      // `withdrawn` rather than `removed`: their STAY closed `left`, so inviting them again brings
+      // them back, and the socket's refusal says only that the firm took the link back.
       if (outcome.executed && closedStayId !== null) {
-        await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).participantRemoved(
+        await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).guestCredentialReplaced(
           closedStayId,
+          "withdrawn",
         );
       }
       return c.json(outcome.value, 200);

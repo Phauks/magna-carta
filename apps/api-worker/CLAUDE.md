@@ -144,7 +144,9 @@ which is the asymmetry `@magna-carta/notifications` exists to prevent — it wan
   client in the same commit, and update the conformance not-vacuous operation list when adding a route.
 - **A meeting guest is the one principal with no session, and it has a lane of its own.** A route
   declaring `guestLane: "invitation" | "grant"` is admitted by a signed credential in the
-  `x-meeting-guest` header (or, on the socket upgrade alone, the `guest` query parameter) INSTEAD of
+  `x-meeting-guest` header (or, on the socket upgrade alone, the `Sec-WebSocket-Protocol` pair
+  `meeting-guest, <grant>`, answered `meeting-guest` so the credential never returns in a header; the
+  `guest` query parameter is accepted there too, for a page still open from before) INSTEAD of
   the session, member-active and permission steps; the handler is handed a firm and the credential's
   names through `requireChokepointGuestGrant` and never a user id, so a member handler pointed at a
   guest route throws. Registration refuses a guest route that names a permission, is authenticated,

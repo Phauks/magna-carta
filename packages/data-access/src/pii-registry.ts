@@ -406,6 +406,78 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "who took a message back, on an append-only row: the reference is replaced at the member tombstone and never dropped, because a removal nobody can attribute is worth a fraction of one that can be",
   },
+  // Polls and the question queue — content the meeting produced, on chat's own terms. A host asked
+  // the room and the room answered; somebody put a question to the room and somebody answered it.
+  // Each is part of what the matter record says happened, so every reference takes the chat
+  // message's basis, and the three content columns are content-level residue exactly as the message
+  // body is. Every participant reference is a STAY carried by value, and a member resolves through
+  // meeting_attendance.user_id, registered above.
+  {
+    table: "meeting_poll",
+    subjectKey: "asked_by_user_id",
+    action: "retain-under-matter",
+    note: "who asked the room a question is provenance on a record of a gathering",
+  },
+  {
+    table: "meeting_poll",
+    subjectKey: "closed_by_user_id",
+    action: "retain-under-matter",
+    note: "who closed a poll, and when, closes the interval the poll stood open for",
+  },
+  {
+    table: "meeting_poll",
+    subjectKey: "question",
+    action: "retain-under-matter",
+    note: "what a host asked the room, on the line meeting_message.body sits on — content-level residue for the residue report",
+  },
+  {
+    table: "meeting_poll_option",
+    subjectKey: "label",
+    action: "retain-under-matter",
+    note: "a choice the firm put on a screen in a meeting on a matter — content-level residue for the residue report, like the question it belongs to",
+  },
+  {
+    table: "meeting_poll_respondent",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that answered is who took part and the proof they were in the room; it says nothing about what they chose",
+  },
+  {
+    table: "meeting_poll_answer",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay behind a choice on a poll that shows names; NULL on every row of a poll that does not, which is that promise kept by the row rather than a gap in this registry",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay a question was asked from is who asked it and the proof they were in the room",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "body",
+    action: "retain-under-matter",
+    note: "what somebody asked the room in a meeting on a matter, on the line meeting_message.body sits on — content-level residue for the residue report",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "answered_by_user_id",
+    action: "retain-under-matter",
+    note: "who marked a question answered is what a firm reads a queue for months later",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "redacted_by_user_id",
+    action: "pseudonymize-keep",
+    note: "who took a question back, on an append-only row — word for word with meeting_message.redacted_by_user_id: replaced at the member tombstone and never dropped",
+  },
+  {
+    table: "meeting_question_upvote",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that upvoted a question is who did it and the proof they were in the room",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and

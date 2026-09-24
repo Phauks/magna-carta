@@ -1,18 +1,20 @@
 import {
   reactionRelayFrame,
-  reactionsFrame,
   ROSTER_DELTA_THRESHOLD,
   SIGNAL_INTERVAL_MILLISECONDS,
   type MeetingReaction,
 } from "@magna-carta/meeting-protocol/frames";
+import {
+  bucketDeadlineOf,
+  COALESCE_INTERVAL_MILLISECONDS,
+  coalesce,
+  flushDueBucket,
+} from "./room-coalescing.ts";
 import { recordReactionsRelayed } from "./room-diagnostics.ts";
 import {
   broadcast,
-  deleteReactionBucket,
   putParticipant,
-  putReactionBucket,
   readParticipant,
-  readReactionBucket,
   welcomedSocketCount,
   type RoomContext,
 } from "./room-state.ts";
@@ -24,7 +26,8 @@ import {
 // belongs to rather than an omission to be filled in later. A reaction says somebody agreed with a
 // sentence four seconds ago; when the meeting ends there is nothing left anybody would ask about.
 // So there is no table, no migration, no personal-data registration and no audit row — the bucket
-// below is transient room state on exactly the terms the roster is, deleted when the meeting ends.
+// is transient room state on exactly the terms the roster is, deleted when the meeting ends. The
+// bucket itself is `room-coalescing.ts`, which the poll and question tallies share.
 // If a firm ever needs "who reacted" on the record, that is a different design and a different
 // decision, not a column added here.
 //
@@ -38,8 +41,9 @@ import {
 // A browser draws whatever arrives and divides by nothing, so this is a fact only the server reads,
 // which is the test the protocol package applies to what belongs in it. It is the same thousand
 // milliseconds as the signal window beside it and it is a different number: that one bounds what ONE
-// participant may send, and this one bounds what the ROOM says about all of them.
-export const REACTION_COALESCE_INTERVAL_MILLISECONDS = 1000;
+// participant may send, and this one bounds what the ROOM says about all of them. It is the shared
+// bucket's own interval, named here as well because the reactions are what a reader looks for.
+export const REACTION_COALESCE_INTERVAL_MILLISECONDS = COALESCE_INTERVAL_MILLISECONDS;
 
 /**
  * Claims this participant's signal slot, answering whether the act may go ahead.
@@ -122,106 +126,41 @@ export async function relayReaction(
 }
 
 /**
- * Adds one reaction to the open bucket, flushing first if its window has run.
+ * Adds one reaction to the room's per-second bucket — the shared one in `room-coalescing.ts`, which
+ * opens a window on the first fact, flushes it with the fact that arrives after it has run, and
+ * answers the deadline of a window this call opened so the caller can arm the alarm for it.
  *
- * A bucket opens on the first reaction in a window; a reaction arriving after that window has closed
- * flushes the bucket INCLUDING ITSELF and leaves none open, so the next one opens the next window.
- * A bucket with nothing after it would otherwise sit unsent, which is what the alarm is the backstop
- * for.
- *
- * Read-modify-write under the gate, because two reactions arriving together would otherwise both
- * read the same bucket and one would write the other's count away — which in a room of three hundred
- * is not a rare race but the ordinary case.
+ * A reaction is SUMMED into its name's count: each is an act, and the frame says how many happened.
  */
 async function accumulate(
   room: RoomContext,
   name: MeetingReaction,
   now: number,
 ): Promise<number | null> {
-  const outcome = await room.ctx.blockConcurrencyWhile(
-    async (): Promise<{
-      flush: Readonly<Record<string, number>> | null;
-      openedAt: number | null;
-    }> => {
-      const bucket = await readReactionBucket(room);
-      if (bucket === undefined) {
-        await putReactionBucket(room, {
-          openedAt: new Date(now).toISOString(),
-          counts: { [name]: 1 },
-        });
-        return { flush: null, openedAt: now };
-      }
-      const counts = { ...bucket.counts, [name]: (bucket.counts[name] ?? 0) + 1 };
-      const openedAt = Date.parse(bucket.openedAt);
-      // A bucket whose instant cannot be read is flushed rather than kept: it can never reach a
-      // deadline, so keeping it would hold reactions the room never sends.
-      if (!Number.isNaN(openedAt) && now - openedAt < REACTION_COALESCE_INTERVAL_MILLISECONDS) {
-        await putReactionBucket(room, { openedAt: bucket.openedAt, counts });
-        return { flush: null, openedAt: null };
-      }
-      await deleteReactionBucket(room);
-      return { flush: counts, openedAt: null };
-    },
-  );
-  if (outcome.flush !== null) {
-    await sendCounts(room, outcome.flush, now);
-    return null;
-  }
-  // The deadline this bucket is waiting on, answered rather than the bare fact that one exists — so
-  // the caller arms for a known instant rather than reconciling the whole room for a window that is
-  // a second away. The presence throttle beside it answers the same way, for the same measurement.
-  return outcome.openedAt === null
-    ? null
-    : outcome.openedAt + REACTION_COALESCE_INTERVAL_MILLISECONDS;
+  return await coalesce(room, now, (bucket) => ({
+    ...bucket,
+    counts: { ...bucket.counts, [name]: (bucket.counts[name] ?? 0) + 1 },
+  }));
 }
 
 /**
  * The bucket the alarm found waiting, sent at last — or nothing, when none was.
  *
- * Answers how many reactions the flush covered, which is the number that says whether the coalescing
- * is earning its place: one is somebody agreeing on their own, and eleven is the room applauding.
+ * THE ALARM'S ENTRY POINT FOR THE WHOLE SHARED BUCKET, named for the reactions because they are what
+ * it was built for: a flush sends the poll and question tallies the same bucket is holding too, each
+ * recorded under its own event. What it ANSWERS is the reactions alone — the count the alarm's own
+ * event records as `reactionsFlushed` — so that field keeps meaning what it says.
+ *
+ * One reaction is somebody agreeing on their own, and eleven is the room applauding.
  */
 export async function flushReactions(room: RoomContext, now: number): Promise<number> {
-  const counts = await room.ctx.blockConcurrencyWhile(
-    async (): Promise<Readonly<Record<string, number>> | null> => {
-      const bucket = await readReactionBucket(room);
-      if (bucket === undefined) return null;
-      const openedAt = Date.parse(bucket.openedAt);
-      // An unreadable instant is treated as due now rather than as a deadline that never arrives,
-      // which is how the presence flush reads its own.
-      if (!Number.isNaN(openedAt) && openedAt + REACTION_COALESCE_INTERVAL_MILLISECONDS > now) {
-        return null;
-      }
-      await deleteReactionBucket(room);
-      return bucket.counts;
-    },
-  );
-  if (counts === null) return 0;
-  return await sendCounts(room, counts, now);
-}
-
-/** When the open bucket is due to be flushed, or null when the room is holding none. */
-export async function reactionFlushDeadlineOf(room: RoomContext): Promise<number | null> {
-  const bucket = await readReactionBucket(room);
-  if (bucket === undefined) return null;
-  const openedAt = Date.parse(bucket.openedAt);
-  return Number.isNaN(openedAt) ? 0 : openedAt + REACTION_COALESCE_INTERVAL_MILLISECONDS;
+  return (await flushDueBucket(room, now)).reactions;
 }
 
 /**
- * The counts, on the wire, to EVERY socket including the people who reacted.
- *
- * A count that excluded the reader would be a different number per socket, and the room would be
- * building three hundred frames to avoid one double-count. The client draws its own glyph on its own
- * tile and the counts in the strip, so nothing is counted twice on any screen.
+ * When the room's per-second bucket is due to be flushed, or null when it is holding none — whatever
+ * kinds of fact it holds, since one flush sends all of them.
  */
-async function sendCounts(
-  room: RoomContext,
-  counts: Readonly<Record<string, number>>,
-  now: number,
-): Promise<number> {
-  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
-  broadcast(room, reactionsFrame(counts, new Date(now).toISOString()));
-  await recordReactionsRelayed(room, undefined, total, true);
-  return total;
+export async function reactionFlushDeadlineOf(room: RoomContext): Promise<number | null> {
+  return await bucketDeadlineOf(room);
 }

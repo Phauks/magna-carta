@@ -29,3 +29,11 @@ departure routes now refuse it even on an upgrade.
 **An invitation whose e-mail could not be sent is no longer remembered as sent.** Nothing is stored
 under the request's idempotency key until the mail has gone, so the host's retry sends a fresh link
 rather than replaying a success the guest never received.
+
+## Public
+
+A guest link now tells the person holding it what happened to it: a link past its time says it
+has expired, a withdrawn link says the firm withdrew it, and a link used too many times says so,
+each with the same remedy, which is to ask the firm for a new one. Somebody who opens a link while
+another person is already in the meeting on it goes to the waiting room under the name they typed,
+so the host decides who comes in. A guest whose link was withdrawn by mistake can be invited again.

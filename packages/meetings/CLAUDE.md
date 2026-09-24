@@ -258,6 +258,36 @@ redaction act. And **removal is a redaction, never a delete**:
 the body is blanked and the row stays, guarded so the batch rolls back whole, and a second removal
 produces no statements rather than moving an instant somebody's record already carries.
 
+## Polls and the question queue are content on chat's terms, and a poll's anonymity is two tables
+
+`poll-types.ts` / `poll-validation.ts` / `poll-statements.ts` / `poll-service.ts` and the same four
+for `question-*` hold the meeting's second and third stored content. Everything the chat section says
+about the audit log, the stay-by-value and the redaction holds for a question word for word; what is
+new travels in four rules.
+
+**Anonymity is held by the rows, not by a read filter.** `meeting_poll_answer` holds WHAT was chosen
+and, on a poll that shows no names, a participant pair of literal NULLs written by
+`insertAnonymousAnswerStatement`, which has no argument that could carry a stay.
+`meeting_poll_respondent` holds THAT a stay answered, and is the one home of WHEN — the answer row has
+no instant, because one would re-link it to the respondent row written beside it. The tally counts
+answers; the guard is the respondent row. No audit row carries the question, a label or which option
+was chosen, on either kind of poll.
+
+**One participation per MEMBER.** The unique indexes hold one per stay; the respondent and upvote
+inserts also carry, in their own guarded `WHERE`, that none of this member's stays in the meeting has
+already answered or upvoted — otherwise leaving and rejoining is a second vote.
+
+**An answer names its option as a pair.** `(poll_id, option_id)` references the option table's own
+unique `(poll_id, id)`, so an answer to another poll's option fails at the foreign key whoever writes
+it; `assertAnswerChoices` gives the member the reason first.
+
+**Every host act asks the grant.** Opening, closing, reading who answered what, marking a question
+answered — and the host half of taking a question back — go through `requireHostGrant` or
+`readLiveHostGrant`, never the permission key. Answering, asking and upvoting need an open stay
+(`readOpenAttendance`), as posting a message does. The participant CHECKs on all four participant
+tables accept `attendee` beside `member` and `guest` (`MEETING_CONTRIBUTOR_KINDS`), and polls and
+questions carry a nullable `breakout_id`; nothing here writes either yet.
+
 ## A guest is a second kind of stay, and every read of who was present sees both
 
 `guest-types.ts` / `guest-statements.ts` / `guest-service.ts` are the guest concern's trio, and
@@ -293,3 +323,27 @@ arrival rolls the arrival back rather than seating somebody on a dead link.
 invitation per person per meeting, and a second mint rotates that row's secret (reinstating it when
 it was withdrawn). Rotation refuses a withdrawn link, so reinstating is always the deliberate act of
 inviting again. A removal or a denial bars the link for the life of the meeting, as it bars a member.
+A reissue — rotation or mint — starts `arrival_count` again, because the count bounds a LINK and the
+old one stops working in the same statement; carried forward, a guest whose connection failed twenty
+times would be sent a fresh link that arrived already used up.
+
+**An act on the LINK never closes a stay `removed`.** `removed` and `denied` are the two departure
+labels that bar re-entry, and each is a decision about a person. Withdrawing a link, and replacing
+it, close any stay open on it `left` in the same batch, with `cause` (`link-withdrawn`,
+`link-replaced`) on the `meetings.guest.left` row and the stay's handle on the host's own row — so
+inviting the entity again brings them back instead of telling them they were removed.
+
+**An admission is never inherited.** An arrival on a stay that is already open returns THAT stay —
+the partial unique index holds one per link — but puts it back at the door under the name just
+typed (`returnGuestStayToTheDoorStatement`), because whoever pressed Join this time is not known to
+be whoever a host let in. A stay that was already waiting keeps its place; one that had been
+admitted starts a new wait and counts against the door's ceiling. The name the stay carried before,
+and who admitted it, are on the arrival's audit row, which is the one place the old name survives.
+The Worker tells the room after the commit (`guestCredentialReplaced`), which drops the old roster
+or door entry and supersedes the old socket.
+
+**The entity must still be on the event.** A link whose entity has been taken off the meeting's
+event is refused as withdrawn at the summary read and at the arrival — the host who took them off
+may never have opened the Guests panel — and the refused arrival carries its own audit row
+(`meetings.guest.arrivalRefused`) on `GuestNoLongerOnTheEventError`, which the route commits before
+answering. The summary writes nothing, because opening the link is a read.

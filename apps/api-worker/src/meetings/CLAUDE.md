@@ -32,6 +32,12 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `room/room-reactions.ts` — something thrown on a tile: the relay that names the reactor in a small
   room and the per-second bucket that counts the whole of a large one, and the ONE window a hand and
   a reaction share — the only throttle here that refuses rather than drops.
+- `room/room-coalescing.ts` — the per-second bucket the reactions and the two tallies share: a
+  frame that restates itself is coalesced into one flush a second for the whole room, keyed under
+  the reactions' storage key, flushed by the next frame with the room's alarm as backstop.
+- `room/room-polls.ts` — the six relays the poll and question routes call after their own commit:
+  a poll opened or closed whole, a question asked or updated whole, and the two tallies through the
+  shared bucket. The room stores nothing about a poll or a question; the route is the record.
 - `room/room-chat.ts` — the relay of a message the chat ROUTE has already committed, and the
   redaction of one. Two broadcasts and no storage key: the transcript is the firm's own record.
 - `room/room-media.ts` — the routing-service session opened on first use, the four acts that reach
@@ -83,6 +89,15 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   — recording, breakout rooms — adds a file under `room/` and a line of wiring, not a
   method on `MeetingRoom`. Each module takes `RoomContext` explicitly so it can be driven without the
   runtime.
+- **One exception to the instance rule: the sessions being opened.** `room-media.ts` keeps, in
+  module state keyed by the room's own state, a map from a stay to the routing-service call that is
+  opening its session. It holds work in flight and nothing else: a room cannot hibernate mid-frame,
+  a completed opening is written onto the participant record with the first publish or subscribe
+  and leaves the map, and a failed one leaves it so the next frame asks again. It exists so that
+  `blockConcurrencyWhile` is never held across a network call — three hundred arrivals used to open
+  their sessions one at a time behind one lock, and one slow upstream answer stalled every frame in
+  the room. Two frames from one stay still open exactly one session, because the first claims the
+  map before its first await and nothing is delivered to the object while a storage read is out.
 - **Nothing about a participant may live on the instance.** Class properties do not survive
   hibernation. Everything a frame needs rides on the per-socket attachment; everything the room needs
   is read back out of storage on each call, which is why `RoomContext` is built per call rather than
@@ -177,6 +192,11 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   resolved. The service has no notion of a meeting and would honour a subscription to any session in
   the fleet, which is exactly what somebody standing outside a confidential matter discussion must
   not be able to reach. The socket stays open: they are at the door, and the door may open.
+- **A guest's grant rides the socket's subprotocol, not its address.** The upgrade offers
+  `Sec-WebSocket-Protocol: meeting-guest, <grant>` and is answered `meeting-guest`, so the credential
+  is in no request line, no response header and no platform request log; the `guest` query
+  parameter is still read on that one route for a page opened before the change, and the request
+  log's fitness test asserts no field ever carries a query string.
 - **A guest's socket is told nothing that names a firm user.** The socket's KIND rides the
   attachment, set by the route that authorized it and never by the browser, and every frame that
   carries a user identifier — `welcome`, `roster`, `roster-delta`, `message` — is built per viewer

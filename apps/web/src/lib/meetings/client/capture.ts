@@ -6,17 +6,10 @@
  * the room would refuse the picture anyway (`track-kind-refused`), so asking for it would be a light
  * on somebody's laptop in exchange for nothing.
  *
- * EVERY CAPTURE PASSES THROUGH THE EFFECTS STAGE, which is the identity today. The stage is here
- * rather than added later because what it hands back is what everything downstream treats as "the
- * local stream" — see media-effects.ts for the two decisions that would otherwise be made wrong.
+ * THE MICROPHONE AND CAMERA ARE CAPTURED BY THE CLIENT ITSELF, through the constraint builder and the
+ * effects stage in media-effects.ts, because what the stage hands back is what everything downstream
+ * treats as "the local stream". This module keeps the screen capture and the offering of tracks.
  */
-import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
-import {
-  NO_EFFECTS,
-  passThroughEffects,
-  type EffectedCapture,
-  type MediaEffectsStage,
-} from "./media-effects.ts";
 import type { MeetingTrackKind } from "./signaling.ts";
 
 /**
@@ -46,32 +39,6 @@ export interface CaptureSeams {
 export interface OfferedTrack {
   readonly transceiver: RTCRtpTransceiver;
   readonly kind: MeetingTrackKind;
-}
-
-/** The browser's own effects stage. One place, so a later slice swaps it in one place. */
-export function meetingEffectsStage(): MediaEffectsStage {
-  return passThroughEffects();
-}
-
-/**
- * Capture what this room carries — the microphone and camera in a meeting, the microphone alone in
- * a call — and put it through the effects stage.
- *
- * Null where the browser would not give it: a member who declined the camera is still in the room
- * and can still see and hear everybody else, so the refusal is the caller's to state, not a throw.
- */
-export async function captureLocalMedia(
-  seams: CaptureSeams,
-  medium: MeetingMedium,
-  effects: MediaEffectsStage = meetingEffectsStage(),
-): Promise<EffectedCapture | null> {
-  let captured: MediaStream;
-  try {
-    captured = await seams.getUserMedia({ audio: true, video: medium === "video" });
-  } catch {
-    return null;
-  }
-  return await effects.applyEffects(captured, NO_EFFECTS);
 }
 
 /**

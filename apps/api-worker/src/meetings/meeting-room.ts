@@ -9,12 +9,23 @@ import type {
   MeetingChatMessage,
   MeetingHostRole,
   MeetingLobbyMode,
+  MeetingPollOptionCount,
+  MeetingPollSnapshot,
+  MeetingQuestionSnapshot,
 } from "@magna-carta/meeting-protocol/types";
 import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { relayMessage, relayMessageRedaction } from "./room/room-chat.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
+import {
+  relayPollAnswered,
+  relayPollClosed,
+  relayPollOpened,
+  relayQuestionAsked,
+  relayQuestionUpdated,
+  relayQuestionUpvoted,
+} from "./room/room-polls.ts";
 import { inspectRoom, type MeetingRoomInspection } from "./room/room-inspect.ts";
 import {
   guestCredentialReplaced,
@@ -287,8 +298,11 @@ export class MeetingRoom extends DurableObject<Bindings> {
    * is refused `superseded` and closed; the stay is left to the ordinary grace, so the person the
    * fresh mail reached can arrive on the new link and take their own place back.
    */
-  async guestCredentialReplaced(stayId: string): Promise<void> {
-    await guestCredentialReplaced(this.room, stayId);
+  async guestCredentialReplaced(
+    stayId: string,
+    reason: "superseded" | "withdrawn" = "superseded",
+  ): Promise<void> {
+    await guestCredentialReplaced(this.room, stayId, reason);
   }
 
   /**
@@ -308,6 +322,55 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** A message was taken back: every browser blanks the copy it is holding. */
   async messageRedacted(messageId: string, redactedAt: string): Promise<void> {
     await relayMessageRedaction(this.room, messageId, redactedAt);
+  }
+
+  // THE POLL AND THE QUESTION QUEUE — six relays, each called by a route AFTER its own write
+  // commits, on the chat's precedent: the route is the record, and the room stores nothing about a
+  // poll or a question beyond the second's tally it is about to send. The work is
+  // room/room-polls.ts; the two tallies go through the shared per-second bucket.
+
+  /** A host asked the room: the poll whole, to every welcomed socket. */
+  async pollOpened(poll: MeetingPollSnapshot): Promise<void> {
+    await relayPollOpened(this.room, poll);
+  }
+
+  /** A host closed a poll: the instant and the final tally. */
+  async pollClosed(
+    pollId: string,
+    closedAt: string,
+    tally: {
+      readonly counts: readonly MeetingPollOptionCount[];
+      readonly respondents: number;
+    },
+  ): Promise<void> {
+    await relayPollClosed(this.room, pollId, closedAt, tally.counts, tally.respondents);
+  }
+
+  /** Somebody answered: the tally the route read afterwards, coalesced to one frame a second. */
+  async pollAnswered(
+    pollId: string,
+    tally: {
+      readonly counts: readonly MeetingPollOptionCount[];
+      readonly respondents: number;
+      readonly readAt: string;
+    },
+  ): Promise<void> {
+    await relayPollAnswered(this.room, pollId, tally, Date.now());
+  }
+
+  /** Somebody put a question to the room: the question whole. */
+  async questionAsked(question: MeetingQuestionSnapshot): Promise<void> {
+    await relayQuestionAsked(this.room, question);
+  }
+
+  /** A question was marked answered, unmarked or taken back: its new state whole. */
+  async questionUpdated(question: MeetingQuestionSnapshot): Promise<void> {
+    await relayQuestionUpdated(this.room, question);
+  }
+
+  /** An upvote was cast or withdrawn: the count the route read, coalesced to one frame a second. */
+  async questionUpvoted(questionId: string, upvotes: number, readAt: string): Promise<void> {
+    await relayQuestionUpvoted(this.room, questionId, { upvotes, readAt }, Date.now());
   }
 
   /** The door moved. */

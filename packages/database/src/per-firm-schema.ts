@@ -1,5 +1,6 @@
 import {
   check,
+  foreignKey,
   index,
   integer,
   primaryKey,
@@ -127,6 +128,12 @@ import type {
   MeetingHostId,
   MeetingId,
   MeetingMessageId,
+  MeetingPollAnswerId,
+  MeetingPollId,
+  MeetingPollOptionId,
+  MeetingPollRespondentId,
+  MeetingQuestionId,
+  MeetingQuestionUpvoteId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -10952,6 +10959,291 @@ export const meetingMessage = sqliteTable(
     check(
       "meeting_message_participant_kind_check",
       sql`${table.participantKind} IN ('member', 'guest')`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Polls and questions — the meeting's second and third stored content, on chat's own terms.
+// ---------------------------------------------------------------------------------------------
+
+// ONE CLOSED QUESTION A HOST ASKED THE ROOM. A poll is on the record from the moment it opens — the
+// question, the options, who answered and what — because a host asked and the room answered, which
+// is a thing the meeting produced in exactly the sense a chat message is.
+//
+// THERE IS NO DRAFT. The row exists because somebody was asked, so `opened_at` is NOT NULL and is
+// set at insert. A poll authored before the meeting belongs to the event rather than to the room and
+// is a different record; a nullable instant here would be a row saying a poll happened when nobody
+// was ever asked.
+//
+// SEVERAL MAY BE OPEN AT ONCE. One at a time would need a partial unique index and would refuse the
+// ordinary case of a host stacking two questions at the end of a briefing.
+//
+// `breakout_id` names the breakout room a poll was asked in, BY VALUE and with no foreign key, and
+// is null for a poll asked of the main room — which is every poll today. It is here before the
+// breakout table exists because a column added later is free and a CHECK or a foreign key added
+// later is a rebuild of a table other tables point at, which this schema refuses.
+export const meetingPoll = sqliteTable(
+  "meeting_poll",
+  {
+    id: text("id").primaryKey().$type<MeetingPollId>(), // meetingPoll_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    // Who asked the room — a member holding a live grant at the instant it opened. A host is always a
+    // member, so this is a real foreign key where the answering side is a stay by value.
+    askedByUserId: text("asked_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // What the room was asked, bounded at five hundred characters: a question and not a brief.
+    question: text("question").notNull(),
+    // Whether the answers are kept without the participant. 0 or 1, and the promise it makes is
+    // held by the ANSWER table rather than by a read filter — see `meeting_poll_answer`.
+    anonymous: integer("anonymous", { mode: "boolean" }).notNull(),
+    // How many options one participation may name. One is an ordinary poll; more is "choose up to".
+    maxChoices: integer("max_choices").notNull().default(1),
+    openedAt: text("opened_at").notNull(), // ISO-8601 instant
+    // Closed says who closed it and when, or neither. A closed poll refuses answers.
+    closedAt: text("closed_at"), // ISO-8601 instant
+    closedByUserId: text("closed_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // The breakout room this was asked in, by value; null for the main room.
+    breakoutId: text("breakout_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // THE READ AND THE KEYSET IN ONE INDEX: one meeting's polls walked by (opened_at, id), the
+    // handle breaking the tie between two polls opened in the same millisecond.
+    index("meeting_poll_meeting_opened_index").on(table.meetingId, table.openedAt, table.id),
+    check("meeting_poll_anonymous_check", sql`${table.anonymous} IN (0, 1)`),
+    // Between one and the most options a poll may carry, since a participation can name no more
+    // options than exist.
+    check("meeting_poll_max_choices_check", sql`${table.maxChoices} BETWEEN 1 AND 10`),
+    check(
+      "meeting_poll_question_length_check",
+      sql`length(${table.question}) > 0 AND length(${table.question}) <= 500`,
+    ),
+    // A close says who closed it and when, or neither — the line meeting_ended_shape_check sits on.
+    check(
+      "meeting_poll_closed_shape_check",
+      sql`(${table.closedAt} IS NULL AND ${table.closedByUserId} IS NULL)
+        OR (${table.closedAt} IS NOT NULL AND ${table.closedByUserId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// ONE CHOICE A POLL OFFERED — a row rather than a JSON array, and that is the decision worth
+// defending. An answer must name an option that EXISTS, and a foreign key is the only thing that
+// makes an answer to the seventh option of a four-option poll impossible whoever writes it. The tally
+// is a left join from options to answers, which returns every option including the ones nobody
+// picked, in `position` order. And a label is content the firm put on a screen, registered in the
+// personal-data registry as a column a residue report can address, which a blob's insides are not.
+//
+// The options never change once a poll is open: there is deliberately no update path.
+export const meetingPollOption = sqliteTable(
+  "meeting_poll_option",
+  {
+    id: text("id").primaryKey().$type<MeetingPollOptionId>(), // meetingPollOption_ handle
+    pollId: text("poll_id")
+      .notNull()
+      .$type<MeetingPollId>()
+      .references(() => meetingPoll.id),
+    // 0-based, the order the room sees.
+    position: integer("position").notNull(),
+    // What the option says, bounded at two hundred characters.
+    label: text("label").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_poll_option_poll_position_unique_index").on(table.pollId, table.position),
+    // THE TARGET OF THE ANSWER'S COMPOSITE FOREIGN KEY. An answer names its poll and its option as
+    // a pair, and this is what the pair references — so an option belonging to ANOTHER poll fails at
+    // the database, not only in the service.
+    uniqueIndex("meeting_poll_option_poll_id_unique_index").on(table.pollId, table.id),
+    check("meeting_poll_option_position_check", sql`${table.position} BETWEEN 0 AND 9`),
+    check(
+      "meeting_poll_option_label_length_check",
+      sql`length(${table.label}) > 0 AND length(${table.label}) <= 200`,
+    ),
+  ],
+);
+
+// THAT A STAY ANSWERED, AND NOTHING ABOUT WHAT. One row per participation, which is the whole
+// ballot-stuffing guard: the unique index allows one participation per stay per poll however many
+// options `max_choices` lets it name — which is why this is a table of its own rather than a unique
+// index on the answers, where a participant choosing three legitimately has three rows.
+//
+// It is also the ONE HOME OF WHEN a poll was answered, on both kinds of poll. An instant on the
+// answer row would re-link it to this row, written in the same batch, and the anonymity split would
+// be cosmetic.
+//
+// The stay is named BY VALUE across three kinds, on meeting_message's precedent: a member's
+// `meeting_attendance`, a guest's `meeting_guest_stay`, and an `attendee` — a webinar's audience,
+// which a later slice gives a stay table of its own. The third is in the CHECK now because widening
+// a CHECK later is a rebuild of a table other tables point at.
+export const meetingPollRespondent = sqliteTable(
+  "meeting_poll_respondent",
+  {
+    id: text("id").primaryKey().$type<MeetingPollRespondentId>(), // meetingPollRespondent_ handle
+    pollId: text("poll_id")
+      .notNull()
+      .$type<MeetingPollId>()
+      .references(() => meetingPoll.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    answeredAt: text("answered_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    uniqueIndex("meeting_poll_respondent_participation_unique_index").on(
+      table.pollId,
+      table.participantKind,
+      table.participantId,
+    ),
+    check(
+      "meeting_poll_respondent_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// WHAT WAS CHOSEN, AND — ON A POLL THAT DOES NOT SHOW NAMES — NOTHING ABOUT WHO. The tally is a count
+// of these rows; who took part is `meeting_poll_respondent`; neither table can answer the other's
+// question. The participant pair is null on every row of an anonymous poll and set on every row of
+// an attributed one, held together by the CHECK, and there is deliberately no instant here — see the
+// respondent table.
+//
+// The option is named as the PAIR (poll_id, option_id) against the option table's own unique pair,
+// so an answer that names another poll's option fails at the foreign key rather than in the service.
+export const meetingPollAnswer = sqliteTable(
+  "meeting_poll_answer",
+  {
+    id: text("id").primaryKey().$type<MeetingPollAnswerId>(), // meetingPollAnswer_ handle
+    pollId: text("poll_id")
+      .notNull()
+      .$type<MeetingPollId>()
+      .references(() => meetingPoll.id),
+    optionId: text("option_id").notNull().$type<MeetingPollOptionId>(),
+    participantKind: text("participant_kind", { enum: ["member", "guest", "attendee"] }),
+    participantId: text("participant_id"),
+  },
+  (table) => [
+    foreignKey({
+      name: "meeting_poll_answer_option_fk",
+      columns: [table.pollId, table.optionId],
+      foreignColumns: [meetingPollOption.pollId, meetingPollOption.id],
+    }),
+    // The tally: one poll's answers grouped by option.
+    index("meeting_poll_answer_poll_option_index").on(table.pollId, table.optionId),
+    check(
+      "meeting_poll_answer_participant_shape_check",
+      sql`(${table.participantKind} IS NULL AND ${table.participantId} IS NULL)
+        OR (${table.participantKind} IS NOT NULL AND ${table.participantId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_poll_answer_participant_kind_check",
+      sql`${table.participantKind} IS NULL OR ${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// ONE QUESTION SOMEBODY PUT TO THE ROOM — the chat row with two pairs instead of one, on purpose. A
+// question is content said in a meeting, so it takes the redaction pair, the blanked body, the
+// append-only rule and the two CHECKs that hold them from both sides, word for word from
+// `meeting_message`; a second removal mechanism for the same kind of content would be a second answer
+// to what taking something back means. The answered pair is the same shape for the same reason — a
+// state change with no actor cannot be questioned — and it is a pair rather than a boolean because
+// "answered by whom" is what a firm asks of a queue months later.
+//
+// The asker is a stay by value, across the same three kinds the poll respondent carries, and
+// `breakout_id` is the breakout room it was asked in, by value, null for the main room.
+export const meetingQuestion = sqliteTable(
+  "meeting_question",
+  {
+    id: text("id").primaryKey().$type<MeetingQuestionId>(), // meetingQuestion_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    // What was asked, bounded at a thousand characters. Empty exactly when the row is redacted.
+    body: text("body").notNull(),
+    askedAt: text("asked_at").notNull(), // ISO-8601 instant, the server's
+    answeredAt: text("answered_at"), // ISO-8601 instant
+    answeredByUserId: text("answered_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    redactedAt: text("redacted_at"), // ISO-8601 instant
+    redactedByUserId: text("redacted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    breakoutId: text("breakout_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // The read and the keyset in one index, on the transcript's own shape: one meeting's questions
+    // walked by (asked_at, id). The panel sorts by upvotes in the browser — a cursor over a value
+    // that changes while the reader pages repeats rows and skips rows.
+    index("meeting_question_meeting_asked_index").on(table.meetingId, table.askedAt, table.id),
+    check(
+      "meeting_question_answered_shape_check",
+      sql`(${table.answeredAt} IS NULL AND ${table.answeredByUserId} IS NULL)
+        OR (${table.answeredAt} IS NOT NULL AND ${table.answeredByUserId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_question_redaction_shape_check",
+      sql`(${table.redactedAt} IS NULL AND ${table.redactedByUserId} IS NULL)
+        OR (${table.redactedAt} IS NOT NULL AND ${table.redactedByUserId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_question_redacted_body_check",
+      sql`(${table.redactedAt} IS NULL AND length(${table.body}) > 0)
+        OR (${table.redactedAt} IS NOT NULL AND length(${table.body}) = 0)`,
+    ),
+    check("meeting_question_body_length_check", sql`length(${table.body}) <= 1000`),
+    check(
+      "meeting_question_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// ONE STAY'S VOTE FOR A QUESTION — a row rather than a counter, the mirror of the options decision. A
+// counter cannot answer "have I already upvoted this", which the panel asks on every paint to draw
+// the control and which is the only thing that stops one person pressing it fifty times; the unique
+// index is both that guard and that read. Withdrawal deletes the row, because an upvote you cannot
+// take back is a vote and not a signal — and the count is computed over the rows, so there is no
+// second home for the number to drift from.
+export const meetingQuestionUpvote = sqliteTable(
+  "meeting_question_upvote",
+  {
+    id: text("id").primaryKey().$type<MeetingQuestionUpvoteId>(), // meetingQuestionUpvote_ handle
+    questionId: text("question_id")
+      .notNull()
+      .$type<MeetingQuestionId>()
+      .references(() => meetingQuestion.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    upvotedAt: text("upvoted_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    uniqueIndex("meeting_question_upvote_participation_unique_index").on(
+      table.questionId,
+      table.participantKind,
+      table.participantId,
+    ),
+    check(
+      "meeting_question_upvote_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
     ),
   ],
 );

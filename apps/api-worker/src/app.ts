@@ -47,6 +47,8 @@ import { registerMatterSearchRoutes } from "./routes/matter-search.ts";
 import { registerCommunicationsRoutes } from "./routes/communications.ts";
 import { registerMeetingsRoutes } from "./routes/meetings.ts";
 import { registerMeetingChatRoutes } from "./routes/meeting-chat.ts";
+import { registerMeetingPollRoutes } from "./routes/meeting-polls.ts";
+import { registerMeetingQuestionRoutes } from "./routes/meeting-questions.ts";
 import { registerMeetingHostingRoutes } from "./routes/meeting-hosting.ts";
 import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
 import { registerMeetingGuestRoutes } from "./routes/meetings-guest.ts";
@@ -789,6 +791,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // matter is on the file. Registered beside the room because it is the same meeting read through
   // the same gate.
   registerMeetingChatRoutes(app, chokepoint);
+  // A meeting's polls and its question queue — content the meeting produced, kept on the record on
+  // the chat's own terms: every act is a route with an audit row, and the room relays a copy after
+  // the commit.
+  registerMeetingPollRoutes(app, chokepoint);
+  registerMeetingQuestionRoutes(app, chokepoint);
   // Who is running a meeting, and the acts that need somebody's name against them afterwards —
   // removing a participant, shutting the door, handing the room over. A file of its own because
   // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the

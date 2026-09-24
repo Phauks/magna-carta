@@ -366,11 +366,15 @@ export async function participantRemoved(room: RoomContext, attendanceId: string
  * `removed`, because nobody is barred: the arrival, or the fresh link, is the way back, and the host
  * decides at the door.
  */
-export async function guestCredentialReplaced(room: RoomContext, stayId: string): Promise<void> {
+export async function guestCredentialReplaced(
+  room: RoomContext,
+  stayId: string,
+  reason: "superseded" | "withdrawn" = "superseded",
+): Promise<void> {
   const sockets = socketsFor(room, stayId);
   await releaseParticipant(room, stayId);
   await waitingRemoved(room, stayId);
-  for (const socket of sockets) refuseAndClose(socket, "superseded");
+  for (const socket of sockets) refuseAndClose(socket, reason);
 }
 
 /**

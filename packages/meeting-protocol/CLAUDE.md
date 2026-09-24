@@ -26,8 +26,9 @@ package deliberately does not depend on.
     `MAX_LAYER_TRACKS`, `TRACK_NAME_SEPARATOR`, the two close codes, and `PING_FRAME`/`PONG_FRAME`.
 - `src/types.ts` (`@magna-carta/meeting-protocol/types`) — `RosterParticipant`,
   `WaitingParticipant`, `MeetingRoomState`, `MeetingSpotlight`, `PreferredRid`, `MeetingMedium`,
-  `MeetingHostRole`, `MeetingLobbyMode`, `MEETING_REACTIONS` and `MeetingChatMessage`, the values the
-  frames are made of. The string unions among them are twins of the domain's own — see the note in
+  `MeetingHostRole`, `MeetingLobbyMode`, `MEETING_REACTIONS`, `MeetingChatMessage`, and the poll and
+  question snapshots (`MeetingPollSnapshot`, `MeetingQuestionSnapshot`) the values the frames are
+  made of. The string unions among them are twins of the domain's own — see the note in
   the file.
 - `test/frames-have-handlers.test.ts` — the repo-wide fitness function: every frame type declared
   here has a handler at the far end and a sender at the near one, named by the side that is missing
@@ -77,5 +78,12 @@ package deliberately does not depend on.
   `SIGNAL_INTERVAL_MILLISECONDS`, because a client that paced itself by a different number would be
   refused for behaving correctly. The room's own coalescing window is deliberately NOT here, by this
   package's own test: a browser draws whatever arrives and divides by nothing.
+- **A copy of a committed row travels in the read's own shape, and has no client frame.** `message`,
+  `poll-opened`, `question-asked` and `question-updated` carry the record exactly as the route's read
+  returns it, less any field that is about one reader (`answeredByCaller`, `upvotedByCaller`), so a
+  browser applies the frame and the read with one code path. Every act behind them is a ROUTE, so the
+  browser sends nothing new on the socket for any of them. The two tallies (`poll-tally`,
+  `question-tally`) are coalesced by the room to a frame a second and carry the latest count, not a
+  difference.
 - **The version is stated, never negotiated.** `MEETING_PROTOCOL_VERSION` rides on every frame in
   both directions and is bumped only when a shape changes incompatibly.

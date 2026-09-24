@@ -4,6 +4,10 @@ import {
   MEETING_REACTIONS,
   PREFERRED_RIDS,
   type MeetingChatMessage,
+  type MeetingPollOptionCount,
+  type MeetingPollSnapshot,
+  type MeetingQuestionSnapshot,
+  type MeetingQuestionUpvoteCount,
   type MeetingReaction,
   type MeetingRoomState,
   type PreferredRid,
@@ -500,6 +504,16 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   // goes through this socket — so a browser that misses one of these is caught up by the read.
   "message",
   "message-redacted",
+  // THE POLL AND THE QUESTION QUEUE, on the same terms: every act is a route, the browser sends
+  // nothing new on the socket, and each of these is a copy of a row that has already committed. The
+  // two tallies are coalesced by the room to one frame a second, and a browser that misses any of the
+  // six is caught up by the paged read.
+  "poll-opened",
+  "poll-closed",
+  "poll-tally",
+  "question-asked",
+  "question-updated",
+  "question-tally",
   // THE THREE THE DOOR ADDED. `lobby` and `admitted` go to a socket that is WAITING and to nobody
   // else; `waiting` goes to the sockets holding a grant and to nobody else. A waiting socket is
   // never sent a `welcome`, a `roster` or a `roster-delta` — see the note on `lobby` below.
@@ -535,6 +549,11 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // browser working from a roster that has moved on, or an attempt to pull a track out of a meeting
   // the asker is not in.
   "unknown-track",
+  // The firm withdrew the guest link this socket arrived on. Distinct from `removed`, which a host
+  // does to a person and which bars the link for the meeting, and from `superseded`, which a fresh
+  // arrival or a rotated link does to an older socket: a withdrawn link is the firm's act on the
+  // credential, nobody is barred by it, and inviting again is the way back.
+  "withdrawn",
   // A publish offered a track name that is not the caller's own. A track name carries the publisher's
   // participant handle, and every other browser resolves a tile from it, so a name belonging to
   // somebody else would put one member's media under another member's face.
@@ -833,6 +852,82 @@ export function messageRedactedFrame(messageId: string, redactedAt: string): str
 }
 
 /**
+ * A HOST ASKED THE ROOM — the poll WHOLE, not a handle to it.
+ *
+ * That looks like the opposite of "the route is the record", and the reason is arithmetic: a bare
+ * handle would send three hundred browsers to the read path in the same instant a poll opens, which
+ * is the thundering herd this relay exists to prevent. A poll is small and bounded — five hundred
+ * characters of question and ten labels of two hundred — so it sits far inside the frame ceiling. A
+ * browser that misses it is still caught up by the paged read, which remains the record.
+ *
+ * Reaches every welcomed socket and never the lobby. A guest's copy carries null user identifiers.
+ */
+export function pollOpenedFrame(poll: MeetingPollSnapshot): string {
+  return frame({ type: "poll-opened", poll });
+}
+
+/**
+ * A host closed a poll: the instant, and the FINAL tally, so every browser switches the card to its
+ * result without a read. A closed poll takes no more answers.
+ */
+export function pollClosedFrame(
+  pollId: string,
+  closedAt: string,
+  counts: readonly MeetingPollOptionCount[],
+  respondents: number,
+): string {
+  return frame({ type: "poll-closed", pollId, closedAt, counts, respondents });
+}
+
+/**
+ * WHERE A POLL STANDS NOW — coalesced by the room to at most one frame a second per poll, and sent to
+ * every socket.
+ *
+ * It carries the LATEST tally rather than a difference: the route that wrote an answer read the new
+ * counts and handed them to the room, and the room's bucket keeps the most recent, so a flush sends
+ * the current truth rather than a replay. `counts` is every option in `position` order, including the
+ * ones nobody chose; `respondents` is people rather than answers.
+ */
+export function pollTallyFrame(
+  pollId: string,
+  counts: readonly MeetingPollOptionCount[],
+  respondents: number,
+  at: string,
+): string {
+  return frame({ type: "poll-tally", pollId, counts, respondents, at });
+}
+
+/**
+ * SOMEBODY PUT A QUESTION TO THE ROOM — the question whole, for the poll's reason: a handle would send
+ * the whole room to the read at once. At most a thousand characters. A guest's copy carries null
+ * user identifiers.
+ */
+export function questionAskedFrame(question: MeetingQuestionSnapshot): string {
+  return frame({ type: "question-asked", question });
+}
+
+/**
+ * A QUESTION'S NEW STATE — answered, unanswered or taken back — as the whole question again, so a
+ * browser replaces what it holds rather than applying a difference. A redacted question's copy
+ * carries an empty body, because the record's own is empty.
+ */
+export function questionUpdatedFrame(question: MeetingQuestionSnapshot): string {
+  return frame({ type: "question-updated", question });
+}
+
+/**
+ * HOW MANY UPVOTES EACH QUESTION HOLDS NOW — coalesced by the room to at most one frame a second for
+ * the whole queue, carrying only the questions whose count moved inside that second, each at its
+ * latest count. The browser re-sorts the queue it holds when this arrives, without a read.
+ */
+export function questionTallyFrame(
+  questions: readonly MeetingQuestionUpvoteCount[],
+  at: string,
+): string {
+  return frame({ type: "question-tally", questions, at });
+}
+
+/**
  * What the routing service did with each requested layer change.
  *
  * One entry per track the browser ASKED about, in the order it asked, so a client can pair the
@@ -948,6 +1043,11 @@ export type {
   MeetingHostRole,
   MeetingLobbyMode,
   MeetingParticipantKind,
+  MeetingPollOptionCount,
+  MeetingPollOptionStanding,
+  MeetingPollSnapshot,
+  MeetingQuestionSnapshot,
+  MeetingQuestionUpvoteCount,
   MeetingReaction,
   MeetingRoomState,
   MeetingSpotlight,

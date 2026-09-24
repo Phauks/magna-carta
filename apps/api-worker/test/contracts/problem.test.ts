@@ -28,7 +28,7 @@ describe("problem-type URI registry", () => {
   });
 
   it("registers the problem types", () => {
-    expect(Object.keys(PROBLEM_TYPES).sort()).toEqual(
+    expect(Object.keys(PROBLEM_TYPES).toSorted()).toEqual(
       [
         "validation",
         "unauthenticated",
@@ -149,11 +149,24 @@ describe("problem-type URI registry", () => {
         "meetings-not-configured",
         "meeting-message-not-found",
         "meeting-message-too-long",
+        "meeting-poll-not-found",
+        "meeting-poll-closed",
+        "meeting-poll-already-answered",
+        "meeting-poll-answers-not-attributed",
+        "meeting-poll-invalid",
+        "meeting-question-not-found",
+        "meeting-question-too-long",
+        "meeting-question-limit-reached",
         "meeting-not-host",
         "meeting-locked",
         "meeting-removed",
         "meeting-lobby-full",
         "meeting-not-admitted",
+        "guest-link-not-valid",
+        "guest-link-expired",
+        "guest-link-revoked",
+        "guest-link-exhausted",
+        "guest-not-invitable",
         "discovery-access-list-would-be-empty",
         "discovery-ceiling-exceeded",
         "discovery-coding-act-not-undoable",
@@ -164,7 +177,7 @@ describe("problem-type URI registry", () => {
         "discovery-transcript-scope-unstated",
         "discovery-selection-refused",
         "discovery-load-not-reconciled",
-      ].sort(),
+      ].toSorted(),
     );
   });
 
