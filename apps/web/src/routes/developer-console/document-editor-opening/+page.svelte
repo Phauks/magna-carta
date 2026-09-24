@@ -21,6 +21,7 @@
     marked,
     OPEN_STAGES,
     openFeed,
+    openLogRows,
     openPace,
     openRows,
     openTrace,
@@ -46,7 +47,11 @@
     shown: 33.5,
   };
 
-  /** Marks with every stage up to and including `through` reached. */
+  /**
+   * Marks with every stage up to and including `through` reached, and the other two sides' records
+   * up to that moment: the container's phases as the editor worker saw them and the editor's calls
+   * to the host, which is what the details log is made of.
+   */
   function reached(through: OpenStage | null): OpenMarks {
     let marks = freshMarks(STARTED_AT);
     if (through === null) return marks;
@@ -54,7 +59,23 @@
       marks = marked(marks, stage.id, at(REACHED_AT[stage.id]));
       if (stage.id === through) break;
     }
-    return marks;
+    const until = REACHED_AT[through];
+    const containerEvents = [
+      { phase: "requested" as const, at: 0.5 },
+      { phase: "started" as const, at: 0.9 },
+      { phase: "listening" as const, at: 26.9 },
+      { phase: "served" as const, at: 27.4 },
+    ]
+      .filter((event) => event.at <= until)
+      .map((event) => ({ phase: event.phase, at: at(event.at).toISOString(), detail: null }));
+    const callbacks = [
+      { operation: "wopi:check-file-info", status: 200, at: 30.2 },
+      { operation: "wopi:get-file", status: 200, at: 31 },
+      { operation: "wopi:lock", status: 200, at: 31.2 },
+    ]
+      .filter((callback) => callback.at <= until)
+      .map((callback) => ({ ...callback, errorId: null, at: at(callback.at).toISOString() }));
+    return { ...marks, containerEvents, callbacks };
   }
 
   // One specimen per stage, each caught a few seconds into that stage.
@@ -83,14 +104,16 @@
   );
 
   // The host refusing the editor's request for the bytes: the open ends the moment the poll says so.
+  const refusedCallback = {
+    operation: "wopi:get-file",
+    status: 404,
+    errorId: "error_01J8Q4R7ZK3TV9M2XH6B5NP0DW",
+    at: at(34.6).toISOString(),
+  };
   const refusedMarks: OpenMarks = {
     ...reached("information"),
-    lastCallback: {
-      operation: "wopi:get-file",
-      status: 404,
-      errorId: "error_01J8Q4R7ZK3TV9M2XH6B5NP0DW",
-      at: at(34.6).toISOString(),
-    },
+    lastCallback: refusedCallback,
+    callbacks: [...reached("information").callbacks, refusedCallback],
   };
   const refusedAt = at(34.9);
   const refused = refusal(refusedMarks);
@@ -143,7 +166,7 @@
             <DocumentOpeningProgress
               feed={openFeed(specimen.marks, specimen.now)}
               pace={openPace(specimen.marks.startedAt, specimen.now)}
-              rows={openRows(specimen.marks, specimen.now)}
+              rows={openLogRows(specimen.marks)}
               trace={() => openTrace(specimen.marks, specimen.now)}
             />
           </section>
@@ -163,7 +186,7 @@
           <DocumentOpeningProgress
             feed={openFeed(runningLong.marks, runningLong.now)}
             pace={openPace(runningLong.marks.startedAt, runningLong.now)}
-            rows={openRows(runningLong.marks, runningLong.now)}
+            rows={openLogRows(runningLong.marks)}
             trace={() => openTrace(runningLong.marks, runningLong.now)}
           />
         </section>
@@ -178,7 +201,7 @@
             pace={openPace(pastRetry.marks.startedAt, pastRetry.now)}
             stalled
             onRetry={() => {}}
-            rows={openRows(pastRetry.marks, pastRetry.now)}
+            rows={openLogRows(pastRetry.marks)}
             trace={() => openTrace(pastRetry.marks, pastRetry.now)}
           />
         </section>
@@ -197,7 +220,7 @@
           </p>
           <DocumentOpeningProgress
             feed={openFeed(stalledMarks, stalledAt, stalledStage)}
-            rows={openRows(stalledMarks, stalledAt)}
+            rows={[...openRows(stalledMarks, stalledAt), ...openLogRows(stalledMarks)]}
             trace={() => openTrace(stalledMarks, stalledAt)}
             stopped
           >
@@ -221,7 +244,7 @@
           </p>
           <DocumentOpeningProgress
             feed={openFeed(refusedMarks, refusedAt, refusedStage)}
-            rows={openRows(refusedMarks, refusedAt)}
+            rows={[...openRows(refusedMarks, refusedAt), ...openLogRows(refusedMarks)]}
             trace={() => openTrace(refusedMarks, refusedAt)}
             stopped
           >

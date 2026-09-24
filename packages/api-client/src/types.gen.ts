@@ -2024,6 +2024,19 @@ export type EditOpenProgressResponse = {
         errorId: string | null;
         at: string;
     } | null;
+    callbacks: Array<{
+        operation: string;
+        status: number;
+        errorId: string | null;
+        at: string;
+    }>;
+    container: {
+        events: Array<{
+            phase: 'requested' | 'started' | 'listening' | 'served' | 'stopped' | 'error';
+            at: string;
+            detail: string | null;
+        }>;
+    } | null;
 };
 
 export type CheckoutResponse = {

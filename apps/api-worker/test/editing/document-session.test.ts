@@ -91,6 +91,7 @@ describe("DocumentSession", () => {
         checkFileInfoAt: null,
         getFileAt: null,
         lastCallback: null,
+        callbacks: [],
       });
 
       // The editor asks what the document is, and is told: the first mark.
@@ -116,6 +117,12 @@ describe("DocumentSession", () => {
         errorId: "error_01",
         at: "2026-09-17T19:00:06.000Z",
       });
+      // Every callback of the open is kept, oldest first, so the screen can show the editor's side
+      // of the open as a log and not only its last line.
+      expect(open?.callbacks.map((callback) => [callback.operation, callback.status])).toEqual([
+        ["wopi:check-file-info", 200],
+        ["wopi:get-file", 404],
+      ]);
       // Another member's open is their own record.
       expect(await instance.openProgressOf("usr_b")).toBeNull();
     });
@@ -137,6 +144,7 @@ describe("DocumentSession", () => {
         checkFileInfoAt: null,
         getFileAt: null,
         lastCallback: null,
+        callbacks: [],
       });
     });
   });
