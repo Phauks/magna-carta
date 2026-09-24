@@ -459,6 +459,11 @@
       // durable storage and nothing on the instance, so eviction, deploy, and hibernation are all
       // lossless — a load at the ceiling is a quarter of a million documents.
       { "name": "DISCOVERY_LOAD_JOB", "class_name": "DiscoveryLoadCoordinator" },
+      // One meeting's signaling room: keyed firmId:meetingId. It brokers each browser's session with
+      // the media routing service and keeps the transient roster; the audio, video and screen share
+      // themselves are routed between browsers and never reach this Worker, so nothing anybody said
+      // is ever in this object's storage.
+      { "name": "MEETING_ROOM", "class_name": "MeetingRoom" },
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
@@ -470,8 +475,9 @@
   // password-recovery job coordinator DO; v4-search-index-job the discovery search-index job
   // coordinator DO; v5-document-assembly-job the document-assembly job coordinator DO;
   // v6-magnus-conversation the assistant's per-conversation push object; v7-discovery-load-job the
-  // discovery load fan-out coordinator; v8-search-compaction-job the split-compaction coordinator (the
-  // most recent class, appended last). Never modify an applied tag — only append a new one.
+  // discovery load fan-out coordinator; v8-search-compaction-job the split-compaction coordinator;
+  // v9-meeting-room one meeting's signaling room (the most recent class, appended last). Never
+  // modify an applied tag — only append a new one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
     { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
@@ -483,6 +489,7 @@
     { "tag": "v6-magnus-conversation", "new_sqlite_classes": ["MagnusConversation"] },
     { "tag": "v7-discovery-load-job", "new_sqlite_classes": ["DiscoveryLoadCoordinator"] },
     { "tag": "v8-search-compaction-job", "new_sqlite_classes": ["SearchCompactionJob"] },
+    { "tag": "v9-meeting-room", "new_sqlite_classes": ["MeetingRoom"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

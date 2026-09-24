@@ -1,7 +1,7 @@
 ---
 slice: API worker domain modules
 group: cross-cutting
-order: 45
+order: 47
 research: done
 spec: done
 plan: done

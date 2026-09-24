@@ -71,8 +71,8 @@
 
 - `src/control-plane-migrations.ts` — register `0005`.
 - `src/app.ts` — `STATUS_KV` binding on `Bindings`; `platformOperatorUserId` on `AppVariables`; register the new route group.
-- `src/routes/platform-operator-guard.ts` — the guard middleware.
-- `src/routes/platform-status.ts` — the operator write routes.
+- `src/routes/platform/platform-operator-guard.ts` — the guard middleware.
+- `src/routes/platform/platform-status.ts` — the operator write routes.
 - `src/status/derived-snapshot.ts` — the cron builder (probe + poll → `status:derived`).
 - `src/scheduled.ts` — call the derived-snapshot builder; `src/index.ts` — cron branch.
 - `wrangler.jsonc` — `STATUS_KV` binding + a cron trigger.
@@ -1295,7 +1295,7 @@ git commit -m "feat(data-access): platform_operator select (with 2FA) + idempote
 
 - Create: `packages/access-control/src/platform-operator.ts`
 - Modify: `packages/access-control/package.json` (export)
-- Create: `apps/worker/src/routes/platform-operator-guard.ts`
+- Create: `apps/worker/src/routes/platform/platform-operator-guard.ts`
 - Modify: `apps/worker/src/chokepoint/ports.ts` (add `platformOperatorUserId` to `AppVariables`)
 - Test: `packages/access-control/test/platform-operator.test.ts`, `apps/worker/test/platform-operator-guard.test.ts`
 
@@ -1372,7 +1372,7 @@ Expected: PASS.
   platformOperatorUserId?: import("@magna-carta/identifiers/types").UserId;
 ```
 
-- [ ] **Step 6: Implement the middleware.** Create `apps/worker/src/routes/platform-operator-guard.ts`. (Import `resolveSession` from `../session-context.ts` and `authForEnv` from the same module `ports.ts` imports it from — confirm with `grep -n "authForEnv" apps/worker/src/chokepoint/ports.ts apps/worker/src/app.ts`.)
+- [ ] **Step 6: Implement the middleware.** Create `apps/worker/src/routes/platform/platform-operator-guard.ts`. (Import `resolveSession` from `../session-context.ts` and `authForEnv` from the same module `ports.ts` imports it from — confirm with `grep -n "authForEnv" apps/worker/src/chokepoint/ports.ts apps/worker/src/app.ts`.)
 
 ```ts
 import type { MiddlewareHandler } from "hono";
@@ -1478,7 +1478,7 @@ Run: `pnpm check`
 Expected: PASS. Commit.
 
 ```bash
-git add packages/access-control apps/worker/src/routes/platform-operator-guard.ts apps/worker/src/chokepoint/ports.ts apps/worker/test/platform-operator-guard.test.ts
+git add packages/access-control apps/worker/src/routes/platform/platform-operator-guard.ts apps/worker/src/chokepoint/ports.ts apps/worker/test/platform-operator-guard.test.ts
 git commit -m "feat(access-control): platform-operator decision + guard middleware"
 ```
 
@@ -1489,7 +1489,7 @@ git commit -m "feat(access-control): platform-operator decision + guard middlewa
 **Files:**
 
 - Create: `apps/worker/src/status/authored-store.ts` (KV read-modify-write of `status:authored`)
-- Create: `apps/worker/src/routes/platform-status.ts` (declare / update / resolve endpoints)
+- Create: `apps/worker/src/routes/platform/platform-status.ts` (declare / update / resolve endpoints)
 - Modify: `apps/worker/src/app.ts` (register the route group; `STATUS_KV` binding — added fully in Task 11, but declare the type here)
 - Modify: `apps/worker/test/conformance.test.ts` (add operationIds)
 - Test: `apps/worker/test/platform-status-events.test.ts`
@@ -1576,7 +1576,7 @@ test("mutateAuthored appends an event and stamps updatedAt", async () => {
 Run: `pnpm --filter @magna-carta/worker test platform-status-events`
 Expected: FAIL (authored-store module or STATUS_KV binding missing).
 
-- [ ] **Step 5: Implement the routes.** Create `apps/worker/src/routes/platform-status.ts`. Define three endpoints; all `surface: "public"`, `authenticated: true`, `permission: "firm:provision"` (nominal — public routes skip RBAC but the mutating-method guard requires a non-null permission), `idempotency: "optional"`, `rateLimit: "auth"`, guarded by `platformOperatorGuard`. The author is `c.get("platformOperatorUserId")`.
+- [ ] **Step 5: Implement the routes.** Create `apps/worker/src/routes/platform/platform-status.ts`. Define three endpoints; all `surface: "public"`, `authenticated: true`, `permission: "firm:provision"` (nominal — public routes skip RBAC but the mutating-method guard requires a non-null permission), `idempotency: "optional"`, `rateLimit: "auth"`, guarded by `platformOperatorGuard`. The author is `c.get("platformOperatorUserId")`.
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -1826,7 +1826,7 @@ registerPlatformStatusRoute(app, chokepoint);
 and import it at the top:
 
 ```ts
-import { registerPlatformStatusRoute } from "./routes/platform-status.ts";
+import { registerPlatformStatusRoute } from "./routes/platform/platform-status.ts";
 ```
 
 - [ ] **Step 7: Run the route + guard tests.**
@@ -1853,7 +1853,7 @@ Expected: PASS (byte-exact snapshot + non-vacuous list agree).
 Run: `pnpm check`. Expected: PASS.
 
 ```bash
-git add apps/worker/src/status/authored-store.ts apps/worker/src/routes/platform-status.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client/src apps/worker/test/conformance.test.ts apps/worker/test/platform-status-events.test.ts
+git add apps/worker/src/status/authored-store.ts apps/worker/src/routes/platform/platform-status.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client/src apps/worker/test/conformance.test.ts apps/worker/test/platform-status-events.test.ts
 git commit -m "feat(worker): platform-status event routes (declare/update/resolve)"
 ```
 
@@ -1863,7 +1863,7 @@ git commit -m "feat(worker): platform-status event routes (declare/update/resolv
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/platform-status.ts` (add two endpoints)
+- Modify: `apps/worker/src/routes/platform/platform-status.ts` (add two endpoints)
 - Modify: `apps/worker/test/conformance.test.ts` (two operationIds)
 - Test: `apps/worker/test/platform-status-overrides.test.ts`
 
@@ -1898,7 +1898,7 @@ test("an override is stored then cleared", async () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm it fails, then implement the endpoints** in `apps/worker/src/routes/platform-status.ts`, mirroring the event endpoints: `setComponentOverride` (`POST /api/v1/platform/status/overrides`, upsert an override by `componentId`, `status` from the component-status enum, `note`) and `clearComponentOverride` (`POST /api/v1/platform/status/overrides/clear`, filter it out). Both guarded by `platformOperatorGuard`, author from `c.get("platformOperatorUserId")`. Use `maintenance` status for a maintenance window (no separate schedule model in v1 — an operator sets a `maintenance` override, documented as the v1 shape).
+- [ ] **Step 2: Run it to confirm it fails, then implement the endpoints** in `apps/worker/src/routes/platform/platform-status.ts`, mirroring the event endpoints: `setComponentOverride` (`POST /api/v1/platform/status/overrides`, upsert an override by `componentId`, `status` from the component-status enum, `note`) and `clearComponentOverride` (`POST /api/v1/platform/status/overrides/clear`, filter it out). Both guarded by `platformOperatorGuard`, author from `c.get("platformOperatorUserId")`. Use `maintenance` status for a maintenance window (no separate schedule model in v1 — an operator sets a `maintenance` override, documented as the v1 shape).
 
 - [ ] **Step 3: Run the test; regenerate OpenAPI (emit + client) and add the two operationIds to `conformance.test.ts`.**
 
@@ -1908,7 +1908,7 @@ Expected: PASS.
 - [ ] **Step 4: `pnpm check` + commit.**
 
 ```bash
-git add apps/worker/src/routes/platform-status.ts apps/worker/openapi/openapi.json packages/api-client/src apps/worker/test/conformance.test.ts apps/worker/test/platform-status-overrides.test.ts
+git add apps/worker/src/routes/platform/platform-status.ts apps/worker/openapi/openapi.json packages/api-client/src apps/worker/test/conformance.test.ts apps/worker/test/platform-status-overrides.test.ts
 git commit -m "feat(worker): platform-status component override + maintenance routes"
 ```
 

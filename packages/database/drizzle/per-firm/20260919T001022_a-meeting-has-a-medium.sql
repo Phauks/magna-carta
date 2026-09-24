@@ -1,0 +1,16 @@
+-- SOUND ALONE, OR SOUND AND PICTURES.
+--
+-- An audio call is a first-class kind of meeting rather than a video meeting nobody turned a camera
+-- on in: the entry window offers Start call beside Start meeting, the room refuses a picture in a
+-- call, and the record says which it was. The medium is chosen at Start and never changed, because
+-- the people already in the room agreed to one thing.
+--
+-- HAND-WRITTEN, AND ADD COLUMN RATHER THAN A REBUILD. `meeting` is a parent — `meeting_attendance`
+-- points at it — and a rebuild drops the table it replaces, which a durable object refuses at the
+-- commit for every child row. `ALTER TABLE ... ADD COLUMN` drops nothing, lands on a parent, and may
+-- carry its own CHECK; drizzle-kit would express the same schema as a rebuild, which is why this is
+-- not generated. The rule and the six probes behind it: packages/database/CLAUDE.md.
+--
+-- DEFAULT 'video' is what makes it additive against rows that already exist: every meeting held
+-- before this column reads as what it actually was.
+ALTER TABLE `meeting` ADD COLUMN `medium` text DEFAULT 'video' NOT NULL CHECK("meeting"."medium" IN ('video', 'audio'));

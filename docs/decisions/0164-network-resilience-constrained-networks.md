@@ -22,8 +22,8 @@ making progress survive a bad link" — and the answer is a standard, not a per-
    established R2 transfer seam — multipart-resumable upload, presigned-GET download (a 302 to a real
    URL the browser's download manager drives), or HTTP Range serving with If-Range resume — never a
    monolithic, non-resumable in-app fetch. This is the expensive-to-retrofit foundation (ADR-0078),
-   and the backend already realises it: `routes/uploads.ts` does single-shot-PUT-or-multipart over
-   `files/presign.ts`; `routes/downloads.ts` redirects single-file and over-threshold bundles to a
+   and the backend already realises it: `routes/files/uploads.ts` does single-shot-PUT-or-multipart over
+   `files/presign.ts`; `routes/files/downloads.ts` redirects single-file and over-threshold bundles to a
    presigned GET; `files/preview-serve.ts` serves Range/206 with conditional resume. The commitment
    therefore **codifies the reference**, it does not retrofit.
 2. **A slow-network / transfer-weight profile is added to the load-profile harness** (ADR-0083). The
@@ -42,7 +42,7 @@ making progress survive a bad link" — and the answer is a standard, not a per-
 immediately. Existing surfaces were audited once rather than retrofitted wholesale (matching how
 `performance.md` and `security.md` phased in, and honouring "verify before asserting a cause"): the
 backend transfer paths are conformant and become the reference; the sole bounded retrofit is the
-inline bulk-ZIP stream (`routes/downloads.ts`, multi-file under the live threshold), which is a single
+inline bulk-ZIP stream (`routes/files/downloads.ts`, multi-file under the live threshold), which is a single
 non-resumable streamed response a mid-stream drop restarts — backlogged for constrained-network
 threshold tuning, not a rebuild. A behaviour-neutral DRY extraction (the duplicated
 R2-entries-to-zip-inputs generator → one `zipEntriesFromR2` helper) is folded in. The remaining items

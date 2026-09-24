@@ -4,12 +4,17 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import type { MatterId, TrustAccountId, UserId } from "@magna-carta/identifiers/types";
+import type { LocationId, MatterId, TrustAccountId, UserId } from "@magna-carta/identifiers/types";
 import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
+import { selectLocationStatement } from "@magna-carta/locations/statements";
 import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { timeZoneForLocation } from "@magna-carta/document-assembly/resolve";
-import { listTrustAccounts, loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
+import {
+  listTrustAccounts,
+  loadMatterTrustLeaf,
+  openTrustAccount,
+} from "@magna-carta/trust/account-tree";
 import {
   composeTrustAuthorizationPolicyChange,
   readCurrentTrustAuthorizationPolicy,
@@ -552,6 +557,68 @@ const listTrustAccountsRoute = defineOpenAPIRoute(
   },
 );
 
+// What a firm states to open a trust account. The jurisdiction is deliberately absent: it is the
+// holding office's, read from the office row, never chosen here.
+const TrustAccountOpening = z
+  .object({
+    name: z.string().min(1),
+    locationId: identifierField("location"),
+    bankName: z.string().min(1).nullable().optional(),
+    // The last four digits, and there is no field for the rest: the schema has no column for a full
+    // account number, so the last four is the whole of what the platform ever holds.
+    accountNumberLastFour: z
+      .string()
+      .regex(/^\d{4}$/)
+      .nullable()
+      .optional(),
+    // Absent means pooled interest-bearing, which is what a firm's ordinary client trust account is.
+    iolta: z.boolean().optional(),
+    openedOn: civilDate,
+    currency: z.literal("USD"),
+  })
+  .openapi("TrustAccountOpening");
+
+const openTrustAccountRoute = defineOpenAPIRoute(
+  {
+    operationId: "trust.openAccount",
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    // A trust account belongs to an office and its ledger spans many matters, so the capability is
+    // firm-scoped.
+    resource: "firm",
+    audited: true,
+    // A retried open that opened a second account would leave the firm holding two accounts where it
+    // asked for one, and a trust account cannot simply be deleted once it exists.
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  },
+  {
+    method: "post",
+    path: "/api/v1/trust/accounts",
+    description:
+      "Opens a trust account and binds it to one of the firm's offices. The jurisdiction is the office's own and is never chosen here, because the rules require a trust account to sit in the state of the lawyer's office — naming it separately would be a second answer to a question the office already settles. An office that has no jurisdiction recorded still opens an account, and every movement on that account is refused until the office records one, so recording the office's state is what makes the account usable rather than something to redo here. Only the last four digits of the bank account number are taken, because that is all the platform stores of it. The account is pooled interest-bearing unless the firm says otherwise. A retried open returns the account the first call opened rather than opening a second one, which is why the idempotency key is required.",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: { content: { "application/json": { schema: TrustAccountOpening } }, required: true },
+    },
+    responses: {
+      201: {
+        description: "The trust account is open",
+        content: { "application/json": { schema: TrustAccountListing } },
+      },
+      400: errorResponses[400],
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      409: errorResponses[409],
+      422: errorResponses[422],
+      429: errorResponses[429],
+    },
+  },
+);
+
 const pendingDisbursementRequestsRoute = defineOpenAPIRoute(
   {
     operationId: "trust.listDisbursementRequests",
@@ -755,6 +822,34 @@ async function resolveLeafNames(
     clientNodeName: `Trust — ${clientNodeLabel}`,
     matterLeafName: `Trust — ${row.matter_number ?? matterId} — ${row.title}`,
   };
+}
+
+interface TrustAccountOfficeRow {
+  jurisdiction: string | null;
+  time_zone: string | null;
+}
+
+interface TrustAccountOffice {
+  readonly jurisdiction: string | null;
+  readonly timeZone: string | null;
+}
+
+// The office a trust account is bound to, read for the two facts opening one takes from it: the
+// jurisdiction the account sits in, which the law fixes to the office rather than leaving to a
+// choice, and the zone in which a day on that account resolves. Undefined when this firm has no such
+// office — there is then nothing to bind the account to and nothing to take a jurisdiction from.
+async function readTrustAccountOffice(
+  database: SqlDatabase,
+  locationId: LocationId,
+): Promise<TrustAccountOffice | undefined> {
+  // `.all()` + `results[0]`, never `.first()` — the platform's one-row read convention.
+  const { results } = await selectLocationStatement(
+    database,
+    locationId,
+  ).all<TrustAccountOfficeRow>();
+  const row = results[0];
+  if (!row) return undefined;
+  return { jurisdiction: row.jurisdiction, timeZone: row.time_zone };
 }
 
 interface MovementRow {
@@ -1070,6 +1165,68 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
         },
         200,
       );
+    },
+  );
+
+  // POST /api/v1/trust/accounts — a new trust account, bound to the office it takes its rules from
+  app.openapi(
+    {
+      ...openTrustAccountRoute,
+      middleware: chokepointMiddleware(chokepoint, openTrustAccountRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      // Read outside the idempotent effect: an office the firm does not have is a fact about the
+      // request, not a refusal the trust rules raise, and it must not be recorded as the settled
+      // outcome of this key.
+      const office = await readTrustAccountOffice(firm.firmDatabase, request.locationId);
+      if (office === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: `no such office: ${request.locationId}`,
+        });
+      }
+      return commitTrustWrite<z.infer<typeof TrustAccountListing>>(c, async () => {
+        const opened = await openTrustAccount(
+          firm.firmDatabase,
+          {
+            name: request.name,
+            locationId: request.locationId,
+            // The office's, always. An office with none recorded opens an account that refuses every
+            // movement until it has one — which is the honest state, and better than a baseline
+            // jurisdiction nobody chose.
+            jurisdiction: office.jurisdiction,
+            currency: request.currency,
+            bankName: request.bankName ?? null,
+            accountNumberLastFour: request.accountNumberLastFour ?? null,
+            iolta: request.iolta,
+            openedOn: request.openedOn,
+          },
+          trustOptions(),
+        );
+        return {
+          write: opened.effect,
+          // The row exactly as the listing serves one, so a caller that just opened an account and a
+          // caller that listed them are reading the same shape.
+          body: {
+            id: opened.trustAccountId,
+            name: request.name,
+            locationId: request.locationId,
+            jurisdiction: office.jurisdiction,
+            bankName: request.bankName ?? null,
+            accountNumberLastFour: request.accountNumberLastFour ?? null,
+            currency: request.currency,
+            iolta: request.iolta !== false,
+            status: "open" as const,
+            openedOn: request.openedOn,
+            closedAt: null,
+            timeZone: timeZoneForLocation({ timeZone: office.timeZone }),
+          },
+        };
+      });
     },
   );
 

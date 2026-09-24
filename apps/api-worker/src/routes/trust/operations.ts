@@ -19,6 +19,7 @@ export const OPERATIONS: readonly string[] = [
   "trust.listReconciliations",
   "trust.listTrustAccounts",
   "trust.matterLedger",
+  "trust.openAccount",
   "trust.openFirmFunds",
   "trust.openReconciliation",
   "trust.openUnclaimedFundsReview",

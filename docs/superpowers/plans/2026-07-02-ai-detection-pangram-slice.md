@@ -59,7 +59,7 @@ Every task's requirements implicitly include this section.
 
 **`apps/worker/`** (extend)
 
-- `src/routes/ai-detection.ts` — `POST /api/v1/ai-detection/detect` through the chokepoint; consent gate; adapter construction (Pangram when the key is set, deferred otherwise); metering write; problem mapping.
+- `src/routes/files/ai-detection.ts` — `POST /api/v1/ai-detection/detect` through the chokepoint; consent gate; adapter construction (Pangram when the key is set, deferred otherwise); metering write; problem mapping.
 - `src/app.ts` — import + call `registerAiDetectionRoutes`; add `PANGRAM_API_KEY?: string` + `PANGRAM_BASE_URL?: string` to `Bindings`.
 - `wrangler.jsonc` / `.dev.vars` (or the test var seam) — declare the binding.
 - `test/ai-detection-route.test.ts`, `test/seed-tools-ai-text-detection.test.ts` — new tests.
@@ -961,7 +961,7 @@ git commit -m "feat(worker): PANGRAM_API_KEY / PANGRAM_BASE_URL bindings"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/ai-detection.ts`
+- Create: `apps/worker/src/routes/files/ai-detection.ts`
 - Modify: `apps/worker/src/app.ts` (import + register)
 - Test: `apps/worker/test/ai-detection-route.test.ts`
 - Regenerate: OpenAPI snapshot + generated client
@@ -971,12 +971,12 @@ git commit -m "feat(worker): PANGRAM_API_KEY / PANGRAM_BASE_URL bindings"
 - Consumes: `createPangramAdapter` (`@magna-carta/ai-detection/adapters/pangram`), `deferredAiDetectionAdapter` (`@magna-carta/ai-detection/adapters/deferred`), `externalDetectionEnabledDefinition` (`@magna-carta/ai-detection/settings`); `readFirmSetting` (`@magna-carta/data-access/setting-statements`), `recordAiDetectionUsageStatement` (`@magna-carta/data-access/ai-detection-usage-statements`), `commitEffectBatch` (`@magna-carta/data-access/effect-batch`); `fetchHttpClient` (`@magna-carta/integrations/http`); `newIdentifier` (`@magna-carta/identifiers/generate`); the chokepoint helpers (`requireChokepointFirmContext`, `requireChokepointFirmId`, `requireChokepointUserId`), `defineOpenAPIRoute`, `chokepointMiddleware`, `problemJson`, `Problem`.
 - Produces: `registerAiDetectionRoutes(app, chokepoint): void`; route `POST /api/v1/ai-detection/detect`.
 
-**Reference — route shape:** `apps/worker/src/routes/file-type.ts` (chokepoint + `tools:*` permission + `problemJson` for engine-unavailable). **Reference — word count + metering write off the effect path:** the metering is a single-row insert; commit it via `commitEffectBatch(firm.firmDatabase, { statements: [recordAiDetectionUsageStatement(...)], outboxMessages: [] }, { now })` after the successful detection (not inside `runIdempotentEffect` — this route is idempotency: "optional" and does not need the effect ledger).
+**Reference — route shape:** `apps/worker/src/routes/files/file-type.ts` (chokepoint + `tools:*` permission + `problemJson` for engine-unavailable). **Reference — word count + metering write off the effect path:** the metering is a single-row insert; commit it via `commitEffectBatch(firm.firmDatabase, { statements: [recordAiDetectionUsageStatement(...)], outboxMessages: [] }, { now })` after the successful detection (not inside `runIdempotentEffect` — this route is idempotency: "optional" and does not need the effect ledger).
 
 - [ ] **Step 1: Write the route**
 
 ```typescript
-// apps/worker/src/routes/ai-detection.ts
+// apps/worker/src/routes/files/ai-detection.ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { deferredAiDetectionAdapter } from "@magna-carta/ai-detection/adapters/deferred";
 import { createPangramAdapter } from "@magna-carta/ai-detection/adapters/pangram";
@@ -1181,7 +1181,7 @@ Prefer this over constructing the deferred adapter: right after the consent gate
 
 - [ ] **Step 3: Register the route**
 
-In `apps/worker/src/app.ts`: add `import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";` beside the other route imports, and `registerAiDetectionRoutes(app, chokepoint);` beside `registerFileTypeRoutes(app, chokepoint);` (~line 376).
+In `apps/worker/src/app.ts`: add `import { registerAiDetectionRoutes } from "./routes/files/ai-detection.ts";` beside the other route imports, and `registerAiDetectionRoutes(app, chokepoint);` beside `registerFileTypeRoutes(app, chokepoint);` (~line 376).
 
 - [ ] **Step 4: Write the integration test**
 
@@ -1282,7 +1282,7 @@ Expected: the snapshot now includes `aiDetection.detect`; the drift test passes.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/ai-detection.ts apps/worker/src/app.ts apps/worker/test/ai-detection-route.test.ts <regenerated-openapi-and-client-paths>
+git add apps/worker/src/routes/files/ai-detection.ts apps/worker/src/app.ts apps/worker/test/ai-detection-route.test.ts <regenerated-openapi-and-client-paths>
 git commit -m "feat(worker): AI-text detection route (consent-gated, metered)"
 ```
 

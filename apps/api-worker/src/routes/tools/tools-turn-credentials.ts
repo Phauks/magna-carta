@@ -5,6 +5,8 @@ import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import { recordRealtimeFailure } from "../../realtime/realtime-failure.ts";
+import { credentialedServer, generateIceServers } from "../../realtime/turn-credentials.ts";
 
 // Minted per run and short-lived on purpose. A TURN credential is a relay authorization billed to
 // this account, so it is never long-lived and never handed to an unauthenticated caller.
@@ -58,22 +60,6 @@ export const toolsTurnCredentialsRoute = defineOpenAPIRoute(toolsTurnCredentials
   },
 });
 
-// Cloudflare answers with a list of ICE servers; only one entry carries credentials. Find it by the
-// fields we need rather than by position.
-function credentialsFrom(payload: unknown): { username: string; credential: string } | null {
-  if (typeof payload !== "object" || payload === null) return null;
-  const servers = (payload as { iceServers?: unknown }).iceServers;
-  if (!Array.isArray(servers)) return null;
-  for (const server of servers) {
-    if (typeof server !== "object" || server === null) continue;
-    const { username, credential } = server as { username?: unknown; credential?: unknown };
-    if (typeof username === "string" && typeof credential === "string") {
-      return { username, credential };
-    }
-  }
-  return null;
-}
-
 export function registerToolsTurnCredentialsRoute(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -84,12 +70,11 @@ export function registerToolsTurnCredentialsRoute(
       middleware: chokepointMiddleware(chokepoint, toolsTurnCredentialsRoute),
     },
     async (c) => {
-      const keyId = c.env.REALTIME_TURN_TOKEN_ID;
-      const apiToken = c.env.REALTIME_TURN_TOKEN_SECRET;
+      const mint = await generateIceServers(c.env, CREDENTIAL_TTL_SECONDS);
 
       // Not an error to report upstream: this deployment simply does not measure packet loss. The
       // caller-facing detail never names the secrets.
-      if (!keyId || !apiToken) {
+      if (mint.kind === "not-configured") {
         return problemJson(c, {
           type: "service-unavailable",
           status: 503,
@@ -98,32 +83,28 @@ export function registerToolsTurnCredentialsRoute(
         });
       }
 
-      const upstream = await fetch(
-        `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`,
-        {
-          method: "POST",
-          headers: { authorization: `Bearer ${apiToken}`, "content-type": "application/json" },
-          body: JSON.stringify({ ttl: CREDENTIAL_TTL_SECONDS }),
-        },
-      );
-
-      // Never surface the upstream body: it may echo the key id.
-      if (!upstream.ok) {
-        return problemJson(c, {
-          type: "internal",
-          status: 502,
-          title: "The relay credential service refused",
-          detail: "Packet loss could not be measured.",
-        });
-      }
-
-      const credentials = credentialsFrom(await upstream.json());
+      // A mint that should have worked and did not is a fault this deployment owns, so it is
+      // recorded and the caller is handed the Error ID that joins the two. The upstream body never
+      // reaches either: it may echo the key id.
+      const credentials =
+        mint.kind === "minted" ? credentialedServer(mint.servers) : /* unreadable */ null;
       if (credentials === null) {
+        const errorId = recordRealtimeFailure(
+          c.get("logger"),
+          "realtime.turnCredentials.tools",
+          new Error(
+            mint.kind === "failed"
+              ? `relay credentials could not be minted (${mint.cause})`
+              : "the relay credential service answered with no authenticated server",
+          ),
+          c.get("correlationId"),
+        );
         return problemJson(c, {
           type: "internal",
           status: 502,
           title: "The relay credential service refused",
           detail: "Packet loss could not be measured.",
+          errorId,
         });
       }
 

@@ -315,4 +315,18 @@ export type Bindings = {
   // logged, and never echoed back to a caller.
   REALTIME_TURN_TOKEN_ID?: string;
   REALTIME_TURN_TOKEN_SECRET?: string;
+  // Cloudflare Realtime SFU (selective forwarding unit) application credentials — the routing
+  // service every meeting's audio, video and screen share flows between browsers through. The media
+  // never touches this Worker; what these authorize is the signaling the meeting room brokers on a
+  // participant's behalf. Optional: absent in tests and until the owner provisions a Realtime
+  // application, in which case the create and join routes answer 503 and the calendar offers no way
+  // to start a meeting. Production sets both with `wrangler secret put`. Never logged, never echoed
+  // back to a caller, and never sent to a browser — a participant talks to the routing service over
+  // the session the room opens for it, holding no credential of its own.
+  REALTIME_SFU_APP_ID?: string;
+  REALTIME_SFU_APP_SECRET?: string;
+  // One meeting's signaling room, keyed `${firmId}:${meetingId}`. It brokers each browser's session
+  // with the routing service and keeps the roster; it holds no media and stores nothing anybody
+  // said. Addressed by the SESSION firm id at the route, never a path value.
+  MEETING_ROOM: DurableObjectNamespace<import("./meetings/meeting-room.ts").MeetingRoom>;
 };

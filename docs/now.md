@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 829 nodes of the feature ledger in
+is the complete register rather than a digest: all 842 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**829 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **686 that are units of work**, for the reason set out under [What a roll-up is
+**842 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+below. 144 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **698 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 320 | 47% |
+| Done | shipped | 327 | 47% |
 | Part-built | partial, in-build | 125 | 18% |
-| Ahead | designed, planned, researching, not-started | 199 | 29% |
+| Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **686** | **100%** |
+| **All units of work** | | **698** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 320 | 47% |
+| `shipped` | 327 | 47% |
 | `partial` | 124 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 46 | 7% |
+| `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 133 | 19% |
+| `not-started` | 137 | 20% |
 | `deferred` | 38 | 5% |
-| `cut` | 4 | 1% |
-| **All statuses** | **686** | **100%** |
+| `cut` | 4 | 0% |
+| **All statuses** | **698** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 829 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**144 of the 842 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 320 of 686 (47%). Shipped plus partial is 444 (65%).**
+**Shipped alone is 327 of 698 (47%). Shipped plus partial is 451 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**445 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**452 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 106 | 24% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
-| No user surface by nature (`internal`) | 182 | 41% |
+| A person can open it today (`screen`) | 112 | 25% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
+| No user surface by nature (`internal`) | 185 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **445** | **100%** |
+| **Everything with something built** | **452** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -108,10 +108,11 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
 | Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
+| Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
+| Meetings | 6 | 0 | 0 | 1 | 0 | 0 | 4 | 0 | 0 | 11 | 55% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -126,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **320** | **124** | **1** | **46** | **15** | **5** | **133** | **38** | **4** | **686** | **47%** |
+| **All areas** | **327** | **124** | **1** | **47** | **15** | **5** | **137** | **38** | **4** | **698** | **47%** |
 
 ## Where we have been
 
@@ -356,6 +357,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `financial.billing.automations.payment-plans` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied.
 - `financial.billing.automations.replenishment` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
+- `meetings.guests` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
 - `notes.search.firm-wide` · **Firm-wide note search** — Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
 - `notes.entity-note` · **Notes on a Directory entity** — The same primitive keyed to a Directory entity, read on the entity's own surface.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
@@ -877,7 +879,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 62 units of work, 34% shipped. 21 done, 19 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 63 units of work, 35% shipped. 22 done, 19 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -907,10 +909,11 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.time.utilization-reports` · `not-started` · **Utilization and realization roll-ups** — Utilization and realization rolled up into the reports library.
     - `financial.time.utbms` · `shipped` · **UTBMS codes** — UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
     - `financial.time.passive-capture` · `deferred` · **Passive/automatic time capture** — Automatic activity capture feeding a draft-approve queue. _Note: Seam only; no capture code._
-  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: The matter's Trust section renders the ledger surface (apps/web/src/lib/trust) built whole against the movement record, empty until a route lists the firm's trust accounts; nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
-    - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: No screen reads a client ledger; the balances, holds and movement history are API-only._
-    - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
-    - `financial.trust.firm-funds` · `shipped` · **Bank-charge cushion (the firm-funds carve-out)** — The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first. _Note: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay._
+  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: The matter's Trust section (apps/web/src/lib/trust) reads the firm's accounts, the matter's ledger and the pending requests on it, and records deposits, proposes payments out and transfers between the client's matters; the firm's Trust screen (apps/web/src/routes/(app)/trust) lists the accounts, opens one, and carries the approval queue, the statements and reconciliations as recorded, the cushion and the posture. Nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
+    - `financial.trust.accounts` · `shipped` · **Trust accounts (open and list)** — The firm's trust accounts, each bound to an office whose jurisdiction it inherits; opened over HTTP and listed for every surface that names one. _Note: The jurisdiction is derived from the office and never taken from the caller; an office with none recorded opens the account and every movement on it refuses until one is recorded. Closing an account has no route._
+    - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: Placing and releasing a hold has no screen; the account-level balance is not served, so the firm screen states the position as unread._
+    - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. The posture is read and changed on the firm's Trust screen, and the approval queue with approve, reject and withdraw sits there and on the matter's own section. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
+    - `financial.trust.firm-funds` · `shipped` · **Bank-charge cushion (the firm-funds carve-out)** — The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first. _Note: The cushion's position is read on the firm's Trust screen; opening, funding and recording a charge have no form yet. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay._
     - `financial.trust.unclaimed-funds` · `shipped` · **Unclaimed client funds diligence file** — Finding client money that has sat unmoved, recording the diligence done to return it, and closing the file against a payment somebody already made - never moving money and never asserting an obligation. _Note: Backend only, no screen. Nothing on this path moves money - the closure takes a trust_movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could remove. Deliberately not an escheat feature - the researched jurisdiction exempts designated client trust accounts from the state presumption outright, so no deadline, countdown or required-by date is ever surfaced._
     - `financial.trust.no-commingling` · `shipped` · **No commingling** — Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
     - `financial.trust.jurisdiction-engine` · `partial` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
@@ -1042,6 +1045,23 @@ to change a line here, edit the node in its area file and re-run the build.
     - `maintenance-agents.docs-maintenance.weekly-routine` · `partial` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR. _Note: Partial rather than in-build: the skill and its trigger configuration exist and the Routine itself is not created, which is an owner decision rather than work in progress._
     - `maintenance-agents.docs-maintenance.run-reports` · `shipped` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state. _Note: Was in-build against the branch the registry was written on; the registry is on main and in use._
     - `maintenance-agents.docs-maintenance.ci-doc-hygiene` · `partial` · **Deterministic doc-hygiene CI rules** — CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
+
+### Meetings
+
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 11 units of work, 55% shipped. 6 done, 0 part-built, 5 ahead, 0 parked.
+
+- `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
+  - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
+  - `meetings.signaling` · `shipped` · **Signaling room and SFU client** — A MeetingRoom Durable Object per meeting brokering each browser's session with the Cloudflare Realtime SFU over hibernating WebSockets; the app secret never reaches a browser.
+  - `meetings.api` · `shipped` · **Meetings API** — Create-or-return for an event, summary, the live/upcoming/recent list, join, leave, end, paged attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
+  - `meetings.screen` · `shipped` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event; the Meetings page under the sidebar's Communications group listing what is live, ahead and recently ended.
+  - `meetings.screen-share` · `shipped` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
+  - `meetings.audio-calls` · `shipped` · **Audio calls** — A meeting whose medium is audio alone — chosen at start, enforced by the room (video and screen tracks refused), started from the calendar as Start call, shown on the Meetings page with its own glyph.
+  - `meetings.guests` · `designed` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
+  - `meetings.recording` · `not-started` · **Recording** — Server-side capture of a meeting into the matter file, through the untrusted-file pipeline into R2, behind a consent gate on the jurisdiction profile. _Note: Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut._
+  - `meetings.large-rooms` · `not-started` · **Larger rooms** — Active-speaker layout, simulcast layer selection, bandwidth adaptation beyond the slice-1 cap of twelve participants.
+  - `meetings.dial-in` · `not-started` · **Dial-in by phone** — A PSTN leg into a meeting through the telephony port.
+  - `meetings.external-provider-port` · `not-started` · **Conferencing port (Zoom, Teams)** — A ConferencingPort under packages/integrations whose adapter places a vendor's meeting link on a calendar event, for firms that keep a vendor.
 
 ### Matter Notes and Activity
 

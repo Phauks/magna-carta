@@ -4,7 +4,7 @@
  *
  * apps/web does not depend on @magna-carta/api-client ($lib/api/request.ts explains why), so this
  * hand-writes the three request/response shapes it reads, mirroring
- * apps/api-worker/src/routes/files/decryption.ts and routes/recovery.ts.
+ * apps/api-worker/src/routes/files/decryption.ts and routes/files/recovery.ts.
  *
  * NOTHING HERE RETAINS A FILE. Every function takes bytes, makes one request, and returns; the
  * caller decides what to do with the result. The server gives the same undertaking on its side —

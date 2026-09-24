@@ -86,7 +86,7 @@ planner is handed a database for, no clock, no binding.
 - Consumed by `@magna-carta/matters` (matter, consultation and intake numbers),
   `@magna-carta/conflicts` (check numbers), `@magna-carta/custodian` (custody packet numbers),
   `@magna-carta/billing` (invoice numbers, counter mechanism only), `@magna-carta/timekeeping` and
-  `@magna-carta/communications` (counter mechanism only), and the API worker's `routes/numbering.ts`
+  `@magna-carta/communications` (counter mechanism only), and the API worker's `routes/firm/numbering.ts`
   (the settings surface over the register). A change here RIPPLES to all of them — re-run every one
   of their suites, never just one. Custodian's is the sharpest test of a change: a custody number is
   printed on a physical label and read out over the phone, so a rendered-shape change there is not a

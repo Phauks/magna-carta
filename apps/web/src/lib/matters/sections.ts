@@ -253,9 +253,7 @@ export const matterSections: readonly MatterSection[] = [
       "The matter's trust ledger — client funds held, disbursed, and reconciled under the " +
       "governing jurisdiction's rules. Fees never touch trust until earned.",
     searchSource: null,
-    searchWaitingOn:
-      "A matter-wide trust source is not wired yet; the ledger itself waits on a read of the " +
-      "firm's trust accounts",
+    searchWaitingOn: "A matter-wide trust source is not wired yet",
     createNoun: "Deposit",
   },
   {

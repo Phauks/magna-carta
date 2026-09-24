@@ -173,6 +173,9 @@
       "path": "packages/matters/tsconfig.test.json"
     },
     {
+      "path": "packages/meetings/tsconfig.test.json"
+    },
+    {
       "path": "packages/merge-field-catalog-contract/tsconfig.test.json"
     },
     {

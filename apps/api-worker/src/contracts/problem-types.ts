@@ -604,6 +604,29 @@ export const PROBLEM_TYPES = {
   // a malformed handle: this one is well-formed and simply names nothing, so the caller's list of
   // roles is stale rather than wrong in shape.
   "unknown-role": "unknown-role",
+  // A meeting nothing can reach (HTTP 404): a handle naming no room, an event with no meeting on it,
+  // an event that does not exist, and an event on a matter the member may not see. ONE type for all
+  // four deliberately — a meeting is reachable only through its calendar event, so those are one
+  // question, and answering them differently would make the route an existence oracle for a walled
+  // matter: ask about an id, learn from the wording whether it is real.
+  "meeting-not-found": "meeting-not-found",
+  // A meeting that has already finished (HTTP 409). Terminal and its own type rather than a generic
+  // conflict, because the remedy is to start a new meeting on the event rather than to retry this
+  // one — the attendance under a meeting describes one gathering, and a second gathering is a second
+  // room.
+  "meeting-ended": "meeting-ended",
+  // The room is at its ceiling and the next person is not coming in (HTTP 409). Named so the refusal
+  // can say how many the room holds; counted over the stays that are still open, so somebody leaving
+  // makes a seat.
+  "meeting-room-full": "meeting-room-full",
+  // Asked of a room the caller is not in (HTTP 409) — signaling on a meeting nobody opened an
+  // attendance for. DISTINCT from `permission-denied`: the member may join this meeting, and the
+  // remedy is to join it first rather than to be granted anything.
+  "meeting-not-joined": "meeting-not-joined",
+  // This deployment has no media routing credentials (HTTP 503), so there is nowhere for a
+  // meeting's audio and video to go. A fact about the deployment rather than about the caller or
+  // their firm, which is why it is not a 403: nobody here can fix it by being granted something.
+  "meetings-not-configured": "meetings-not-configured",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

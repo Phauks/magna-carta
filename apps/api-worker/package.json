@@ -56,6 +56,7 @@
     "@magna-carta/matter-assets": "workspace:*",
     "@magna-carta/matter-search": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "@magna-carta/meetings": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/notes": "workspace:*",

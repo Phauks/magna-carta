@@ -1,6 +1,7 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
+import { registerMeetingsRoutes } from "./meetings.ts";
 
 // The call and text log, and the shipping surface the carrier plugin mounts through this module's file.
 //
@@ -15,5 +16,11 @@ export function mountCommunications(
 ): void {
   const domain = createDomainApp();
   registerCommunicationsRoutes(domain, chokepoint);
+  // Meetings — the room a member opens on a calendar event, who was in it, and when each of them
+  // arrived and left. Beside the call and text log because it is the same question about a
+  // different channel: what contact happened, recorded as identifiers and instants. The media is
+  // routed between browsers and never reaches this platform; these routes are the record plus the
+  // upgrade into the signaling room.
+  registerMeetingsRoutes(domain, chokepoint);
   app.route("/", domain);
 }

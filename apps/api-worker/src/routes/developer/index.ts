@@ -22,7 +22,7 @@ export function mountDeveloper(
   // The development-only R2 upload target: stands in for direct-to-R2 uploads under `wrangler dev`
   // (where no presigned R2 host resolves and no R2 event fires). It serves its route only when the
   // real R2 S3 credential set is absent — the same fail-closed signal that makes presignerForEnv
-  // return the dev presigner (routes/dev-r2-upload.ts, presigner-wiring.ts) — so it answers a bare 404
+  // return the dev presigner (routes/developer/dev-r2-upload.ts, presigner-wiring.ts) — so it answers a bare 404
   // in production. Behind the chokepoint (session -> files:upload) and validates the object key against
   // the firm's upload session. A bare route under /api/__dev, so it never enters the OpenAPI contract.
   registerDevR2UploadRoute(app, chokepoint);

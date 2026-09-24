@@ -1,7 +1,6 @@
 # A matter's money sections
 
-_Time, Fees, Costs and Billing are in daily use. Trust shows its screen in full but stands empty
-until the records behind it can be read, and says so at the top of its list._
+_Time, Fees, Costs, Billing and Trust are in daily use._
 
 ## What it does
 
@@ -24,12 +23,10 @@ the row of sections beneath the matter's title reaches the same five places.
 ## Leaving the matter for the firm's whole record
 
 Four of the five money sections have a firm-wide twin, and the end of that same row is the way to
-it: **All time**, **All fees**, **All costs**, **All billing**, past a short rule so it never reads
-as a sixth section. It takes you out of the matter to the same money at the firm's scale — every matter's hours
-for a week, every matter's spending for a month, every client's bills — which is the question a
-matter's own section cannot answer.
-
-Trust shows nothing there, because it has no firm-wide screen yet.
+it: **All time**, **All fees**, **All costs**, **All billing**, **All trust**, past a short rule so
+it never reads as a sixth section. It takes you out of the matter to the same money at the firm's
+scale — every matter's hours for a week, every matter's spending for a month, every client's bills,
+the firm's trust accounts — which is the question a matter's own section cannot answer.
 
 ## Clearing filters
 
@@ -109,13 +106,44 @@ says so.
 
 The Trust section shows the matter's trust ledger: every deposit into it, every payment out of it,
 and every transfer between this client's matters, with who recorded and who authorized each one.
-The counts strip carries the balance, the amount under hold, and what is available. Reading the
-ledger needs the firm's trust account, and the firm's trust accounts cannot be listed yet, so the
-section is empty for now and says so.
+The counts strip carries the balance, the amount under hold, and what is available.
+
+A matter's ledger lives in one of the firm's trust accounts. With one open account the section
+reads it; with several, the account control above the ledger picks the one to read, and the choice
+is remembered on this device. A matter that has never received money into that account has no
+ledger there yet, and the section says so: the ledger is created by the first deposit.
+
+### Recording money in
+
+**New Deposit** at the top of the matter records money received into this matter's ledger: the
+amount, the day it reached the account, how it arrived, who it came from, and why. It lands in
+full; a bank or processor fee is never taken out of it.
+
+### Paying money out
+
+**Pay Out** on the top row proposes a payment out of the ledger to a payee. What happens next is
+your firm's policy ([trust money-out approvals](../admin/trust-disbursement-approvals.md)): if you
+hold the authority to release client money and the amount needs no second person, the payment is
+made there and then; otherwise nothing moves, the proposal waits, and the section names who can
+approve it. A line above the ledger says how many payments are waiting; press it and the details
+panel opens on them, each with its amount, payee and purpose. The person who raised one can
+**Withdraw** it; anybody else who may decide it can **Approve** or **Reject** it, and a rejection
+asks for a reason the proposer can answer. A payment can never take
+more than what is available, which is the balance less anything under hold.
+
+### Moving money between the client's matters
+
+**Transfer** moves money from this matter's ledger to another matter of the same client, inside the
+same trust account. No money leaves the bank, so nothing appears on a statement; the transfer shows
+on both matters' ledgers. A matter belonging to a different client is refused.
+
+Nothing on the ledger is edited or deleted. A movement that reached the ledger is a fact the firm
+answers for, and a mistake is put right by a further movement.
 
 ## Related
 
 - [`matter-documents.md`](matter-documents.md) — the Files section, whose layout the money sections share.
 - [`the-firms-fees.md`](the-firms-fees.md) — the firm's fees across every matter, for a period.
+- [`the-firms-trust-accounts.md`](the-firms-trust-accounts.md) — the firm's trust accounts, the approval queue, and the records behind each account.
 - [`billing-fee-arrangements.md`](billing-fee-arrangements.md) — how a matter is billed.
 - [`correcting-a-bill.md`](correcting-a-bill.md) — credit notes, write-offs and client credits.

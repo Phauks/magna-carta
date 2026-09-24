@@ -22,7 +22,7 @@ export function mountSession(app: AppRouter, chokepoint: Chokepoint, deps: Domai
   // A SECOND ladder, of the same shape and for the same reason, for the anonymous invitation
   // redemption form. It is the budget that route's refusal publishes — the invitation's own count
   // is a fact about the invitation and answering with it would tell a prober whether a guessed code
-  // is live (routes/invitations.ts). Separate state from the credential ladder above because the
+  // is live (routes/session/invitations.ts). Separate state from the credential ladder above because the
   // two surfaces ask different questions of different people: a member mistyping their password
   // should not spend a new joiner's tries, or the reverse.
   const invitationRedemptionLadder = createAttemptLadder();
