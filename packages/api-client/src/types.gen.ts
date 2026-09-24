@@ -15866,6 +15866,10 @@ export type DownloadsZipErrors = {
      */
     404: Problem;
     /**
+     * The selection holds documents whose copies for outside the platform (every tracked change accepted) are still being made. Retry shortly; the same request answers once they exist.
+     */
+    409: Problem;
+    /**
      * The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split enabled, or encryption combined with split). The detail field lists each violation.
      */
     422: Problem;

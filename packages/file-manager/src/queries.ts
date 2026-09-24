@@ -1,3 +1,4 @@
+import type { ExportCopyFacts, ExportCopyState } from "./export-copy.ts";
 import {
   assemblePage,
   DEFAULT_PAGE_SIZE,
@@ -329,12 +330,12 @@ export function selectCurrentCleanVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail, f.name FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail, f.name, v.export_copy_state, v.export_r2_key, v.export_size_bytes FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(fileId);
 }
 
-export interface CleanVersion {
+export interface CleanVersion extends ExportCopyFacts {
   readonly id: FileVersionId;
   readonly r2Key: string;
   readonly sizeBytes: number | null;
@@ -368,7 +369,7 @@ export async function getFileWithCurrentCleanVersion(
 ): Promise<FileWithCurrentCleanVersion | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id AND v.status = 'clean' WHERE f.id = ?1`,
+      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail, v.export_copy_state, v.export_r2_key, v.export_size_bytes FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id AND v.status = 'clean' WHERE f.id = ?1`,
     )
     .bind(fileId)
     .all<{
@@ -381,6 +382,9 @@ export async function getFileWithCurrentCleanVersion(
       version_number: number | null;
       scan_verdict: "unscanned" | "clean" | "flagged" | null;
       scan_detail: string | null;
+      export_copy_state: ExportCopyState | null;
+      export_r2_key: string | null;
+      export_size_bytes: number | null;
     }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -401,6 +405,9 @@ export async function getFileWithCurrentCleanVersion(
             // This read already has the file's name at the top level; the nested version carries it
             // too so every CleanVersion answers the same questions whichever read produced it.
             name: row.name,
+            exportCopyState: row.export_copy_state,
+            exportR2Key: row.export_r2_key,
+            exportSizeBytes: row.export_size_bytes,
           },
   };
 }
@@ -425,7 +432,7 @@ export async function getFileWithNamedVersion(
 ): Promise<FileWithNamedVersion | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = ?2 AND v.file_id = f.id AND v.status = 'clean' WHERE f.id = ?1`,
+      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail, v.export_copy_state, v.export_r2_key, v.export_size_bytes FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = ?2 AND v.file_id = f.id AND v.status = 'clean' WHERE f.id = ?1`,
     )
     .bind(fileId, versionId)
     .all<{
@@ -438,6 +445,9 @@ export async function getFileWithNamedVersion(
       version_number: number | null;
       scan_verdict: "unscanned" | "clean" | "flagged" | null;
       scan_detail: string | null;
+      export_copy_state: ExportCopyState | null;
+      export_r2_key: string | null;
+      export_size_bytes: number | null;
     }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -458,6 +468,9 @@ export async function getFileWithNamedVersion(
             // This read already has the file's name at the top level; the nested version carries it
             // too so every CleanVersion answers the same questions whichever read produced it.
             name: row.name,
+            exportCopyState: row.export_copy_state,
+            exportR2Key: row.export_r2_key,
+            exportSizeBytes: row.export_size_bytes,
           },
   };
 }
@@ -526,6 +539,9 @@ export async function getCurrentCleanVersion(
     scan_verdict: "unscanned" | "clean" | "flagged" | null;
     scan_detail: string | null;
     name: string;
+    export_copy_state: ExportCopyState | null;
+    export_r2_key: string | null;
+    export_size_bytes: number | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -537,6 +553,9 @@ export async function getCurrentCleanVersion(
     scanVerdict: row.scan_verdict,
     scanDetail: row.scan_detail,
     name: row.name,
+    exportCopyState: row.export_copy_state,
+    exportR2Key: row.export_r2_key,
+    exportSizeBytes: row.export_size_bytes,
   };
 }
 
@@ -1242,14 +1261,15 @@ export function listCleanCurrentVersionsByMatterStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT f.id AS file_id, f.folder_id, f.name, v.id AS version_id, v.r2_key, v.size_bytes ` +
+      `SELECT f.id AS file_id, f.folder_id, f.name, v.id AS version_id, v.r2_key, v.size_bytes, ` +
+        `v.export_copy_state, v.export_r2_key, v.export_size_bytes ` +
         `FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id ` +
         `WHERE f.matter_id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(matterId);
 }
 
-export interface MatterCleanFile {
+export interface MatterCleanFile extends ExportCopyFacts {
   readonly fileId: FileId;
   readonly folderId: FolderId | null;
   readonly name: string;
@@ -1269,6 +1289,9 @@ export async function listCleanCurrentVersionsByMatter(
     version_id: FileVersionId;
     r2_key: string;
     size_bytes: number | null;
+    export_copy_state: ExportCopyState | null;
+    export_r2_key: string | null;
+    export_size_bytes: number | null;
   }>();
   return results.map((row) => ({
     fileId: row.file_id,
@@ -1277,6 +1300,9 @@ export async function listCleanCurrentVersionsByMatter(
     versionId: row.version_id,
     r2Key: row.r2_key,
     sizeBytes: row.size_bytes,
+    exportCopyState: row.export_copy_state,
+    exportR2Key: row.export_r2_key,
+    exportSizeBytes: row.export_size_bytes,
   }));
 }
 

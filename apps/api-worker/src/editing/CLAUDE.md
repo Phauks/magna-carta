@@ -38,6 +38,56 @@
 - **One coordinator/container per document** (`idFromName(fileId)`) — never pooled/shared across documents (owner red-flag; ADR `collabora-editing-host-topology`).
 - **Errors on the WOPI surface are redacted** through `runWopiCallback` — one `operation.failed` with an `X-MC-Error-Id`, no document bytes or token ever logged.
 
+## Every copy that leaves the platform
+
+A word-processing version the browser editor cut keeps every tracked change in its stored bytes
+(the owner's decision of 2026-09-18: the marks are the document's own record of who changed what,
+and history reads them). **A copy produced for outside the platform is never those bytes.** It is
+the version's EXPORT COPY — the same document with every change accepted — resolved through
+`../exports/export-object.ts` and nothing else:
+
+- `working-copy-version.ts` (every editor save) and the reap in `document-session.ts` mark a
+  `.docx` version as owing a copy (`export_copy_state = 'pending'`) in the batch that cuts it, so
+  there is no moment in which the version is current and a download of it could be served from
+  its marks. The save then asks the queue for the copy directly (`requestExportCopy`); the relay's
+  publication of `file.version_committed` reaches the same handler as the backstop.
+- `../exports/export-copy.ts` makes the copy: `acceptTrackedChanges` from
+  `@magna-carta/document-assembly` (an XML rewrite of the package, never a re-render by the office
+  suite — the copy is the member's document with the marks resolved and nothing else changed),
+  written at `files/{fileId}/{versionId}.accepted`, stamped `export-copy`, recorded on the row with
+  its size. A version that recorded nothing is `ready` at its own key. A document past the accept
+  pass's caps (`WORKING_DOCUMENT_PACKAGE_LIMITS`, a 6 MiB body part) is recorded `unavailable`,
+  and is then served from its stored bytes with the audit saying so — the one case a copy leaves
+  with its marks, chosen over refusing a member their own document.
+- `../exports/export-object.ts` is what a handing-out path calls. A `pending` copy is made on the
+  spot (the save was seconds ago); a bulk selection with more than `MAX_INLINE_EXPORT_COPIES`
+  pending answers 409 `export-copies-pending` rather than accepting many documents' changes on one
+  request.
+
+**The paths, enumerated.** Every one of these resolves through `resolveExportObject` /
+`resolveExportEntries`; a new path that hands a version's bytes to anything outside the platform
+joins this list and calls the same resolver:
+
+- `GET /api/v1/files/{id}/download` — the per-file redirect (`routes/files.ts`); the audit row
+  carries `exportCopy: accepted | unavailable` for a version that records.
+- `POST /api/v1/downloads/zip`, every lane — the single-file redirect, the inline stream, the
+  async build, the optioned container build and the encrypted stream (`routes/downloads.ts`): the
+  entries' keys are swapped once, before the lanes branch, so the bundle container and the queue
+  consumer read the copies without knowing they exist. The audit row carries the counts.
+- The download register (`routes/downloads-register.ts`) re-presigns a RETAINED bundle's object,
+  which was built from the copies; a per-file entry is a reference that comes back through the
+  route above.
+
+**Not exports, and deliberately served from the stored bytes:** `GetFile` on the WOPI surface (the
+editor must see the marks), the offline checkout's presigned GET (`checkout-routes.ts` — a working
+copy that comes back through check-in, not a copy that leaves), and the in-app preview. **Paths
+that do not exist yet and must join the list when built:** an email attachment sent from the
+platform, a client-portal share, and any assembly that takes a member's document as its input
+(today assembly reads templates, which are not editor-cut versions).
+
+A version's copy goes wherever its bytes go: `purgeableVersionObjects` lists it beside the
+version's own object. It is not tiered with the version (a derived cache; rebuildable).
+
 ## Dependencies & contracts
 
 - **The coolwsd container is NOT here.** Per ADR `container-subsystems-extract-to-dedicated-workers`, it lives in a dedicated `magna-carta-edit` worker (no egress, no R2/D1 creds, one per document). The editor (browser iframe) loads it and it calls _back_ into this worker's `/wopi/*` surface — the container is the caller, never invoked from here.
