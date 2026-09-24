@@ -440,6 +440,8 @@ export function smartyAddressLookupPort(
           : resolvedGroup(offers);
       }
     }
+    // Every route this adapter mints is handled above; anything else is an offer it does not know.
+    return resolutionExpired();
   }
 
   return { suggest, resolve };

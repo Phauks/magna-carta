@@ -337,17 +337,9 @@ describe("an identifier that came back from a browser", () => {
   it("is the port's expired answer when it is anything this adapter did not mint", async () => {
     const { fetch, urls } = scriptedFetch(() => json({}));
     const port = smartyAddressLookupPort(CREDENTIALS, fetch);
-    for (const forged of [
-      "",
-      "not-base64!!",
-      btoa("[]"),
-      btoa(JSON.stringify({ route: "elsewhere" })),
-    ]) {
-      expect(await port.resolve({ suggestionId: forged })).toEqual({
-        ok: true,
-        resolution: "expired",
-      });
-    }
+    const forged = ["", "not-base64!!", btoa("[]"), btoa(JSON.stringify({ route: "elsewhere" }))];
+    const answers = await Promise.all(forged.map((suggestionId) => port.resolve({ suggestionId })));
+    for (const answer of answers) expect(answer).toEqual({ ok: true, resolution: "expired" });
     expect(urls).toHaveLength(0);
   });
 
