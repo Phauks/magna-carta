@@ -17,6 +17,7 @@
   import BrandMark from "@magna-carta/design-system/brand-mark";
   import X from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
+  import { SECURE_SHELL_FALLBACK_RETURN, secureShellReturnTarget } from "./secure-shell-return.ts";
 
   let { rail, children }: { rail: Snippet; children: Snippet } = $props();
 
@@ -24,14 +25,15 @@
   // this surface. Moving between the surface's own subpages never changes it, so Close always
   // leaves the whole surface (not steps back one subpage). Reached directly (a full page load, no
   // in-app origin) → Home. `afterNavigate` runs on mount with that entry navigation, then on every
-  // later navigation; the flag keeps only the first (the entry).
-  let returnTo = "/home";
+  // later navigation; the flag keeps only the first (the entry). The reading of that navigation —
+  // including why a full page load is answered by its type rather than by `from` — is
+  // ./secure-shell-return.ts.
+  let returnTo = SECURE_SHELL_FALLBACK_RETURN;
   let entryCaptured = false;
   afterNavigate((navigation) => {
     if (entryCaptured) return;
     entryCaptured = true;
-    const origin = navigation.from?.url.pathname;
-    if (origin !== undefined && origin !== "") returnTo = origin;
+    returnTo = secureShellReturnTarget(navigation);
   });
 
   function close(): void {
