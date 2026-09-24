@@ -825,9 +825,10 @@
       <h2 class="text-lg font-semibold">Not transposed yet</h2>
       <Alert.Root variant="info">
         <Alert.Description>
-          The two-factor enrolment hub and its authenticator, phone and recovery-code screens, the
-          recovery-codes issuance and export, and the reset-password screen as one
-          progressively-disclosed surface are designed but not built here. The passkey-or-password
+          Two-factor enrolment by authenticator app, and issuing and saving the recovery codes, are
+          built on Account · Security rather than here, because a signed-in member sets them up.
+          The phone-channel enrolment screens and the reset-password screen as one
+          progressively-disclosed surface are designed but not built. The passkey-or-password
           choice the registration design calls for is a third case: it is not a missing screen but a
           missing route, and it stays absent until there is one.
         </Alert.Description>
