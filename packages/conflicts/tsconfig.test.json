@@ -35,6 +35,9 @@
     },
     {
       "path": "../matters/tsconfig.build.json"
+    },
+    {
+      "path": "../sequence-numbering/tsconfig.build.json"
     }
   ],
   "include": [

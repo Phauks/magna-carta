@@ -1,13 +1,16 @@
 /*
- * A firm's numbering scheme, as the settings editor holds it.
+ * A firm's numbering schemes, as the settings editor holds them.
  *
- * A NUMBER IS A TEMPLATE OF SEGMENTS. The firm writes its matter numbers, and the tentative numbers
- * its consultations carry, as an ordered list of parts: a fixed piece of text, the year the matter
- * opened, its office's code, its practice area's code, the client's code, and exactly one counter
- * that ticks up. Any part that varies can be marked as SCOPING, which starts the count over for
- * each distinct value of it — a year-scoped counter runs 0001 again each January, the way a file
- * room's numbers do. The matters package owns the model and the renderer; this file spells the
- * same shape for the editor and states, in the reader's words, what each part is.
+ * A NUMBER IS A TEMPLATE OF SEGMENTS. The firm writes each of its numbers — matter, consultation,
+ * intake, conflicts check, custody — as an ordered list of parts: a fixed piece of text, the year
+ * the record was numbered, its office's code, its practice area's code, the client's code, and
+ * exactly one counter that ticks up. Any part that varies can be marked as SCOPING, which starts
+ * the count over for each distinct value of it — a year-scoped counter runs 0001 again each
+ * January, the way a file room's numbers do. The sequence-numbering package owns the model, the
+ * renderer and the register of purposes; this file spells the same shape for the editor and
+ * states, in the reader's words, what each part is. What each PURPOSE is — its title, when its
+ * number is drawn, which parts it may use — arrives from the server's listing, so the screen
+ * never keeps a second copy of the register.
  *
  * WHY THE EDITOR VALIDATES BEFORE THE SERVER DOES. The one rule that cannot be broken — exactly
  * one counter — is the server's to enforce, and it does. It is repeated here so the editor can
@@ -18,8 +21,61 @@
  * That is the matters package's rule, restated on the screen so nobody expects a renumbering.
  */
 
-/** Which of the firm's two sequences a scheme shapes. */
-export type NumberingPurpose = "matter" | "consultation";
+import { formatDate } from "@magna-carta/design-system/formatters";
+
+/** Every number the firm issues, as the register names them. */
+export type NumberingPurpose =
+  | "matter"
+  | "consultation"
+  | "intake"
+  | "conflicts_check"
+  | "custody_packet"
+  | "invoice"
+  | "time_entry"
+  | "communication";
+
+/** The purposes whose shape the firm writes as a scheme. */
+export type SchemeNumberingPurpose =
+  | "matter"
+  | "consultation"
+  | "intake"
+  | "conflicts_check"
+  | "custody_packet";
+
+/** One purpose as the listing describes it: what it is, and either its scheme or its fixed shape. */
+export interface NumberingPurposeRecord {
+  readonly purpose: NumberingPurpose;
+  /** The plate heading: "Matter Numbers". */
+  readonly title: string;
+  readonly label: string;
+  /** The record numbered, singular and plural: "matter", "matters". */
+  readonly subject: string;
+  readonly subjects: string;
+  /** When the number is drawn, in one sentence. */
+  readonly drawnWhen: string;
+  readonly formulation: "scheme" | "fixed";
+  /** The parts a scheme for this purpose may use; null for a fixed purpose. */
+  readonly segmentKinds: readonly NumberSegmentKind[] | null;
+  /** What is in force: the firm's scheme or the built-in default; null where nothing is. */
+  readonly segments: readonly NumberSegment[] | null;
+  readonly usingDefault: boolean | null;
+  /** A fixed purpose's shape and the reason; null for a scheme-shaped purpose. */
+  readonly fixedShape: string | null;
+  /** The first number the sample would render as under what is in force. */
+  readonly example: string | null;
+}
+
+export function isSchemeNumberingPurpose(
+  purpose: NumberingPurpose,
+): purpose is SchemeNumberingPurpose {
+  return (
+    purpose === "matter" ||
+    purpose === "consultation" ||
+    purpose === "intake" ||
+    purpose === "conflicts_check" ||
+    purpose === "custody_packet"
+  );
+}
 
 /** One part of a number, spelled the way the numbering contract stores it. */
 export type NumberSegment =
@@ -49,8 +105,9 @@ export interface NumberSegmentVocabularyEntry {
 }
 
 /**
- * The parts a number can be made of, in the order the picker offers them: the two structural
- * parts first, then the dates, then what the matter carries.
+ * Every part a number can be made of, in the order the picker offers them: the two structural
+ * parts first, then the dates, then what the matter carries. A purpose offers the subset the
+ * listing names for it (numberSegmentVocabularyFor).
  */
 export const NUMBER_SEGMENT_VOCABULARY: readonly NumberSegmentVocabularyEntry[] = [
   {
@@ -68,13 +125,13 @@ export const NUMBER_SEGMENT_VOCABULARY: readonly NumberSegmentVocabularyEntry[] 
   {
     kind: "year",
     label: "Year",
-    description: "The year the matter opened, as two or four digits.",
+    description: "The year the record was numbered, as two or four digits.",
     valued: true,
   },
   {
     kind: "date_opened",
-    label: "Date Opened",
-    description: "The date the matter opened, as eight digits (YYYYMMDD).",
+    label: "Date Numbered",
+    description: "The date the record was numbered, as eight digits (YYYYMMDD).",
     valued: true,
   },
   {
@@ -108,6 +165,13 @@ export const NUMBER_SEGMENT_VOCABULARY: readonly NumberSegmentVocabularyEntry[] 
     valued: true,
   },
 ];
+
+/** The parts one purpose may use, in the picker's order. */
+export function numberSegmentVocabularyFor(
+  kinds: readonly NumberSegmentKind[],
+): readonly NumberSegmentVocabularyEntry[] {
+  return NUMBER_SEGMENT_VOCABULARY.filter((entry) => kinds.includes(entry.kind));
+}
 
 export function numberSegmentVocabulary(kind: NumberSegmentKind): NumberSegmentVocabularyEntry {
   const entry = NUMBER_SEGMENT_VOCABULARY.find((candidate) => candidate.kind === kind);
@@ -236,21 +300,22 @@ export function numberingSchemesEqual(
 export interface NumberingStarter {
   readonly key: string;
   readonly label: string;
-  /** What it renders as, for a matter opened in 2026 at the first draw. */
-  readonly example: string;
+  /** What it renders as at the first draw, given the year of the sample the server supplied. */
+  readonly exampleFor: (year: string) => string;
   readonly segments: readonly NumberSegment[];
 }
 
 /**
  * The shapes a firm most often begins from. Each is a complete scheme the editor loads into the
  * list; every part is then the firm's to change. The examples are what the renderer produces for
- * the first number drawn in 2026, so a starter can be chosen by what it looks like.
+ * the first number drawn in the sample's year, so a starter can be chosen by what it looks like
+ * and never disagrees with the preview it loads.
  */
 export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   {
     key: "year-counter",
     label: "Year and counter",
-    example: "2026-0001",
+    exampleFor: (year) => `${year}-0001`,
     segments: [
       { kind: "year", digits: 4, scoping: true },
       { kind: "literal", text: "-" },
@@ -260,13 +325,13 @@ export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   {
     key: "counter",
     label: "A running count",
-    example: "00001",
+    exampleFor: () => "00001",
     segments: [{ kind: "counter", padWidth: 5, start: 1 }],
   },
   {
     key: "type-year-counter",
     label: "Practice area, year and counter",
-    example: "LIT-2026-0001",
+    exampleFor: (year) => `LIT-${year}-0001`,
     segments: [
       { kind: "matter_type_code", scoping: true },
       { kind: "literal", text: "-" },
@@ -278,7 +343,7 @@ export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   {
     key: "client-counter",
     label: "Client code and counter",
-    example: "ASH-001",
+    exampleFor: () => "ASH-001",
     segments: [
       { kind: "client_code", scoping: true },
       { kind: "literal", text: "-" },
@@ -287,9 +352,20 @@ export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   },
 ];
 
+/** The starters a purpose may begin from: those built only of parts it may use. */
+export function numberingStartersFor(
+  kinds: readonly NumberSegmentKind[],
+): readonly NumberingStarter[] {
+  return NUMBERING_STARTERS.filter((starter) =>
+    starter.segments.every((segment) => kinds.includes(segment.kind)),
+  );
+}
+
 /**
- * The sample matter the live preview renders against. Every valued part has a value here, so a
- * scheme previews whatever parts it uses; the sentence beside the preview says these are samples.
+ * The sample record the live preview renders against, as the server's listing supplies it. Every
+ * valued part has a value, so a scheme previews whatever parts it uses; the sentence beside the
+ * preview says these are samples. The server renders every example on the listing against the
+ * same sample, so the two never disagree.
  */
 export interface NumberingSampleContext {
   readonly openedDate: string;
@@ -300,29 +376,43 @@ export interface NumberingSampleContext {
   readonly clientName: string;
 }
 
-export function numberingSampleContext(today: string): NumberingSampleContext {
-  return {
-    openedDate: today,
-    locationCode: "RNO",
-    matterTypeCode: "LIT",
-    clientCode: "ASH",
-    staffInitials: "EV",
-    clientName: "Ashcombe Mercantile",
-  };
+/** The year of the sample, for the copy that names one: the digits picker and the starters. */
+export function numberingSampleYear(context: Pick<NumberingSampleContext, "openedDate">): string {
+  return context.openedDate.slice(0, 4);
 }
 
-/** How the sample reads beside the preview, so a rendered code is never mistaken for the firm's. */
-export function numberingSampleSentence(context: NumberingSampleContext): string {
-  return (
-    `Previewed for a matter opened ${context.openedDate} at office ${context.locationCode}, ` +
-    `practice area ${context.matterTypeCode}, client code ${context.clientCode}, ` +
-    `attorney ${context.staffInitials}, client ${context.clientName}.`
-  );
+/**
+ * How the sample reads beside the preview, so a rendered code is never mistaken for the firm's.
+ * Only the facts the purpose's parts can use are named: a conflicts check has no office or client.
+ * The day is formatted the way every recorded day on the product is, never as the wire form.
+ */
+export function numberingSampleSentence(
+  context: NumberingSampleContext,
+  record: Pick<NumberingPurposeRecord, "subject" | "segmentKinds">,
+): string {
+  const kinds = record.segmentKinds ?? [];
+  const facts: string[] = [];
+  if (kinds.includes("location_code")) facts.push(`at office ${context.locationCode}`);
+  if (kinds.includes("matter_type_code")) facts.push(`practice area ${context.matterTypeCode}`);
+  if (kinds.includes("client_code")) facts.push(`client code ${context.clientCode}`);
+  if (kinds.includes("staff_initials")) facts.push(`attorney ${context.staffInitials}`);
+  if (kinds.includes("client_name")) facts.push(`client ${context.clientName}`);
+  const opened = `Previewed for a ${record.subject} numbered ${formatDate(context.openedDate)}`;
+  return facts.length === 0 ? `${opened}.` : `${opened} ${facts.join(", ")}.`;
 }
 
-/** The two purposes as the screen names them. */
-export function numberingPurposeLabel(purpose: NumberingPurpose): string {
-  return purpose === "matter" ? "Matter Numbers" : "Consultation Numbers";
+/**
+ * What the In Force row says under its value: the parts of the scheme in force, said to be the
+ * built-in sequence where it is, or the consequence of nothing being in force.
+ */
+export function numberingInForceDescriptor(
+  record: Pick<NumberingPurposeRecord, "purpose" | "subjects">,
+  committed: readonly NumberSegment[] | null,
+  usingDefault: boolean,
+): string {
+  if (committed === null) return numberingNothingInForceSentence(record);
+  const recipe = committed.map(numberSegmentSummary).join(" · ");
+  return usingDefault ? `The built-in sequence: ${recipe}` : recipe;
 }
 
 /**
@@ -330,25 +420,33 @@ export function numberingPurposeLabel(purpose: NumberingPurpose): string {
  * sequence it shapes ("Matter Numbering Scheme"), by the owner's ruling of 2026-09-11. It used to
  * read "Start from", which named the gesture rather than the thing being chosen.
  */
-export function numberingSchemeLabel(purpose: NumberingPurpose): string {
-  return purpose === "matter" ? "Matter Numbering Scheme" : "Consultation Numbering Scheme";
+export function numberingSchemeLabel(record: Pick<NumberingPurposeRecord, "title">): string {
+  return `${record.title.replace(/ Numbers$/, "")} Numbering Scheme`;
 }
 
 /**
  * What the In Force row says beneath its name when the firm has set nothing — the consequence a
- * reader must know before they leave the page, in the sequence's own terms.
+ * reader must know before they leave the page, in the sequence's own terms. Only the matter
+ * sequence has no built-in default: a matter number is the firm's file spine and refuses to be
+ * invented; every other sequence numbers from its default until the firm writes its own.
  */
-export function numberingNothingInForceSentence(purpose: NumberingPurpose): string {
-  return purpose === "matter"
+export function numberingNothingInForceSentence(
+  record: Pick<NumberingPurposeRecord, "purpose" | "subjects">,
+): string {
+  return record.purpose === "matter"
     ? "Nothing. A matter cannot open until a scheme is set, because its number is drawn at that moment and never changes."
-    : "Nothing of the firm's; the built-in sequence numbers consultations until one is set.";
+    : `Nothing of the firm's; the built-in sequence numbers ${record.subjects} until one is set.`;
 }
 
 /** What Save says once it has landed, in the sequence's own terms. */
-export function numberingSavedSentence(purpose: NumberingPurpose): string {
-  return purpose === "matter"
-    ? "Saved. Matters opened from now on draw their number from this scheme; numbers already drawn are unchanged."
-    : "Saved. Consultations recorded from now on draw their number from this scheme; numbers already drawn are unchanged.";
+export function numberingSavedSentence(record: Pick<NumberingPurposeRecord, "subjects">): string {
+  const subjects = record.subjects.charAt(0).toUpperCase() + record.subjects.slice(1);
+  return `Saved. ${subjects} numbered from now on draw their number from this scheme; numbers already drawn are unchanged.`;
+}
+
+/** The consequence line beside Save, in the sequence's own terms. */
+export function numberingFrozenSentence(record: Pick<NumberingPurposeRecord, "subjects">): string {
+  return `A number already drawn is frozen. Saving reaches only the ${record.subjects} numbered from now on.`;
 }
 
 /**
@@ -366,7 +464,7 @@ export function numberSegmentCellRefusal(
     case "text":
       return kind === "literal"
         ? null
-        : `${label} has no text of its own; it takes its value from the matter.`;
+        : `${label} has no text of its own; it takes its value from the record.`;
     case "digits":
       return kind === "counter" || kind === "year" ? null : `${label} has no digit count to set.`;
     case "start":
@@ -374,7 +472,7 @@ export function numberSegmentCellRefusal(
     case "scoping":
       return numberSegmentVocabulary(kind).valued
         ? null
-        : `${label} takes no value from the matter, so it cannot restart the count.`;
+        : `${label} takes no value from the record, so it cannot restart the count.`;
   }
 }
 

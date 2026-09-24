@@ -1,0 +1,7891 @@
+{
+  "source": "https://chromium-i18n.appspot.com/ssl-address/data",
+  "retrievedOn": "2026-09-18",
+  "countries": {
+    "AC": {
+      "name": "ASCENSION ISLAND",
+      "postalPattern": "ASCN 1ZZ",
+      "postalExamples": ["ASCN 1ZZ"]
+    },
+    "AD": {
+      "name": "ANDORRA",
+      "postalPattern": "AD[1-7]0\\d",
+      "postalExamples": ["AD100", "AD501", "AD700"],
+      "postalLookupUrl": "http://www.correos.es/comun/CodigosPostales/1010_s-CodPostal.asp?Provincia=",
+      "administrativeAreas": [
+        {
+          "code": "Parròquia d'Andorra la Vella",
+          "name": "Andorra la Vella"
+        },
+        {
+          "code": "Canillo",
+          "name": "Canillo"
+        },
+        {
+          "code": "Encamp",
+          "name": "Encamp"
+        },
+        {
+          "code": "Escaldes-Engordany",
+          "name": "Escaldes-Engordany"
+        },
+        {
+          "code": "La Massana",
+          "name": "La Massana"
+        },
+        {
+          "code": "Ordino",
+          "name": "Ordino"
+        },
+        {
+          "code": "Sant Julià de Lòria",
+          "name": "Sant Julià de Lòria"
+        }
+      ]
+    },
+    "AE": {
+      "name": "UNITED ARAB EMIRATES",
+      "administrativeAreaNameType": "emirate",
+      "administrativeAreas": [
+        {
+          "code": "أبو ظبي",
+          "name": "أبو ظبي"
+        },
+        {
+          "code": "إمارة الشارقةّ",
+          "name": "الشارقة"
+        },
+        {
+          "code": "الفجيرة",
+          "name": "الفجيرة"
+        },
+        {
+          "code": "ام القيوين",
+          "name": "ام القيوين"
+        },
+        {
+          "code": "إمارة دبيّ",
+          "name": "دبي"
+        },
+        {
+          "code": "إمارة رأس الخيمة",
+          "name": "رأس الخيمة"
+        },
+        {
+          "code": "عجمان",
+          "name": "عجمان"
+        }
+      ]
+    },
+    "AF": {
+      "name": "AFGHANISTAN",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1001", "2601", "3801"]
+    },
+    "AG": {
+      "name": "ANTIGUA AND BARBUDA"
+    },
+    "AI": {
+      "name": "ANGUILLA",
+      "postalPattern": "(?:AI-)?2640",
+      "postalExamples": ["2640"]
+    },
+    "AL": {
+      "name": "ALBANIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1001", "1017", "3501"]
+    },
+    "AM": {
+      "name": "ARMENIA",
+      "postalPattern": "(?:37)?\\d{4}",
+      "postalExamples": ["375010", "0002", "0010"],
+      "administrativeAreas": [
+        {
+          "code": "Արագածոտն",
+          "name": "Արագածոտն"
+        },
+        {
+          "code": "Արարատ",
+          "name": "Արարատ"
+        },
+        {
+          "code": "Արմավիր",
+          "name": "Արմավիր"
+        },
+        {
+          "code": "Գեղարքունիք",
+          "name": "Գեղարքունիք"
+        },
+        {
+          "code": "Երևան",
+          "name": "Երևան"
+        },
+        {
+          "code": "Լոռի",
+          "name": "Լոռի"
+        },
+        {
+          "code": "Կոտայք",
+          "name": "Կոտայք"
+        },
+        {
+          "code": "Շիրակ",
+          "name": "Շիրակ"
+        },
+        {
+          "code": "Սյունիք",
+          "name": "Սյունիք"
+        },
+        {
+          "code": "Վայոց ձոր",
+          "name": "Վայոց ձոր"
+        },
+        {
+          "code": "Տավուշ",
+          "name": "Տավուշ"
+        }
+      ]
+    },
+    "AO": {
+      "name": "ANGOLA"
+    },
+    "AQ": {
+      "name": "ANTARCTICA"
+    },
+    "AR": {
+      "name": "ARGENTINA",
+      "postalPattern": "[A-HJ-NP-Z]\\d{4}[A-Z]{3}",
+      "postalExamples": ["C1070AAM", "C1000WAM", "B1000TBU", "X5187XAB"],
+      "postalLookupUrl": "http://www.correoargentino.com.ar/formularios/cpa",
+      "administrativeAreas": [
+        {
+          "code": "Buenos Aires",
+          "name": "Buenos Aires"
+        },
+        {
+          "code": "Catamarca",
+          "name": "Catamarca"
+        },
+        {
+          "code": "Chaco",
+          "name": "Chaco"
+        },
+        {
+          "code": "Chubut",
+          "name": "Chubut"
+        },
+        {
+          "code": "Ciudad Autónoma de Buenos Aires",
+          "name": "Ciudad Autónoma de Buenos Aires"
+        },
+        {
+          "code": "Córdoba",
+          "name": "Córdoba"
+        },
+        {
+          "code": "Corrientes",
+          "name": "Corrientes"
+        },
+        {
+          "code": "Entre Ríos",
+          "name": "Entre Ríos"
+        },
+        {
+          "code": "Formosa",
+          "name": "Formosa"
+        },
+        {
+          "code": "Jujuy",
+          "name": "Jujuy"
+        },
+        {
+          "code": "La Pampa",
+          "name": "La Pampa"
+        },
+        {
+          "code": "La Rioja",
+          "name": "La Rioja"
+        },
+        {
+          "code": "Mendoza",
+          "name": "Mendoza"
+        },
+        {
+          "code": "Misiones",
+          "name": "Misiones"
+        },
+        {
+          "code": "Neuquén",
+          "name": "Neuquén"
+        },
+        {
+          "code": "Río Negro",
+          "name": "Río Negro"
+        },
+        {
+          "code": "Salta",
+          "name": "Salta"
+        },
+        {
+          "code": "San Juan",
+          "name": "San Juan"
+        },
+        {
+          "code": "San Luis",
+          "name": "San Luis"
+        },
+        {
+          "code": "Santa Cruz",
+          "name": "Santa Cruz"
+        },
+        {
+          "code": "Santa Fe",
+          "name": "Santa Fe"
+        },
+        {
+          "code": "Santiago del Estero",
+          "name": "Santiago del Estero"
+        },
+        {
+          "code": "Tierra del Fuego",
+          "name": "Tierra del Fuego"
+        },
+        {
+          "code": "Tucumán",
+          "name": "Tucumán"
+        }
+      ]
+    },
+    "AS": {
+      "name": "AMERICAN SAMOA",
+      "postalPattern": "(96799)(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["96799"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state"
+    },
+    "AT": {
+      "name": "AUSTRIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1010", "3741"],
+      "postalLookupUrl": "http://www.post.at/post_subsite_postleitzahlfinder.php"
+    },
+    "AU": {
+      "name": "AUSTRALIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["2060", "3171", "6430", "4000", "4006", "3001"],
+      "postalLookupUrl": "http://www1.auspost.com.au/postcodes/",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "ACT",
+          "name": "Australian Capital Territory"
+        },
+        {
+          "code": "JBT",
+          "name": "Jervis Bay Territory"
+        },
+        {
+          "code": "NSW",
+          "name": "New South Wales"
+        },
+        {
+          "code": "NT",
+          "name": "Northern Territory"
+        },
+        {
+          "code": "QLD",
+          "name": "Queensland"
+        },
+        {
+          "code": "SA",
+          "name": "South Australia"
+        },
+        {
+          "code": "TAS",
+          "name": "Tasmania"
+        },
+        {
+          "code": "VIC",
+          "name": "Victoria"
+        },
+        {
+          "code": "WA",
+          "name": "Western Australia"
+        }
+      ]
+    },
+    "AW": {
+      "name": "ARUBA"
+    },
+    "AX": {
+      "name": "FINLAND",
+      "postalPattern": "22\\d{3}",
+      "postalExamples": ["22150", "22550", "22240", "22710", "22270", "22730", "22430"],
+      "postalLookupUrl": "https://www.alandpost.ax/privat/skicka-brev/postnummer-pa-aland/postnummersokning"
+    },
+    "AZ": {
+      "name": "AZERBAIJAN",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1000"]
+    },
+    "BA": {
+      "name": "BOSNIA AND HERZEGOVINA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["71000"]
+    },
+    "BB": {
+      "name": "BARBADOS",
+      "postalPattern": "BB\\d{5}",
+      "postalExamples": ["BB23026", "BB22025"],
+      "administrativeAreaNameType": "parish",
+      "administrativeAreas": [
+        {
+          "code": "Christ Church",
+          "name": "Christ Church"
+        },
+        {
+          "code": "Saint Andrew",
+          "name": "Saint Andrew"
+        },
+        {
+          "code": "Saint George",
+          "name": "Saint George"
+        },
+        {
+          "code": "Saint James",
+          "name": "Saint James"
+        },
+        {
+          "code": "Saint John",
+          "name": "Saint John"
+        },
+        {
+          "code": "Saint Joseph",
+          "name": "Saint Joseph"
+        },
+        {
+          "code": "Saint Lucy",
+          "name": "Saint Lucy"
+        },
+        {
+          "code": "Saint Michael",
+          "name": "Saint Michael"
+        },
+        {
+          "code": "Saint Peter",
+          "name": "Saint Peter"
+        },
+        {
+          "code": "Saint Philip",
+          "name": "Saint Philip"
+        },
+        {
+          "code": "Saint Thomas",
+          "name": "Saint Thomas"
+        }
+      ]
+    },
+    "BD": {
+      "name": "BANGLADESH",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1340", "1000"],
+      "postalLookupUrl": "https://ekdak.com/thikana/postcode/"
+    },
+    "BE": {
+      "name": "BELGIUM",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["4000", "1000"],
+      "postalLookupUrl": "https://www.bpost.be/nl/postcodevalidatie-tool"
+    },
+    "BF": {
+      "name": "BURKINA FASO"
+    },
+    "BG": {
+      "name": "BULGARIA (REP.)",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1000", "1700"],
+      "postalLookupUrl": "http://www.bgpost.bg/?cid=5"
+    },
+    "BH": {
+      "name": "BAHRAIN",
+      "postalPattern": "(?:^|\\b)(?:1[0-2]|[1-9])\\d{2}(?:$|\\b)",
+      "postalExamples": ["317"]
+    },
+    "BI": {
+      "name": "BURUNDI"
+    },
+    "BJ": {
+      "name": "BENIN"
+    },
+    "BL": {
+      "name": "SAINT BARTHELEMY",
+      "postalPattern": "9[78][01]\\d{2}",
+      "postalExamples": ["97100"],
+      "postalLookupUrl": "https://www.laposte.fr/outils/trouver-un-code-postal"
+    },
+    "BM": {
+      "name": "BERMUDA",
+      "postalPattern": "[A-Z]{2} ?[A-Z0-9]{2}",
+      "postalExamples": ["FL 07", "HM GX", "HM 12"],
+      "postalLookupUrl": "http://www.landvaluation.bm/"
+    },
+    "BN": {
+      "name": "BRUNEI DARUSSALAM",
+      "postalPattern": "[A-Z]{2} ?\\d{4}",
+      "postalExamples": ["BT2328", "KA1131", "BA1511"],
+      "postalLookupUrl": "http://webapps.mtic.gov.bn/SitePages/Post/postcode.aspx"
+    },
+    "BO": {
+      "name": "BOLIVIA"
+    },
+    "BQ": {
+      "name": "BONAIRE, SINT EUSTATIUS, AND SABA"
+    },
+    "BR": {
+      "name": "BRAZIL",
+      "postalPattern": "\\d{5}-?\\d{3}",
+      "postalExamples": ["40301-110", "70002-900"],
+      "postalLookupUrl": "http://www.buscacep.correios.com.br/",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "AC",
+          "name": "Acre"
+        },
+        {
+          "code": "AL",
+          "name": "Alagoas"
+        },
+        {
+          "code": "AP",
+          "name": "Amapá"
+        },
+        {
+          "code": "AM",
+          "name": "Amazonas"
+        },
+        {
+          "code": "BA",
+          "name": "Bahia"
+        },
+        {
+          "code": "CE",
+          "name": "Ceará"
+        },
+        {
+          "code": "DF",
+          "name": "Distrito Federal"
+        },
+        {
+          "code": "ES",
+          "name": "Espírito Santo"
+        },
+        {
+          "code": "GO",
+          "name": "Goiás"
+        },
+        {
+          "code": "MA",
+          "name": "Maranhão"
+        },
+        {
+          "code": "MT",
+          "name": "Mato Grosso"
+        },
+        {
+          "code": "MS",
+          "name": "Mato Grosso do Sul"
+        },
+        {
+          "code": "MG",
+          "name": "Minas Gerais"
+        },
+        {
+          "code": "PA",
+          "name": "Pará"
+        },
+        {
+          "code": "PB",
+          "name": "Paraíba"
+        },
+        {
+          "code": "PR",
+          "name": "Paraná"
+        },
+        {
+          "code": "PE",
+          "name": "Pernambuco"
+        },
+        {
+          "code": "PI",
+          "name": "Piauí"
+        },
+        {
+          "code": "RJ",
+          "name": "Rio de Janeiro"
+        },
+        {
+          "code": "RN",
+          "name": "Rio Grande do Norte"
+        },
+        {
+          "code": "RS",
+          "name": "Rio Grande do Sul"
+        },
+        {
+          "code": "RO",
+          "name": "Rondônia"
+        },
+        {
+          "code": "RR",
+          "name": "Roraima"
+        },
+        {
+          "code": "SC",
+          "name": "Santa Catarina"
+        },
+        {
+          "code": "SP",
+          "name": "São Paulo"
+        },
+        {
+          "code": "SE",
+          "name": "Sergipe"
+        },
+        {
+          "code": "TO",
+          "name": "Tocantins"
+        }
+      ]
+    },
+    "BS": {
+      "name": "BAHAMAS",
+      "administrativeAreaNameType": "island",
+      "administrativeAreas": [
+        {
+          "code": "Abaco",
+          "name": "Abaco Islands"
+        },
+        {
+          "code": "Acklins",
+          "name": "Acklins"
+        },
+        {
+          "code": "Andros",
+          "name": "Andros Island"
+        },
+        {
+          "code": "Berry Islands",
+          "name": "Berry Islands"
+        },
+        {
+          "code": "Bimini",
+          "name": "Bimini"
+        },
+        {
+          "code": "Cat Island",
+          "name": "Cat Island"
+        },
+        {
+          "code": "Crooked Island",
+          "name": "Crooked Island"
+        },
+        {
+          "code": "Eleuthera",
+          "name": "Eleuthera"
+        },
+        {
+          "code": "Exuma",
+          "name": "Exuma and Cays"
+        },
+        {
+          "code": "Grand Bahama",
+          "name": "Grand Bahama"
+        },
+        {
+          "code": "Harbour Island",
+          "name": "Harbour Island"
+        },
+        {
+          "code": "Inagua",
+          "name": "Inagua"
+        },
+        {
+          "code": "Long Island",
+          "name": "Long Island"
+        },
+        {
+          "code": "Mayaguana",
+          "name": "Mayaguana"
+        },
+        {
+          "code": "N.P.",
+          "name": "New Providence"
+        },
+        {
+          "code": "Ragged Island",
+          "name": "Ragged Island"
+        },
+        {
+          "code": "Rum Cay",
+          "name": "Rum Cay"
+        },
+        {
+          "code": "San Salvador",
+          "name": "San Salvador"
+        },
+        {
+          "code": "Spanish Wells",
+          "name": "Spanish Wells"
+        }
+      ]
+    },
+    "BT": {
+      "name": "BHUTAN",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11001", "31101", "35003"],
+      "postalLookupUrl": "https://bhutanpost.bt/postcode/"
+    },
+    "BV": {
+      "name": "BOUVET ISLAND"
+    },
+    "BW": {
+      "name": "BOTSWANA"
+    },
+    "BY": {
+      "name": "BELARUS",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["223016", "225860", "220050"],
+      "postalLookupUrl": "http://ex.belpost.by/addressbook/",
+      "administrativeAreas": [
+        {
+          "code": "Брэсцкая вобласць",
+          "name": "Брэсцкая вобласць"
+        },
+        {
+          "code": "Віцебская вобласць",
+          "name": "Віцебская вобласць"
+        },
+        {
+          "code": "Гомельская вобласць",
+          "name": "Гомельская вобласць"
+        },
+        {
+          "code": "горад Мінск",
+          "name": "горад Мінск"
+        },
+        {
+          "code": "Гродзенская вобласць",
+          "name": "Гродзенская вобласць"
+        },
+        {
+          "code": "Магілёўская вобласць",
+          "name": "Магілёўская вобласць"
+        },
+        {
+          "code": "Мінская вобласць",
+          "name": "Мінская вобласць"
+        }
+      ]
+    },
+    "BZ": {
+      "name": "BELIZE"
+    },
+    "CA": {
+      "name": "CANADA",
+      "postalPattern": "[ABCEGHJKLMNPRSTVXY]\\d[ABCEGHJ-NPRSTV-Z] ?\\d[ABCEGHJ-NPRSTV-Z]\\d",
+      "postalExamples": ["H3Z 2Y7", "V8X 3X4", "T0L 1K0", "T0H 1A0", "K1A 0B1"],
+      "postalLookupUrl": "https://www.canadapost-postescanada.ca/cpo/mc/personal/postalcode/fpc.jsf",
+      "administrativeAreas": [
+        {
+          "code": "AB",
+          "name": "Alberta"
+        },
+        {
+          "code": "BC",
+          "name": "British Columbia"
+        },
+        {
+          "code": "MB",
+          "name": "Manitoba"
+        },
+        {
+          "code": "NB",
+          "name": "New Brunswick"
+        },
+        {
+          "code": "NL",
+          "name": "Newfoundland and Labrador"
+        },
+        {
+          "code": "NT",
+          "name": "Northwest Territories"
+        },
+        {
+          "code": "NS",
+          "name": "Nova Scotia"
+        },
+        {
+          "code": "NU",
+          "name": "Nunavut"
+        },
+        {
+          "code": "ON",
+          "name": "Ontario"
+        },
+        {
+          "code": "PE",
+          "name": "Prince Edward Island"
+        },
+        {
+          "code": "QC",
+          "name": "Quebec"
+        },
+        {
+          "code": "SK",
+          "name": "Saskatchewan"
+        },
+        {
+          "code": "YT",
+          "name": "Yukon"
+        }
+      ]
+    },
+    "CC": {
+      "name": "COCOS (KEELING) ISLANDS",
+      "postalPattern": "6799",
+      "postalExamples": ["6799"]
+    },
+    "CD": {
+      "name": "CONGO (DEM. REP.)"
+    },
+    "CF": {
+      "name": "CENTRAL AFRICAN REPUBLIC"
+    },
+    "CG": {
+      "name": "CONGO (REP.)"
+    },
+    "CH": {
+      "name": "SWITZERLAND",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["2544", "1211", "1556", "3030"],
+      "postalLookupUrl": "http://www.post.ch/db/owa/pv_plz_pack/pr_main"
+    },
+    "CI": {
+      "name": "COTE D'IVOIRE"
+    },
+    "CK": {
+      "name": "COOK ISLANDS"
+    },
+    "CL": {
+      "name": "CHILE",
+      "postalPattern": "\\d{7}",
+      "postalExamples": ["8340457", "8720019", "1230000", "8329100"],
+      "administrativeAreas": [
+        {
+          "code": "Antofagasta",
+          "name": "Antofagasta"
+        },
+        {
+          "code": "Araucanía",
+          "name": "Araucanía"
+        },
+        {
+          "code": "Arica y Parinacota",
+          "name": "Arica y Parinacota"
+        },
+        {
+          "code": "Atacama",
+          "name": "Atacama"
+        },
+        {
+          "code": "Aysén",
+          "name": "Aysén del General Carlos Ibáñez del Campo"
+        },
+        {
+          "code": "Biobío",
+          "name": "Biobío"
+        },
+        {
+          "code": "Coquimbo",
+          "name": "Coquimbo"
+        },
+        {
+          "code": "O'Higgins",
+          "name": "Libertador General Bernardo O'Higgins"
+        },
+        {
+          "code": "Los Lagos",
+          "name": "Los Lagos"
+        },
+        {
+          "code": "Los Ríos",
+          "name": "Los Ríos"
+        },
+        {
+          "code": "Magallanes",
+          "name": "Magallanes y de la Antártica Chilena"
+        },
+        {
+          "code": "Maule",
+          "name": "Maule"
+        },
+        {
+          "code": "Región Metropolitana",
+          "name": "Metropolitana de Santiago"
+        },
+        {
+          "code": "Ñuble",
+          "name": "Ñuble"
+        },
+        {
+          "code": "Tarapacá",
+          "name": "Tarapacá"
+        },
+        {
+          "code": "Valparaíso",
+          "name": "Valparaíso"
+        }
+      ]
+    },
+    "CM": {
+      "name": "CAMEROON"
+    },
+    "CN": {
+      "name": "CHINA",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["266033", "317204", "100096", "100808"],
+      "postalLookupUrl": "http://cpdc.chinapost.com.cn/web/",
+      "administrativeAreas": [
+        {
+          "code": "安徽省",
+          "name": "安徽省"
+        },
+        {
+          "code": "澳门",
+          "name": "澳门"
+        },
+        {
+          "code": "北京市",
+          "name": "北京市"
+        },
+        {
+          "code": "重庆市",
+          "name": "重庆市"
+        },
+        {
+          "code": "福建省",
+          "name": "福建省"
+        },
+        {
+          "code": "甘肃省",
+          "name": "甘肃省"
+        },
+        {
+          "code": "广东省",
+          "name": "广东省"
+        },
+        {
+          "code": "广西壮族自治区",
+          "name": "广西"
+        },
+        {
+          "code": "贵州省",
+          "name": "贵州省"
+        },
+        {
+          "code": "海南省",
+          "name": "海南省"
+        },
+        {
+          "code": "河北省",
+          "name": "河北省"
+        },
+        {
+          "code": "河南省",
+          "name": "河南省"
+        },
+        {
+          "code": "黑龙江省",
+          "name": "黑龙江省"
+        },
+        {
+          "code": "湖北省",
+          "name": "湖北省"
+        },
+        {
+          "code": "湖南省",
+          "name": "湖南省"
+        },
+        {
+          "code": "吉林省",
+          "name": "吉林省"
+        },
+        {
+          "code": "江苏省",
+          "name": "江苏省"
+        },
+        {
+          "code": "江西省",
+          "name": "江西省"
+        },
+        {
+          "code": "辽宁省",
+          "name": "辽宁省"
+        },
+        {
+          "code": "内蒙古自治区",
+          "name": "内蒙古"
+        },
+        {
+          "code": "宁夏回族自治区",
+          "name": "宁夏"
+        },
+        {
+          "code": "青海省",
+          "name": "青海省"
+        },
+        {
+          "code": "山东省",
+          "name": "山东省"
+        },
+        {
+          "code": "山西省",
+          "name": "山西省"
+        },
+        {
+          "code": "陕西省",
+          "name": "陕西省"
+        },
+        {
+          "code": "上海市",
+          "name": "上海市"
+        },
+        {
+          "code": "四川省",
+          "name": "四川省"
+        },
+        {
+          "code": "台湾",
+          "name": "台湾"
+        },
+        {
+          "code": "天津市",
+          "name": "天津市"
+        },
+        {
+          "code": "西藏自治区",
+          "name": "西藏"
+        },
+        {
+          "code": "香港",
+          "name": "香港"
+        },
+        {
+          "code": "新疆维吾尔自治区",
+          "name": "新疆"
+        },
+        {
+          "code": "云南省",
+          "name": "云南省"
+        },
+        {
+          "code": "浙江省",
+          "name": "浙江省"
+        }
+      ]
+    },
+    "CO": {
+      "name": "COLOMBIA",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["111221", "130001", "760011"],
+      "postalLookupUrl": "http://www.codigopostal.gov.co/",
+      "administrativeAreaNameType": "department",
+      "administrativeAreas": [
+        {
+          "code": "Amazonas",
+          "name": "Amazonas"
+        },
+        {
+          "code": "Antioquia",
+          "name": "Antioquia"
+        },
+        {
+          "code": "Arauca",
+          "name": "Arauca"
+        },
+        {
+          "code": "Atlántico",
+          "name": "Atlántico"
+        },
+        {
+          "code": "Bogotá",
+          "name": "Bogotá"
+        },
+        {
+          "code": "Bolívar",
+          "name": "Bolívar"
+        },
+        {
+          "code": "Boyacá",
+          "name": "Boyacá"
+        },
+        {
+          "code": "Caldas",
+          "name": "Caldas"
+        },
+        {
+          "code": "Caquetá",
+          "name": "Caquetá"
+        },
+        {
+          "code": "Casanare",
+          "name": "Casanare"
+        },
+        {
+          "code": "Cauca",
+          "name": "Cauca"
+        },
+        {
+          "code": "Cesar",
+          "name": "Cesar"
+        },
+        {
+          "code": "Chocó",
+          "name": "Chocó"
+        },
+        {
+          "code": "Córdoba",
+          "name": "Córdoba"
+        },
+        {
+          "code": "Cundinamarca",
+          "name": "Cundinamarca"
+        },
+        {
+          "code": "Guainía",
+          "name": "Guainía"
+        },
+        {
+          "code": "Guaviare",
+          "name": "Guaviare"
+        },
+        {
+          "code": "Huila",
+          "name": "Huila"
+        },
+        {
+          "code": "La Guajira",
+          "name": "La Guajira"
+        },
+        {
+          "code": "Magdalena",
+          "name": "Magdalena"
+        },
+        {
+          "code": "Meta",
+          "name": "Meta"
+        },
+        {
+          "code": "Nariño",
+          "name": "Nariño"
+        },
+        {
+          "code": "Norte de Santander",
+          "name": "Norte de Santander"
+        },
+        {
+          "code": "Putumayo",
+          "name": "Putumayo"
+        },
+        {
+          "code": "Quindío",
+          "name": "Quindío"
+        },
+        {
+          "code": "Risaralda",
+          "name": "Risaralda"
+        },
+        {
+          "code": "San Andrés y Providencia",
+          "name": "San Andrés y Providencia"
+        },
+        {
+          "code": "Santander",
+          "name": "Santander"
+        },
+        {
+          "code": "Sucre",
+          "name": "Sucre"
+        },
+        {
+          "code": "Tolima",
+          "name": "Tolima"
+        },
+        {
+          "code": "Valle del Cauca",
+          "name": "Valle del Cauca"
+        },
+        {
+          "code": "Vaupés",
+          "name": "Vaupés"
+        },
+        {
+          "code": "Vichada",
+          "name": "Vichada"
+        }
+      ]
+    },
+    "CR": {
+      "name": "COSTA RICA",
+      "postalPattern": "\\d{4,5}|\\d{3}-\\d{4}",
+      "postalExamples": ["1000", "2010", "1001"],
+      "postalLookupUrl": "https://correos.go.cr/codigo-postal/",
+      "administrativeAreas": [
+        {
+          "code": "Alajuela",
+          "name": "Alajuela"
+        },
+        {
+          "code": "Cartago",
+          "name": "Cartago"
+        },
+        {
+          "code": "Guanacaste",
+          "name": "Guanacaste"
+        },
+        {
+          "code": "Heredia",
+          "name": "Heredia"
+        },
+        {
+          "code": "Limón",
+          "name": "Limón"
+        },
+        {
+          "code": "Puntarenas",
+          "name": "Puntarenas"
+        },
+        {
+          "code": "San José",
+          "name": "San José"
+        }
+      ]
+    },
+    "CU": {
+      "name": "CUBA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["10700"],
+      "administrativeAreas": [
+        {
+          "code": "Artemisa",
+          "name": "Artemisa"
+        },
+        {
+          "code": "Camagüey",
+          "name": "Camagüey"
+        },
+        {
+          "code": "Ciego de Ávila",
+          "name": "Ciego de Ávila"
+        },
+        {
+          "code": "Cienfuegos",
+          "name": "Cienfuegos"
+        },
+        {
+          "code": "Granma",
+          "name": "Granma"
+        },
+        {
+          "code": "Guantánamo",
+          "name": "Guantánamo"
+        },
+        {
+          "code": "Holguín",
+          "name": "Holguín"
+        },
+        {
+          "code": "Isla de la Juventud",
+          "name": "Isla de la Juventud"
+        },
+        {
+          "code": "La Habana",
+          "name": "La Habana"
+        },
+        {
+          "code": "Las Tunas",
+          "name": "Las Tunas"
+        },
+        {
+          "code": "Matanzas",
+          "name": "Matanzas"
+        },
+        {
+          "code": "Mayabeque",
+          "name": "Mayabeque"
+        },
+        {
+          "code": "Pinar del Río",
+          "name": "Pinar del Río"
+        },
+        {
+          "code": "Sancti Spíritus",
+          "name": "Sancti Spíritus"
+        },
+        {
+          "code": "Santiago de Cuba",
+          "name": "Santiago de Cuba"
+        },
+        {
+          "code": "Villa Clara",
+          "name": "Villa Clara"
+        }
+      ]
+    },
+    "CV": {
+      "name": "CAPE VERDE",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["7600"],
+      "administrativeAreaNameType": "island",
+      "administrativeAreas": [
+        {
+          "code": "Boa Vista",
+          "name": "Boa Vista"
+        },
+        {
+          "code": "Brava",
+          "name": "Brava"
+        },
+        {
+          "code": "Fogo",
+          "name": "Fogo"
+        },
+        {
+          "code": "Maio",
+          "name": "Maio"
+        },
+        {
+          "code": "Sal",
+          "name": "Sal"
+        },
+        {
+          "code": "Santiago",
+          "name": "Santiago"
+        },
+        {
+          "code": "Santo Antão",
+          "name": "Santo Antão"
+        },
+        {
+          "code": "São Nicolau",
+          "name": "São Nicolau"
+        },
+        {
+          "code": "São Vicente",
+          "name": "São Vicente"
+        }
+      ]
+    },
+    "CW": {
+      "name": "CURACAO"
+    },
+    "CX": {
+      "name": "CHRISTMAS ISLAND",
+      "postalPattern": "6798",
+      "postalExamples": ["6798"]
+    },
+    "CY": {
+      "name": "CYPRUS",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["2008", "3304", "1900"]
+    },
+    "CZ": {
+      "name": "CZECH REP.",
+      "postalPattern": "\\d{3} ?\\d{2}",
+      "postalExamples": ["100 00", "251 66", "530 87", "110 00", "225 99"],
+      "postalLookupUrl": "http://psc.ceskaposta.cz/CleanForm.action"
+    },
+    "DE": {
+      "name": "GERMANY",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["26133", "53225"],
+      "postalLookupUrl": "http://www.postdirekt.de/plzserver/"
+    },
+    "DJ": {
+      "name": "DJIBOUTI"
+    },
+    "DK": {
+      "name": "DENMARK",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["8660", "1566"],
+      "postalLookupUrl": "http://www.postdanmark.dk/da/Privat/Kundeservice/postnummerkort/Sider/Find-postnummer.aspx"
+    },
+    "DM": {
+      "name": "DOMINICA"
+    },
+    "DO": {
+      "name": "DOMINICAN REP.",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11903", "10101"],
+      "postalLookupUrl": "http://inposdom.gob.do/"
+    },
+    "DZ": {
+      "name": "ALGERIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["40304", "16027"]
+    },
+    "EC": {
+      "name": "ECUADOR",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["090105", "092301"],
+      "postalLookupUrl": "http://www.codigopostal.gob.ec/"
+    },
+    "EE": {
+      "name": "ESTONIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["69501", "11212"],
+      "postalLookupUrl": "https://www.omniva.ee/era/sihtnumbrite_otsing",
+      "administrativeAreas": [
+        {
+          "code": "Harjumaa",
+          "name": "Harjumaa"
+        },
+        {
+          "code": "Hiiumaa",
+          "name": "Hiiumaa"
+        },
+        {
+          "code": "Ida-Virumaa",
+          "name": "Ida-Virumaa"
+        },
+        {
+          "code": "Jõgevamaa",
+          "name": "Jõgevamaa"
+        },
+        {
+          "code": "Järvamaa",
+          "name": "Järvamaa"
+        },
+        {
+          "code": "Lääne-Virumaa",
+          "name": "Lääne-Virumaa"
+        },
+        {
+          "code": "Läänemaa",
+          "name": "Läänemaa"
+        },
+        {
+          "code": "Põlvamaa",
+          "name": "Põlvamaa"
+        },
+        {
+          "code": "Pärnumaa",
+          "name": "Pärnumaa"
+        },
+        {
+          "code": "Raplamaa",
+          "name": "Raplamaa"
+        },
+        {
+          "code": "Saaremaa",
+          "name": "Saaremaa"
+        },
+        {
+          "code": "Tartumaa",
+          "name": "Tartumaa"
+        },
+        {
+          "code": "Valgamaa",
+          "name": "Valgamaa"
+        },
+        {
+          "code": "Viljandimaa",
+          "name": "Viljandimaa"
+        },
+        {
+          "code": "Võrumaa",
+          "name": "Võrumaa"
+        }
+      ]
+    },
+    "EG": {
+      "name": "EGYPT",
+      "postalPattern": "\\d{7}|\\d{5}",
+      "postalExamples": ["4460232", "5734356"],
+      "administrativeAreas": [
+        {
+          "code": "أسوان",
+          "name": "أسوان"
+        },
+        {
+          "code": "أسيوط",
+          "name": "أسيوط"
+        },
+        {
+          "code": "الإسكندرية",
+          "name": "الإسكندرية"
+        },
+        {
+          "code": "الإسماعيلية",
+          "name": "الإسماعيلية"
+        },
+        {
+          "code": "الأقصر",
+          "name": "الأقصر"
+        },
+        {
+          "code": "البحر الأحمر",
+          "name": "البحر الأحمر"
+        },
+        {
+          "code": "البحيرة",
+          "name": "البحيرة"
+        },
+        {
+          "code": "الجيزة",
+          "name": "الجيزة"
+        },
+        {
+          "code": "الدقهلية",
+          "name": "الدقهلية"
+        },
+        {
+          "code": "السويس",
+          "name": "السويس"
+        },
+        {
+          "code": "الشرقية",
+          "name": "الشرقية"
+        },
+        {
+          "code": "الغربية",
+          "name": "الغربية"
+        },
+        {
+          "code": "الفيوم",
+          "name": "الفيوم"
+        },
+        {
+          "code": "القاهرة",
+          "name": "القاهرة"
+        },
+        {
+          "code": "القليوبية",
+          "name": "القليوبية"
+        },
+        {
+          "code": "المنوفية",
+          "name": "المنوفية"
+        },
+        {
+          "code": "المنيا",
+          "name": "المنيا"
+        },
+        {
+          "code": "الوادي الجديد",
+          "name": "الوادي الجديد"
+        },
+        {
+          "code": "بني سويف",
+          "name": "بني سويف"
+        },
+        {
+          "code": "بورسعيد",
+          "name": "بورسعيد"
+        },
+        {
+          "code": "جنوب سيناء",
+          "name": "جنوب سيناء"
+        },
+        {
+          "code": "دمياط",
+          "name": "دمياط"
+        },
+        {
+          "code": "سوهاج",
+          "name": "سوهاج"
+        },
+        {
+          "code": "شمال سيناء",
+          "name": "شمال سيناء"
+        },
+        {
+          "code": "قنا",
+          "name": "قنا"
+        },
+        {
+          "code": "كفر الشيخ",
+          "name": "كفر الشيخ"
+        },
+        {
+          "code": "مطروح",
+          "name": "مطروح"
+        }
+      ]
+    },
+    "EH": {
+      "name": "WESTERN SAHARA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["70000", "72000"]
+    },
+    "ER": {
+      "name": "ERITREA"
+    },
+    "ES": {
+      "name": "SPAIN",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["28039", "28300", "28070"],
+      "postalLookupUrl": "http://www.correos.es/contenido/13-MenuRec2/04-MenuRec24/1010_s-CodPostal.asp",
+      "administrativeAreas": [
+        {
+          "code": "VI",
+          "name": "Álava"
+        },
+        {
+          "code": "AB",
+          "name": "Albacete"
+        },
+        {
+          "code": "A",
+          "name": "Alicante"
+        },
+        {
+          "code": "AL",
+          "name": "Almería"
+        },
+        {
+          "code": "O",
+          "name": "Asturias"
+        },
+        {
+          "code": "AV",
+          "name": "Ávila"
+        },
+        {
+          "code": "BA",
+          "name": "Badajoz"
+        },
+        {
+          "code": "B",
+          "name": "Barcelona"
+        },
+        {
+          "code": "BU",
+          "name": "Burgos"
+        },
+        {
+          "code": "CC",
+          "name": "Cáceres"
+        },
+        {
+          "code": "CA",
+          "name": "Cádiz"
+        },
+        {
+          "code": "S",
+          "name": "Cantabria"
+        },
+        {
+          "code": "CS",
+          "name": "Castellón"
+        },
+        {
+          "code": "CE",
+          "name": "Ceuta"
+        },
+        {
+          "code": "CR",
+          "name": "Ciudad Real"
+        },
+        {
+          "code": "CO",
+          "name": "Córdoba"
+        },
+        {
+          "code": "CU",
+          "name": "Cuenca"
+        },
+        {
+          "code": "GI",
+          "name": "Girona"
+        },
+        {
+          "code": "GR",
+          "name": "Granada"
+        },
+        {
+          "code": "GU",
+          "name": "Guadalajara"
+        },
+        {
+          "code": "SS",
+          "name": "Guipúzcoa"
+        },
+        {
+          "code": "H",
+          "name": "Huelva"
+        },
+        {
+          "code": "HU",
+          "name": "Huesca"
+        },
+        {
+          "code": "PM",
+          "name": "Islas Baleares"
+        },
+        {
+          "code": "J",
+          "name": "Jaén"
+        },
+        {
+          "code": "C",
+          "name": "La Coruña"
+        },
+        {
+          "code": "LO",
+          "name": "La Rioja"
+        },
+        {
+          "code": "GC",
+          "name": "Las Palmas"
+        },
+        {
+          "code": "LE",
+          "name": "León"
+        },
+        {
+          "code": "L",
+          "name": "Lérida"
+        },
+        {
+          "code": "LU",
+          "name": "Lugo"
+        },
+        {
+          "code": "M",
+          "name": "Madrid"
+        },
+        {
+          "code": "MA",
+          "name": "Málaga"
+        },
+        {
+          "code": "ML",
+          "name": "Melilla"
+        },
+        {
+          "code": "MU",
+          "name": "Murcia"
+        },
+        {
+          "code": "NA",
+          "name": "Navarra"
+        },
+        {
+          "code": "OR",
+          "name": "Ourense"
+        },
+        {
+          "code": "P",
+          "name": "Palencia"
+        },
+        {
+          "code": "PO",
+          "name": "Pontevedra"
+        },
+        {
+          "code": "SA",
+          "name": "Salamanca"
+        },
+        {
+          "code": "TF",
+          "name": "Santa Cruz de Tenerife"
+        },
+        {
+          "code": "SG",
+          "name": "Segovia"
+        },
+        {
+          "code": "SE",
+          "name": "Sevilla"
+        },
+        {
+          "code": "SO",
+          "name": "Soria"
+        },
+        {
+          "code": "T",
+          "name": "Tarragona"
+        },
+        {
+          "code": "TE",
+          "name": "Teruel"
+        },
+        {
+          "code": "TO",
+          "name": "Toledo"
+        },
+        {
+          "code": "V",
+          "name": "Valencia"
+        },
+        {
+          "code": "VA",
+          "name": "Valladolid"
+        },
+        {
+          "code": "BI",
+          "name": "Vizcaya"
+        },
+        {
+          "code": "ZA",
+          "name": "Zamora"
+        },
+        {
+          "code": "Z",
+          "name": "Zaragoza"
+        }
+      ]
+    },
+    "ET": {
+      "name": "ETHIOPIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1000"]
+    },
+    "FI": {
+      "name": "FINLAND",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["00550", "00011"],
+      "postalLookupUrl": "https://support.posti.fi/fi/tyokalut/postinumerohaku.html"
+    },
+    "FJ": {
+      "name": "FIJI"
+    },
+    "FK": {
+      "name": "FALKLAND ISLANDS (MALVINAS)",
+      "postalPattern": "FIQQ 1ZZ",
+      "postalExamples": ["FIQQ 1ZZ"]
+    },
+    "FM": {
+      "name": "MICRONESIA (Federated State of)",
+      "postalPattern": "(9694[1-4])(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["96941", "96944"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Chuuk",
+          "name": "Chuuk"
+        },
+        {
+          "code": "Kosrae",
+          "name": "Kosrae"
+        },
+        {
+          "code": "Pohnpei",
+          "name": "Pohnpei"
+        },
+        {
+          "code": "Yap",
+          "name": "Yap"
+        }
+      ]
+    },
+    "FO": {
+      "name": "FAROE ISLANDS",
+      "postalPattern": "\\d{3}",
+      "postalExamples": ["100"],
+      "postalLookupUrl": "https://posta.fo/en/private/send-receive/postcodes"
+    },
+    "FR": {
+      "name": "FRANCE",
+      "postalPattern": "\\d{2} ?\\d{3}",
+      "postalExamples": ["33380", "34092", "33506"],
+      "postalLookupUrl": "https://www.laposte.fr/outils/trouver-un-code-postal"
+    },
+    "GA": {
+      "name": "GABON"
+    },
+    "GB": {
+      "name": "UNITED KINGDOM",
+      "postalPattern": "GIR ?0AA|(?:(?:AB|AL|B|BA|BB|BD|BF|BH|BL|BN|BR|BS|BT|BX|CA|CB|CF|CH|CM|CO|CR|CT|CV|CW|DA|DD|DE|DG|DH|DL|DN|DT|DY|E|EC|EH|EN|EX|FK|FY|G|GL|GY|GU|HA|HD|HG|HP|HR|HS|HU|HX|IG|IM|IP|IV|JE|KA|KT|KW|KY|L|LA|LD|LE|LL|LN|LS|LU|M|ME|MK|ML|N|NE|NG|NN|NP|NR|NW|OL|OX|PA|PE|PH|PL|PO|PR|RG|RH|RM|S|SA|SE|SG|SK|SL|SM|SN|SO|SP|SR|SS|ST|SW|SY|TA|TD|TF|TN|TQ|TR|TS|TW|UB|W|WA|WC|WD|WF|WN|WR|WS|WV|YO|ZE)(?:\\d[\\dA-Z]? ?\\d[ABD-HJLN-UW-Z]{2}))|BFPO ?\\d{1,4}",
+      "postalExamples": [
+        "EC1Y 8SY",
+        "GIR 0AA",
+        "M2 5BQ",
+        "M34 4AB",
+        "CR0 2YR",
+        "DN16 9AA",
+        "W1A 4ZZ",
+        "EC1A 1HQ",
+        "OX14 4PG",
+        "BS18 8HF",
+        "NR25 7HG",
+        "RH6 0NP",
+        "BH23 6AA",
+        "B6 5BA",
+        "SO23 9AP",
+        "PO1 3AX",
+        "BFPO 61"
+      ],
+      "postalLookupUrl": "http://www.royalmail.com/postcode-finder"
+    },
+    "GD": {
+      "name": "GRENADA (WEST INDIES)"
+    },
+    "GE": {
+      "name": "GEORGIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["0101"],
+      "postalLookupUrl": "https://www.gpost.ge/help/postal-codes"
+    },
+    "GF": {
+      "name": "FRENCH GUIANA",
+      "postalPattern": "9[78]3\\d{2}",
+      "postalExamples": ["97300"],
+      "postalLookupUrl": "https://www.laposte.fr/outils/trouver-un-code-postal"
+    },
+    "GG": {
+      "name": "CHANNEL ISLANDS",
+      "postalPattern": "GY\\d[\\dA-Z]? ?\\d[ABD-HJLN-UW-Z]{2}",
+      "postalExamples": ["GY1 1AA", "GY2 2BT"],
+      "postalLookupUrl": "http://www.guernseypost.com/postcode_finder/"
+    },
+    "GH": {
+      "name": "GHANA"
+    },
+    "GI": {
+      "name": "GIBRALTAR",
+      "postalPattern": "GX11 1AA",
+      "postalExamples": ["GX11 1AA"]
+    },
+    "GL": {
+      "name": "GREENLAND",
+      "postalPattern": "39\\d{2}",
+      "postalExamples": ["3900", "3950", "3911"]
+    },
+    "GM": {
+      "name": "GAMBIA"
+    },
+    "GN": {
+      "name": "GUINEA",
+      "postalPattern": "\\d{3}",
+      "postalExamples": ["001", "200", "100"]
+    },
+    "GP": {
+      "name": "GUADELOUPE",
+      "postalPattern": "9[78][01]\\d{2}",
+      "postalExamples": ["97100"],
+      "postalLookupUrl": "https://www.laposte.fr/outils/trouver-un-code-postal"
+    },
+    "GQ": {
+      "name": "EQUATORIAL GUINEA"
+    },
+    "GR": {
+      "name": "GREECE",
+      "postalPattern": "\\d{3} ?\\d{2}",
+      "postalExamples": ["151 24", "151 10", "101 88"],
+      "postalLookupUrl": "https://postalcodes.elta.gr"
+    },
+    "GS": {
+      "name": "SOUTH GEORGIA",
+      "postalPattern": "SIQQ 1ZZ",
+      "postalExamples": ["SIQQ 1ZZ"]
+    },
+    "GT": {
+      "name": "GUATEMALA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["09001", "01501"]
+    },
+    "GU": {
+      "name": "GUAM",
+      "postalPattern": "(969(?:[12]\\d|3[12]))(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["96910", "96931"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip"
+    },
+    "GW": {
+      "name": "GUINEA-BISSAU",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1000", "1011"]
+    },
+    "GY": {
+      "name": "GUYANA"
+    },
+    "HK": {
+      "name": "HONG KONG",
+      "administrativeAreaNameType": "area",
+      "administrativeAreas": [
+        {
+          "code": "Kowloon",
+          "name": "九龍"
+        },
+        {
+          "code": "Hong Kong Island",
+          "name": "香港島"
+        },
+        {
+          "code": "New Territories",
+          "name": "新界"
+        }
+      ]
+    },
+    "HM": {
+      "name": "HEARD AND MCDONALD ISLANDS",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["7050"]
+    },
+    "HN": {
+      "name": "HONDURAS",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["31301"],
+      "administrativeAreaNameType": "department",
+      "administrativeAreas": [
+        {
+          "code": "Atlántida",
+          "name": "Atlántida"
+        },
+        {
+          "code": "Choluteca",
+          "name": "Choluteca"
+        },
+        {
+          "code": "Colón",
+          "name": "Colón"
+        },
+        {
+          "code": "Comayagua",
+          "name": "Comayagua"
+        },
+        {
+          "code": "Copán",
+          "name": "Copán"
+        },
+        {
+          "code": "Cortés",
+          "name": "Cortés"
+        },
+        {
+          "code": "El Paraíso",
+          "name": "El Paraíso"
+        },
+        {
+          "code": "Francisco Morazán",
+          "name": "Francisco Morazán"
+        },
+        {
+          "code": "Gracias a Dios",
+          "name": "Gracias a Dios"
+        },
+        {
+          "code": "Intibucá",
+          "name": "Intibucá"
+        },
+        {
+          "code": "Islas de la Bahía",
+          "name": "Islas de la Bahía"
+        },
+        {
+          "code": "La Paz",
+          "name": "La Paz"
+        },
+        {
+          "code": "Lempira",
+          "name": "Lempira"
+        },
+        {
+          "code": "Ocotepeque",
+          "name": "Ocotepeque"
+        },
+        {
+          "code": "Olancho",
+          "name": "Olancho"
+        },
+        {
+          "code": "Santa Bárbara",
+          "name": "Santa Bárbara"
+        },
+        {
+          "code": "Valle",
+          "name": "Valle"
+        },
+        {
+          "code": "Yoro",
+          "name": "Yoro"
+        }
+      ]
+    },
+    "HR": {
+      "name": "CROATIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["10000", "21001", "10002"],
+      "postalLookupUrl": "http://www.posta.hr/default.aspx?pretpum"
+    },
+    "HT": {
+      "name": "HAITI",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["6120", "5310", "6110", "8510"]
+    },
+    "HU": {
+      "name": "HUNGARY (Rep.)",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1037", "2380", "1540"],
+      "postalLookupUrl": "http://posta.hu/ugyfelszolgalat/iranyitoszam_kereso"
+    },
+    "ID": {
+      "name": "INDONESIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["40115"],
+      "administrativeAreas": [
+        {
+          "code": "Aceh",
+          "name": "Aceh"
+        },
+        {
+          "code": "Bali",
+          "name": "Bali"
+        },
+        {
+          "code": "Banten",
+          "name": "Banten"
+        },
+        {
+          "code": "Bengkulu",
+          "name": "Bengkulu"
+        },
+        {
+          "code": "Daerah Istimewa Yogyakarta",
+          "name": "Daerah Istimewa Yogyakarta"
+        },
+        {
+          "code": "DKI Jakarta",
+          "name": "DKI Jakarta"
+        },
+        {
+          "code": "Gorontalo",
+          "name": "Gorontalo"
+        },
+        {
+          "code": "Jambi",
+          "name": "Jambi"
+        },
+        {
+          "code": "Jawa Barat",
+          "name": "Jawa Barat"
+        },
+        {
+          "code": "Jawa Tengah",
+          "name": "Jawa Tengah"
+        },
+        {
+          "code": "Jawa Timur",
+          "name": "Jawa Timur"
+        },
+        {
+          "code": "Kalimantan Barat",
+          "name": "Kalimantan Barat"
+        },
+        {
+          "code": "Kalimantan Selatan",
+          "name": "Kalimantan Selatan"
+        },
+        {
+          "code": "Kalimantan Tengah",
+          "name": "Kalimantan Tengah"
+        },
+        {
+          "code": "Kalimantan Timur",
+          "name": "Kalimantan Timur"
+        },
+        {
+          "code": "Kalimantan Utara",
+          "name": "Kalimantan Utara"
+        },
+        {
+          "code": "Kepulauan Bangka Belitung",
+          "name": "Kepulauan Bangka Belitung"
+        },
+        {
+          "code": "Kepulauan Riau",
+          "name": "Kepulauan Riau"
+        },
+        {
+          "code": "Lampung",
+          "name": "Lampung"
+        },
+        {
+          "code": "Maluku",
+          "name": "Maluku"
+        },
+        {
+          "code": "Maluku Utara",
+          "name": "Maluku Utara"
+        },
+        {
+          "code": "Nusa Tenggara Barat",
+          "name": "Nusa Tenggara Barat"
+        },
+        {
+          "code": "Nusa Tenggara Timur",
+          "name": "Nusa Tenggara Timur"
+        },
+        {
+          "code": "Papua",
+          "name": "Papua"
+        },
+        {
+          "code": "Papua Barat",
+          "name": "Papua Barat"
+        },
+        {
+          "code": "Riau",
+          "name": "Riau"
+        },
+        {
+          "code": "Sulawesi Barat",
+          "name": "Sulawesi Barat"
+        },
+        {
+          "code": "Sulawesi Selatan",
+          "name": "Sulawesi Selatan"
+        },
+        {
+          "code": "Sulawesi Tengah",
+          "name": "Sulawesi Tengah"
+        },
+        {
+          "code": "Sulawesi Tenggara",
+          "name": "Sulawesi Tenggara"
+        },
+        {
+          "code": "Sulawesi Utara",
+          "name": "Sulawesi Utara"
+        },
+        {
+          "code": "Sumatera Barat",
+          "name": "Sumatera Barat"
+        },
+        {
+          "code": "Sumatera Selatan",
+          "name": "Sumatera Selatan"
+        },
+        {
+          "code": "Sumatera Utara",
+          "name": "Sumatera Utara"
+        }
+      ]
+    },
+    "IE": {
+      "name": "IRELAND",
+      "postalPattern": "[\\dA-Z]{3} ?[\\dA-Z]{4}",
+      "postalExamples": ["A65 F4E2"],
+      "postalLookupUrl": "https://finder.eircode.ie",
+      "postalNameType": "eircode",
+      "administrativeAreaNameType": "county",
+      "administrativeAreas": [
+        {
+          "code": "Co. Carlow",
+          "name": "Co. Carlow"
+        },
+        {
+          "code": "Co. Cavan",
+          "name": "Co. Cavan"
+        },
+        {
+          "code": "Co. Clare",
+          "name": "Co. Clare"
+        },
+        {
+          "code": "Co. Cork",
+          "name": "Co. Cork"
+        },
+        {
+          "code": "Co. Donegal",
+          "name": "Co. Donegal"
+        },
+        {
+          "code": "Co. Dublin",
+          "name": "Co. Dublin"
+        },
+        {
+          "code": "Co. Galway",
+          "name": "Co. Galway"
+        },
+        {
+          "code": "Co. Kerry",
+          "name": "Co. Kerry"
+        },
+        {
+          "code": "Co. Kildare",
+          "name": "Co. Kildare"
+        },
+        {
+          "code": "Co. Kilkenny",
+          "name": "Co. Kilkenny"
+        },
+        {
+          "code": "Co. Laois",
+          "name": "Co. Laois"
+        },
+        {
+          "code": "Co. Leitrim",
+          "name": "Co. Leitrim"
+        },
+        {
+          "code": "Co. Limerick",
+          "name": "Co. Limerick"
+        },
+        {
+          "code": "Co. Longford",
+          "name": "Co. Longford"
+        },
+        {
+          "code": "Co. Louth",
+          "name": "Co. Louth"
+        },
+        {
+          "code": "Co. Mayo",
+          "name": "Co. Mayo"
+        },
+        {
+          "code": "Co. Meath",
+          "name": "Co. Meath"
+        },
+        {
+          "code": "Co. Monaghan",
+          "name": "Co. Monaghan"
+        },
+        {
+          "code": "Co. Offaly",
+          "name": "Co. Offaly"
+        },
+        {
+          "code": "Co. Roscommon",
+          "name": "Co. Roscommon"
+        },
+        {
+          "code": "Co. Sligo",
+          "name": "Co. Sligo"
+        },
+        {
+          "code": "Co. Tipperary",
+          "name": "Co. Tipperary"
+        },
+        {
+          "code": "Co. Waterford",
+          "name": "Co. Waterford"
+        },
+        {
+          "code": "Co. Westmeath",
+          "name": "Co. Westmeath"
+        },
+        {
+          "code": "Co. Wexford",
+          "name": "Co. Wexford"
+        },
+        {
+          "code": "Co. Wicklow",
+          "name": "Co. Wicklow"
+        }
+      ]
+    },
+    "IL": {
+      "name": "ISRAEL",
+      "postalPattern": "\\d{5}(?:\\d{2})?",
+      "postalExamples": ["9614303"],
+      "postalLookupUrl": "http://www.israelpost.co.il/zipcode.nsf/demozip?openform"
+    },
+    "IM": {
+      "name": "ISLE OF MAN",
+      "postalPattern": "IM\\d[\\dA-Z]? ?\\d[ABD-HJLN-UW-Z]{2}",
+      "postalExamples": ["IM2 1AA", "IM99 1PS"],
+      "postalLookupUrl": "https://www.iompost.com/tools-forms/postcode-finder/"
+    },
+    "IN": {
+      "name": "INDIA",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["110034", "110001"],
+      "postalLookupUrl": "https://dac.indiapost.gov.in/",
+      "postalNameType": "pin",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Andaman and Nicobar Islands",
+          "name": "Andaman & Nicobar"
+        },
+        {
+          "code": "Andhra Pradesh",
+          "name": "Andhra Pradesh"
+        },
+        {
+          "code": "Arunachal Pradesh",
+          "name": "Arunachal Pradesh"
+        },
+        {
+          "code": "Assam",
+          "name": "Assam"
+        },
+        {
+          "code": "Bihar",
+          "name": "Bihar"
+        },
+        {
+          "code": "Chandigarh",
+          "name": "Chandigarh"
+        },
+        {
+          "code": "Chhattisgarh",
+          "name": "Chhattisgarh"
+        },
+        {
+          "code": "Dadra and Nagar Haveli and Daman and Diu",
+          "name": "Dadra & Nagar Haveli & Daman & Diu"
+        },
+        {
+          "code": "Delhi",
+          "name": "Delhi"
+        },
+        {
+          "code": "Goa",
+          "name": "Goa"
+        },
+        {
+          "code": "Gujarat",
+          "name": "Gujarat"
+        },
+        {
+          "code": "Haryana",
+          "name": "Haryana"
+        },
+        {
+          "code": "Himachal Pradesh",
+          "name": "Himachal Pradesh"
+        },
+        {
+          "code": "Jammu and Kashmir",
+          "name": "Jammu & Kashmir"
+        },
+        {
+          "code": "Jharkhand",
+          "name": "Jharkhand"
+        },
+        {
+          "code": "Karnataka",
+          "name": "Karnataka"
+        },
+        {
+          "code": "Kerala",
+          "name": "Kerala"
+        },
+        {
+          "code": "Ladakh",
+          "name": "Ladakh"
+        },
+        {
+          "code": "Lakshadweep",
+          "name": "Lakshadweep"
+        },
+        {
+          "code": "Madhya Pradesh",
+          "name": "Madhya Pradesh"
+        },
+        {
+          "code": "Maharashtra",
+          "name": "Maharashtra"
+        },
+        {
+          "code": "Manipur",
+          "name": "Manipur"
+        },
+        {
+          "code": "Meghalaya",
+          "name": "Meghalaya"
+        },
+        {
+          "code": "Mizoram",
+          "name": "Mizoram"
+        },
+        {
+          "code": "Nagaland",
+          "name": "Nagaland"
+        },
+        {
+          "code": "Odisha",
+          "name": "Odisha"
+        },
+        {
+          "code": "Puducherry",
+          "name": "Puducherry"
+        },
+        {
+          "code": "Punjab",
+          "name": "Punjab"
+        },
+        {
+          "code": "Rajasthan",
+          "name": "Rajasthan"
+        },
+        {
+          "code": "Sikkim",
+          "name": "Sikkim"
+        },
+        {
+          "code": "Tamil Nadu",
+          "name": "Tamil Nadu"
+        },
+        {
+          "code": "Telangana",
+          "name": "Telangana"
+        },
+        {
+          "code": "Tripura",
+          "name": "Tripura"
+        },
+        {
+          "code": "Uttar Pradesh",
+          "name": "Uttar Pradesh"
+        },
+        {
+          "code": "Uttarakhand",
+          "name": "Uttarakhand"
+        },
+        {
+          "code": "West Bengal",
+          "name": "West Bengal"
+        }
+      ]
+    },
+    "IO": {
+      "name": "BRITISH INDIAN OCEAN TERRITORY",
+      "postalPattern": "BBND 1ZZ",
+      "postalExamples": ["BBND 1ZZ"]
+    },
+    "IQ": {
+      "name": "IRAQ",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["31001"],
+      "administrativeAreas": [
+        {
+          "code": "أربيل",
+          "name": "أربيل"
+        },
+        {
+          "code": "إقليم كوردستان",
+          "name": "إقليم كوردستان"
+        },
+        {
+          "code": "الانبار",
+          "name": "الانبار"
+        },
+        {
+          "code": "البصرة",
+          "name": "البصرة"
+        },
+        {
+          "code": "السليمانية",
+          "name": "السليمانية"
+        },
+        {
+          "code": "القادسية",
+          "name": "القادسية"
+        },
+        {
+          "code": "المثنى",
+          "name": "المثنى"
+        },
+        {
+          "code": "النجف",
+          "name": "النجف"
+        },
+        {
+          "code": "بابل",
+          "name": "بابل"
+        },
+        {
+          "code": "بغداد",
+          "name": "بغداد"
+        },
+        {
+          "code": "دهوك",
+          "name": "دهوك"
+        },
+        {
+          "code": "ديالى",
+          "name": "ديالى"
+        },
+        {
+          "code": "ذي قار",
+          "name": "ذي قار"
+        },
+        {
+          "code": "صلاح الدين",
+          "name": "صلاح الدين"
+        },
+        {
+          "code": "كربلاء",
+          "name": "كربلاء"
+        },
+        {
+          "code": "كركوك",
+          "name": "كركوك"
+        },
+        {
+          "code": "ميسان",
+          "name": "ميسان"
+        },
+        {
+          "code": "نينوى",
+          "name": "نينوى"
+        },
+        {
+          "code": "واسط",
+          "name": "واسط"
+        }
+      ]
+    },
+    "IR": {
+      "name": "IRAN",
+      "postalPattern": "\\d{5}-?\\d{5}",
+      "postalExamples": ["11936-12345"],
+      "administrativeAreas": [
+        {
+          "code": "استان آذربایجان شرقی",
+          "name": "استان آذربایجان شرقی"
+        },
+        {
+          "code": "استان آذربایجان غربی",
+          "name": "استان آذربایجان غربی"
+        },
+        {
+          "code": "استان اردبیل",
+          "name": "استان اردبیل"
+        },
+        {
+          "code": "استان اصفهان",
+          "name": "استان اصفهان"
+        },
+        {
+          "code": "استان البرز",
+          "name": "استان البرز"
+        },
+        {
+          "code": "استان ایلام",
+          "name": "استان ایلام"
+        },
+        {
+          "code": "استان بوشهر",
+          "name": "استان بوشهر"
+        },
+        {
+          "code": "استان تهران",
+          "name": "استان تهران"
+        },
+        {
+          "code": "استان چهارمحال و بختیاری",
+          "name": "استان چهارمحال و بختیاری"
+        },
+        {
+          "code": "استان خراسان جنوبی",
+          "name": "استان خراسان جنوبی"
+        },
+        {
+          "code": "استان خراسان رضوی",
+          "name": "استان خراسان رضوی"
+        },
+        {
+          "code": "استان خراسان شمالی",
+          "name": "استان خراسان شمالی"
+        },
+        {
+          "code": "استان خوزستان",
+          "name": "استان خوزستان"
+        },
+        {
+          "code": "استان زنجان",
+          "name": "استان زنجان"
+        },
+        {
+          "code": "استان سمنان",
+          "name": "استان سمنان"
+        },
+        {
+          "code": "استان سیستان و بلوچستان",
+          "name": "استان سیستان و بلوچستان"
+        },
+        {
+          "code": "استان فارس",
+          "name": "استان فارس"
+        },
+        {
+          "code": "استان قزوین",
+          "name": "استان قزوین"
+        },
+        {
+          "code": "استان قم",
+          "name": "استان قم"
+        },
+        {
+          "code": "استان کردستان",
+          "name": "استان کردستان"
+        },
+        {
+          "code": "استان کرمان",
+          "name": "استان کرمان"
+        },
+        {
+          "code": "استان کرمانشاه",
+          "name": "استان کرمانشاه"
+        },
+        {
+          "code": "استان کهگیلویه و بویراحمد",
+          "name": "استان کهگیلویه و بویراحمد"
+        },
+        {
+          "code": "استان گلستان",
+          "name": "استان گلستان"
+        },
+        {
+          "code": "استان گیلان",
+          "name": "استان گیلان"
+        },
+        {
+          "code": "استان لرستان",
+          "name": "استان لرستان"
+        },
+        {
+          "code": "استان مازندران",
+          "name": "استان مازندران"
+        },
+        {
+          "code": "استان مرکزی",
+          "name": "استان مرکزی"
+        },
+        {
+          "code": "استان هرمزگان",
+          "name": "استان هرمزگان"
+        },
+        {
+          "code": "استان همدان",
+          "name": "استان همدان"
+        },
+        {
+          "code": "استان یزد",
+          "name": "استان یزد"
+        }
+      ]
+    },
+    "IS": {
+      "name": "ICELAND",
+      "postalPattern": "\\d{3}",
+      "postalExamples": ["320", "121", "220", "110"],
+      "postalLookupUrl": "https://posturinn.is/"
+    },
+    "IT": {
+      "name": "ITALY",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["00144", "47037", "39049"],
+      "postalLookupUrl": "https://www.poste.it/cerca/index.html#/risultati-cerca-cap/",
+      "administrativeAreas": [
+        {
+          "code": "AG",
+          "name": "Agrigento"
+        },
+        {
+          "code": "AL",
+          "name": "Alessandria"
+        },
+        {
+          "code": "AN",
+          "name": "Ancona"
+        },
+        {
+          "code": "AO",
+          "name": "Aosta"
+        },
+        {
+          "code": "AR",
+          "name": "Arezzo"
+        },
+        {
+          "code": "AP",
+          "name": "Ascoli Piceno"
+        },
+        {
+          "code": "AT",
+          "name": "Asti"
+        },
+        {
+          "code": "AV",
+          "name": "Avellino"
+        },
+        {
+          "code": "BA",
+          "name": "Bari"
+        },
+        {
+          "code": "BT",
+          "name": "Barletta-Andria-Trani"
+        },
+        {
+          "code": "BL",
+          "name": "Belluno"
+        },
+        {
+          "code": "BN",
+          "name": "Benevento"
+        },
+        {
+          "code": "BG",
+          "name": "Bergamo"
+        },
+        {
+          "code": "BI",
+          "name": "Biella"
+        },
+        {
+          "code": "BO",
+          "name": "Bologna"
+        },
+        {
+          "code": "BZ",
+          "name": "Bolzano"
+        },
+        {
+          "code": "BS",
+          "name": "Brescia"
+        },
+        {
+          "code": "BR",
+          "name": "Brindisi"
+        },
+        {
+          "code": "CA",
+          "name": "Cagliari"
+        },
+        {
+          "code": "CL",
+          "name": "Caltanissetta"
+        },
+        {
+          "code": "CB",
+          "name": "Campobasso"
+        },
+        {
+          "code": "CE",
+          "name": "Caserta"
+        },
+        {
+          "code": "CT",
+          "name": "Catania"
+        },
+        {
+          "code": "CZ",
+          "name": "Catanzaro"
+        },
+        {
+          "code": "CH",
+          "name": "Chieti"
+        },
+        {
+          "code": "CO",
+          "name": "Como"
+        },
+        {
+          "code": "CS",
+          "name": "Cosenza"
+        },
+        {
+          "code": "CR",
+          "name": "Cremona"
+        },
+        {
+          "code": "KR",
+          "name": "Crotone"
+        },
+        {
+          "code": "CN",
+          "name": "Cuneo"
+        },
+        {
+          "code": "EN",
+          "name": "Enna"
+        },
+        {
+          "code": "FM",
+          "name": "Fermo"
+        },
+        {
+          "code": "FE",
+          "name": "Ferrara"
+        },
+        {
+          "code": "FI",
+          "name": "Firenze"
+        },
+        {
+          "code": "FG",
+          "name": "Foggia"
+        },
+        {
+          "code": "FC",
+          "name": "Forlì-Cesena"
+        },
+        {
+          "code": "FR",
+          "name": "Frosinone"
+        },
+        {
+          "code": "GA",
+          "name": "Gallura Nord-Est Sardegna"
+        },
+        {
+          "code": "GE",
+          "name": "Genova"
+        },
+        {
+          "code": "GO",
+          "name": "Gorizia"
+        },
+        {
+          "code": "GR",
+          "name": "Grosseto"
+        },
+        {
+          "code": "IM",
+          "name": "Imperia"
+        },
+        {
+          "code": "IS",
+          "name": "Isernia"
+        },
+        {
+          "code": "AQ",
+          "name": "L'Aquila"
+        },
+        {
+          "code": "SP",
+          "name": "La Spezia"
+        },
+        {
+          "code": "LT",
+          "name": "Latina"
+        },
+        {
+          "code": "LE",
+          "name": "Lecce"
+        },
+        {
+          "code": "LC",
+          "name": "Lecco"
+        },
+        {
+          "code": "LI",
+          "name": "Livorno"
+        },
+        {
+          "code": "LO",
+          "name": "Lodi"
+        },
+        {
+          "code": "LU",
+          "name": "Lucca"
+        },
+        {
+          "code": "MC",
+          "name": "Macerata"
+        },
+        {
+          "code": "MN",
+          "name": "Mantova"
+        },
+        {
+          "code": "MS",
+          "name": "Massa-Carrara"
+        },
+        {
+          "code": "MT",
+          "name": "Matera"
+        },
+        {
+          "code": "VS",
+          "name": "Medio Campidano"
+        },
+        {
+          "code": "ME",
+          "name": "Messina"
+        },
+        {
+          "code": "MI",
+          "name": "Milano"
+        },
+        {
+          "code": "MO",
+          "name": "Modena"
+        },
+        {
+          "code": "MB",
+          "name": "Monza e Brianza"
+        },
+        {
+          "code": "NA",
+          "name": "Napoli"
+        },
+        {
+          "code": "NO",
+          "name": "Novara"
+        },
+        {
+          "code": "NU",
+          "name": "Nuoro"
+        },
+        {
+          "code": "OG",
+          "name": "Ogliastra"
+        },
+        {
+          "code": "OR",
+          "name": "Oristano"
+        },
+        {
+          "code": "PD",
+          "name": "Padova"
+        },
+        {
+          "code": "PA",
+          "name": "Palermo"
+        },
+        {
+          "code": "PR",
+          "name": "Parma"
+        },
+        {
+          "code": "PV",
+          "name": "Pavia"
+        },
+        {
+          "code": "PG",
+          "name": "Perugia"
+        },
+        {
+          "code": "PU",
+          "name": "Pesaro e Urbino"
+        },
+        {
+          "code": "PE",
+          "name": "Pescara"
+        },
+        {
+          "code": "PC",
+          "name": "Piacenza"
+        },
+        {
+          "code": "PI",
+          "name": "Pisa"
+        },
+        {
+          "code": "PT",
+          "name": "Pistoia"
+        },
+        {
+          "code": "PN",
+          "name": "Pordenone"
+        },
+        {
+          "code": "PZ",
+          "name": "Potenza"
+        },
+        {
+          "code": "PO",
+          "name": "Prato"
+        },
+        {
+          "code": "RG",
+          "name": "Ragusa"
+        },
+        {
+          "code": "RA",
+          "name": "Ravenna"
+        },
+        {
+          "code": "RC",
+          "name": "Reggio Calabria"
+        },
+        {
+          "code": "RE",
+          "name": "Reggio Emilia"
+        },
+        {
+          "code": "RI",
+          "name": "Rieti"
+        },
+        {
+          "code": "RN",
+          "name": "Rimini"
+        },
+        {
+          "code": "RM",
+          "name": "Roma"
+        },
+        {
+          "code": "RO",
+          "name": "Rovigo"
+        },
+        {
+          "code": "SA",
+          "name": "Salerno"
+        },
+        {
+          "code": "SS",
+          "name": "Sassari"
+        },
+        {
+          "code": "SV",
+          "name": "Savona"
+        },
+        {
+          "code": "SI",
+          "name": "Siena"
+        },
+        {
+          "code": "SR",
+          "name": "Siracusa"
+        },
+        {
+          "code": "SO",
+          "name": "Sondrio"
+        },
+        {
+          "code": "SU",
+          "name": "Sud Sardegna"
+        },
+        {
+          "code": "SD",
+          "name": "Sulcis Iglesiente"
+        },
+        {
+          "code": "TA",
+          "name": "Taranto"
+        },
+        {
+          "code": "TE",
+          "name": "Teramo"
+        },
+        {
+          "code": "TR",
+          "name": "Terni"
+        },
+        {
+          "code": "TO",
+          "name": "Torino"
+        },
+        {
+          "code": "TP",
+          "name": "Trapani"
+        },
+        {
+          "code": "TN",
+          "name": "Trento"
+        },
+        {
+          "code": "TV",
+          "name": "Treviso"
+        },
+        {
+          "code": "TS",
+          "name": "Trieste"
+        },
+        {
+          "code": "UD",
+          "name": "Udine"
+        },
+        {
+          "code": "VA",
+          "name": "Varese"
+        },
+        {
+          "code": "VE",
+          "name": "Venezia"
+        },
+        {
+          "code": "VB",
+          "name": "Verbano-Cusio-Ossola"
+        },
+        {
+          "code": "VC",
+          "name": "Vercelli"
+        },
+        {
+          "code": "VR",
+          "name": "Verona"
+        },
+        {
+          "code": "VV",
+          "name": "Vibo Valentia"
+        },
+        {
+          "code": "VI",
+          "name": "Vicenza"
+        },
+        {
+          "code": "VT",
+          "name": "Viterbo"
+        }
+      ]
+    },
+    "JE": {
+      "name": "CHANNEL ISLANDS",
+      "postalPattern": "JE\\d[\\dA-Z]? ?\\d[ABD-HJLN-UW-Z]{2}",
+      "postalExamples": ["JE1 1AA", "JE2 2BT"],
+      "postalLookupUrl": "http://www.jerseypost.com/tools/postcode-address-finder/"
+    },
+    "JM": {
+      "name": "JAMAICA",
+      "administrativeAreaNameType": "parish",
+      "administrativeAreas": [
+        {
+          "code": "Clarendon",
+          "name": "Clarendon"
+        },
+        {
+          "code": "Hanover",
+          "name": "Hanover"
+        },
+        {
+          "code": "Kingston",
+          "name": "Kingston"
+        },
+        {
+          "code": "Manchester",
+          "name": "Manchester"
+        },
+        {
+          "code": "Portland",
+          "name": "Portland"
+        },
+        {
+          "code": "St. Andrew",
+          "name": "St. Andrew"
+        },
+        {
+          "code": "St. Ann",
+          "name": "St. Ann"
+        },
+        {
+          "code": "St. Catherine",
+          "name": "St. Catherine"
+        },
+        {
+          "code": "St. Elizabeth",
+          "name": "St. Elizabeth"
+        },
+        {
+          "code": "St. James",
+          "name": "St. James"
+        },
+        {
+          "code": "St. Mary",
+          "name": "St. Mary"
+        },
+        {
+          "code": "St. Thomas",
+          "name": "St. Thomas"
+        },
+        {
+          "code": "Trelawny",
+          "name": "Trelawny"
+        },
+        {
+          "code": "Westmoreland",
+          "name": "Westmoreland"
+        }
+      ]
+    },
+    "JO": {
+      "name": "JORDAN",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11937", "11190"]
+    },
+    "JP": {
+      "name": "JAPAN",
+      "postalPattern": "\\d{3}-?\\d{4}",
+      "postalExamples": ["154-0023", "350-1106", "951-8073", "112-0001", "208-0032", "231-0012"],
+      "postalLookupUrl": "http://www.post.japanpost.jp/zipcode/",
+      "administrativeAreaNameType": "prefecture",
+      "administrativeAreas": [
+        {
+          "code": "北海道",
+          "name": "北海道"
+        },
+        {
+          "code": "青森県",
+          "name": "青森県"
+        },
+        {
+          "code": "岩手県",
+          "name": "岩手県"
+        },
+        {
+          "code": "宮城県",
+          "name": "宮城県"
+        },
+        {
+          "code": "秋田県",
+          "name": "秋田県"
+        },
+        {
+          "code": "山形県",
+          "name": "山形県"
+        },
+        {
+          "code": "福島県",
+          "name": "福島県"
+        },
+        {
+          "code": "茨城県",
+          "name": "茨城県"
+        },
+        {
+          "code": "栃木県",
+          "name": "栃木県"
+        },
+        {
+          "code": "群馬県",
+          "name": "群馬県"
+        },
+        {
+          "code": "埼玉県",
+          "name": "埼玉県"
+        },
+        {
+          "code": "千葉県",
+          "name": "千葉県"
+        },
+        {
+          "code": "東京都",
+          "name": "東京都"
+        },
+        {
+          "code": "神奈川県",
+          "name": "神奈川県"
+        },
+        {
+          "code": "新潟県",
+          "name": "新潟県"
+        },
+        {
+          "code": "富山県",
+          "name": "富山県"
+        },
+        {
+          "code": "石川県",
+          "name": "石川県"
+        },
+        {
+          "code": "福井県",
+          "name": "福井県"
+        },
+        {
+          "code": "山梨県",
+          "name": "山梨県"
+        },
+        {
+          "code": "長野県",
+          "name": "長野県"
+        },
+        {
+          "code": "岐阜県",
+          "name": "岐阜県"
+        },
+        {
+          "code": "静岡県",
+          "name": "静岡県"
+        },
+        {
+          "code": "愛知県",
+          "name": "愛知県"
+        },
+        {
+          "code": "三重県",
+          "name": "三重県"
+        },
+        {
+          "code": "滋賀県",
+          "name": "滋賀県"
+        },
+        {
+          "code": "京都府",
+          "name": "京都府"
+        },
+        {
+          "code": "大阪府",
+          "name": "大阪府"
+        },
+        {
+          "code": "兵庫県",
+          "name": "兵庫県"
+        },
+        {
+          "code": "奈良県",
+          "name": "奈良県"
+        },
+        {
+          "code": "和歌山県",
+          "name": "和歌山県"
+        },
+        {
+          "code": "鳥取県",
+          "name": "鳥取県"
+        },
+        {
+          "code": "島根県",
+          "name": "島根県"
+        },
+        {
+          "code": "岡山県",
+          "name": "岡山県"
+        },
+        {
+          "code": "広島県",
+          "name": "広島県"
+        },
+        {
+          "code": "山口県",
+          "name": "山口県"
+        },
+        {
+          "code": "徳島県",
+          "name": "徳島県"
+        },
+        {
+          "code": "香川県",
+          "name": "香川県"
+        },
+        {
+          "code": "愛媛県",
+          "name": "愛媛県"
+        },
+        {
+          "code": "高知県",
+          "name": "高知県"
+        },
+        {
+          "code": "福岡県",
+          "name": "福岡県"
+        },
+        {
+          "code": "佐賀県",
+          "name": "佐賀県"
+        },
+        {
+          "code": "長崎県",
+          "name": "長崎県"
+        },
+        {
+          "code": "熊本県",
+          "name": "熊本県"
+        },
+        {
+          "code": "大分県",
+          "name": "大分県"
+        },
+        {
+          "code": "宮崎県",
+          "name": "宮崎県"
+        },
+        {
+          "code": "鹿児島県",
+          "name": "鹿児島県"
+        },
+        {
+          "code": "沖縄県",
+          "name": "沖縄県"
+        }
+      ]
+    },
+    "KE": {
+      "name": "KENYA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["20100", "00100"]
+    },
+    "KG": {
+      "name": "KYRGYZSTAN",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["720001"]
+    },
+    "KH": {
+      "name": "CAMBODIA",
+      "postalPattern": "\\d{5,6}",
+      "postalExamples": ["120101", "120108"],
+      "postalLookupUrl": "https://www.cambodiapost.post/page/postal-codes"
+    },
+    "KI": {
+      "name": "KIRIBATI",
+      "administrativeAreaNameType": "island"
+    },
+    "KM": {
+      "name": "COMOROS"
+    },
+    "KN": {
+      "name": "SAINT KITTS AND NEVIS",
+      "administrativeAreaNameType": "island",
+      "administrativeAreas": [
+        {
+          "code": "Nevis",
+          "name": "Nevis"
+        },
+        {
+          "code": "St. Kitts",
+          "name": "St. Kitts"
+        }
+      ]
+    },
+    "KP": {
+      "name": "NORTH KOREA",
+      "administrativeAreas": [
+        {
+          "code": "강원도",
+          "name": "강원도"
+        },
+        {
+          "code": "개성시",
+          "name": "개성시"
+        },
+        {
+          "code": "남포시",
+          "name": "남포시"
+        },
+        {
+          "code": "라선 특별시",
+          "name": "라선 특별시"
+        },
+        {
+          "code": "량강도",
+          "name": "량강도"
+        },
+        {
+          "code": "자강도",
+          "name": "자강도"
+        },
+        {
+          "code": "평안 남도",
+          "name": "평안 남도"
+        },
+        {
+          "code": "평안 북도",
+          "name": "평안 북도"
+        },
+        {
+          "code": "평양 직할시",
+          "name": "평양 직할시"
+        },
+        {
+          "code": "함경 남도",
+          "name": "함경 남도"
+        },
+        {
+          "code": "함경 북도",
+          "name": "함경 북도"
+        },
+        {
+          "code": "황해남도",
+          "name": "황해남도"
+        },
+        {
+          "code": "황해북도",
+          "name": "황해북도"
+        }
+      ]
+    },
+    "KR": {
+      "name": "SOUTH KOREA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["03051"],
+      "postalLookupUrl": "http://www.epost.go.kr/search/zipcode/search5.jsp",
+      "administrativeAreaNameType": "do_si",
+      "administrativeAreas": [
+        {
+          "code": "강원도",
+          "name": "강원"
+        },
+        {
+          "code": "경기도",
+          "name": "경기"
+        },
+        {
+          "code": "경상남도",
+          "name": "경남"
+        },
+        {
+          "code": "경상북도",
+          "name": "경북"
+        },
+        {
+          "code": "광주광역시",
+          "name": "광주"
+        },
+        {
+          "code": "대구광역시",
+          "name": "대구"
+        },
+        {
+          "code": "대전광역시",
+          "name": "대전"
+        },
+        {
+          "code": "부산광역시",
+          "name": "부산"
+        },
+        {
+          "code": "서울특별시",
+          "name": "서울"
+        },
+        {
+          "code": "세종특별자치시",
+          "name": "세종"
+        },
+        {
+          "code": "울산광역시",
+          "name": "울산"
+        },
+        {
+          "code": "인천광역시",
+          "name": "인천"
+        },
+        {
+          "code": "전라남도",
+          "name": "전남"
+        },
+        {
+          "code": "전라북도",
+          "name": "전북"
+        },
+        {
+          "code": "제주특별자치도",
+          "name": "제주"
+        },
+        {
+          "code": "충청남도",
+          "name": "충남"
+        },
+        {
+          "code": "충청북도",
+          "name": "충북"
+        }
+      ]
+    },
+    "KW": {
+      "name": "KUWAIT",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["54541", "54551", "54404", "13009"]
+    },
+    "KY": {
+      "name": "CAYMAN ISLANDS",
+      "postalPattern": "KY\\d-\\d{4}",
+      "postalExamples": ["KY1-1100", "KY1-1702", "KY2-2101"],
+      "postalLookupUrl": "http://www.caymanpost.gov.ky/",
+      "administrativeAreaNameType": "island",
+      "administrativeAreas": [
+        {
+          "code": "Cayman Brac",
+          "name": "Cayman Brac"
+        },
+        {
+          "code": "Grand Cayman",
+          "name": "Grand Cayman"
+        },
+        {
+          "code": "Little Cayman",
+          "name": "Little Cayman"
+        }
+      ]
+    },
+    "KZ": {
+      "name": "KAZAKHSTAN",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["040900", "050012"],
+      "administrativeAreas": [
+        {
+          "code": "Абай облысы",
+          "name": "Абай облысы"
+        },
+        {
+          "code": "Ақмола облысы",
+          "name": "Ақмола облысы"
+        },
+        {
+          "code": "Ақтөбе облысы",
+          "name": "Ақтөбе облысы"
+        },
+        {
+          "code": "Алматы",
+          "name": "Алматы"
+        },
+        {
+          "code": "Алматы облысы",
+          "name": "Алматы облысы"
+        },
+        {
+          "code": "Астана",
+          "name": "Астана"
+        },
+        {
+          "code": "Атырау облысы",
+          "name": "Атырау облысы"
+        },
+        {
+          "code": "Батыс Қазақстан облысы",
+          "name": "Батыс Қазақстан облысы"
+        },
+        {
+          "code": "Жамбыл облысы",
+          "name": "Жамбыл облысы"
+        },
+        {
+          "code": "Жетісу облысы",
+          "name": "Жетісу облысы"
+        },
+        {
+          "code": "Қарағанды облысы",
+          "name": "Қарағанды облысы"
+        },
+        {
+          "code": "Қостанай облысы",
+          "name": "Қостанай облысы"
+        },
+        {
+          "code": "Қызылорда облысы",
+          "name": "Қызылорда облысы"
+        },
+        {
+          "code": "Маңғыстау облысы",
+          "name": "Маңғыстау облысы"
+        },
+        {
+          "code": "Павлодар облысы",
+          "name": "Павлодар облысы"
+        },
+        {
+          "code": "Солтүстік Қазақстан облысы",
+          "name": "Солтүстік Қазақстан облысы"
+        },
+        {
+          "code": "Түркістан облысы",
+          "name": "Түркістан облысы"
+        },
+        {
+          "code": "Ұлытау облысы",
+          "name": "Ұлытау облысы"
+        },
+        {
+          "code": "Шығыс Қазақстан облысы",
+          "name": "Шығыс Қазақстан облысы"
+        },
+        {
+          "code": "Шымкент",
+          "name": "Шымкент"
+        }
+      ]
+    },
+    "LA": {
+      "name": "LAO (PEOPLE'S DEM. REP.)",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["01160", "01000"]
+    },
+    "LB": {
+      "name": "LEBANON",
+      "postalPattern": "(?:\\d{4})(?: ?(?:\\d{4}))?",
+      "postalExamples": ["2038 3054", "1107 2810", "1000"]
+    },
+    "LC": {
+      "name": "SAINT LUCIA"
+    },
+    "LI": {
+      "name": "LIECHTENSTEIN",
+      "postalPattern": "948[5-9]|949[0-8]",
+      "postalExamples": ["9496", "9491", "9490", "9485"],
+      "postalLookupUrl": "http://www.post.ch/db/owa/pv_plz_pack/pr_main"
+    },
+    "LK": {
+      "name": "SRI LANKA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["20000", "00100"],
+      "postalLookupUrl": "http://www.slpost.gov.lk/"
+    },
+    "LR": {
+      "name": "LIBERIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1000"]
+    },
+    "LS": {
+      "name": "LESOTHO",
+      "postalPattern": "\\d{3}",
+      "postalExamples": ["100"]
+    },
+    "LT": {
+      "name": "LITHUANIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["04340", "03500"],
+      "postalLookupUrl": "http://www.post.lt/lt/?id=316"
+    },
+    "LU": {
+      "name": "LUXEMBOURG",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["4750", "2998"],
+      "postalLookupUrl": "https://www.post.lu/en/particuliers/colis-courrier/rechercher-un-code-postal"
+    },
+    "LV": {
+      "name": "LATVIA",
+      "postalPattern": "LV-\\d{4}",
+      "postalExamples": ["LV-1073", "LV-1000"],
+      "postalLookupUrl": "https://pasts.lv/lv/kategorija/pasta_nodalas/"
+    },
+    "LY": {
+      "name": "LIBYA"
+    },
+    "MA": {
+      "name": "MOROCCO",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["53000", "10000", "20050", "16052"]
+    },
+    "MC": {
+      "name": "MONACO",
+      "postalPattern": "980\\d{2}",
+      "postalExamples": ["98000", "98020", "98011", "98001"]
+    },
+    "MD": {
+      "name": "Rep. MOLDOVA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["2012", "2019"]
+    },
+    "ME": {
+      "name": "MONTENEGRO",
+      "postalPattern": "8\\d{4}",
+      "postalExamples": ["81257", "81258", "81217", "84314", "85366"]
+    },
+    "MF": {
+      "name": "SAINT MARTIN",
+      "postalPattern": "9[78][01]\\d{2}",
+      "postalExamples": ["97100"],
+      "postalLookupUrl": "https://www.laposte.fr/particulier/outils/trouver-un-code-postal"
+    },
+    "MG": {
+      "name": "MADAGASCAR",
+      "postalPattern": "\\d{3}",
+      "postalExamples": ["501", "101"]
+    },
+    "MH": {
+      "name": "MARSHALL ISLANDS",
+      "postalPattern": "(969[67]\\d)(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["96960", "96970"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state"
+    },
+    "MK": {
+      "name": "MACEDONIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1314", "1321", "1443", "1062"]
+    },
+    "ML": {
+      "name": "MALI"
+    },
+    "MM": {
+      "name": "MYANMAR",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11181"]
+    },
+    "MN": {
+      "name": "MONGOLIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["65030", "65270"],
+      "postalLookupUrl": "http://www.zipcode.mn/",
+      "administrativeAreas": [
+        {
+          "code": "Архангай",
+          "name": "Архангай"
+        },
+        {
+          "code": "Баян-Өлгий",
+          "name": "Баян-Өлгий"
+        },
+        {
+          "code": "Баянхонгор",
+          "name": "Баянхонгор"
+        },
+        {
+          "code": "Булган",
+          "name": "Булган"
+        },
+        {
+          "code": "Говь-Алтай",
+          "name": "Говь-Алтай"
+        },
+        {
+          "code": "Говьсүмбэр",
+          "name": "Говьсүмбэр"
+        },
+        {
+          "code": "Дархан-Уул",
+          "name": "Дархан-Уул"
+        },
+        {
+          "code": "Дорноговь",
+          "name": "Дорноговь"
+        },
+        {
+          "code": "Дорнод",
+          "name": "Дорнод"
+        },
+        {
+          "code": "Дундговь",
+          "name": "Дундговь"
+        },
+        {
+          "code": "Завхан",
+          "name": "Завхан"
+        },
+        {
+          "code": "Орхон",
+          "name": "Орхон"
+        },
+        {
+          "code": "Өвөрхангай",
+          "name": "Өвөрхангай"
+        },
+        {
+          "code": "Өмнөговь",
+          "name": "Өмнөговь"
+        },
+        {
+          "code": "Сүхбаатар",
+          "name": "Сүхбаатар"
+        },
+        {
+          "code": "Сэлэнгэ",
+          "name": "Сэлэнгэ"
+        },
+        {
+          "code": "Төв",
+          "name": "Төв"
+        },
+        {
+          "code": "Увс",
+          "name": "Увс"
+        },
+        {
+          "code": "Улаанбаатар",
+          "name": "Улаанбаатар"
+        },
+        {
+          "code": "Ховд",
+          "name": "Ховд"
+        },
+        {
+          "code": "Хөвсгөл",
+          "name": "Хөвсгөл"
+        },
+        {
+          "code": "Хэнтий",
+          "name": "Хэнтий"
+        }
+      ]
+    },
+    "MO": {
+      "name": "MACAO"
+    },
+    "MP": {
+      "name": "NORTHERN MARIANA ISLANDS",
+      "postalPattern": "(9695[012])(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["96950", "96951", "96952"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state"
+    },
+    "MQ": {
+      "name": "MARTINIQUE",
+      "postalPattern": "9[78]2\\d{2}",
+      "postalExamples": ["97220"],
+      "postalLookupUrl": "https://www.laposte.fr/outils/trouver-un-code-postal"
+    },
+    "MR": {
+      "name": "MAURITANIA"
+    },
+    "MS": {
+      "name": "MONTSERRAT"
+    },
+    "MT": {
+      "name": "MALTA",
+      "postalPattern": "[A-Z]{3} ?\\d{2,4}",
+      "postalExamples": ["NXR 01", "ZTN 05", "GPO 01", "BZN 1130", "SPB 6031", "VCT 1753"],
+      "postalLookupUrl": "https://www.maltapost.com/PostCode/"
+    },
+    "MU": {
+      "name": "MAURITIUS",
+      "postalPattern": "\\d{3}(?:\\d{2}|[A-Z]{2}\\d{3})",
+      "postalExamples": ["42602"]
+    },
+    "MV": {
+      "name": "MALDIVES",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["20026"],
+      "postalLookupUrl": "http://www.maldivespost.com/?lid=10"
+    },
+    "MW": {
+      "name": "MALAWI"
+    },
+    "MX": {
+      "name": "MEXICO",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["02860", "77520", "06082"],
+      "postalLookupUrl": "https://www.correosdemexico.gob.mx/SSLServicios/ConsultaCP/Descarga.aspx",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Ags.",
+          "name": "Aguascalientes"
+        },
+        {
+          "code": "B.C.",
+          "name": "Baja California"
+        },
+        {
+          "code": "B.C.S.",
+          "name": "Baja California Sur"
+        },
+        {
+          "code": "Camp.",
+          "name": "Campeche"
+        },
+        {
+          "code": "Chis.",
+          "name": "Chiapas"
+        },
+        {
+          "code": "Chih.",
+          "name": "Chihuahua"
+        },
+        {
+          "code": "CDMX",
+          "name": "Ciudad de México"
+        },
+        {
+          "code": "Coah.",
+          "name": "Coahuila de Zaragoza"
+        },
+        {
+          "code": "Col.",
+          "name": "Colima"
+        },
+        {
+          "code": "Dgo.",
+          "name": "Durango"
+        },
+        {
+          "code": "Méx.",
+          "name": "Estado de México"
+        },
+        {
+          "code": "Gto.",
+          "name": "Guanajuato"
+        },
+        {
+          "code": "Gro.",
+          "name": "Guerrero"
+        },
+        {
+          "code": "Hgo.",
+          "name": "Hidalgo"
+        },
+        {
+          "code": "Jal.",
+          "name": "Jalisco"
+        },
+        {
+          "code": "Mich.",
+          "name": "Michoacán"
+        },
+        {
+          "code": "Mor.",
+          "name": "Morelos"
+        },
+        {
+          "code": "Nay.",
+          "name": "Nayarit"
+        },
+        {
+          "code": "N.L.",
+          "name": "Nuevo León"
+        },
+        {
+          "code": "Oax.",
+          "name": "Oaxaca"
+        },
+        {
+          "code": "Pue.",
+          "name": "Puebla"
+        },
+        {
+          "code": "Qro.",
+          "name": "Querétaro"
+        },
+        {
+          "code": "Q.R.",
+          "name": "Quintana Roo"
+        },
+        {
+          "code": "S.L.P.",
+          "name": "San Luis Potosí"
+        },
+        {
+          "code": "Sin.",
+          "name": "Sinaloa"
+        },
+        {
+          "code": "Son.",
+          "name": "Sonora"
+        },
+        {
+          "code": "Tab.",
+          "name": "Tabasco"
+        },
+        {
+          "code": "Tamps.",
+          "name": "Tamaulipas"
+        },
+        {
+          "code": "Tlax.",
+          "name": "Tlaxcala"
+        },
+        {
+          "code": "Ver.",
+          "name": "Veracruz"
+        },
+        {
+          "code": "Yuc.",
+          "name": "Yucatán"
+        },
+        {
+          "code": "Zac.",
+          "name": "Zacatecas"
+        }
+      ]
+    },
+    "MY": {
+      "name": "MALAYSIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["43000", "50754", "88990", "50670"],
+      "postalLookupUrl": "http://www.pos.com.my",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Johor",
+          "name": "Johor"
+        },
+        {
+          "code": "Kedah",
+          "name": "Kedah"
+        },
+        {
+          "code": "Kelantan",
+          "name": "Kelantan"
+        },
+        {
+          "code": "Kuala Lumpur",
+          "name": "Kuala Lumpur"
+        },
+        {
+          "code": "Labuan",
+          "name": "Labuan"
+        },
+        {
+          "code": "Melaka",
+          "name": "Melaka"
+        },
+        {
+          "code": "Negeri Sembilan",
+          "name": "Negeri Sembilan"
+        },
+        {
+          "code": "Pahang",
+          "name": "Pahang"
+        },
+        {
+          "code": "Perak",
+          "name": "Perak"
+        },
+        {
+          "code": "Perlis",
+          "name": "Perlis"
+        },
+        {
+          "code": "Pulau Pinang",
+          "name": "Pulau Pinang"
+        },
+        {
+          "code": "Putrajaya",
+          "name": "Putrajaya"
+        },
+        {
+          "code": "Sabah",
+          "name": "Sabah"
+        },
+        {
+          "code": "Sarawak",
+          "name": "Sarawak"
+        },
+        {
+          "code": "Selangor",
+          "name": "Selangor"
+        },
+        {
+          "code": "Terengganu",
+          "name": "Terengganu"
+        }
+      ]
+    },
+    "MZ": {
+      "name": "MOZAMBIQUE",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1102", "1119", "3212"],
+      "administrativeAreas": [
+        {
+          "code": "Cabo Delgado",
+          "name": "Cabo Delgado"
+        },
+        {
+          "code": "Cidade de Maputo",
+          "name": "Cidade de Maputo"
+        },
+        {
+          "code": "Gaza",
+          "name": "Gaza"
+        },
+        {
+          "code": "Inhambane",
+          "name": "Inhambane"
+        },
+        {
+          "code": "Manica",
+          "name": "Manica"
+        },
+        {
+          "code": "Maputo",
+          "name": "Maputo"
+        },
+        {
+          "code": "Nampula",
+          "name": "Nampula"
+        },
+        {
+          "code": "Niassa",
+          "name": "Niassa"
+        },
+        {
+          "code": "Sofala",
+          "name": "Sofala"
+        },
+        {
+          "code": "Tete",
+          "name": "Tete"
+        },
+        {
+          "code": "Zambezia",
+          "name": "Zambezia"
+        }
+      ]
+    },
+    "NA": {
+      "name": "NAMIBIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["10001", "10017"]
+    },
+    "NC": {
+      "name": "NEW CALEDONIA",
+      "postalPattern": "988\\d{2}",
+      "postalExamples": ["98814", "98800", "98810"],
+      "postalLookupUrl": "https://www.opt.nc/particuliers/courrier-et-colis/les-codes-postaux-de-nouvelle-caledonie"
+    },
+    "NE": {
+      "name": "NIGER",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["8001"]
+    },
+    "NF": {
+      "name": "NORFOLK ISLAND",
+      "postalPattern": "2899",
+      "postalExamples": ["2899"]
+    },
+    "NG": {
+      "name": "NIGERIA",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["930283", "300001", "931104"],
+      "postalLookupUrl": "http://www.nigeriapostcodes.com/",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Abia",
+          "name": "Abia"
+        },
+        {
+          "code": "Adamawa",
+          "name": "Adamawa"
+        },
+        {
+          "code": "Akwa Ibom",
+          "name": "Akwa Ibom"
+        },
+        {
+          "code": "Anambra",
+          "name": "Anambra"
+        },
+        {
+          "code": "Bauchi",
+          "name": "Bauchi"
+        },
+        {
+          "code": "Bayelsa",
+          "name": "Bayelsa"
+        },
+        {
+          "code": "Benue",
+          "name": "Benue"
+        },
+        {
+          "code": "Borno",
+          "name": "Borno"
+        },
+        {
+          "code": "Cross River",
+          "name": "Cross River"
+        },
+        {
+          "code": "Delta",
+          "name": "Delta"
+        },
+        {
+          "code": "Ebonyi",
+          "name": "Ebonyi"
+        },
+        {
+          "code": "Edo",
+          "name": "Edo"
+        },
+        {
+          "code": "Ekiti",
+          "name": "Ekiti"
+        },
+        {
+          "code": "Enugu",
+          "name": "Enugu"
+        },
+        {
+          "code": "Federal Capital Territory",
+          "name": "Federal Capital Territory"
+        },
+        {
+          "code": "Gombe",
+          "name": "Gombe"
+        },
+        {
+          "code": "Imo",
+          "name": "Imo"
+        },
+        {
+          "code": "Jigawa",
+          "name": "Jigawa"
+        },
+        {
+          "code": "Kaduna",
+          "name": "Kaduna"
+        },
+        {
+          "code": "Kano",
+          "name": "Kano"
+        },
+        {
+          "code": "Katsina",
+          "name": "Katsina"
+        },
+        {
+          "code": "Kebbi",
+          "name": "Kebbi"
+        },
+        {
+          "code": "Kogi",
+          "name": "Kogi"
+        },
+        {
+          "code": "Kwara",
+          "name": "Kwara"
+        },
+        {
+          "code": "Lagos",
+          "name": "Lagos"
+        },
+        {
+          "code": "Nasarawa",
+          "name": "Nasarawa"
+        },
+        {
+          "code": "Niger",
+          "name": "Niger"
+        },
+        {
+          "code": "Ogun State",
+          "name": "Ogun State"
+        },
+        {
+          "code": "Ondo",
+          "name": "Ondo"
+        },
+        {
+          "code": "Osun",
+          "name": "Osun"
+        },
+        {
+          "code": "Oyo",
+          "name": "Oyo"
+        },
+        {
+          "code": "Plateau",
+          "name": "Plateau"
+        },
+        {
+          "code": "Rivers",
+          "name": "Rivers"
+        },
+        {
+          "code": "Sokoto",
+          "name": "Sokoto"
+        },
+        {
+          "code": "Taraba",
+          "name": "Taraba"
+        },
+        {
+          "code": "Yobe",
+          "name": "Yobe"
+        },
+        {
+          "code": "Zamfara",
+          "name": "Zamfara"
+        }
+      ]
+    },
+    "NI": {
+      "name": "NICARAGUA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["52000"],
+      "postalLookupUrl": "http://www.correos.gob.ni/codigo-postal/",
+      "administrativeAreaNameType": "department",
+      "administrativeAreas": [
+        {
+          "code": "Boaco",
+          "name": "Boaco"
+        },
+        {
+          "code": "Carazo",
+          "name": "Carazo"
+        },
+        {
+          "code": "Chinandega",
+          "name": "Chinandega"
+        },
+        {
+          "code": "Chontales",
+          "name": "Chontales"
+        },
+        {
+          "code": "Estelí",
+          "name": "Estelí"
+        },
+        {
+          "code": "Granada",
+          "name": "Granada"
+        },
+        {
+          "code": "Jinotega",
+          "name": "Jinotega"
+        },
+        {
+          "code": "León",
+          "name": "León"
+        },
+        {
+          "code": "Madriz",
+          "name": "Madriz"
+        },
+        {
+          "code": "Managua",
+          "name": "Managua"
+        },
+        {
+          "code": "Masaya",
+          "name": "Masaya"
+        },
+        {
+          "code": "Matagalpa",
+          "name": "Matagalpa"
+        },
+        {
+          "code": "Nueva Segovia",
+          "name": "Nueva Segovia"
+        },
+        {
+          "code": "Región Autónoma de la Costa Caribe Norte",
+          "name": "Región Autónoma de la Costa Caribe Norte"
+        },
+        {
+          "code": "Región Autónoma de la Costa Caribe Sur",
+          "name": "Región Autónoma de la Costa Caribe Sur"
+        },
+        {
+          "code": "Río San Juan",
+          "name": "Río San Juan"
+        },
+        {
+          "code": "Rivas",
+          "name": "Rivas"
+        }
+      ]
+    },
+    "NL": {
+      "name": "NETHERLANDS",
+      "postalPattern": "[1-9]\\d{3} ?(?:[A-RT-Z][A-Z]|S[BCE-RT-Z])",
+      "postalExamples": ["1234 AB", "2490 AA"],
+      "postalLookupUrl": "https://www.postnl.nl/en/find-a-postcode/"
+    },
+    "NO": {
+      "name": "NORWAY",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["0025", "0107", "6631"],
+      "postalLookupUrl": "http://adressesok.posten.no/nb/postal_codes/search"
+    },
+    "NP": {
+      "name": "NEPAL",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["44601"],
+      "postalLookupUrl": "https://gpo.gov.np/pages/postal-code-1259614658/"
+    },
+    "NR": {
+      "name": "NAURU CENTRAL PACIFIC",
+      "administrativeAreaNameType": "district",
+      "administrativeAreas": [
+        {
+          "code": "Aiwo District",
+          "name": "Aiwo District"
+        },
+        {
+          "code": "Anabar District",
+          "name": "Anabar District"
+        },
+        {
+          "code": "Anetan District",
+          "name": "Anetan District"
+        },
+        {
+          "code": "Anibare District",
+          "name": "Anibare District"
+        },
+        {
+          "code": "Baiti District",
+          "name": "Baiti District"
+        },
+        {
+          "code": "Boe District",
+          "name": "Boe District"
+        },
+        {
+          "code": "Buada District",
+          "name": "Buada District"
+        },
+        {
+          "code": "Denigomodu District",
+          "name": "Denigomodu District"
+        },
+        {
+          "code": "Ewa District",
+          "name": "Ewa District"
+        },
+        {
+          "code": "Ijuw District",
+          "name": "Ijuw District"
+        },
+        {
+          "code": "Meneng District",
+          "name": "Meneng District"
+        },
+        {
+          "code": "Nibok District",
+          "name": "Nibok District"
+        },
+        {
+          "code": "Uaboe District",
+          "name": "Uaboe District"
+        },
+        {
+          "code": "Yaren District",
+          "name": "Yaren District"
+        }
+      ]
+    },
+    "NU": {
+      "name": "NIUE"
+    },
+    "NZ": {
+      "name": "NEW ZEALAND",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["6001", "6015", "6332", "8252", "1030"],
+      "postalLookupUrl": "https://www.nzpost.co.nz/tools/address-postcode-finder"
+    },
+    "OM": {
+      "name": "OMAN",
+      "postalPattern": "(?:PC )?\\d{3}",
+      "postalExamples": ["133", "112", "111"]
+    },
+    "PA": {
+      "name": "PANAMA (REP.)",
+      "administrativeAreas": [
+        {
+          "code": "Bocas del Toro",
+          "name": "Bocas del Toro"
+        },
+        {
+          "code": "Chiriquí",
+          "name": "Chiriquí"
+        },
+        {
+          "code": "Coclé",
+          "name": "Coclé"
+        },
+        {
+          "code": "Colón",
+          "name": "Colón"
+        },
+        {
+          "code": "Darién",
+          "name": "Darién"
+        },
+        {
+          "code": "Emberá",
+          "name": "Emberá"
+        },
+        {
+          "code": "Guna Yala",
+          "name": "Guna Yala"
+        },
+        {
+          "code": "Herrera",
+          "name": "Herrera"
+        },
+        {
+          "code": "Los Santos",
+          "name": "Los Santos"
+        },
+        {
+          "code": "Naso Tjër Di",
+          "name": "Naso Tjër Di"
+        },
+        {
+          "code": "Ngäbe-Buglé",
+          "name": "Ngäbe-Buglé"
+        },
+        {
+          "code": "Panamá",
+          "name": "Panamá"
+        },
+        {
+          "code": "Panamá Oeste",
+          "name": "Panamá Oeste"
+        },
+        {
+          "code": "Veraguas",
+          "name": "Veraguas"
+        }
+      ]
+    },
+    "PE": {
+      "name": "PERU",
+      "postalPattern": "(?:LIMA \\d{1,2}|CALLAO 0?\\d)|[0-2]\\d{4}",
+      "postalExamples": ["LIMA 23", "LIMA 42", "CALLAO 2", "02001"],
+      "postalLookupUrl": "http://www.codigopostal.gob.pe/pages/invitado/consulta.jsf",
+      "administrativeAreas": [
+        {
+          "code": "Amazonas",
+          "name": "Amazonas"
+        },
+        {
+          "code": "Áncash",
+          "name": "Áncash"
+        },
+        {
+          "code": "Apurímac",
+          "name": "Apurímac"
+        },
+        {
+          "code": "Arequipa",
+          "name": "Arequipa"
+        },
+        {
+          "code": "Ayacucho",
+          "name": "Ayacucho"
+        },
+        {
+          "code": "Cajamarca",
+          "name": "Cajamarca"
+        },
+        {
+          "code": "Callao",
+          "name": "Callao"
+        },
+        {
+          "code": "Cuzco",
+          "name": "Cuzco"
+        },
+        {
+          "code": "Gobierno Regional de Lima",
+          "name": "Gobierno Regional de Lima"
+        },
+        {
+          "code": "Huancavelica",
+          "name": "Huancavelica"
+        },
+        {
+          "code": "Huánuco",
+          "name": "Huánuco"
+        },
+        {
+          "code": "Ica",
+          "name": "Ica"
+        },
+        {
+          "code": "Junín",
+          "name": "Junín"
+        },
+        {
+          "code": "La Libertad",
+          "name": "La Libertad"
+        },
+        {
+          "code": "Lambayeque",
+          "name": "Lambayeque"
+        },
+        {
+          "code": "Loreto",
+          "name": "Loreto"
+        },
+        {
+          "code": "Madre de Dios",
+          "name": "Madre de Dios"
+        },
+        {
+          "code": "Moquegua",
+          "name": "Moquegua"
+        },
+        {
+          "code": "Municipalidad Metropolitana de Lima",
+          "name": "Municipalidad Metropolitana de Lima"
+        },
+        {
+          "code": "Pasco",
+          "name": "Pasco"
+        },
+        {
+          "code": "Piura",
+          "name": "Piura"
+        },
+        {
+          "code": "Puno",
+          "name": "Puno"
+        },
+        {
+          "code": "San Martín",
+          "name": "San Martín"
+        },
+        {
+          "code": "Tacna",
+          "name": "Tacna"
+        },
+        {
+          "code": "Tumbes",
+          "name": "Tumbes"
+        },
+        {
+          "code": "Ucayali",
+          "name": "Ucayali"
+        }
+      ]
+    },
+    "PF": {
+      "name": "FRENCH POLYNESIA",
+      "postalPattern": "987\\d{2}",
+      "postalExamples": ["98709"],
+      "administrativeAreaNameType": "island"
+    },
+    "PG": {
+      "name": "PAPUA NEW GUINEA",
+      "postalPattern": "\\d{3}",
+      "postalExamples": ["111"],
+      "administrativeAreas": [
+        {
+          "code": "Bougainville",
+          "name": "Bougainville"
+        },
+        {
+          "code": "Central Provins",
+          "name": "Central Provins"
+        },
+        {
+          "code": "Enga Provins",
+          "name": "Enga Provins"
+        },
+        {
+          "code": "Gulf Provins",
+          "name": "Gulf Provins"
+        },
+        {
+          "code": "Hela Provins",
+          "name": "Hela Provins"
+        },
+        {
+          "code": "Is Niu Briten Provins",
+          "name": "Is Niu Briten Provins"
+        },
+        {
+          "code": "Is Sepik Provins",
+          "name": "Is Sepik Provins"
+        },
+        {
+          "code": "Isten Hailans Provins",
+          "name": "Isten Hailans Provins"
+        },
+        {
+          "code": "Jiwaka Provins",
+          "name": "Jiwaka Provins"
+        },
+        {
+          "code": "Madang Provins",
+          "name": "Madang Provins"
+        },
+        {
+          "code": "Manus Provins",
+          "name": "Manus Provins"
+        },
+        {
+          "code": "Milen Be Provins",
+          "name": "Milen Be Provins"
+        },
+        {
+          "code": "Morobe Provins",
+          "name": "Morobe Provins"
+        },
+        {
+          "code": "Nesenel Kapitol Distrik",
+          "name": "Nesenel Kapitol Distrik"
+        },
+        {
+          "code": "Niu Ailan Provins",
+          "name": "Niu Ailan Provins"
+        },
+        {
+          "code": "Oro Provins",
+          "name": "Oro Provins"
+        },
+        {
+          "code": "Sandaun Provins",
+          "name": "Sandaun Provins"
+        },
+        {
+          "code": "Sauten Hailans Provins",
+          "name": "Sauten Hailans Provins"
+        },
+        {
+          "code": "Simbu Provins",
+          "name": "Simbu Provins"
+        },
+        {
+          "code": "Wes Niu Briten Provins",
+          "name": "Wes Niu Briten Provins"
+        },
+        {
+          "code": "Western Hailans Provins",
+          "name": "Western Hailans Provins"
+        },
+        {
+          "code": "Western Provins",
+          "name": "Western Provins"
+        }
+      ]
+    },
+    "PH": {
+      "name": "PHILIPPINES",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1008", "1050", "1135", "1207", "2000", "1000"],
+      "postalLookupUrl": "https://phlpost.gov.ph/zip-code-locator/",
+      "administrativeAreas": [
+        {
+          "code": "Abra",
+          "name": "Abra"
+        },
+        {
+          "code": "Agusan del Norte",
+          "name": "Agusan del Norte"
+        },
+        {
+          "code": "Agusan del Sur",
+          "name": "Agusan del Sur"
+        },
+        {
+          "code": "Aklan",
+          "name": "Aklan"
+        },
+        {
+          "code": "Albay",
+          "name": "Albay"
+        },
+        {
+          "code": "Antique",
+          "name": "Antique"
+        },
+        {
+          "code": "Apayao",
+          "name": "Apayao"
+        },
+        {
+          "code": "Aurora",
+          "name": "Aurora"
+        },
+        {
+          "code": "Basilan",
+          "name": "Basilan"
+        },
+        {
+          "code": "Bataan",
+          "name": "Bataan"
+        },
+        {
+          "code": "Batanes",
+          "name": "Batanes"
+        },
+        {
+          "code": "Batangas",
+          "name": "Batangas"
+        },
+        {
+          "code": "Benguet",
+          "name": "Benguet"
+        },
+        {
+          "code": "Biliran",
+          "name": "Biliran"
+        },
+        {
+          "code": "Bohol",
+          "name": "Bohol"
+        },
+        {
+          "code": "Bukidnon",
+          "name": "Bukidnon"
+        },
+        {
+          "code": "Bulacan",
+          "name": "Bulacan"
+        },
+        {
+          "code": "Cagayan",
+          "name": "Cagayan"
+        },
+        {
+          "code": "Camarines Norte",
+          "name": "Camarines Norte"
+        },
+        {
+          "code": "Camarines Sur",
+          "name": "Camarines Sur"
+        },
+        {
+          "code": "Camiguin",
+          "name": "Camiguin"
+        },
+        {
+          "code": "Capiz",
+          "name": "Capiz"
+        },
+        {
+          "code": "Catanduanes",
+          "name": "Catanduanes"
+        },
+        {
+          "code": "Cavite",
+          "name": "Cavite"
+        },
+        {
+          "code": "Cebu",
+          "name": "Cebu"
+        },
+        {
+          "code": "Compostela Valley",
+          "name": "Compostela Valley"
+        },
+        {
+          "code": "Cotabato",
+          "name": "Cotabato"
+        },
+        {
+          "code": "Davao del Norte",
+          "name": "Davao del Norte"
+        },
+        {
+          "code": "Davao del Sur",
+          "name": "Davao del Sur"
+        },
+        {
+          "code": "Davao Occidental",
+          "name": "Davao Occidental"
+        },
+        {
+          "code": "Davao Oriental",
+          "name": "Davao Oriental"
+        },
+        {
+          "code": "Dinagat Islands",
+          "name": "Dinagat Islands"
+        },
+        {
+          "code": "Eastern Samar",
+          "name": "Eastern Samar"
+        },
+        {
+          "code": "Guimaras",
+          "name": "Guimaras"
+        },
+        {
+          "code": "Ifugao",
+          "name": "Ifugao"
+        },
+        {
+          "code": "Ilocos Norte",
+          "name": "Ilocos Norte"
+        },
+        {
+          "code": "Ilocos Sur",
+          "name": "Ilocos Sur"
+        },
+        {
+          "code": "Iloilo",
+          "name": "Iloilo"
+        },
+        {
+          "code": "Isabela",
+          "name": "Isabela"
+        },
+        {
+          "code": "Kalinga",
+          "name": "Kalinga"
+        },
+        {
+          "code": "La Union",
+          "name": "La Union"
+        },
+        {
+          "code": "Laguna",
+          "name": "Laguna"
+        },
+        {
+          "code": "Lanao del Norte",
+          "name": "Lanao del Norte"
+        },
+        {
+          "code": "Lanao del Sur",
+          "name": "Lanao del Sur"
+        },
+        {
+          "code": "Leyte",
+          "name": "Leyte"
+        },
+        {
+          "code": "Maguindanao",
+          "name": "Maguindanao"
+        },
+        {
+          "code": "Marinduque",
+          "name": "Marinduque"
+        },
+        {
+          "code": "Masbate",
+          "name": "Masbate"
+        },
+        {
+          "code": "Metro Manila",
+          "name": "Metro Manila"
+        },
+        {
+          "code": "Mindoro Occidental",
+          "name": "Mindoro Occidental"
+        },
+        {
+          "code": "Mindoro Oriental",
+          "name": "Mindoro Oriental"
+        },
+        {
+          "code": "Misamis Occidental",
+          "name": "Misamis Occidental"
+        },
+        {
+          "code": "Misamis Oriental",
+          "name": "Misamis Oriental"
+        },
+        {
+          "code": "Mountain Province",
+          "name": "Mountain Province"
+        },
+        {
+          "code": "Negros Occidental",
+          "name": "Negros Occidental"
+        },
+        {
+          "code": "Negros Oriental",
+          "name": "Negros Oriental"
+        },
+        {
+          "code": "Northern Samar",
+          "name": "Northern Samar"
+        },
+        {
+          "code": "Nueva Ecija",
+          "name": "Nueva Ecija"
+        },
+        {
+          "code": "Nueva Vizcaya",
+          "name": "Nueva Vizcaya"
+        },
+        {
+          "code": "Palawan",
+          "name": "Palawan"
+        },
+        {
+          "code": "Pampanga",
+          "name": "Pampanga"
+        },
+        {
+          "code": "Pangasinan",
+          "name": "Pangasinan"
+        },
+        {
+          "code": "Quezon Province",
+          "name": "Quezon Province"
+        },
+        {
+          "code": "Quirino",
+          "name": "Quirino"
+        },
+        {
+          "code": "Rizal",
+          "name": "Rizal"
+        },
+        {
+          "code": "Romblon",
+          "name": "Romblon"
+        },
+        {
+          "code": "Samar",
+          "name": "Samar"
+        },
+        {
+          "code": "Sarangani",
+          "name": "Sarangani"
+        },
+        {
+          "code": "Siquijor",
+          "name": "Siquijor"
+        },
+        {
+          "code": "Sorsogon",
+          "name": "Sorsogon"
+        },
+        {
+          "code": "South Cotabato",
+          "name": "South Cotabato"
+        },
+        {
+          "code": "Southern Leyte",
+          "name": "Southern Leyte"
+        },
+        {
+          "code": "Sultan Kudarat",
+          "name": "Sultan Kudarat"
+        },
+        {
+          "code": "Sulu",
+          "name": "Sulu"
+        },
+        {
+          "code": "Surigao del Norte",
+          "name": "Surigao del Norte"
+        },
+        {
+          "code": "Surigao del Sur",
+          "name": "Surigao del Sur"
+        },
+        {
+          "code": "Tarlac",
+          "name": "Tarlac"
+        },
+        {
+          "code": "Tawi-Tawi",
+          "name": "Tawi-Tawi"
+        },
+        {
+          "code": "Zambales",
+          "name": "Zambales"
+        },
+        {
+          "code": "Zamboanga del Norte",
+          "name": "Zamboanga del Norte"
+        },
+        {
+          "code": "Zamboanga del Sur",
+          "name": "Zamboanga del Sur"
+        },
+        {
+          "code": "Zamboanga Sibuguey",
+          "name": "Zamboanga Sibuguey"
+        }
+      ]
+    },
+    "PK": {
+      "name": "PAKISTAN",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["44000"],
+      "postalLookupUrl": "http://www.pakpost.gov.pk/postcodes.php"
+    },
+    "PL": {
+      "name": "POLAND",
+      "postalPattern": "\\d{2}-\\d{3}",
+      "postalExamples": ["00-950", "05-470", "48-300", "32-015", "00-940"],
+      "postalLookupUrl": "http://kody.poczta-polska.pl/"
+    },
+    "PM": {
+      "name": "ST. PIERRE AND MIQUELON",
+      "postalPattern": "9[78]5\\d{2}",
+      "postalExamples": ["97500"]
+    },
+    "PN": {
+      "name": "PITCAIRN",
+      "postalPattern": "PCRN 1ZZ",
+      "postalExamples": ["PCRN 1ZZ"]
+    },
+    "PR": {
+      "name": "PUERTO RICO",
+      "postalPattern": "(00[679]\\d{2})(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["00930"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip"
+    },
+    "PS": {
+      "name": "PALESTINIAN TERRITORY"
+    },
+    "PT": {
+      "name": "PORTUGAL",
+      "postalPattern": "\\d{4}-\\d{3}",
+      "postalExamples": ["2725-079", "1250-096", "1201-950", "2860-571", "1208-148"],
+      "postalLookupUrl": "http://www.ctt.pt/feapl_2/app/open/tools.jspx?tool=1"
+    },
+    "PW": {
+      "name": "PALAU",
+      "postalPattern": "(969(?:39|40))(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["96940"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Aimeliik",
+          "name": "Aimeliik"
+        },
+        {
+          "code": "Airai",
+          "name": "Airai"
+        },
+        {
+          "code": "Angaur",
+          "name": "Angaur"
+        },
+        {
+          "code": "Hatohobei",
+          "name": "Hatohobei"
+        },
+        {
+          "code": "Kayangel",
+          "name": "Kayangel"
+        },
+        {
+          "code": "Koror",
+          "name": "Koror"
+        },
+        {
+          "code": "Melekeok",
+          "name": "Melekeok"
+        },
+        {
+          "code": "Ngaraard",
+          "name": "Ngaraard"
+        },
+        {
+          "code": "Ngarchelong",
+          "name": "Ngarchelong"
+        },
+        {
+          "code": "Ngardmau",
+          "name": "Ngardmau"
+        },
+        {
+          "code": "Ngaremlengui",
+          "name": "Ngaremlengui"
+        },
+        {
+          "code": "Ngatpang",
+          "name": "Ngatpang"
+        },
+        {
+          "code": "Ngchesar",
+          "name": "Ngchesar"
+        },
+        {
+          "code": "Ngiwal",
+          "name": "Ngiwal"
+        },
+        {
+          "code": "Peleliu",
+          "name": "Peleliu"
+        },
+        {
+          "code": "Sonsorol",
+          "name": "Sonsorol"
+        }
+      ]
+    },
+    "PY": {
+      "name": "PARAGUAY",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["001001", "051103", "110407"]
+    },
+    "QA": {
+      "name": "QATAR"
+    },
+    "RE": {
+      "name": "REUNION",
+      "postalPattern": "9[78]4\\d{2}",
+      "postalExamples": ["97400"],
+      "postalLookupUrl": "https://www.laposte.fr/outils/trouver-un-code-postal"
+    },
+    "RO": {
+      "name": "ROMANIA",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["060274", "061357", "200716"],
+      "postalLookupUrl": "http://www.posta-romana.ro/zip_codes",
+      "administrativeAreas": [
+        {
+          "code": "Alba",
+          "name": "Alba"
+        },
+        {
+          "code": "Arad",
+          "name": "Arad"
+        },
+        {
+          "code": "Argeș",
+          "name": "Argeș"
+        },
+        {
+          "code": "Bacău",
+          "name": "Bacău"
+        },
+        {
+          "code": "Bihor",
+          "name": "Bihor"
+        },
+        {
+          "code": "Bistrița-Năsăud",
+          "name": "Bistrița-Năsăud"
+        },
+        {
+          "code": "Botoșani",
+          "name": "Botoșani"
+        },
+        {
+          "code": "Brașov",
+          "name": "Brașov"
+        },
+        {
+          "code": "Brăila",
+          "name": "Brăila"
+        },
+        {
+          "code": "București",
+          "name": "București"
+        },
+        {
+          "code": "Buzău",
+          "name": "Buzău"
+        },
+        {
+          "code": "Caraș-Severin",
+          "name": "Caraș-Severin"
+        },
+        {
+          "code": "Călărași",
+          "name": "Călărași"
+        },
+        {
+          "code": "Cluj",
+          "name": "Cluj"
+        },
+        {
+          "code": "Constanța",
+          "name": "Constanța"
+        },
+        {
+          "code": "Covasna",
+          "name": "Covasna"
+        },
+        {
+          "code": "Dâmbovița",
+          "name": "Dâmbovița"
+        },
+        {
+          "code": "Dolj",
+          "name": "Dolj"
+        },
+        {
+          "code": "Galați",
+          "name": "Galați"
+        },
+        {
+          "code": "Giurgiu",
+          "name": "Giurgiu"
+        },
+        {
+          "code": "Gorj",
+          "name": "Gorj"
+        },
+        {
+          "code": "Harghita",
+          "name": "Harghita"
+        },
+        {
+          "code": "Hunedoara",
+          "name": "Hunedoara"
+        },
+        {
+          "code": "Ialomița",
+          "name": "Ialomița"
+        },
+        {
+          "code": "Iași",
+          "name": "Iași"
+        },
+        {
+          "code": "Ilfov",
+          "name": "Ilfov"
+        },
+        {
+          "code": "Maramureș",
+          "name": "Maramureș"
+        },
+        {
+          "code": "Mehedinți",
+          "name": "Mehedinți"
+        },
+        {
+          "code": "Mureș",
+          "name": "Mureș"
+        },
+        {
+          "code": "Neamț",
+          "name": "Neamț"
+        },
+        {
+          "code": "Olt",
+          "name": "Olt"
+        },
+        {
+          "code": "Prahova",
+          "name": "Prahova"
+        },
+        {
+          "code": "Satu Mare",
+          "name": "Satu Mare"
+        },
+        {
+          "code": "Sălaj",
+          "name": "Sălaj"
+        },
+        {
+          "code": "Sibiu",
+          "name": "Sibiu"
+        },
+        {
+          "code": "Suceava",
+          "name": "Suceava"
+        },
+        {
+          "code": "Teleorman",
+          "name": "Teleorman"
+        },
+        {
+          "code": "Timiș",
+          "name": "Timiș"
+        },
+        {
+          "code": "Tulcea",
+          "name": "Tulcea"
+        },
+        {
+          "code": "Vaslui",
+          "name": "Vaslui"
+        },
+        {
+          "code": "Vâlcea",
+          "name": "Vâlcea"
+        },
+        {
+          "code": "Vrancea",
+          "name": "Vrancea"
+        }
+      ]
+    },
+    "RS": {
+      "name": "REPUBLIC OF SERBIA",
+      "postalPattern": "\\d{5,6}",
+      "postalExamples": ["106314"],
+      "postalLookupUrl": "http://www.posta.rs/struktura/lat/aplikacije/pronadji/nadji-postu.asp"
+    },
+    "RU": {
+      "name": "RUSSIAN FEDERATION",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["247112", "103375", "188300"],
+      "postalLookupUrl": "https://www.pochta.ru/post-index",
+      "administrativeAreaNameType": "oblast",
+      "administrativeAreas": [
+        {
+          "code": "Алтайский край",
+          "name": "Алтайский край"
+        },
+        {
+          "code": "Амурская область",
+          "name": "Амурская область"
+        },
+        {
+          "code": "Архангельская область",
+          "name": "Архангельская область"
+        },
+        {
+          "code": "Астраханская область",
+          "name": "Астраханская область"
+        },
+        {
+          "code": "Белгородская область",
+          "name": "Белгородская область"
+        },
+        {
+          "code": "Брянская область",
+          "name": "Брянская область"
+        },
+        {
+          "code": "Владимирская область",
+          "name": "Владимирская область"
+        },
+        {
+          "code": "Волгоградская область",
+          "name": "Волгоградская область"
+        },
+        {
+          "code": "Вологодская область",
+          "name": "Вологодская область"
+        },
+        {
+          "code": "Воронежская область",
+          "name": "Воронежская область"
+        },
+        {
+          "code": "Еврейская автономная область",
+          "name": "Еврейская автономная область"
+        },
+        {
+          "code": "Забайкальский край",
+          "name": "Забайкальский край"
+        },
+        {
+          "code": "Ивановская область",
+          "name": "Ивановская область"
+        },
+        {
+          "code": "Иркутская область",
+          "name": "Иркутская область"
+        },
+        {
+          "code": "Кабардино-Балкарская Республика",
+          "name": "Кабардино-Балкарская Республика"
+        },
+        {
+          "code": "Калининградская область",
+          "name": "Калининградская область"
+        },
+        {
+          "code": "Калужская область",
+          "name": "Калужская область"
+        },
+        {
+          "code": "Камчатский край",
+          "name": "Камчатский край"
+        },
+        {
+          "code": "Карачаево-Черкесская Республика",
+          "name": "Карачаево-Черкесская Республика"
+        },
+        {
+          "code": "Кемеровская область",
+          "name": "Кемеровская область"
+        },
+        {
+          "code": "Кировская область",
+          "name": "Кировская область"
+        },
+        {
+          "code": "Костромская область",
+          "name": "Костромская область"
+        },
+        {
+          "code": "Краснодарский край",
+          "name": "Краснодарский край"
+        },
+        {
+          "code": "Красноярский край",
+          "name": "Красноярский край"
+        },
+        {
+          "code": "Курганская область",
+          "name": "Курганская область"
+        },
+        {
+          "code": "Курская область",
+          "name": "Курская область"
+        },
+        {
+          "code": "Ленинградская область",
+          "name": "Ленинградская область"
+        },
+        {
+          "code": "Липецкая область",
+          "name": "Липецкая область"
+        },
+        {
+          "code": "Магаданская область",
+          "name": "Магаданская область"
+        },
+        {
+          "code": "Москва",
+          "name": "Москва"
+        },
+        {
+          "code": "Московская область",
+          "name": "Московская область"
+        },
+        {
+          "code": "Мурманская область",
+          "name": "Мурманская область"
+        },
+        {
+          "code": "Ненецкий автономный округ",
+          "name": "Ненецкий автономный округ"
+        },
+        {
+          "code": "Нижегородская область",
+          "name": "Нижегородская область"
+        },
+        {
+          "code": "Новгородская область",
+          "name": "Новгородская область"
+        },
+        {
+          "code": "Новосибирская область",
+          "name": "Новосибирская область"
+        },
+        {
+          "code": "Омская область",
+          "name": "Омская область"
+        },
+        {
+          "code": "Оренбургская область",
+          "name": "Оренбургская область"
+        },
+        {
+          "code": "Орловская область",
+          "name": "Орловская область"
+        },
+        {
+          "code": "Пензенская область",
+          "name": "Пензенская область"
+        },
+        {
+          "code": "Пермский край",
+          "name": "Пермский край"
+        },
+        {
+          "code": "Приморский край",
+          "name": "Приморский край"
+        },
+        {
+          "code": "Псковская область",
+          "name": "Псковская область"
+        },
+        {
+          "code": "Республика Адыгея",
+          "name": "Республика Адыгея"
+        },
+        {
+          "code": "Республика Алтай",
+          "name": "Республика Алтай"
+        },
+        {
+          "code": "Республика Башкортостан",
+          "name": "Республика Башкортостан"
+        },
+        {
+          "code": "Республика Бурятия",
+          "name": "Республика Бурятия"
+        },
+        {
+          "code": "Республика Дагестан",
+          "name": "Республика Дагестан"
+        },
+        {
+          "code": "Республика Ингушетия",
+          "name": "Республика Ингушетия"
+        },
+        {
+          "code": "Республика Калмыкия",
+          "name": "Республика Калмыкия"
+        },
+        {
+          "code": "Республика Карелия",
+          "name": "Республика Карелия"
+        },
+        {
+          "code": "Республика Коми",
+          "name": "Республика Коми"
+        },
+        {
+          "code": "Автономна Республіка Крим",
+          "name": "Республика Крым"
+        },
+        {
+          "code": "Республика Марий Эл",
+          "name": "Республика Марий Эл"
+        },
+        {
+          "code": "Республика Мордовия",
+          "name": "Республика Мордовия"
+        },
+        {
+          "code": "Республика Саха (Якутия)",
+          "name": "Республика Саха (Якутия)"
+        },
+        {
+          "code": "Республика Северная Осетия-Алания",
+          "name": "Республика Северная Осетия-Алания"
+        },
+        {
+          "code": "Республика Татарстан",
+          "name": "Республика Татарстан"
+        },
+        {
+          "code": "Республика Тыва",
+          "name": "Республика Тыва"
+        },
+        {
+          "code": "Республика Удмуртия",
+          "name": "Республика Удмуртия"
+        },
+        {
+          "code": "Республика Хакасия",
+          "name": "Республика Хакасия"
+        },
+        {
+          "code": "Ростовская область",
+          "name": "Ростовская область"
+        },
+        {
+          "code": "Рязанская область",
+          "name": "Рязанская область"
+        },
+        {
+          "code": "Самарская область",
+          "name": "Самарская область"
+        },
+        {
+          "code": "Санкт-Петербург",
+          "name": "Санкт-Петербург"
+        },
+        {
+          "code": "Саратовская область",
+          "name": "Саратовская область"
+        },
+        {
+          "code": "Сахалинская область",
+          "name": "Сахалинская область"
+        },
+        {
+          "code": "Свердловская область",
+          "name": "Свердловская область"
+        },
+        {
+          "code": "Севастополь",
+          "name": "Севастополь"
+        },
+        {
+          "code": "Смоленская область",
+          "name": "Смоленская область"
+        },
+        {
+          "code": "Ставропольский край",
+          "name": "Ставропольский край"
+        },
+        {
+          "code": "Тамбовская область",
+          "name": "Тамбовская область"
+        },
+        {
+          "code": "Тверская область",
+          "name": "Тверская область"
+        },
+        {
+          "code": "Томская область",
+          "name": "Томская область"
+        },
+        {
+          "code": "Тульская область",
+          "name": "Тульская область"
+        },
+        {
+          "code": "Тюменская область",
+          "name": "Тюменская область"
+        },
+        {
+          "code": "Ульяновская область",
+          "name": "Ульяновская область"
+        },
+        {
+          "code": "Хабаровский край",
+          "name": "Хабаровский край"
+        },
+        {
+          "code": "Ханты-Мансийский автономный округ",
+          "name": "Ханты-Мансийский автономный округ"
+        },
+        {
+          "code": "Челябинская область",
+          "name": "Челябинская область"
+        },
+        {
+          "code": "Чеченская Республика",
+          "name": "Чеченская Республика"
+        },
+        {
+          "code": "Чувашская Республика",
+          "name": "Чувашская Республика"
+        },
+        {
+          "code": "Чукотский автономный округ",
+          "name": "Чукотский автономный округ"
+        },
+        {
+          "code": "Ямало-Ненецкий автономный округ",
+          "name": "Ямало-Ненецкий автономный округ"
+        },
+        {
+          "code": "Ярославская область",
+          "name": "Ярославская область"
+        }
+      ]
+    },
+    "RW": {
+      "name": "RWANDA"
+    },
+    "SA": {
+      "name": "SAUDI ARABIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11564", "11187", "11142"]
+    },
+    "SB": {
+      "name": "SOLOMON ISLANDS"
+    },
+    "SC": {
+      "name": "SEYCHELLES",
+      "administrativeAreaNameType": "island"
+    },
+    "SD": {
+      "name": "SUDAN",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11042", "11113"]
+    },
+    "SE": {
+      "name": "SWEDEN",
+      "postalPattern": "\\d{3} ?\\d{2}",
+      "postalExamples": ["11455", "12345", "10500"],
+      "postalLookupUrl": "https://www.postnord.se/en/our-tools/search-postcode-and-address/"
+    },
+    "SG": {
+      "name": "REP. OF SINGAPORE",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["546080", "308125", "408600"],
+      "postalLookupUrl": "https://www.singpost.com/find-postal-code"
+    },
+    "SH": {
+      "name": "SAINT HELENA",
+      "postalPattern": "(?:ASCN|STHL) 1ZZ",
+      "postalExamples": ["STHL 1ZZ"]
+    },
+    "SI": {
+      "name": "SLOVENIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["4000", "1001", "2500"]
+    },
+    "SJ": {
+      "name": "SVALBARD AND JAN MAYEN ISLANDS",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["9170"],
+      "postalLookupUrl": "http://epab.posten.no/"
+    },
+    "SK": {
+      "name": "SLOVAKIA",
+      "postalPattern": "\\d{3} ?\\d{2}",
+      "postalExamples": ["010 01", "023 14", "972 48", "921 01", "975 99"],
+      "postalLookupUrl": "http://psc.posta.sk"
+    },
+    "SL": {
+      "name": "SIERRA LEONE"
+    },
+    "SM": {
+      "name": "SAN MARINO",
+      "postalPattern": "4789\\d",
+      "postalExamples": ["47890", "47891", "47895", "47899"],
+      "postalLookupUrl": "https://www.poste.it/cerca/index.html#/risultati-cerca-cap/"
+    },
+    "SN": {
+      "name": "SENEGAL",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["12500", "46024", "16556", "10000"]
+    },
+    "SO": {
+      "name": "SOMALIA",
+      "postalPattern": "[A-Z]{2} ?\\d{5}",
+      "postalExamples": ["JH 09010", "AD 11010"],
+      "administrativeAreas": [
+        {
+          "code": "AD",
+          "name": "Awdal"
+        },
+        {
+          "code": "BK",
+          "name": "Bakool"
+        },
+        {
+          "code": "BN",
+          "name": "Banaadir"
+        },
+        {
+          "code": "BR",
+          "name": "Bari"
+        },
+        {
+          "code": "BY",
+          "name": "Bay"
+        },
+        {
+          "code": "GG",
+          "name": "Galguduud"
+        },
+        {
+          "code": "GD",
+          "name": "Gedo"
+        },
+        {
+          "code": "HR",
+          "name": "Hiiraan"
+        },
+        {
+          "code": "JD",
+          "name": "Jubbada Dhexe"
+        },
+        {
+          "code": "JH",
+          "name": "Jubbada Hoose"
+        },
+        {
+          "code": "MD",
+          "name": "Mudug"
+        },
+        {
+          "code": "NG",
+          "name": "Nugaal"
+        },
+        {
+          "code": "SG",
+          "name": "Sanaag"
+        },
+        {
+          "code": "SD",
+          "name": "Shabeellaha Dhexe"
+        },
+        {
+          "code": "SH",
+          "name": "Shabeellaha Hoose"
+        },
+        {
+          "code": "SL",
+          "name": "Sool"
+        },
+        {
+          "code": "TG",
+          "name": "Togdheer"
+        },
+        {
+          "code": "WG",
+          "name": "Woqooyi Galbeed"
+        }
+      ]
+    },
+    "SR": {
+      "name": "SURINAME",
+      "administrativeAreas": [
+        {
+          "code": "Brokopondo",
+          "name": "Brokopondo"
+        },
+        {
+          "code": "Commewijne",
+          "name": "Commewijne"
+        },
+        {
+          "code": "Coronie",
+          "name": "Coronie"
+        },
+        {
+          "code": "Marowijne",
+          "name": "Marowijne"
+        },
+        {
+          "code": "Nickerie",
+          "name": "Nickerie"
+        },
+        {
+          "code": "Para",
+          "name": "Para"
+        },
+        {
+          "code": "Paramaribo",
+          "name": "Paramaribo"
+        },
+        {
+          "code": "Saramacca",
+          "name": "Saramacca"
+        },
+        {
+          "code": "Sipaliwini",
+          "name": "Sipaliwini"
+        },
+        {
+          "code": "Wanica",
+          "name": "Wanica"
+        }
+      ]
+    },
+    "SS": {
+      "name": "SOUTH SUDAN"
+    },
+    "ST": {
+      "name": "SAO TOME AND PRINCIPE"
+    },
+    "SV": {
+      "name": "EL SALVADOR",
+      "postalPattern": "[1-3][1-7][0-2]\\d",
+      "postalExamples": ["1101"],
+      "administrativeAreas": [
+        {
+          "code": "Ahuachapan",
+          "name": "Ahuachapán"
+        },
+        {
+          "code": "Cabanas",
+          "name": "Cabañas"
+        },
+        {
+          "code": "Calatenango",
+          "name": "Chalatenango"
+        },
+        {
+          "code": "Cuscatlan",
+          "name": "Cuscatlán"
+        },
+        {
+          "code": "La Libertad",
+          "name": "La Libertad"
+        },
+        {
+          "code": "La Paz",
+          "name": "La Paz"
+        },
+        {
+          "code": "La Union",
+          "name": "La Unión"
+        },
+        {
+          "code": "Morazan",
+          "name": "Morazán"
+        },
+        {
+          "code": "San Miguel",
+          "name": "San Miguel"
+        },
+        {
+          "code": "San Salvador",
+          "name": "San Salvador"
+        },
+        {
+          "code": "San Vicente",
+          "name": "San Vicente"
+        },
+        {
+          "code": "Santa Ana",
+          "name": "Santa Ana"
+        },
+        {
+          "code": "Sonsonate",
+          "name": "Sonsonate"
+        },
+        {
+          "code": "Usulutan",
+          "name": "Usulután"
+        }
+      ]
+    },
+    "SX": {
+      "name": "SINT MAARTEN"
+    },
+    "SY": {
+      "name": "SYRIA"
+    },
+    "SZ": {
+      "name": "SWAZILAND",
+      "postalPattern": "[HLMS]\\d{3}",
+      "postalExamples": ["H100"],
+      "postalLookupUrl": "https://www.eswatinipost.co.sz/postcode.php"
+    },
+    "TA": {
+      "name": "TRISTAN DA CUNHA",
+      "postalPattern": "TDCU 1ZZ",
+      "postalExamples": ["TDCU 1ZZ"]
+    },
+    "TC": {
+      "name": "TURKS AND CAICOS ISLANDS",
+      "postalPattern": "TKCA 1ZZ",
+      "postalExamples": ["TKCA 1ZZ"]
+    },
+    "TD": {
+      "name": "CHAD"
+    },
+    "TF": {
+      "name": "FRENCH SOUTHERN TERRITORIES"
+    },
+    "TG": {
+      "name": "TOGO"
+    },
+    "TH": {
+      "name": "THAILAND",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["10150", "10210"],
+      "administrativeAreas": [
+        {
+          "code": "กระบี่",
+          "name": "กระบี่"
+        },
+        {
+          "code": "กรุงเทพมหานคร",
+          "name": "กรุงเทพมหานคร"
+        },
+        {
+          "code": "กาญจนบุรี",
+          "name": "กาญจนบุรี"
+        },
+        {
+          "code": "กาฬสินธุ์",
+          "name": "กาฬสินธุ์"
+        },
+        {
+          "code": "กำแพงเพชร",
+          "name": "กำแพงเพชร"
+        },
+        {
+          "code": "ขอนแก่น",
+          "name": "ขอนแก่น"
+        },
+        {
+          "code": "จังหวัด บึงกาฬ",
+          "name": "จังหวัด บึงกาฬ"
+        },
+        {
+          "code": "จันทบุรี",
+          "name": "จันทบุรี"
+        },
+        {
+          "code": "ฉะเชิงเทรา",
+          "name": "ฉะเชิงเทรา"
+        },
+        {
+          "code": "ชลบุรี",
+          "name": "ชลบุรี"
+        },
+        {
+          "code": "ชัยนาท",
+          "name": "ชัยนาท"
+        },
+        {
+          "code": "ชัยภูมิ",
+          "name": "ชัยภูมิ"
+        },
+        {
+          "code": "ชุมพร",
+          "name": "ชุมพร"
+        },
+        {
+          "code": "เชียงราย",
+          "name": "เชียงราย"
+        },
+        {
+          "code": "เชียงใหม่",
+          "name": "เชียงใหม่"
+        },
+        {
+          "code": "ตรัง",
+          "name": "ตรัง"
+        },
+        {
+          "code": "ตราด",
+          "name": "ตราด"
+        },
+        {
+          "code": "ตาก",
+          "name": "ตาก"
+        },
+        {
+          "code": "นครนายก",
+          "name": "นครนายก"
+        },
+        {
+          "code": "นครปฐม",
+          "name": "นครปฐม"
+        },
+        {
+          "code": "นครพนม",
+          "name": "นครพนม"
+        },
+        {
+          "code": "นครราชสีมา",
+          "name": "นครราชสีมา"
+        },
+        {
+          "code": "นครศรีธรรมราช",
+          "name": "นครศรีธรรมราช"
+        },
+        {
+          "code": "นครสวรรค์",
+          "name": "นครสวรรค์"
+        },
+        {
+          "code": "นนทบุรี",
+          "name": "นนทบุรี"
+        },
+        {
+          "code": "นราธิวาส",
+          "name": "นราธิวาส"
+        },
+        {
+          "code": "น่าน",
+          "name": "น่าน"
+        },
+        {
+          "code": "บุรีรัมย์",
+          "name": "บุรีรัมย์"
+        },
+        {
+          "code": "ปทุมธานี",
+          "name": "ปทุมธานี"
+        },
+        {
+          "code": "ประจวบคีรีขันธ์",
+          "name": "ประจวบคีรีขันธ์"
+        },
+        {
+          "code": "ปราจีนบุรี",
+          "name": "ปราจีนบุรี"
+        },
+        {
+          "code": "ปัตตานี",
+          "name": "ปัตตานี"
+        },
+        {
+          "code": "พระนครศรีอยุธยา",
+          "name": "พระนครศรีอยุธยา"
+        },
+        {
+          "code": "พะเยา",
+          "name": "พะเยา"
+        },
+        {
+          "code": "พังงา",
+          "name": "พังงา"
+        },
+        {
+          "code": "พัทลุง",
+          "name": "พัทลุง"
+        },
+        {
+          "code": "พิจิตร",
+          "name": "พิจิตร"
+        },
+        {
+          "code": "พิษณุโลก",
+          "name": "พิษณุโลก"
+        },
+        {
+          "code": "เพชรบุรี",
+          "name": "เพชรบุรี"
+        },
+        {
+          "code": "เพชรบูรณ์",
+          "name": "เพชรบูรณ์"
+        },
+        {
+          "code": "แพร่",
+          "name": "แพร่"
+        },
+        {
+          "code": "ภูเก็ต",
+          "name": "ภูเก็ต"
+        },
+        {
+          "code": "มหาสารคาม",
+          "name": "มหาสารคาม"
+        },
+        {
+          "code": "มุกดาหาร",
+          "name": "มุกดาหาร"
+        },
+        {
+          "code": "แม่ฮ่องสอน",
+          "name": "แม่ฮ่องสอน"
+        },
+        {
+          "code": "ยโสธร",
+          "name": "ยโสธร"
+        },
+        {
+          "code": "ยะลา",
+          "name": "ยะลา"
+        },
+        {
+          "code": "ร้อยเอ็ด",
+          "name": "ร้อยเอ็ด"
+        },
+        {
+          "code": "ระนอง",
+          "name": "ระนอง"
+        },
+        {
+          "code": "ระยอง",
+          "name": "ระยอง"
+        },
+        {
+          "code": "ราชบุรี",
+          "name": "ราชบุรี"
+        },
+        {
+          "code": "ลพบุรี",
+          "name": "ลพบุรี"
+        },
+        {
+          "code": "ลำปาง",
+          "name": "ลำปาง"
+        },
+        {
+          "code": "ลำพูน",
+          "name": "ลำพูน"
+        },
+        {
+          "code": "เลย",
+          "name": "เลย"
+        },
+        {
+          "code": "ศรีสะเกษ",
+          "name": "ศรีสะเกษ"
+        },
+        {
+          "code": "สกลนคร",
+          "name": "สกลนคร"
+        },
+        {
+          "code": "สงขลา",
+          "name": "สงขลา"
+        },
+        {
+          "code": "สตูล",
+          "name": "สตูล"
+        },
+        {
+          "code": "สมุทรปราการ",
+          "name": "สมุทรปราการ"
+        },
+        {
+          "code": "สมุทรสงคราม",
+          "name": "สมุทรสงคราม"
+        },
+        {
+          "code": "สมุทรสาคร",
+          "name": "สมุทรสาคร"
+        },
+        {
+          "code": "สระแก้ว",
+          "name": "สระแก้ว"
+        },
+        {
+          "code": "สระบุรี",
+          "name": "สระบุรี"
+        },
+        {
+          "code": "สิงห์บุรี",
+          "name": "สิงห์บุรี"
+        },
+        {
+          "code": "สุโขทัย",
+          "name": "สุโขทัย"
+        },
+        {
+          "code": "สุพรรณบุรี",
+          "name": "สุพรรณบุรี"
+        },
+        {
+          "code": "สุราษฎร์ธานี",
+          "name": "สุราษฎร์ธานี"
+        },
+        {
+          "code": "สุรินทร์",
+          "name": "สุรินทร์"
+        },
+        {
+          "code": "หนองคาย",
+          "name": "หนองคาย"
+        },
+        {
+          "code": "หนองบัวลำภู",
+          "name": "หนองบัวลำภู"
+        },
+        {
+          "code": "อ่างทอง",
+          "name": "อ่างทอง"
+        },
+        {
+          "code": "อำนาจเจริญ",
+          "name": "อำนาจเจริญ"
+        },
+        {
+          "code": "อุดรธานี",
+          "name": "อุดรธานี"
+        },
+        {
+          "code": "อุตรดิตถ์",
+          "name": "อุตรดิตถ์"
+        },
+        {
+          "code": "อุทัยธานี",
+          "name": "อุทัยธานี"
+        },
+        {
+          "code": "อุบลราชธานี",
+          "name": "อุบลราชธานี"
+        }
+      ]
+    },
+    "TJ": {
+      "name": "TAJIKISTAN",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["735450", "734025"]
+    },
+    "TK": {
+      "name": "TOKELAU"
+    },
+    "TL": {
+      "name": "TIMOR-LESTE"
+    },
+    "TM": {
+      "name": "TURKMENISTAN",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["744000"]
+    },
+    "TN": {
+      "name": "TUNISIA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1002", "8129", "3100", "1030"],
+      "postalLookupUrl": "http://www.poste.tn/codes.php"
+    },
+    "TO": {
+      "name": "TONGA"
+    },
+    "TR": {
+      "name": "TURKEY",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["01960", "06101"],
+      "postalLookupUrl": "http://postakodu.ptt.gov.tr/",
+      "administrativeAreas": [
+        {
+          "code": "Adana",
+          "name": "Adana"
+        },
+        {
+          "code": "Adıyaman",
+          "name": "Adıyaman"
+        },
+        {
+          "code": "Afyon",
+          "name": "Afyon"
+        },
+        {
+          "code": "Ağrı",
+          "name": "Ağrı"
+        },
+        {
+          "code": "Aksaray",
+          "name": "Aksaray"
+        },
+        {
+          "code": "Amasya",
+          "name": "Amasya"
+        },
+        {
+          "code": "Ankara",
+          "name": "Ankara"
+        },
+        {
+          "code": "Antalya",
+          "name": "Antalya"
+        },
+        {
+          "code": "Ardahan",
+          "name": "Ardahan"
+        },
+        {
+          "code": "Artvin",
+          "name": "Artvin"
+        },
+        {
+          "code": "Aydın",
+          "name": "Aydın"
+        },
+        {
+          "code": "Balıkesir",
+          "name": "Balıkesir"
+        },
+        {
+          "code": "Bartın",
+          "name": "Bartın"
+        },
+        {
+          "code": "Batman",
+          "name": "Batman"
+        },
+        {
+          "code": "Bayburt",
+          "name": "Bayburt"
+        },
+        {
+          "code": "Bilecik",
+          "name": "Bilecik"
+        },
+        {
+          "code": "Bingöl",
+          "name": "Bingöl"
+        },
+        {
+          "code": "Bitlis",
+          "name": "Bitlis"
+        },
+        {
+          "code": "Bolu",
+          "name": "Bolu"
+        },
+        {
+          "code": "Burdur",
+          "name": "Burdur"
+        },
+        {
+          "code": "Bursa",
+          "name": "Bursa"
+        },
+        {
+          "code": "Çanakkale",
+          "name": "Çanakkale"
+        },
+        {
+          "code": "Çankırı",
+          "name": "Çankırı"
+        },
+        {
+          "code": "Çorum",
+          "name": "Çorum"
+        },
+        {
+          "code": "Denizli",
+          "name": "Denizli"
+        },
+        {
+          "code": "Diyarbakır",
+          "name": "Diyarbakır"
+        },
+        {
+          "code": "Düzce",
+          "name": "Düzce"
+        },
+        {
+          "code": "Edirne",
+          "name": "Edirne"
+        },
+        {
+          "code": "Elazığ",
+          "name": "Elazığ"
+        },
+        {
+          "code": "Erzincan",
+          "name": "Erzincan"
+        },
+        {
+          "code": "Erzurum",
+          "name": "Erzurum"
+        },
+        {
+          "code": "Eskişehir",
+          "name": "Eskişehir"
+        },
+        {
+          "code": "Gaziantep",
+          "name": "Gaziantep"
+        },
+        {
+          "code": "Giresun",
+          "name": "Giresun"
+        },
+        {
+          "code": "Gümüşhane",
+          "name": "Gümüşhane"
+        },
+        {
+          "code": "Hakkari",
+          "name": "Hakkari"
+        },
+        {
+          "code": "Hatay",
+          "name": "Hatay"
+        },
+        {
+          "code": "Iğdır",
+          "name": "Iğdır"
+        },
+        {
+          "code": "Isparta",
+          "name": "Isparta"
+        },
+        {
+          "code": "İstanbul",
+          "name": "İstanbul"
+        },
+        {
+          "code": "İzmir",
+          "name": "İzmir"
+        },
+        {
+          "code": "Kahramanmaraş",
+          "name": "Kahramanmaraş"
+        },
+        {
+          "code": "Karabük",
+          "name": "Karabük"
+        },
+        {
+          "code": "Karaman",
+          "name": "Karaman"
+        },
+        {
+          "code": "Kars",
+          "name": "Kars"
+        },
+        {
+          "code": "Kastamonu",
+          "name": "Kastamonu"
+        },
+        {
+          "code": "Kayseri",
+          "name": "Kayseri"
+        },
+        {
+          "code": "Kırıkkale",
+          "name": "Kırıkkale"
+        },
+        {
+          "code": "Kırklareli",
+          "name": "Kırklareli"
+        },
+        {
+          "code": "Kırşehir",
+          "name": "Kırşehir"
+        },
+        {
+          "code": "Kilis",
+          "name": "Kilis"
+        },
+        {
+          "code": "Kocaeli",
+          "name": "Kocaeli"
+        },
+        {
+          "code": "Konya",
+          "name": "Konya"
+        },
+        {
+          "code": "Kütahya",
+          "name": "Kütahya"
+        },
+        {
+          "code": "Malatya",
+          "name": "Malatya"
+        },
+        {
+          "code": "Manisa",
+          "name": "Manisa"
+        },
+        {
+          "code": "Mardin",
+          "name": "Mardin"
+        },
+        {
+          "code": "Mersin",
+          "name": "Mersin"
+        },
+        {
+          "code": "Muğla",
+          "name": "Muğla"
+        },
+        {
+          "code": "Muş",
+          "name": "Muş"
+        },
+        {
+          "code": "Nevşehir",
+          "name": "Nevşehir"
+        },
+        {
+          "code": "Niğde",
+          "name": "Niğde"
+        },
+        {
+          "code": "Ordu",
+          "name": "Ordu"
+        },
+        {
+          "code": "Osmaniye",
+          "name": "Osmaniye"
+        },
+        {
+          "code": "Rize",
+          "name": "Rize"
+        },
+        {
+          "code": "Sakarya",
+          "name": "Sakarya"
+        },
+        {
+          "code": "Samsun",
+          "name": "Samsun"
+        },
+        {
+          "code": "Siirt",
+          "name": "Siirt"
+        },
+        {
+          "code": "Sinop",
+          "name": "Sinop"
+        },
+        {
+          "code": "Sivas",
+          "name": "Sivas"
+        },
+        {
+          "code": "Şanlıurfa",
+          "name": "Şanlıurfa"
+        },
+        {
+          "code": "Şırnak",
+          "name": "Şırnak"
+        },
+        {
+          "code": "Tekirdağ",
+          "name": "Tekirdağ"
+        },
+        {
+          "code": "Tokat",
+          "name": "Tokat"
+        },
+        {
+          "code": "Trabzon",
+          "name": "Trabzon"
+        },
+        {
+          "code": "Tunceli",
+          "name": "Tunceli"
+        },
+        {
+          "code": "Uşak",
+          "name": "Uşak"
+        },
+        {
+          "code": "Van",
+          "name": "Van"
+        },
+        {
+          "code": "Yalova",
+          "name": "Yalova"
+        },
+        {
+          "code": "Yozgat",
+          "name": "Yozgat"
+        },
+        {
+          "code": "Zonguldak",
+          "name": "Zonguldak"
+        }
+      ]
+    },
+    "TT": {
+      "name": "TRINIDAD AND TOBAGO",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["500234"]
+    },
+    "TV": {
+      "name": "TUVALU",
+      "administrativeAreaNameType": "island",
+      "administrativeAreas": [
+        {
+          "code": "Funafuti",
+          "name": "Funafuti"
+        },
+        {
+          "code": "Nanumanga",
+          "name": "Nanumanga"
+        },
+        {
+          "code": "Nanumea",
+          "name": "Nanumea"
+        },
+        {
+          "code": "Niulakita",
+          "name": "Niulakita"
+        },
+        {
+          "code": "Niutao",
+          "name": "Niutao"
+        },
+        {
+          "code": "Nui",
+          "name": "Nui"
+        },
+        {
+          "code": "Nukufetau",
+          "name": "Nukufetau"
+        },
+        {
+          "code": "Nukulaelae",
+          "name": "Nukulaelae"
+        },
+        {
+          "code": "Vaitupu",
+          "name": "Vaitupu"
+        }
+      ]
+    },
+    "TW": {
+      "name": "TAIWAN",
+      "postalPattern": "\\d{3}(?:\\d{2,3})?",
+      "postalExamples": ["104", "106", "10603", "40867"],
+      "postalLookupUrl": "http://www.post.gov.tw/post/internet/f_searchzone/index.jsp?ID=190102",
+      "administrativeAreaNameType": "county",
+      "administrativeAreas": [
+        {
+          "code": "台中市",
+          "name": "台中市"
+        },
+        {
+          "code": "台北市",
+          "name": "台北市"
+        },
+        {
+          "code": "台東縣",
+          "name": "台東縣"
+        },
+        {
+          "code": "台南市",
+          "name": "台南市"
+        },
+        {
+          "code": "宜蘭縣",
+          "name": "宜蘭縣"
+        },
+        {
+          "code": "花蓮縣",
+          "name": "花蓮縣"
+        },
+        {
+          "code": "金門縣",
+          "name": "金門縣"
+        },
+        {
+          "code": "南投縣",
+          "name": "南投縣"
+        },
+        {
+          "code": "屏東縣",
+          "name": "屏東縣"
+        },
+        {
+          "code": "苗栗縣",
+          "name": "苗栗縣"
+        },
+        {
+          "code": "桃園市",
+          "name": "桃園市"
+        },
+        {
+          "code": "高雄市",
+          "name": "高雄市"
+        },
+        {
+          "code": "基隆市",
+          "name": "基隆市"
+        },
+        {
+          "code": "連江縣",
+          "name": "連江縣"
+        },
+        {
+          "code": "雲林縣",
+          "name": "雲林縣"
+        },
+        {
+          "code": "新北市",
+          "name": "新北市"
+        },
+        {
+          "code": "新竹市",
+          "name": "新竹市"
+        },
+        {
+          "code": "新竹縣",
+          "name": "新竹縣"
+        },
+        {
+          "code": "嘉義市",
+          "name": "嘉義市"
+        },
+        {
+          "code": "嘉義縣",
+          "name": "嘉義縣"
+        },
+        {
+          "code": "彰化縣",
+          "name": "彰化縣"
+        },
+        {
+          "code": "澎湖縣",
+          "name": "澎湖縣"
+        }
+      ]
+    },
+    "TZ": {
+      "name": "TANZANIA (UNITED REP.)",
+      "postalPattern": "\\d{4,5}",
+      "postalExamples": ["6090", "34413"]
+    },
+    "UA": {
+      "name": "UKRAINE",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["15432", "01055", "01001"],
+      "postalLookupUrl": "http://services.ukrposhta.com/postindex_new/",
+      "administrativeAreaNameType": "oblast",
+      "administrativeAreas": [
+        {
+          "code": "Автономна Республіка Крим",
+          "name": "Автономна Республіка Крим"
+        },
+        {
+          "code": "Вінницька область",
+          "name": "Вінницька область"
+        },
+        {
+          "code": "Волинська область",
+          "name": "Волинська область"
+        },
+        {
+          "code": "Дніпропетровська область",
+          "name": "Дніпропетровська область"
+        },
+        {
+          "code": "Донецька область",
+          "name": "Донецька область"
+        },
+        {
+          "code": "Житомирська область",
+          "name": "Житомирська область"
+        },
+        {
+          "code": "Закарпатська область",
+          "name": "Закарпатська область"
+        },
+        {
+          "code": "Запорізька область",
+          "name": "Запорізька область"
+        },
+        {
+          "code": "Івано-Франківська область",
+          "name": "Івано-Франківська область"
+        },
+        {
+          "code": "місто Київ",
+          "name": "Київ"
+        },
+        {
+          "code": "Київська область",
+          "name": "Київська область"
+        },
+        {
+          "code": "Кіровоградська область",
+          "name": "Кіровоградська область"
+        },
+        {
+          "code": "Луганська область",
+          "name": "Луганська область"
+        },
+        {
+          "code": "Львівська область",
+          "name": "Львівська область"
+        },
+        {
+          "code": "Миколаївська область",
+          "name": "Миколаївська область"
+        },
+        {
+          "code": "Одеська область",
+          "name": "Одеська область"
+        },
+        {
+          "code": "Полтавська область",
+          "name": "Полтавська область"
+        },
+        {
+          "code": "Рівненська область",
+          "name": "Рівненська область"
+        },
+        {
+          "code": "місто Севастополь",
+          "name": "Севастополь"
+        },
+        {
+          "code": "Сумська область",
+          "name": "Сумська область"
+        },
+        {
+          "code": "Тернопільська область",
+          "name": "Тернопільська область"
+        },
+        {
+          "code": "Харківська область",
+          "name": "Харківська область"
+        },
+        {
+          "code": "Херсонська область",
+          "name": "Херсонська область"
+        },
+        {
+          "code": "Хмельницька область",
+          "name": "Хмельницька область"
+        },
+        {
+          "code": "Черкаська область",
+          "name": "Черкаська область"
+        },
+        {
+          "code": "Чернівецька область",
+          "name": "Чернівецька область"
+        },
+        {
+          "code": "Чернігівська область",
+          "name": "Чернігівська область"
+        }
+      ]
+    },
+    "UG": {
+      "name": "UGANDA"
+    },
+    "UM": {
+      "name": "UNITED STATES MINOR OUTLYING ISLANDS",
+      "postalPattern": "96898",
+      "postalExamples": ["96898"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state"
+    },
+    "US": {
+      "name": "UNITED STATES",
+      "postalPattern": "(\\d{5})(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["95014", "22162-1010"],
+      "postalLookupUrl": "https://tools.usps.com/go/ZipLookupAction!input.action",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "AL",
+          "name": "Alabama"
+        },
+        {
+          "code": "AK",
+          "name": "Alaska"
+        },
+        {
+          "code": "AS",
+          "name": "American Samoa"
+        },
+        {
+          "code": "AZ",
+          "name": "Arizona"
+        },
+        {
+          "code": "AR",
+          "name": "Arkansas"
+        },
+        {
+          "code": "AA",
+          "name": "Armed Forces (AA)"
+        },
+        {
+          "code": "AE",
+          "name": "Armed Forces (AE)"
+        },
+        {
+          "code": "AP",
+          "name": "Armed Forces (AP)"
+        },
+        {
+          "code": "CA",
+          "name": "California"
+        },
+        {
+          "code": "CO",
+          "name": "Colorado"
+        },
+        {
+          "code": "CT",
+          "name": "Connecticut"
+        },
+        {
+          "code": "DE",
+          "name": "Delaware"
+        },
+        {
+          "code": "DC",
+          "name": "District of Columbia"
+        },
+        {
+          "code": "FL",
+          "name": "Florida"
+        },
+        {
+          "code": "GA",
+          "name": "Georgia"
+        },
+        {
+          "code": "GU",
+          "name": "Guam"
+        },
+        {
+          "code": "HI",
+          "name": "Hawaii"
+        },
+        {
+          "code": "ID",
+          "name": "Idaho"
+        },
+        {
+          "code": "IL",
+          "name": "Illinois"
+        },
+        {
+          "code": "IN",
+          "name": "Indiana"
+        },
+        {
+          "code": "IA",
+          "name": "Iowa"
+        },
+        {
+          "code": "KS",
+          "name": "Kansas"
+        },
+        {
+          "code": "KY",
+          "name": "Kentucky"
+        },
+        {
+          "code": "LA",
+          "name": "Louisiana"
+        },
+        {
+          "code": "ME",
+          "name": "Maine"
+        },
+        {
+          "code": "MH",
+          "name": "Marshall Islands"
+        },
+        {
+          "code": "MD",
+          "name": "Maryland"
+        },
+        {
+          "code": "MA",
+          "name": "Massachusetts"
+        },
+        {
+          "code": "MI",
+          "name": "Michigan"
+        },
+        {
+          "code": "FM",
+          "name": "Micronesia"
+        },
+        {
+          "code": "MN",
+          "name": "Minnesota"
+        },
+        {
+          "code": "MS",
+          "name": "Mississippi"
+        },
+        {
+          "code": "MO",
+          "name": "Missouri"
+        },
+        {
+          "code": "MT",
+          "name": "Montana"
+        },
+        {
+          "code": "NE",
+          "name": "Nebraska"
+        },
+        {
+          "code": "NV",
+          "name": "Nevada"
+        },
+        {
+          "code": "NH",
+          "name": "New Hampshire"
+        },
+        {
+          "code": "NJ",
+          "name": "New Jersey"
+        },
+        {
+          "code": "NM",
+          "name": "New Mexico"
+        },
+        {
+          "code": "NY",
+          "name": "New York"
+        },
+        {
+          "code": "NC",
+          "name": "North Carolina"
+        },
+        {
+          "code": "ND",
+          "name": "North Dakota"
+        },
+        {
+          "code": "MP",
+          "name": "Northern Mariana Islands"
+        },
+        {
+          "code": "OH",
+          "name": "Ohio"
+        },
+        {
+          "code": "OK",
+          "name": "Oklahoma"
+        },
+        {
+          "code": "OR",
+          "name": "Oregon"
+        },
+        {
+          "code": "PW",
+          "name": "Palau"
+        },
+        {
+          "code": "PA",
+          "name": "Pennsylvania"
+        },
+        {
+          "code": "PR",
+          "name": "Puerto Rico"
+        },
+        {
+          "code": "RI",
+          "name": "Rhode Island"
+        },
+        {
+          "code": "SC",
+          "name": "South Carolina"
+        },
+        {
+          "code": "SD",
+          "name": "South Dakota"
+        },
+        {
+          "code": "TN",
+          "name": "Tennessee"
+        },
+        {
+          "code": "TX",
+          "name": "Texas"
+        },
+        {
+          "code": "UT",
+          "name": "Utah"
+        },
+        {
+          "code": "VT",
+          "name": "Vermont"
+        },
+        {
+          "code": "VI",
+          "name": "Virgin Islands"
+        },
+        {
+          "code": "VA",
+          "name": "Virginia"
+        },
+        {
+          "code": "WA",
+          "name": "Washington"
+        },
+        {
+          "code": "WV",
+          "name": "West Virginia"
+        },
+        {
+          "code": "WI",
+          "name": "Wisconsin"
+        },
+        {
+          "code": "WY",
+          "name": "Wyoming"
+        }
+      ]
+    },
+    "UY": {
+      "name": "URUGUAY",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["11600"],
+      "postalLookupUrl": "http://www.correo.com.uy/index.asp?codPag=codPost&switchMapa=codPost",
+      "administrativeAreas": [
+        {
+          "code": "Artigas",
+          "name": "Artigas"
+        },
+        {
+          "code": "Canelones",
+          "name": "Canelones"
+        },
+        {
+          "code": "Cerro Largo",
+          "name": "Cerro Largo"
+        },
+        {
+          "code": "Colonia",
+          "name": "Colonia"
+        },
+        {
+          "code": "Durazno",
+          "name": "Durazno"
+        },
+        {
+          "code": "Flores",
+          "name": "Flores"
+        },
+        {
+          "code": "Florida",
+          "name": "Florida"
+        },
+        {
+          "code": "Lavalleja",
+          "name": "Lavalleja"
+        },
+        {
+          "code": "Maldonado",
+          "name": "Maldonado"
+        },
+        {
+          "code": "Montevideo",
+          "name": "Montevideo"
+        },
+        {
+          "code": "Paysandú",
+          "name": "Paysandú"
+        },
+        {
+          "code": "Río Negro",
+          "name": "Río Negro"
+        },
+        {
+          "code": "Rivera",
+          "name": "Rivera"
+        },
+        {
+          "code": "Rocha",
+          "name": "Rocha"
+        },
+        {
+          "code": "Salto",
+          "name": "Salto"
+        },
+        {
+          "code": "San José",
+          "name": "San José"
+        },
+        {
+          "code": "Soriano",
+          "name": "Soriano"
+        },
+        {
+          "code": "Tacuarembó",
+          "name": "Tacuarembó"
+        },
+        {
+          "code": "Treinta y Tres",
+          "name": "Treinta y Tres"
+        }
+      ]
+    },
+    "UZ": {
+      "name": "UZBEKISTAN",
+      "postalPattern": "\\d{6}",
+      "postalExamples": ["702100", "700000"],
+      "postalLookupUrl": "https://uz.post/ru/mening-pochta-indeksim",
+      "administrativeAreas": [
+        {
+          "code": "Andijon Viloyati",
+          "name": "Andijon Viloyati"
+        },
+        {
+          "code": "Buxoro Viloyati",
+          "name": "Buxoro Viloyati"
+        },
+        {
+          "code": "Farg'ona Viloyati",
+          "name": "Farg'ona Viloyati"
+        },
+        {
+          "code": "Jizzax Viloyati",
+          "name": "Jizzax Viloyati"
+        },
+        {
+          "code": "Namangan Viloyati",
+          "name": "Namangan Viloyati"
+        },
+        {
+          "code": "Navoiy Viloyati",
+          "name": "Navoiy Viloyati"
+        },
+        {
+          "code": "Qashqadaryo Viloyati",
+          "name": "Qashqadaryo Viloyati"
+        },
+        {
+          "code": "Qoraqalpog’iston Respublikasi",
+          "name": "Qoraqalpog’iston Respublikasi"
+        },
+        {
+          "code": "Samarqand Viloyati",
+          "name": "Samarqand Viloyati"
+        },
+        {
+          "code": "Sirdaryo Viloyati",
+          "name": "Sirdaryo Viloyati"
+        },
+        {
+          "code": "Surxondaryo Viloyati",
+          "name": "Surxondaryo Viloyati"
+        },
+        {
+          "code": "Toshkent",
+          "name": "Toshkent"
+        },
+        {
+          "code": "Toshkent Viloyati",
+          "name": "Toshkent Viloyati"
+        },
+        {
+          "code": "Xorazm Viloyati",
+          "name": "Xorazm Viloyati"
+        }
+      ]
+    },
+    "VA": {
+      "name": "VATICAN",
+      "postalPattern": "00120",
+      "postalExamples": ["00120"]
+    },
+    "VC": {
+      "name": "SAINT VINCENT AND THE GRENADINES (ANTILLES)",
+      "postalPattern": "VC\\d{4}",
+      "postalExamples": ["VC0100", "VC0110", "VC0400"]
+    },
+    "VE": {
+      "name": "VENEZUELA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["1010", "3001", "8011", "1020"],
+      "administrativeAreaNameType": "state",
+      "administrativeAreas": [
+        {
+          "code": "Amazonas",
+          "name": "Amazonas"
+        },
+        {
+          "code": "Anzoátegui",
+          "name": "Anzoátegui"
+        },
+        {
+          "code": "Apure",
+          "name": "Apure"
+        },
+        {
+          "code": "Aragua",
+          "name": "Aragua"
+        },
+        {
+          "code": "Barinas",
+          "name": "Barinas"
+        },
+        {
+          "code": "Bolívar",
+          "name": "Bolívar"
+        },
+        {
+          "code": "Carabobo",
+          "name": "Carabobo"
+        },
+        {
+          "code": "Cojedes",
+          "name": "Cojedes"
+        },
+        {
+          "code": "Delta Amacuro",
+          "name": "Delta Amacuro"
+        },
+        {
+          "code": "Dependencias Federales",
+          "name": "Dependencias Federales"
+        },
+        {
+          "code": "Distrito Federal",
+          "name": "Distrito Federal"
+        },
+        {
+          "code": "Falcón",
+          "name": "Falcón"
+        },
+        {
+          "code": "Guárico",
+          "name": "Guárico"
+        },
+        {
+          "code": "Lara",
+          "name": "Lara"
+        },
+        {
+          "code": "Mérida",
+          "name": "Mérida"
+        },
+        {
+          "code": "Miranda",
+          "name": "Miranda"
+        },
+        {
+          "code": "Monagas",
+          "name": "Monagas"
+        },
+        {
+          "code": "Nueva Esparta",
+          "name": "Nueva Esparta"
+        },
+        {
+          "code": "Portuguesa",
+          "name": "Portuguesa"
+        },
+        {
+          "code": "Sucre",
+          "name": "Sucre"
+        },
+        {
+          "code": "Táchira",
+          "name": "Táchira"
+        },
+        {
+          "code": "Trujillo",
+          "name": "Trujillo"
+        },
+        {
+          "code": "Vargas",
+          "name": "Vargas"
+        },
+        {
+          "code": "Yaracuy",
+          "name": "Yaracuy"
+        },
+        {
+          "code": "Zulia",
+          "name": "Zulia"
+        }
+      ]
+    },
+    "VG": {
+      "name": "VIRGIN ISLANDS (BRITISH)",
+      "postalPattern": "VG\\d{4}",
+      "postalExamples": ["VG1110", "VG1150", "VG1160"]
+    },
+    "VI": {
+      "name": "VIRGIN ISLANDS (U.S.)",
+      "postalPattern": "(008(?:(?:[0-4]\\d)|(?:5[01])))(?:[ \\-](\\d{4}))?",
+      "postalExamples": ["00802-1222", "00850-9802"],
+      "postalLookupUrl": "http://zip4.usps.com/zip4/welcome.jsp",
+      "postalNameType": "zip",
+      "administrativeAreaNameType": "state"
+    },
+    "VN": {
+      "name": "VIET NAM",
+      "postalPattern": "\\d{5}\\d?",
+      "postalExamples": ["70010", "55999"],
+      "administrativeAreas": [
+        {
+          "code": "An Giang",
+          "name": "An Giang"
+        },
+        {
+          "code": "Bà Rịa–Vũng Tàu",
+          "name": "Bà Rịa–Vũng Tàu"
+        },
+        {
+          "code": "Bạc Liêu",
+          "name": "Bạc Liêu"
+        },
+        {
+          "code": "Bắc Giang",
+          "name": "Bắc Giang"
+        },
+        {
+          "code": "Bắc Kạn",
+          "name": "Bắc Kạn"
+        },
+        {
+          "code": "Bắc Ninh",
+          "name": "Bắc Ninh"
+        },
+        {
+          "code": "Bến Tre",
+          "name": "Bến Tre"
+        },
+        {
+          "code": "Bình Dương",
+          "name": "Bình Dương"
+        },
+        {
+          "code": "Bình Định",
+          "name": "Bình Định"
+        },
+        {
+          "code": "Bình Phước",
+          "name": "Bình Phước"
+        },
+        {
+          "code": "Bình Thuận",
+          "name": "Bình Thuận"
+        },
+        {
+          "code": "Cà Mau",
+          "name": "Cà Mau"
+        },
+        {
+          "code": "Cao Bằng",
+          "name": "Cao Bằng"
+        },
+        {
+          "code": "Cần Thơ",
+          "name": "Cần Thơ"
+        },
+        {
+          "code": "Đà Nẵng",
+          "name": "Đà Nẵng"
+        },
+        {
+          "code": "Đắk Lắk",
+          "name": "Đắk Lắk"
+        },
+        {
+          "code": "Đăk Nông",
+          "name": "Đăk Nông"
+        },
+        {
+          "code": "Điện Biên",
+          "name": "Điện Biên"
+        },
+        {
+          "code": "Đồng Nai",
+          "name": "Đồng Nai"
+        },
+        {
+          "code": "Đồng Tháp",
+          "name": "Đồng Tháp"
+        },
+        {
+          "code": "Gia Lai",
+          "name": "Gia Lai"
+        },
+        {
+          "code": "Hà Giang",
+          "name": "Hà Giang"
+        },
+        {
+          "code": "Hà Nam",
+          "name": "Hà Nam"
+        },
+        {
+          "code": "Hà Nội",
+          "name": "Hà Nội"
+        },
+        {
+          "code": "Hà Tĩnh",
+          "name": "Hà Tĩnh"
+        },
+        {
+          "code": "Hải Dương",
+          "name": "Hải Dương"
+        },
+        {
+          "code": "Hải Phòng",
+          "name": "Hải Phòng"
+        },
+        {
+          "code": "Hậu Giang",
+          "name": "Hậu Giang"
+        },
+        {
+          "code": "Hòa Bình",
+          "name": "Hòa Bình"
+        },
+        {
+          "code": "Hưng Yên",
+          "name": "Hưng Yên"
+        },
+        {
+          "code": "Khánh Hòa",
+          "name": "Khánh Hòa"
+        },
+        {
+          "code": "Kiên Giang",
+          "name": "Kiên Giang"
+        },
+        {
+          "code": "Kon Tum",
+          "name": "Kon Tum"
+        },
+        {
+          "code": "Lai Châu",
+          "name": "Lai Châu"
+        },
+        {
+          "code": "Lạng Sơn",
+          "name": "Lạng Sơn"
+        },
+        {
+          "code": "Lào Cai",
+          "name": "Lào Cai"
+        },
+        {
+          "code": "Lâm Đồng",
+          "name": "Lâm Đồng"
+        },
+        {
+          "code": "Long An",
+          "name": "Long An"
+        },
+        {
+          "code": "Nam Định",
+          "name": "Nam Định"
+        },
+        {
+          "code": "Nghệ An",
+          "name": "Nghệ An"
+        },
+        {
+          "code": "Ninh Bình",
+          "name": "Ninh Bình"
+        },
+        {
+          "code": "Ninh Thuận",
+          "name": "Ninh Thuận"
+        },
+        {
+          "code": "Phú Thọ",
+          "name": "Phú Thọ"
+        },
+        {
+          "code": "Phú Yên",
+          "name": "Phú Yên"
+        },
+        {
+          "code": "Quảng Bình",
+          "name": "Quảng Bình"
+        },
+        {
+          "code": "Quảng Nam",
+          "name": "Quảng Nam"
+        },
+        {
+          "code": "Quảng Ngãi",
+          "name": "Quảng Ngãi"
+        },
+        {
+          "code": "Quảng Ninh",
+          "name": "Quảng Ninh"
+        },
+        {
+          "code": "Quảng Trị",
+          "name": "Quảng Trị"
+        },
+        {
+          "code": "Sóc Trăng",
+          "name": "Sóc Trăng"
+        },
+        {
+          "code": "Sơn La",
+          "name": "Sơn La"
+        },
+        {
+          "code": "Tây Ninh",
+          "name": "Tây Ninh"
+        },
+        {
+          "code": "Thái Bình",
+          "name": "Thái Bình"
+        },
+        {
+          "code": "Thái Nguyên",
+          "name": "Thái Nguyên"
+        },
+        {
+          "code": "Thanh Hóa",
+          "name": "Thanh Hóa"
+        },
+        {
+          "code": "Thành phố Hồ Chí Minh",
+          "name": "Thành phố Hồ Chí Minh"
+        },
+        {
+          "code": "Thành phố Huế",
+          "name": "Thành phố Huế"
+        },
+        {
+          "code": "Tiền Giang",
+          "name": "Tiền Giang"
+        },
+        {
+          "code": "Trà Vinh",
+          "name": "Trà Vinh"
+        },
+        {
+          "code": "Tuyên Quang",
+          "name": "Tuyên Quang"
+        },
+        {
+          "code": "Vĩnh Long",
+          "name": "Vĩnh Long"
+        },
+        {
+          "code": "Vĩnh Phúc",
+          "name": "Vĩnh Phúc"
+        },
+        {
+          "code": "Yên Bái",
+          "name": "Yên Bái"
+        }
+      ]
+    },
+    "VU": {
+      "name": "VANUATU"
+    },
+    "WF": {
+      "name": "WALLIS AND FUTUNA ISLANDS",
+      "postalPattern": "986\\d{2}",
+      "postalExamples": ["98600"]
+    },
+    "WS": {
+      "name": "SAMOA"
+    },
+    "XK": {
+      "name": "KOSOVO",
+      "postalPattern": "[1-7]\\d{4}",
+      "postalExamples": ["10000"]
+    },
+    "YE": {
+      "name": "YEMEN"
+    },
+    "YT": {
+      "name": "MAYOTTE",
+      "postalPattern": "976\\d{2}",
+      "postalExamples": ["97600"]
+    },
+    "ZA": {
+      "name": "SOUTH AFRICA",
+      "postalPattern": "\\d{4}",
+      "postalExamples": ["0083", "1451", "0001"]
+    },
+    "ZM": {
+      "name": "ZAMBIA",
+      "postalPattern": "\\d{5}",
+      "postalExamples": ["50100", "50101"]
+    },
+    "ZW": {
+      "name": "ZIMBABWE"
+    }
+  }
+}

@@ -25,20 +25,22 @@ audience decides whose _personal_ calendar it lands on:
   automatically — including whoever joins the firm next month. Nobody maintains a list, so nobody's
   list goes stale.
 - **Participants.** A committee meeting, a training session with a sign-up. It is on the calendars
-  of the people listed. Participants work exactly as they do on a case event: a firm member, a
-  contact from your directory, or somebody external — a visiting speaker you will never need a
-  directory record for.
+  of the people listed. Participants work exactly as they do on a case event: somebody under
+  **Staff**, a contact from your **Directory**, or **Other** — a visiting speaker you will never
+  need a directory record for.
 
-A firm event is not a private appointment. "Dentist, Thursday 3pm" has an audience of one and does
-not belong here; personal appointments are their own thing when they are built.
+One person's own appointment is a firm event with an audience of one, and the form says it in one
+choice: set the first line to **a staff member** and pick the colleague, and the event lands on
+their calendar and nobody else's.
 
 ## Recording a firm event
 
-On the firm calendar, **Record** then **New Event**, and set the first line to **the firm** — there
-is one event form now, and that line is what decides whether you are recording a case setting or a
-firm one. Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
-can pick the office — which also tells the calendar which rooms are nearby — or type a venue for an
-offsite. Classify it from the same type list case events use; the shipped list includes **Firm
+On the firm calendar, **Record** then **New Event**, and set the first line to **the firm** — or to
+**a staff member**, for one colleague's own appointment. There is one event form, in four tabs, and
+that line is what decides whether you are recording a case setting, a firm one, or one person's.
+Give it a title, a date, and a time zone. The event usually happens at one of your offices, so on
+Where you can pick the office — which also tells the calendar which rooms are nearby — or type a
+venue for an offsite. Classify it from the same type list case events use; the shipped list includes **Firm
 meeting**, **Training**, **Office closure**, **Firm holiday**, and **Reservation**.
 
 **Repeats** asks whether the meeting is a series. Most firm meetings are: a weekly stand-up, a

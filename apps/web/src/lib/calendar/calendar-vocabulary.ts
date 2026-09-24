@@ -136,11 +136,16 @@ export const ENTRY_KIND_WORDS: Readonly<Record<EntryReferenceKind, string>> = {
   firmEvent: "Firm Event",
 };
 
-/** The word each kind of participant is called in the Participants tab. */
+/**
+ * The word each kind of participant is called, wherever one is named: the picker's sources, the
+ * bundles the chips are listed under, the record pane. One vocabulary, so a colleague is "Staff"
+ * in every one of them (owner, 2026-09-18: "Staff", not "Firm member"; "Other", not "Someone
+ * else").
+ */
 export const PARTICIPANT_KIND_WORDS: Readonly<Record<ParticipantKind, string>> = {
-  member: "Firm member",
-  entity: "Directory record",
-  external: "External",
+  member: "Staff",
+  entity: "Directory",
+  external: "Other",
 };
 
 /**

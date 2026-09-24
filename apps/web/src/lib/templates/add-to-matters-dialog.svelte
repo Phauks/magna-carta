@@ -227,45 +227,43 @@
           <div class="flex flex-col">
             {#each chosen as target (target.matterId)}
               {@const standing = standings[target.matterId]}
-              <!-- A stack, not a two-track grid: the matter and what became of it share the first
-                   line, and everything the standing adds underneath runs the row's full width. The
-                   grid this replaced declared its two tracks as an arbitrary Tailwind value, which
-                   golden rule 2 refuses, and then spent a column span on every line below the first
-                   undoing them. The stack needs neither. -->
-              <div class="flex flex-col gap-y-4 border-b border-border-subtle py-8">
-                <div class="flex items-start gap-x-12">
-                  <span class="flex-1 text-sm tabular-nums">{target.label}</span>
-                  {#if standing === undefined}
-                    {#if !busy && !done}
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Remove {target.label}"
-                        title="Remove {target.label}"
-                        onclick={() => remove(target.matterId)}
-                      >
-                        <X class="size-16" aria-hidden="true" />
-                      </Button>
-                    {/if}
-                  {:else}
-                    <span
-                      class="text-sm text-text-muted"
-                      role="status"
-                      aria-live={isSettled(standing) ? "off" : "polite"}
+              <!-- The label takes the width and the reporting column takes what it needs; a
+                   full-width line beneath wraps under both. Flex rather than a grid with an
+                   arbitrary track, which the off-token scan refuses. -->
+              <div
+                class="flex flex-wrap items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
+              >
+                <span class="min-w-0 flex-1 text-sm tabular-nums">{target.label}</span>
+                {#if standing === undefined}
+                  {#if !busy && !done}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remove {target.label}"
+                      title="Remove {target.label}"
+                      onclick={() => remove(target.matterId)}
                     >
-                      {standingLine(standing)}
-                    </span>
+                      <X class="size-16" aria-hidden="true" />
+                    </Button>
+                  {:else}
+                    <span></span>
                   {/if}
-                </div>
-                {#if standing !== undefined}
+                {:else}
+                  <span
+                    class="shrink-0 text-sm text-text-muted"
+                    role="status"
+                    aria-live={isSettled(standing) ? "off" : "polite"}
+                  >
+                    {standingLine(standing)}
+                  </span>
                   {#each blankLines(standing) as line (line)}
-                    <span class="text-xs text-text-muted">{line}</span>
+                    <span class="basis-full text-xs text-text-muted">{line}</span>
                   {/each}
                   {#if done}
                     {@const openHref = documentHref(standing)}
                     {@const filesHref = matterFilesHref(target, standing)}
                     {#if openHref !== null || filesHref !== null}
-                      <span class="flex flex-wrap gap-12 text-sm">
+                      <span class="flex basis-full flex-wrap gap-12 text-sm">
                         {#if openHref !== null}
                           <a class="underline underline-offset-2" href={openHref}>Open the document</a>
                         {/if}

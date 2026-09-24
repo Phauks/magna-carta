@@ -19,13 +19,9 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   "@magna-carta/data-access/audit-statements",
   "@magna-carta/data-access/effect-batch",
   "@magna-carta/data-access/idempotency-statements",
-  // The template catalogue's search escapes what a reader typed before it reaches a `LIKE`, and
-  // that is a correctness rule rather than a formatting preference: `%` and `_` are wildcards to
-  // SQLite and ordinary characters to a person, so a template named `100%_final` searched for
-  // unescaped returns rows nobody asked for. That module exists BECAUSE the rule had been written
-  // twice and agreed by luck; a third copy here would be the very thing it was made to end, and
-  // would be the copy that missed the next correction. It is pure string work — no handle, no
-  // runtime, no imports of its own.
+  // The one LIKE-escaping helper, so a template search spells its pattern the way every other
+  // search in the platform does; a copy here would be the second answer to how a wildcard is
+  // escaped. Pure statement text, like the statement modules above it.
   "@magna-carta/data-access/like-search",
   // A protected merge field resolves through the protected-field chokepoint's own permission gate and
   // its own decrypt-audit row, so the refusal this package turns into an absence is that module's

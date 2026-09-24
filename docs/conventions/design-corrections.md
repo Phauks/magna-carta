@@ -417,7 +417,34 @@ is usually the fastest way to understand the rule.
   reader to remember. The day being booked stands in the panel's context pane, as the product's own
   calendar with a day view and no toolbar — never a second rendering of one — following the date
   field as it is answered and saying so before a date is chosen rather than showing today as if that
-  were an answer. _(the calendar's record forms, 2026-09-14)_
+  were an answer. _(the calendar's record forms, 2026-09-14)_ The day it shows is whose the reader
+  chooses: the pane carries the calendars menu, which is the rail's own selection as a dropdown,
+  never a second selection that could disagree with the screen's. _(2026-09-18)_
+- **A long form's left side is tabs, and a choice that swaps a field swaps it in ONE slot.** Twelve
+  questions in one scrolling column beside a context pane become groups with a place each; and
+  where the first answer decides which second field is asked, the second field takes the same slot
+  whichever it is, so choosing moves nothing beneath it. _(the event form, 2026-09-18: "changing
+  between firm and matter causes reflow"; "reorganize the left side into tabs")_
+- **A time zone reads as one line, the same for every zone: the offset from UTC, the name on the
+  day, the city.** "(UTC-08:00) Pacific Standard Time · Los Angeles" — never a code on one row and
+  an offset on the next, never the identifier, and never a field that says "Zone" when it means the
+  time zone. The code ("PST") is what a person searches by and what a chip prints beside an hour,
+  and both are worked out on the record's own day. _(the calendar's time zone field, 2026-09-18)_
+- **A run of days is drawn in the band above the hours, not on the axis.** A three-day trial is a
+  fact about days; laid on the hour axis it was three full columns, reaching past the working hours
+  the grid draws. Its hours ride on the chip as text. And All Day is a switch a person can set, not
+  only a blank they have to know to leave. _(the week and day grids, 2026-09-18)_
+- **A re-pick of the chosen row confirms it; it never clears the field.** A dropdown's primitive may
+  deselect on a second pick and leave the list open, so the next click outside settles an empty
+  field. Clearing is a row of its own where a field offers one, and every picker refuses the
+  primitive's deselect. _(the matter picker, 2026-09-18)_
+- **A discard question is its heading.** "Discard Your Changes?" over Keep Editing and Discard
+  Changes; the sentence restating that entries would be thrown away and nothing else had changed is
+  struck. _(the record forms' close, 2026-09-18)_
+- **People added to a record are listed under where they came from.** Staff, Directory, Other —
+  the same words the picker offers — so a reader can tell a colleague from a contact from a name
+  typed once. And a source is named plainly: "Staff", not "Firm member"; "Other", not "Someone
+  else". _(the participant picker, 2026-09-18)_
 - **A moment is a date, a time FIELD, and its zone as a shortcode, on one line.** The day, the hour
   and the zone that hour is read in are one fact (the one-moment-one-line rule, applied): a platform
   time control rather than a box hoping for `HH:MM`, and "PST" rather than "America / Los Angeles",
@@ -1513,6 +1540,20 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-18 — a Communications group
+
+The owner, placing Meetings in the left sidebar:
+
+- **"We should likely combine it into a new section called communications to encompass this,
+  messaging, and potentially other items."** Messaging had been one row among the firm's work, and
+  a second row for meetings beside it would have made the Workspace group answer two questions at
+  once. A sixth group now sits between Workspace and Money, holding the channels the firm reaches
+  people through — calls and texts, video meetings — with room for the ones ahead (a client's
+  messages through the portal, a firm mailbox). It generalizes the rule of two days earlier: **a
+  group answers one question, and a row that answers a different one is the start of a new group,
+  not the end of a long one.** Messaging keeps its stored id, because a member's stars are filed
+  under it; only its group moved.
 
 ### 2026-09-17 — a star, the settings column, the Directory's search, and the calendar on a laptop
 

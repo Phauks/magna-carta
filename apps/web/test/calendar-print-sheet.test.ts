@@ -127,7 +127,7 @@ describe("a deadline's sheet", () => {
           fields: [
             { label: "Due", value: "on 2026-09-10" },
             { label: "Time", value: "End of the day" },
-            { label: "Time Zone", value: "America / New York" },
+            { label: "Time Zone", value: "(UTC-04:00) Eastern Daylight Time · New York" },
           ],
         },
         {
@@ -163,7 +163,7 @@ describe("a deadline's sheet", () => {
       fields: [
         { label: "Due", value: "on 2026-09-10" },
         { label: "Time", value: "17:00 in America/New_York" },
-        { label: "Time Zone", value: "America / New York" },
+        { label: "Time Zone", value: "(UTC-04:00) Eastern Daylight Time · New York" },
       ],
     });
     expect(sheet.sections[1]).toMatchObject({
@@ -213,7 +213,7 @@ describe("a matter event's sheet", () => {
             { label: "Date", value: "on 2026-09-03" },
             { label: "Time", value: "09:30 in America/New_York" },
             { label: "Ends", value: "10:30 in America/New_York" },
-            { label: "Time Zone", value: "America / New York" },
+            { label: "Time Zone", value: "(UTC-04:00) Eastern Daylight Time · New York" },
           ],
         },
         {
@@ -252,7 +252,7 @@ describe("a matter event's sheet", () => {
         { label: "Date", value: "on 2026-09-03" },
         { label: "Time", value: "All day" },
         { label: "Ends", value: "on 2026-09-05" },
-        { label: "Time Zone", value: "America / New York" },
+        { label: "Time Zone", value: "(UTC-04:00) Eastern Daylight Time · New York" },
       ],
     });
   });
@@ -302,7 +302,7 @@ describe("a firm event's sheet", () => {
           fields: [
             { label: "Date", value: "on 2026-09-04" },
             { label: "Time", value: "All day" },
-            { label: "Time Zone", value: "America / New York" },
+            { label: "Time Zone", value: "(UTC-04:00) Eastern Daylight Time · New York" },
           ],
         },
         {

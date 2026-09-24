@@ -125,6 +125,30 @@
   spec: docs/specs/2026-06-12-slice-1-2-protected-crypto-module-design.md
   evidence: identifiers.ts imports blindIndexValue/composeProtectedWrite/readProtected from @magna-carta/data-access/protected-fields; status.d/1-2 on main
 
+- id: directory.addresses
+  name: Postal addresses
+  scope: Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own.
+  status: shipped
+  slices: 1-3-directory
+  evidence: directory_address in packages/database/src/per-firm-schema.ts carries recipient, organization, two address lines, dependent locality, locality, administrative area, postal code, sorting code and country, plus the four verification columns and a duplicate-detection normalized_key; written through packages/directory/src/statements.ts and entered on the record's Address pane (apps/web/src/lib/directory/sections/address-section.svelte).
+  notes: The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration.
+
+- id: directory.addresses.constraints
+  name: Postal-code and administrative-area constraints
+  scope: What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state.
+  status: shipped
+  surface: screen
+  evidence: packages/address-formats — a corpus of 252 countries checked in at docs/research/address-formats/corpus.json, projected by scripts/build-data.mts into two generated modules (182 postal-code formats, 62 administrative-area lists, 1,619 areas) with a --check drift guard; validatePostalCode anchors and case-folds the published pattern, administrativeAreasFor offers the list. Reaches AddressFields as optional props, wired on the Directory record's Address pane and the office record window.
+  notes: A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past.
+
+- id: directory.addresses.lookup
+  name: Address autocomplete
+  scope: Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores.
+  status: partial
+  surface: internal
+  evidence: packages/address-lookup holds the port and the deferred implementation — AddressLookupPort with suggest/resolve, typed outcomes that never throw, and deferredAddressLookupPort() answering engine-not-implemented to everything, the same wired-but-dormant shape resolveSearchIndexPort takes. No engine.
+  notes: Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly.
+
 - id: directory.duplicates
   name: Duplicate detection
   scope: Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates.
@@ -204,8 +228,17 @@
   status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079
-  evidence: packages/matters/src/numbering/ (scheme-service, segments, counters, render) + routes/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Matter Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
-  notes: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs.
+  evidence: packages/sequence-numbering/src/ (purposes, segments, render, scheme-service, scheme-draw) with matters' own tables in packages/matters/src/numbering/ + routes/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
+  notes: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs. The engine moved out of matters into the platform-wide numbering register on 2026-09-18 (matters.numbering.register).
+
+- id: matters.numbering.register
+  name: One numbering register for every sequence
+  scope: Every number the firm issues on one register in @magna-carta/sequence-numbering (purpose, when drawn, scheme-shaped or fixed, parts, default); conflicts check and custody numbers drawn through the shared planner from firm-written schemes; the numbering listing route; Settings · Numbering listing every sequence.
+  status: shipped
+  surface: screen
+  slices: 1-1-matters-locations-file-manager
+  evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/routes/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migration 20260918T195508_conflicts-check-numbering-scheme
+  notes: Shipped 2026-09-18. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are registered with their fixed shapes and listed read-only; making any of them scheme-shaped is one row flipping on the register plus its draw site.
 
 - id: matters.numbering.location-segment
   name: Location segment in numbering
@@ -213,7 +246,7 @@
   status: shipped
   surface: screen
   slices: 1-1-matters-locations-file-manager
-  evidence: location_code segment kind in packages/matters/src/numbering/segments.ts
+  evidence: location_code segment kind in packages/sequence-numbering/src/segments.ts
 
 - id: matters.types
   name: Flexible matter types

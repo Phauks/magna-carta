@@ -66,10 +66,10 @@
 - id: design-system.components.address-fields
   name: Country-shaped address fields
   scope: One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields.
-  status: partial
+  status: shipped
   surface: screen
-  evidence: packages/design-system/src/lib/components/address-fields — address-format.ts is the per-country table (twenty-two countries plus an international default, adding one is a single entry), address-fields.svelte renders it with the country as the first field, and a value the new country's form has no line for is stated rather than dropped; held by packages/design-system/test/address-format.test.ts and the per-country stories in src/stories/address-fields.stories.svelte. Its first consumer is the Directory record's Address section.
-  notes: Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly.
+  evidence: packages/design-system/src/lib/components/address-fields — address-format.ts is the per-country table (twenty-two countries plus an international default, adding one is a single entry), address-fields.svelte renders it with the country as the first field, and a value the new country's form has no line for is stated rather than dropped; held by packages/design-system/test/address-format.test.ts and the per-country stories in src/stories/address-fields.stories.svelte. The constraint half arrives as optional props — administrativeAreas and postalCodeNote — so the component stays domain-blind; directory.addresses.constraints is what supplies them, and both the Directory record's Address section and the office record window pass them.
+  notes: The open question the curated table left — that it could not validate a code or offer a state — is closed: the constraints are a separate package the form is HANDED, which is what kept the corpus out of a component that depends on one workspace package by design. What stays curated here is the SHAPE (which boxes, what they are called, what order), because that is a presentation choice; a country nobody has entered still takes the international form.
 
 - id: design-system.components.storybook-catalog
   name: Component catalog

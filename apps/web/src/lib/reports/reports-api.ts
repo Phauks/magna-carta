@@ -309,71 +309,20 @@ export function readTrustCompliancePack(
 }
 
 // ---- the firm's trust accounts ------------------------------------------------------------------
+//
+// The listing, its row type and the picker label live with the trust surfaces
+// ($lib/trust/trust-api.ts), which read and write against the same identifier this report is asked
+// about. They are re-exported here so the report screen keeps one import for everything it reads.
 
 /** The permission the listing names: reading which accounts the firm holds is a trust read. */
 export const LIST_TRUST_ACCOUNTS_PERMISSION = "trust:read";
 
-export interface TrustAccountListing {
-  id: string;
-  name: string;
-  locationId: string;
-  jurisdiction: string | null;
-  bankName: string | null;
-  accountNumberLastFour: string | null;
-  currency: string;
-  iolta: boolean;
-  status: "open" | "closed";
-  openedOn: string;
-  closedAt: string | null;
-  /** The holding office's IANA zone, resolved: the zone a chosen day ends in for this account. */
-  timeZone: string;
-}
-
-interface TrustAccountPage {
-  data: TrustAccountListing[];
-  nextCursor: string | null;
-}
-
-/*
- * A picker wants the whole roster, and the listing pages. Walking every page is right for a
- * firm's trust accounts — a handful, a few dozen at the most — and the walk is capped so a
- * cursor that never ends cannot hold the screen: past the cap the roster is returned short and
- * `capped` says so, which is the difference between "these are all" and "we stopped".
- */
-const MOST_PAGES_WALKED = 10;
-
-export interface TrustAccountRoster {
-  readonly accounts: readonly TrustAccountListing[];
-  readonly capped: boolean;
-}
-
-export async function listTrustAccounts(
-  fetchImpl: typeof fetch,
-): Promise<ApiOutcome<TrustAccountRoster>> {
-  const accounts: TrustAccountListing[] = [];
-  let cursor: string | null = null;
-  for (let pages = 0; pages < MOST_PAGES_WALKED; pages += 1) {
-    const path: string =
-      cursor === null
-        ? "/api/v1/trust/accounts"
-        : `/api/v1/trust/accounts?cursor=${encodeURIComponent(cursor)}`;
-    const outcome: ApiOutcome<TrustAccountPage> = await requestJson(fetchImpl, path);
-    if (outcome.kind !== "ok") return outcome;
-    accounts.push(...outcome.value.data);
-    cursor = outcome.value.nextCursor;
-    if (cursor === null) return { kind: "ok", value: { accounts, capped: false } };
-  }
-  return { kind: "ok", value: { accounts, capped: true } };
-}
-
-/** How an account reads in a picker: its name, and the bank and last four where recorded. */
-export function trustAccountLabel(account: TrustAccountListing): string {
-  const parts = [account.name];
-  if (account.bankName !== null) parts.push(account.bankName);
-  if (account.accountNumberLastFour !== null) parts.push(`ending ${account.accountNumberLastFour}`);
-  if (account.status === "closed") parts.push("closed");
-  return parts.join(" · ");
-}
+export {
+  listTrustAccounts,
+  trustAccountLabel,
+  type TrustAccountListing,
+  type TrustAccountRoster,
+} from "$lib/trust/trust-api.ts";
 
 // ---- the firm's report policy -------------------------------------------------------------------
 //

@@ -153,6 +153,7 @@
   import RecurrenceField from "./recurrence-field.svelte";
   import LocationPicker from "./location-picker.svelte";
   import TimeZonePicker from "./time-zone-picker.svelte";
+  import MeetingEntryAction from "$lib/meetings/meeting-entry-action.svelte";
 
   /** Makes the ids the panes mint unique: the window is one of several forms a page may hold. */
   const idPrefix = $props.id();
@@ -775,7 +776,7 @@
           // standard one, which is a per-sheet choice; the instant half is the shared answer.
           date: longDate,
           instantDate: formatInstantDate,
-          time: (time, timeZone) => formatWallClock(time, timeZone, context.readerTimeZone),
+          time: (time, timeZone, on) => formatWallClock(time, timeZone, context.readerTimeZone, on),
           printedAt: formatInstant(new Date()),
         }),
   );
@@ -1408,6 +1409,13 @@
       >
         Link Settings
       </Button>
+      <!-- Where the setting is JOINED, beside the verbs that change it. A meeting hangs off this
+           one entry, so this is where it is opened and where it is gone back into. -->
+      <MeetingEntryAction
+        eventKind="matter"
+        eventId={current.recordId}
+        startable={record === null || record.kind !== "event" || record.event.status !== "cancelled"}
+      />
     {:else if current?.kind === "deadline"}
       <Button
         variant="secondary"
@@ -1450,6 +1458,13 @@
       >
         Link Events
       </Button>
+      <MeetingEntryAction
+        eventKind="firm"
+        eventId={current.recordId}
+        startable={record === null ||
+          record.kind !== "firmEvent" ||
+          record.event.status !== "cancelled"}
+      />
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>
   {/if}

@@ -126,7 +126,7 @@
   const overdue = $derived(overdueCount(deadlines ?? []));
 
   function whenOf(dateOn: string, time: string | null, timeZone: string): string {
-    const clock = formatWallClock(time, timeZone);
+    const clock = formatWallClock(time, timeZone, undefined, dateOn);
     return clock === null ? DataTable.formatDate(dateOn) : `${DataTable.formatDate(dateOn)}, ${clock}`;
   }
 

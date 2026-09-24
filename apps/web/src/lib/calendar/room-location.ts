@@ -29,7 +29,15 @@
  * location recorded before this, or typed by hand, still finds its room.
  */
 import type { LocationSummary } from "$lib/matters/matters-api.ts";
+import type { OfficeAddress } from "$lib/offices/offices-api.ts";
 import type { FirmResource } from "./calendar-api.ts";
+
+/**
+ * An office as the Location field offers it: the summary every consumer of the firm's offices
+ * reads, with its addresses where the read carried them — a hearing "at the North Office" should
+ * say where that is to whoever reads the record.
+ */
+export type OfficePlace = LocationSummary & { readonly addresses?: readonly OfficeAddress[] };
 
 /** What separates an office from its room in a written location. */
 const QUALIFIER = " — ";

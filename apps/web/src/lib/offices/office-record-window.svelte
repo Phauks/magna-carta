@@ -28,6 +28,8 @@
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import { administrativeAreasFor } from "@magna-carta/address-formats/administrative-areas";
+  import { postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
   import AddressFields from "@magna-carta/design-system/address-fields";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -561,7 +563,13 @@
 {/snippet}
 
 {#snippet addressFields(which: "physical" | "mailing", identity: string)}
-  <AddressFields bind:value={draft[which].parts} {countries} disabled={saving} />
+  <AddressFields
+    bind:value={draft[which].parts}
+    {countries}
+    administrativeAreas={administrativeAreasFor(draft[which].parts.country)}
+    postalCodeNote={postalCodeNoteFor}
+    disabled={saving}
+  />
   <PhoneNumberField
     bind:region={draft[which].phoneRegion}
     bind:number={draft[which].phoneNumber}

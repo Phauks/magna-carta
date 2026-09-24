@@ -24,6 +24,7 @@ import {
 import { deadlineSourceLabel } from "./deadline-draft.ts";
 import type { EntryRecord } from "./entry-reference.ts";
 import { recurrenceSentence } from "./recurrence-sentence.ts";
+import { civilDateAsUtc } from "./calendar-window.ts";
 import { timeZoneLabel } from "./time-zone-options.ts";
 
 /** Everything the sheet needs that the record itself does not carry. */
@@ -36,8 +37,8 @@ export interface EntrySheetContext extends PrintSheetDates {
   readonly officeName: string | null;
   /** A participant's name as the surface resolved it. */
   readonly participantName: (participant: EventParticipant) => string;
-  /** A wall-clock time in its zone, or null for all day. */
-  readonly time: (time: string | null, timeZone: string) => string | null;
+  /** A wall-clock time in its zone on a civil day, or null for all day. */
+  readonly time: (time: string | null, timeZone: string, on: string) => string | null;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }
@@ -55,17 +56,21 @@ function whenFields(
 ): PrintSheetField[] {
   const fields: PrintSheetField[] = [
     { label: "Date", value: context.date(startsOn) },
-    { label: "Time", value: context.time(startsAtTime, timeZone) ?? ALL_DAY },
+    { label: "Time", value: context.time(startsAtTime, timeZone, startsOn) ?? ALL_DAY },
   ];
   if (endsOn !== null || endsAtTime !== null) {
     fields.push({
       label: "Ends",
-      value: [endsOn === null ? null : context.date(endsOn), context.time(endsAtTime, timeZone)]
+      value: [
+        endsOn === null ? null : context.date(endsOn),
+        context.time(endsAtTime, timeZone, endsOn ?? startsOn),
+      ]
         .filter((part): part is string => part !== null)
         .join(", "),
     });
   }
-  fields.push({ label: "Time Zone", value: timeZoneLabel(timeZone) });
+  // The zone as it read ON THE RECORD'S DAY: its offset and its name both change with the clocks.
+  fields.push({ label: "Time Zone", value: timeZoneLabel(timeZone, civilDateAsUtc(startsOn)) });
   return fields;
 }
 
@@ -97,9 +102,14 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
             { label: "Due", value: context.date(deadline.dueOn) },
             {
               label: "Time",
-              value: context.time(deadline.dueAtTime, deadline.timeZone) ?? "End of the day",
+              value:
+                context.time(deadline.dueAtTime, deadline.timeZone, deadline.dueOn) ??
+                "End of the day",
             },
-            { label: "Time Zone", value: timeZoneLabel(deadline.timeZone) },
+            {
+              label: "Time Zone",
+              value: timeZoneLabel(deadline.timeZone, civilDateAsUtc(deadline.dueOn)),
+            },
           ],
         },
         {

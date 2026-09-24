@@ -78,12 +78,15 @@ describe("the way out to a section's firm-wide twin", () => {
     }
   });
 
-  it("answers nothing where the firm-wide surface does not exist", () => {
-    // A way out to a page that is not built is worse than no way out: the toolbar renders nothing
-    // rather than a link to a Soon row. Trust is announced and unbuilt, which is the whole of what
-    // is left — Fees answered null here until it had a record of its own to read across matters.
-    expect(moneySectionFirmDestination("trust")).toBeNull();
-    expect(destinationById("trust")?.shipped).toBe(false);
+  it("lets the sidebar's own shipped flag decide when a way out appears", () => {
+    // A way out to a page that is not built is worse than no way out, so the toolbar renders
+    // nothing until the firm's own screen is real. Trust names its twin here like the other four;
+    // whether the link appears is the registry's answer, never a second list kept in this module.
+    const destination = destinationById("trust");
+    expect(destination?.href).toBe("/trust");
+    expect(moneySectionFirmDestination("trust")).toBe(
+      destination?.shipped === true ? "trust" : null,
+    );
   });
 
   it("keeps every money section answered, so a sixth cannot be added without deciding", () => {

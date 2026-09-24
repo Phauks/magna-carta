@@ -158,9 +158,13 @@ Decisions taken while building, so the next round does not re-derive them.
   and `conflicts_check_run` sit beside the append-only `conflicts_check`, which is now one run's
   RECORD. A numbered check is identified by its first run's handle and every run by the handle of
   the record it writes, so the old addresses still resolve and no new identifier kind was needed.
-  The number is `CC-` and four digits from a per-firm sequence (`MAX + 1` under a unique index with
-  a bounded retry, not a counter table). Decision record:
-  `docs/decisions/pending/a-conflicts-check-is-a-numbered-record-with-runs-under-it.md`.
+  The number is drawn from the firm's `conflicts_check` numbering scheme through the shared draw
+  in `@magna-carta/sequence-numbering` (a counter row per scope and an allocation row per value,
+  as every other numbered record), rendering `CC2026-00001` by default and restarting each year;
+  it was `CC-` and four digits from `MAX + 1` until the numbering register consolidated every
+  sequence (2026-09-18). Decision records:
+  `docs/decisions/pending/a-conflicts-check-is-a-numbered-record-with-runs-under-it.md` and
+  `docs/decisions/pending/every-number-the-firm-issues-is-drawn-from-one-register.md`.
 - **Opening answers at once; the search runs after the response.** `POST /api/v1/conflicts/checks`
   answers 202 with the id, number, run id and ordinal; the run reports its stage (sources, walking,
   matching, candidates) with counts on its row, and the screen polls it every second until it

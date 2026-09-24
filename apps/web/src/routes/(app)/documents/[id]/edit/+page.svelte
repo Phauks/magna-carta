@@ -59,7 +59,12 @@
        Nothing else is drawn on purpose; the way back is a button the editor draws for us. -->
   <div class="flex h-full min-h-0 flex-col">
     {#if editorKind === "office"}
-      <OfficeDocumentEditor {file} back={filesBack} />
+      <OfficeDocumentEditor
+        {file}
+        back={filesBack === null
+          ? null
+          : { ...filesBack, number: data.matter?.matterNumber ?? null }}
+      />
     {:else}
       <TextDocumentEditor {file} />
     {/if}

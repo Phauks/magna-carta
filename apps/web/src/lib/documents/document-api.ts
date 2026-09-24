@@ -114,6 +114,11 @@ export interface EditSessionLaunch {
   accessToken: string;
   accessTokenTtl: number;
   capability: "edit" | "view";
+  /**
+   * Whether the firm's policy has this document record its changes. When it does, the screen
+   * framing the editor turns the showing of the marks off once the document is up.
+   */
+  recordsChanges: boolean;
 }
 
 export function listMatterDocuments(
@@ -447,17 +452,31 @@ export function abortUpload(
  * only way the screen framing the editor can tell those two stages apart. Every mark is null when no
  * launch of this document is on record for the caller.
  */
+/** One call the editor made to the host, and what it was told. */
+export interface OpenCallbackRecord {
+  operation: string;
+  status: number;
+  errorId: string | null;
+  at: string;
+}
+
+/** One phase of the editor's container, as the editor worker saw it. */
+export interface ContainerEventRecord {
+  phase: "requested" | "started" | "listening" | "served" | "stopped" | "error";
+  at: string;
+  detail: string | null;
+}
+
 export interface EditOpenProgress {
   launchedAt: string | null;
   checkFileInfoAt: string | null;
   getFileAt: string | null;
   /** The editor's most recent call and what it was told, refusals included. */
-  lastCallback: {
-    operation: string;
-    status: number;
-    errorId: string | null;
-    at: string;
-  } | null;
+  lastCallback: OpenCallbackRecord | null;
+  /** Every call the editor made in this open, oldest first. */
+  callbacks: OpenCallbackRecord[];
+  /** What the editor's container has been doing; null when the editor worker did not answer. */
+  container: { events: ContainerEventRecord[] } | null;
 }
 
 export function readEditOpenProgress(
