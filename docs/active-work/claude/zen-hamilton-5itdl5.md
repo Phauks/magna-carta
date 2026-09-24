@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/zen-hamilton-5itdl5
 area: Numbering — the second round on Settings › Numbering, and the last three fixed runs become schemes
 status: review
-touches: packages/sequence-numbering, packages/billing, packages/timekeeping, packages/communications, packages/database, apps/api-worker/src/routes/numbering.ts, apps/web/src/lib/matters, apps/web/src/routes/(app)/settings/numbering, tooling/lint-settings-scroll, docs/conventions/settings-rulings.md, docs/conventions/ui-design.md, docs/user/admin/numbering.md
+touches: packages/design-system/src/lib/components/navigation-layout, apps/web/src/lib/components/choice-picker.svelte, packages/sequence-numbering, packages/billing, packages/timekeeping, packages/communications, packages/database, apps/api-worker/src/routes/numbering.ts, apps/web/src/lib/matters, apps/web/src/routes/(app)/settings/numbering, tooling/lint-settings-scroll, docs/conventions/settings-rulings.md, docs/conventions/ui-design.md, docs/user/admin/numbering.md
 ---
 
 The owner's walk of the numbering screen, and what it asked for underneath. On the screen: the

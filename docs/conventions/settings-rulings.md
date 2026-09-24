@@ -219,11 +219,31 @@ legible rather than rewritten.
 | N14 | **Two scrollbars in a settings area is a lint, not a correction.** `pnpm run lint:settings-scroll` walks each settings page's own component graph and refuses a second scroll region inside the page's one.                                                                                 | settled |
 
 **What the code says today.** `apps/web/src/routes/(app)/settings/numbering/+page.svelte` folds
-every purpose the listing returns; `numbering-scheme-editor.svelte` draws the parts table, whose
-cells size to their content so the product's table never draws a bar inside the page's scroll
-region (`apps/web/test/numbering-parts-table.test.ts` pins that, and the lint carries the reach as
-a stated allowance). The value a cell states is the SERVER's rendering: the preview route returns
-each part's rendered piece beside the whole number, so the screen composes nothing.
+every purpose the listing returns; `numbering-scheme-editor.svelte` draws the parts table. The value
+a cell states is the SERVER's rendering: the preview route returns each part's rendered piece beside
+the whole number, so the screen composes nothing.
+
+**N14 needed a rendered page, not only the lint.** The static scan holds the one-region rule, but
+two defects it cannot see kept the owner's two scrollbars on the screen after the first fix, and
+both were found by rendering the page in Chromium on 2026-09-24:
+
+- **The table was still wider than its column.** Taking the container-scale cell widths off left
+  each picker asking for a text input's default width, which a content-sized table takes as a
+  column's floor: 1038px of table in an 848px column at a 1440px window, so the table's own
+  scroller stayed and the row controls stayed out of sight. A picker in a cell now claims no width
+  of its own (`fillsCell` on `apps/web/src/lib/components/choice-picker.svelte`), Part alone takes
+  the spare width with its field capped, the long heading wraps, and the row controls are the small
+  icon size. It fits at every window from 1220px; below that the six columns cannot fit beside the
+  settings list, and collapsing the main sidebar gives them the room.
+  `apps/web/test/numbering-parts-table.test.ts` pins the mechanisms.
+- **Every settings page's canvas scrolled 48px.** The navigation column is content-box and was
+  `h-full`, so its space-24 gutter above and below stood on top of a full height. It stretches to
+  the row now (`packages/design-system/src/lib/components/navigation-layout/navigation-layout.svelte`),
+  and the layout's Storybook story measures that neither column stands past the layout's bottom.
+
+Below the `lg` breakpoint, where the two sides stack, every settings page still shows more than one
+vertical scroll region. That predates this and is its own layout question, recorded here so it is
+not mistaken for settled.
 
 ### Notes recorded this round
 

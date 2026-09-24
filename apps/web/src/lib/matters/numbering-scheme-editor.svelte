@@ -251,9 +251,11 @@
       aside: starter.exampleFor(sampleYear),
     })),
   );
+  // Named by the count, as the counter's own Digits field is, so the field fits the column; each
+  // row carries what that count renders beside it, and the Value cell states the chosen one.
   const YEAR_DIGIT_CHOICES = $derived([
-    { value: "4", label: `Four (${sampleYear})` },
-    { value: "2", label: `Two (${sampleYear.slice(2)})` },
+    { value: "4", label: "4", aside: sampleYear },
+    { value: "2", label: "2", aside: sampleYear.slice(2) },
   ]);
 
   function numberOf(value: string, fallback: number): number {
@@ -308,12 +310,18 @@
         <DataTable.Caption class="sr-only">The parts of {record.title}</DataTable.Caption>
         <DataTable.Header>
           <DataTable.Row>
-            <DataTable.Head>Part</DataTable.Head>
+            <!-- THE TABLE FITS ITS COLUMN AT ANY WIDTH. Every column but Part is as narrow as what
+                 it holds, Part takes whatever is left, and the one long heading may wrap: a
+                 table sized from its content is what hid the row controls past the column's edge
+                 behind a scrollbar of its own. -->
+            <DataTable.Head class="w-full">Part</DataTable.Head>
             <DataTable.Head>Value</DataTable.Head>
             <DataTable.Head>Digits</DataTable.Head>
             <DataTable.Head>Starts At</DataTable.Head>
-            <DataTable.Head>Restarts the Count</DataTable.Head>
-            <DataTable.Head class="sr-only">Move and remove</DataTable.Head>
+            <DataTable.Head class="whitespace-normal">Restarts the Count</DataTable.Head>
+            <!-- A heading cell like the rest, so the header band runs the table's full width; only
+                 its words are for a screen reader. -->
+            <DataTable.Head><span class="sr-only">Move and remove</span></DataTable.Head>
           </DataTable.Row>
         </DataTable.Header>
         <DataTable.Body>
@@ -331,19 +339,25 @@
             )}
             <DataTable.Row>
               <DataTable.Cell>
-                <ChoicePicker
-                  options={KIND_CHOICES}
-                  inputId="{identifier}-kind-{index}"
-                  label="Part {index + 1}"
-                  disabled={saving}
-                  bind:value={() => segment.kind, (next) => changeKind(index, next)}
-                />
+                <!-- Part takes the table's spare width; the field stops at a width that holds
+                     the longest part's name, so a wide window does not draw a field wider than
+                     anything it will ever say. -->
+                <div class="max-w-3xs">
+                  <ChoicePicker
+                    options={KIND_CHOICES}
+                    inputId="{identifier}-kind-{index}"
+                    label="Part {index + 1}"
+                    fillsCell
+                    disabled={saving}
+                    bind:value={() => segment.kind, (next) => changeKind(index, next)}
+                  />
+                </div>
               </DataTable.Cell>
               <DataTable.Cell>
                 {#if segment.kind === "literal"}
                   <Input
                     id="{identifier}-value-{index}"
-                    class="w-96"
+                    class="w-64"
                     aria-label="Text of part {index + 1}"
                     value={segment.text}
                     disabled={saving}
@@ -360,16 +374,19 @@
               </DataTable.Cell>
               <DataTable.Cell>
                 {#if segment.kind === "year"}
-                  <ChoicePicker
-                    options={YEAR_DIGIT_CHOICES}
-                    inputId="{identifier}-digits-{index}"
-                    label="Digits of part {index + 1}"
-                    disabled={saving}
-                    bind:value={
-                      () => String(segment.digits),
-                      (next) => update(index, { ...segment, digits: next === "2" ? 2 : 4 })
-                    }
-                  />
+                  <div class="w-64">
+                    <ChoicePicker
+                      options={YEAR_DIGIT_CHOICES}
+                      inputId="{identifier}-digits-{index}"
+                      label="Digits of part {index + 1}"
+                      fillsCell
+                      disabled={saving}
+                      bind:value={
+                        () => String(segment.digits),
+                        (next) => update(index, { ...segment, digits: next === "2" ? 2 : 4 })
+                      }
+                    />
+                  </div>
                 {:else if segment.kind === "counter"}
                   <Input
                     id="{identifier}-digits-{index}"
@@ -424,7 +441,7 @@
                 <span class="inline-flex items-center gap-4">
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     title="Move up"
                     aria-label="Move part {index + 1} up"
                     disabled={saving || index === 0}
@@ -434,7 +451,7 @@
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     title="Move down"
                     aria-label="Move part {index + 1} down"
                     disabled={saving || index === draft.length - 1}
@@ -444,7 +461,7 @@
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     title="Remove this part"
                     aria-label="Remove part {index + 1}"
                     disabled={saving}

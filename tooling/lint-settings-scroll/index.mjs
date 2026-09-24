@@ -79,20 +79,20 @@ const ALLOWANCES = [
     },
   ]),
   // Numbering renders the product's table for ONE purpose: the parts of a numbering scheme, which
-  // is a short list of five narrow columns rather than a register. It is here because the scheme
-  // editor reaches the data-table barrel at all, not because that table is wide — and what keeps
-  // that true is that none of its cells carries a container-scale width, which is the defect that
-  // put two bars on this page on 2026-09-18 and which
-  // apps/web/test/numbering-parts-table.test.ts pins directly.
+  // is a short list of narrow columns rather than a register. It is here because the scheme editor
+  // reaches the data-table barrel at all, not because that table is wide — and what keeps that
+  // true is that no cell carries a container-scale width, no picker in it claims a width of its
+  // own, and Part alone takes the spare width, which apps/web/test/numbering-parts-table.test.ts
+  // pins. A static scan cannot see a table's rendered width; that test says how it was checked.
   {
     rule: "nested-scroll-region",
     file: `${SETTINGS_ROUTES}/numbering/+page.svelte`,
     text: `${DATA_TABLE}/table.svelte`,
     reason:
       "The scheme editor's parts list is the product's table (owner ruling, 2026-09-11) and so " +
-      "arrives with the barrel's horizontal scroller; its cells size to their content, which " +
-      "apps/web/test/numbering-parts-table.test.ts pins, so the table fits the settings column " +
-      "and that scroller never draws a bar.",
+      "arrives with the barrel's horizontal scroller; its columns shrink to fit the settings " +
+      "column, which apps/web/test/numbering-parts-table.test.ts pins, so that scroller never " +
+      "draws a bar.",
   },
   {
     rule: "nested-scroll-region",

@@ -71,8 +71,10 @@ The parts are a table, one row per part, in the order they appear in the number.
 column chooses what kind of part it is, from a list in alphabetical order. **Value** holds the text
 of a fixed piece, and for every other kind states what that part will put into the number.
 **Digits**, **Starts At** and **Restarts the Count** hold the facts that kind takes, and a column a
-part has no fact for is empty with the reason shown when you hover it. At the end of the row are
-the controls that act on it: move it up, move it down, remove it.
+part has no fact for is empty with the reason shown when you hover it. A year's **Digits** offers 4
+or 2, each listed beside the year it would print. At the end of the row are the controls that act
+on it: move it up, move it down, remove it. The table fits beside the settings list on any screen
+1220 pixels wide or wider; on a narrower window, collapsing the main sidebar gives it room.
 
 The last row of the table is where you add: **Add Part** adds one at the end, and **Load an
 example** fills the whole list with a common shape you can then change part by part.
