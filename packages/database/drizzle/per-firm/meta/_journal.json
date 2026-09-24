@@ -194,33 +194,40 @@
     {
       "idx": 27,
       "version": "6",
+      "when": 1789758441099,
+      "tag": "20260924T181527_integration-credentials-have-their-own-gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
       "when": 1789929000000,
       "tag": "20260924T182329_meeting-chat-on-the-record",
       "breakpoints": true
     },
     {
-      "idx": 28,
+      "idx": 29,
       "version": "6",
       "when": 1789930800000,
       "tag": "20260924T182330_hosting-is-a-grant-on-the-meeting",
       "breakpoints": true
     },
     {
-      "idx": 29,
+      "idx": 30,
       "version": "6",
       "when": 1789941600000,
       "tag": "20260924T182331_arrivals-wait-in-a-lobby",
       "breakpoints": true
     },
     {
-      "idx": 30,
+      "idx": 31,
       "version": "6",
       "when": 1790240400000,
       "tag": "20260924T182332_a-guest-holds-a-signed-link-and-a-stay-of-its-own",
       "breakpoints": true
     },
     {
-      "idx": 31,
+      "idx": 32,
       "version": "6",
       "when": 1790275777938,
       "tag": "20260924T184938_meeting-polls-and-questions",

@@ -35,6 +35,7 @@ export const ENTITY_PREFIXES = {
   correlation: "correlation",
   incident: "incident",
   integrationConnection: "integrationConnection",
+  integrationCredential: "integrationCredential",
   // AI-text detection metering — tracks usage of the AI-text detection tool across the firm.
   aiDetectionUsage: "aiDetectionUsage",
   repairProvenance: "repairProvenance",

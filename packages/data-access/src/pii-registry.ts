@@ -1154,6 +1154,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // connection *state* (mirrors member_role/document_checkout above), not an activity record.
   "integration_connection",
   "firm_secret", // firm-owned integration secrets (encrypted), not data-subject personal data
+  // A connected integration's credential for the FIRM's own external account (a postage account's API
+  // key). It identifies the firm to a vendor, never a data subject, so erasing a person leaves it
+  // untouched — and erasing it because somebody exercised a right would disconnect the firm's account.
+  "integration_credential",
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",
   // The nickname equivalence catalogue is a dictionary of NAME FORMS — `bob` implies `robert` — and

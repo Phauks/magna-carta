@@ -1,11 +1,14 @@
 import type { ConnectionStore } from "./connection.ts";
 import {
+  CredentialAccessForbiddenError,
   isUnbuiltCredentialStore,
+  type Credential,
   type CredentialStore,
   type UnbuiltCredentialStore,
 } from "./credentials.ts";
 import {
   capabilityUnsupported,
+  credentialForbidden,
   credentialStoreNotImplemented,
   notConnected,
   ok,
@@ -93,7 +96,16 @@ export function createIntegrationRegistry(stores: RegistryStores = {}): Integrat
         return notConnected();
       }
 
-      const credential = await credentialStore.get(connection.credentialRef);
+      // The one throw a store is permitted, turned into its outcome here so `resolve` keeps its
+      // promise never to throw. A refusal is NOT `not-connected`: the account is connected and the
+      // credential is there, and this principal simply may not have it decrypted.
+      let credential: Credential | null;
+      try {
+        credential = await credentialStore.get(connection.credentialRef);
+      } catch (caught) {
+        if (caught instanceof CredentialAccessForbiddenError) return credentialForbidden();
+        throw caught;
+      }
       if (credential === null) return notConnected();
 
       return ok({

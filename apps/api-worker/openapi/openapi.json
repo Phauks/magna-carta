@@ -1663,71 +1663,6 @@
           "quickActionHonoursLocation"
         ]
       },
-      "SafeBrowseLiveView": {
-        "type": "object",
-        "properties": {
-          "requestedUrl": {
-            "type": "string"
-          },
-          "finalUrl": {
-            "type": "string"
-          },
-          "redirectChain": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "url": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "number"
-                },
-                "location": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "url",
-                "status"
-              ]
-            }
-          },
-          "responseHeaders": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "screenshotBase64": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "markdown": {
-            "type": "string"
-          },
-          "links": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sessionContinued": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "requestedUrl",
-          "finalUrl",
-          "redirectChain",
-          "responseHeaders",
-          "screenshotBase64",
-          "links",
-          "sessionContinued"
-        ]
-      },
       "DecryptionInspectResponse": {
         "type": "object",
         "properties": {
@@ -38182,6 +38117,199 @@
           "remoteRateId"
         ]
       },
+      "ShipmentListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShipmentListItem"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ShipmentListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "recipientName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postageCostMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "serviceFeeMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterRef",
+          "status",
+          "recipientName",
+          "carrier",
+          "service",
+          "trackingCode",
+          "postageCostMinor",
+          "serviceFeeMinor",
+          "currency",
+          "createdAt"
+        ]
+      },
+      "ShipmentDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "fromAddress": {},
+          "toAddress": {},
+          "parcel": {},
+          "options": {},
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postageCostMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "serviceFeeMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasLabel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "matterRef",
+          "status",
+          "carrier",
+          "service",
+          "trackingCode",
+          "postageCostMinor",
+          "serviceFeeMinor",
+          "currency",
+          "hasLabel"
+        ]
+      },
+      "ShippingConnectionState": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "adapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "connected",
+          "status",
+          "adapterId"
+        ]
+      },
       "TrackingResponse": {
         "type": "object",
         "properties": {
@@ -39779,14 +39907,14 @@
         }
       }
     },
-    "/api/v1/safe-browse/live/navigate": {
-      "post": {
-        "description": "Navigate the member's held remote browser to a URL and return an inert view of where it landed — screenshot, title, links. The browser is reused across calls so cookies and page state survive between steps. No code from the page runs in the member's browser.",
-        "operationId": "safeBrowse.liveNavigate",
+    "/api/v1/safe-browse/live/stream": {
+      "get": {
+        "description": "Opens the member's live browsing stream over a WebSocket. The server sends a ready frame once a remote browser is theirs (reconnecting to the one they hold, or launching one), then JPEG frames of its screen, its location, and the inspector's facts after each page load. The client sends pointer, wheel, key and pasted-text input, navigations, and an acknowledgement per frame drawn. Every document the remote browser requests passes the public-address guard; no markup or script reaches the member's browser. One stream per member: a second one takes the browser over. Requires an Upgrade: websocket request from this application's own origin.",
+        "operationId": "safeBrowse.liveStream",
         "tags": [
           "safeBrowse"
         ],
-        "x-mc-operationId": "safeBrowse.liveNavigate",
+        "x-mc-operationId": "safeBrowse.liveStream",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "tools:safeBrowse",
@@ -39799,46 +39927,31 @@
           "safeBrowse"
         ],
         "x-mc-deprecated": false,
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 2048
-                  }
-                },
-                "required": [
-                  "url"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Where the browser landed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SafeBrowseLiveView"
-                }
-              }
-            }
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8000
+            },
+            "required": false,
+            "name": "width",
+            "in": "query"
           },
-          "400": {
-            "description": "The target URL resolves to a non-public address (SSRF guard rejected it)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8000
+            },
+            "required": false,
+            "name": "height",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The stream is open; frames follow"
           },
           "401": {
             "description": "No valid session",
@@ -39851,7 +39964,7 @@
             }
           },
           "403": {
-            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "description": "Authenticated, but the member lacks tools:safeBrowse, or the upgrade came from another site",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -39860,8 +39973,8 @@
               }
             }
           },
-          "422": {
-            "description": "The page did not finish rendering (type page-render-failed)",
+          "426": {
+            "description": "The request did not ask to upgrade to a WebSocket",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -39879,23 +39992,13 @@
                 }
               }
             }
-          },
-          "502": {
-            "description": "The remote browser is unavailable or at capacity",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
           }
         }
       }
     },
     "/api/v1/safe-browse/live/close": {
       "post": {
-        "description": "End the member's live browsing session and close the remote browser. Idempotent: closing a session that has already ended is success, because the service reaps idle sessions itself.",
+        "description": "End the member's live browsing session: end any open stream and close the remote browser. Idempotent: closing a session that has already ended is success, because the service reaps idle sessions itself.",
         "operationId": "safeBrowse.liveClose",
         "tags": [
           "safeBrowse"
@@ -115458,7 +115561,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -115566,6 +115669,78 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Whether the firm has a postage account connected, and its health.",
+        "operationId": "shipping.readConnection",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.readConnection",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Connection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingConnectionState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -115710,6 +115885,108 @@
             }
           }
         }
+      },
+      "get": {
+        "description": "The firm's shipments, newest first.",
+        "operationId": "shipping.listShipments",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.listShipments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/shipments/{id}/rates": {
@@ -115814,7 +116091,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -115967,7 +116244,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -115978,6 +116255,90 @@
           },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shipments/{id}": {
+      "get": {
+        "description": "One shipment: addresses, package, options, carrier and costs.",
+        "operationId": "shipping.readShipment",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.readShipment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -116175,7 +116536,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -116318,7 +116679,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {

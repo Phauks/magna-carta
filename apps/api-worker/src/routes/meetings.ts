@@ -55,6 +55,7 @@ import {
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import { isSameOriginUpgrade } from "../chokepoint/same-origin-upgrade.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
@@ -841,39 +842,6 @@ export async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof I
 }
 
 /**
- * Whether this upgrade was asked for by a page this deployment serves.
- *
- * A WEBSOCKET UPGRADE IS NOT SUBJECT TO THE SAME-ORIGIN POLICY. A browser will not let another
- * site's script read a `fetch` of this API, but it will happily let that script open a socket to it
- * and carry the member's cookie — so the session that protects every other route protects this one
- * only up to the point where somebody's page decides to open one. What that would buy an attacker is
- * the roster of a meeting the member is in and the ability to signal inside it, which is exactly the
- * thing the room exists to keep to the people who are in the room.
- *
- * `Origin` ABSENT IS ALLOWED, and that is not a hole: a non-browser client (a test, a tool) sends
- * none and is not the thing being defended against, while every browser attaches one to a
- * cross-origin upgrade without exception. Present, it must match — the request's own origin, which
- * is the per-request derivation the auth layer takes for the same question, or the deployment's
- * declared origin where one is configured and the two differ because a proxy re-addressed the
- * request.
- */
-export function isSameOriginUpgrade(c: MeetingContext): boolean {
-  const origin = c.req.header("origin");
-  if (origin === undefined || origin === "") return true;
-  const allowed = new Set([new URL(c.req.url).origin]);
-  const declared = c.env.APP_BASE_URL;
-  if (declared !== undefined && declared !== "") {
-    try {
-      allowed.add(new URL(declared).origin);
-    } catch {
-      // A misconfigured base URL narrows the check to the request's own origin rather than throwing
-      // a member out of a meeting over a deployment value they cannot see.
-    }
-  }
-  return allowed.has(origin);
-}
-
-/**
  * The signaling room for one meeting, addressed by the SESSION firm id and never by a path value —
  * a firm can no more signal into another firm's meeting than it can read one.
  *
@@ -1241,7 +1209,7 @@ export function registerMeetingsRoutes(
       // Asked before anything is read, because it is a question about the REQUEST rather than about
       // the meeting: an answer that varied with whether the meeting exists would tell a foreign page
       // that much by timing alone.
-      if (!isSameOriginUpgrade(c)) {
+      if (!isSameOriginUpgrade(c.req.raw, c.env.APP_BASE_URL)) {
         return problemJson(c, {
           type: "permission-denied",
           status: 403,

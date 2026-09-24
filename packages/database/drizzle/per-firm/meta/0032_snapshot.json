@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "02bf85cd-7c00-4eb0-9ade-150a3d8a07ef",
-  "prevId": "cb67038e-f162-44fd-beb7-1663a40eb16f",
+  "id": "709e6553-14ce-489c-b9e7-90ec7a159c7c",
+  "prevId": "20e90a98-303e-4ea5-942c-bfbb246422de",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -11142,6 +11142,59 @@
           "columns": [
             "category",
             "principal_ref"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "integration_credential": {
+      "name": "integration_credential",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credential_ref": {
+          "name": "credential_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ciphertext": {
+          "name": "ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "integration_credential_credential_ref_unique": {
+          "name": "integration_credential_credential_ref_unique",
+          "columns": [
+            "credential_ref"
           ],
           "isUnique": true
         }

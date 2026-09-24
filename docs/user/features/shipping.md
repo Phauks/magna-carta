@@ -1,21 +1,79 @@
 # Shipping & postage
 
-_Stub — the full guide is authored when the shipping screens ship. There is no user interface yet, and **a shipping account cannot be connected yet**: the part of Magna Carta that keeps a firm's carrier key safely is still being built, so connecting an account, comparing rates, and buying a label all answer "not available yet" rather than working. Preparing a shipment (recipient, package, options) already works and is kept, so nothing prepared now is lost when the rest arrives._
+Send mail and packages — including **USPS Certified Mail** with a return receipt and signature —
+without leaving Magna Carta. Your firm connects its shipping account once; after that, anyone
+allowed to post things drafts a shipment, compares live carrier rates, buys the label, prints it,
+and tracks the parcel, all from **Shipping & Postage** in the sidebar.
 
-## What it does
+A shipment can belong to a matter. When it does, its postage is recorded against that matter so it
+can be billed on to the client.
 
-Send mail and packages — including **USPS Certified Mail** with return receipt and signature — without leaving Magna Carta. You connect your firm's shipping account once, then for any mailing you compare live carrier rates, buy and print a label, and track the package. A shipment can be linked to a matter so its postage is recorded against that matter.
+## Before you start
 
-## Common tasks (once the screens ship)
+Postage is bought through your firm's own account with the carrier platform (EasyPost). An
+administrator connects it once, in **Settings › Postage Account** — see
+[Connecting your postage account](../admin/postage-account.md).
 
-- **Connect your account.** An administrator connects the firm's shipping provider account. See the administrator guide for setup. _(Provider: EasyPost.)_
-- **Change or remove the connection.** An administrator can disconnect the account, or connect again with a new key to replace the old one — the usual way to rotate a key you no longer trust. While no account is connected, rating, buying, and tracking are unavailable.
-- **Create a shipment.** Enter the recipient address, package details, and any options (certified mail, return receipt, signature, declared insurance value).
-- **Compare rates and buy a label.** Pick a rate, buy the label, and print it. Any insurance you declared on the shipment is bought together with the label; insurance is billed separately from postage.
-- **Buy a label once.** A shipment can hold only one live label. If you try to buy again for the same shipment, Magna Carta refuses rather than risk a second charge — refund the existing label first if you need to rebuy.
-- **Track a package.** Open a shipment to see its latest tracking status.
+Until it is connected you can still **draft** shipments, and nothing you draft is lost. Rating,
+buying, tracking and voiding all need the account, and the Shipping & Postage page says so at the
+top rather than showing an empty list that looks like a firm that has never posted anything.
+
+## Sending something
+
+Choose **New Shipment**. It takes five short steps, shown across the top of the page, and **Back**
+keeps everything you have entered.
+
+1. **Recipient.** Who it is from and who it is going to: name, street, city, state and ZIP for
+   each. The country is the United States. Optionally, the **Matter** this mailing belongs to.
+2. **Package.** Its weight, in ounces.
+3. **Options.** **Certified mail**, a **return receipt** (none, electronic or physical), and a
+   **signature** (none, signature, or adult signature).
+4. **Rates.** Choose **Get Rates** and Magna Carta asks the carrier what it can do for this package
+   and these addresses. Pick one service.
+5. **Confirm.** Check the postage and choose **Buy Label**.
+
+The shipment is saved as a draft as soon as you ask for rates. If the rates cannot be fetched — most
+often because no account is connected — the draft is kept in the list, so you do not have to type it
+again.
+
+**A label is bought once.** If buying fails part way, check the shipment in the list before trying
+again: a purchase that failed on the way back to Magna Carta may still have gone through at the
+carrier, and the shipment's status is what says which.
+
+## Finding a shipment, and where it is
+
+**Shipping & Postage** lists everything your firm has sent, newest first. Choose which columns to
+show, sort, and filter, as on any other list in Magna Carta. Postage and the service fee are separate
+columns, because postage is billed on to a client and the fee may not be.
+
+Open a shipment to read it over the list. It shows who it went to and from, its status, its tracking
+number, what it cost, and its matter. From there:
+
+- **Tracking.** Open the **Tracking** tab and choose **Check now**. Magna Carta asks the carrier
+  where the parcel is at that moment, and says when it asked — tracking is never a stale answer
+  presented as a current one.
+- **Label.** Opens the label to print. It is kept in your firm's own storage, so it still opens
+  weeks later, after the carrier's own link has expired. **Print** does the same.
+- **Void Label.** Refunds a label that has been bought but not used. Offered only while the label is
+  unused; a parcel already moving is not refundable this way.
+
+Close the shipment to go back to the list. A link to a shipment opens the list with that shipment
+already open.
+
+## Who can do what
+
+Shipping has two permissions, and a member needs both to spend postage:
+
+- `shipping:manage` lets a member use Shipping & Postage at all — draft, list and open shipments.
+- `integrations:useConnection` lets Magna Carta use the firm's postage account on that member's
+  behalf, which is what rating, buying, tracking and voiding do.
+
+By default both belong to the **Owner/Admin** role and to no other. If your firm gives a member
+`shipping:manage` without `integrations:useConnection`, they can prepare shipments but not buy them —
+someone who holds both buys the label. The refusal names the missing permission when that happens,
+rather than reporting a fault with the account.
 
 ## Related features
 
 - Matters — link a shipment to a matter so its postage is recorded for cost recovery.
-- Locations — your office address is the default sender address.
+- [Connecting your postage account](../admin/postage-account.md) — for administrators.

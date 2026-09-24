@@ -407,24 +407,6 @@ export type SafeBrowseLocationProbe = {
     quickActionHonoursLocation: boolean;
 };
 
-export type SafeBrowseLiveView = {
-    requestedUrl: string;
-    finalUrl: string;
-    redirectChain: Array<{
-        url: string;
-        status: number;
-        location?: string;
-    }>;
-    responseHeaders: {
-        [key: string]: string;
-    };
-    screenshotBase64: string;
-    title?: string;
-    markdown?: string;
-    links: Array<string>;
-    sessionContinued: boolean;
-};
-
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -8811,6 +8793,48 @@ export type PurchaseRequest = {
     serviceFeeMinor?: number;
 };
 
+export type ShipmentListResponse = {
+    data: Array<ShipmentListItem>;
+    nextCursor: string | null;
+};
+
+export type ShipmentListItem = {
+    id: string;
+    matterRef: string | null;
+    status: string;
+    recipientName: string | null;
+    carrier: string | null;
+    service: string | null;
+    trackingCode: string | null;
+    postageCostMinor: number | null;
+    serviceFeeMinor: number | null;
+    currency: string | null;
+    createdAt: string;
+};
+
+export type ShipmentDetail = {
+    id: string;
+    matterRef: string | null;
+    status: string;
+    fromAddress?: unknown;
+    toAddress?: unknown;
+    parcel?: unknown;
+    options?: unknown;
+    carrier: string | null;
+    service: string | null;
+    trackingCode: string | null;
+    postageCostMinor: number | null;
+    serviceFeeMinor: number | null;
+    currency: string | null;
+    hasLabel: boolean;
+};
+
+export type ShippingConnectionState = {
+    connected: boolean;
+    status: string | null;
+    adapterId: string | null;
+};
+
 export type TrackingResponse = {
     events: Array<{
         status: string;
@@ -9532,52 +9556,36 @@ export type SafeBrowseLocationProbeResponses = {
 
 export type SafeBrowseLocationProbeResponse = SafeBrowseLocationProbeResponses[keyof SafeBrowseLocationProbeResponses];
 
-export type SafeBrowseLiveNavigateData = {
-    body: {
-        url: string;
-    };
+export type SafeBrowseLiveStreamData = {
+    body?: never;
     path?: never;
-    query?: never;
-    url: '/api/v1/safe-browse/live/navigate';
+    query?: {
+        width?: number;
+        height?: number;
+    };
+    url: '/api/v1/safe-browse/live/stream';
 };
 
-export type SafeBrowseLiveNavigateErrors = {
-    /**
-     * The target URL resolves to a non-public address (SSRF guard rejected it)
-     */
-    400: Problem;
+export type SafeBrowseLiveStreamErrors = {
     /**
      * No valid session
      */
     401: Problem;
     /**
-     * Authenticated, but the member lacks tools:safeBrowse
+     * Authenticated, but the member lacks tools:safeBrowse, or the upgrade came from another site
      */
     403: Problem;
     /**
-     * The page did not finish rendering (type page-render-failed)
+     * The request did not ask to upgrade to a WebSocket
      */
-    422: Problem;
+    426: Problem;
     /**
      * Rate limit exceeded
      */
     429: Problem;
-    /**
-     * The remote browser is unavailable or at capacity
-     */
-    502: Problem;
 };
 
-export type SafeBrowseLiveNavigateError = SafeBrowseLiveNavigateErrors[keyof SafeBrowseLiveNavigateErrors];
-
-export type SafeBrowseLiveNavigateResponses = {
-    /**
-     * Where the browser landed
-     */
-    200: SafeBrowseLiveView;
-};
-
-export type SafeBrowseLiveNavigateResponse = SafeBrowseLiveNavigateResponses[keyof SafeBrowseLiveNavigateResponses];
+export type SafeBrowseLiveStreamError = SafeBrowseLiveStreamErrors[keyof SafeBrowseLiveStreamErrors];
 
 export type SafeBrowseLiveCloseData = {
     body?: never;
@@ -41172,6 +41180,43 @@ export type ShippingDisconnectCarrierResponses = {
 
 export type ShippingDisconnectCarrierResponse = ShippingDisconnectCarrierResponses[keyof ShippingDisconnectCarrierResponses];
 
+export type ShippingReadConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations/shipping/connection';
+};
+
+export type ShippingReadConnectionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingReadConnectionError = ShippingReadConnectionErrors[keyof ShippingReadConnectionErrors];
+
+export type ShippingReadConnectionResponses = {
+    /**
+     * Connection state
+     */
+    200: ShippingConnectionState;
+};
+
+export type ShippingReadConnectionResponse = ShippingReadConnectionResponses[keyof ShippingReadConnectionResponses];
+
 export type ShippingConnectData = {
     body: ShippingConnectRequest;
     headers: {
@@ -41212,7 +41257,7 @@ export type ShippingConnectErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
 };
@@ -41227,6 +41272,50 @@ export type ShippingConnectResponses = {
 };
 
 export type ShippingConnectResponse = ShippingConnectResponses[keyof ShippingConnectResponses];
+
+export type ShippingListShipmentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/shipments';
+};
+
+export type ShippingListShipmentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingListShipmentsError = ShippingListShipmentsErrors[keyof ShippingListShipmentsErrors];
+
+export type ShippingListShipmentsResponses = {
+    /**
+     * Shipments
+     */
+    200: ShipmentListResponse;
+};
+
+export type ShippingListShipmentsResponse = ShippingListShipmentsResponses[keyof ShippingListShipmentsResponses];
 
 export type ShippingCreateShipmentData = {
     body: CreateShipmentRequest;
@@ -41315,7 +41404,7 @@ export type ShippingRateShipmentErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -41377,7 +41466,7 @@ export type ShippingPurchaseErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -41396,6 +41485,45 @@ export type ShippingPurchaseResponses = {
 };
 
 export type ShippingPurchaseResponse = ShippingPurchaseResponses[keyof ShippingPurchaseResponses];
+
+export type ShippingReadShipmentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}';
+};
+
+export type ShippingReadShipmentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingReadShipmentError = ShippingReadShipmentErrors[keyof ShippingReadShipmentErrors];
+
+export type ShippingReadShipmentResponses = {
+    /**
+     * Shipment
+     */
+    200: ShipmentDetail;
+};
+
+export type ShippingReadShipmentResponse = ShippingReadShipmentResponses[keyof ShippingReadShipmentResponses];
 
 export type ShippingLabelData = {
     body?: never;
@@ -41471,7 +41599,7 @@ export type ShippingTrackingErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -41533,7 +41661,7 @@ export type ShippingRefundErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**

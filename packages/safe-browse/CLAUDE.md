@@ -28,6 +28,14 @@ failure and a rejected parameter into one "at capacity" answer.
 Screenshots are transient — they are returned to the caller and are not persisted anywhere in this
 package. Persistence policy is the caller's responsibility.
 
+**The live stream's wire protocol lives here too** (`src/live-stream-protocol.ts`, exported as
+`@magna-carta/safe-browse/live-stream-protocol`), because both ends import it: the Worker's session
+object and the web app's stream client. It is pure — no socket, no browser — and its Worker-side parse
+(`parseLiveClientMessage`) is a security boundary: every client frame arrives from a socket anybody
+holding the member's cookie could write to, so unknown types are dropped and every number and string
+is bounded. Widening what it accepts widens what can reach the remote browser; add a message type with
+its bounds and its refusal cases in the same change.
+
 The orchestrator `captureSafeView` (added in a later task) wires the redirect probe and browser
 renderer together behind the worker route. `src/capture.ts` (added in a later task) is the public
 entry point for the orchestration logic.

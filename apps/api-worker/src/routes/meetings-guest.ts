@@ -70,6 +70,7 @@ import {
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import { isSameOriginUpgrade } from "../chokepoint/same-origin-upgrade.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
@@ -103,7 +104,6 @@ import {
 import {
   IceServer,
   iceServersFor,
-  isSameOriginUpgrade,
   meetingErrorResponse,
   meetingRoomFor,
   notConfigured,
@@ -1207,7 +1207,7 @@ export function registerMeetingGuestRoutes(
 
       // Asked before anything is read, for the member socket's reason: it is a question about the
       // REQUEST, and the page a guest opens is served from this application's own origin.
-      if (!isSameOriginUpgrade(c)) {
+      if (!isSameOriginUpgrade(c.req.raw, c.env.APP_BASE_URL)) {
         return problemJson(c, {
           type: "permission-denied",
           status: 403,
