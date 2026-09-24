@@ -116,10 +116,22 @@ function generateAgainst(seedMetaDirectory) {
     ],
     { cwd: packageRoot, encoding: "utf8" },
   );
-  if (result.status !== 0) {
+  // DRIZZLE-KIT CAN FAIL AND EXIT 0, so the status alone is not the answer. Measured on the pinned
+  // version against a lineage with two snapshots naming one parent: it prints
+  // `Error: […] are pointing to a parent snapshot … which is a collision`, writes nothing, and exits
+  // 0. Read by status alone, that is indistinguishable from "the schema matches the snapshot" —
+  // `produced === seeded` below — so this check reported "nothing to do" on a lineage where every
+  // generate was refusing. An `Error:` line on either stream is therefore a failure whatever the
+  // status says.
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  const reportedError = /^Error:/m.test(output);
+  if (result.status !== 0 || reportedError) {
     console.error(result.stdout ?? "");
     console.error(result.stderr ?? "");
-    throw new Error(`drizzle-kit generate failed for ${lineage}`);
+    throw new Error(
+      `drizzle-kit generate failed for ${lineage}` +
+        (result.status === 0 ? " (it reported an error and exited 0)" : ""),
+    );
   }
 
   const produced = highestSnapshot(join(scratchDirectory, "meta"));
@@ -131,9 +143,53 @@ function generateAgainst(seedMetaDirectory) {
   };
 }
 
+// TWO SNAPSHOTS NAMING ONE PARENT, which is what merging two branches that each added a migration
+// leaves behind: each side wrote a snapshot at its own index, both descending from the snapshot
+// they shared, and git keeps both. The chain is then a fork rather than a line, and drizzle refuses
+// every generate against it.
+//
+// Checked HERE, before generating, rather than left to the generate to discover, because the
+// generate's own report of it is a message on a stream the caller has to know to read (see the
+// note in generateAgainst). This names the files and the repair instead. It is the specific case of
+// the lineage rule tooling/migration-integrity enforces — every snapshot's parent is the one
+// emitted before it — stated as the fork a merge actually produces, so the message can say which
+// file to drop.
+function siblingSnapshots(directory) {
+  const childrenByParent = new Map();
+  for (const file of readdirSync(directory)) {
+    if (!/^\d{4}_snapshot\.json$/.test(file)) continue;
+    const { prevId } = JSON.parse(readFileSync(join(directory, file), "utf8"));
+    if (typeof prevId !== "string") continue;
+    childrenByParent.set(prevId, [...(childrenByParent.get(prevId) ?? []), file]);
+  }
+  return [...childrenByParent.values()]
+    .filter((files) => files.length > 1)
+    .map((files) => files.toSorted());
+}
+
 // Returns the process exit code. Never calls process.exit itself, so the scratch folder is
 // always swept by the finally below.
 function refresh() {
+  const forks = siblingSnapshots(metaDirectory);
+  if (forks.length > 0) {
+    // The repair is the same whichever mode this is in, and --check must not perform it: which
+    // sibling is stale is decided by the journal, and a person should see the files before one goes.
+    console.error(
+      `${lineage}: the snapshot chain FORKS — these snapshots name the same parent, so drizzle will\n` +
+        `refuse every generate against this lineage:\n` +
+        forks.map((files) => `    ${files.join("  and  ")}`).join("\n") +
+        `\n\nThis is what merging two branches that each added a migration leaves behind. REPAIR IT:\n` +
+        `  1. KEEP the sibling that is already on main and delete the one your branch brought in —\n` +
+        `     \`git ls-tree origin/main packages/database/drizzle/${lineage}/meta/\` names main's. Main's is the history\n` +
+        `     every other branch already has; yours is rebuilt in the next step, from the schema;\n` +
+        `  2. pnpm --filter @magna-carta/database run refresh-${lineage}-snapshot\n` +
+        `     which rewrites ${headSnapshotName} from the schema, chained from the survivor;\n` +
+        `  3. pnpm --filter @magna-carta/database run generate-${lineage}-migrations\n` +
+        `     must then report "No schema changes" — that is the proof, not this check.`,
+    );
+    return 1;
+  }
+
   const drift = generateAgainst(metaDirectory);
   if (drift === null) {
     console.log(
@@ -159,7 +215,8 @@ function refresh() {
         `which rewrites drizzle/${lineage}/meta/${headSnapshotName} from the schema and proves the\n` +
         `repair settled. Commit that snapshot in the SAME commit as the migration — a hand-written\n` +
         `migration advances the journal but never the snapshot, which is what this drift is.\n` +
-        `Re-verify with: pnpm --filter @magna-carta/database run check-snapshots`,
+        `Re-verify with: pnpm --filter @magna-carta/database run check-snapshots, and let a\n` +
+        `generate-${lineage}-migrations report "No schema changes" — the generate is the real proof.`,
     );
     return 1;
   }
