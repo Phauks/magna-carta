@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 329 | 47% |
-| Part-built | partial, in-build | 124 | 18% |
+| Done | shipped | 330 | 47% |
+| Part-built | partial, in-build | 123 | 18% |
 | Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **699** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 329 | 47% |
-| `partial` | 124 | 18% |
+| `shipped` | 330 | 47% |
+| `partial` | 123 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 329 of 699 (47%). Shipped plus partial is 453 (65%).**
+**Shipped alone is 330 of 699 (47%). Shipped plus partial is 453 (65%).**
 
-The 124 units between those two numbers are work that is engineered and paid for and is not
+The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -81,9 +81,9 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 113 | 25% |
+| A person can open it today (`screen`) | 114 | 25% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
-| No user surface by nature (`internal`) | 185 | 41% |
+| No user surface by nature (`internal`) | 184 | 41% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **453** | **100%** |
 
@@ -101,7 +101,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
-| Core Domain — Directory, Matters & Locations | 35 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 64 | 55% |
+| Core Domain — Directory, Matters & Locations | 36 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 64 | 56% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **329** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **699** | **47%** |
+| **All areas** | **330** | **123** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **699** | **47%** |
 
 ## Where we have been
 
@@ -272,13 +272,14 @@ one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**35 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**36 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
 - **Auto-file rules** (`communications.email.filing.auto-file-rules`) — **Built; no screen yet.** Whether a correspondent rule may ask to FILE outright when it was authored from a typed address rather than learned from a filing. The design wants a rule to inherit an authorizing act a person actually performed, and a directly-authored rule has none — its audit terminates in a configuration screen. Built permissive because the design also names the abstract editor, and the exposure is narrow (an unattended firing still needs the firm ceiling raised, the member's own matter access re-checked at every fire, and an intact-original capture with a passing signature on a matching domain, so a correspondent rule can never fire on the forward or catch-all path at all). The question is whether promotion `file` should additionally require created_from_email_message_id.
 - **Conflicts Check** (`conflicts`) — **A group of capabilities.** Two of the deepening design's calls still decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F2 and F11. A third, whether the balanced band searches former, maiden and alias names, no longer blocks anything: ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts ships the design's recommended answer as a firm setting recorded verbatim on every check row, so answering it either way is a settings edit rather than a release (flag F1).
 - **Pronouns on a person** (`directory.pronouns`) — **Built and reachable.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
+- **Address autocomplete** (`directory.addresses.lookup`) — **Built and reachable.** Open a Smarty account with US and International Address Autocomplete and set SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN on the API Worker — the one step between this and a live feature, and the start of a per-lookup bill (runbook, operations.md section 19).
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against an intake or a consultation, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Consolidated matter search** (`matters.search`) — **A group of capabilities.** Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
@@ -563,7 +564,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 64 units of work, 55% shipped. 35 done, 21 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 64 units of work, 56% shipped. 36 done, 20 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08)._
@@ -580,7 +581,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `directory.identifiers.protected-fields` · `shipped` · **Field-level encryption and access control** — Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.
   - `directory.addresses` · `shipped` · **Postal addresses** — Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own. _Note: The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration._
     - `directory.addresses.constraints` · `shipped` · **Postal-code and administrative-area constraints** — What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state. _Note: A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past._
-    - `directory.addresses.lookup` · `partial` · **Address autocomplete** — Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores. _Note: Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly._
+    - `directory.addresses.lookup` · `shipped` · **Address autocomplete** — Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores. _Note: Dormant until provisioned: with no key pair every answer is unavailable and the street box stays a plain text box. The provider was chosen on storage terms — the firm may keep what it looked up — which the two largest alternatives forbid. A suggestion is not a deliverability check._
   - `directory.duplicates` · `shipped` · **Duplicate detection** — Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates. _Note: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed._
   - `directory.merge` · `partial` · **Non-destructive merge** — Merge folds a duplicate into a master, repoints every reference, archives (never deletes) the subordinate, and records survivorship plus the exact repoint list in an append-only entity_merge event. _Note: Backend shipped; merge tooling UI not built._
     - `directory.merge.unmerge` · `deferred` · **Guarded unmerge** — Reversal of a recent, still-clean merge; locked once post-merge activity accrues. _Note: Deferral-with-seam, not a retrofit; no unmerge export exists in packages/directory._

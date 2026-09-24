@@ -23,24 +23,25 @@ same reason.
 
 ## Invariants that apply here
 
-- **The index is fleet-wide reference data, so nothing here takes a firm id.** A discovery split is a
-  firm's own content — own bucket, caller-named keys, capability-token read. An address corpus is the
-  same streets for every firm. **Do not copy the firm-scoping machinery from `packages/search` into
+- **Addresses are fleet-wide reference data, so nothing here takes a firm id.** A discovery split is a
+  firm's own content — own bucket, caller-named keys, capability-token read. An address service is the
+  same streets for every firm, reached through one platform account. **Do not copy the firm-scoping machinery from `packages/search` into
   an implementation of this port**: there is no tenancy decision to make here, and machinery implying
   one is worse than none.
-- **The QUERY is a client's address, even though the index holds nothing of the firm's.** Someone
+- **The QUERY is a client's address, even though the service holds nothing of the firm's.** Someone
   typing "14 Rosewood" into a matter is typing a client's home. An implementation therefore keeps no
   log line carrying query text, no cache keyed on it, and nothing between calls. This is the inverse
   of the rule `containers/search` keeps, and it has to be stated in this direction because nothing
-  about a public corpus would suggest it.
+  about a shared reference service would suggest it. Sending it to the provider at all is the
+  disclosure the owner authorised on 2026-09-20; keeping it out of everything of ours is not optional.
 - **`no-coverage` is never folded into an empty result.** An empty `suggestions` means the country is
-  covered and nothing matched, which invites a correction. `no-coverage` means nobody has published
-  that country's addresses, which invites nothing. The open corpora cover countries very unevenly, so
-  this distinction is load-bearing rather than pedantic.
-- **A suggestion is not a verification.** It says a place is known to a public corpus. It does not
-  say mail is deliverable there, and a surface must never render it as though it did — deliverability
-  is a licensed postal-data question no open corpus answers, and it belongs in the verification
-  columns through a different port.
+  covered and nothing matched, which invites a correction. `no-coverage` means the service holds no
+  addresses for that country, which invites nothing. Address services cover countries very unevenly,
+  so this distinction is load-bearing rather than pedantic.
+- **A suggestion is not a verification.** It says a place is known to the address service. It does
+  not say mail is deliverable to it today, and a surface must never render it as though it did —
+  deliverability is a separate, separately-priced postal-data question, and it belongs in the
+  verification columns through a different port.
 - **Never a throw.** Every operation answers a typed outcome, so a caller pattern-matches.
 
 ## Dependencies & contracts
@@ -61,9 +62,13 @@ same reason.
   first field of the address form because it decides the rest; an engine guessing it from a fragment
   would offer a street in the wrong hemisphere as confidently as the right one.
 - **`suggestionId` is opaque and short-lived.** A caller that parsed one would depend on a detail the
-  next index build is free to change, and a `resolve` of an id the engine no longer knows answers
-  `{ ok: true, parts: undefined }` — the offer expired, nothing went wrong, ask again. That is
-  deliberately not a failure.
+  engine is free to change, and a `resolve` of an id the engine no longer knows answers
+  `{ ok: true, resolution: "expired" }` — nothing went wrong, ask again. That is deliberately not a
+  failure.
+- **A group is not an address.** Every real service answers a building with many units as one line
+  with a count. `kind: "group"` says so, and resolving a group answers the addresses inside it rather
+  than parts; a surface that wrote a group's line into a record would address a letter to a building
+  whose client lives in one of its units.
 
 ## The Smarty adapter
 

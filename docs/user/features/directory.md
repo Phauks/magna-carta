@@ -64,7 +64,14 @@ A record answers the questions the firm keeps an answer to:
   Choose the country first and the rest of the form follows it — an Irish address asks for a county
   and an Eircode, a German one puts the postal code before the town, a Japanese one starts with the
   postal code and reads down to the street, and none of them is asked for a state that does not
-  exist. Nothing is required: an address the firm holds half of is still worth recording. Each
+  exist. Nothing is required: an address the firm holds half of is still worth recording.
+  Where address suggestions are available, the street box offers real addresses as you type, and
+  choosing one fills in the town, the state or province and the postal code while keeping any
+  apartment or suite you had already typed. A building with several units is offered once, with how
+  many addresses it holds, and choosing it lists the units. The offers are only a shortcut: what you
+  type is what is kept, whether or not you choose one. If a postal code does not look like one for
+  the chosen country, a note beneath it says so and the address saves anyway, and the state or
+  province box offers the country's list without refusing a name that is not on it. Each
   address also says what it is for and whether the place physically exists, which is the difference
   between somewhere a document can be served and a delivery point that cannot. Addresses are
   corrected in place, the same way.

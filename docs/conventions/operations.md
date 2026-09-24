@@ -851,3 +851,26 @@ discrepancy.
 **What deliberately did not extract.** Every coordination Durable Object in the app Worker fails ⑤ by construction and stays: `DocumentSession`, `ConversionJob`, `BundleBuildCoordinator`, `RecoveryJobCoordinator`, `SearchIndexJob`, `SearchCompactionJob`, `DiscoveryLoadCoordinator`, `DocumentAssemblyJob`, `MagnusConversation`, `LiveTimerDurableObject`, and `FirmDatabase` — which is the clearest case of all, being the firm's data plane itself. So do the light in-Worker WASM engines: the conversion registry models "in-Worker WASM" and "container native" as two engines in one graph, so a small raster staying in-process is a routing outcome, not an exemption from the rubric.
 
 **One caveat named for whoever hits it first.** A _pluggable_ engine that needs outbound network — a cloud OCR or conversion engine a firm supplies — cannot share the `enableInternet = false` containment every Worker above relies on, and needs a policy lane of its own rather than a quiet exception inside one of these.
+
+## 19. Address autocomplete — switching it on (Smarty)
+
+The street box of every address form can offer real addresses as it is typed into. It ships **off**: with no Smarty key pair set, the Worker answers every lookup `unavailable`, and the form behaves exactly as it did before autocomplete existed. Nothing calls out and nothing is billed. The owner authorised an address leaving the tenancy on 2026-09-20; setting the pair is the act that makes it happen, and it starts a per-lookup bill.
+
+**Switching it on**
+
+1. Create a Smarty account under `ops@magnacarta.esq` (credentials into the Bitwarden vault) with **US Address Autocomplete Pro** and **International Address Autocomplete** on the subscription. Autocomplete is priced separately from address verification, so check both are included.
+2. In the Smarty dashboard, **API Keys → Secret Keys**: create a pair. It is the _secret_ pair (an `auth-id` and an `auth-token`), not an embedded key: an embedded key exists for calling Smarty straight from a browser, which this design deliberately never does — every lookup goes through the Worker, where it can be rate-limited, counted and kept out of the logs.
+3. Set both on `magna-carta-api`: `wrangler secret put SMARTY_AUTH_ID`, then `wrangler secret put SMARTY_AUTH_TOKEN`. Both, or neither: half a pair is treated as none.
+4. Open any address form, choose United States, and type the first few characters of a real street. Offers appear after a short pause; choosing one fills the town, state and ZIP code.
+
+Neither name is in `secrets.required` (§3), deliberately — listing them would make every deploy fail until an account nobody has opened exists.
+
+**Watching it**
+
+- `addresses.lookup` in the telemetry dataset, with `operation` (`suggest` / `resolve`), `engine` (`smarty` / `deferred`) and `outcome`. The `suggest` count is what drives the bill. `engine: deferred` on a deployment you believe is switched on means the Worker is not seeing the pair.
+- `outcome: failed` beginning to climb is the first sign Smarty is refusing. A spent subscription answers **402**, a revoked key **401**; the form tells the person the lookup did not answer and stops asking until they press Try Again, and the address can always be typed by hand. The status code is not in the metric — check the Smarty dashboard's usage and key pages.
+- **The Smarty subscription's own quota is the only hard spending ceiling.** The Worker's rate limit is per isolate, so its effective global bound multiplies with traffic; set the subscription tier to the bill you are prepared to pay.
+
+**What never appears anywhere.** The query is a client's address typed a few characters at a time, so the routes are POSTs (the invocation log records full URLs), no failure carries the query or the request URL (Smarty's credentials ride in its query string), and no metric dimension can hold it. Keep it that way when changing any of this.
+
+**Switching it off.** Delete either secret (`wrangler secret delete SMARTY_AUTH_TOKEN`). The next request answers `unavailable` and every form quietly returns to plain typing; addresses already recorded are untouched, because the firm keeps what it chose.
