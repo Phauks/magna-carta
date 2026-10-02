@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: In-app document editing — the editor frame's embedding policy, the open-a-document waiting state, and the header that screen would carry
 status: review
-touches: apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/api-worker/src/exports, apps/api-worker/src/routes/files.ts, packages/data-access/src/pii-registry.ts, tooling/lint-list-pagination, apps/api-worker/src/routes/downloads.ts, apps/api-worker/src/costs/recoverable-charge-consumer.ts, packages/document-assembly, packages/object-dimensions, packages/telemetry/src/metrics.ts, roadmap.d/documents.md, apps/api-worker/src/routes/files.ts, apps/api-worker/src/routes/editing-policy.ts, apps/api-worker/src/app.ts, packages/access-control, packages/database, packages/file-manager, packages/data-access/src/member-statements.ts, apps/web/src/routes/(app)/settings/editing, roadmap.d/settings.md, packages/data-access/src/pii-registry.ts, apps/web/src/lib/file-manager, docs/specs, docs/decisions/pending, docs/operating-costs.md, apps/web/src/lib/documents, apps/web/src/routes/(app)/+layout.svelte, apps/web/src/routes/(app)/documents/[id]/edit, apps/web/src/routes/(app)/settings/opening-files, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/developer-console, apps/web/src/lib/developer/dev-fixtures.ts, packages/design-system/src/lib/components/file-icon, packages/telemetry/src/scrub.ts, packages/api-client, docs/user/admin, changelog.d
+touches: tooling/doc-fragments, tooling/lint-doc-links, CHANGELOG.md, docs/public-changelog.md, docs/decisions, apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/api-worker/src/exports, apps/api-worker/src/routes/files.ts, packages/data-access/src/pii-registry.ts, tooling/lint-list-pagination, apps/api-worker/src/routes/downloads.ts, apps/api-worker/src/costs/recoverable-charge-consumer.ts, packages/document-assembly, packages/object-dimensions, packages/telemetry/src/metrics.ts, roadmap.d/documents.md, apps/api-worker/src/routes/files.ts, apps/api-worker/src/routes/editing-policy.ts, apps/api-worker/src/app.ts, packages/access-control, packages/database, packages/file-manager, packages/data-access/src/member-statements.ts, apps/web/src/routes/(app)/settings/editing, roadmap.d/settings.md, packages/data-access/src/pii-registry.ts, apps/web/src/lib/file-manager, docs/specs, docs/decisions/pending, docs/operating-costs.md, apps/web/src/lib/documents, apps/web/src/routes/(app)/+layout.svelte, apps/web/src/routes/(app)/documents/[id]/edit, apps/web/src/routes/(app)/settings/opening-files, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/developer-console, apps/web/src/lib/developer/dev-fixtures.ts, packages/design-system/src/lib/components/file-icon, packages/telemetry/src/scrub.ts, packages/api-client, docs/user/admin, changelog.d
 ---
 
 Two defects, reported from a real open of a `.docx`, and one design question that arrived with them.
@@ -84,3 +84,10 @@ version's export copy is made, attributed to members, the per-author summary on 
 row and the changes by author opened from Version History (`files.versionChanges`).
 `packages/data-access/src/pii-registry.ts` and `tooling/lint-list-pagination` each gain one
 entry; `vp run worktrees` shows no other stream on them.
+
+Eleventh round, forced by the pre-push hook: the docs assembly on `main` rendered links one
+directory off (changelog fragments into the root changelog, pending decisions into their numbered
+files), `lint:doc-links` refused the rendered files, and no branch could push. The assembler now
+rebases links to where the text lands; the rendered files on `main` are repaired here, which
+touches `CHANGELOG.md` and `docs/public-changelog.md` by exception (a mechanical link repair the
+next assembly on `main` preserves, since it folds new entries into the file it finds).

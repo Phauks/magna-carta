@@ -78,8 +78,8 @@ billing. Each row's matter is a link to that matter's own Fees section, and **Ne
 there too: because the screen is not standing on a matter, the first field is the matter, and nothing
 is pre-filled.
 
-New guide: [The firm's fees](docs/user/features/the-firms-fees.md). Updated guide: [A matter's money
-sections](docs/user/features/matter-money-sections.md).
+New guide: [The firm's fees](user/features/the-firms-fees.md). Updated guide: [A matter's money
+sections](user/features/matter-money-sections.md).
 
 - **Your firm can connect its postage account and use it** — compare rates, buy a label, track the parcel, and refund one you did not use. Postage lands on the matter as a recoverable cost, as it always did.
 
@@ -129,7 +129,7 @@ it, and every change is recorded in your firm's audit log with what was changed 
 never anybody's name beyond the person who made the change.
 
 The screens for this are still being built; what the settings mean is described in
-[Notification emails](features/notification-emails.md).
+[Notification emails](user/features/notification-emails.md).
 
 - **A firm can record a client's telephone number.** It could not before. `directory_email`,
   `directory_phone` and `directory_address` had been in the schema since the baseline migration with
@@ -484,7 +484,7 @@ that arrives afterwards. And a rule asking to file without confirmation is refus
 firm has not enabled that, rather than being accepted and quietly doing something else.
 
 The screens for all of this are still being built; what a rule does once it exists is described in
-[Filing email to a matter](features/filing-email-to-a-matter.md).
+[Filing email to a matter](user/features/filing-email-to-a-matter.md).
 
 - **Download the usage report in the format your next step wants.** Firm Usage's Download Report now
   offers plain text or a CSV that opens straight in Excel and other spreadsheets, and every file's
@@ -622,7 +622,7 @@ And nothing about this decides anything for you. An automatic re-check runs a se
 it found. It cannot mark a result reviewed, cleared, or waived — that stays a person's act with that
 person's name on it, and the software is built so that it cannot do otherwise.
 
-New guide: [Automatic conflicts re-checks](docs/user/features/automatic-conflicts-rechecks.md).
+New guide: [Automatic conflicts re-checks](user/features/automatic-conflicts-rechecks.md).
 
 - **A conflicts check now tells you what it searched, what it could not search, and what nobody has
   answered yet — and it will never tell you a matter is safe to accept.**
@@ -646,7 +646,7 @@ behind them yet — the report names each one every time. Describing the procedu
 stand behind if it is ever asked how a matter was screened. A verdict the software produced is not.
 Deciding remains a lawyer's act, and the record says whose.
 
-New guide: [Conflicts reports](docs/user/features/conflicts-reports.md).
+New guide: [Conflicts reports](user/features/conflicts-reports.md).
 
 - **Discovery has screens.** A matter's new **Discovery** section lists the review sets on that case and starts one; the **Discovery** row in the sidebar lists every review set you can open across every case; and opening one gives you its documents and its loads.
 
@@ -744,7 +744,7 @@ Magnus is off until your firm turns it on, and that takes two separate decisions
 allow its information to reach an AI provider at all, and it must enable Magnus specifically. If
 either is missing, the page says which one and who can change it.
 
-Full guide: [Asking Magnus](docs/user/features/asking-magnus.md).
+Full guide: [Asking Magnus](user/features/asking-magnus.md).
 
 - **Magnus is easier to keep in order, and can read the files you hand it.** The list of your
   conversations sorts by date, by name, or by the matter each is kept on. Rename a conversation by
@@ -1026,7 +1026,7 @@ limited to owners and administrators. And **what you save is what you are shown*
 something that cannot be stored as given, it is adjusted on save and the screen tells you exactly what
 was adjusted.
 
-Updated guide: [Conflicts reports](docs/user/features/conflicts-reports.md).
+Updated guide: [Conflicts reports](user/features/conflicts-reports.md).
 
 - **Your firm sets its own file-scanning policy.** Settings · File Safety & Scanning now works: choose how much of the scanner's rule set an upload is checked against, how confident a suspicious match has to be before it counts, and what your firm can do with a file the scanner flags — hold it, ask before opening it, or allow it with a mark. A flagged file is never deleted, whichever you choose.
 
@@ -1562,7 +1562,7 @@ keeps somebody who has merely seen your code from joining your firm in your plac
 **Coming back later costs nothing.** An account with no firm yet is a real account: it signs in, it
 can reset its password, and it returns to the same welcome screen until you are ready to choose.
 
-What the screens do is described in [Joining Magna Carta](features/joining-magna-carta.md).
+What the screens do is described in [Joining Magna Carta](user/features/joining-magna-carta.md).
 
 - **Settings look and behave like one surface.** Every settings page now scrolls, spaces and lists the same way. Wherever a setting is a choice from a list you can type to narrow it, on every page. The tables under Users, Event Types, Rooms and Resources and both Notifications pages sort by their headers, filter from a right-click on a column, let you choose which columns you see, and count what they show. The Versions page shows exactly what the version chip at the top of the screen shows, with more room: every part of the platform, whether the page and the server agree, and whether your firm's records can be reached. Under Beta Access the switch stays off if you cancel joining, and the heading reads Beta Branch. Under File Safety the scan depth reads Core, Extended or Full, with the engine every upload is scanned by and what the chosen depth means shown beneath it. Under Matter Numbering the parts of a scheme are a table: move a part with the arrows at the start of its row, remove it at the end, and choose a common shape from the Matter Numbering Scheme field.
 - **Folders in the calendar list collapse.** A firm with twenty conference rooms no longer scrolls past all twenty to reach the folder underneath. Press a folder's name to fold it; the tick beside the name still turns every calendar in it on or off while it is folded, and a folded folder shows how many of its calendars are switched on so nothing disappears quietly. What you fold is remembered on that browser.
