@@ -17,7 +17,8 @@ export type RateLimitBucket =
   | "auth"
   | "expensive"
   | "incident-report"
-  | "guest-arrival";
+  | "guest-arrival"
+  | "meeting-question-upvote";
 
 export interface RouteMeta {
   operationId: string; // 'subsystem.action' — ^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$
@@ -39,6 +40,18 @@ export interface RouteMeta {
   // control-plane table, tenant-scoped in the key. Read only by the chokepoint idempotency port;
   // not emitted into the contract (an internal routing fact, not part of the public API surface).
   idempotencyStore?: "firm" | "control";
+  // What a required-idempotency route's stored fingerprint is computed over. Defaults to "request":
+  // the method, the path and the canonical body, so a key reused for a different body is refused
+  // 422 before the handler runs. "path" leaves the BODY out, for a route whose body is something the
+  // stored record must not be able to give back: the fingerprint is an unsalted digest kept beside
+  // the response, and a body drawn from a small set — a choice among a poll's ten options — is
+  // recovered from it by hashing each candidate. The price is stated where it is paid: a retry under
+  // the same key with a different body is no longer told apart, and is answered as the first was.
+  // A "path" route also takes no pre-decision from the gate: its stored response is a pointer rather
+  // than the reply, so the handler's own commit path re-reads the record and answers a retry from
+  // it. Read only by the chokepoint idempotency port; not emitted into the contract, like
+  // idempotencyStore.
+  idempotencyFingerprint?: "request" | "path";
   rateLimit: RateLimitBucket;
   // What this route does with a session that carries NO firm — the state a person is in between
   // making an account and resolving what it is (founding a firm, or redeeming an invitation).

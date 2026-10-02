@@ -157,8 +157,8 @@ const writeErrors = {
   ...commonErrors,
   409: {
     description:
-      "The meeting has ended, the caller is not in it, the queue is full, or a request with this " +
-      "Idempotency-Key is in progress",
+      "The meeting has ended, the caller is not in it, the queue is full, the question has been " +
+      "taken back, or a request with this Idempotency-Key is in progress",
     content: { "application/problem+json": { schema: Problem } },
   },
   422: {
@@ -232,8 +232,11 @@ const listRoute = defineOpenAPIRoute(readMeta("listQuestions"), {
     "A meeting's question queue, oldest first and paged on (asked_at, id) — the record's own stable " +
     "key. Sort by upvotes in the client over the page it holds: a cursor over a count that changes " +
     "while the reader pages would repeat and skip rows. `since` with `sinceId` continues from the " +
-    "last question a panel holds, on the same key as the cursor. A question that has been taken " +
-    "back is still returned, with an empty body beside who removed it and when.",
+    "last question a panel holds, on the same key as the cursor. `since` alone is INCLUSIVE — it " +
+    "returns every question asked at or after that instant, so one committed in the same " +
+    "millisecond as the last one held is never skipped — and the caller drops the ids it already " +
+    "holds. A question that has been taken back is still returned, with an empty body beside who " +
+    "removed it and when.",
   request: { params: meetingIdParam, query: listQuestionsQuery },
   responses: {
     200: {
@@ -244,12 +247,22 @@ const listRoute = defineOpenAPIRoute(readMeta("listQuestions"), {
   },
 });
 
-const upvoteRoute = defineOpenAPIRoute(writeMeta("upvoteQuestion", JOIN), {
+// THE UPVOTE AND ITS WITHDRAWAL SPEND A BUCKET OF THE MEMBER'S OWN. Both are one tap, a panel
+// re-reads the question after each, and a browser looping on the pair would otherwise spend the
+// firm's whole default budget — every colleague's next read refused for an act that was not theirs.
+// The chokepoint keys this bucket by the member within the firm (rate-limiter.ts).
+function upvoteMeta(action: string): RouteMeta {
+  return { ...writeMeta(action, JOIN), rateLimit: "meeting-question-upvote" };
+}
+
+const upvoteRoute = defineOpenAPIRoute(upvoteMeta("upvoteQuestion"), {
   method: "post",
   path: "/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes",
   description:
     "Upvotes a question from the caller's open stay. One per member, and idempotent: a member who " +
-    "has already upvoted it — from this stay or an earlier one — answers 200 unchanged.",
+    "has already upvoted it — from this stay or an earlier one — answers 200 unchanged. A " +
+    "question that has been taken back takes no upvotes: 409. Upvoting and withdrawing share a " +
+    "rate limit of the caller's own, apart from the firm's.",
   request: { params: questionParams, headers: idempotencyKeyHeader },
   responses: {
     200: {
@@ -260,12 +273,13 @@ const upvoteRoute = defineOpenAPIRoute(writeMeta("upvoteQuestion", JOIN), {
   },
 });
 
-const withdrawRoute = defineOpenAPIRoute(writeMeta("withdrawQuestionUpvote", JOIN), {
+const withdrawRoute = defineOpenAPIRoute(upvoteMeta("withdrawQuestionUpvote"), {
   method: "post",
   path: "/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes/withdrawal",
   description:
     "Takes the caller's upvote back — an upvote that cannot be withdrawn is a vote, not a signal. " +
-    "A member with no upvote on it answers 200 unchanged.",
+    "A member with no upvote on it answers 200 unchanged. Still allowed on a question that has " +
+    "been taken back, so a member can always clear a signal they gave.",
   request: { params: questionParams, headers: idempotencyKeyHeader },
   responses: {
     200: {
@@ -346,6 +360,15 @@ function questionErrorResponse(
       return problemJson(c, {
         type: "meeting-question-limit-reached",
         title: "This meeting's question queue is full",
+        status: 409,
+        detail: caught.message,
+      });
+    // Taken back: what was asked is gone, so there is nothing left to agree with. The generic
+    // conflict type, on chat's precedent that nothing more is done to content once it is removed.
+    case "meeting-question-redacted":
+      return problemJson(c, {
+        type: "conflict",
+        title: "This question has been taken back",
         status: 409,
         detail: caught.message,
       });

@@ -36,7 +36,7 @@ import {
   GUEST_SOCKET_OPERATION_ID,
   guestCredentialFromSocketProtocols,
 } from "../meetings/guest-token.ts";
-import type { RateLimiter, RateLimitVerdict } from "./rate-limiter.ts";
+import { MEMBER_SCOPED_BUCKETS, type RateLimiter, type RateLimitVerdict } from "./rate-limiter.ts";
 
 // What resolveSession yields: the authenticated principal and the firm it is scoped to (from the
 // session cookie — never the URL). Mirrors session-context.ts's SessionContext; redeclared here so
@@ -401,11 +401,17 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           // A GUEST is keyed by the INVITATION rather than by the firm: one shared link is one
           // bucket however many people hold it, and a guest's traffic cannot spend the firm's.
           const guestGrant = c.get("chokepointGuestGrant") as ChokepointGuestGrant | undefined;
+          // A MEMBER-SCOPED bucket is keyed by the session's own user within its firm, for an act
+          // whose abuse is one person's: a member looping on it meets their own ceiling and leaves
+          // the firm's budget to everybody else. Both halves come from the resolved session.
+          const userId = c.get("chokepointUserId") as UserId | undefined;
           const rateLimitKey =
             guestGrant !== undefined
               ? `guest:${guestGrant.invitationId}`
               : firmId !== undefined
-                ? `firm:${firmId}`
+                ? MEMBER_SCOPED_BUCKETS.has(meta.rateLimit) && userId !== undefined
+                  ? `member:${firmId}:${userId}`
+                  : `firm:${firmId}`
                 : clientRateLimitKey(c);
           const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
           if (!verdict.allowed) {

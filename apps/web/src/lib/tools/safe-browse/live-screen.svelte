@@ -273,7 +273,12 @@
 >
   <!-- The canvas scales the remote screen to fit and centres it; remotePoint allows for that fit
        when it maps a click back onto the remote page. Hidden while there is no live frame, so a
-       stopped stream's last picture never passes for a working screen. -->
+       stopped stream's last picture never passes for a working screen.
+       The canvas IS the remote browser's whole surface: it takes focus, every key and every pointer
+       event, and forwards them, which is exactly what role="application" tells assistive technology
+       — stop interpreting keys and hand them to the page. Svelte's rule reads a canvas as
+       non-interactive by default; this one is the interactive element. -->
+  <!-- svelte-ignore a11y_no_interactive_element_to_noninteractive_role -->
   <canvas
     bind:this={canvas}
     tabindex={client.showing ? 0 : -1}

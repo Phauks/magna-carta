@@ -14,6 +14,10 @@ export type MeetingQuestionValidationCode =
   | "meeting-question-empty"
   // The meeting's queue already holds as many questions as a queue may.
   | "meeting-question-limit-reached"
+  // The question has been taken back. Nothing is left to agree with, and an upvote landing on a
+  // blanked row would move a count beside words nobody can read — so the act is refused rather than
+  // recorded, as nothing further is done to a chat message once it has been removed.
+  | "meeting-question-redacted"
   // Somebody else's question, and the caller is not hosting. A host moderates the room and an author
   // takes back their own words; a third member does neither.
   | "meeting-question-not-redactable";

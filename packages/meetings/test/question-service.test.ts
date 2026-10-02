@@ -12,6 +12,7 @@ import {
   upvoteMeetingQuestion,
   withdrawMeetingQuestionUpvote,
 } from "../src/question-service.ts";
+import { listMeetingQuestions } from "../src/question-statements.ts";
 import { MAX_MEETING_QUESTIONS, MAX_MEETING_QUESTION_LENGTH } from "../src/question-types.ts";
 import {
   FIRST_OF_CROWD,
@@ -238,6 +239,106 @@ describe("upvoting", () => {
       (await readMeetingQuestionEntry(database.database, meetingId, questionId, GUEST))?.upvotes,
     ).toBe(1);
   });
+
+  it("refuses an upvote on a question that has been taken back, and still lets one be withdrawn", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    await join(database, meetingId);
+    await join(database, meetingId, FIRST_OF_CROWD);
+    const questionId = await ask(database, meetingId, "Wrong window, ignore that.");
+    const early = await upvoteMeetingQuestion(
+      database.database,
+      meetingId,
+      questionId,
+      optionsFor(FIRST_OF_CROWD),
+    );
+    await commit(database.database, early.effect);
+    const redaction = await redactMeetingQuestion(
+      database.database,
+      meetingId,
+      questionId,
+      options,
+    );
+    await commit(database.database, redaction.effect);
+
+    // Nothing is left to agree with: the act is refused rather than recorded against blanked words.
+    await expect(
+      upvoteMeetingQuestion(database.database, meetingId, questionId, optionsFor(GUEST)),
+    ).rejects.toMatchObject({ code: "meeting-question-redacted" });
+    expect(
+      (await readMeetingQuestionEntry(database.database, meetingId, questionId, GUEST))?.upvotes,
+    ).toBe(1);
+
+    // An upvote given before the taking-back is still the member's to clear, and asking again for
+    // what already holds is answered as the success it is.
+    const repeated = await upvoteMeetingQuestion(
+      database.database,
+      meetingId,
+      questionId,
+      optionsFor(FIRST_OF_CROWD),
+    );
+    expect(repeated.upvoted).toBe(false);
+    const withdrawn = await withdrawMeetingQuestionUpvote(
+      database.database,
+      meetingId,
+      questionId,
+      optionsFor(FIRST_OF_CROWD),
+    );
+    expect(withdrawn.withdrawn).toBe(true);
+    await commit(database.database, withdrawn.effect);
+    expect(
+      (await readMeetingQuestionEntry(database.database, meetingId, questionId, GUEST))?.upvotes,
+    ).toBe(0);
+  });
+
+  it("records a withdrawal against the stay the upvote was cast from, not the stay withdrawing it", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    await join(database, meetingId);
+    const questionId = await ask(database, meetingId, "Can we adjourn?");
+    const upvote = await upvoteMeetingQuestion(
+      database.database,
+      meetingId,
+      questionId,
+      optionsFor(GUEST),
+    );
+    await commit(database.database, upvote.effect);
+
+    const left = await leaveMeeting(database.database, meetingId, optionsFor(GUEST));
+    await commit(database.database, left.effect);
+    await join(database, meetingId);
+    const withdrawal = await withdrawMeetingQuestionUpvote(
+      database.database,
+      meetingId,
+      questionId,
+      optionsFor(GUEST),
+    );
+    await commit(database.database, withdrawal.effect);
+
+    const stays = database.raw
+      .prepare(
+        `SELECT id, left_at AS leftAt FROM meeting_attendance WHERE meeting_id = ? AND user_id = ? ` +
+          `ORDER BY left_at IS NULL, joined_at`,
+      )
+      .all(meetingId, GUEST) as { id: string; leftAt: string | null }[];
+    expect(stays).toHaveLength(2);
+    const [castFrom, current] = stays;
+    expect(castFrom?.leftAt).not.toBeNull();
+    expect(current?.leftAt).toBeNull();
+
+    const rows = database.raw
+      .prepare(`SELECT event, metadata FROM audit_log WHERE event LIKE 'meetings.question.upvote%'`)
+      .all() as { event: string; metadata: string }[];
+    const stayOf = (event: string): unknown => {
+      const row = rows.find((one) => one.event === event);
+      return row === undefined
+        ? undefined
+        : (JSON.parse(row.metadata) as { participantId?: unknown }).participantId;
+    };
+    expect(stayOf("meetings.question.upvoted")).toBe(castFrom?.id);
+    expect(stayOf("meetings.question.upvoteWithdrawn")).toBe(castFrom?.id);
+    expect(stayOf("meetings.question.upvoteWithdrawn")).not.toBe(current?.id);
+  });
 });
 
 describe("marking a question answered", () => {
@@ -377,6 +478,74 @@ describe("the queue", () => {
     );
     expect(following.map((entry) => entry.id)).toEqual(ids.slice(3));
     expect(walked.map((entry) => entry.id)).toEqual(following.map((entry) => entry.id));
+  });
+
+  it("reads `since` alone inclusively, so a question committed in the same millisecond is never skipped", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    // Both asked inside one instant — the fixed clock — which is ordinary in a room of three hundred.
+    const first = await ask(database, meetingId, "The first of the two");
+    const second = await ask(database, meetingId, "The second, in the same millisecond");
+    const held = await readMeetingQuestionEntry(database.database, meetingId, first, HOST);
+    expect(held?.askedAt).toBe(clock.now());
+
+    // A panel holding only the first, following the queue by its instant: the second must arrive. A
+    // strict comparison returned nothing here, and no later read would ever have started before it.
+    const following = await listMeetingQuestionEntries(
+      database.database,
+      meetingId,
+      { limit: 10, since: held?.askedAt },
+      options,
+    );
+    const ids = following.map((entry) => entry.id);
+    expect(ids).toContain(second);
+    // The row at the instant already held comes back too; the caller drops the ids it holds.
+    expect(ids).toContain(first);
+  });
+
+  it("serves the incremental reads and the walk from the (meeting, asked_at, id) index, with no sort", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    fillQueue(database, meetingId, 40);
+
+    // Every SQL text the list read prepares, captured on its way to the database.
+    const captured: string[] = [];
+    const target = database.database;
+    const recording = new Proxy(target, {
+      get(object, property) {
+        if (property === "prepare") {
+          return (sql: string) => {
+            captured.push(sql);
+            return object.prepare(sql);
+          };
+        }
+        const value: unknown = Reflect.get(object, property, object);
+        return typeof value === "function" ? (value as () => unknown).bind(object) : value;
+      },
+    });
+    const at = "2026-09-18T11:00:00.000Z";
+    const position = { createdAt: at, id: "meetingQuestion_seeded000010" };
+    await listMeetingQuestions(recording, meetingId, { limit: 10 });
+    await listMeetingQuestions(recording, meetingId, { limit: 10, since: at });
+    await listMeetingQuestions(recording, meetingId, {
+      limit: 10,
+      since: at,
+      sinceId: position.id,
+    });
+    await listMeetingQuestions(recording, meetingId, { limit: 10, cursor: position });
+    expect(captured).toHaveLength(4);
+
+    for (const sql of captured) {
+      const plan = (
+        database.raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[]
+      ).map((row) => row.detail);
+      const onQuestions = plan.filter((detail) => /\bmeeting_question\b(?!_)/.test(detail));
+      expect(onQuestions.join(" | ")).toMatch(
+        /USING (COVERING )?INDEX meeting_question_meeting_asked_index/,
+      );
+      // The ORDER BY is the index's own order: a temporary sort would be a pass over the queue.
+      expect(plan.join(" | ")).not.toMatch(/TEMP B-TREE/);
+    }
   });
 });
 

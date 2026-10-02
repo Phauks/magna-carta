@@ -305,28 +305,40 @@ const closeRoute = defineOpenAPIRoute(writeMeta("closePoll", HOST), {
   },
 });
 
-const answerRoute = defineOpenAPIRoute(writeMeta("answerPoll", JOIN), {
-  method: "post",
-  path: "/api/v1/meetings/{meetingId}/polls/{pollId}/answers",
-  description:
-    "Answers a poll from the caller's open stay — being in the room is the whole of the " +
-    "permission, so a member who has left is answered as one who is not in the meeting. One " +
-    "participation per member per poll, however many options it chooses, and an answer cannot " +
-    "be changed: a second is 409 `meeting-poll-already-answered`, including from a later stay " +
-    "after leaving and rejoining.",
-  request: {
-    params: pollParams,
-    headers: idempotencyKeyHeader,
-    body: { content: { "application/json": { schema: AnswerPollRequest } }, required: true },
-  },
-  responses: {
-    200: {
-      description: "The answer is on the record; the poll as the caller now sees it",
-      content: { "application/json": { schema: MeetingPoll } },
+// THE ANSWER'S IDEMPOTENCY RECORD KEEPS NOTHING THE CHOICE COULD BE READ BACK OUT OF. The default
+// fingerprint is an unsalted digest over the body, and a body that is a choice among at most ten
+// options is recovered from it by hashing each candidate — next to an instant that sits beside the
+// respondent row naming the stay. So this route is fingerprinted over its path alone, and its stored
+// response is the poll's handle alone (see the handler). The trade: a retry under the same key that
+// carries DIFFERENT choices is not told apart from the first request and is answered as it was —
+// which can never record a second answer, because an answer cannot be changed.
+const answerRoute = defineOpenAPIRoute(
+  { ...writeMeta("answerPoll", JOIN), idempotencyFingerprint: "path" },
+  {
+    method: "post",
+    path: "/api/v1/meetings/{meetingId}/polls/{pollId}/answers",
+    description:
+      "Answers a poll from the caller's open stay — being in the room is the whole of the " +
+      "permission, so a member who has left is answered as one who is not in the meeting. One " +
+      "participation per member per poll, however many options it chooses, and an answer cannot " +
+      "be changed: a second is 409 `meeting-poll-already-answered`, including from a later stay " +
+      "after leaving and rejoining. A retry under the same Idempotency-Key is answered with the " +
+      "poll as it stands now, whatever choices the retry carries: the key's record keeps nothing " +
+      "the choice could be read back out of, so it cannot tell two bodies apart.",
+    request: {
+      params: pollParams,
+      headers: idempotencyKeyHeader,
+      body: { content: { "application/json": { schema: AnswerPollRequest } }, required: true },
     },
-    ...writeErrors,
+    responses: {
+      200: {
+        description: "The answer is on the record; the poll as the caller now sees it",
+        content: { "application/json": { schema: MeetingPoll } },
+      },
+      ...writeErrors,
+    },
   },
-});
+);
 
 const answersRoute = defineOpenAPIRoute(readMeta("listPollAnswers", HOST), {
   method: "get",
@@ -463,7 +475,7 @@ function snapshotOf(poll: MeetingPollEntry): MeetingPollSnapshot {
 }
 
 type PollOutcome =
-  | { ok: true; pollId: string; executed: boolean }
+  | { ok: true; pollId: string; executed: boolean; replayed: boolean }
   | {
       ok: false;
       problem:
@@ -473,6 +485,16 @@ type PollOutcome =
         | ProblemResponse<422>;
     };
 
+/** What one poll write composed: the poll it is about, and what its idempotency record keeps. */
+interface ComposedPollWrite {
+  readonly pollId: MeetingPollId;
+  readonly responseCode: number;
+  // What `idempotency_key.response_body` holds. Never the words (pollWithoutWords), and on the
+  // answer route not even the counts — only the handle, re-read on a retry (answerRoute).
+  readonly responseBody: string;
+  readonly effect: EffectWrite;
+}
+
 /**
  * Runs one poll write through the idempotency gate, mapping both refusal vocabularies — the room's
  * and the poll's — and the races the database settles.
@@ -480,7 +502,8 @@ type PollOutcome =
  * `executed` says whether THIS request committed anything, which is what decides whether the room is
  * told: a replay committed nothing, and telling the room twice would put a second copy of a poll on
  * every screen. A close that produced no statements (the poll was already closed) is executed but
- * reports `changed: false` through the service, and the caller does not relay it either.
+ * reports `changed: false` through the service, and the caller does not relay it either. `replayed`
+ * says the answer came from an earlier request's record, which the response header repeats.
  *
  * A CLOSE THAT LOST A RACE IS A SUCCESS: another host closed it in the same instant, which is the
  * state asked for. AN ANSWER THAT LOST ONE IS NOT: the guard matched nothing because the poll closed
@@ -491,7 +514,7 @@ async function commitPollEffect(
   database: BatchDatabase,
   idempotency: { key: string | undefined; fingerprint: string },
   meetingId: MeetingId,
-  call: () => Promise<{ poll: MeetingPollEntry; responseCode: number; effect: EffectWrite }>,
+  call: () => Promise<ComposedPollWrite>,
 ): Promise<PollOutcome> {
   let composed: { pollId: MeetingPollId } | undefined;
   let result;
@@ -502,13 +525,9 @@ async function commitPollEffect(
       fingerprint: idempotency.fingerprint,
       now: () => new Date().toISOString(),
       effect: async () => {
-        const { poll, responseCode, effect } = await call();
-        composed = { pollId: poll.id };
-        return {
-          write: effect,
-          responseCode,
-          responseBody: canonicalJsonStringify(pollWithoutWords(poll)),
-        };
+        const { pollId, responseCode, responseBody, effect } = await call();
+        composed = { pollId };
+        return { write: effect, responseCode, responseBody };
       },
     });
   } catch (caught) {
@@ -520,7 +539,7 @@ async function commitPollEffect(
     }
     if (caught instanceof GuardedWriteRefusedError && composed !== undefined) {
       if (caught.guard === CLOSE_POLL_GUARD) {
-        return { ok: true, pollId: composed.pollId, executed: false };
+        return { ok: true, pollId: composed.pollId, executed: false, replayed: false };
       }
       if (caught.guard === ANSWER_POLL_GUARD) {
         const reason = await answerRefusalReason(database, meetingId, composed.pollId);
@@ -557,8 +576,15 @@ async function commitPollEffect(
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
     return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
   }
+  // Every stored body carries the handle under `id` — the whole poll on the open and the close, the
+  // handle alone on an answer — and the handle is all a retry needs to read the record again.
   const stored = JSON.parse(result.responseBody ?? "{}") as { id: string };
-  return { ok: true, pollId: stored.id, executed: result.kind === "executed" };
+  return {
+    ok: true,
+    pollId: stored.id,
+    executed: result.kind === "executed",
+    replayed: result.kind === "replayed",
+  };
 }
 
 /**
@@ -609,7 +635,12 @@ export function registerMeetingPollRoutes(
             body,
             pollOptions(c),
           );
-          return { poll: opened.poll, responseCode: 201, effect: opened.effect };
+          return {
+            pollId: opened.poll.id,
+            responseCode: 201,
+            responseBody: canonicalJsonStringify(pollWithoutWords(opened.poll)),
+            effect: opened.effect,
+          };
         },
       );
       if (!outcome.ok) return outcome.problem;
@@ -727,12 +758,15 @@ export function registerMeetingPollRoutes(
             pollOptions(c),
           );
           return {
-            poll: {
-              ...current,
-              closedAt: closing.poll.closed_at,
-              closedByUserId: closing.poll.closed_by_user_id,
-            },
+            pollId: current.id,
             responseCode: 200,
+            responseBody: canonicalJsonStringify(
+              pollWithoutWords({
+                ...current,
+                closedAt: closing.poll.closed_at,
+                closedByUserId: closing.poll.closed_by_user_id,
+              }),
+            ),
             effect: closing.effect,
           };
         },
@@ -785,24 +819,22 @@ export function registerMeetingPollRoutes(
             { optionIds },
             pollOptions(c),
           );
-          // The poll as it stood before this answer, marked answered: what is stored for a retry is
-          // the record's shape, and the settled counts are read after the commit below.
-          const before = await readMeetingPollEntry(
-            firm.firmDatabase,
-            meetingId as MeetingId,
-            pollId as MeetingPollId,
-            pollOptions(c),
-          );
+          // THE HANDLE AND NOTHING ELSE is kept for a retry. The poll's counts as they stood a moment
+          // before this answer, stored here and again beside the next member's answer, would let
+          // anybody holding the table subtract one body from the next and read each choice off the
+          // difference — on a poll that promised not to show names. A retry reads the poll afresh.
           return {
-            poll: { ...before, answeredByCaller: true },
+            pollId: pollId as MeetingPollId,
             responseCode: 200,
+            responseBody: canonicalJsonStringify({ id: pollId }),
             effect,
           };
         },
       );
       if (!outcome.ok) return outcome.problem;
       // THE INSTANT IS TAKEN BEFORE THE READ, so a read that started later has seen every commit an
-      // earlier one saw — which is what lets the room keep the latest tally by this instant alone.
+      // earlier one saw. The room orders a poll's tallies by respondents, which only grow, and keeps
+      // the instant beside them for the frame.
       const readAt = new Date().toISOString();
       const poll = await pollOnTheRecord(
         c,
@@ -810,6 +842,9 @@ export function registerMeetingPollRoutes(
         meetingId as MeetingId,
         outcome.pollId,
       );
+      // A retry is answered from the record as it stands now, and says so the way every other
+      // replayed request does.
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       if (outcome.executed) {
         await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).pollAnswered(poll.id, {
           counts: poll.options.map((option) => ({

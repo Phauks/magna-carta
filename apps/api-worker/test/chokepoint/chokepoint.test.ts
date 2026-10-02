@@ -22,6 +22,7 @@ import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-li
 const FIRM_ALPHA = "firm_alpha0000000000000" as FirmId;
 const FIRM_BRAVO = "firm_bravo0000000000000" as FirmId;
 const USER_ONE = "user_one00000000000000" as UserId;
+const USER_TWO = "user_two00000000000000" as UserId;
 
 const MANAGE_MEMBERS = assertPermission("firm:manageMembers");
 
@@ -592,5 +593,49 @@ describe("createChokepoint — real in-memory limiter integration", () => {
       lastStatus = (await app.request("/api/v1/members", { method: "POST" })).status;
     }
     expect(lastStatus).toBe(429);
+  });
+});
+
+describe("createChokepoint — a member-scoped bucket", () => {
+  const upvoteMeta: RouteMeta = { ...authedMeta, rateLimit: "meeting-question-upvote" };
+
+  it("keys the bucket by the session's own user within its firm", async () => {
+    const one = buildChokepoint({ session: { userId: USER_ONE, firmId: FIRM_ALPHA } });
+    const two = buildChokepoint({ session: { userId: USER_TWO, firmId: FIRM_ALPHA } });
+    await mountedApp(one.chokepoint, upvoteMeta, one.trace).request("/api/v1/members", {
+      method: "POST",
+    });
+    await mountedApp(two.chokepoint, upvoteMeta, two.trace).request("/api/v1/members", {
+      method: "POST",
+    });
+    expect(one.rateLimitKeys[0]).toBe(`member:${FIRM_ALPHA}:${USER_ONE}`);
+    expect(two.rateLimitKeys[0]).toBe(`member:${FIRM_ALPHA}:${USER_TWO}`);
+  });
+
+  it("refuses one member's loop at its own ceiling and leaves the firm's budget and a colleague's alone", async () => {
+    const rateLimiter = createInMemoryRateLimiter({ now: () => 0 });
+    let session: ResolvedSession = { userId: USER_ONE, firmId: FIRM_ALPHA };
+    const ports: ChokepointPorts<FakeFirmContext> = {
+      resolveSession: async () => session,
+      resolveFirmContext: async () => ({ firmId: FIRM_ALPHA }),
+      loadPermissions: async () => new Set<Permission>([MANAGE_MEMBERS]),
+      idempotency: { middlewareFor: () => null },
+      rateLimiter,
+    };
+    const chokepoint = createChokepoint(ports);
+    const trace: Trace = { steps: [] };
+    const upvote = mountedApp(chokepoint, upvoteMeta, trace);
+    const ordinary = mountedApp(chokepoint, authedMeta, trace);
+
+    let lastStatus = 0;
+    for (let request = 0; request < BUCKETS["meeting-question-upvote"].limit + 1; request++) {
+      lastStatus = (await upvote.request("/api/v1/members", { method: "POST" })).status;
+    }
+    expect(lastStatus).toBe(429);
+    // The same member's ordinary request spends the firm's bucket, which the loop never touched.
+    expect((await ordinary.request("/api/v1/members", { method: "POST" })).status).toBe(200);
+    // And a colleague's upvote meets a bucket of their own.
+    session = { userId: USER_TWO, firmId: FIRM_ALPHA };
+    expect((await upvote.request("/api/v1/members", { method: "POST" })).status).toBe(200);
   });
 });
