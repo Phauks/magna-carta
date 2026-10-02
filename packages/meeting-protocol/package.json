@@ -1,0 +1,22 @@
+{
+  "name": "@magna-carta/meeting-protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./frames": "./src/frames.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

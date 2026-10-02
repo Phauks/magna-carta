@@ -12,11 +12,15 @@ import type {
   MeetingId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { isGuestStayHandle } from "./guest-removal.ts";
+import { closeGuestStayAfterSocketLoss } from "./guest-service.ts";
 import {
   closeAllAttendanceStatement,
+  closeAllGuestStaysStatement,
   closeAttendanceStatement,
   countOpenAttendance,
   endMeetingStatement,
+  endScheduledMeetingStatement,
   insertAttendanceUnderCapStatement,
   insertMeetingStatement,
   readAttendance,
@@ -27,10 +31,23 @@ import {
   startMeetingStatement,
 } from "./meeting-statements.ts";
 import {
+  countWaitingAttendance,
+  insertWaitingAttendanceUnderCapStatement,
+} from "./lobby-statements.ts";
+import { isWaiting } from "./lobby-service.ts";
+import { MAX_MEETING_LOBBY, type MeetingLobbyMode } from "./lobby-types.ts";
+import {
+  insertHostGrantStatement,
+  readBarredStay,
+  readLiveHostGrant,
+} from "./hosting-statements.ts";
+import { requireHostGrant } from "./hosting-service.ts";
+import {
   MAX_MEETING_PARTICIPANTS,
   type MeetingDepartureReason,
   type MeetingEventKind,
   type MeetingMedium,
+  type MeetingParticipantHandle,
   type MeetingRow,
 } from "./types.ts";
 import { refuse } from "./validation.ts";
@@ -53,10 +70,39 @@ import { refuse } from "./validation.ts";
  */
 export const JOIN_CAPACITY_GUARD = "meeting.join.capacity";
 
+/**
+ * The label the DOOR's insert carries, which is a different ceiling and a different answer.
+ *
+ * A full room needs somebody to leave; a full lobby needs a host to look at the list. One label for
+ * both would leave the route unable to tell a member which of the two happened.
+ */
+export const JOIN_LOBBY_CAPACITY_GUARD = "meeting.join.lobbyCapacity";
+
+/** The label the host's own ending carries, for the same reason the one above is named here. */
+export const END_MEETING_GUARD = "meeting.end";
+
+/**
+ * The label the ending a CANCELLED EVENT drags behind it carries.
+ *
+ * Its own label rather than the one above, because the two refusals mean opposite things to the
+ * caller. A host's ending that matches no row met a meeting somebody else already closed. A
+ * cancellation's closing that matches no row met a meeting that is now LIVE — somebody walked into
+ * the room between the cancel's read and its commit — or one the host closed in the same window, and
+ * those two are a refusal and a success respectively. One label for both would leave the calendar
+ * route unable to tell them apart, which is the whole of why it exists.
+ */
+export const CANCEL_CLOSING_GUARD = "meeting.cancelClosing";
+
 // WHAT A MEETING IS WHEN NOBODY SAID. Video, because that is what every meeting started before calls
 // existed was, and because the narrower answer is the one a member has to ask for rather than the one
 // they are given by a caller that has not been updated.
 const DEFAULT_MEETING_MEDIUM = "video" satisfies MeetingMedium;
+
+// AND WHETHER ARRIVALS WAIT WHEN NOBODY SAID. Off, because every participant today is a firm member
+// arriving at an event they are on, and a lobby on by default would put a colleague in a queue for
+// every ordinary hearing. Unlike the medium, a host may change it afterwards — see `setMeetingLobby`
+// in ./lobby-service.ts.
+const DEFAULT_MEETING_LOBBY = "off" satisfies MeetingLobbyMode;
 
 // The two labels the departure audit row carries, named once so the two write paths cannot drift on
 // a string.
@@ -81,6 +127,11 @@ export interface CreateMeetingInput {
   // holds the medium to what was chosen, and the choice is made once — see the note below on why a
   // meeting's medium never changes.
   readonly medium?: MeetingMedium;
+  // Whether arrivals wait at a door. Read ONLY when this request opens the room — one meeting per
+  // event, so the first Start decides and a second one asking differently gets the room that exists.
+  // A host changes it afterwards through `setMeetingLobby`, which is the difference between this
+  // setting and the medium above.
+  readonly lobby?: MeetingLobbyMode;
 }
 
 /**
@@ -124,21 +175,70 @@ export async function createMeeting(
     };
   }
 
+  return {
+    ...openMeetingOnEvent(database, { ...input, matterId: event.matter_id }, options),
+    created: true,
+  };
+}
+
+/**
+ * The room itself, for a caller that has ALREADY answered the questions `createMeeting` reads the
+ * event to answer.
+ *
+ * There is exactly one such caller and it is the reason this is separate: scheduling a meeting is
+ * recording a calendar event with a medium on it, and the route that does both composes them into
+ * ONE batch — so at the moment the room is minted, the event it hangs on has been composed and not
+ * yet committed, and no read can see it. `createMeeting` is the entry point everywhere else and
+ * still answers the walled-matter question the only way it can be answered, by reading.
+ *
+ * It is exported under its own name rather than hidden behind an optional argument on
+ * `createMeeting`, because skipping that read is a decision a caller has to take deliberately: the
+ * caller is asserting that it has just written the event itself, under its own permission check, in
+ * the batch this insert is joining. Nothing else may use it — an id-addressed caller that skipped
+ * the read would be a hole in the gate a member's matter wall is believed to close.
+ *
+ * The event's uniqueness is still held underneath either way: one meeting per event is a partial
+ * unique index, so two batches racing to open a room on one event end with one room.
+ */
+export function openMeetingOnEvent(
+  database: SqlDatabase,
+  input: CreateMeetingInput & { readonly matterId: string | null },
+  options: MeetingServiceOptions,
+): { meetingId: MeetingId; effect: EffectWrite } {
   const now = options.clock.now();
   const meetingId = newIdentifier("meeting", options.randomSource);
   const medium = input.medium ?? DEFAULT_MEETING_MEDIUM;
+  const lobby = input.lobby ?? DEFAULT_MEETING_LOBBY;
   return {
     meetingId,
-    created: true,
     effect: {
       statements: [
         insertMeetingStatement(database, {
           id: meetingId,
           eventKind: input.eventKind,
           medium,
+          lobby,
           matterEventId: input.eventKind === "matter" ? (input.eventId as MatterEventId) : null,
           firmEventId: input.eventKind === "firm" ? (input.eventId as FirmEventId) : null,
           createdByUserId: options.actorUserId,
+          now,
+        }),
+        // THE STARTER IS THE HOST, written in the same batch as the room.
+        //
+        // `created_by_user_id` above stays exactly what it is — who opened the room, a fact that
+        // never changes — and is deliberately NOT read as the host: the two are the same person
+        // only until the first hand-over, and a record that conflated them would answer "who was
+        // running the meeting when she was removed" with the name of somebody who had left.
+        //
+        // `granted_by_user_id` is null because nobody gave it. Pressing Start is how this grant
+        // comes to exist, and attributing it to the starter would be the record claiming they
+        // handed the room to themselves.
+        insertHostGrantStatement(database, {
+          id: newIdentifier("meetingHost", options.randomSource),
+          meetingId,
+          userId: options.actorUserId,
+          role: "host",
+          grantedByUserId: null,
           now,
         }),
         domainAuditStatement(database, {
@@ -155,8 +255,9 @@ export async function createMeeting(
             // A closed-vocabulary label, which is what an audit field may carry: it says what kind
             // of gathering this was without saying anything about what happened in it.
             medium,
+            lobby,
             eventId: input.eventId,
-            matterId: event.matter_id,
+            matterId: input.matterId,
           },
         }),
       ],
@@ -178,24 +279,82 @@ export async function joinMeeting(
   database: SqlDatabase,
   meetingId: MeetingId,
   options: MeetingServiceOptions,
-): Promise<{ attendanceId: MeetingAttendanceId; effect: EffectWrite }> {
+): Promise<{ attendanceId: MeetingAttendanceId; waiting: boolean; effect: EffectWrite }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
 
   const open = await readOpenAttendance(database, meetingId, options.actorUserId);
   if (open !== undefined) {
-    return { attendanceId: open.id, effect: { statements: [], outboxMessages: [] } };
+    // Their existing stay back, whichever side of the door it is on — a browser reconnecting at the
+    // door keeps its place in the queue rather than going to the back of it.
+    return {
+      attendanceId: open.id,
+      waiting: isWaiting(open),
+      effect: { statements: [], outboxMessages: [] },
+    };
   }
 
-  // THE CAP, counted over the open stays at this moment rather than over anything stored. Twelve is
-  // a product decision about what a tile grid can show and hear, not a limit of the routing layer;
-  // refusing the thirteenth person with a reason is honest, and a room that admits everybody and
-  // degrades for all of them is not.
+  // A MEMBER A HOST TURNED AWAY DOES NOT COME BACK IN, whether they were put out of the room or
+  // turned away at the door. Asked before the lock, because the two answers are different and this
+  // one is about this member: an unlocked room is still closed to them. It is the MEETING they are
+  // barred from and not the event — a new meeting on the same event is a new room, and a host who
+  // wants them back starts one.
+  const barred = await readBarredStay(database, meetingId, options.actorUserId);
+  if (barred?.ended_reason === "denied") {
+    refuse("meeting-not-admitted", "a host did not admit you to this meeting");
+  }
+  if (barred !== undefined) {
+    refuse("meeting-removed", "you were removed from this meeting");
+  }
+
+  // THE DOOR. A locked room refuses arrivals and touches nobody already in it, which is why this is
+  // after the open-stay read above: a member already in the meeting when it was locked is not
+  // turned out of it by their own browser reconnecting.
+  //
+  // LOCK BEATS THE LOBBY. A locked room is shut to everybody, so there is nothing to queue for and
+  // a waiting stay opened here would be somebody standing outside a door that will not be answered.
+  if (meeting.locked_at !== null) {
+    refuse("meeting-locked", "this meeting is locked");
+  }
+
+  const now = options.clock.now();
+  const attendanceId = newIdentifier("meetingAttendance", options.randomSource);
+
+  // WHOEVER MAY RUN THIS ROOM DOES NOT WAIT. Holding `meetings:host` is deliberately not enough — a
+  // paralegal with the key walking past the door of a confidential matter discussion is exactly what
+  // a host turns the lobby on to prevent — so the question is the GRANT on this meeting, which is
+  // the same authority every host act asks about.
+  const running =
+    meeting.lobby === "on"
+      ? await readLiveHostGrant(database, meetingId, options.actorUserId)
+      : undefined;
+  if (meeting.lobby === "on" && running === undefined) {
+    // THE DOOR'S OWN CEILING, read here for the same reason the room's is read below: this produces
+    // the REASON a member is given, and the insert's guard produces the limit. A queue is not
+    // somewhere a firm should be able to accumulate ten thousand rows.
+    const queued = await countWaitingAttendance(database, meetingId);
+    if (queued >= MAX_MEETING_LOBBY) {
+      refuse(
+        "meeting-lobby-full",
+        `this meeting's lobby is full; it holds ${String(MAX_MEETING_LOBBY)} people`,
+      );
+    }
+    return {
+      attendanceId,
+      waiting: true,
+      effect: waitAtTheDoor(database, meetingId, attendanceId, now, options),
+    };
+  }
+
+  // THE CAP, counted over the stays that are IN THE ROOM at this moment rather than over anything
+  // stored. The number is a product decision about what a tile grid and a browser's bandwidth can
+  // carry, not a limit of the routing layer; refusing the arrival past it with a reason is honest,
+  // and a room that admits everybody and degrades for all of them is not.
   //
   // This read is what produces the REASON. It cannot produce the limit: it is a round trip earlier
-  // than the write, so a dozen browsers pressing Join together all read eleven and all pass. The
-  // insert carries the same count in its own WHERE and is guarded, which is what actually holds the
-  // ceiling — see insertAttendanceUnderCapStatement.
+  // than the write, so a dozen browsers pressing Join together all read the same free seat and all
+  // pass. The insert carries the same count in its own WHERE and is guarded, which is what actually
+  // holds the ceiling — see insertAttendanceUnderCapStatement.
   const present = await countOpenAttendance(database, meetingId);
   if (present >= MAX_MEETING_PARTICIPANTS) {
     refuse(
@@ -204,11 +363,10 @@ export async function joinMeeting(
     );
   }
 
-  const now = options.clock.now();
-  const attendanceId = newIdentifier("meetingAttendance", options.randomSource);
   const firstArrival = meeting.status === "scheduled";
   return {
     attendanceId,
+    waiting: false,
     effect: {
       statements: [
         guarded(
@@ -249,6 +407,51 @@ export async function joinMeeting(
 }
 
 /**
+ * The stay a waiting arrival opens, and what it deliberately does NOT do.
+ *
+ * It does not flip the room live and it writes no `meetings.meeting.started` row: the room becomes
+ * live when the first person is actually IN it, and somebody standing at a door has not started a
+ * meeting. A lobby-on room whose host never arrives therefore keeps a record that says exactly
+ * that — scheduled, with people who waited.
+ *
+ * Its own audit event rather than `joined` with a label, because these are two different facts about
+ * two different instants: the arrival at the door, and the admission that a host decides on later.
+ * A single event with a flag would make "when did this person get into the meeting" a question you
+ * answer by finding the second row anyway.
+ */
+function waitAtTheDoor(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  attendanceId: MeetingAttendanceId,
+  now: string,
+  options: MeetingServiceOptions,
+): EffectWrite {
+  return {
+    statements: [
+      guarded(
+        insertWaitingAttendanceUnderCapStatement(database, {
+          id: attendanceId,
+          meetingId,
+          userId: options.actorUserId,
+          lobbyCapacity: MAX_MEETING_LOBBY,
+          now,
+        }),
+        JOIN_LOBBY_CAPACITY_GUARD,
+      ),
+      domainAuditStatement(database, {
+        event: "meetings.meeting.waiting",
+        subjectId: meetingId,
+        actorUserId: options.actorUserId,
+        clock: options.clock,
+        randomSource: options.randomSource,
+        metadata: { attendanceId, waitingFrom: now },
+      }),
+    ],
+    outboxMessages: [],
+  };
+}
+
+/**
  * Leaving. Closes the caller's own stay and nothing else — the statement names the row by its id, so
  * a leave can never reach across the roster however the caller addressed it.
  */
@@ -259,12 +462,16 @@ export async function leaveMeeting(
 ): Promise<{ effect: EffectWrite }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
-  if (meeting.status !== "live") {
-    refuse("meeting-not-live", "nobody has joined this meeting yet");
-  }
 
   const open = await readOpenAttendance(database, meetingId, options.actorUserId);
   if (open === undefined) {
+    // A room nobody has walked into is told apart from one the caller simply is not in, because the
+    // two are different mistakes. Asked only when there is no stay: GIVING UP AT THE DOOR is a leave
+    // and the room is still `scheduled` while somebody waits in it — a waiter who walks away from a
+    // meeting nobody has started yet must be able to close their own stay.
+    if (meeting.status !== "live") {
+      refuse("meeting-not-live", "nobody has joined this meeting yet");
+    }
     refuse("meeting-not-joined", "you are not in this meeting");
   }
 
@@ -272,7 +479,10 @@ export async function leaveMeeting(
   return {
     effect: {
       statements: [
-        guarded(closeAttendanceStatement(database, { id: open.id, now }), "meeting.leave"),
+        guarded(
+          closeAttendanceStatement(database, { id: open.id, reason: DEPARTED, now }),
+          "meeting.leave",
+        ),
         domainAuditStatement(database, {
           event: "meetings.meeting.left",
           subjectId: meetingId,
@@ -320,9 +530,16 @@ export interface SocketLossOptions {
  */
 export async function closeAttendanceAfterSocketLoss(
   database: SqlDatabase,
-  attendanceId: MeetingAttendanceId,
+  attendanceId: MeetingParticipantHandle,
   options: SocketLossOptions,
 ): Promise<{ closed: boolean; effect: EffectWrite }> {
+  // A GUEST'S STAY IS A ROW IN THE SECOND TABLE, and the room holds nothing but its handle — so the
+  // sweep is handed either kind and the prefix says which. One entry point rather than two, because
+  // the room's sweep is one act over everybody whose grace ran out, and a room that had to know
+  // which table to ask would be a room that knew about tables.
+  if (isGuestStayHandle(attendanceId)) {
+    return await closeGuestStayAfterSocketLoss(database, attendanceId, options);
+  }
   const stay = await readAttendance(database, attendanceId);
   if (stay === undefined || stay.left_at !== null) {
     return { closed: false, effect: { statements: [], outboxMessages: [] } };
@@ -334,7 +551,7 @@ export async function closeAttendanceAfterSocketLoss(
     effect: {
       statements: [
         guarded(
-          closeAttendanceStatement(database, { id: attendanceId, now }),
+          closeAttendanceStatement(database, { id: attendanceId, reason: SOCKET_LOST, now }),
           "meeting.socketLoss",
         ),
         domainAuditStatement(database, {
@@ -375,18 +592,31 @@ export async function endMeeting(
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
 
+  // ENDING IS A HOST ACT, and this line is a deliberate narrowing of what it used to be. On the
+  // permission key alone, any member holding `meetings:host` could close any meeting they could see
+  // the event for, from anywhere, without being in it — a hole the key was never meant to cover,
+  // which survived because End was the only host act and the starter was the only realistic caller.
+  // The ordinary case is unchanged, because the starter holds a grant from the instant the room
+  // exists; a key-holder who needs to close an abandoned room claims it first, which leaves a record
+  // of exactly that.
+  await requireHostGrant(database, meetingId, options.actorUserId);
+
   const now = options.clock.now();
   return {
     effect: {
       statements: [
+        // Every open stay of BOTH kinds, at the one instant — members and guests, waiting and
+        // admitted. The guest table is the second statement of the same batch rather than a later
+        // write, so the record never holds a meeting that ended with a guest still in it.
         closeAllAttendanceStatement(database, { meetingId, now }),
+        closeAllGuestStaysStatement(database, { meetingId, now }),
         guarded(
           endMeetingStatement(database, {
             id: meetingId,
             endedByUserId: options.actorUserId,
             now,
           }),
-          "meeting.end",
+          END_MEETING_GUARD,
         ),
         domainAuditStatement(database, {
           event: "meetings.meeting.ended",
@@ -396,6 +626,63 @@ export async function endMeeting(
           randomSource: options.randomSource,
           // The span the room was open for, in two instants. `startedAt` is null when nobody ever
           // arrived, which is itself the fact worth keeping about a meeting that did not happen.
+          metadata: { startedAt: meeting.started_at, endedAt: now },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * The ending a CANCELLED EVENT drags behind it — the room nobody walked into, closed in the same
+ * batch as the sitting it was for.
+ *
+ * WHY IT IS NOT `endMeeting` WITH A DIFFERENT CALLER. Ending is the host's act and it is addressed
+ * to a meeting whatever state it is in; this is a tidy-up addressed only to a meeting that is still
+ * SCHEDULED, and the difference has to live in the statement rather than in the caller's read. A
+ * cancel reads the meeting, composes, and commits in a second round trip; between those two a member
+ * can join, which makes the room live and puts people in it. The general statement matches
+ * `status <> 'ended'` and would close it under them, with the room itself never told — so the
+ * precondition rides the WHERE (see `endScheduledMeetingStatement`) and the guard label is this
+ * path's own, because a refusal here is a race the calendar route answers rather than a fault.
+ *
+ * The audit row is the same `meetings.meeting.ended` event: what happened is that the meeting ended,
+ * and a second event name for the same fact would split every later reading of the record in two.
+ */
+export async function endScheduledMeetingForCancelledEvent(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  options: MeetingServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const meeting = await readExisting(database, meetingId, options);
+  assertNotEnded(meeting);
+
+  const now = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        // NO CLOSE-ALL BESIDE IT, unlike the host's own ending. The guard below refuses unless the
+        // room holds no open stay, so there is never one to close — and including the statement
+        // anyway is not harmless: a stay opened in the race window carries a `joined_at` LATER than
+        // this batch's instant, and closing it here writes a span that ends before it began. The
+        // schema's own CHECK refuses that, which would reach the caller as a fault instead of as
+        // the refusal the guard exists to produce. The guard is FIRST for the same reason: a batch
+        // stops at the statement that refuses it, so nothing before it can raise something else.
+        guarded(
+          endScheduledMeetingStatement(database, {
+            id: meetingId,
+            endedByUserId: options.actorUserId,
+            now,
+          }),
+          CANCEL_CLOSING_GUARD,
+        ),
+        domainAuditStatement(database, {
+          event: "meetings.meeting.ended",
+          subjectId: meetingId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
           metadata: { startedAt: meeting.started_at, endedAt: now },
         }),
       ],

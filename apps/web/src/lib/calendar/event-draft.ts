@@ -14,6 +14,7 @@
 import type {
   CalendarEvent,
   CreateEventRequest,
+  EventMeetingInput,
   EventParticipant,
   ParticipantInput,
   ParticipantKind,
@@ -42,6 +43,91 @@ export interface ParticipantDraft {
   readonly role: string;
 }
 
+/**
+ * WHETHER THE SETTING IS ALSO A MEETING, and what kind. Scheduling a meeting here is recording an
+ * event with a medium on it — there is no second form and no second record — so this is one more
+ * answer on the form somebody was filling in anyway, and the entry window offers Join from the
+ * moment the event exists.
+ *
+ * `none` is the answer for almost every event: a hearing happens in a courtroom.
+ */
+export type MeetingChoice = "none" | "video" | "audio";
+
+export const MEETING_CHOICE_OPTIONS: readonly { value: MeetingChoice; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "video", label: "Video meeting" },
+  { value: "audio", label: "Audio call" },
+];
+
+export function isMeetingChoice(value: string): value is MeetingChoice {
+  return MEETING_CHOICE_OPTIONS.some((option) => option.value === value);
+}
+
+/**
+ * What the form says under the choice, once one is made, where the event belongs to a MATTER.
+ *
+ * It states the limit of what this does in the words a member needs, because the alternative is
+ * discovering it from a client who never arrived: only colleagues are invited, and a client or
+ * another party from the Directory has no way in yet.
+ */
+export const MEETING_GUESTS_SENTENCE =
+  "Everyone at the firm on this event is invited. A client or another party from the Directory is " +
+  "not sent a way in yet.";
+
+/**
+ * And where it belongs to the FIRM or to one staff member, which is the other record this form
+ * writes — and where nobody is told anything at all.
+ *
+ * A firm event raises no invitation yet: the notification subject the invitation is written against
+ * has no firm-event value, and adding one is a table rebuild that cannot run against a firm
+ * database holding data. The meeting is still scheduled, created, joinable and on everybody's
+ * calendar; it is the telling that waits. Saying "everyone on this event is invited" here would be
+ * the form promising a message nothing sends — and a member who read that would stop short of the
+ * one thing that actually gets their colleagues into the room, which is telling them.
+ */
+export const FIRM_MEETING_GUESTS_SENTENCE =
+  "Nobody is notified about a firm meeting yet, so tell the people on it yourself. The room is on " +
+  "their calendar with the event, and they join it from there.";
+
+/** Which of the two the form shows, which is decided by the record it is about to write. */
+export function meetingGuestsSentence(owner: EventOwner): string {
+  return owner === "matter" ? MEETING_GUESTS_SENTENCE : FIRM_MEETING_GUESTS_SENTENCE;
+}
+
+/**
+ * WHETHER ARRIVALS WAIT AT A DOOR, as the room OPENS.
+ *
+ * It is the second question the meeting answer asks, and it is asked HERE rather than inside the
+ * room because it is a standing the room starts with: a host changes it from inside a running
+ * meeting, and nothing before the room exists can be changed from inside it. `off` for almost every
+ * setting a firm records — everybody who joins is already on the event — which is why it is a
+ * switch resting off rather than a choice somebody has to make.
+ */
+export type MeetingLobbyChoice = "off" | "on";
+
+/**
+ * What the switch is called, in the ONE place the words are written.
+ *
+ * The same question is asked at the other door into a room — the Start control on a recorded entry,
+ * which opens a meeting on an event that already exists — and two spellings of one control is how a
+ * reader learns that two parts of one product were written by two people.
+ */
+export const MEETING_LOBBY_LABEL = "Hold arrivals in a lobby";
+
+/**
+ * The meeting an event draft sends, or null where it carries none.
+ *
+ * The door rides along ONLY where a meeting is being opened: a lobby answer on an event with no
+ * meeting is an answer to a question nobody asked, and the request would be carrying a standing for
+ * a room that does not exist.
+ */
+export function meetingInput(
+  choice: MeetingChoice,
+  lobby: MeetingLobbyChoice = "off",
+): EventMeetingInput | null {
+  return choice === "none" ? null : { medium: choice, lobby };
+}
+
 /** The dates, times and zone every kind of event shares. */
 export interface EventTimingDraft {
   startsOn: string | null;
@@ -67,9 +153,17 @@ export interface EventDraft extends EventTimingDraft {
    */
   recurrence: RecurrenceRule | null;
   participants: ParticipantDraft[];
+  /** Whether this setting is also a meeting, and what kind. */
+  meeting: MeetingChoice;
+  /** Whether that meeting's room opens with a door. Ignored where there is no meeting. */
+  meetingLobby: MeetingLobbyChoice;
 }
 
-export function emptyEventDraft(timeZone: string, startsOn: string | null = null): EventDraft {
+export function emptyEventDraft(
+  timeZone: string,
+  startsOn: string | null = null,
+  meeting: MeetingChoice = "none",
+): EventDraft {
   return {
     title: "",
     eventTypeId: null,
@@ -84,6 +178,10 @@ export function emptyEventDraft(timeZone: string, startsOn: string | null = null
     courtReference: "",
     recurrence: null,
     participants: [],
+    meeting,
+    // Off, because every participant today is a firm member arriving at an event they are already
+    // on: a lobby resting on would put a colleague in a queue for every ordinary hearing.
+    meetingLobby: "off",
   };
 }
 
@@ -105,6 +203,7 @@ export const TIMING_FIELDS = {
 export const EVENT_FIELDS = {
   title: "title",
   conferenceUrl: "conferenceUrl",
+  meeting: "meeting",
 } as const;
 
 /**
@@ -200,7 +299,8 @@ export const EVENT_FORM_TABS: readonly { value: EventFormTab; label: string }[] 
 
 /** The tab a shortfall's field is on, so a refused save can open the tab that still needs an answer. */
 export function eventFormTabOf(field: string): EventFormTab {
-  if (field === EVENT_FIELDS.conferenceUrl) return "where";
+  // The meeting sits beside the conference link, because both answer where the setting is JOINED.
+  if (field === EVENT_FIELDS.conferenceUrl || field === EVENT_FIELDS.meeting) return "where";
   if (Object.values(TIMING_FIELDS).some((timingField) => timingField === field)) return "when";
   return "details";
 }
@@ -301,6 +401,8 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
     draft.locationText !== since.locationText ||
     draft.conferenceUrl !== since.conferenceUrl ||
     draft.courtReference !== since.courtReference ||
+    draft.meeting !== since.meeting ||
+    draft.meetingLobby !== since.meetingLobby ||
     recurrenceChanged(draft.recurrence, since.recurrence) ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
@@ -354,6 +456,7 @@ export function eventDraftRequest(draft: EventDraft): CreateEventRequest {
     courtReference: optionalText(draft.courtReference),
     recurrenceRule: draft.recurrence === null ? null : formatRecurrence(draft.recurrence),
     participants: draft.participants.map(participantInput),
+    meeting: meetingInput(draft.meeting, draft.meetingLobby),
   };
 }
 
@@ -379,6 +482,11 @@ export function eventDraftFrom(
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),
     ),
+    // A recorded event's meeting is a row of its own, read beside the event rather than off it, and
+    // a correction never takes one off — so the draft opens on None and choosing a medium ADDS a
+    // room where there is none. The entry window is what says one is already there.
+    meeting: "none",
+    meetingLobby: "off",
   };
 }
 

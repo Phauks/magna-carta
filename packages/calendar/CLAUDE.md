@@ -54,8 +54,10 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/merge.ts` — the k-way merge, the shared cursor, and the canonical-instant assertion
 - `src/timeline.ts` — one page across the registry: pre-reads, statements, merge, and the counts a
   measurement asserts against
-- `src/notifications.ts` — the ten emission points; the three matter-event ones are real outbox
-  topics, the other seven are declared and wired to nothing
+- `src/notifications.ts` — the eleven emission points; the three matter-event ones are real outbox
+  topics written by the services here, `calendar.event.meetingScheduled` is a real topic written by
+  the ROUTE (the row it announces is a meeting, which this package does not know about), and the
+  other seven are declared and wired to nothing
 
 ## Invariants that apply here
 

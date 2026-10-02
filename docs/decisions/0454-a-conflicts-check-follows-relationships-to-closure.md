@@ -1,0 +1,22 @@
+---
+number: 454
+slug: a-conflicts-check-follows-relationships-to-closure
+status: Accepted
+date: 2026-09-11
+area: Conflicts
+summary: "A conflicts check follows every recorded relationship to closure. The per-edge-class hop budgets, the default depth, the closure cap and the candidate cap are removed from the check draft, the check request, the firm's conflicts policy and its settings page: a limit a firm can set is a conflict the firm does not find, and that is the failure that matters. One bound remains and it is the platform's, not a setting — a ceiling on the entities one walk may reach, held in the engine as a constant, recorded on every run's row and stated in the run's own account when it is reached, so a walk the ceiling stopped can never read as a completed one. The candidate bound that remains is likewise the most one record can carry in a single atomic batch, stated as such. Stored rows keep their key names so a row written under the old budgets still parses and still reads under the budgets it actually ran with."
+---
+
+**A conflicts check follows every recorded relationship to closure, and the only bound on a run is the platform's own, stated on the record whenever it is reached.**
+
+**Context:** The check carried four limits a person could set: a hop budget per kind of relationship (control, family, representation — corporate chains were already free), a default depth, a cap on how many connected entities one walk could reach, and a cap on how many candidates one check could write. They lived in the New Check panel, in the check request, in the firm's policy and on its settings page, and the log had a Depth column. The owner's ruling of 2026-09-11 removed them: a limit on how far a check looks is a conflict the firm does not find, and the whole surface exists to find it. Each of the four was also a setting nobody could explain without having built the engine, which the panel's paragraphs were trying to make up for.
+
+The tension was cost. An unbounded walk over a large corporate group is exactly the search that cannot finish inside one request, and the caps were also what bounded a run's cost and its one atomic write.
+
+**Decision:** The walk goes to closure. `expandGraph` takes no budgets; it follows every recorded relationship, ended ones included, out from every subject party until the frontier is empty, in a deterministic order. One ceiling remains — `WALK_CEILING` in `packages/conflicts/src/expansion.ts` — and it is a constant in the engine rather than a firm setting or a request field. A run that reaches it records a truncation on its row (how many it reached, how much of the frontier it did not admit, how many it matched but never expanded) and its own account says so in words. The bound on what one run may write is `CANDIDATE_WRITE_CEILING` in `packages/conflicts/src/candidate-bound.ts`: the most a single batch can carry after the check's own statements, stated on the record as that and nothing else. Every field that let a person or a firm narrow the walk is gone: `CheckDraftValues`, `ScopeRequest`, `ConflictsPolicy` and the settings page carry where to search and how to compare names, and no number.
+
+The stored record keeps its key names. `inputs_json.traversal.closureCap` now holds the ceiling and `candidates.candidateCap` the write bound; the record gains `followedToClosure` and `longestPathLength`; the `depth` column now records how deep the closure ran. A row written under the old budgets parses under the same reader and reads — on the screen, on the standing and on paper — under the budgets it actually ran with, because that is what it did.
+
+The cost question is answered by the run model rather than by a cap: the search executes after the request that opened it answers, reports its stage as it goes, and settles as failed if it stops reporting (the companion decision, "a conflicts check is a numbered record with runs under it").
+
+**Considered and rejected:** **Keeping the caps as a firm setting with a high default** — a setting is a limit somebody can lower, and the ruling is that nobody should be able to. **Removing the ceiling too** — a walk with no bound at all cannot say when it has been cut off by the runtime, and a run that dies silently is worse than one that stops and says so; the ceiling is what makes truncation a recorded fact rather than a missing row. **Rewriting the stored keys to the new names** — the log is append-only and years of rows would need a second reader; the same key under a stated new meaning costs nothing and keeps one reader.

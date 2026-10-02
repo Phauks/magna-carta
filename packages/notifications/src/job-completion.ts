@@ -94,6 +94,7 @@ export async function recordJobCompletionNotification(
       actorUserId: input.requestedByUserId,
       // A job names no recipient of its own; its audience is the requester, through `actor`.
       namedRecipientUserId: null,
+      namedMemberUserIds: [],
       now: () => input.now,
       policy,
     });

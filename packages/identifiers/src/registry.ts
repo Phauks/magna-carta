@@ -325,6 +325,39 @@ export const ENTITY_PREFIXES = {
   // drops off and dials back in was in the room twice and the record should say so.
   meeting: "meeting",
   meetingAttendance: "meetingAttendance",
+  // A `meetingMessage` is one thing somebody said in the room's chat, and it is the only content the
+  // meeting record holds: the audio and the video are routed between browsers and reach no storage
+  // here. It names the STAY rather than the member, because a message is tied to being in the room —
+  // the stay is who said it at the time, and the member is reached through it.
+  meetingMessage: "meetingMessage",
+  // A `meetingHost` is one grant of authority over one meeting — the member who started it, or
+  // somebody they handed the room to, or a co-host they named. A ROW rather than a column on the
+  // meeting, and closed rather than deleted when it ends, because the question a firm asks of the
+  // record months later is who was running the room when something happened, which is a question
+  // about an interval. `meeting.created_by_user_id` stays what it is: who opened the room, which
+  // never changes and is the same person only until the first hand-over.
+  meetingHost: "meetingHost",
+  // A `meetingGuestInvitation` is one signed, expiring link minted for one Directory entity on one
+  // meeting — the durable authority behind a bearer token that is never stored. A
+  // `meetingGuestStay` is that guest's stay in the room: shaped exactly like a member's attendance
+  // row, but a table of its own, because a guest has no user id and the member stay's user column
+  // is NOT NULL with a foreign key to the member table. Both are what the client portal's grant
+  // model absorbs when it lands.
+  meetingGuestInvitation: "meetingGuestInvitation",
+  meetingGuestStay: "meetingGuestStay",
+  // A `meetingPoll` is one closed question a host asked the room, and its `meetingPollOption`s are
+  // the choices it offered, a row each so an answer can only ever name one that exists. The two
+  // halves of answering are split across two handles on purpose: a `meetingPollRespondent` says THAT
+  // a stay answered and nothing about what, and a `meetingPollAnswer` says WHAT was chosen and — on a
+  // poll that does not show names — nothing about who. A `meetingQuestion` is one question somebody
+  // put to the room, content on the chat message's own terms, and a `meetingQuestionUpvote` is one
+  // stay's vote for it, a row rather than a counter so a stay can see and withdraw its own.
+  meetingPoll: "meetingPoll",
+  meetingPollOption: "meetingPollOption",
+  meetingPollRespondent: "meetingPollRespondent",
+  meetingPollAnswer: "meetingPollAnswer",
+  meetingQuestion: "meetingQuestion",
+  meetingQuestionUpvote: "meetingQuestionUpvote",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

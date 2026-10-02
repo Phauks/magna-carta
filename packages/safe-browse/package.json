@@ -7,6 +7,8 @@
   "exports": {
     "./types": "./src/types.ts",
     "./capture": "./src/capture.ts",
+    "./live-session": "./src/live-session.ts",
+    "./live-stream-protocol": "./src/live-stream-protocol.ts",
     ".": "./src/index.ts"
   },
   "scripts": {

@@ -22,10 +22,12 @@
     type MeetingScope,
     type MeetingSectionState,
   } from "./meeting-list.ts";
+  import type { MeetingSummary } from "@magna-carta/api-client";
 
   let {
     sections,
     configured = true,
+    onAttendance,
   }: {
     /** The three scopes, each with what its own read came back with. */
     sections: Record<MeetingScope, MeetingSectionState>;
@@ -34,6 +36,8 @@
      * True until something says otherwise, so a screen still reading does not flash a refusal.
      */
     configured?: boolean;
+    /** Open the record of who was in an ended meeting, which the page holds. */
+    onAttendance?: (meeting: MeetingSummary) => void;
   } = $props();
 </script>
 
@@ -49,6 +53,7 @@
         loadingMore={state.loadingMore ?? false}
         onRetry={state.onRetry}
         onLoadMore={state.onLoadMore}
+        onAttendance={scope === "recent" ? onAttendance : undefined}
       />
     {/each}
   </div>
