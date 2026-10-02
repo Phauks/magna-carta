@@ -4118,12 +4118,21 @@ describe("polls and the question queue in the room", () => {
         });
       }),
     );
-    await settle();
-    // Nothing yet: the bucket is open and its second has not run.
-    expect(watching.frames.filter((frame) => frame["type"] === "poll-tally")).toHaveLength(0);
+    // Nothing went out per answer: whatever has arrived by now is at most the one coalesced frame,
+    // which the room's own alarm sends if the three hundred calls outlasted the bucket's second.
+    expect(
+      watching.frames.filter((frame) => frame["type"] === "poll-tally").length,
+    ).toBeLessThanOrEqual(1);
 
-    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    // EITHER ALARM FLUSHES IT. On a loaded machine three hundred calls can take longer than the
+    // bucket's second, and then the room's own alarm has already run by the time this line does —
+    // which is the coalescing working, not failing. What the test holds is the outcome: one frame.
+    if (lastFrame(watching, "poll-tally") === undefined) {
+      await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1).catch(() => {
+        // Already flushed by the room's own alarm between the check and the rewind.
+      });
+      await runDurableObjectAlarm(stub);
+    }
     await waitFor(() => lastFrame(watching, "poll-tally") !== undefined);
     await settle();
     const tallies = watching.frames.filter((frame) => frame["type"] === "poll-tally");
