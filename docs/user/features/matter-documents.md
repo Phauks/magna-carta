@@ -450,6 +450,15 @@ hidden, so the page reads and types the way it always did; to see them, open the
 **Review** tab and turn **Show Track Changes** on. What that setting is and who decides it:
 [Editing](../admin/editing.md).
 
+A document that records its changes keeps that record for as long as it lives. **A copy that
+leaves the platform does not carry it.** Downloading the document, or a bundle that holds it, hands
+out a copy with every change accepted, so what goes to the other side reads as the finished text
+and shows nobody's edits. The stored document is untouched; open it in the editor and turn **Show
+Track Changes** on, and the whole record is still there. The copy is made moments after each save;
+if you download in that same moment, the download waits for it, and a bundle of several documents
+saved that instant may ask you to try again shortly. The one exception is a document too large
+for the copy to be made: it downloads as stored, and the firm's audit trail records that it did.
+
 While the document opens, the screen tells the open as it happens: each stage appears as it
 finishes, with the moment it did, and the stage under way says what it is doing and why it takes
 the time it takes. A bar fills over the half minute an open usually takes, and says so; past that

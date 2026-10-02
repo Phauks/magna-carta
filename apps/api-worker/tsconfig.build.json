@@ -66,6 +66,9 @@
       "path": "../../packages/decryption/tsconfig.build.json"
     },
     {
+      "path": "../../packages/design-system/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/directory/tsconfig.build.json"
     },
     {
@@ -133,6 +136,9 @@
     },
     {
       "path": "../../packages/matters/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/meeting-protocol/tsconfig.build.json"
     },
     {
       "path": "../../packages/meetings/tsconfig.build.json"

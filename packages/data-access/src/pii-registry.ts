@@ -283,8 +283,8 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // names two members — who convened it and who ended it — and the attendance row names one per
   // stay. None of them is free-standing member data: each is provenance on a record of a gathering,
   // which is the line communication.member_user_id and communication.logged_by_user_id already sit
-  // on. Nothing anybody said is stored anywhere in the subsystem, so there is no content residue to
-  // report either.
+  // on. The media itself is routed between browsers and stored nowhere; what IS said and kept is the
+  // chat, registered below as the subsystem's one content-bearing table.
   {
     table: "meeting",
     subjectKey: "created_by_user_id",
@@ -298,10 +298,185 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "who ended it, and when, is the fact that closes every stay under it",
   },
   {
+    table: "meeting",
+    subjectKey: "locked_by_user_id",
+    action: "retain-under-matter",
+    note: "who shut the door on a meeting, and when, is part of what the record says happened — the line ended_by_user_id sits on",
+  },
+  {
     table: "meeting_attendance",
     subjectKey: "user_id",
     action: "retain-under-matter",
     note: "who was in the room and for how long is the whole of what an attendance row records",
+  },
+  // The hosting grants. Each is provenance on a record of a gathering in exactly the sense the two
+  // meeting columns above are: who was running the room, who handed it to them, and who took it
+  // back. None of them is free-standing member data, and the interval is the point — a grant is
+  // closed rather than deleted, so a reader months later can ask who was hosting when something
+  // happened.
+  {
+    table: "meeting_host",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "who was running the meeting, and for which interval, is what a grant row records",
+  },
+  {
+    table: "meeting_host",
+    subjectKey: "granted_by_user_id",
+    action: "retain-under-matter",
+    note: "who handed the room over is the provenance of the authority the grant carries; null for the starter's own grant and for a claim, which nobody gave",
+  },
+  {
+    table: "meeting_host",
+    subjectKey: "revoked_by_user_id",
+    action: "retain-under-matter",
+    note: "who withdrew a grant, and when, is the fact that closes the interval it names",
+  },
+  // External guests. An invitation names a Directory entity and a stay names what the person typed
+  // at the door, and both are retained on the attendance row's own basis: who was invited to a
+  // meeting on a matter, and who actually arrived on that link, is part of what the record says
+  // happened. The two names are kept apart on purpose — the difference between the Directory name a
+  // link was minted for and the name typed at the door is the whole of what a forwarded link leaves
+  // behind, and erasing either half would erase the evidence. The address the link went to is not
+  // here at all; the invitation names the Directory row, and the address stays the Directory's fact.
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "entity_id",
+    action: "retain-under-matter",
+    note: "who a meeting's guest link was minted for is part of what the record says happened",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "invited_name",
+    action: "retain-under-matter",
+    note: "the Directory name at mint, frozen beside the name typed at the door so a forwarded link stays visible in the record",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "directory_email_id",
+    action: "retain-under-matter",
+    note: "which contact point the link was sent to — the row, never the address, which stays the Directory's fact",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "issued_by_user_id",
+    action: "retain-under-matter",
+    note: "who sent a guest a way into a meeting on a matter is provenance on the invitation, the line meeting.created_by_user_id sits on",
+  },
+  {
+    table: "meeting_guest_invitation",
+    subjectKey: "revoked_by_user_id",
+    action: "retain-under-matter",
+    note: "who withdrew a guest link, and when, closes the interval the invitation stood for",
+  },
+  {
+    table: "meeting_guest_stay",
+    subjectKey: "confirmed_name",
+    action: "retain-under-matter",
+    note: "the name a guest gave at the door is who the record says attended on that link",
+  },
+  {
+    table: "meeting_guest_stay",
+    subjectKey: "admitted_by_user_id",
+    action: "retain-under-matter",
+    note: "who let somebody from outside the firm into a meeting on a matter is the act the record is read for",
+  },
+  // In-meeting chat, which is the ONE place the meeting subsystem holds content. The paragraph above
+  // said there was no content residue to report; there is now, and it is here rather than anywhere
+  // else. A chat message is correspondence that happened inside a meeting on a matter, so it takes
+  // the call and text log's basis for the same reason: what was said on a matter is part of what the
+  // matter record says happened. Its subject reference is the STAY — who said it at the time — and
+  // the member is reached through meeting_attendance.user_id, registered one entry above, so
+  // erasure reaches the speaker without this table carrying a second copy of who they were.
+  {
+    table: "meeting_message",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay a message was said from is who said it and the proof they were in the room; the handle is a meeting_attendance row for a member and a guest stay for a guest, and the member resolves through meeting_attendance.user_id",
+  },
+  {
+    table: "meeting_message",
+    subjectKey: "body",
+    action: "retain-under-matter",
+    note: "what was said in a meeting on a matter, on the line communication.counterparty_number sits on — and, like a message body and a call summary there, content-level residue for the residue report rather than anything an automated rewrite can safely touch",
+  },
+  {
+    table: "meeting_message",
+    subjectKey: "redacted_by_user_id",
+    action: "pseudonymize-keep",
+    note: "who took a message back, on an append-only row: the reference is replaced at the member tombstone and never dropped, because a removal nobody can attribute is worth a fraction of one that can be",
+  },
+  // Polls and the question queue — content the meeting produced, on chat's own terms. A host asked
+  // the room and the room answered; somebody put a question to the room and somebody answered it.
+  // Each is part of what the matter record says happened, so every reference takes the chat
+  // message's basis, and the three content columns are content-level residue exactly as the message
+  // body is. Every participant reference is a STAY carried by value, and a member resolves through
+  // meeting_attendance.user_id, registered above.
+  {
+    table: "meeting_poll",
+    subjectKey: "asked_by_user_id",
+    action: "retain-under-matter",
+    note: "who asked the room a question is provenance on a record of a gathering",
+  },
+  {
+    table: "meeting_poll",
+    subjectKey: "closed_by_user_id",
+    action: "retain-under-matter",
+    note: "who closed a poll, and when, closes the interval the poll stood open for",
+  },
+  {
+    table: "meeting_poll",
+    subjectKey: "question",
+    action: "retain-under-matter",
+    note: "what a host asked the room, on the line meeting_message.body sits on — content-level residue for the residue report",
+  },
+  {
+    table: "meeting_poll_option",
+    subjectKey: "label",
+    action: "retain-under-matter",
+    note: "a choice the firm put on a screen in a meeting on a matter — content-level residue for the residue report, like the question it belongs to",
+  },
+  {
+    table: "meeting_poll_respondent",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that answered is who took part and the proof they were in the room; it says nothing about what they chose",
+  },
+  {
+    table: "meeting_poll_answer",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay behind a choice on a poll that shows names; NULL on every row of a poll that does not, which is that promise kept by the row rather than a gap in this registry",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay a question was asked from is who asked it and the proof they were in the room",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "body",
+    action: "retain-under-matter",
+    note: "what somebody asked the room in a meeting on a matter, on the line meeting_message.body sits on — content-level residue for the residue report",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "answered_by_user_id",
+    action: "retain-under-matter",
+    note: "who marked a question answered is what a firm reads a queue for months later",
+  },
+  {
+    table: "meeting_question",
+    subjectKey: "redacted_by_user_id",
+    action: "pseudonymize-keep",
+    note: "who took a question back, on an append-only row — word for word with meeting_message.redacted_by_user_id: replaced at the member tombstone and never dropped",
+  },
+  {
+    table: "meeting_question_upvote",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that upvoted a question is who did it and the proof they were in the room",
   },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
@@ -979,6 +1154,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // connection *state* (mirrors member_role/document_checkout above), not an activity record.
   "integration_connection",
   "firm_secret", // firm-owned integration secrets (encrypted), not data-subject personal data
+  // A connected integration's credential for the FIRM's own external account (a postage account's API
+  // key). It identifies the firm to a vendor, never a data subject, so erasing a person leaves it
+  // untouched — and erasing it because somebody exercised a right would disconnect the firm's account.
+  "integration_credential",
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",
   // The nickname equivalence catalogue is a dictionary of NAME FORMS — `bob` implies `robert` — and

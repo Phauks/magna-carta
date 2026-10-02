@@ -39,9 +39,9 @@
    * The browser-shell for a safe-browse capture. The shell's top bar IS the page's one entry: the
    * address field, the Load Website action, back/forward/refresh over the page's capture history,
    * a copy control for the entered address, screenshot actions (download, full screen), and the
-   * Static/Live view toggle (Live keeps one isolated remote browser for the member between pages;
-   * what each mode does is stated in the control's accessible description rather than as visible
-   * chrome, which stays clean). The whole viewer is ONE framed unit: the
+   * Static/Live view toggle (Live streams one isolated remote browser the member drives, in place of
+   * the screenshot; what each mode does is stated in the control's accessible description rather
+   * than as visible chrome, which stays clean). The whole viewer is ONE framed unit: the
    * browser window on the left and the caller's inspector panel (the information tabs) attached
    * on the right, joined by a shared hairline so the two halves never read as separate cards; on
    * narrow screens the panel stacks beneath the viewport inside the same frame. Where a capture
@@ -70,6 +70,7 @@
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
   import Download from "@lucide/svelte/icons/download";
+  import FolderDown from "@lucide/svelte/icons/folder-down";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
 
@@ -89,11 +90,13 @@
     hasCapture = false,
     mode = "static",
     onmodechange,
+    ondownloadcapture,
     onsubmit,
     onback,
     onforward,
     onrefresh,
     problem,
+    screen,
     inspector,
   }: {
     /** The address in the entry field; the page binds and reads it. */
@@ -134,6 +137,8 @@
     mode?: "static" | "live";
     /** The member chose the other mode. Disabled while a capture runs, so a result never lands in a mode it was not asked in. */
     onmodechange?: (mode: "static" | "live") => void;
+    /** Save the screenshot and every fact the panel shows as one archive. Absent while there is none. */
+    ondownloadcapture?: () => void;
     /** Starts a capture of the entered address; the shell has already prevented the submit. */
     onsubmit?: () => void;
     onback?: () => void;
@@ -141,6 +146,11 @@
     onrefresh?: () => void;
     /** A failed capture's alert, rendered inside the viewport so the frame holds. */
     problem?: Snippet;
+    /**
+     * What fills the viewport instead of a captured screenshot: in Live, the streamed remote
+     * screen. When given, it owns the viewport outright — the capture states do not apply to it.
+     */
+    screen?: Snippet;
     /** The attached inspector panel — the frame's right half, stacking beneath on narrow screens. */
     inspector?: Snippet;
   } = $props();
@@ -263,8 +273,9 @@
           Live
         </Button>
         <p id={modeDescriptionIdentifier} class="sr-only">
-          Static opens each address in a fresh isolated browser. Live keeps one isolated browser
-          for you between pages, so cookies carry over as you follow a link through its steps.
+          Static opens each address in a fresh isolated browser and shows a picture of it. Live
+          streams one isolated browser you can click, scroll and type into, keeping its cookies as
+          you follow a link through its steps.
         </p>
       </div>
       <Label for={addressInputIdentifier} class="sr-only">Web address to view</Label>
@@ -297,24 +308,44 @@
         {capturing ? "Capturing…" : "Load Website"}
       </Button>
       <div class="flex items-center gap-4">
+        <!-- The picture-only controls are absent while a streamed screen fills the viewport: there is
+             no single picture to save or enlarge, and a control that is always disabled states
+             nothing. The archive download below takes a fresh full-page capture instead. -->
+        {#if !screen}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Download Image"
+            disabled={screenshot === null || downloadFilename === null}
+            onclick={downloadScreenshot}
+          >
+            <Download class="size-16" aria-hidden="true" />
+          </Button>
+        {/if}
+        <!-- Everything the capture found, not only the picture: the screenshot plus every fact the
+             panel shows, in one archive. Beside the image download because a member reaching for
+             one is usually deciding whether they need the other. -->
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Download Image"
-          disabled={screenshot === null || downloadFilename === null}
-          onclick={downloadScreenshot}
+          aria-label="Download Screenshot and Details"
+          title="Download the screenshot and everything in the panel as one file"
+          disabled={!hasCapture || ondownloadcapture === undefined}
+          onclick={() => ondownloadcapture?.()}
         >
-          <Download class="size-16" aria-hidden="true" />
+          <FolderDown class="size-16" aria-hidden="true" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="View Full Screen"
-          disabled={screenshot === null}
-          onclick={() => (expanded = true)}
-        >
-          <Maximize2 class="size-16" aria-hidden="true" />
-        </Button>
+        {#if !screen}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="View Full Screen"
+            disabled={screenshot === null}
+            onclick={() => (expanded = true)}
+          >
+            <Maximize2 class="size-16" aria-hidden="true" />
+          </Button>
+        {/if}
       </div>
     </form>
 
@@ -334,7 +365,9 @@
     <div
       class="mc-scrollbar aspect-video grow overflow-y-auto bg-surface-sunken lg:aspect-auto lg:min-h-0"
     >
-      {#if capturing}
+      {#if screen}
+        {@render screen()}
+      {:else if capturing}
         <!-- The probe settles before the renderer, so once it reports the viewport shows its two
              honest facts early: the landed address takes the mono line and the status line says
              how many redirects it took. The tabs still wait for completion. This is a live act

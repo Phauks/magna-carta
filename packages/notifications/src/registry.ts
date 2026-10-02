@@ -3,9 +3,11 @@ import {
   CALENDAR_DEADLINE_DUE_EMISSION_POINT,
   CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT,
   CALENDAR_EVENT_CANCELLED_TOPIC,
+  CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
   CALENDAR_EVENT_RESCHEDULED_TOPIC,
   CALENDAR_EVENT_SCHEDULED_TOPIC,
 } from "@magna-carta/calendar/notifications";
+import { MEETING_MEDIA, isMeetingMedium } from "@magna-carta/meetings/types";
 import { CONFLICTS_HIT_SURFACED_TOPIC } from "@magna-carta/conflicts/topics";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
@@ -563,6 +565,53 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     matterResolution: { kind: "payload", payloadKey: "matterId" },
     facts: {},
     buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("calendar"),
+  },
+  // SCHEDULING A MEETING IS RECORDING AN EVENT WITH A MEDIUM ON IT, so the invitation rides the
+  // event-recording path rather than a subsystem of its own.
+  //
+  // Only the MATTER arm exists today, and the reason is a table rebuild rather than a decision:
+  // `notification_event.subject_kind` is a SQLite CHECK with no `firmEvent` value in it, and
+  // widening one rebuilds a table `notification_recipient` points at — which cannot complete against
+  // a firm database that holds data (packages/database/src/reviewed-rebuilds.ts). A firm meeting is
+  // scheduled, created and joinable; it is the notification alone that waits on that migration.
+  {
+    key: "meetings.meeting.scheduled",
+    category: "calendar",
+    // Somebody has to be somewhere, at an hour, with other people waiting. That is the line between
+    // the two levels here, and it is the same reading `calendar.event.rescheduled` takes.
+    severity: "attention",
+    mandatory: false,
+    // The members named ON THE EVENT, never the matter team: a hearing appearing on a case is the
+    // team's fact, and being asked into a room at nine on Tuesday is the fact of the people asked.
+    audience: "named-members",
+    audiencePayloadKey: "invitedMemberUserIds",
+    // Nobody needs inviting to the meeting they just scheduled. The producer leaves the actor off
+    // the list as well, so this is a statement of intent rather than the only thing holding it.
+    includeActor: false,
+    subscribesTo: CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
+    // The EVENT, not the meeting: it is what the deep link opens, what carries the title and the
+    // hour, and what the member presses Join on. `meeting` is not a subject kind the schema's CHECK
+    // knows, and it does not need to be — the meeting has no surface of its own before it starts.
+    subjectKind: "matterEvent",
+    subjectPayloadKey: "matterEventId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // The medium, and nothing else. Not the title, which on a matter is routinely the parties and
+    // the dispute; not the date, on this registry's standing reasoning about settings that move. The
+    // sentence a member reads — "You are invited to a video meeting: <title>, <when>" — is composed
+    // by the surface from the live event behind the deep link, under the access check that still
+    // applies there.
+    facts: { medium: { kind: "enum", labels: MEETING_MEDIA } },
+    buildFacts: (payload) => {
+      const medium = payload["medium"];
+      return {
+        medium: typeof medium === "string" && isMeetingMedium(medium) ? medium : "video",
+      };
+    },
     escalation: "digest",
     channels: ["in_app", "email"],
     emailContent: "category-count",

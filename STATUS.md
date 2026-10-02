@@ -36,6 +36,11 @@ This file is a **build output**: `vp run status-build` assembles it (and [`STATU
 | 0·7b — Auth UI + deferred surfaces | [-] | [ ] | [ ] | [~] | [~] | [-] | [~] | Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry
 and real recovery-code entry. Every state renders on the developer console's screen-state page.
 
+Two-factor can now be set up, not only answered: Account · Security adds it (password, then the
+authenticator by QR code or typed key, then the recovery codes), removes it, and replaces the
+recovery codes. It was the last Soon seam on the account surface. The authenticator files the
+account under "Magna Carta", where the library's default had it under "Better Auth".
+
 The backend behind those screens now exists for three of the nine gaps the screen-state page
 registered: self-serve registration with the three-way role fork, invitation redemption against a
 code plus surname and date of birth behind one neutral refusal, and the shared attempt budget the
@@ -472,7 +477,7 @@ Eight owner flags open. |
 | Per-firm database → Durable Object | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [-] | [-] | [ ] | Per-firm D1 → firmId-addressed `FirmDatabase` SQLite Durable Object (binding-free); supersedes the per-firm-D1 half of ADR-0003. On main. |
 | Integration port system | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [-] | [-] | [ ] | Pure ports-and-adapters framework (`@magna-carta/integrations`); `parcels` first adapter. Connection persistence/OAuth deferred to the first credentialed adapter (gated on 1·2 + Google CASA / Microsoft verification). |
 | Integration platform foundation | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [-] | [-] | [ ] | Manifest-driven plugin mounting refactor; C-transition (in-process → service-binding → Workers-for-Platforms) named-not-built. |
-| Shipping & postage (backend) | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] | [ ] | `@magna-carta/shipping` + EasyPost adapter; shipment/label/tracking tables, idempotent purchase, `shipment.purchased` cost-recovery seam. Webhook + live `firm_secret` + UI deferred. |
+| Shipping & postage (backend) | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 5 | [x] | [x] Opus 5 | `@magna-carta/shipping` + EasyPost adapter; shipment/label/tracking tables, idempotent purchase, `shipment.purchased` cost-recovery seam. The per-firm credential read is built: a connected integration's credential lives in its own `integration_credential` table under `integrations:useConnection`, not in `firm_secret` under the administrator's `firm:manageSecrets`, so the member who does the mailing can use the account without being handed the firm's whole vault. Connect, rate-shop, purchase, track and refund all operate, driven end to end against the real store rather than a fake. Webhook ingress deferred; buying real postage waits on the EasyPost Forge contract, which is commercial rather than engineering. |
 | Property external-links | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [-] | [ ] | `@magna-carta/property-links` — Zillow/Redfin/Maps/Realtor deep-links. UI rides the Locations surface. |
 | Tools area | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 4.8 | [-] | [ ] | `@magna-carta/tools` catalog + firm-usage diagnostics (`GET /api/v1/firm-usage`) on `main`. The `/tools` listing page renders the catalog grouped by subject, as tiles or a dense list, each entry badged with its maturity stage. Network Speed Test is the first tool with its own page (stage `alpha`) — Cloudflare's measurement engine, a live line-and-area chart per direction, an AIM quality score, and an authenticated round-trip probe beside it. Firm Usage is the second: the tables-only quantitative snapshot computed on open, over a route extended with matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters. The rest still read "Soon" and land one at a time. |
 | PDF render engine | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [-] | [-] | [ ] | Pure-Rust engine (`crates/pdf-core` → WASM): render, redaction, scrub, bad-redaction detector, surgery (v1, 3/10 corpus), Bates, AcroForm forms, secure/encrypt, generate-primitives, decompression-bomb guard (raw-bytes pre-flight; deflate-rigorous, encrypted-stream bodies a disclosed residual). Remaining: surgery completion → OCR → PAdES. Tool UIs gated on wasm-opt + 0·7. |
@@ -779,7 +784,71 @@ the offset is coalesced to one write per frame. The rows carry a **grip** now, b
 cursor only answers once the pointer is already on the row. And the Soon badge on an unbuilt tool was
 invisible: it rode inside the label, which carries the row's overflow, so every long row clipped it —
 the row is a three-track grid now and the trailing column never shrinks. |
-| Meetings — slice 1, members-only meetings from a calendar event | [-] | [x] Claude | [x] | [x] Claude | [x] Claude | [-] | [x] Claude | A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said. |
+| Meetings — meetings and calls from a calendar event, in rooms of up to three hundred, with guests from outside the firm on a signed link | [-] | [x] Claude | [x] | [~] Claude | [~] Claude | [-] | [~] Claude | A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said.
+
+Slice 3 lifts the room from twelve people to three hundred, which is work on the two ends rather than in the routing service: each browser pulls video only for the tiles it shows and audio only for the people talking, cameras publish three simulcast layers and subscribers choose between them, the room sends what changed rather than the whole roster above sixteen participants, and who is talking is measured by each browser and relayed by the room.
+
+Host controls follow it, because a room that size has somebody running it. Authority over a meeting is a grant on the meeting rather than a capability of a seat: the starter gets one when the room is created, co-hosts are rows beside it, hosting never passes by itself, a hostless room is claimed, and ending a meeting needs a grant like every other host act. The server half is built — the record, the routes with their audit rows, and the four frames a host sends into the room; the per-tile menu and the Host controls band are the web half.
+
+The waiting room hangs from that grant, because admitting somebody is a host act. One lobby per meeting and never one per firm: a firm runs several at once, so a firm-level door would queue the people arriving at a deposition behind the people arriving at a staff briefing. An arrival at the door is a stay from the moment it knocks — the socket upgrade's ticket is an open stay, and the record has to be able to say who waited and was never let in — which split "in the room" from "has an open stay" and moved the room's capacity guard onto the admission, with a much smaller ceiling at the door. The server half is built: the columns, the lobby trio, the four routes, and the `waiting:` storage prefix that keeps a waiter structurally out of every roster rather than filtered out of it. The waiting screen, the host's lobby sheet and the switch at Start are the web half.
+
+Chat, a raised hand and reactions are the in-meeting tools, and they split on the one question that
+matters here: does the meeting record keep it. Chat does — the owner ruled it on the record, so a
+message carries what a filed email carries — and the route is the record either way; what the room
+adds is a RELAY, a copy of a committed row broadcast to every welcomed socket and to nobody at the
+door, so a message arrives as it is said rather than on a poller's next tick. The read converges the
+half a relay cannot: a redaction moves no row's position in a forward walk, so the list carries the
+messages taken back since the reader's own position beside the page. A hand and a reaction do not
+reach the record at all — no table, no migration, no audit row, no personal-data registration — and
+that absence is the slice's whole claim. The room stamps the instant a hand goes up and relays it on
+the roster so a late arrival gets the queue; a reaction is named on its thrower's tile in a small
+room and counted for the whole of a large one, one frame a second, because three hundred people
+applauding one sentence relayed individually is ninety thousand frames inside a second. Both are the
+first frames here that are REFUSED rather than dropped when they arrive too fast, because neither
+restates itself. The web half is built too: the control bar's menu of six, the rising mark on the
+thrower's tile, the counts strip in a large room, the hand on tile and roster, and the host's ordered
+queue of hands — none of it yet seen in a browser.
+
+Diagnosability is the slice that makes a meeting answerable after it has ended, which nothing else
+here can be: the room holds no rows, deletes its own state as it goes, and hibernates between frames,
+so a three-hundred-person meeting that went wrong used to leave attendance and an Error ID on
+whichever refusal a member happened to see. Both halves are now built. The browser measures its own
+connection and says so on the wire; the room records each act it takes as one structured event
+through the standard pipeline, correlated by firm, meeting and stay, with the redaction structural
+rather than a rule at the call sites — there is no declared field for a name, a track or a session
+description. A platform operator can read one live room through a guarded route, and a load harness
+drives three hundred fake clients against the real object so the fan-out cost is a number instead of
+an argument. It falsified a design claim on its first run: every deferred presence transition was
+arming the alarm through a reconciliation that reads the whole roster and the whole door, which took
+the room to 1.2 storage lists per frame against a design that claims one, and is now 0.4.
+
+External guests are the first people outside the firm to use this product, and they arrive without a
+session, a cookie or a member row — so the chokepoint gained a lane of its own rather than a
+widening of the session path. A route declares `guestLane`, a signed credential stands where the
+session would, and the handler is handed a firm and the credential's names but never a user id, so a
+member handler pointed at a guest route fails on its first line. A host mints a link for a Directory
+person or organization on the event and it is mailed; the row keeps only the SHA-256 of the link's
+secret, and the row is the authority, so a rotation or a withdrawal refuses a perfectly-signed link at
+once. Opening the link spends nothing — a mail client that prefetches it costs the guest none of their
+twenty arrivals — and pressing Join opens a stay of its own table, always at the door. Presence is now
+a union over both stay tables with one home, so a guest counts against the room's and the door's
+ceilings exactly as a member does. The room builds every frame that names a user per viewer, so a
+guest's socket never holds a firm's user identifiers. The server half is built and tested; the arrival
+page, the host's Guests panel and the guest mark in the lobby are the web half, in build beside it.
+
+Polls and the question queue are the meeting's second and third stored content, on chat's terms
+exactly: every act is a route that writes through the firm-scoped data-access layer with an audit row
+of identifiers and instants, and the room relays a copy after the commit. A poll is four tables, and
+the split is the anonymity — the answer row holds what was chosen and, on a poll that shows no names,
+nothing about who; the respondent row holds that a stay answered and nothing about what, and is the
+one home of when. Options are rows so an answer can only name one of its own poll's, which the
+database holds with a composite foreign key. One participation per member per poll, including from a
+later stay after leaving and rejoining. A question is the chat message with a second pair — answered
+by whom — and upvotes are rows so a member can see and take back their own. The two tallies ride the
+per-second bucket the reactions already had, now shared, so three hundred answers in a second is one
+frame. Every participant column accepts a webinar's attendee as well as a member and a guest, and
+every poll and question row carries a breakout room by value, both now while the migration is
+unlanded. The server half is built and tested; the panels are the web half, in build beside it. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

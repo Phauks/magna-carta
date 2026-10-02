@@ -71,6 +71,11 @@ properties; off-token values are machine-rejected.
   shimmer, spinner or skeleton, because loading here is `LoadingRegion` and nothing else
 - `src/lib/components/loading-region/` — `LoadingRegion`, the ONE loading state: real markup over a
   fixture, greyed by the `mc-loading` recipe (imported last in `components.css`, on purpose)
+- `src/lib/components/qr-code/` — `QrCode`, a value drawn as a symbol a phone camera reads (the
+  two-factor secret). Encoded by `uqr` into a module matrix and drawn as ONE SVG path by the pure
+  `qr-code-model.ts`. It is inked in the chrome pair — `chrome-surface` on `chrome-text-strong` —
+  because that is the one token pair that does not turn over in dark mode, and a scanner wants dark
+  modules on a light field in every mode. A caller always shows the value as text beside it too
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks

@@ -30,6 +30,18 @@ export interface CredentialStore {
 // becomes a 500 on a request that could have said what the platform cannot do, and every caller
 // would have to catch it to say anything else. Structurally distinct from a CredentialStore (no
 // get/put), so the union discriminates without a tag anyone has to remember to set.
+// The one throw a CredentialStore is permitted, and the reason `resolve` can still promise never to
+// throw: the registry catches exactly this and turns it into the `credential-forbidden` dispatch
+// outcome. A store raises it when the principal on whose behalf it was built may not have this
+// credential decrypted — a permission answer, not an absence. `get` returning null must keep meaning
+// "there is no such credential", or a refusal would read as a disconnected account.
+export class CredentialAccessForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CredentialAccessForbiddenError";
+  }
+}
+
 export interface UnbuiltCredentialStore {
   readonly credentialReadIsBuilt: false;
 }

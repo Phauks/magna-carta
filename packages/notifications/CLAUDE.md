@@ -250,7 +250,7 @@ is not enforced.
   `@magna-carta/calendar` (the visible-matter predicate — the one seam every filtered read composes),
   and the producing packages whose topic constants the registry imports (`@magna-carta/billing`,
   `@magna-carta/file-manager`, `@magna-carta/ledger`, `@magna-carta/matters`,
-  `@magna-carta/conflicts`, `@magna-carta/email-filing`). Those are imported for their **names**,
+  `@magna-carta/conflicts`, `@magna-carta/email-filing`, `@magna-carta/meetings`). Those are imported for their **names**,
   never for their behaviour — with two exceptions the comparison sweep needs and that are the whole
   point of it: `@magna-carta/calendar`'s overdue arithmetic and `@magna-carta/custodian`'s
   `collectCustodyReminders`, both called rather than restated.
@@ -307,6 +307,15 @@ is not enforced.
   per `(member, cadence)`, so a category on the weekly cadence is skipped by the daily run — neither
   carried nor withheld — and settled by the weekly one. A member who changes cadence mid-window can
   leave a row settled by neither; it stays in the feed, and no mail claims otherwise.
+- **`named-members` reads a LIST from the payload, and a meeting invitation is the one thing that
+  uses it.** The plural of `named-recipient` and resolved on its reasoning: the colleagues to invite
+  are the ones who were on the calendar event when it was recorded, so re-reading the participant
+  rows when the queue drains would invite whoever happens to be on it by then and miss whoever was
+  taken off. It reaches only the MEMBERS on the event — a Directory entity has no way into a room
+  yet, so there is nobody to name — and it is deliberately not `matter-team`: a hearing appearing on
+  a case is the team's fact, and being asked into a room at nine on Tuesday is the fact of the people
+  who were asked. The list is deduplicated in the resolver, because a participant list is edited by
+  hand and one member listed twice must not become two feed rows for one invitation.
 - **`matter-team` is the responsible member PLUS the currently-valid `matter_assignment` rows.** The
   responsible member is always an arm of that read and never conditional on holding an assignment:
   `matter.responsible_member_id` is that fact's one home and the assignment write path refuses a

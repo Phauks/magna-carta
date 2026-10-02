@@ -36,6 +36,13 @@ import seedMeetingsPermissionsSql from "@magna-carta/database/drizzle/per-firm/2
 import oneOpenStayPerMemberSql from "@magna-carta/database/drizzle/per-firm/20260919T001021_one-open-stay-per-member.sql";
 import aMeetingHasAMediumSql from "@magna-carta/database/drizzle/per-firm/20260919T001022_a-meeting-has-a-medium.sql";
 import memberPhotoSql from "@magna-carta/database/drizzle/per-firm/20260920T182353_member-photo.sql";
+import versionExportCopySql from "@magna-carta/database/drizzle/per-firm/20260924T171146_version-export-copy.sql";
+import integrationCredentialsHaveTheirOwnGateSql from "@magna-carta/database/drizzle/per-firm/20260924T181527_integration-credentials-have-their-own-gate.sql";
+import meetingChatOnTheRecordSql from "@magna-carta/database/drizzle/per-firm/20260924T182329_meeting-chat-on-the-record.sql";
+import hostingIsAGrantOnTheMeetingSql from "@magna-carta/database/drizzle/per-firm/20260924T182330_hosting-is-a-grant-on-the-meeting.sql";
+import arrivalsWaitInALobbySql from "@magna-carta/database/drizzle/per-firm/20260924T182331_arrivals-wait-in-a-lobby.sql";
+import aGuestHoldsASignedLinkAndAStayOfItsOwnSql from "@magna-carta/database/drizzle/per-firm/20260924T182332_a-guest-holds-a-signed-link-and-a-stay-of-its-own.sql";
+import meetingPollsAndQuestionsSql from "@magna-carta/database/drizzle/per-firm/20260924T184938_meeting-polls-and-questions.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -67,6 +74,15 @@ export function perFirmMigrations(): Migration[] {
     "20260919T001021_one-open-stay-per-member": oneOpenStayPerMemberSql,
     "20260919T001022_a-meeting-has-a-medium": aMeetingHasAMediumSql,
     "20260920T182353_member-photo": memberPhotoSql,
+    "20260924T171146_version-export-copy": versionExportCopySql,
+    "20260924T181527_integration-credentials-have-their-own-gate":
+      integrationCredentialsHaveTheirOwnGateSql,
+    "20260924T182329_meeting-chat-on-the-record": meetingChatOnTheRecordSql,
+    "20260924T182330_hosting-is-a-grant-on-the-meeting": hostingIsAGrantOnTheMeetingSql,
+    "20260924T182331_arrivals-wait-in-a-lobby": arrivalsWaitInALobbySql,
+    "20260924T182332_a-guest-holds-a-signed-link-and-a-stay-of-its-own":
+      aGuestHoldsASignedLinkAndAStayOfItsOwnSql,
+    "20260924T184938_meeting-polls-and-questions": meetingPollsAndQuestionsSql,
   });
 }
 

@@ -9,7 +9,7 @@ import { newErrorId } from "@magna-carta/telemetry/ids";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { resolveSession } from "../session-context.ts";
-import { authForEnv } from "../app.ts";
+import { authForEnv } from "../auth-instance.ts";
 import { problemJson } from "../contracts/problem.ts";
 
 type GuardEnv = { Bindings: Bindings; Variables: AppVariables };

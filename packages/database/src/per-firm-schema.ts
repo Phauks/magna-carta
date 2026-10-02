@@ -1,5 +1,6 @@
 import {
   check,
+  foreignKey,
   index,
   integer,
   primaryKey,
@@ -78,6 +79,7 @@ import type {
   IncidentId,
   IndexSplitId,
   IntegrationConnectionId,
+  IntegrationCredentialId,
   InvoiceApplicationId,
   DownloadItemId,
   InvoiceDeliveryId,
@@ -122,7 +124,17 @@ import type {
   MatterTaskId,
   MatterTypeId,
   MeetingAttendanceId,
+  MeetingGuestInvitationId,
+  MeetingGuestStayId,
+  MeetingHostId,
   MeetingId,
+  MeetingMessageId,
+  MeetingPollAnswerId,
+  MeetingPollId,
+  MeetingPollOptionId,
+  MeetingPollRespondentId,
+  MeetingQuestionId,
+  MeetingQuestionUpvoteId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -1136,6 +1148,16 @@ export const fileVersion = sqliteTable(
     // made as the last view leaves (`exit`), or the idle reap's cut (`reap`). Null for a version that
     // arrived by upload, check-in or restore. History folds the autosaves and names the rest.
     saveKind: text("save_kind", { enum: ["explicit", "autosave", "exit", "reap"] }),
+    // The copy of this version that leaves the platform, for a word-processing version the editor
+    // cut: the stored bytes keep every tracked change, and a download, a bundle or any other copy
+    // produced for outside the firm is served from a copy with all changes accepted. `pending` from
+    // the cut until the copy is written, `ready` with the copy's key and size (the version's own key
+    // when it recorded nothing), `unavailable` when the document is past what the accept pass can
+    // hold. Null for a version that needs no copy: an upload, a check-in, a restore, or a document
+    // in a format that records no changes.
+    exportCopyState: text("export_copy_state", { enum: ["pending", "ready", "unavailable"] }),
+    exportR2Key: text("export_r2_key"),
+    exportSizeBytes: integer("export_size_bytes"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -1753,6 +1775,27 @@ export const integrationConnection = sqliteTable(
     ),
   ],
 );
+
+// A connected integration's credential, encrypted at rest under the firm key, addressed by the
+// `credential_ref` its integration_connection row carries. Values are ciphertext only; the
+// encrypt/decrypt and the access gate live in @magna-carta/data-access.
+//
+// WHY THIS IS NOT firm_secret. Both hold a sealed value and the shapes are nearly identical, but the
+// permission that governs reading them is not. firm_secret is the firm's own vault — reading any
+// entry means holding firm:manageSecrets, which is the right gate for an administrator and the wrong
+// one for the act this column exists for: a member buying postage is not reading a secret, the worker
+// is using a credential on their behalf, and that member holds shipping:manage rather than the keys to
+// everything the firm has sealed. A protected column carries exactly one declaration and the decrypt
+// gate is that declaration's permission, so the two acts cannot be told apart while they share a
+// column. They are separated here instead: this column is declared under integrations:useConnection,
+// and firm_secret keeps its administrator gate unweakened.
+export const integrationCredential = sqliteTable("integration_credential", {
+  id: text("id").primaryKey().$type<IntegrationCredentialId>(), // integrationCredential_ handle
+  credentialRef: text("credential_ref").notNull().unique(),
+  ciphertext: text("ciphertext").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
 
 // A typed relationship edge between two directory entities. Temporal (valid_from/valid_to); edge_type
 // is open text constrained to a non-empty value so the catalog can grow without schema migrations.
@@ -7867,6 +7910,20 @@ export const meeting = sqliteTable(
     medium: text("medium", { enum: ["video", "audio"] })
       .notNull()
       .default("video"),
+    // WHETHER ARRIVALS WAIT AT A DOOR. One lobby per MEETING and never one per firm: a firm holds
+    // several meetings at once, so a firm-level lobby would put the people arriving at a partner's
+    // deposition in the same queue as the people arriving at a staff briefing, in front of a host
+    // who is in neither.
+    //
+    // Off by default, because today every participant is a firm member arriving at an event they
+    // are on and a lobby on by default would put a colleague in a queue for every ordinary hearing.
+    // Unlike the medium beside it this one CHANGES: a medium is what the people in the room agreed
+    // to, and a lobby is a standing decision of the host's about who may come in, which has no
+    // bearing on what anybody already agreed to. Turning it on mid-meeting is what a host does when
+    // the matter turns confidential.
+    lobby: text("lobby", { enum: ["off", "on"] })
+      .notNull()
+      .default("off"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .$type<UserId>()
@@ -7876,6 +7933,14 @@ export const meeting = sqliteTable(
     startedAt: text("started_at"), // ISO-8601 instant
     endedAt: text("ended_at"), // ISO-8601 instant
     endedByUserId: text("ended_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // THE DOOR, SHUT. A locked room refuses arrivals at the join path and touches nobody already in
+    // it; unlocking is the same act the other way. Shaped exactly like the ended pair above and
+    // constrained with it, because half of that pair is a record nobody can question: an instant
+    // with no actor cannot be asked who shut the door.
+    lockedAt: text("locked_at"), // ISO-8601 instant
+    lockedByUserId: text("locked_by_user_id")
       .$type<UserId>()
       .references(() => member.userId),
     createdAt: text("created_at").notNull(),
@@ -7897,6 +7962,7 @@ export const meeting = sqliteTable(
     check("meeting_event_kind_check", sql`${table.eventKind} IN ('matter', 'firm')`),
     check("meeting_status_check", sql`${table.status} IN ('scheduled', 'live', 'ended')`),
     check("meeting_medium_check", sql`${table.medium} IN ('video', 'audio')`),
+    check("meeting_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
     // EXACTLY ONE PARENT, AND THE KIND SAYS WHICH. Both halves in one check on purpose: a row with
     // two parents is unreadable, and a row whose kind names the column it did not fill is worse —
     // it reads cleanly and answers the wrong table. The matter_event_participant shape check is the
@@ -7913,6 +7979,11 @@ export const meeting = sqliteTable(
       "meeting_ended_shape_check",
       sql`(${table.endedAt} IS NULL AND ${table.endedByUserId} IS NULL)
         OR (${table.endedAt} IS NOT NULL AND ${table.endedByUserId} IS NOT NULL)`,
+    ),
+    // And the same of the lock: who shut the door and when, together or neither.
+    check(
+      "meeting_locked_shape_check",
+      sql`(${table.lockedAt} IS NULL) = (${table.lockedByUserId} IS NULL)`,
     ),
   ],
 );
@@ -7943,6 +8014,32 @@ export const meetingAttendance = sqliteTable(
     // instant, so a member who never pressed Leave still has a left_at rather than a stay that runs
     // forever.
     leftAt: text("left_at"), // ISO-8601 instant
+    // HOW THE STAY ENDED, as a queryable column rather than only as a label on the departure audit
+    // row. The audit row stays the accountable half — who did it, and when — and this is the half a
+    // read can ask a question of: the join path has to refuse a member whose stay was closed
+    // `removed`, and a refusal that had to walk a matter's audit log to decide would be a read of
+    // the wrong record entirely.
+    //
+    // NOTHING IS BACKFILLED. A stay closed before this column existed carries null, which means
+    // "closed before the record kept the reason" and not "left" — writing 'left' over them would
+    // invent a fact about every socket that was ever lost. A stay closed by the meeting ENDING
+    // carries null too, deliberately: the meeting row already says the gathering ended, and a fifth
+    // value for it would be a second answer to a question the meeting already answers.
+    endedReason: text("ended_reason"),
+    // A WAITING ARRIVAL IS A STAY FROM THE MOMENT IT REACHES THE DOOR. Holding waiters in the
+    // signaling room's own storage and writing the attendance row only on admission was rejected
+    // three times over: the socket upgrade's ticket is an open stay and a waiter needs a socket, the
+    // room's storage is transient state deleted when the last socket closes, and the record would
+    // keep nothing about who waited and was never let in — which is a thing a firm may need to say.
+    //
+    // `joined_at` above therefore means "when this stay began", at the door or in the room, and
+    // `admitted_at` is when the person was actually in it. That is a widening of what the column has
+    // meant and it is stated rather than papered over: making `joined_at` nullable is a table
+    // rebuild and buys nothing a second column does not, and the attendance read carries all three
+    // instants so nothing downstream has to infer anything. Null on both for somebody who never
+    // waited, which is every stay that predates the lobby.
+    waitingFrom: text("waiting_from"), // ISO-8601 instant
+    admittedAt: text("admitted_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -7966,6 +8063,269 @@ export const meetingAttendance = sqliteTable(
     check(
       "meeting_attendance_span_check",
       sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,
+    ),
+    // The departure vocabulary, and the pairing that makes it readable: a reason on a stay that is
+    // still open would say how somebody left a room they are sitting in.
+    check(
+      "meeting_attendance_ended_reason_check",
+      sql`${table.endedReason} IS NULL
+        OR (${table.leftAt} IS NOT NULL
+          AND ${table.endedReason} IN ('left', 'socket-lost', 'removed', 'denied'))`,
+    ),
+    // WHO IS AT THE DOOR OF ONE MEETING — the lobby list, and the read the admission's own capacity
+    // count is taken beside. Partial on the stays that are neither closed nor admitted, which is
+    // the only set either question is ever asked of; `waiting_from` is the second column so the
+    // list comes back in arrival order without a sort.
+    index("meeting_attendance_waiting_index")
+      .on(table.meetingId, table.waitingFrom)
+      .where(sql`${table.leftAt} IS NULL AND ${table.admittedAt} IS NULL`),
+    // Admitted without ever having waited is not a state: the instant a host let somebody in is
+    // meaningless for a stay that walked straight into the room, and a row carrying one would make
+    // "did this person wait" two different answers depending on which column was read.
+    check(
+      "meeting_attendance_admission_shape_check",
+      sql`${table.admittedAt} IS NULL OR ${table.waitingFrom} IS NOT NULL`,
+    ),
+  ],
+);
+
+// WHO IS RUNNING THIS MEETING — one grant of authority over one room, held as a row and closed
+// rather than deleted.
+//
+// A `host_user_id` column on `meeting` would be smaller and would answer the live question. It would
+// answer ONLY the live question: co-hosts are several, so they need rows regardless, and a column
+// overwritten on hand-over erases who was running the room before it. What a firm actually asks of a
+// meeting record months later is "who was hosting when that happened", which is a question about an
+// INTERVAL — so a grant is a row with `granted_at` and `revoked_at`, on the same principle that
+// makes attendance a row per stay rather than a flag per person.
+//
+// THE PERMISSION KEY AND THE GRANT ANSWER DIFFERENT QUESTIONS, which is why this table exists at
+// all. `meetings:host` says who a firm lets convene a meeting; it cannot say who is running THIS
+// room, because that changes during the meeting — hosting is handed over, co-hosts are named and
+// withdrawn, and the member who opened the room may have been called away an hour ago. A key granted
+// once and read everywhere has no way to say any of that.
+//
+// `meeting.created_by_user_id` stays exactly what it is and is deliberately NOT read as the host:
+// the two are the same person only until the first hand-over, and a record that conflated them would
+// answer "who was running the meeting when she was removed" with the name of somebody who had left.
+export const meetingHost = sqliteTable(
+  "meeting_host",
+  {
+    id: text("id").primaryKey().$type<MeetingHostId>(), // meetingHost_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // A co-host holds every act the host does except acting on the host. It is a fact about ONE
+    // meeting rather than a standing rank in the firm, which is why it is a row under a meeting and
+    // nothing in access control.
+    role: text("role", { enum: ["host", "co-host"] }).notNull(),
+    // Null for the starter's own grant and for a claim: neither was given by anybody. A claim is
+    // audited as a claim for the same reason — nobody handed the room over.
+    grantedByUserId: text("granted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    grantedAt: text("granted_at").notNull(), // ISO-8601 instant
+    // Null while the grant stands. A grant is CLOSED and never deleted, because the interval is what
+    // the record is read for.
+    revokedAt: text("revoked_at"), // ISO-8601 instant
+    revokedByUserId: text("revoked_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // THE TWO GRANT INVARIANTS, held by the database rather than by the service: one live host per
+    // meeting, and one live grant per member per meeting. A hand-over is a read-then-write like
+    // every other path here and is blind to the instant it does not span — two members handing the
+    // room to two different people at once — so the index is what settles it and the loser's whole
+    // batch rolls back, on the precedent of the one-meeting-per-event index. Partial on the open
+    // grant, because the CLOSED ones are the record and a member may hold as many of those as the
+    // room changed hands.
+    uniqueIndex("meeting_host_live_host_unique_index")
+      .on(table.meetingId)
+      .where(sql`${table.role} = 'host' AND ${table.revokedAt} IS NULL`),
+    uniqueIndex("meeting_host_live_grant_unique_index")
+      .on(table.meetingId, table.userId)
+      .where(sql`${table.revokedAt} IS NULL`),
+    // The live grants of one meeting, which is the read every host act makes before it acts.
+    index("meeting_host_meeting_revoked_index").on(table.meetingId, table.revokedAt),
+    check("meeting_host_role_check", sql`${table.role} IN ('host', 'co-host')`),
+    // A withdrawal says who withdrew it and when, or neither — the line meeting_ended_shape_check
+    // already sits on.
+    check(
+      "meeting_host_revoked_shape_check",
+      sql`(${table.revokedAt} IS NULL) = (${table.revokedByUserId} IS NULL)`,
+    ),
+  ],
+);
+
+// ONE SIGNED, EXPIRING LINK FOR ONE NAMED GUEST ON ONE MEETING — the durable authority behind a
+// bearer token that is never stored.
+//
+// THE GUEST IS A DIRECTORY ENTITY, never a free address. An invitation names somebody the firm knows
+// and the conflicts corpus can see; a record saying "a link went to somebody@example.test" names
+// nobody the firm can later identify. The entity is carried BY VALUE with no foreign key, on the
+// matter_event_participant precedent, because it is a person or an organization and a column can
+// point at one table only.
+//
+// THE ROW IS THE AUTHORITY AND THE TOKEN IS ONLY WHAT TRAVELS. What is stored is the SHA-256 of the
+// token's secret — never the secret, never the token — so a read of this table cannot mint a
+// working link, while a revoked row, a rotated `secret_version` or an expired instant refuses a
+// perfectly-signed token the moment it changes rather than at the token's own expiry.
+//
+// THE ADDRESS IS NOT HERE. `directory_email_id` records WHICH contact point the link was sent to;
+// the address itself stays the Directory's fact, because a second copy of a client's e-mail address
+// is a second thing to protect, redact and keep current.
+//
+// `invited_name` is the Directory's display name AT MINT, frozen, and it is deliberately a second
+// name beside the one the guest types at the door (`meeting_guest_stay.confirmed_name`). The
+// difference between the two is the whole of what a forwarded link leaves behind.
+//
+// Revoked, never deleted: who was invited to a meeting is part of what the record says happened, and
+// a deleted row would make a withdrawn invitation indistinguishable from one never sent. The client
+// portal's grant model subsumes this table when it lands.
+export const meetingGuestInvitation = sqliteTable(
+  "meeting_guest_invitation",
+  {
+    id: text("id").primaryKey().$type<MeetingGuestInvitationId>(), // meetingGuestInvitation_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    entityKind: text("entity_kind", { enum: ["person", "organization"] }).notNull(),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key.
+    entityId: text("entity_id").notNull(),
+    invitedName: text("invited_name").notNull(),
+    // Which contact point the link was sent to, by value. Null only where the mail went to no
+    // recorded row, which the service does not do today.
+    directoryEmailId: text("directory_email_id"),
+    // SHA-256 of the secret, lowercase hex. Never the secret and never the token.
+    tokenSecretHash: text("token_secret_hash").notNull(),
+    // Incremented by every rotation, so every token of an older version stops verifying at once.
+    secretVersion: integer("secret_version").notNull().default(1),
+    issuedByUserId: text("issued_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // An instant, computed once at mint and never re-derived at read time.
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant
+    revokedAt: text("revoked_at"), // ISO-8601 instant
+    revokedByUserId: text("revoked_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // How many times the link has been spent at the door, bounded so a link forwarded to a crowd
+    // cannot be spent without limit while a bad connection's retries still fit comfortably.
+    arrivalCount: integer("arrival_count").notNull().default(0),
+    lastArrivalAt: text("last_arrival_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // ONE LIVE LINK PER ENTITY PER MEETING. A second mint against the same pair rotates this row
+    // rather than creating another: two links for one guest would be two revocations to perform and
+    // one to forget. The index's leading column also serves "every invitation on this meeting",
+    // which is the only other read this table answers.
+    uniqueIndex("meeting_guest_invitation_meeting_entity_unique_index").on(
+      table.meetingId,
+      table.entityId,
+    ),
+    check(
+      "meeting_guest_invitation_entity_kind_check",
+      sql`${table.entityKind} IN ('person', 'organization')`,
+    ),
+    check("meeting_guest_invitation_invited_name_check", sql`length(${table.invitedName}) > 0`),
+    check("meeting_guest_invitation_secret_hash_check", sql`length(${table.tokenSecretHash}) = 64`),
+    check("meeting_guest_invitation_secret_version_check", sql`${table.secretVersion} >= 1`),
+    check("meeting_guest_invitation_arrival_count_check", sql`${table.arrivalCount} >= 0`),
+    // A withdrawal says who withdrew it and when, or neither — the line meeting_host sits on.
+    check(
+      "meeting_guest_invitation_revoked_shape_check",
+      sql`(${table.revokedAt} IS NULL) = (${table.revokedByUserId} IS NULL)`,
+    ),
+  ],
+);
+
+// A GUEST'S STAY IN ONE ROOM — `meeting_attendance`'s shape, for somebody with no user id.
+//
+// A SECOND TABLE RATHER THAN A NULLABLE COLUMN, and the reason is mechanical. SQLite cannot drop a
+// NOT NULL in place, so relaxing `meeting_attendance.user_id` is a table rebuild on a table other
+// tables point at — the one thing this schema refuses. Adding a table is free. `joined_at`,
+// `waiting_from`, `admitted_at`, `left_at` and `ended_reason` mean here exactly what they mean there,
+// which is what lets the two presence predicates compose over both tables without a second
+// definition of "in the room" (packages/meetings/src/meeting-statements.ts).
+//
+// The three differences are the three facts a member's stay has no room for: the invitation it was
+// spent from, the name the guest typed at the door, and the absence of a user id. And `waiting_from`
+// is NOT NULL, because a guest always waits, whatever the meeting's lobby setting says: the link
+// proves possession of a mailbox and nothing more, so it gets a person to the door and a host
+// decides the rest.
+export const meetingGuestStay = sqliteTable(
+  "meeting_guest_stay",
+  {
+    id: text("id").primaryKey().$type<MeetingGuestStayId>(), // meetingGuestStay_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    invitationId: text("invitation_id")
+      .notNull()
+      .$type<MeetingGuestInvitationId>()
+      .references(() => meetingGuestInvitation.id),
+    // What the guest typed at the door: untrusted display text, whitespace-normalized and bounded,
+    // and never written over the Directory's name anywhere.
+    confirmedName: text("confirmed_name").notNull(),
+    joinedAt: text("joined_at").notNull(), // ISO-8601 instant — for a guest, at the door
+    waitingFrom: text("waiting_from").notNull(), // ISO-8601 instant — never null, a guest always waits
+    admittedAt: text("admitted_at"), // ISO-8601 instant
+    admittedByUserId: text("admitted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    leftAt: text("left_at"), // ISO-8601 instant
+    endedReason: text("ended_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The live count and the roster: the open rows of one meeting.
+    index("meeting_guest_stay_meeting_left_at_index").on(table.meetingId, table.leftAt),
+    // WHO IS AT THE DOOR, in arrival order, partial on exactly the set the lobby list and the door's
+    // own ceiling are asked of — the member table's waiting index, for the second table.
+    index("meeting_guest_stay_waiting_index")
+      .on(table.meetingId, table.waitingFrom)
+      .where(sql`${table.leftAt} IS NULL AND ${table.admittedAt} IS NULL`),
+    // ONE OPEN STAY PER INVITATION PER MEETING. A spend of the link while a stay is open returns
+    // that stay rather than opening a second, and this is what holds that under a race: two
+    // browsers pressing Join on one link at once end with one stay. Partial on the open row,
+    // because the closed ones are the record.
+    uniqueIndex("meeting_guest_stay_open_stay_unique_index")
+      .on(table.meetingId, table.invitationId)
+      .where(sql`${table.leftAt} IS NULL`),
+    check(
+      "meeting_guest_stay_confirmed_name_check",
+      sql`length(${table.confirmedName}) > 0 AND length(${table.confirmedName}) <= 80`,
+    ),
+    // Who let them in and when, together or neither — the lock's line.
+    check(
+      "meeting_guest_stay_admission_shape_check",
+      sql`(${table.admittedAt} IS NULL) = (${table.admittedByUserId} IS NULL)`,
+    ),
+    check(
+      "meeting_guest_stay_span_check",
+      sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,
+    ),
+    // The member table's departure vocabulary, and the same pairing: a reason on a stay that is
+    // still open would say how somebody left a room they are sitting in.
+    check(
+      "meeting_guest_stay_ended_reason_check",
+      sql`${table.endedReason} IS NULL
+        OR (${table.leftAt} IS NOT NULL
+          AND ${table.endedReason} IN ('left', 'socket-lost', 'removed', 'denied'))`,
     ),
   ],
 );
@@ -10532,6 +10892,380 @@ export const matterIntakeStepRecord = sqliteTable(
     check(
       "matter_intake_step_record_waiver_rationale_check",
       sql`${table.outcome} != 'waived' OR (${table.rationale} IS NOT NULL AND length(${table.rationale}) > 0)`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// In-meeting chat — the meeting's first and only stored content.
+// ---------------------------------------------------------------------------------------------
+
+// One thing somebody said in a meeting's chat. The owner's ruling of 2026-09-20 is that chat is KEPT
+// ON THE RECORD, which makes this the one table in the subsystem that holds content: everything else
+// a meeting knows is identifiers and instants, and the audio, the video and the screen share are
+// routed between browsers and reach no storage here at all. So this row carries what a filed message
+// carries — a retention basis, a personal-data classification, and a way to take something back.
+//
+// IT HANGS FROM THE STAY, NOT FROM THE MEMBER. The participant pair is who said it at the time, and
+// being in the room is what made it sayable: the speaker is reached through their stay, so somebody
+// who dropped off and dialled back in has each message attributed to the stay it was actually said
+// in. A user column beside it would be a second answer to who spoke, and the two would disagree the
+// first time a stay was corrected.
+//
+// THE STAY IS NAMED BY VALUE, ACROSS TWO TABLES. A member's stay is a `meeting_attendance` row and a
+// guest's will be a `meeting_guest_stay` row, because `meeting_attendance.user_id` is NOT NULL and
+// SQLite cannot relax that in place — so a foreign key onto `meeting_attendance` here would bar
+// every guest from chat, and adding the second kind afterwards is exactly the table rebuild this
+// schema refuses on a table anything references. `participant_kind` says which table the handle
+// belongs to and `participant_id` carries it with no foreign key: the matter_party / custody_owner
+// precedent for a cross-domain handle. `meeting_id` stays a real foreign key — that is what ties the
+// message to the record it is part of.
+//
+// APPEND-ONLY, NEVER EDITED. A message is a thing somebody said; a record that could be rewritten
+// afterwards is not a record of the meeting. Removal is not a delete either — it is the
+// redacted_at/redacted_by_user_id pair blanking the body, so the file keeps that a message existed,
+// when, from which stay, and that somebody took it back.
+export const meetingMessage = sqliteTable(
+  "meeting_message",
+  {
+    id: text("id").primaryKey().$type<MeetingMessageId>(), // meetingMessage_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    // Which kind of stay the handle beside it names: a firm member's `meeting_attendance` row, or
+    // the `meeting_guest_stay` row an external guest will hold. Only `member` is written today.
+    participantKind: text("participant_kind", { enum: ["member", "guest"] }).notNull(),
+    // The stay, which is both who said it and the proof they were in the room when they did. Carried
+    // by value, with no foreign key, because the table it belongs to is decided by the column above.
+    participantId: text("participant_id").notNull(),
+    // THE SERVER'S INSTANT, never the browser's: a transcript ordered by what each person's own
+    // clock said is not one ordering, and the disagreement is invisible in the reading.
+    sentAt: text("sent_at").notNull(), // ISO-8601 instant
+    // What was said, bounded at four thousand characters. Empty exactly when the row is redacted,
+    // which is what the pair of checks below says in both directions.
+    body: text("body").notNull(),
+    redactedAt: text("redacted_at"), // ISO-8601 instant
+    redactedByUserId: text("redacted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // THE READ AND THE KEYSET IN ONE INDEX: one meeting's messages, oldest first, walked by
+    // (sent_at, id). The handle is in the index because it is the tiebreak that makes two messages
+    // sent in the same millisecond a stable pair rather than a page that repeats one and skips the
+    // other.
+    index("meeting_message_meeting_sent_index").on(table.meetingId, table.sentAt, table.id),
+    // A removal says who removed it and when, or neither. Half of that pair is a record nobody can
+    // question — the line meeting_ended_shape_check already sits on.
+    check(
+      "meeting_message_redaction_shape_check",
+      sql`(${table.redactedAt} IS NULL AND ${table.redactedByUserId} IS NULL)
+        OR (${table.redactedAt} IS NOT NULL AND ${table.redactedByUserId} IS NOT NULL)`,
+    ),
+    // WHAT REDACTION MEANS, held by the database rather than by the write path. A redacted row whose
+    // body survived would be a removal that removed nothing, and a live row with an empty body would
+    // read as a removal that never happened; both are the same check from opposite sides.
+    check(
+      "meeting_message_redacted_body_check",
+      sql`(${table.redactedAt} IS NULL AND length(${table.body}) > 0)
+        OR (${table.redactedAt} IS NOT NULL AND length(${table.body}) = 0)`,
+    ),
+    // The ceiling, as the database's own answer as well as the domain package's. Four thousand
+    // characters is a long message and not an essay; a chat that could carry a document would be a
+    // filing path nothing in the subsystem scans.
+    check("meeting_message_body_length_check", sql`length(${table.body}) <= 4000`),
+    // The participant vocabulary, as a CHECK, so a handle that claims a third kind of stay fails at
+    // the database rather than only at the type checker.
+    check(
+      "meeting_message_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest')`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Polls and questions — the meeting's second and third stored content, on chat's own terms.
+// ---------------------------------------------------------------------------------------------
+
+// ONE CLOSED QUESTION A HOST ASKED THE ROOM. A poll is on the record from the moment it opens — the
+// question, the options, who answered and what — because a host asked and the room answered, which
+// is a thing the meeting produced in exactly the sense a chat message is.
+//
+// THERE IS NO DRAFT. The row exists because somebody was asked, so `opened_at` is NOT NULL and is
+// set at insert. A poll authored before the meeting belongs to the event rather than to the room and
+// is a different record; a nullable instant here would be a row saying a poll happened when nobody
+// was ever asked.
+//
+// SEVERAL MAY BE OPEN AT ONCE. One at a time would need a partial unique index and would refuse the
+// ordinary case of a host stacking two questions at the end of a briefing.
+//
+// `breakout_id` names the breakout room a poll was asked in, BY VALUE and with no foreign key, and
+// is null for a poll asked of the main room — which is every poll today. It is here before the
+// breakout table exists because a column added later is free and a CHECK or a foreign key added
+// later is a rebuild of a table other tables point at, which this schema refuses.
+export const meetingPoll = sqliteTable(
+  "meeting_poll",
+  {
+    id: text("id").primaryKey().$type<MeetingPollId>(), // meetingPoll_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    // Who asked the room — a member holding a live grant at the instant it opened. A host is always a
+    // member, so this is a real foreign key where the answering side is a stay by value.
+    askedByUserId: text("asked_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // What the room was asked, bounded at five hundred characters: a question and not a brief.
+    question: text("question").notNull(),
+    // Whether the answers are kept without the participant. 0 or 1, and the promise it makes is
+    // held by the ANSWER table rather than by a read filter — see `meeting_poll_answer`.
+    anonymous: integer("anonymous", { mode: "boolean" }).notNull(),
+    // How many options one participation may name. One is an ordinary poll; more is "choose up to".
+    maxChoices: integer("max_choices").notNull().default(1),
+    openedAt: text("opened_at").notNull(), // ISO-8601 instant
+    // Closed says who closed it and when, or neither. A closed poll refuses answers.
+    closedAt: text("closed_at"), // ISO-8601 instant
+    closedByUserId: text("closed_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // The breakout room this was asked in, by value; null for the main room.
+    breakoutId: text("breakout_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // THE READ AND THE KEYSET IN ONE INDEX: one meeting's polls walked by (opened_at, id), the
+    // handle breaking the tie between two polls opened in the same millisecond.
+    index("meeting_poll_meeting_opened_index").on(table.meetingId, table.openedAt, table.id),
+    check("meeting_poll_anonymous_check", sql`${table.anonymous} IN (0, 1)`),
+    // Between one and the most options a poll may carry, since a participation can name no more
+    // options than exist.
+    check("meeting_poll_max_choices_check", sql`${table.maxChoices} BETWEEN 1 AND 10`),
+    check(
+      "meeting_poll_question_length_check",
+      sql`length(${table.question}) > 0 AND length(${table.question}) <= 500`,
+    ),
+    // A close says who closed it and when, or neither — the line meeting_ended_shape_check sits on.
+    check(
+      "meeting_poll_closed_shape_check",
+      sql`(${table.closedAt} IS NULL AND ${table.closedByUserId} IS NULL)
+        OR (${table.closedAt} IS NOT NULL AND ${table.closedByUserId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// ONE CHOICE A POLL OFFERED — a row rather than a JSON array, and that is the decision worth
+// defending. An answer must name an option that EXISTS, and a foreign key is the only thing that
+// makes an answer to the seventh option of a four-option poll impossible whoever writes it. The tally
+// is a left join from options to answers, which returns every option including the ones nobody
+// picked, in `position` order. And a label is content the firm put on a screen, registered in the
+// personal-data registry as a column a residue report can address, which a blob's insides are not.
+//
+// The options never change once a poll is open: there is deliberately no update path.
+export const meetingPollOption = sqliteTable(
+  "meeting_poll_option",
+  {
+    id: text("id").primaryKey().$type<MeetingPollOptionId>(), // meetingPollOption_ handle
+    pollId: text("poll_id")
+      .notNull()
+      .$type<MeetingPollId>()
+      .references(() => meetingPoll.id),
+    // 0-based, the order the room sees.
+    position: integer("position").notNull(),
+    // What the option says, bounded at two hundred characters.
+    label: text("label").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_poll_option_poll_position_unique_index").on(table.pollId, table.position),
+    // THE TARGET OF THE ANSWER'S COMPOSITE FOREIGN KEY. An answer names its poll and its option as
+    // a pair, and this is what the pair references — so an option belonging to ANOTHER poll fails at
+    // the database, not only in the service.
+    uniqueIndex("meeting_poll_option_poll_id_unique_index").on(table.pollId, table.id),
+    check("meeting_poll_option_position_check", sql`${table.position} BETWEEN 0 AND 9`),
+    check(
+      "meeting_poll_option_label_length_check",
+      sql`length(${table.label}) > 0 AND length(${table.label}) <= 200`,
+    ),
+  ],
+);
+
+// THAT A STAY ANSWERED, AND NOTHING ABOUT WHAT. One row per participation, which is the whole
+// ballot-stuffing guard: the unique index allows one participation per stay per poll however many
+// options `max_choices` lets it name — which is why this is a table of its own rather than a unique
+// index on the answers, where a participant choosing three legitimately has three rows.
+//
+// It is also the ONE HOME OF WHEN a poll was answered, on both kinds of poll. An instant on the
+// answer row would re-link it to this row, written in the same batch, and the anonymity split would
+// be cosmetic.
+//
+// The stay is named BY VALUE across three kinds, on meeting_message's precedent: a member's
+// `meeting_attendance`, a guest's `meeting_guest_stay`, and an `attendee` — a webinar's audience,
+// which a later slice gives a stay table of its own. The third is in the CHECK now because widening
+// a CHECK later is a rebuild of a table other tables point at.
+export const meetingPollRespondent = sqliteTable(
+  "meeting_poll_respondent",
+  {
+    id: text("id").primaryKey().$type<MeetingPollRespondentId>(), // meetingPollRespondent_ handle
+    pollId: text("poll_id")
+      .notNull()
+      .$type<MeetingPollId>()
+      .references(() => meetingPoll.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    answeredAt: text("answered_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    uniqueIndex("meeting_poll_respondent_participation_unique_index").on(
+      table.pollId,
+      table.participantKind,
+      table.participantId,
+    ),
+    check(
+      "meeting_poll_respondent_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// WHAT WAS CHOSEN, AND — ON A POLL THAT DOES NOT SHOW NAMES — NOTHING ABOUT WHO. The tally is a count
+// of these rows; who took part is `meeting_poll_respondent`; neither table can answer the other's
+// question. The participant pair is null on every row of an anonymous poll and set on every row of
+// an attributed one, held together by the CHECK, and there is deliberately no instant here — see the
+// respondent table.
+//
+// The option is named as the PAIR (poll_id, option_id) against the option table's own unique pair,
+// so an answer that names another poll's option fails at the foreign key rather than in the service.
+export const meetingPollAnswer = sqliteTable(
+  "meeting_poll_answer",
+  {
+    id: text("id").primaryKey().$type<MeetingPollAnswerId>(), // meetingPollAnswer_ handle
+    pollId: text("poll_id")
+      .notNull()
+      .$type<MeetingPollId>()
+      .references(() => meetingPoll.id),
+    optionId: text("option_id").notNull().$type<MeetingPollOptionId>(),
+    participantKind: text("participant_kind", { enum: ["member", "guest", "attendee"] }),
+    participantId: text("participant_id"),
+  },
+  (table) => [
+    foreignKey({
+      name: "meeting_poll_answer_option_fk",
+      columns: [table.pollId, table.optionId],
+      foreignColumns: [meetingPollOption.pollId, meetingPollOption.id],
+    }),
+    // The tally: one poll's answers grouped by option.
+    index("meeting_poll_answer_poll_option_index").on(table.pollId, table.optionId),
+    check(
+      "meeting_poll_answer_participant_shape_check",
+      sql`(${table.participantKind} IS NULL AND ${table.participantId} IS NULL)
+        OR (${table.participantKind} IS NOT NULL AND ${table.participantId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_poll_answer_participant_kind_check",
+      sql`${table.participantKind} IS NULL OR ${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// ONE QUESTION SOMEBODY PUT TO THE ROOM — the chat row with two pairs instead of one, on purpose. A
+// question is content said in a meeting, so it takes the redaction pair, the blanked body, the
+// append-only rule and the two CHECKs that hold them from both sides, word for word from
+// `meeting_message`; a second removal mechanism for the same kind of content would be a second answer
+// to what taking something back means. The answered pair is the same shape for the same reason — a
+// state change with no actor cannot be questioned — and it is a pair rather than a boolean because
+// "answered by whom" is what a firm asks of a queue months later.
+//
+// The asker is a stay by value, across the same three kinds the poll respondent carries, and
+// `breakout_id` is the breakout room it was asked in, by value, null for the main room.
+export const meetingQuestion = sqliteTable(
+  "meeting_question",
+  {
+    id: text("id").primaryKey().$type<MeetingQuestionId>(), // meetingQuestion_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    // What was asked, bounded at a thousand characters. Empty exactly when the row is redacted.
+    body: text("body").notNull(),
+    askedAt: text("asked_at").notNull(), // ISO-8601 instant, the server's
+    answeredAt: text("answered_at"), // ISO-8601 instant
+    answeredByUserId: text("answered_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    redactedAt: text("redacted_at"), // ISO-8601 instant
+    redactedByUserId: text("redacted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    breakoutId: text("breakout_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // The read and the keyset in one index, on the transcript's own shape: one meeting's questions
+    // walked by (asked_at, id). The panel sorts by upvotes in the browser — a cursor over a value
+    // that changes while the reader pages repeats rows and skips rows.
+    index("meeting_question_meeting_asked_index").on(table.meetingId, table.askedAt, table.id),
+    check(
+      "meeting_question_answered_shape_check",
+      sql`(${table.answeredAt} IS NULL AND ${table.answeredByUserId} IS NULL)
+        OR (${table.answeredAt} IS NOT NULL AND ${table.answeredByUserId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_question_redaction_shape_check",
+      sql`(${table.redactedAt} IS NULL AND ${table.redactedByUserId} IS NULL)
+        OR (${table.redactedAt} IS NOT NULL AND ${table.redactedByUserId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_question_redacted_body_check",
+      sql`(${table.redactedAt} IS NULL AND length(${table.body}) > 0)
+        OR (${table.redactedAt} IS NOT NULL AND length(${table.body}) = 0)`,
+    ),
+    check("meeting_question_body_length_check", sql`length(${table.body}) <= 1000`),
+    check(
+      "meeting_question_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// ONE STAY'S VOTE FOR A QUESTION — a row rather than a counter, the mirror of the options decision. A
+// counter cannot answer "have I already upvoted this", which the panel asks on every paint to draw
+// the control and which is the only thing that stops one person pressing it fifty times; the unique
+// index is both that guard and that read. Withdrawal deletes the row, because an upvote you cannot
+// take back is a vote and not a signal — and the count is computed over the rows, so there is no
+// second home for the number to drift from.
+export const meetingQuestionUpvote = sqliteTable(
+  "meeting_question_upvote",
+  {
+    id: text("id").primaryKey().$type<MeetingQuestionUpvoteId>(), // meetingQuestionUpvote_ handle
+    questionId: text("question_id")
+      .notNull()
+      .$type<MeetingQuestionId>()
+      .references(() => meetingQuestion.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    upvotedAt: text("upvoted_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    uniqueIndex("meeting_question_upvote_participation_unique_index").on(
+      table.questionId,
+      table.participantKind,
+      table.participantId,
+    ),
+    check(
+      "meeting_question_upvote_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
     ),
   ],
 );

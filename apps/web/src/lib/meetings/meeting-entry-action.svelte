@@ -19,9 +19,13 @@
    * server — the entry's meeting is read behind that same permission, and asking anyway bought them
    * a refusal on every entry window they opened.
    */
+  import Lock from "@lucide/svelte/icons/lock";
+  import UsersRound from "@lucide/svelte/icons/users-round";
   import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import Button from "@magna-carta/design-system/button";
+  import Label from "@magna-carta/design-system/label";
+  import Switch from "@magna-carta/design-system/switch";
   import { createQuery } from "@tanstack/svelte-query";
   import {
     meetingsGetForEventOptions,
@@ -30,7 +34,9 @@
   import { goto } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
+  import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
   import { startMeeting } from "./meetings-api.ts";
+  import MeetingGuestsPanel from "./meeting-guests-panel.svelte";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
@@ -97,13 +103,22 @@
   let startFailure = $state<Failure | null>(null);
   /** Which of the two the last attempt was, so Retry asks for the one that was pressed. */
   let lastAttempt = $state<MeetingMedium>("video");
+  /*
+   * Whether arrivals are held at a door, chosen before the room opens.
+   *
+   * OFF BY DEFAULT, because every participant today is a firm member arriving at an event they are
+   * already on, and a lobby on by default would put a colleague in a queue for every ordinary
+   * hearing. It is a standing the room OPENS with rather than a setting of the meeting's: a host
+   * changes it from inside, and this control has nothing to say about a room that already exists.
+   */
+  let holdArrivals = $state(false);
 
   async function start(medium: MeetingMedium): Promise<void> {
     if (starting !== null) return;
     starting = medium;
     lastAttempt = medium;
     startFailure = null;
-    const outcome = await startMeeting(eventKind, eventId, medium);
+    const outcome = await startMeeting(eventKind, eventId, medium, holdArrivals ? "on" : "off");
     starting = null;
     if (outcome.kind === "ok") {
       await goto(`/meetings/${outcome.value.id}`);
@@ -114,10 +129,57 @@
 
   /** What the running room is called, which is what its Join control has to say. */
   const joinLabel = $derived(running?.medium === "audio" ? "Join Call" : "Join Meeting");
+
+  /*
+   * A room whose host has shut the door.
+   *
+   * THE CONTROL SAYS SO BEFORE THE CLICK RATHER THAN AFTER IT, which is the whole reason the summary
+   * carries the fact: a Join that opens the room screen and is refused there has walked a member
+   * through two screens to tell them what one word could. It is disabled with the reason rather than
+   * absent, because this IS something that could happen here — the door opens again the moment a
+   * host unlocks it, and a control that vanished would leave a reader wondering what they missed.
+   */
+  const locked = $derived(running !== null && running.locked);
+  const lockedReason = $derived(
+    running?.medium === "audio"
+      ? "A host has locked this call, so nobody else can come in."
+      : "A host has locked this meeting, so nobody else can come in.",
+  );
+
+  /*
+   * WHO FROM OUTSIDE THE FIRM MAY COME, from the entry the meeting hangs on. A host is as likely to
+   * send a client their link the morning before as from inside the room, and the entry window is
+   * where the event's participants — the only people a link can be sent to — are already read.
+   * Offered once a meeting exists on the entry, because a link is minted for a meeting.
+   */
+  let guestsOpen = $state(false);
 </script>
 
+{#if canJoin && configured && canHost && running !== null}
+  <Button
+    variant="secondary"
+    title="Who from outside the firm may come to this meeting"
+    onclick={() => (guestsOpen = true)}
+  >
+    <UsersRound class="size-16" aria-hidden="true" />
+    Guests
+  </Button>
+  <MeetingGuestsPanel
+    bind:open={guestsOpen}
+    subject={{ facts: [running.title] }}
+    meetingId={running.id}
+    {eventKind}
+    {eventId}
+  />
+{/if}
+
 {#if canJoin && configured}
-  {#if running !== null}
+  {#if locked}
+    <Button variant="secondary" disabled title={lockedReason}>
+      <Lock class="size-16" aria-hidden="true" />
+      Locked
+    </Button>
+  {:else if running !== null}
     <Button
       variant="secondary"
       title={running.medium === "audio"
@@ -161,6 +223,21 @@
           <Phone class="size-16" aria-hidden="true" />
           Start Call
         </Button>
+      </div>
+      <!-- THE ONE THING DECIDED BEFORE THE ROOM OPENS RATHER THAN INSIDE IT, and it sits beside both
+           controls because it is true of whichever one is pressed. A host changes it from inside the
+           meeting afterwards: who may come in is a standing decision of theirs and has no bearing on
+           what the people already in the room agreed to. -->
+      <div class="flex items-center gap-8">
+        <Switch
+          aria-labelledby="{eventId}-hold-arrivals-label"
+          bind:checked={holdArrivals}
+          disabled={starting !== null}
+        />
+        <!-- The same words the event form asks it in, from the one home they are written in: two
+             spellings of one control is how a reader learns that two parts of one product were
+             written by two people. -->
+        <Label id="{eventId}-hold-arrivals-label">{MEETING_LOBBY_LABEL}</Label>
       </div>
       {#if startFailure !== null}
         <FailureNotice

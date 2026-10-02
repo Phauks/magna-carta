@@ -102,7 +102,7 @@ describe("purgeableVersionObjects — the purge guard", () => {
     const afterOne = await purgeableVersionObjects(database, original.fileId);
     expect(afterOne.destroy).toEqual([]);
     expect(afterOne.retained).toEqual([
-      { versionId: original.versionId, r2Key: original.r2Key, heldBy: 1 },
+      { versionId: original.versionId, r2Key: original.r2Key, exportR2Key: null, heldBy: 1 },
     ]);
   });
 
@@ -127,7 +127,9 @@ describe("purgeableVersionObjects — the purge guard", () => {
     await deleteFile(database, alone.fileId);
     const answer = await purgeableVersionObjects(database, alone.fileId);
     expect(answer.retained).toEqual([]);
-    expect(answer.destroy).toEqual([{ versionId: alone.versionId, r2Key: alone.r2Key }]);
+    expect(answer.destroy).toEqual([
+      { versionId: alone.versionId, r2Key: alone.r2Key, exportR2Key: null },
+    ]);
   });
 
   it("refuses a live file: a purge follows a deletion, and never stands in for one", async () => {

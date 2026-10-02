@@ -102,6 +102,20 @@ import {
   assertDeadlineHorizon,
 } from "@magna-carta/calendar/validation";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import {
+  CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
+  type CalendarEventMeetingScheduledPayload,
+} from "@magna-carta/calendar/notifications";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
+import {
+  CANCEL_CLOSING_GUARD,
+  createMeeting,
+  endScheduledMeetingForCancelledEvent,
+  openMeetingOnEvent,
+} from "@magna-carta/meetings/meeting-service";
+import { readMeetingForEvent } from "@magna-carta/meetings/meeting-statements";
+import { MEETING_LOBBY_MODES } from "@magna-carta/meetings/lobby-types";
+import { MEETING_MEDIA, type MeetingEventKind } from "@magna-carta/meetings/types";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
   CalendarEventLinkId,
@@ -123,6 +137,7 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { assertPermission } from "@magna-carta/access-control/registry";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { capped, cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
@@ -159,6 +174,27 @@ const ParticipantRequest = z
   })
   .openapi("MatterEventParticipantInput");
 
+// SCHEDULING A MEETING IS RECORDING AN EVENT WITH A MEDIUM ON IT. There is no second record and no
+// second form: a member answers one more question on the event they were recording anyway, and the
+// save opens the room the entry window then offers Join on from the moment the event exists.
+//
+// Absent or null means no meeting, which is what almost every hearing and filing is. A medium is
+// chosen once and never changed — the people already in a room agreed to one thing — so this field
+// on an UPDATE adds a meeting to an event that has none and can never widen one that has.
+const MeetingRequest = z
+  .object({
+    // Sound alone, or sound and pictures.
+    medium: z.enum(MEETING_MEDIA),
+    // WHETHER ARRIVALS WAIT AT A DOOR, decided as the room is opened and by the same person who
+    // decided there would be one. It is optional and defaults to `off` because that is what every
+    // meeting scheduled before the door existed was, and because a form that did not ask must not
+    // silently put a firm's colleagues in a queue. Read on the CREATE path only, exactly as the
+    // medium beside it is: a meeting's door is then moved through the lobby route, which writes the
+    // record and tells the room, rather than through a re-save of the calendar entry.
+    lobby: z.enum(MEETING_LOBBY_MODES).default("off"),
+  })
+  .openapi("CalendarEventMeetingInput");
+
 const CreateEventRequest = z
   .object({
     eventTypeId: identifierField("matterEventType").nullable().optional(),
@@ -191,6 +227,7 @@ const CreateEventRequest = z
      */
     recurrenceRule: z.string().max(400).nullable().optional(),
     participants: z.array(ParticipantRequest).max(50).optional(),
+    meeting: MeetingRequest.nullable().optional(),
   })
   .openapi("CreateMatterEventRequest");
 
@@ -385,6 +422,18 @@ const UpdateEventTypeRequest = CreateEventTypeRequest.partial().openapi(
 const CreatedResponse = z.object({ id: z.string() }).openapi("CalendarCreatedResponse");
 const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("CalendarAckResponse");
 
+// The two event creates answer with the meeting as well, because the caller that asked for one has
+// to be able to open it without a second round trip to find out what it got. Null where the event
+// carries no meeting, which is almost every event — an absent field would make "no meeting" and "an
+// older server" the same answer.
+const EventRecordedResponse = z
+  .object({ id: z.string(), meetingId: z.string().nullable() })
+  .openapi("CalendarEventRecordedResponse");
+
+const EventUpdatedResponse = z
+  .object({ ok: z.literal(true), meetingId: z.string().nullable() })
+  .openapi("CalendarEventUpdatedResponse");
+
 // ---- firm events ----
 
 const CreateFirmEventRequest = z
@@ -415,6 +464,7 @@ const CreateFirmEventRequest = z
      */
     recurrenceRule: z.string().max(400).nullable().optional(),
     participants: z.array(ParticipantRequest).max(50).optional(),
+    meeting: MeetingRequest.nullable().optional(),
   })
   .openapi("CreateFirmEventRequest");
 
@@ -1131,7 +1181,13 @@ const createEventRoute = defineOpenAPIRoute(mutationMeta("createEvent", "matter"
     "Records something that happened or will happen in the case: a hearing, a filing, service, an " +
     "order, a deposition, a client meeting. A date is a plain calendar date and a time is separate " +
     "and optional, because an all-day event is a real and common answer; the time zone is required " +
-    "and is the one the event happens in, which for a hearing is the court's and not the firm's.",
+    "and is the one the event happens in, which for a hearing is the court's and not the firm's. " +
+    "Answering `meeting` schedules a video meeting or an audio call in the same act: the room is " +
+    "opened on the event, the colleagues listed on it are invited, and everyone sees Join from now " +
+    "rather than from the moment somebody presses Start. Only members are invited — a client or " +
+    "another party from the Directory has no way in yet. Opening a room needs the permission to " +
+    "host meetings as well as the one to manage the calendar; without it the event can still be " +
+    "recorded, and only the `meeting` field is refused.",
   request: {
     headers: idempotencyKeyHeader,
     params: matterIdParam,
@@ -1139,8 +1195,8 @@ const createEventRoute = defineOpenAPIRoute(mutationMeta("createEvent", "matter"
   },
   responses: {
     201: {
-      description: "The recorded event",
-      content: { "application/json": { schema: CreatedResponse } },
+      description: "The recorded event, with its meeting where one was asked for",
+      content: { "application/json": { schema: EventRecordedResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -1159,7 +1215,11 @@ const updateEventRoute = defineOpenAPIRoute(mutationMeta("updateEvent", "matter"
     "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a " +
     "new date: the record moves and the audit trail carries the move, rather than leaving two " +
     "hearings on the calendar for every reader to work out which one counts. Supplying participants " +
-    "replaces the whole list; omitting them leaves it alone.",
+    "replaces the whole list; omitting them leaves it alone. Moving an event keeps its meeting: a " +
+    "meeting carries no time of its own. Supplying `meeting` adds one to an event that has none, " +
+    "and needs the permission to host meetings as well as the one to manage the calendar; " +
+    "null or absent leaves the event's meeting exactly as it stands, because ending a gathering is " +
+    "an act of its own and never a side effect of a correction.",
   request: {
     headers: idempotencyKeyHeader,
     params: eventIdParam,
@@ -1167,8 +1227,8 @@ const updateEventRoute = defineOpenAPIRoute(mutationMeta("updateEvent", "matter"
   },
   responses: {
     200: {
-      description: "The event was updated",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+      description: "The event was updated, with its meeting where it has one",
+      content: { "application/json": { schema: EventUpdatedResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -1187,7 +1247,8 @@ const cancelEventRoute = defineOpenAPIRoute(mutationMeta("cancelEvent", "matter"
     "Marks an event cancelled, with an optional reason the record keeps. The record stays: a " +
     "hearing that was taken off is a fact about the case, and a firm that has to show it was " +
     "vacated cannot do that from a row that is gone. A hearing the court moved is continued, not " +
-    "cancelled — the continue operation records both settings.",
+    "cancelled — the continue operation records both settings." +
+    " A meeting scheduled on the event ends with it, in the same batch. A meeting that is LIVE refuses the cancel: taking a room away from the people in it is not a side effect a calendar edit may have, so the meeting is ended first and the event cancelled after.",
   request: {
     headers: idempotencyKeyHeader,
     params: eventIdParam,
@@ -1475,15 +1536,17 @@ const createFirmEventRoute = defineOpenAPIRoute(mutationMeta("createFirmEvent", 
     "Records something the firm schedules for itself: a meeting, an office closure, training, a " +
     "firm holiday, a reservation. An all-members audience puts it on everyone's calendar without " +
     "keeping a list that goes stale with every hire; a participants audience puts it on the " +
-    "calendars of the people named.",
+    "calendars of the people named. Answering `meeting` schedules a video meeting or an audio call " +
+    "in the same act, exactly as it does on a matter's event — and needs the permission to host " +
+    "meetings as well as the one to manage the calendar.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: CreateFirmEventRequest } }, required: true },
   },
   responses: {
     201: {
-      description: "The recorded firm event",
-      content: { "application/json": { schema: CreatedResponse } },
+      description: "The recorded firm event, with its meeting where one was asked for",
+      content: { "application/json": { schema: EventRecordedResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -1501,7 +1564,9 @@ const updateFirmEventRoute = defineOpenAPIRoute(mutationMeta("updateFirmEvent", 
   description:
     "Edits a firm event in place. A moved staff meeting is not procedural history — firm events " +
     "keep simple edit semantics, and the audit trail carries the move. Supplying participants " +
-    "replaces the whole list; omitting them leaves it alone.",
+    "replaces the whole list; omitting them leaves it alone. A meeting on the event survives the " +
+    "edit; supplying `meeting` adds one where there is none, and needs the permission to host " +
+    "meetings as well as the one to manage the calendar.",
   request: {
     headers: idempotencyKeyHeader,
     params: firmEventIdParam,
@@ -1509,8 +1574,8 @@ const updateFirmEventRoute = defineOpenAPIRoute(mutationMeta("updateFirmEvent", 
   },
   responses: {
     200: {
-      description: "The firm event was updated",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+      description: "The firm event was updated, with its meeting where it has one",
+      content: { "application/json": { schema: EventUpdatedResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -1528,7 +1593,8 @@ const cancelFirmEventRoute = defineOpenAPIRoute(mutationMeta("cancelFirmEvent", 
   description:
     "Marks a firm event cancelled, with an optional reason. The record stays, and any room or " +
     "vehicle booked for it frees itself: a booking blocks a resource only while its event is live, " +
-    "so cancelling releases the bookings with nothing further to do.",
+    "so cancelling releases the bookings with nothing further to do. A meeting scheduled on the " +
+    "event ends with it; a meeting that is LIVE refuses the cancel until it has been ended.",
   request: {
     headers: idempotencyKeyHeader,
     params: firmEventIdParam,
@@ -2223,6 +2289,351 @@ async function commitRichCalendarEffect<Body>(
   };
 }
 
+// ---- scheduling: the meeting an event carries ----
+
+/*
+ * SCHEDULING IS RECORDING AN EVENT WITH A MEDIUM ON IT, AND THE TWO COMMIT TOGETHER.
+ *
+ * One batch rather than two, and the reason is the idempotency gate rather than tidiness: the gate
+ * replays a completed request's stored body at the chokepoint, without ever reaching the handler, so
+ * a meeting opened AFTER the event committed would be missing from every replayed answer — and the
+ * caller that most needs the identifier is precisely the one whose first response never arrived.
+ *
+ * That ordering forces the one seam in `@magna-carta/meetings`: `createMeeting` reads the event
+ * through the visibility predicate before it writes, and at the moment this composes the room the
+ * event has been composed and not yet committed, so no read can see it. `openMeetingOnEvent` is the
+ * entry point for exactly that case, named rather than hidden behind an optional argument, because
+ * skipping that read is an assertion this route is in a position to make and nothing else is: it has
+ * just written the event itself, under its own permission check, in the batch the insert is joining.
+ *
+ * One meeting per event is still held underneath by a partial unique index, so a correction that
+ * asks for a meeting on an event that already has one finds the room rather than opening a second.
+ */
+
+/** The meeting the event asked for, as the request spells it. */
+type MeetingChoice = z.infer<typeof MeetingRequest> | null | undefined;
+
+// OPENING A ROOM IS A MEETING ACT, WHEREVER THE FORM IT IS ASKED FROM LIVES.
+//
+// The four event mutations ride `calendar:manage`, which is the right key for recording that a
+// hearing is happening. It is not the key for convening a gathering: `meetings:host` is what the
+// meetings surface demands to start one, and a `meeting` field on an event form reaches exactly the
+// same act by another door — a member who may keep the diary would otherwise be able to open rooms
+// on the firm's behalf without ever holding the key that says they may.
+//
+// Asked in the handler rather than on the route, the way the chat's moderation key is: the route's
+// own permission is what every caller needs, and this one is needed only by the callers who filled
+// that field in.
+//
+// CLOSING one is deliberately NOT here. A cancellation can only reach a room nobody has walked into
+// (`meetingClosingWithEvent`), so what it ends is the diary entry's leftover rather than a
+// gathering — and refusing the cancel would leave the diary unable to take a sitting off.
+const MEETINGS_HOST = "meetings:host" as const;
+
+function refuseUnhostedMeeting(c: Context, choice: MeetingChoice): ProblemResponse<403> | null {
+  if (choice === null || choice === undefined) return null;
+  if (requireChokepointPermissions(c).has(assertPermission(MEETINGS_HOST))) return null;
+  return problemJson(c, {
+    type: "permission-denied",
+    title: "Permission denied",
+    status: 403,
+    detail:
+      "Scheduling a meeting on an event opens a room, which needs the permission to host meetings. " +
+      "The event itself can be recorded without one.",
+    requestAccess: true,
+  });
+}
+
+/** The room's own writes, and the identifier the response carries. */
+interface SchedulingOutcome {
+  readonly meetingId: string | null;
+  readonly effect: EffectWrite;
+}
+
+const NO_SCHEDULING: SchedulingOutcome = {
+  meetingId: null,
+  effect: { statements: [], outboxMessages: [] },
+};
+
+/**
+ * The room for an event being recorded in this same batch, and the invitation that announces it.
+ *
+ * The invited colleagues come from the REQUEST, because the participant rows are being written
+ * beside this and cannot be read back yet — which is also the honest answer: the people to tell are
+ * the people who were on the event when it was recorded.
+ */
+function scheduleMeetingOnNewEvent(
+  database: SqlDatabase,
+  userId: string,
+  event: { readonly kind: MeetingEventKind; readonly id: string; readonly matterId: string | null },
+  choice: MeetingChoice,
+  participants: readonly z.infer<typeof ParticipantRequest>[] | undefined,
+): SchedulingOutcome {
+  if (choice === null || choice === undefined) return NO_SCHEDULING;
+  const opened = openMeetingOnEvent(
+    database,
+    {
+      eventKind: event.kind,
+      eventId: event.id,
+      matterId: event.matterId,
+      medium: choice.medium,
+      lobby: choice.lobby,
+    },
+    serviceOptions(userId),
+  );
+  return {
+    meetingId: opened.meetingId,
+    effect: {
+      statements: opened.effect.statements,
+      // The invitation rides the SAME atomic batch as the room it announces, which is the whole
+      // difference between a durable announcement and a best-effort one: a batch that rolls back
+      // leaves no message, and a message that exists is proof the room was opened.
+      outboxMessages: [
+        ...opened.effect.outboxMessages,
+        ...meetingInvitations(
+          event,
+          opened.meetingId,
+          choice.medium,
+          invitedMembers(participants ?? [], userId),
+        ),
+      ],
+    },
+  };
+}
+
+/**
+ * The room for an event that is already recorded — a correction that adds one.
+ *
+ * Here `createMeeting` is the entry point, because the event exists and the walled-matter question
+ * is its to answer. An event that already has a room keeps it: the medium is chosen once, since the
+ * people already in a room agreed to one thing.
+ */
+async function scheduleMeetingOnExistingEvent(
+  database: SqlDatabase,
+  userId: string,
+  event: { readonly kind: MeetingEventKind; readonly id: string },
+  choice: MeetingChoice,
+): Promise<SchedulingOutcome> {
+  const existing = await readMeetingForEvent(
+    database,
+    event.kind,
+    event.id,
+    visibleMatterPredicate(),
+  );
+  // The read is what answers for an event that already has a room, so a correction always reports
+  // the meeting as it actually stands rather than as this request happened to ask about it.
+  if (existing !== undefined) return { meetingId: existing.id, effect: NO_SCHEDULING.effect };
+  if (choice === null || choice === undefined) return NO_SCHEDULING;
+
+  const opened = await createMeeting(
+    database,
+    { eventKind: event.kind, eventId: event.id, medium: choice.medium },
+    serviceOptions(userId),
+  );
+  const invited =
+    event.kind === "matter"
+      ? invitedMembers(
+          (await readMatterEventParticipants(database, event.id as MatterEventId)).map((row) => ({
+            participantKind: row.participant_kind,
+            memberUserId: row.member_user_id,
+          })),
+          userId,
+        )
+      : [];
+  return {
+    meetingId: opened.meetingId,
+    effect: {
+      statements: opened.effect.statements,
+      outboxMessages: [
+        ...opened.effect.outboxMessages,
+        ...meetingInvitations(event, opened.meetingId, choice.medium, invited),
+      ],
+    },
+  };
+}
+
+/**
+ * The colleagues on an event, and nobody else.
+ *
+ * Directory entities get nothing: an external guest has no way in yet, and a notification pointing
+ * at a room they cannot enter is worse than silence. The actor is left off — nobody needs inviting
+ * to the meeting they just scheduled. Deduplicated because a participant list is edited by hand.
+ */
+function invitedMembers(
+  participants: readonly {
+    readonly participantKind: string;
+    readonly memberUserId?: string | null;
+  }[],
+  actorUserId: string,
+): readonly string[] {
+  const invited = participants.flatMap((participant) => {
+    const memberUserId = participant.memberUserId ?? null;
+    if (participant.participantKind !== "member" || memberUserId === null) return [];
+    return memberUserId === actorUserId ? [] : [memberUserId];
+  });
+  return [...new Set(invited)];
+}
+
+/**
+ * The invitation, as an outbox message or none at all.
+ *
+ * A FIRM EVENT RAISES NOTHING, and the reason is a table rebuild rather than a decision:
+ * `notification_event.subject_kind` is a SQLite CHECK with no `firmEvent` value in it, and widening
+ * one rebuilds a table `notification_recipient` points at, which cannot complete against a firm
+ * database that holds data (packages/database/src/reviewed-rebuilds.ts). The firm meeting is
+ * scheduled, created and joinable; it is the invitation alone that waits on that migration.
+ */
+function meetingInvitations(
+  event: {
+    readonly kind: MeetingEventKind;
+    readonly id: string;
+    readonly matterId?: string | null;
+  },
+  meetingId: string,
+  medium: string,
+  invited: readonly string[],
+): { topic: string; payload: CalendarEventMeetingScheduledPayload }[] {
+  const matterId = event.matterId ?? null;
+  if (event.kind !== "matter" || matterId === null || invited.length === 0) return [];
+  return [
+    {
+      topic: CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
+      payload: {
+        matterEventId: event.id,
+        matterId,
+        meetingId,
+        medium,
+        invitedMemberUserIds: invited,
+      },
+    },
+  ];
+}
+
+/**
+ * Two effects as one: the record's own writes and the room's, committed together or not at all.
+ *
+ * Takes anything carrying an effect rather than a scheduling outcome specifically, because the
+ * cancel path joins a CLOSING the same way an edit joins an opening — and two hand-merged spreads
+ * doing this by hand is how one of them comes to drop the outbox half.
+ */
+function withScheduling(effect: EffectWrite, other: { readonly effect: EffectWrite }): EffectWrite {
+  return {
+    statements: [...effect.statements, ...other.effect.statements],
+    outboxMessages: [...effect.outboxMessages, ...other.effect.outboxMessages],
+  };
+}
+
+const NO_CLOSING: EffectWrite = { statements: [], outboxMessages: [] };
+
+/** The one refusal a cancellation has that is about the room rather than about the event. */
+function meetingInProgress(c: Context): ProblemResponse<409> {
+  return problemJson(c, {
+    type: "meeting-in-progress",
+    title: "This meeting is running",
+    status: 409,
+    detail:
+      "People are in this meeting now. End the meeting first, then cancel the event — a " +
+      "calendar edit does not close a room somebody is in.",
+  });
+}
+
+/**
+ * The meeting a cancellation has to settle, or a refusal.
+ *
+ * A SCHEDULED meeting ends with the event, in the same batch as the cancel: a room nobody has walked
+ * into, on a setting that is no longer happening, must not stay openable, and committing the two
+ * together is what stops the record and the product disagreeing about it.
+ *
+ * A LIVE meeting refuses the cancel. Ending it as a side effect would take a room away from the
+ * people in it on somebody else's click; cancelling the event and leaving the room running would
+ * have the record say the setting is off while the product says it is happening. The refusal names
+ * the act that fixes it, which costs one gesture in the rare case of cancelling something that is
+ * running.
+ *
+ * THIS READ IS ADVISORY AND THE CLOSING STATEMENT IS NOT. What is decided here is decided a round
+ * trip before the commit, and a member can walk into the room in between — so the statement carries
+ * `status = 'scheduled'` and "no open stay" in its own WHERE and refuses the whole batch otherwise
+ * (`endScheduledMeetingForCancelledEvent`). `cancelWithMeetingClosing` is what turns that refusal
+ * back into this same 409.
+ *
+ * AND THE ROOM IS NEVER TOLD, deliberately. A `MeetingRoom` exists only once somebody has connected
+ * to it; a cancel can now only ever close a meeting nobody has walked into, so there is no room
+ * object holding sockets, no roster to empty, and nothing to notify. The end ROUTE tells the room
+ * because that one ends meetings people are sitting in.
+ */
+async function meetingClosingWithEvent(
+  c: Context,
+  database: SqlDatabase,
+  userId: string,
+  event: { readonly kind: MeetingEventKind; readonly id: string },
+): Promise<{ ok: true; effect: EffectWrite } | { ok: false; problem: ProblemResponse<409> }> {
+  const meeting = await readMeetingForEvent(
+    database,
+    event.kind,
+    event.id,
+    visibleMatterPredicate(),
+  );
+  if (meeting === undefined || meeting.status === "ended") return { ok: true, effect: NO_CLOSING };
+  if (meeting.status === "live") return { ok: false, problem: meetingInProgress(c) };
+  const { effect } = await endScheduledMeetingForCancelledEvent(
+    database,
+    meeting.id,
+    serviceOptions(userId),
+  );
+  return { ok: true, effect };
+}
+
+/**
+ * One cancellation, with whatever its event's meeting needs doing about it — and the answer to the
+ * race the pre-read cannot settle.
+ *
+ * The meeting is settled BEFORE the idempotency gate, because the refusal is about the world rather
+ * than about this request: a room with people in it is not made cancellable by retrying, and a
+ * caller who retried under the same key would otherwise be replayed a cancellation that never
+ * happened.
+ *
+ * A GUARD REFUSAL HERE IS THE RACE, AND IT HAS TWO ENDINGS. The whole batch — the cancelled event
+ * included — has rolled back, and no idempotency record was written with it, so the same key is free
+ * to be used again. Re-reading the meeting is what separates the two: somebody joined, and the
+ * cancel is refused exactly as the pre-read refuses it; or the host ended the room in the same
+ * window, and there is nothing left to close, so the cancellation stands on its own.
+ */
+async function cancelWithMeetingClosing(
+  c: Context,
+  database: BatchDatabase,
+  idempotency: { key: string | undefined; fingerprint: string },
+  userId: string,
+  event: { readonly kind: MeetingEventKind; readonly id: string },
+  cancel: (closing: {
+    readonly effect: EffectWrite;
+  }) => Promise<{ id: string; effect: EffectWrite }>,
+): Promise<CalendarEffectOutcome> {
+  const closing = await meetingClosingWithEvent(c, database, userId, event);
+  if (!closing.ok) return { ok: false, problem: closing.problem };
+  try {
+    return await commitCalendarEffect(c, database, idempotency, 200, () => cancel(closing));
+  } catch (caught) {
+    if (!(caught instanceof GuardedWriteRefusedError) || caught.guard !== CANCEL_CLOSING_GUARD) {
+      throw caught;
+    }
+    const settled = await readMeetingForEvent(
+      database,
+      event.kind,
+      event.id,
+      visibleMatterPredicate(),
+    );
+    // Anything but ended means somebody is in there: a live room, or a stay opened against a room
+    // the status has not caught up with. Either way this is the pre-read's refusal, arrived at the
+    // other way round.
+    if (settled !== undefined && settled.status !== "ended") {
+      return { ok: false, problem: meetingInProgress(c) };
+    }
+    return await commitCalendarEffect(c, database, idempotency, 200, () =>
+      cancel({ effect: NO_CLOSING }),
+    );
+  }
+}
+
 const DEFAULT_PAGE = 50;
 
 // How many distinct zones the overdue narrowing will compose a clause for. A firm keeps deadlines in
@@ -2565,17 +2976,38 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const idempotency = requireChokepointIdempotency(c);
       const { matterId } = c.req.valid("param");
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(c, firm.firmDatabase, idempotency, 201, () => {
-        const created = createMatterEvent(
-          firm.firmDatabase,
-          { ...request, matterId, participants: request.participants },
-          serviceOptions(userId),
-        );
-        return Promise.resolve({ id: created.eventId, effect: created.effect });
-      });
+      const unhosted = refuseUnhostedMeeting(c, request.meeting);
+      if (unhosted !== null) return unhosted;
+      // The event and the room it carries commit together, and the stored body carries both — the
+      // idempotency gate replays it verbatim without reaching this handler, so a meeting minted
+      // outside the effect would be missing from every replayed answer.
+      const outcome = await commitRichCalendarEffect<{ id: string; meetingId: string | null }>(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        () => {
+          const created = createMatterEvent(
+            firm.firmDatabase,
+            { ...request, matterId, participants: request.participants },
+            serviceOptions(userId),
+          );
+          const scheduling = scheduleMeetingOnNewEvent(
+            firm.firmDatabase,
+            userId,
+            { kind: "matter", id: created.eventId, matterId },
+            request.meeting,
+            request.participants,
+          );
+          return Promise.resolve({
+            body: { id: created.eventId, meetingId: scheduling.meetingId },
+            effect: withScheduling(created.effect, scheduling),
+          });
+        },
+      );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json({ id: outcome.id }, 201);
+      return c.json(outcome.body, 201);
     },
   );
 
@@ -2588,7 +3020,11 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const idempotency = requireChokepointIdempotency(c);
       const { eventId } = c.req.valid("param");
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(
+      const unhosted = refuseUnhostedMeeting(c, request.meeting);
+      if (unhosted !== null) return unhosted;
+      // Moving an event keeps its meeting: a meeting carries no time of its own. Supplying one adds
+      // a room to an event that has none, in the same batch as the correction.
+      const outcome = await commitRichCalendarEffect<{ ok: true; meetingId: string | null }>(
         c,
         firm.firmDatabase,
         idempotency,
@@ -2600,12 +3036,21 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             request,
             serviceOptions(userId),
           );
-          return { id: eventId, effect };
+          const scheduling = await scheduleMeetingOnExistingEvent(
+            firm.firmDatabase,
+            userId,
+            { kind: "matter", id: eventId },
+            request.meeting,
+          );
+          return {
+            body: { ok: true, meetingId: scheduling.meetingId },
+            effect: withScheduling(effect, scheduling),
+          };
         },
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json({ ok: true } as const, 200);
+      return c.json(outcome.body, 200);
     },
   );
 
@@ -2618,19 +3063,23 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const idempotency = requireChokepointIdempotency(c);
       const { eventId } = c.req.valid("param");
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(
+      const outcome = await cancelWithMeetingClosing(
         c,
         firm.firmDatabase,
         idempotency,
-        200,
-        async () => {
+        userId,
+        { kind: "matter", id: eventId },
+        async (closing) => {
           const { effect } = await cancelMatterEvent(
             firm.firmDatabase,
             eventId as MatterEventId,
             serviceOptions(userId),
             request?.statusReason ?? null,
           );
-          return { id: eventId, effect };
+          // One batch for both: the setting is off and the room nobody entered is closed, and a
+          // crash between the two would leave a calendar entry cancelled with a room still open on
+          // it.
+          return { id: eventId, effect: withScheduling(effect, closing) };
         },
       );
       if (!outcome.ok) return outcome.problem;
@@ -2970,7 +3419,9 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(
+      const unhosted = refuseUnhostedMeeting(c, request.meeting);
+      if (unhosted !== null) return unhosted;
+      const outcome = await commitRichCalendarEffect<{ id: string; meetingId: string | null }>(
         c,
         firm.firmDatabase,
         idempotency,
@@ -2981,12 +3432,23 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             { ...request, locationId: request.locationId as never },
             serviceOptions(userId),
           );
-          return { id: created.firmEventId, effect: created.effect };
+          const scheduling = scheduleMeetingOnNewEvent(
+            firm.firmDatabase,
+            userId,
+            // A firm event has no matter, which is also why it raises no invitation yet.
+            { kind: "firm", id: created.firmEventId, matterId: null },
+            request.meeting,
+            request.participants,
+          );
+          return {
+            body: { id: created.firmEventId, meetingId: scheduling.meetingId },
+            effect: withScheduling(created.effect, scheduling),
+          };
         },
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json({ id: outcome.id }, 201);
+      return c.json(outcome.body, 201);
     },
   );
 
@@ -2999,7 +3461,9 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const idempotency = requireChokepointIdempotency(c);
       const { firmEventId } = c.req.valid("param");
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(
+      const unhosted = refuseUnhostedMeeting(c, request.meeting);
+      if (unhosted !== null) return unhosted;
+      const outcome = await commitRichCalendarEffect<{ ok: true; meetingId: string | null }>(
         c,
         firm.firmDatabase,
         idempotency,
@@ -3011,12 +3475,21 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             { ...request, locationId: request.locationId as never },
             serviceOptions(userId),
           );
-          return { id: firmEventId, effect };
+          const scheduling = await scheduleMeetingOnExistingEvent(
+            firm.firmDatabase,
+            userId,
+            { kind: "firm", id: firmEventId },
+            request.meeting,
+          );
+          return {
+            body: { ok: true, meetingId: scheduling.meetingId },
+            effect: withScheduling(effect, scheduling),
+          };
         },
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json({ ok: true } as const, 200);
+      return c.json(outcome.body, 200);
     },
   );
 
@@ -3029,19 +3502,20 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const idempotency = requireChokepointIdempotency(c);
       const { firmEventId } = c.req.valid("param");
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(
+      const outcome = await cancelWithMeetingClosing(
         c,
         firm.firmDatabase,
         idempotency,
-        200,
-        async () => {
+        userId,
+        { kind: "firm", id: firmEventId },
+        async (closing) => {
           const { effect } = await cancelFirmEvent(
             firm.firmDatabase,
             firmEventId as FirmEventId,
             serviceOptions(userId),
             request?.statusReason ?? null,
           );
-          return { id: firmEventId, effect };
+          return { id: firmEventId, effect: withScheduling(effect, closing) };
         },
       );
       if (!outcome.ok) return outcome.problem;
