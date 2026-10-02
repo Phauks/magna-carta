@@ -2,11 +2,14 @@ import { AUDIT_LOG_TABLE } from "@magna-carta/data-access/audit-statements";
 import { keysetClause, type SortCursor } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  FileId,
+  FileVersionId,
   MatterId,
   MeetingId,
   MeetingRecordingId,
   MeetingRecordingNoticeId,
   MeetingRecordingTrackId,
+  UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { MEETING_GUEST_STAY_TABLE } from "./meeting-statements.ts";
@@ -52,6 +55,11 @@ const RECORDING_COLUMNS = [
   "file_id",
   "file_version_id",
   "failure_error_id",
+  "compose_upload_session_id",
+  "compose_parts_done",
+  "compose_parts",
+  "compose_attempts",
+  "compose_progress_at",
   "created_at",
   "updated_at",
 ]
@@ -230,15 +238,17 @@ export async function listRecordingTracks(
 }
 
 /**
- * WHAT THE SINK ASKS BEFORE IT OPENS ANYTHING: is this recording still running, and is this track
+ * WHAT THE SINK ASKS BEFORE IT OPENS ANYTHING: is this recording still running, and is this track ROW
  * still open. A token for a settled recording, or for a track the recorder has already closed, opens
  * nothing — the signature proves the token was minted here, and this is what proves it still means
- * something. The platform's own read (see `readRecordingById`).
+ * something. Addressed by the track's own handle, which is what the token names (never the track name
+ * a browser chose), and answered in one read of one row joined to its recording. The platform's own
+ * read (see `readRecordingById`).
  */
-export async function readSinkTrack(
+export async function readSinkTrackById(
   database: SqlDatabase,
   recordingId: MeetingRecordingId,
-  trackName: string,
+  trackId: MeetingRecordingTrackId,
 ): Promise<
   | {
       readonly recordingState: MeetingRecordingState;
@@ -253,9 +263,9 @@ export async function readSinkTrack(
         `FROM ${MEETING_RECORDING_TRACK_TABLE} JOIN ${MEETING_RECORDING_TABLE} ` +
         `ON ${MEETING_RECORDING_TABLE}.id = ${MEETING_RECORDING_TRACK_TABLE}.recording_id ` +
         `WHERE ${MEETING_RECORDING_TRACK_TABLE}.recording_id = ? ` +
-        `AND ${MEETING_RECORDING_TRACK_TABLE}.track_name = ?`,
+        `AND ${MEETING_RECORDING_TRACK_TABLE}.id = ?`,
     )
-    .bind(recordingId, trackName)
+    .bind(recordingId, trackId)
     .all<{ recording_state: MeetingRecordingState; track_state: MeetingRecordingTrackState }>();
   const row = results[0];
   return row === undefined
@@ -683,4 +693,305 @@ export function insertRecordingFailedAuditStatement(
         `AND state = 'failed' AND failure_error_id = ?5)`,
     )
     .bind(input.auditLogId, input.recordingId, input.metadata, input.now, input.failureErrorId);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Composing, filing, and the sweep that tends what nothing else will
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * WHAT A FILED RECORDING IS CALLED AFTER: its event's title and the zone the event is kept in, so the
+ * document's name carries the start as the people in the meeting would have read it. The compose
+ * step's own read — the platform filing its own record — so it is addressed by the recording and
+ * composes no visibility predicate (see `readRecordingById`).
+ */
+export async function readRecordingFilingFacts(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+): Promise<{ readonly title: string; readonly timeZone: string } | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT matter_event.title AS title, matter_event.time_zone AS time_zone ` +
+        `FROM ${MEETING_RECORDING_TABLE} ` +
+        `JOIN meeting ON meeting.id = ${MEETING_RECORDING_TABLE}.meeting_id ` +
+        `JOIN matter_event ON matter_event.id = meeting.matter_event_id ` +
+        `WHERE ${MEETING_RECORDING_TABLE}.id = ?`,
+    )
+    .bind(recordingId)
+    .all<{ title: string; time_zone: string }>();
+  const row = results[0];
+  return row === undefined ? undefined : { title: row.title, timeZone: row.time_zone };
+}
+
+/**
+ * WHERE THE COMPOSITE IS BEING WRITTEN: the upload session the compose began, its pending version and
+ * file, the key the pipeline minted, and the multipart upload at that key. Read through the session
+ * rather than copied onto the recording, so the file pipeline's own rows stay the one answer to where
+ * the document's bytes go. The compose step's own read.
+ */
+export async function readComposeTarget(
+  database: SqlDatabase,
+  uploadSessionId: UploadSessionId,
+): Promise<
+  | {
+      readonly sessionId: UploadSessionId;
+      readonly fileVersionId: FileVersionId;
+      readonly fileId: FileId;
+      readonly r2Key: string;
+      readonly r2UploadId: string | null;
+    }
+  | undefined
+> {
+  const { results } = await database
+    .prepare(
+      `SELECT upload_session.id AS session_id, file_version.id AS file_version_id, ` +
+        `file_version.file_id AS file_id, file_version.r2_key AS r2_key, ` +
+        `upload_session.r2_upload_id AS r2_upload_id ` +
+        `FROM upload_session JOIN file_version ON file_version.id = upload_session.file_version_id ` +
+        `WHERE upload_session.id = ?`,
+    )
+    .bind(uploadSessionId)
+    .all<{
+      session_id: UploadSessionId;
+      file_version_id: FileVersionId;
+      file_id: FileId;
+      r2_key: string;
+      r2_upload_id: string | null;
+    }>();
+  const row = results[0];
+  return row === undefined
+    ? undefined
+    : {
+        sessionId: row.session_id,
+        fileVersionId: row.file_version_id,
+        fileId: row.file_id,
+        r2Key: row.r2_key,
+        r2UploadId: row.r2_upload_id,
+      };
+}
+
+/** The most recordings one sweep reads in one state for one firm in one pass. */
+export const RECORDING_SWEEP_BATCH = 50;
+
+/**
+ * Recordings still `recording` that STARTED before an instant — the sweep's candidates for a recorder
+ * that stopped reconciling. Oldest first, a bounded batch; the next pass takes the rest. The sweep's
+ * own read (see `readRecordingById`).
+ */
+export async function listRunningRecordingsStartedBefore(
+  database: SqlDatabase,
+  startedBefore: string,
+): Promise<readonly MeetingRecordingRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${RECORDING_COLUMNS} FROM ${MEETING_RECORDING_TABLE} ` +
+        `WHERE state = 'recording' AND started_at < ? ORDER BY started_at ASC, id ASC LIMIT ?`,
+    )
+    .bind(startedBefore, RECORDING_SWEEP_BATCH)
+    .all<MeetingRecordingRow>();
+  return results;
+}
+
+/**
+ * Recordings `composing` that have made NO PROGRESS since an instant: no part uploaded since then, and
+ * — for one that never began — stopped before it. Oldest first, a bounded batch. The sweep's own read.
+ */
+export async function listStalledComposingRecordings(
+  database: SqlDatabase,
+  stalledSince: string,
+): Promise<readonly MeetingRecordingRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${RECORDING_COLUMNS} FROM ${MEETING_RECORDING_TABLE} ` +
+        `WHERE state = 'composing' AND COALESCE(compose_progress_at, stopped_at) < ? ` +
+        `ORDER BY stopped_at ASC, id ASC LIMIT ?`,
+    )
+    .bind(stalledSince, RECORDING_SWEEP_BATCH)
+    .all<MeetingRecordingRow>();
+  return results;
+}
+
+/** One staged object the sweep may delete, and the track row that names it. */
+export interface ExpiredStagingTrack {
+  readonly trackId: MeetingRecordingTrackId;
+  readonly recordingId: MeetingRecordingId;
+  readonly stagingKey: string;
+}
+
+/** The most staged objects one sweep deletes for one firm in one pass. */
+export const STAGING_SWEEP_BATCH = 200;
+
+/**
+ * STAGED OBJECTS WHOSE RECORDING NO LONGER NEEDS THEM: a recording that `failed` or was `abandoned`
+ * and has not changed since `unsettledBefore` (its staging is the only copy of what was captured, so
+ * it is kept for a retention window in case of a retry), and a recording `filed` before `filedBefore`
+ * whose own compose did not get to delete them. The sweep's own read, a bounded batch.
+ */
+export async function listExpiredStagingTracks(
+  database: SqlDatabase,
+  input: { readonly unsettledBefore: string; readonly filedBefore: string },
+): Promise<readonly ExpiredStagingTrack[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MEETING_RECORDING_TRACK_TABLE}.id AS track_id, ` +
+        `${MEETING_RECORDING_TRACK_TABLE}.recording_id AS recording_id, ` +
+        `${MEETING_RECORDING_TRACK_TABLE}.staging_key AS staging_key ` +
+        `FROM ${MEETING_RECORDING_TRACK_TABLE} JOIN ${MEETING_RECORDING_TABLE} ` +
+        `ON ${MEETING_RECORDING_TABLE}.id = ${MEETING_RECORDING_TRACK_TABLE}.recording_id ` +
+        `WHERE ${MEETING_RECORDING_TRACK_TABLE}.staging_key IS NOT NULL AND (` +
+        `(${MEETING_RECORDING_TABLE}.state IN ('failed', 'abandoned') ` +
+        `AND ${MEETING_RECORDING_TABLE}.updated_at < ?) OR ` +
+        `(${MEETING_RECORDING_TABLE}.state = 'filed' AND ${MEETING_RECORDING_TABLE}.updated_at < ?)) ` +
+        `LIMIT ?`,
+    )
+    .bind(input.unsettledBefore, input.filedBefore, STAGING_SWEEP_BATCH)
+    .all<{
+      track_id: MeetingRecordingTrackId;
+      recording_id: MeetingRecordingId;
+      staging_key: string;
+    }>();
+  return results.map((row) => ({
+    trackId: row.track_id,
+    recordingId: row.recording_id,
+    stagingKey: row.staging_key,
+  }));
+}
+
+/**
+ * THE COMPOSE HAS BEGUN: the upload session its document is written through, on a recording nothing has
+ * begun composing yet. Guarded by the caller — a second invocation that began the same recording in the
+ * same instant rolls its whole batch back, its upload session included, and lets go of its upload.
+ */
+export function beginComposeStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingRecordingId;
+    readonly uploadSessionId: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET compose_upload_session_id = ?, ` +
+        `compose_progress_at = ?, updated_at = ? ` +
+        `WHERE id = ? AND state = 'composing' AND compose_upload_session_id IS NULL`,
+    )
+    .bind(input.uploadSessionId, input.now, input.now, input.id);
+}
+
+/**
+ * PARTS UPLOADED: the cursor moved from where this invocation found it to where it left it, with every
+ * part's tag. Guarded by the caller on the cursor it started from, so two deliveries of one message
+ * never both advance it — the second is refused and stops.
+ */
+export function recordComposeProgressStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingRecordingId;
+    readonly fromPartsDone: number;
+    readonly partsDone: number;
+    readonly parts: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET compose_parts_done = ?, compose_parts = ?, ` +
+        `compose_progress_at = ?, updated_at = ? ` +
+        `WHERE id = ? AND state = 'composing' AND compose_parts_done = ?`,
+    )
+    .bind(input.partsDone, input.parts, input.now, input.now, input.id, input.fromPartsDone);
+}
+
+/**
+ * A COMPOSED RECORDING ON THE MATTER: `filed`, naming the document and the version its audio is.
+ * Guarded by the caller on `composing`, so a recording a sweep failed in the meantime is not filed over.
+ */
+export function fileRecordingStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingRecordingId;
+    readonly fileId: string;
+    readonly fileVersionId: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET state = 'filed', file_id = ?, file_version_id = ?, ` +
+        `compose_progress_at = ?, updated_at = ? WHERE id = ? AND state = 'composing'`,
+    )
+    .bind(input.fileId, input.fileVersionId, input.now, input.now, input.id);
+}
+
+/**
+ * A STALLED COMPOSE HANDED ON AGAIN: one more attempt counted, and the stall measured afresh from now.
+ */
+// fitness:unguarded-write — a zero means the compose made progress, filed or failed between the
+// sweep's read and this write; the message it sends beside it then finds nothing to do, which is the
+// outcome either way.
+export function recordComposeRetryStatement(
+  database: SqlDatabase,
+  input: { readonly id: MeetingRecordingId; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET compose_attempts = compose_attempts + 1, ` +
+        `compose_progress_at = ?, updated_at = ? WHERE id = ? AND state = 'composing'`,
+    )
+    .bind(input.now, input.now, input.id);
+}
+
+/**
+ * A RECORDING WHOSE RECORDER DISAPPEARED: `abandoned`, with the instant the sweep found it and nobody
+ * behind it. Guarded by the caller on `recording`, so a stop that committed first is the one the record
+ * keeps.
+ */
+export function abandonRecordingStatement(
+  database: SqlDatabase,
+  input: { readonly id: MeetingRecordingId; readonly trackCount: number; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET state = 'abandoned', stopped_at = ?, ` +
+        `stop_reason = 'abandoned', track_count = ?, updated_at = ? ` +
+        `WHERE id = ? AND state = 'recording'`,
+    )
+    .bind(input.now, input.trackCount, input.now, input.id);
+}
+
+/**
+ * EVERY OPEN TRACK LOST AT ONE INSTANT — the recorder that was hearing them is gone, so the record says
+ * it could not hear them from then on rather than that they left.
+ */
+// fitness:unguarded-write — a zero is the ordinary outcome for a recording whose tracks had all closed
+// or been lost already; the abandonment itself is guarded on the recording row.
+export function loseOpenTracksStatement(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TRACK_TABLE} SET state = 'lost', updated_at = ? ` +
+        `WHERE recording_id = ? AND state = 'open'`,
+    )
+    .bind(now, recordingId);
+}
+
+/**
+ * Staged objects deleted: the rows stop naming them. One statement for a page of tracks, the handles
+ * bound and only the count of `?` spliced.
+ */
+export function clearStagingKeysStatement(
+  database: SqlDatabase,
+  trackIds: readonly MeetingRecordingTrackId[],
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TRACK_TABLE} SET staging_key = NULL, updated_at = ? ` +
+        `WHERE id IN (${placeholders(trackIds.length)})`,
+    )
+    .bind(now, ...trackIds);
 }

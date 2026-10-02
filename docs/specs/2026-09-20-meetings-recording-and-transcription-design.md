@@ -1,7 +1,8 @@
 # Meetings — recording, live captions, transcript and summary, design
 
 **Status:** Design (brainstormed), 2026-09-20. Slice R1's server half built 2026-10-02 behind a fake
-routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Extends
+routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Slice R2's
+server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -1033,3 +1034,82 @@ recorded track, and its further audio tracks are recorded `lost` rather than tak
 participant's slot. A part that fails to upload keeps its bytes and is retried once on the next pass; if
 that fails too it is replaced by a part of silence and its frames are counted as dropped, so the timeline
 keeps its length.
+
+### Amendments from slice R2 — compose and file
+
+Recorded 2026-10-02, as the compose step, the filing and the sweep were built. Each names the section it
+amends and says what changed and why.
+
+**A18 — The WAV header goes at the head of the FIRST part, and every part is one minute (§9).** §9 had
+the header "written last once the length is known, via a final small multipart part at the head". R2
+refuses that: every part of a multipart upload but the last must be at least 5 MiB and all of them one
+size, so a 44-byte part cannot sit anywhere but last. It is also unnecessary — by the time a recording is
+handed on, every staged track is a complete object of known size and lands at its first frame's offset,
+so the composite's length is known before the first sample is mixed. The header (`packages/meetings/src/
+wav.ts`) is written into the first part's first 44 bytes; parts are sixty seconds of audio (5,760,000
+bytes, above R2's minimum), and one invocation composes ten of them — the ten minutes §9 names — before
+re-enqueuing itself. Memory per invocation is about 40 MB whatever the length or track count: one part's
+32-bit sums, the mixed part, its bytes, one track's span and its copy as samples, and the copy the binding
+may make of the part — the arithmetic is in `apps/api-worker/src/meetings/recording-compose-consumer.ts`.
+The mixer (`pcm-mix.ts`) sums in 32 bits and clamps once, so two loud speakers saturate rather than wrap.
+
+**A19 — The cursor is five columns on `meeting_recording` (§5, §9).** Migration
+`20261002T223719_meeting-recording-compose-cursor` adds `compose_upload_session_id` (the file pipeline's
+session, by value), `compose_parts_done` (the cursor), `compose_parts` (each part's number and entity tag,
+because completing the upload needs them and the storage binding cannot list an upload's parts),
+`compose_attempts` and `compose_progress_at`. Added, never rebuilt: the table is a parent. The cursor
+advance is guarded on the value it started from, so two deliveries of one message never both advance it;
+the begin is guarded on no session yet, in one batch with the session, so a racing begin leaves nothing.
+
+**A20 — An abandoned recording is not composed (§14).** §14 had the sweep compose "whatever completed
+parts exist" of a recording whose recorder died. A staged track is only an object once its upload
+completes, and a recorder that has stopped reconciling is exactly the one whose account of its parts
+cannot be trusted to line a composite up. So the sweep moves the recording to `abandoned` (stop reason
+`abandoned`, nobody behind it, every open track `lost`, one audit row), asks the recorder — if it answers
+— to close its adapters and ABORT its uploads (`MeetingRecorder.abandon`), and tells the room it stopped
+so the mark clears. "Stopped reconciling" is read from the recorder itself: each alarm pass stamps
+`reconciledAt` in its own storage, and `MeetingRecorder.heartbeat` answers it; a recorder holding no
+running recording (a start whose hand-over never arrived) counts as stopped, and one that cannot be asked
+decides nothing that pass. The recorder's own empty-room stop (A12) is unchanged: it composes.
+
+**A21 — The sweep rides the ten-minute cron (§16 R2).** The trigger set is one atomic write and a
+fourth trigger has never been proved on this account (`wrangler.jsonc` says why), and the five-minute
+sweep also runs on the tail of a provisioning request. So `runRecordingSweep` runs after the status
+snapshot on `*/10`, wrapped so neither can cost the other. Its windows are multiples of that cadence: a
+recorder silent five minutes, a compose with no progress for thirty (twice a queue consumer's longest
+run, so a working invocation is never raced), three hand-ons before a compose is failed with an Error ID,
+seven days' retention for a failed or abandoned recording's staging, a day's grace for a filed one's.
+
+**A22 — The staged tracks are deleted when the recording is filed (§9, §10).** As §9 says. §10 has the
+transcript read each track's staged PCM, kept "until the transcript settles, not until the compose
+settles"; that is R3's to reconcile — either the compose leaves the staging for the transcript to
+release, or the transcript reads its spans out of the filed composite at each track's offset. Named here
+so R3 starts from it.
+
+**A23 — Who files it, and what it is called (§9).** The pipeline records the member who started the
+recording as uploading it: the document is what their pressing Record produced. The name is
+`Meeting recording — <event title> — <YYYY-MM-DD HH:mm>.wav`, the start read in the event's own zone
+through `@magna-carta/civil-time`; a zone the runtime cannot resolve is read in UTC and the name says
+`UTC`. A compose the pipeline refuses (`FileManagerValidationError`), or one with nothing staged, fails the
+recording with an Error ID whose message is a fixed sentence and a code — never the name.
+
+**A24 — Loose ends from R1 (§3, §8).** The start counts STAYS against the ceiling, as the recorder does,
+so eleven people each sharing a screen's audio beside their microphone are not refused. A guest's
+`recording` frame and welcome carry `recordingId: null` — the handle names a firm record, on the
+`by.userId` rule — and a browser tells announcements apart by the transition. The room announces one
+recording once however many requests carry its start out (a replay and the request it replays both
+reach it), and the room holding the recording is that proof. An end, or a calendar cancel, whose running
+recording is stopped between its read and its commit is composed again from what is true now rather than
+answering a server error.
+
+**A25 — The load-profile fixture is measured where the work is, not in the load-profile harness (§15).**
+That harness generates firms and measures SQL; an hour of five tracks is 1.7 GB of staged audio, which is
+not a fixture it can hold. The mixer's CPU is measured over one invocation's window of five tracks in
+`packages/meetings/test/pcm-mix.test.ts`, and the compose test crosses a window boundary end to end. The
+one-hour five-track fixture §15 names, and the recorder's memory measured at the ceiling under it, remain
+to build.
+
+**A26 — `MeetingRecordingSummary` gains `failureErrorId`, and `stoppedBy` is "the actor, or null" (§7).**
+The screen shows a failed recording's Error ID for support. `stoppedBy` is declared as a union with null
+rather than `.nullable()` on the component, which the contract emitted as an intersection the generated
+client read as always present; it is now `anyOf: [MeetingRecordingActor, null]`.

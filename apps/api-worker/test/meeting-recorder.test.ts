@@ -15,6 +15,7 @@ import {
   MAXIMUM_RECORDING_MILLISECONDS,
   MeetingRecorder,
   RECORDING_PART_BYTES,
+  setRecordingComposeQueueForTests,
   STORAGE_PUT_BATCH_KEYS,
   TRACK_LOSS_GRACE_MILLISECONDS,
   type RecorderStartInput,
@@ -62,17 +63,27 @@ const SIGNING_KEY = "meeting-recorder-test-signing-key";
 
 let calls: AdapterCall[] = [];
 let firmId: FirmId;
+// What the recorder handed on to be composed. Collected rather than delivered: these tests read the
+// staged objects after a stop, and a compose running behind them would file and delete those objects.
+// The compose step has its own suite (recording-compose.test.ts).
+const composeMessages: unknown[] = [];
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = newIdentifier("firm") as FirmId;
   await seedFirmRow(firmId);
   setMeetingSinkSigningKeyForTests(SIGNING_KEY);
+  setRecordingComposeQueueForTests({
+    send: async (message: unknown) => {
+      composeMessages.push(message);
+    },
+  });
 });
 
 afterAll(() => {
   setSfuFetchForTests(null);
   setMeetingSinkSigningKeyForTests(null);
+  setRecordingComposeQueueForTests(null);
 });
 
 beforeEach(() => {
@@ -295,6 +306,13 @@ describe("frames in, bytes out", () => {
 
     const outcome = await stub.stop("member");
     expect(outcome?.outcome).toBe("composing");
+    // Handed on to be composed, by identifiers alone.
+    expect(composeMessages).toContainEqual({
+      kind: "meeting-recording-compose",
+      firmId,
+      meetingId: expect.any(String),
+      recordingId,
+    });
 
     const [row] = await trackRows(recordingId);
     expect(row?.frames_received).toBe(frameCount);

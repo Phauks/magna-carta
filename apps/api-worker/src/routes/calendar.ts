@@ -113,6 +113,7 @@ import {
   endScheduledMeetingForCancelledEvent,
   openMeetingOnEvent,
 } from "@magna-carta/meetings/meeting-service";
+import { STOP_RECORDING_GUARD } from "@magna-carta/meetings/recording-service";
 import { readMeetingForEvent } from "@magna-carta/meetings/meeting-statements";
 import { MEETING_LOBBY_MODES } from "@magna-carta/meetings/lobby-types";
 import { MEETING_MEDIA, type MeetingEventKind } from "@magna-carta/meetings/types";
@@ -2608,31 +2609,44 @@ async function cancelWithMeetingClosing(
     readonly effect: EffectWrite;
   }) => Promise<{ id: string; effect: EffectWrite }>,
 ): Promise<CalendarEffectOutcome> {
-  const closing = await meetingClosingWithEvent(c, database, userId, event);
-  if (!closing.ok) return { ok: false, problem: closing.problem };
-  try {
-    return await commitCalendarEffect(c, database, idempotency, 200, () => cancel(closing));
-  } catch (caught) {
-    if (!(caught instanceof GuardedWriteRefusedError) || caught.guard !== CANCEL_CLOSING_GUARD) {
-      throw caught;
+  let closing = await meetingClosingWithEvent(c, database, userId, event);
+  for (let attempt = 1; ; attempt += 1) {
+    if (!closing.ok) return { ok: false, problem: closing.problem };
+    const composed = closing;
+    try {
+      return await commitCalendarEffect(c, database, idempotency, 200, () => cancel(composed));
+    } catch (caught) {
+      if (!(caught instanceof GuardedWriteRefusedError) || attempt >= CANCEL_ATTEMPTS) throw caught;
+      // A RECORDING RUNNING IN THE ROOM STOPPED IN THE SAME WINDOW — somebody pressed Stop, or the
+      // recorder stopped itself — so the stop this closing composed refused, and the whole batch rolled
+      // back with it. The recording is already stopped by a stop the record keeps; the closing is
+      // composed again from what is true now, which stops nothing.
+      if (caught.guard === STOP_RECORDING_GUARD) {
+        closing = await meetingClosingWithEvent(c, database, userId, event);
+        continue;
+      }
+      if (caught.guard !== CANCEL_CLOSING_GUARD) throw caught;
+      const settled = await readMeetingForEvent(
+        database,
+        event.kind,
+        event.id,
+        visibleMatterPredicate(),
+      );
+      // Anything but ended means somebody is in there: a live room, or a stay opened against a room
+      // the status has not caught up with. Either way this is the pre-read's refusal, arrived at the
+      // other way round.
+      if (settled !== undefined && settled.status !== "ended") {
+        return { ok: false, problem: meetingInProgress(c) };
+      }
+      closing = { ok: true, effect: NO_CLOSING };
     }
-    const settled = await readMeetingForEvent(
-      database,
-      event.kind,
-      event.id,
-      visibleMatterPredicate(),
-    );
-    // Anything but ended means somebody is in there: a live room, or a stay opened against a room
-    // the status has not caught up with. Either way this is the pre-read's refusal, arrived at the
-    // other way round.
-    if (settled !== undefined && settled.status !== "ended") {
-      return { ok: false, problem: meetingInProgress(c) };
-    }
-    return await commitCalendarEffect(c, database, idempotency, 200, () =>
-      cancel({ effect: NO_CLOSING }),
-    );
   }
 }
+
+// HOW MANY TIMES A CANCELLATION IS COMPOSED when the room moves under it. Each refusal is one race —
+// somebody walked in or ended the room, or a recording stopped — and each retry is composed from a
+// fresh read, so a third attempt would need the room to move twice more inside one round trip.
+const CANCEL_ATTEMPTS = 3;
 
 const DEFAULT_PAGE = 50;
 

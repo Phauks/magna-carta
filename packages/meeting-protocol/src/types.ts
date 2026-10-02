@@ -351,10 +351,16 @@ export interface MeetingRecordingActor {
  *
  * `at` is the instant of the transition: when it started, on a start and on every welcome; when it
  * stopped, on a stop. The server's instant, never a browser's.
+ *
+ * `recordingId` is the recording's record handle on a member's socket and NULL on a guest's: it names a
+ * row in the firm's own database, and a guest is told that a recording started or stopped, never the
+ * handle of the firm's record — the rule `by.userId` keeps. A browser therefore tells one announcement
+ * from the next by the TRANSITION (started after stopped, or the first started it hears), never by the
+ * handle, so a guest's copy and a member's behave alike.
  */
 export interface MeetingRecordingAnnouncement {
   readonly state: "started" | "stopped";
-  readonly recordingId: string;
+  readonly recordingId: string | null;
   readonly by: MeetingRecordingActor | null;
   readonly at: string;
 }

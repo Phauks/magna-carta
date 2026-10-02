@@ -11347,6 +11347,21 @@ export const meetingRecording = sqliteTable(
       .references(() => fileVersion.id),
     // The standard pipeline's Error ID when the recording failed — never a message.
     failureErrorId: text("failure_error_id"),
+    // THE COMPOSE STEP'S CURSOR, on the recording it is composing. A recording is mixed into one
+    // document a bounded window at a time, one queue message per window, so where it has got to has to
+    // outlive each invocation. All of it is handles and counts — no audio, no name:
+    //   the upload session the composite is written through (by value — the file pipeline's own row
+    //   owns the key and the multipart upload, and this only points at it);
+    //   how many parts of the composite have uploaded, which is the cursor;
+    //   the parts themselves as R2 hands them back (part number and entity tag, as JSON), which
+    //   completing the upload needs and the storage binding cannot list;
+    //   how many times a stalled compose has been handed on again, which bounds the retries;
+    //   and when it last made progress, which is what a stall is measured from.
+    composeUploadSessionId: text("compose_upload_session_id"),
+    composePartsDone: integer("compose_parts_done").notNull().default(0),
+    composeParts: text("compose_parts"),
+    composeAttempts: integer("compose_attempts").notNull().default(0),
+    composeProgressAt: text("compose_progress_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

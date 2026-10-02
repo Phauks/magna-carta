@@ -90,8 +90,9 @@ export type MeetingRecordingRefusalCode =
   // A meeting on a FIRM event. A recording can only be filed into a matter, and a firm event has none,
   // so there is nowhere under the matter model to put the bytes.
   | "meeting-recording-needs-matter"
-  // The room already holds more audio tracks than one recording may: the recorder's memory is bounded,
-  // and refusing at the door is what keeps a full room from becoming a crash halfway through.
+  // The room already holds more participants publishing audio than one recording may hear: the
+  // recorder's memory is bounded per stay, and refusing at the door is what keeps a full room from
+  // becoming a crash halfway through.
   | "meeting-recording-too-many-tracks"
   // Stopping a recording without the key that starts one and without running the room.
   | "meeting-recording-not-permitted";

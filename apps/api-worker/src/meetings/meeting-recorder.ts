@@ -1,10 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
-import {
-  commitEffectBatch,
-  guarded,
-  type EffectStatement,
-} from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, type EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
   FirmId,
@@ -25,19 +20,16 @@ import {
 import {
   admitTrackStatements,
   recordingFailedAuditStatement,
-  STOP_RECORDING_GUARD,
   stopRecordingAfterSinkLoss,
+  stopRecordingByPlatform,
 } from "@magna-carta/meetings/recording-service";
 import {
-  closeOpenTracksStatement,
   failRecordingStatement,
-  listRecordingTracks,
   readRecordingById,
   recordCapturedSecondsStatement,
   recordTrackSinkStatement,
   reopenTrackStatement,
   settleTrackStatement,
-  stopRecordingStatement,
 } from "@magna-carta/meetings/recording-statements";
 import {
   recordingStagingKey,
@@ -221,6 +213,25 @@ interface StoredRecorderRecording {
   readonly purgeAt: number | null;
   // Since when no track has been open and the room has reported nobody publishing audio.
   readonly emptySince: number | null;
+  // When this recorder last completed a pass over the room and the record while recording — what the
+  // sweep reads to tell a recorder that is working from one that has stopped working.
+  readonly reconciledAt?: number | null;
+}
+
+/**
+ * WHERE A STOPPED RECORDING IS HANDED ON TO BE COMPOSED: the deployment's compose queue, or — in a
+ * test that drives the compose step itself — what the test installed. The recorder is a Durable Object
+ * constructed with the deployment's own environment and cannot be handed another, so a test reaches it
+ * through this module seam, on the routing-service client's precedent; the default is the binding.
+ */
+interface ComposeQueue {
+  send(message: MeetingRecordingComposeMessage): Promise<unknown>;
+}
+let composeQueueForTests: ComposeQueue | null = null;
+
+/** Installs (or, with null, removes) the compose queue a test wants stopped recordings handed to. */
+export function setRecordingComposeQueueForTests(queue: ComposeQueue | null): void {
+  composeQueueForTests = queue;
 }
 
 /** One track as the recorder holds it. Metadata only — the audio is in memory, never here. */
@@ -376,6 +387,7 @@ export class MeetingRecorder extends DurableObject<Bindings> {
         state: "recording",
         purgeAt: null,
         emptySince: null,
+        reconciledAt: Date.now(),
       };
       await this.ctx.storage.put(RECORDING_KEY, this.recording);
       let opened = 0;
@@ -404,6 +416,65 @@ export class MeetingRecorder extends DurableObject<Bindings> {
    */
   async stop(stopReason: MeetingRecordingStopReason): Promise<RecorderStopOutcome | null> {
     return await this.exclusive(async () => await this.settle(stopReason));
+  }
+
+  /**
+   * WHETHER THIS RECORDER IS WORKING, for the sweep: the recording it holds and when its last pass over
+   * the room and the record completed. `none` is a recorder that never took a recording — a start whose
+   * hand-over never arrived — or one that has already let go of it and deleted its storage.
+   */
+  async heartbeat(): Promise<{
+    readonly state: "recording" | "stopped" | "none";
+    readonly reconciledAt: number | null;
+  }> {
+    return {
+      state: this.recording?.state ?? "none",
+      reconciledAt: this.recording?.reconciledAt ?? null,
+    };
+  }
+
+  /**
+   * THE SWEEP GAVE UP ON THIS RECORDING — the record already says `abandoned` — so the recorder lets go
+   * of it WITHOUT handing anything on: every adapter closed, every socket hung up, every staged upload
+   * ABORTED rather than completed, because a recorder that stopped reconciling is exactly the one whose
+   * account of its parts cannot be trusted to line a composite up, and an abandoned recording files
+   * nothing. Answers how many uploads it aborted; a recorder holding no running recording does nothing.
+   */
+  async abandon(): Promise<{ readonly abortedUploads: number }> {
+    return await this.exclusive(async () => {
+      const recording = this.recording;
+      if (recording === null || recording.state !== "recording") return { abortedUploads: 0 };
+      const purgeAt = Date.now() + SETTLED_RETENTION_MILLISECONDS;
+      this.recording = { ...recording, state: "stopped", purgeAt };
+      await this.ctx.storage.put(RECORDING_KEY, this.recording);
+      await this.closeAdapters(
+        [...this.tracks.values()].flatMap((track) =>
+          track.adapterId === null ? [] : [track.adapterId],
+        ),
+      );
+      for (const trackId of this.sockets.keys()) this.hangUp(trackId, "recording abandoned");
+      await Promise.all([...this.runtimes.values()].map((runtime) => runtime.upload));
+      let abortedUploads = 0;
+      for (const track of this.tracks.values()) {
+        track.adapterId = null;
+        track.adapterNonce = null;
+        if (track.state === "open") track.state = "lost";
+        this.releaseStager(this.runtimeOf(track.trackId));
+        if (track.uploadId === null) continue;
+        try {
+          const bucket = await this.firmBucket(recording.firmId);
+          await bucket.resumeMultipartUpload(track.stagingKey, track.uploadId).abort();
+          abortedUploads += 1;
+        } catch (caught) {
+          this.recordFailure("abort-upload", caught);
+        }
+        track.uploadId = null;
+        this.dirty.add(track.trackId);
+      }
+      await this.persistTracks();
+      await this.ctx.storage.setAlarm(purgeAt);
+      return { abortedUploads };
+    });
   }
 
   /** What the recorder is holding, for a test and for an operator: metadata and sizes, never audio. */
@@ -563,6 +634,9 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       await this.reconcile(recording);
       if (this.recording?.state === "recording") {
         await this.persistTracks();
+        // THE HEARTBEAT the sweep reads: this pass reached the record and the room and the recorder is
+        // still holding the recording. One small write a pass, beside the tracks the pass wrote.
+        await this.putRecording({ ...this.recording, reconciledAt: Date.now() });
         await this.ctx.storage.setAlarm(Date.now() + RECORDER_RECONCILE_INTERVAL_MILLISECONDS);
       }
     });
@@ -1157,14 +1231,14 @@ export class MeetingRecorder extends DurableObject<Bindings> {
     for (const candidate of present.values()) {
       const held = heldByName.get(candidate.trackName);
       if (held === undefined) {
-        const refused = this.admissionRefused(recording, candidate.participantId);
         // The decision is the recorder's — one track per stay, and the ceiling the memory allows — and
-        // the statement is handed it as the one-slot case it already distinguishes.
+        // the record is written in the state it decided.
+        const refused = this.admissionRefused(recording, candidate.participantId);
         const admitted = admitTrackStatements(
           database,
           recording.recordingId,
           candidate,
-          { openTracks: refused ? 1 : 0, ceiling: 1 },
+          refused ? "lost" : "open",
           { clock: { now: () => new Date().toISOString() }, randomSource: cryptoRandomSource },
         );
         await this.commit(recording, admitted.statements);
@@ -1287,19 +1361,16 @@ export class MeetingRecorder extends DurableObject<Bindings> {
   ): Promise<void> {
     const database = firmDatabaseFor(this.env.FIRM_DATABASE, recording.firmId);
     const now = () => new Date().toISOString();
+    const system = { clock: { now }, randomSource: cryptoRandomSource };
     let stoppedAt: string | null = null;
     try {
-      if (stopReason === "sink-lost") {
-        const stopped = await stopRecordingAfterSinkLoss(database, recording.recordingId, {
-          clock: { now },
-          randomSource: cryptoRandomSource,
-        });
-        if (stopped !== undefined) {
-          await commitEffectBatch(database, stopped.effect, { now });
-          stoppedAt = stopped.recording.stopped_at;
-        }
-      } else {
-        stoppedAt = await this.commitPlatformStop(recording, stopReason);
+      const stopped =
+        stopReason === "sink-lost"
+          ? await stopRecordingAfterSinkLoss(database, recording.recordingId, system)
+          : await stopRecordingByPlatform(database, recording.recordingId, stopReason, system);
+      if (stopped !== undefined) {
+        await commitEffectBatch(database, stopped.effect, { now });
+        stoppedAt = stopped.recording.stopped_at;
       }
     } catch (caught) {
       this.recordFailure("stop", caught);
@@ -1322,52 +1393,6 @@ export class MeetingRecorder extends DurableObject<Bindings> {
     } catch (caught) {
       this.recordFailure("announce-stop", caught);
     }
-  }
-
-  /**
-   * The stop for a recording nobody was in, or one that reached its maximum length: the same three
-   * statements every stop with nobody behind it commits — the guarded stop, every open track closed,
-   * and the audit row with the reason and the count. Answers the instant it stopped at, or null when
-   * the record had already stopped.
-   */
-  private async commitPlatformStop(
-    recording: StoredRecorderRecording,
-    stopReason: "abandoned" | "ceiling",
-  ): Promise<string | null> {
-    const database = firmDatabaseFor(this.env.FIRM_DATABASE, recording.firmId);
-    const running = await readRecordingById(database, recording.recordingId);
-    if (running === undefined || running.state !== "recording") return null;
-    const trackCount = (await listRecordingTracks(database, running.id)).length;
-    const now = new Date().toISOString();
-    await commitEffectBatch(
-      database,
-      {
-        statements: [
-          guarded(
-            stopRecordingStatement(database, {
-              id: running.id,
-              stoppedByUserId: null,
-              stopReason,
-              trackCount,
-              now,
-            }),
-            STOP_RECORDING_GUARD,
-          ),
-          closeOpenTracksStatement(database, running.id, now),
-          domainAuditStatement(database, {
-            event: "meetings.recording.stopped",
-            subjectId: running.id,
-            actorUserId: null,
-            clock: { now: () => now },
-            randomSource: cryptoRandomSource,
-            metadata: { meetingId: running.meeting_id, stoppedAt: now, stopReason, trackCount },
-          }),
-        ],
-        outboxMessages: [],
-      },
-      { now: () => now },
-    );
-    return now;
   }
 
   /**
@@ -1488,7 +1513,7 @@ export class MeetingRecorder extends DurableObject<Bindings> {
         recordingId: recording.recordingId,
       };
       try {
-        await this.env.MEETING_RECORDING_COMPOSE?.send(message);
+        await (composeQueueForTests ?? this.env.MEETING_RECORDING_COMPOSE)?.send(message);
       } catch (caught) {
         this.recordFailure("enqueue-compose", caught);
       }

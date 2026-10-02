@@ -368,10 +368,13 @@ answering. The summary writes nothing, because opening the link is a read.
 `recording-types.ts` / `recording-statements.ts` / `recording-service.ts` are the recording's trio,
 `settings.ts` holds its four firm switches (all default off — recording, captions, summaries — and the
 track ceiling), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
-envelope plus the mono fold, the silence and the sequence-gap arithmetic. The design is
+envelope plus the mono fold, the silence and the sequence-gap arithmetic. `pcm-mix.ts` is the compose
+step's mixer — tracks at their own offsets, summed in 32 bits and clamped ONCE, a window at a time so
+memory never grows with the recording — and `wav.ts` the 44-byte canonical header for mono 48 kHz
+16-bit, written at the head of the first part because the length is known before mixing begins. The design is
 [`docs/specs/2026-09-20-meetings-recording-and-transcription-design.md`](../../docs/specs/2026-09-20-meetings-recording-and-transcription-design.md).
 
-Six rules travel with it.
+Seven rules travel with it.
 
 **The consent record is what the server delivered, not what a browser rendered.** The owner's ruling
 made the announcement the consent mechanism, so `meeting_recording_notice` holds a row per stay per
@@ -410,6 +413,15 @@ Worker can give up on one recording, and `failRecordingStatement` lets only the 
 so the log says it failed once. A stop the recorder never acknowledged leaves the state alone and puts
 the Error ID on the `composing` row (`recordRecorderUnreachableStatement`); the recorder settles itself
 later, and an Error ID on a row that is not `failed` names a fault on the way, never the outcome.
+
+**Composing and filing are the platform's acts on its own record, and every one is guarded.** The
+compose cursor is five columns on `meeting_recording` (`compose_*`): the begin is guarded on no upload
+session yet and commits with the session, the advance on the cursor it started from (two deliveries of
+one message never both advance it), the filing on `composing`, and the sweep's abandonment on
+`recording` — each with its own exported guard label so a caller tells "somebody got there first" from a
+fault. `abandoned` is the sweep's state for a recording whose recorder is gone: open tracks are `lost`,
+nothing is composed. The filed, abandoned and failed audit rows carry handles and counts only — never the
+document's name, which is the event's title. The ceiling at the start counts STAYS, as the recorder does.
 
 **Its refusals are a vocabulary of their own** (`MeetingRecordingRefusedError` in `validation.ts`), on
 the poll's precedent, so the room's one switch over `MeetingValidationCode` is not widened by codes only

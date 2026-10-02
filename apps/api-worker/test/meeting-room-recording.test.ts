@@ -156,10 +156,81 @@ describe("announcing a recording", () => {
       by: { userId: room.meeting.hostUserId, displayName: "A Host" },
       at: room.startedAt,
     });
-    expect(recordingFrames(room.guest)[0]).toMatchObject({
+    // THE RECORD HANDLE IS THE FIRM'S: a guest is told that it started and by whom, by name, and is
+    // handed neither the user identifier nor the recording's handle.
+    expect(recordingFrames(room.guest)[0]).toEqual({
+      v: 1,
+      type: "recording",
       state: "started",
+      recordingId: null,
       by: { userId: null, displayName: "A Host" },
+      at: room.startedAt,
     });
+  });
+
+  it("hands a guest's welcome and the stop no record handle either", async () => {
+    const room = await roomWithMemberAndGuest();
+    await roomOf(room.meeting).recordingStarted({
+      firmId,
+      meetingId: room.meeting.meetingId,
+      recordingId: room.recordingId,
+      at: room.startedAt,
+      by: { userId: room.meeting.hostUserId, displayName: "A Host" },
+    });
+    const lateGuest = await connect(room.meeting, {
+      attendanceId: newIdentifier("meetingGuestStay"),
+      userId: "",
+      displayName: "Another guest",
+      guest: true,
+    });
+    expect(lateGuest.frames[0]).toMatchObject({
+      type: "welcome",
+      recording: { state: "started", recordingId: null, by: { userId: null } },
+    });
+    await roomOf(room.meeting).recordingStopped({
+      firmId,
+      meetingId: room.meeting.meetingId,
+      recordingId: room.recordingId,
+      at: new Date().toISOString(),
+      by: { userId: room.meeting.hostUserId, displayName: "A Host" },
+    });
+    await waitUntil(
+      () => recordingFrames(room.guest).length === 2 && recordingFrames(room.member).length === 2,
+    );
+    expect(recordingFrames(room.guest)[1]).toMatchObject({ state: "stopped", recordingId: null });
+    // A member's copy still carries the handle every member-facing read is addressed by.
+    expect(recordingFrames(room.member)[1]).toMatchObject({
+      state: "stopped",
+      recordingId: room.recordingId,
+    });
+  });
+
+  it("announces one recording ONCE, however many requests carry its start out", async () => {
+    const room = await roomWithMemberAndGuest();
+    const transition = {
+      firmId,
+      meetingId: room.meeting.meetingId,
+      recordingId: room.recordingId,
+      at: room.startedAt,
+      by: { userId: room.meeting.hostUserId, displayName: "A Host" },
+    };
+    // The start route and a replay of it racing: both reach the room.
+    const [first, second] = await Promise.all([
+      roomOf(room.meeting).recordingStarted(transition),
+      roomOf(room.meeting).recordingStarted(transition),
+    ]);
+    expect([first, second]).toContainEqual({ recipientCount: 2, noticeCount: 2 });
+    expect([first, second]).toContainEqual({ recipientCount: 0, noticeCount: 0 });
+    await roomOf(room.meeting).recordingStarted(transition);
+
+    await waitUntil(() => recordingFrames(room.member).length > 0);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(recordingFrames(room.member)).toHaveLength(1);
+    expect(recordingFrames(room.guest)).toHaveLength(1);
+    expect((await notices(room.recordingId)).filter((row) => row.reason === "start")).toHaveLength(
+      2,
+    );
+    expect(await noticedAuditCount(room.recordingId)).toBe(1);
   });
 
   it("writes ONE notice per stay told, a guest's by its stay, and ONE audit row for the fan-out", async () => {

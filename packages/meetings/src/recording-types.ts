@@ -102,8 +102,25 @@ export interface MeetingRecordingRow {
   readonly file_id: FileId | null;
   readonly file_version_id: FileVersionId | null;
   readonly failure_error_id: string | null;
+  // The compose step's cursor — handles and counts only; see `MeetingRecordingComposePart`.
+  readonly compose_upload_session_id: string | null;
+  readonly compose_parts_done: number;
+  // JSON of `MeetingRecordingComposePart[]`, null until the first part has uploaded.
+  readonly compose_parts: string | null;
+  readonly compose_attempts: number;
+  readonly compose_progress_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+/**
+ * ONE UPLOADED PART OF A COMPOSED RECORDING, as R2 hands it back: its number and its entity tag. Kept on
+ * the recording row because completing the upload needs every part's tag and the storage binding cannot
+ * list an upload's parts — and nothing else, because a part's bytes are the bucket's.
+ */
+export interface MeetingRecordingComposePart {
+  readonly partNumber: number;
+  readonly etag: string;
 }
 
 export interface MeetingRecordingTrackRow {
@@ -186,6 +203,9 @@ export interface MeetingRecordingSummary {
   readonly fileId: FileId | null;
   readonly transcriptId: string | null;
   readonly summaryState: string | null;
+  // The standard pipeline's Error ID when the recording failed, or when a fault on the way was
+  // recorded against it — a handle support can look up, never a message. Null otherwise.
+  readonly failureErrorId: string | null;
 }
 
 /** One notice, as the consent read returns it. */

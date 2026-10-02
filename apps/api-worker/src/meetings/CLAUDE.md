@@ -74,7 +74,9 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   read by both the chokepoint's guest lane and the guest routes so one condition says one sentence.
 - `room/room-recording.ts` — the recording's announcement and its record: the `recording` frame to
   every welcomed socket, the running recording a welcome carries, the notice rows for every stay told
-  (one batch per fan-out), and the audio tracks the recorder asks the room for.
+  (one batch per fan-out), and the audio tracks the recorder asks the room for. A recording is announced
+  ONCE however many requests carry its start out (the room holding it is the proof), and a guest's copy
+  carries `recordingId: null` beside `by.userId: null` — the handle names a firm record.
 - `meeting-recorder.ts` — `MeetingRecorder`, one per RECORDING (`firmId:recordingId`) and NOT
   hibernating: the one object in this directory the media does cross. The routing service's WebSocket
   adapter streams each audio track to it as PCM; it folds to mono, writes silence for missing frames,
@@ -83,7 +85,21 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   pass (so a stop that never reached it still ends capture within one pass), stops itself when the
   room has been empty ten minutes or the recording reaches its maximum length, and holds no audio in
   its storage. The track ceiling is derived from the isolate's memory in
-  `packages/meetings/src/settings.ts` (eleven), and one stay holds at most one recorded track.
+  `packages/meetings/src/settings.ts` (eleven), and one stay holds at most one recorded track — so the
+  start route's ceiling counts stays too.
+  The sweep asks it `heartbeat()` (each pass stamps when it last reconciled) and, for a recording the
+  sweep has abandoned, `abandon()` closes its adapters and ABORTS its uploads rather than completing
+  them. A test that drives the compose step installs a queue with `setRecordingComposeQueueForTests`,
+  because the recorder is constructed with the deployment's environment.
+- `recording-compose-consumer.ts` — the consumer on the `meeting-recording-compose` queue: one bounded
+  window per message (ten one-minute parts), mixed with `@magna-carta/meetings/pcm-mix`, the WAV header
+  at the head of the first part, the cursor on the recording's row, and the next window re-enqueued; then
+  filed through `initiateUpload` → the composite at the minted key → `completeUploadSession` → the ingest
+  queue, on the email attachment's precedent, and the staged tracks deleted. About 40 MB per invocation
+  whatever the length or track count — the arithmetic is in its header.
+- `recording-sweep.ts` — on the ten-minute cron beside the status snapshot: abandons a recording whose
+  recorder stopped reconciling (and clears the room's mark), hands a compose with no progress on and fails
+  it with an Error ID after three attempts, and releases staged tracks nothing needs.
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
   `routes/meeting-sink.ts`, outside the chokepoint.

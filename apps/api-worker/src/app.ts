@@ -490,8 +490,11 @@ export type Bindings = {
   // set it with `wrangler secret put MEETING_SINK_SIGNING_KEY`: absent, recording answers 503 and the
   // Record control is not offered. Never logged, never echoed, never sent anywhere.
   MEETING_SINK_SIGNING_KEY?: string;
-  // The queue a stopped recording is handed to for composing. Not bound yet: the consumer is the
-  // compose slice's, and until it lands a stopped recording waits in `composing` for it.
+  // The queue a stopped recording is handed to for composing (meetings/recording-compose-consumer.ts):
+  // one message per bounded window of the mix, each re-enqueuing the next, so an hours-long recording
+  // is composed off every request path and inside a queue consumer's budget. Optional in the type
+  // because the recorder and the sweep run in deployments and tests that do not bind it; a recording
+  // stopped where it is absent waits in `composing`, and the sweep hands it on once it is bound.
   MEETING_RECORDING_COMPOSE?: Queue;
 };
 

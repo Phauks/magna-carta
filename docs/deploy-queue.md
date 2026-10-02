@@ -117,6 +117,30 @@ outage rather than anything in the change. The runner labels were never the caus
 reproduced identically on `ubuntu-latest` and predated `ubuntu-slim` entering the repository — and
 the workflow is gone now regardless, so there is no longer a workflow to "fix".
 
+## Meetings — what the account needs before video meetings and recording work (added 2026-10-02)
+
+None of this blocks a deploy: every piece answers that it is not configured until its half exists.
+In the order the features need them.
+
+1. **Cloudflare Realtime.** Create the Realtime SFU application, then
+   `wrangler secret put REALTIME_SFU_APP_ID` and `wrangler secret put REALTIME_SFU_APP_SECRET` on
+   `magna-carta`. Until both exist a meeting answers `meetings-not-configured`.
+2. **The recording adapter experiment.** Against the live application, prove that the WebSocket
+   adapter dials the sink endpoint with its path intact (the sink token travels in the path) and
+   confirm the audio envelope's field numbers 1, 2 and 5, as `packages/meetings/src/pcm-frame.ts`
+   names them. The method is in `docs/specs/2026-09-20-meetings-recording-and-transcription-design.md`
+   under the sink. Recording stays off until this passes.
+3. **The sink's secret and route.** `wrangler secret put MEETING_SINK_SIGNING_KEY`, and a zone route
+   for `/internal/*` on the api Worker (`run_worker_first` already lists it).
+4. **The compose queues.** Create `magna-carta-production-meeting-recording-compose` and
+   `magna-carta-production-meeting-recording-compose-deadletter`; `wrangler.jsonc` binds both, and
+   a deploy fails on a queue that does not exist.
+5. **An R2 lifecycle rule on every firm bucket** for the `meeting-recordings/` prefix that aborts
+   incomplete multipart uploads after two days. A recording runs at most twelve hours, and the sweep
+   aborts what it can find, but the upload identifiers live only in the recorder's own storage; if
+   that is lost, only a lifecycle rule reclaims the parts.
+6. **Per firm:** an Owner switches `meetings.recordingEnabled` on.
+
 ## Reconcile the production branch across the fleet — check before acting, and expect it to be done
 
 The 2026-08-29 move to `main` named `magna-carta` and `magna-carta-web`. Whether the sibling projects

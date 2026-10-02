@@ -3911,9 +3911,7 @@ export type MeetingRecordingSummary = {
     state: 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
     startedBy: MeetingRecordingActor;
     startedAt: string;
-    stoppedBy: MeetingRecordingActor & ({
-        [key: string]: unknown;
-    } | null);
+    stoppedBy: MeetingRecordingActor | null;
     stoppedAt: string | null;
     stopReason: 'member' | 'host' | 'meeting-ended' | 'sink-lost' | 'ceiling' | 'abandoned' | 'start-failed' | null;
     trackCount: number;
@@ -3921,6 +3919,7 @@ export type MeetingRecordingSummary = {
     fileId: string | null;
     transcriptId: string | null;
     summaryState: string | null;
+    failureErrorId: string | null;
 };
 
 export type MeetingRecordingActor = {
@@ -22637,7 +22636,7 @@ export type MeetingsStopRecordingErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, a recording is already running (or none is), the room carries more audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -22695,7 +22694,7 @@ export type MeetingsStartRecordingErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, a recording is already running (or none is), the room carries more audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**

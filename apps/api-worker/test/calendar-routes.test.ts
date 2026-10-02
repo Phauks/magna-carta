@@ -4,6 +4,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CANCEL_CLOSING_GUARD } from "@magna-carta/meetings/meeting-service";
+import { STOP_RECORDING_GUARD } from "@magna-carta/meetings/recording-service";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { racingFirmDatabase } from "./support/racing-firm-database.ts";
@@ -1198,6 +1199,52 @@ describe("cancelling an event whose meeting moves underneath it", () => {
       .bind(event.meetingId)
       .all<{ endings: number }>();
     expect(results[0]?.endings).toBe(1);
+  });
+
+  it("lets the cancel through when a recording in the room stopped in that same window", async () => {
+    const event = await scheduledMeetingEvent("Conference whose recording was stopped");
+    // A recording running in a room nobody walked into yet, which the cancel's closing stops.
+    const recordingId = newIdentifier("meetingRecording");
+    const startedAt = new Date().toISOString();
+    await firmDatabase
+      .prepare(
+        `INSERT INTO meeting_recording (id, meeting_id, matter_id, breakout_id, state, ` +
+          `started_by_user_id, started_at, track_count, created_at, updated_at) ` +
+          `VALUES (?1, ?2, ?3, NULL, 'recording', ?4, ?5, 0, ?5, ?5)`,
+      )
+      .bind(recordingId, event.meetingId, matterId, ownerUserId, startedAt)
+      .run();
+
+    const racing = racingFirmDatabase({ ...env }, STOP_RECORDING_GUARD, async () => {
+      // Somebody pressed Stop between the cancel's read and its commit.
+      const now = new Date().toISOString();
+      await firmDatabase
+        .prepare(
+          `UPDATE meeting_recording SET state = 'composing', stopped_at = ?1, stop_reason = 'member', ` +
+            `stopped_by_user_id = ?2, updated_at = ?1 WHERE id = ?3`,
+        )
+        .bind(now, ownerUserId, recordingId)
+        .run();
+    });
+    const response = await app.request(
+      `https://example.com/api/v1/events/${event.id}/cancel`,
+      {
+        method: "POST",
+        headers: authHeaders(ownerCookie, crypto.randomUUID()),
+        body: JSON.stringify({}),
+      },
+      racing.environment,
+    );
+
+    // Where this answered a server error, the recording is simply already stopped.
+    expect(racing.interleaved).toBe(true);
+    expect(response.status).toBe(200);
+    expect((await meetingFor(event.id))?.status).toBe("ended");
+    const { results } = await firmDatabase
+      .prepare("SELECT state, stop_reason FROM meeting_recording WHERE id = ?1")
+      .bind(recordingId)
+      .all<{ state: string; stop_reason: string }>();
+    expect(results[0]).toEqual({ state: "composing", stop_reason: "member" });
   });
 });
 

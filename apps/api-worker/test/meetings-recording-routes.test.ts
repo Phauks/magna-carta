@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
+import { STOP_RECORDING_GUARD } from "@magna-carta/meetings/recording-service";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -8,6 +9,7 @@ import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import { setMeetingSinkSigningKeyForTests } from "../src/meetings/sink-token.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { fakeAdapterService, waitUntil } from "./support/meeting-recording-fixture.ts";
+import { racingFirmDatabase } from "./support/racing-firm-database.ts";
 import {
   mirrorMemberWithOwnerRole,
   mirrorMemberWithRole,
@@ -214,6 +216,7 @@ interface RecordingSummary {
   stoppedBy: { userId: string; displayName: string } | null;
   stopReason: string | null;
   trackCount: number;
+  failureErrorId: string | null;
 }
 
 beforeAll(async () => {
@@ -319,6 +322,8 @@ describe("starting and stopping", () => {
       startedBy: { userId: ownerUserId, displayName: "Recording Owner" },
       stoppedBy: null,
       trackCount: 0,
+      // Nothing has gone wrong with a recording that is running.
+      failureErrorId: null,
     });
     const summary = await readJson<{ recordingConfigured: boolean; recordingState: string }>(
       await request("GET", `/api/v1/meetings/${meetingId}`, ownerCookie),
@@ -337,8 +342,14 @@ describe("starting and stopping", () => {
     expect(after.stopReason).toBe("member");
     expect(after.stoppedBy?.userId).toBe(ownerUserId);
     // Nobody was publishing audio, so nothing was captured: the record says failed rather than
-    // claiming a recording that holds nothing.
+    // claiming a recording that holds nothing — with the Error ID a member can quote to support, on
+    // the stop's own answer and on every later read of it.
     expect(after.state).toBe("failed");
+    expect(after.failureErrorId).toMatch(/\S/);
+    const listed = await readJson<{ data: RecordingSummary[] }>(
+      await request("GET", `/api/v1/meetings/${meetingId}/recordings`, ownerCookie),
+    );
+    expect(listed.data[0]?.failureErrorId).toBe(after.failureErrorId);
 
     const none = await request("DELETE", `/api/v1/meetings/${meetingId}/recording`, ownerCookie);
     expect(none.status).toBe(409);
@@ -773,5 +784,107 @@ describe("after the commit — the recorder and the room", () => {
 
     release?.();
     await first;
+  });
+
+  it("announces once when a replay carries the start out while the first request is still on its way", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const idempotencyKey = crypto.randomUUID();
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { environment: standIn, calls } = withRecorder({});
+    // The first request commits and is SLOW to reach the room — it gets there after the replay.
+    const slow = withRoom(async (real, transition) => {
+      await held;
+      return await real.recordingStarted(transition);
+    }, standIn);
+    const first = request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment: slow, idempotencyKey },
+    );
+    let recordingId = "";
+    await waitUntil(async () => {
+      const row = await firmDatabase
+        .prepare(`SELECT id FROM meeting_recording WHERE meeting_id = ?1 AND state = 'recording'`)
+        .bind(meetingId)
+        .first<{ id: string }>();
+      recordingId = row?.id ?? "";
+      return recordingId !== "";
+    });
+    const replay = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment: standIn, idempotencyKey },
+    );
+    expect(replay.status).toBe(201);
+    release?.();
+    expect((await first).status).toBe(201);
+
+    // ONE announcement — one fan-out on the record — however many requests carried the start out,
+    // and the recording still running: neither request mistook the other's work for a failure.
+    const noticed = await firmDatabase
+      .prepare(
+        `SELECT COUNT(*) AS count FROM audit_log WHERE event = 'meetings.recording.noticed' AND subject_id = ?1`,
+      )
+      .bind(recordingId)
+      .first<{ count: number }>();
+    expect(noticed?.count).toBe(1);
+    expect(await recordingRow(recordingId)).toMatchObject({ state: "recording" });
+    expect(calls.starts.length).toBeGreaterThan(0);
+    await request("DELETE", `/api/v1/meetings/${meetingId}/recording`, ownerCookie, undefined, {
+      environment: standIn,
+    });
+  });
+});
+
+describe("a recording stopped while the meeting is ending", () => {
+  it("ends the meeting and keeps the stop that got there first, rather than answering a server error", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const { environment: standIn } = withRecorder({});
+    const started = await readJson<RecordingSummary>(
+      await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie, undefined, {
+        environment: standIn,
+      }),
+    );
+    // Between the end reading the running recording and its batch committing, somebody stops it.
+    const racing = racingFirmDatabase({ ...standIn }, STOP_RECORDING_GUARD, async () => {
+      const now = new Date().toISOString();
+      await firmDatabase
+        .prepare(
+          `UPDATE meeting_recording SET state = 'composing', stopped_at = ?1, stop_reason = 'member', ` +
+            `stopped_by_user_id = ?2, updated_at = ?1 WHERE id = ?3`,
+        )
+        .bind(now, ownerUserId, started.id)
+        .run();
+    });
+    const ended = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/end`,
+      ownerCookie,
+      undefined,
+      {
+        environment: racing.environment as typeof ROUTED_ENVIRONMENT,
+      },
+    );
+    expect(racing.interleaved).toBe(true);
+    expect(ended.status).toBe(200);
+    const meeting = await firmDatabase
+      .prepare(`SELECT status FROM meeting WHERE id = ?1`)
+      .bind(meetingId)
+      .first<{ status: string }>();
+    expect(meeting?.status).toBe("ended");
+    // The stop that committed first is the one the record keeps.
+    expect(await recordingRow(started.id)).toMatchObject({
+      state: "composing",
+      stop_reason: "member",
+    });
   });
 });

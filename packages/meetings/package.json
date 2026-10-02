@@ -21,6 +21,7 @@
     "./meeting-service": "./src/meeting-service.ts",
     "./meeting-statements": "./src/meeting-statements.ts",
     "./pcm-frame": "./src/pcm-frame.ts",
+    "./pcm-mix": "./src/pcm-mix.ts",
     "./poll-service": "./src/poll-service.ts",
     "./poll-statements": "./src/poll-statements.ts",
     "./poll-types": "./src/poll-types.ts",
@@ -34,7 +35,8 @@
     "./recording-types": "./src/recording-types.ts",
     "./settings": "./src/settings.ts",
     "./types": "./src/types.ts",
-    "./validation": "./src/validation.ts"
+    "./validation": "./src/validation.ts",
+    "./wav": "./src/wav.ts"
   },
   "scripts": {
     "test": "vp test run"

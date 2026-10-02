@@ -212,6 +212,14 @@
       // the firm's consent gates, builds the bounded window, calls the one inference chokepoint, and
       // settles the turn. Model work never runs on the request path.
       { "binding": "MAGNUS", "queue": "magna-carta-production-magnus" },
+      // The meeting-recording compose queue: the recorder enqueues one message when a stopped recording
+      // has every track staged, and the consumer re-enqueues the same message for each next window of
+      // the mix, so an hours-long recording is composed in bounded invocations off every request path.
+      // The recording sweep (on the ten-minute cron) hands a stalled one on again.
+      {
+        "binding": "MEETING_RECORDING_COMPOSE",
+        "queue": "magna-carta-production-meeting-recording-compose",
+      },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -359,6 +367,19 @@
         "queue": "magna-carta-production-magnus",
         "max_concurrency": 4,
         "dead_letter_queue": "magna-carta-production-magnus-deadletter",
+      },
+      // The meeting-recording compose consumer (the queue() handler routes this queue to the compose
+      // consumer): one bounded window of one recording's mix per message, about forty megabytes of
+      // working memory whatever the recording's length or track count. One message at a time per
+      // batch and low concurrency, because each is bandwidth-bound against the firm's own bucket and a
+      // window is minutes of audio. Dead-letters after its retries; the recording sweep hands a
+      // recording with no progress on again, and fails it with an Error ID after a bounded number of
+      // attempts.
+      {
+        "queue": "magna-carta-production-meeting-recording-compose",
+        "max_batch_size": 1,
+        "max_concurrency": 2,
+        "dead_letter_queue": "magna-carta-production-meeting-recording-compose-deadletter",
       },
     ],
   },

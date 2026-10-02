@@ -1,6 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
-import { listRecordingTracks, readRecordingById } from "@magna-carta/meetings/recording-statements";
+import { readSinkTrackById } from "@magna-carta/meetings/recording-statements";
 import { meetingRecordingSinkRefused } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Bindings } from "../app.ts";
@@ -90,14 +90,8 @@ export function registerMeetingSinkRoute(
     // THE RECORD, AFTER THE SIGNATURE: still running, and this track ROW still open. The platform's
     // own read — the routing service is not a member and there is no visibility to compose.
     const database = firmDatabaseFor(c.env.FIRM_DATABASE, claims.firmId);
-    const recording = await readRecordingById(database, claims.recordingId);
-    const track =
-      recording === undefined
-        ? undefined
-        : (await listRecordingTracks(database, claims.recordingId)).find(
-            (row) => row.id === claims.trackId,
-          );
-    if (recording?.state !== "recording" || track?.state !== "open") {
+    const sink = await readSinkTrackById(database, claims.recordingId, claims.trackId);
+    if (sink?.recordingState !== "recording" || sink.trackState !== "open") {
       return refuse(c.env, "settled", 404);
     }
 

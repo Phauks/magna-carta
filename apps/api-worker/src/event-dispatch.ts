@@ -30,6 +30,9 @@ import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { magnusQueue } from "./magnus/magnus-consumer.ts";
+import type { MeetingRecordingComposeMessage } from "./meetings/meeting-recorder.ts";
+import { meetingRecordingComposeQueue } from "./meetings/recording-compose-consumer.ts";
+import { runRecordingSweep } from "./meetings/recording-sweep.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
@@ -98,6 +101,11 @@ const DOCUMENT_ASSEMBLY_QUEUE = "magna-carta-production-document-assembly";
 // consumer, which re-reads the firm's consent gates, builds the bounded conversation window, calls the
 // one inference chokepoint, and settles the pending turn.
 const MAGNUS_QUEUE = "magna-carta-production-magnus";
+
+// The meeting-recording compose queue's name — routeQueueBatch routes its batches to the compose
+// consumer, which mixes one bounded window of a stopped recording's staged tracks into the composite,
+// re-enqueues the next window, and files the finished recording through the upload pipeline.
+const MEETING_RECORDING_COMPOSE_QUEUE = "magna-carta-production-meeting-recording-compose";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -220,7 +228,26 @@ export async function runScheduledPass(
           },
         }
       : controller.cron === STATUS_SNAPSHOT_CRON
-        ? { operation: "cron:status-snapshot", run: () => runStatusSnapshot(env) }
+        ? {
+            operation: "cron:status-snapshot",
+            run: async () => {
+              await runStatusSnapshot(env);
+              // The recording sweep rides this ten-minute pass rather than a trigger of its own (the
+              // trigger set is one atomic write, and a fourth has never been proved on this account)
+              // and rather than the five-minute sweep (which also runs on a request's tail). Wrapped,
+              // so a sweep that fails can never cost the status snapshot, and the reverse is already
+              // true because the snapshot records its own failures.
+              try {
+                await runRecordingSweep(env);
+              } catch (caught) {
+                logOperationFailed(
+                  createWorkersLogger(env.TELEMETRY),
+                  "cron:recording-sweep",
+                  caught,
+                );
+              }
+            },
+          }
         : controller.cron === NOTIFICATION_DIGEST_CRON
           ? {
               operation: "cron:notification-digest",
@@ -284,6 +311,10 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
   // which also answers the one completion message a load sends when its last document ends.
   if (batch.queue === DISCOVERY_PROCESS_QUEUE) {
     return discoveryProcessQueue(batch as MessageBatch<DiscoveryLaneMessage>, env);
+  }
+  // The meeting-recording compose queue routes to the compose consumer (mix a window -> file).
+  if (batch.queue === MEETING_RECORDING_COMPOSE_QUEUE) {
+    return meetingRecordingComposeQueue(batch as MessageBatch<MeetingRecordingComposeMessage>, env);
   }
   // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
   if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {

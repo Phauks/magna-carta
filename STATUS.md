@@ -860,8 +860,16 @@ seats, and the room is told before any audio is captured. The audio leaves the r
 its WebSocket adapter into a non-hibernating `MeetingRecorder` per recording, which stages each track as
 mono PCM in the firm's own bucket and reconciles against the room for arrivals, departures, the track
 ceiling and lost sockets. It is switched off until the owner proves the routing service keeps the sink
-address intact and sets the signing key; composing and filing the audio are the next slice, and the
-announcement and the mark on screen are the web half. |
+address intact and sets the signing key.
+
+Composing and filing is the second slice, and its server half is built. A stopped recording is handed to
+a queue consumer that mixes its staged tracks into one mono WAV a ten-minute window per message — each
+track at its own offset, a lost track silent after the loss, two loud speakers clamped rather than
+wrapped — keeps its cursor on the recording's row, and files the result onto the matter through the same
+upload pipeline, scan and status gate every document crosses; the staged tracks go once it is filed. A
+sweep on the ten-minute cron abandons a recording whose recorder stopped working and clears the mark,
+hands a stalled compose on and fails it with an Error ID after three attempts, and releases staged audio
+nothing needs after its window. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

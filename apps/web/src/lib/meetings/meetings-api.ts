@@ -744,10 +744,7 @@ export type MeetingRecordingStateView = MeetingRecordingSummary["state"];
  * list states it only where the summary carries one, and a summary that does not send it reads as a
  * failure with no Error ID.
  */
-export type MeetingRecordingView = Omit<MeetingRecordingSummary, "stoppedBy"> & {
-  readonly stoppedBy: MeetingRecordingActorView | null;
-  readonly failureErrorId?: string | null;
-};
+export type MeetingRecordingView = MeetingRecordingSummary;
 
 /** Why somebody was told: the start, an arrival while it ran, or the stop. */
 export type MeetingRecordingNoticeReasonView = MeetingRecordingNoticeEntry["reason"];

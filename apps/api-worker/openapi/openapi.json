@@ -16431,15 +16431,12 @@
             "type": "string"
           },
           "stoppedBy": {
-            "allOf": [
+            "anyOf": [
               {
                 "$ref": "#/components/schemas/MeetingRecordingActor"
               },
               {
-                "type": [
-                  "object",
-                  "null"
-                ]
+                "type": "null"
               }
             ]
           },
@@ -16493,6 +16490,12 @@
               "string",
               "null"
             ]
+          },
+          "failureErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -16508,7 +16511,8 @@
           "capturedSeconds",
           "fileId",
           "transcriptId",
-          "summaryState"
+          "summaryState",
+          "failureErrorId"
         ]
       },
       "MeetingRecordingActor": {
@@ -71098,7 +71102,7 @@
     },
     "/api/v1/meetings/{meetingId}/recording": {
       "post": {
-        "description": "Starts recording a meeting's audio. Needs the recording permission and a member running this meeting: a member who is not hosting it is refused 403 meeting-not-host. Everybody in the room — guests included — is told at once, and everybody who arrives while it runs is told on arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is no matter to file the recording into), for a room already being recorded, and for a room carrying more audio tracks than one recording may hold. Answers 503 where this deployment or this firm cannot record.",
+        "description": "Starts recording a meeting's audio. Needs the recording permission and a member running this meeting: a member who is not hosting it is refused 403 meeting-not-host. Everybody in the room — guests included — is told at once, and everybody who arrives while it runs is told on arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is no matter to file the recording into), for a room already being recorded, and for a room with more participants publishing audio than one recording may hear (counted by participant, not by track). Answers 503 where this deployment or this firm cannot record.",
         "operationId": "meetings.startRecording",
         "tags": [
           "meetings"
@@ -71188,7 +71192,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, a recording is already running (or none is), the room carries more audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -71324,7 +71328,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, a recording is already running (or none is), the room carries more audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {

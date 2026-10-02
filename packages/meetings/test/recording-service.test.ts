@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
-import type { MeetingId, UserId } from "@magna-carta/identifiers/types";
+import type { MeetingId, MeetingRecordingId, UserId } from "@magna-carta/identifiers/types";
 import { grantHosting } from "../src/hosting-service.ts";
 import {
   createMeeting,
@@ -16,6 +16,7 @@ import {
   stopMeetingRecording,
   stopRecordingAfterSinkLoss,
   stopRecordingAfterStartFailure,
+  stopRecordingByPlatform,
   stopRecordingForMeetingEnd,
 } from "../src/recording-service.ts";
 import {
@@ -26,6 +27,7 @@ import {
   readRecordingStatesOfRooms,
   readRecordingById,
   readRunningRecording,
+  readSinkTrackById,
   recordRecorderUnreachableStatement,
   settleTrackStatement,
 } from "../src/recording-statements.ts";
@@ -201,6 +203,37 @@ describe("starting a recording", () => {
     expect(await readRunningRecording(database.database, meetingId)).toBeUndefined();
     // AT the ceiling is not past it.
     await record(database, meetingId, tracks.slice(0, 2), 2);
+  });
+
+  it("counts the ceiling by STAY, so a full room where everybody also shares their screen's audio is not refused", async () => {
+    const database = fresh();
+    const meetingId = await startedMeeting(database);
+    // Eleven participants, each publishing a microphone AND a screen share's audio: twenty-two tracks,
+    // eleven stays. The recorder hears one track per stay, so this room is exactly at a ceiling of
+    // eleven, not twice over it.
+    const tracks = Array.from({ length: 11 }, (_, index) => {
+      const microphone = track(index);
+      return [
+        microphone,
+        { ...microphone, trackName: `participant-${String(index).padStart(4, "0")}:screen-audio` },
+      ];
+    }).flat();
+    const started = await record(database, meetingId, tracks, 11);
+    expect(started.tracks).toHaveLength(22);
+
+    // A twelfth STAY is past it, however few tracks it publishes.
+    const crowded = fresh();
+    const crowdedMeeting = await startedMeeting(crowded);
+    expect(
+      await refusal(
+        startMeetingRecording(
+          crowded.database,
+          crowdedMeeting,
+          { tracks: [...tracks, track(11)], ceiling: 11 },
+          options,
+        ),
+      ),
+    ).toBe("meeting-recording-too-many-tracks");
   });
 
   it("refuses a second recording while one is running — and the database refuses the racing one", async () => {
@@ -395,6 +428,39 @@ describe("stopping a recording", () => {
     expect(stopped?.recording.stopped_by_user_id).toBe(HOST);
   });
 
+  it("stops as `abandoned` or at the `ceiling` with nobody behind it — closing every open track, with one audit row, once", async () => {
+    for (const reason of ["abandoned", "ceiling"] as const) {
+      const database = fresh();
+      const meetingId = await startedMeeting(database);
+      const started = await record(database, meetingId);
+      const stopped = await stopRecordingByPlatform(
+        database.database,
+        started.recording.id,
+        reason,
+        {
+          clock,
+        },
+      );
+      expect(stopped?.recording).toMatchObject({
+        state: "composing",
+        stop_reason: reason,
+        stopped_by_user_id: null,
+        track_count: 2,
+      });
+      await commit(database.database, stopped?.effect ?? { statements: [], outboxMessages: [] });
+      const tracks = await listRecordingTracks(database.database, started.recording.id);
+      expect(tracks.map((one) => one.state)).toEqual(["closed", "closed"]);
+      const audit = database.raw
+        .prepare(`SELECT metadata FROM audit_log WHERE event = 'meetings.recording.stopped'`)
+        .all() as { metadata: string }[];
+      expect(audit.map((row) => JSON.parse(row.metadata).stopReason)).toEqual([reason]);
+      // Whichever stop committed first is the one the record keeps.
+      expect(
+        await stopRecordingByPlatform(database.database, started.recording.id, reason, { clock }),
+      ).toBeUndefined();
+    }
+  });
+
   it("stops itself when every track is lost, with nobody behind it — once", async () => {
     const database = fresh();
     const meetingId = await startedMeeting(database);
@@ -416,18 +482,19 @@ describe("tracks and notices", () => {
     const database = fresh();
     const meetingId = await startedMeeting(database);
     const started = await record(database, meetingId, [track(0)], 2);
+    // The recorder decides which tracks it will hear; the record is written in the state it decided.
     const admitted = admitTrackStatements(
       database.database,
       started.recording.id,
       track(1),
-      { openTracks: 1, ceiling: 2 },
+      "open",
       { clock },
     );
     const overflow = admitTrackStatements(
       database.database,
       started.recording.id,
       track(2),
-      { openTracks: 2, ceiling: 2 },
+      "lost",
       { clock },
     );
     expect(admitted.state).toBe("open");
@@ -445,6 +512,36 @@ describe("tracks and notices", () => {
     ]);
     const running = await readRunningRecording(database.database, meetingId);
     expect(running?.track_count).toBe(3);
+  });
+
+  it("answers the sink by the track ROW in one read — and nothing for a row under another recording", async () => {
+    const database = fresh();
+    const meetingId = await startedMeeting(database);
+    const started = await record(database, meetingId, [track(0)]);
+    const [row] = await listRecordingTracks(database.database, started.recording.id);
+    expect(await readSinkTrackById(database.database, started.recording.id, row!.id)).toEqual({
+      recordingState: "recording",
+      trackState: "open",
+    });
+    // A token naming this row under a recording it does not belong to opens nothing.
+    expect(
+      await readSinkTrackById(
+        database.database,
+        "meetingRecording_notThisRecording00000" as MeetingRecordingId,
+        row!.id,
+      ),
+    ).toBeUndefined();
+    const stopped = await stopMeetingRecording(
+      database.database,
+      meetingId,
+      { mayRecord: true },
+      options,
+    );
+    await commit(database.database, stopped.effect);
+    expect(await readSinkTrackById(database.database, started.recording.id, row!.id)).toEqual({
+      recordingState: "composing",
+      trackState: "closed",
+    });
   });
 
   it("keeps a lost track lost when the recorder later settles its counts", async () => {

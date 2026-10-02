@@ -74,6 +74,17 @@ export interface RecordingTransition {
   readonly by: { readonly userId: string; readonly displayName: string } | null;
 }
 
+/**
+ * The recording's handle, as one kind of reader is told it. A recording's handle is a FIRM RECORD
+ * handle — it names a row in the firm's own database and is what every member-facing read of the
+ * recording is addressed by — so a guest's copy carries null, on the rule `by.userId` already keeps:
+ * somebody from outside the firm is told that a recording started or stopped, and never the handle of
+ * the record. The browser tells one recording from the next by the transition, not by the handle.
+ */
+function recordingIdFor(recordingId: string, viewer: MeetingParticipantKind): string | null {
+  return viewer === "guest" ? null : recordingId;
+}
+
 /** Who acted, as one kind of reader is told it: a guest is told a name and never an identifier. */
 function actorFor(
   by: RecordingTransition["by"],
@@ -193,6 +204,17 @@ export async function recordingStarted(
   room: RoomContext,
   transition: RecordingTransition,
 ): Promise<{ readonly recipientCount: number; readonly noticeCount: number }> {
+  // ONE ANNOUNCEMENT PER RECORDING, whoever asks. The start route and a replay of it can both carry a
+  // start out — a replay arriving while the first request is still on its way here finds the room not
+  // yet holding the recording and announces it, and the first request then arrives too. The room
+  // holding THIS recording is the proof it was announced (it is written before the frame goes out, and
+  // nothing else is delivered to the room between the two), so a second call tells nobody again,
+  // writes no second set of notices, and answers that it reached nobody — which the caller reads as an
+  // announcement with nothing left unrecorded, and carries on to the recorder.
+  const held = await room.ctx.storage.get<StoredRoomRecording>(RECORDING_KEY);
+  if (held !== undefined && held.recordingId === transition.recordingId) {
+    return { recipientCount: 0, noticeCount: 0 };
+  }
   if (transition.by !== null) {
     await room.ctx.storage.put<StoredRoomRecording>(RECORDING_KEY, {
       firmId: transition.firmId,
@@ -205,7 +227,7 @@ export async function recordingStarted(
   const recipients = announce(room, (viewer) =>
     recordingFrame({
       state: "started",
-      recordingId: transition.recordingId,
+      recordingId: recordingIdFor(transition.recordingId, viewer),
       by: actorFor(transition.by, viewer),
       at: transition.at,
     }),
@@ -231,7 +253,7 @@ export async function recordingStopped(
   const recipients = announce(room, (viewer) =>
     recordingFrame({
       state: "stopped",
-      recordingId: transition.recordingId,
+      recordingId: recordingIdFor(transition.recordingId, viewer),
       by: actorFor(transition.by, viewer),
       at: transition.at,
     }),
@@ -269,7 +291,7 @@ export async function recordingForWelcome(
   return {
     announcement: {
       state: "started",
-      recordingId: stored.recordingId,
+      recordingId: recordingIdFor(stored.recordingId, viewerKindOf(attachment)),
       by: actorFor(stored.by, viewerKindOf(attachment)),
       at: stored.startedAt,
     },

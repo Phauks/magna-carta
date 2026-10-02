@@ -15,19 +15,27 @@ import type {
 import { readLiveHostGrant } from "./hosting-statements.ts";
 import { readMeeting, readMeetingSummary } from "./meeting-statements.ts";
 import {
+  abandonRecordingStatement,
+  beginComposeStatement,
   closeOpenTracksStatement,
+  failRecordingStatement,
+  fileRecordingStatement,
   incrementTrackCountStatement,
   insertRecordingFailedAuditStatement,
   insertRecordingNoticeStatement,
   insertRecordingStatement,
   insertRecordingTrackStatement,
   listRecordingTracks,
+  loseOpenTracksStatement,
   readRecordingById,
   readRunningRecording,
+  recordComposeProgressStatement,
+  recordComposeRetryStatement,
   stopRecordingStatement,
 } from "./recording-statements.ts";
 import type {
   MeetingRecordingCandidateTrack,
+  MeetingRecordingComposePart,
   MeetingRecordingNoticeReason,
   MeetingRecordingParticipant,
   MeetingRecordingRow,
@@ -100,6 +108,16 @@ function distinctTracks(
   return distinct;
 }
 
+/**
+ * HOW MANY STAYS the tracks belong to — what the ceiling counts. The recorder holds one open track per
+ * stay (a participant's microphone; their screen share's audio, or any further audio track, is recorded
+ * as not heard rather than taking a slot another participant needs), so the memory the ceiling bounds
+ * scales with the people being heard, never with the tracks each of them publishes.
+ */
+function distinctStays(tracks: readonly MeetingRecordingCandidateTrack[]): number {
+  return new Set(tracks.map((track) => `${track.participantKind}:${track.participantId}`)).size;
+}
+
 /** A started recording's tracks, with the handles minted for them. */
 export interface StartedRecordingTrack extends MeetingRecordingCandidateTrack {
   readonly trackId: MeetingRecordingTrackId;
@@ -112,9 +130,10 @@ export interface StartedRecordingTrack extends MeetingRecordingCandidateTrack {
  * nobody left to record and nobody left to tell); a caller who is not running this meeting
  * (`meeting-not-host` — the key alone is not enough, see the note at the top of the file); a meeting
  * on a FIRM event (a recording is filed into a matter, and a firm event has none); a room already
- * being recorded; and a room carrying more audio tracks than one recording may hold — refused at the
- * door, before the mark lights, because a recording that started and then crashed would have told
- * everybody something untrue.
+ * being recorded; and a room with more participants publishing audio than one recording may hear —
+ * counted by STAY, not by track, because the recorder holds one track per stay — refused at the door,
+ * before the mark lights, because a recording that started and then crashed would have told everybody
+ * something untrue.
  *
  * A room nobody is talking in yet may still be recorded: its tracks are admitted as they are
  * published, and every arrival is told on their own welcome.
@@ -157,10 +176,11 @@ export async function startMeetingRecording(
     refuseRecording("meeting-recording-already-running", "this meeting is already being recorded");
   }
   const candidates = distinctTracks(input.tracks);
-  if (candidates.length > input.ceiling) {
+  const stays = distinctStays(candidates);
+  if (stays > input.ceiling) {
     refuseRecording(
       "meeting-recording-too-many-tracks",
-      `this room is carrying ${String(candidates.length)} audio tracks and one recording holds at most ${String(input.ceiling)}`,
+      `this room has ${String(stays)} participants publishing audio and one recording hears at most ${String(input.ceiling)}`,
     );
   }
 
@@ -186,6 +206,11 @@ export async function startMeetingRecording(
     file_id: null,
     file_version_id: null,
     failure_error_id: null,
+    compose_upload_session_id: null,
+    compose_parts_done: 0,
+    compose_parts: null,
+    compose_attempts: 0,
+    compose_progress_at: null,
     created_at: now,
     updated_at: now,
   };
@@ -375,7 +400,7 @@ export async function stopRecordingForMeetingEnd(
 async function stopRecordingWithNobodyBehindIt(
   database: SqlDatabase,
   recordingId: MeetingRecordingId,
-  stopReason: "sink-lost" | "start-failed",
+  stopReason: "sink-lost" | "start-failed" | "abandoned" | "ceiling",
   options: MeetingRecordingSystemOptions,
 ): Promise<StoppedRecording | undefined> {
   const running = await readRecordingById(database, recordingId);
@@ -418,6 +443,23 @@ export async function stopRecordingAfterSinkLoss(
 }
 
 /**
+ * THE RECORDER STOPPING A RECORDING NOBODY ELSE WILL: `abandoned` when the room has had nobody
+ * publishing audio for long enough that a recording nobody stopped is not left running for the rest of
+ * the day, `ceiling` when it reached the longest a recording may run. With nobody behind it, and the
+ * same three statements every such stop commits — the guarded stop, every open track closed, the audit
+ * row with the reason and the count. A recording already stopped produces no statements: whichever
+ * stop committed first is the one the record keeps, and that stop announced itself.
+ */
+export async function stopRecordingByPlatform(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  reason: "abandoned" | "ceiling",
+  options: MeetingRecordingSystemOptions,
+): Promise<StoppedRecording | undefined> {
+  return await stopRecordingWithNobodyBehindIt(database, recordingId, reason, options);
+}
+
+/**
  * A START THAT COULD NOT BE CARRIED OUT — the room could not be told (or could not write down who it
  * told), or the recorder could not take the recording: `start-failed`, with nobody behind it, so the
  * record never mistakes a recording that never began for one whose audio went away. A recording
@@ -433,20 +475,20 @@ export async function stopRecordingAfterStartFailure(
 
 /**
  * A TRACK PUBLISHED AFTER THE RECORDING STARTED — somebody arrived, or somebody unmuted for the first
- * time. Written `open` while the recording holds fewer open tracks than the ceiling, and `lost` with
- * no frames when it holds that many already: the recording keeps the people it can hear and the record
- * says plainly who it could not.
+ * time — written in the state the RECORDER decided: `open` when it will hear the track, `lost` with no
+ * frames when it will not (the recording is at its ceiling, or this stay already has a track being
+ * heard). The decision is the recorder's because only it knows which tracks it is holding open; the
+ * record keeps the people it can hear and says plainly who it could not.
  */
 export function admitTrackStatements(
   database: SqlDatabase,
   recordingId: MeetingRecordingId,
   track: MeetingRecordingCandidateTrack,
-  input: { readonly openTracks: number; readonly ceiling: number },
+  state: "open" | "lost",
   options: MeetingRecordingSystemOptions,
 ): { trackId: MeetingRecordingTrackId; state: "open" | "lost"; statements: EffectStatement[] } {
   const now = options.clock.now();
   const trackId = newIdentifier("meetingRecordingTrack", options.randomSource);
-  const state = input.openTracks >= input.ceiling ? "lost" : "open";
   return {
     trackId,
     state,
@@ -566,6 +608,7 @@ export function toRecordingSummary(
     // The transcript and summary slices write these; until then a recording has neither.
     transcriptId: null,
     summaryState: null,
+    failureErrorId: row.failure_error_id,
   };
 }
 
@@ -579,4 +622,198 @@ export async function reachRecordedMeeting(
   visibility: VisibleMatterPredicate,
 ): Promise<MeetingRow> {
   return await reachMeeting(database, meetingId, visibility);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Composing and filing — the platform's own acts on its own record, with nobody behind them
+// ---------------------------------------------------------------------------------------------
+
+/** The labels the compose step's guarded writes carry, exported because a caller matches on them. */
+export const COMPOSE_BEGIN_GUARD = "meeting.recording.compose.begin";
+export const COMPOSE_PROGRESS_GUARD = "meeting.recording.compose.progress";
+export const FILE_RECORDING_GUARD = "meeting.recording.file";
+export const ABANDON_RECORDING_GUARD = "meeting.recording.abandon";
+
+/**
+ * THE COMPOSE BEGINS: the upload session the composite is written through, recorded on a recording
+ * nothing has begun composing. Committed in ONE batch with the session's own statements, so a second
+ * invocation that began the same recording at the same instant is refused whole and leaves nothing.
+ */
+export function beginComposeStatements(
+  database: SqlDatabase,
+  input: { readonly recordingId: MeetingRecordingId; readonly uploadSessionId: string },
+  options: MeetingRecordingSystemOptions,
+): EffectStatement[] {
+  return [
+    guarded(
+      beginComposeStatement(database, {
+        id: input.recordingId,
+        uploadSessionId: input.uploadSessionId,
+        now: options.clock.now(),
+      }),
+      COMPOSE_BEGIN_GUARD,
+    ),
+  ];
+}
+
+/**
+ * PARTS UPLOADED: the cursor moved from where this invocation found it, with every part's tag so far.
+ * A count and tags — never a byte of what the parts hold, which is the bucket's.
+ */
+export function composeProgressEffect(
+  database: SqlDatabase,
+  input: {
+    readonly recordingId: MeetingRecordingId;
+    readonly fromPartsDone: number;
+    readonly parts: readonly MeetingRecordingComposePart[];
+  },
+  options: MeetingRecordingSystemOptions,
+): EffectWrite {
+  return {
+    statements: [
+      guarded(
+        recordComposeProgressStatement(database, {
+          id: input.recordingId,
+          fromPartsDone: input.fromPartsDone,
+          partsDone: input.parts.length,
+          parts: canonicalJsonStringify(input.parts),
+          now: options.clock.now(),
+        }),
+        COMPOSE_PROGRESS_GUARD,
+      ),
+    ],
+    outboxMessages: [],
+  };
+}
+
+/**
+ * THE RECORDING IS ON THE MATTER: `filed`, naming the document and its version, beside ONE audit row of
+ * handles — the meeting, the file and the version, and never the document's name, which is derived from
+ * the event's title.
+ */
+export function fileRecordingStatements(
+  database: SqlDatabase,
+  input: {
+    readonly recording: MeetingRecordingRow;
+    readonly fileId: string;
+    readonly fileVersionId: string;
+  },
+  options: MeetingRecordingSystemOptions,
+): EffectStatement[] {
+  const now = options.clock.now();
+  return [
+    guarded(
+      fileRecordingStatement(database, {
+        id: input.recording.id,
+        fileId: input.fileId,
+        fileVersionId: input.fileVersionId,
+        now,
+      }),
+      FILE_RECORDING_GUARD,
+    ),
+    domainAuditStatement(database, {
+      event: "meetings.recording.filed",
+      subjectId: input.recording.id,
+      actorUserId: null,
+      clock: { now: () => now },
+      randomSource: options.randomSource,
+      metadata: {
+        meetingId: input.recording.meeting_id,
+        fileId: input.fileId,
+        fileVersionId: input.fileVersionId,
+        filedAt: now,
+      },
+    }),
+  ];
+}
+
+/**
+ * A COMPOSE THAT CANNOT FINISH: `failed` with the Error ID the standard pipeline recorded, and ONE audit
+ * row, written only when this failure is the one the record kept (`recordingFailedAuditStatement`). The
+ * staged tracks are left where they are: they are the only copy of what was captured, and the sweep
+ * deletes them after a retention window rather than now.
+ */
+export function failComposeEffect(
+  database: SqlDatabase,
+  input: { readonly recording: MeetingRecordingRow; readonly failureErrorId: string },
+  options: MeetingRecordingSystemOptions,
+): EffectWrite {
+  return {
+    statements: [
+      failRecordingStatement(database, {
+        id: input.recording.id,
+        failureErrorId: input.failureErrorId,
+        now: options.clock.now(),
+      }),
+      recordingFailedAuditStatement(
+        database,
+        {
+          recordingId: input.recording.id,
+          meetingId: input.recording.meeting_id,
+          failureErrorId: input.failureErrorId,
+        },
+        options,
+      ),
+    ],
+    outboxMessages: [],
+  };
+}
+
+/** A stalled compose handed on again: one more attempt counted, and the stall measured from now. */
+export function composeRetryEffect(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  options: MeetingRecordingSystemOptions,
+): EffectWrite {
+  return {
+    statements: [
+      recordComposeRetryStatement(database, { id: recordingId, now: options.clock.now() }),
+    ],
+    outboxMessages: [],
+  };
+}
+
+/**
+ * A RECORDING WHOSE RECORDER IS GONE — it stopped reconciling, or never held the recording at all — and
+ * which nothing else will ever stop: `abandoned` with nobody behind it, every open track lost (nothing
+ * could hear them from then on), and ONE audit row with the count. A recording already stopped produces
+ * nothing: whichever stop committed first is the one the record keeps.
+ */
+export async function abandonRecordingAfterRecorderLoss(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  options: MeetingRecordingSystemOptions,
+): Promise<StoppedRecording | undefined> {
+  const running = await readRecordingById(database, recordingId);
+  if (running === undefined || running.state !== "recording") return undefined;
+  const trackCount = (await listRecordingTracks(database, running.id)).length;
+  const now = options.clock.now();
+  return {
+    recording: {
+      ...running,
+      state: "abandoned",
+      stopped_at: now,
+      stop_reason: "abandoned",
+      track_count: trackCount,
+      updated_at: now,
+    },
+    effect: {
+      statements: [
+        guarded(
+          abandonRecordingStatement(database, { id: running.id, trackCount, now }),
+          ABANDON_RECORDING_GUARD,
+        ),
+        loseOpenTracksStatement(database, running.id, now),
+        domainAuditStatement(database, {
+          event: "meetings.recording.abandoned",
+          subjectId: running.id,
+          actorUserId: null,
+          clock: { now: () => now },
+          randomSource: options.randomSource,
+          metadata: { meetingId: running.meeting_id, stoppedAt: now, trackCount },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
 }

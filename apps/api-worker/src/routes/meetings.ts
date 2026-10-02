@@ -51,6 +51,7 @@ import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import type { FirmId, MatterId, MeetingRecordingId } from "@magna-carta/identifiers/types";
 import {
   recordingFailedAuditStatement,
+  STOP_RECORDING_GUARD,
   startMeetingRecording,
   stopMeetingRecording,
   stopRecordingAfterStartFailure,
@@ -657,7 +658,10 @@ const MeetingRecordingSummarySchema = z
     startedBy: MeetingRecordingActorSchema,
     startedAt: z.string(),
     // Null while it runs, and when nobody stopped it — every track was lost, or the recorder vanished.
-    stoppedBy: MeetingRecordingActorSchema.nullable(),
+    // A union with null rather than `.nullable()` on the component: the latter is emitted as an
+    // intersection of the component with a nullable object, which a generated client reads as the
+    // actor ALWAYS present; the union is emitted as "the actor, or null", which is what it means.
+    stoppedBy: z.union([MeetingRecordingActorSchema, z.null()]),
     stoppedAt: z.string().nullable(),
     stopReason: z.enum(MEETING_RECORDING_STOP_REASONS).nullable(),
     // Every track the recording held: open, closed and lost alike, so a screen can say how many of
@@ -670,6 +674,10 @@ const MeetingRecordingSummarySchema = z
     // Written by the transcript and summary slices; null until they land.
     transcriptId: z.string().nullable(),
     summaryState: z.string().nullable(),
+    // The Error ID the standard pipeline recorded when the recording failed — or a fault on the way
+    // recorded against it while it was being composed — so a member can quote it to support. A handle,
+    // never a message. Null unless the recording carries one.
+    failureErrorId: z.string().nullable(),
   })
   .openapi("MeetingRecordingSummary");
 
@@ -711,8 +719,9 @@ const recordingWriteErrors = {
   ...commonErrors,
   409: {
     description:
-      "The meeting has ended, a recording is already running (or none is), the room carries more " +
-      "audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress",
+      "The meeting has ended, a recording is already running (or none is), the room has more " +
+      "participants publishing audio than one recording may hear, or a request with this " +
+      "Idempotency-Key is in progress",
     content: { "application/problem+json": { schema: Problem } },
   },
   422: {
@@ -743,8 +752,8 @@ const startRecordingRoute = defineOpenAPIRoute(
       "room — guests included — is told at once, and everybody who arrives while it runs is told on " +
       "arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is " +
       "no matter to file the recording into), for a room already being recorded, and for a room " +
-      "carrying more audio tracks than one recording may hold. Answers 503 where this deployment or " +
-      "this firm cannot record.",
+      "with more participants publishing audio than one recording may hear (counted by participant, " +
+      "not by track). Answers 503 where this deployment or this firm cannot record.",
     request: { params: meetingIdParam, headers: idempotencyKeyHeader },
     responses: {
       201: {
@@ -1290,6 +1299,32 @@ function outliveTheRequest<T>(c: MeetingContext, work: Promise<T>): Promise<T> {
     void tracked.catch(() => {});
   }
   return work;
+}
+
+// HOW MANY TIMES AN ENDING IS COMPOSED when a recording keeps stopping under it. Each attempt reads the
+// running recording afresh, so the second finds the one that stopped in the first one's window already
+// stopped and composes no stop for it; a third would need a NEW recording to start and stop inside the
+// second's window, on a meeting that is ending.
+const ENDING_ATTEMPTS = 3;
+
+/**
+ * AN ENDING WHOSE RECORDING STOPPED UNDER IT. The end reads the running recording and composes its stop
+ * into the ending's own batch a round trip before the batch commits; a member pressing Stop, or the
+ * recorder stopping itself, in that window makes the stop's guard refuse — and the whole batch, the
+ * ending and its idempotency record included, rolls back. That is not a fault: the recording is
+ * already stopped, by somebody whose stop the record now keeps, and the ending is composed again from
+ * what is true now, which stops nothing. Any other refusal is somebody else's, and propagates.
+ */
+async function commitThroughARacingStop<T>(commit: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await commit();
+    } catch (caught) {
+      const stoppedUnderIt =
+        caught instanceof GuardedWriteRefusedError && caught.guard === STOP_RECORDING_GUARD;
+      if (!stoppedUnderIt || attempt >= ENDING_ATTEMPTS) throw caught;
+    }
+  }
 }
 
 // HOW MANY TIMES THE RECORDER IS ASKED TO LET GO before the room is told without it. Twice: a call
@@ -1888,39 +1923,41 @@ export function registerMeetingsRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId } = c.req.valid("param");
 
-      const outcome = await commitEffect<{ endedAt: string; stoppedRecordingId: string | null }>(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () => {
-          const options = serviceOptions(userId);
-          const endedAt = options.clock.now();
-          const ended = await endMeeting(firm.firmDatabase, meetingId as MeetingId, {
-            ...options,
-            // One instant for the whole act: the stays, the meeting row and what every participant
-            // is told all carry the same one, because the meeting ended once.
-            clock: { now: () => endedAt },
-          });
-          // A RECORDING RUNNING IN THE ROOM STOPS WITH IT, in the end's own batch — `meeting-ended`,
-          // attributed to the member ending the meeting — so the record can never say a recording
-          // ran on in a meeting that had finished.
-          const stopped = await stopRecordingForMeetingEnd(
-            firm.firmDatabase,
-            meetingId as MeetingId,
-            {
+      const outcome = await commitThroughARacingStop(() =>
+        commitEffect<{ endedAt: string; stoppedRecordingId: string | null }>(
+          c,
+          firm.firmDatabase,
+          idempotency,
+          async () => {
+            const options = serviceOptions(userId);
+            const endedAt = options.clock.now();
+            const ended = await endMeeting(firm.firmDatabase, meetingId as MeetingId, {
               ...options,
+              // One instant for the whole act: the stays, the meeting row and what every participant
+              // is told all carry the same one, because the meeting ended once.
               clock: { now: () => endedAt },
-            },
-          );
-          return {
-            value: { endedAt, stoppedRecordingId: stopped?.recording.id ?? null },
-            responseCode: 200,
-            effect: {
-              statements: [...ended.effect.statements, ...(stopped?.effect.statements ?? [])],
-              outboxMessages: [...ended.effect.outboxMessages],
-            },
-          };
-        },
+            });
+            // A RECORDING RUNNING IN THE ROOM STOPS WITH IT, in the end's own batch — `meeting-ended`,
+            // attributed to the member ending the meeting — so the record can never say a recording
+            // ran on in a meeting that had finished.
+            const stopped = await stopRecordingForMeetingEnd(
+              firm.firmDatabase,
+              meetingId as MeetingId,
+              {
+                ...options,
+                clock: { now: () => endedAt },
+              },
+            );
+            return {
+              value: { endedAt, stoppedRecordingId: stopped?.recording.id ?? null },
+              responseCode: 200,
+              effect: {
+                statements: [...ended.effect.statements, ...(stopped?.effect.statements ?? [])],
+                outboxMessages: [...ended.effect.outboxMessages],
+              },
+            };
+          },
+        ),
       );
       if (!outcome.ok) return outcome.problem;
 

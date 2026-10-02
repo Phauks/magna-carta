@@ -239,6 +239,13 @@
       "when": 1790965996000,
       "tag": "20261002T183316_meeting-recording-and-who-was-told",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1790980639158,
+      "tag": "20261002T223719_meeting-recording-compose-cursor",
+      "breakpoints": true
     }
   ]
 }
