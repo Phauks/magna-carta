@@ -32,14 +32,84 @@ export const summariesEnabledDefinition: FirmSettingDefinition<boolean> = {
   defaultValue: false,
 };
 
-// HOW MANY TRACKS ONE RECORDING MAY HOLD AT ONCE. The recorder keeps one open socket, one open upload
-// and a carry buffer of up to eight mebibytes per track, and a Durable Object has a bounded memory
-// budget — so the number of simultaneously recorded tracks is bounded whether a number is named or
-// not. Naming it is the difference between a refusal and a crash. Thirty-two is 256 MiB of worst-case
-// carry and is a knob rather than doctrine: the real number comes from the load-profile harness. The
-// upper bound keeps a fat-fingered write from being indistinguishable from no ceiling at all.
+// ---------------------------------------------------------------------------------------------
+// WHAT ONE RECORDER HOLDS IN MEMORY, AND THEREFORE HOW MANY TRACKS IT MAY RECORD AT ONCE.
+//
+// The recorder is a Durable Object, and an isolate gets 128 MB. Every number below is either a fact
+// about the platform or derived from one, so the ceiling is arithmetic rather than a guess:
+//
+//   isolate                                     128,000,000 bytes  (read as decimal megabytes, the
+//                                                                   smaller reading, = 122.07 MiB)
+//   reserved for everything that is not audio   40 MiB             the runtime, the Worker's module
+//                                                                   graph, every socket's message
+//                                                                   buffers, the per-frame decode
+//                                                                   scratch (under 64 KiB a frame),
+//                                                                   the track metadata
+//   one part of silence, shared                  5 MiB             written once, never written again,
+//                                                                   uploaded wherever a gap covers a
+//                                                                   whole part
+//   parts in flight, copied by the upload        2 x 5 MiB         the storage binding may copy a part
+//                                                                   into its request, so each upload
+//                                                                   out is counted as a second copy
+//   per track: one part + its overflow           5 MiB + 1 MiB     preallocated when the track opens,
+//                                                                   released when it closes
+//
+//   tracks = floor((122.07 - 40 - 5 - 10) MiB / 6 MiB) = floor(11.18) = 11
+//   worst case = 40 + 5 + 10 + 11 x 6 = 121 MiB, inside 122.07 MiB with the 40 MiB reserve untouched
+//
+// THE PART is R2's minimum: every part of a multipart upload but the last must be at least 5 MiB and
+// all of them one size, and a smaller part is less memory per track. 5 MiB of 48 kHz 16-bit mono is
+// about fifty-five seconds, so a twelve-hour track is about 790 parts, inside R2's 10,000.
+//
+// THE OVERFLOW is where frames land while a part uploads: 1 MiB is about eleven seconds of mono, which
+// covers a track waiting behind the other upload in flight and its own. A frame that arrives when the
+// overflow is full is dropped and counted, and its length becomes silence on the timeline — the
+// recorder never buffers past this.
+//
+// THE CEILING is per recorder. Two recordings placed in one isolate share its 128 MB; that is a
+// placement the platform decides, and the margin above is what it has to spend.
+// ---------------------------------------------------------------------------------------------
+
+/** An isolate's memory, as the platform states it (128 MB), in bytes. */
+export const RECORDER_ISOLATE_MEMORY_BYTES = 128 * 1000 * 1000;
+
+/** What the recorder leaves for everything that is not a staged part. */
+export const RECORDER_RESERVED_BYTES = 40 * 1024 * 1024;
+
+/** One staged part: R2's minimum multipart part size, which every part but the last must match. */
+export const RECORDING_PART_BYTES = 5 * 1024 * 1024;
+
+/** Room behind a part for the frames that arrive while it uploads. */
+export const RECORDING_OVERFLOW_BYTES = 1024 * 1024;
+
+/** What one open track holds, preallocated once: a part and its overflow. */
+export const RECORDING_TRACK_BUFFER_BYTES = RECORDING_PART_BYTES + RECORDING_OVERFLOW_BYTES;
+
+/** How many parts one recorder uploads at once, across all of its tracks (and one per track). */
+export const RECORDING_PART_UPLOADS_IN_FLIGHT = 2;
+
+/** What the recorder holds that does not scale with its tracks: the shared silence part and the copies. */
+export const RECORDER_FIXED_STAGING_BYTES =
+  RECORDING_PART_BYTES + RECORDING_PART_UPLOADS_IN_FLIGHT * RECORDING_PART_BYTES;
+
+/** THE MOST TRACKS ONE RECORDER CAN HOLD OPEN, derived from the arithmetic above. */
+export const RECORDED_TRACK_CEILING_MAXIMUM = Math.floor(
+  (RECORDER_ISOLATE_MEMORY_BYTES - RECORDER_RESERVED_BYTES - RECORDER_FIXED_STAGING_BYTES) /
+    RECORDING_TRACK_BUFFER_BYTES,
+);
+
+/** The most a recorder at its ceiling holds for staging, which the arithmetic keeps inside the isolate. */
+export const RECORDER_WORST_CASE_STAGING_BYTES =
+  RECORDER_FIXED_STAGING_BYTES + RECORDED_TRACK_CEILING_MAXIMUM * RECORDING_TRACK_BUFFER_BYTES;
+
+// HOW MANY PARTICIPANTS ONE RECORDING MAY HEAR AT ONCE. The recorder holds one open track per stay —
+// a stay's further audio tracks are recorded as not heard rather than taking another stay's place —
+// so the ceiling counts stays and the memory above is bounded by it. A firm may set it lower; it
+// cannot set it above what the memory arithmetic allows, because past that the ceiling would be a
+// crash rather than a refusal. A larger room recorded in full is a second recorder sharding the tracks,
+// which is a different design.
 export const recordedTrackCeilingDefinition: FirmSettingDefinition<number> = {
   key: "meetings.recordedTrackCeiling",
-  schema: z.number().int().min(1).max(64),
-  defaultValue: 32,
+  schema: z.number().int().min(1).max(RECORDED_TRACK_CEILING_MAXIMUM),
+  defaultValue: RECORDED_TRACK_CEILING_MAXIMUM,
 };

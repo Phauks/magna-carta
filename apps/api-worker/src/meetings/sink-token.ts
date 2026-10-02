@@ -1,29 +1,43 @@
-import type { FirmId, MeetingRecordingId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  MeetingRecordingId,
+  MeetingRecordingTrackId,
+} from "@magna-carta/identifiers/types";
 import { isIdentifier } from "@magna-carta/identifiers/validate";
 import type { Bindings } from "../app.ts";
 import { mintSignedToken, verifySignedToken } from "../signed-token.ts";
 import { runningUnderTest } from "./sfu/sfu-client.ts";
 
-// THE CREDENTIAL THE ROUTING SERVICE DIALS A RECORDER WITH — one per track, on the one signed-token
+// THE CREDENTIAL THE ROUTING SERVICE DIALS A RECORDER WITH — one per ADAPTER, on the one signed-token
 // format this Worker uses (../signed-token.ts), with its own `typ` and its OWN SECRET.
 //
 // The routing service's WebSocket adapter dials a `wss://` address we name and documents no header,
 // no token and no query mechanism for authenticating that socket. So the address IS the credential:
-// `/internal/meeting-audio/<token>`, where the token names the firm, the recording and the track and
-// carries its own expiry, signed so the sink route can refuse anything this Worker did not mint
-// without a database read. The route then asks the record whether that recording is still running
-// and that track still open — the signature proves who minted the token, and the record proves it
-// still means something.
+// `/internal/meeting-audio/<token>`, where the token names the firm, the recording, the track ROW and
+// the adapter, and carries its own expiry, signed so the sink route can refuse anything this Worker did
+// not mint without a database read. The route then asks the record whether that recording is still
+// running and that track still open — the signature proves who minted the token, and the record proves
+// it still means something.
+//
+// THE SAME TOKEN MAY ALSO RIDE THE SOCKET'S SUBPROTOCOL (`meeting-sink`, then the token), answered with
+// the bare protocol name, so a later change can move it out of the address — the one place a credential
+// is most likely to be written down — once the live adapter is shown to offer a subprotocol. Until that
+// is proven the path stays the address the recorder hands out.
+//
+// BOUND TO ONE TRACK ROW AND ONE ADAPTER. The track is named by the row the server minted, never by the
+// track name a browser chose. The adapter is named by a nonce the recorder mints each time it opens one
+// and keeps beside the track: a reopened track gets a new adapter and a new nonce, so the token an
+// EARLIER adapter carried opens nothing any more, however long its expiry has left. And the recorder
+// takes one socket per track: a dial against a track whose socket is live is refused, because the
+// routing service dials again only after a drop.
 //
 // ITS OWN SECRET, `MEETING_SINK_SIGNING_KEY`, rather than `AUTH_SECRET`: the token rides an address,
-// and an address is the one place a credential is most likely to be written down — so the secret that
-// signs it must be one whose rotation costs nothing but the recordings running at that moment, rather
-// than every session and every guest link the Worker has issued.
+// so the secret that signs it must be one whose rotation costs nothing but the recordings running at
+// that moment, rather than every session and every guest link the Worker has issued.
 //
-// SHORT-LIVED AND BOUND TO ONE TRACK. It lives as long as a recording may run plus a margin, because
-// the routing service reconnects to the SAME address after a dropped socket and a token that expired
-// mid-meeting would end the track. Only the recorder can accept the socket, and it accepts one per
-// track, so a second dial supersedes the first rather than adding a listener.
+// SHORT-LIVED. It lives as long as a recording may run plus a margin, because the routing service
+// reconnects to the SAME address after a dropped socket and a token that expired mid-meeting would end
+// the track.
 //
 // NEVER LOGGED, COUNTED, ECHOED OR STORED: no telemetry field holds it and no problem carries it.
 
@@ -34,19 +48,29 @@ export const MEETING_SINK_TOKEN_TYPE = "meeting-sink";
 export const MEETING_SINK_PATH_PREFIX = "/internal/meeting-audio/";
 
 /**
- * HOW LONG A RECORDING MAY RUN. A recorder that has held a track this long stops issuing tokens that
- * would outlive it; a deposition that runs longer is a second recording, which it should be anyway.
+ * HOW LONG A RECORDING MAY RUN. The recorder stops a recording that reaches it (`ceiling`), and no
+ * token it issues outlives it; a deposition that runs longer is a second recording, which it should be
+ * anyway.
  */
 export const MAXIMUM_RECORDING_HOURS = 12;
 
 /** A token lives as long as a recording may, and an hour more for a dial that arrives late. */
 export const SINK_TOKEN_LIFETIME_MILLISECONDS = (MAXIMUM_RECORDING_HOURS + 1) * 60 * 60 * 1000;
 
+/**
+ * The subprotocol a sink token may ride instead of the path: offered as this name and then the token,
+ * and answered with this name alone, so the token never comes back in a response header.
+ */
+export const MEETING_SINK_SOCKET_PROTOCOL = "meeting-sink";
+
 /** What a sink token names. */
 export interface MeetingSinkClaims {
   readonly firmId: FirmId;
   readonly recordingId: MeetingRecordingId;
-  readonly trackName: string;
+  // The track ROW, which the server minted — never the track name, which a browser chose.
+  readonly trackId: MeetingRecordingTrackId;
+  // The adapter this token was minted for; the recorder rotates it whenever it opens another.
+  readonly adapterNonce: string;
   // Milliseconds since the epoch: an instant, and one the verifier compares without parsing a string.
   readonly expiresAt: number;
 }
@@ -79,7 +103,8 @@ export async function mintSinkToken(key: string, claims: MeetingSinkClaims): Pro
   return await mintSignedToken(key, MEETING_SINK_TOKEN_TYPE, {
     firmId: claims.firmId,
     recordingId: claims.recordingId,
-    trackName: claims.trackName,
+    trackId: claims.trackId,
+    adapterNonce: claims.adapterNonce,
     expiresAt: claims.expiresAt,
   });
 }
@@ -96,18 +121,37 @@ export async function verifySinkToken(
 ): Promise<MeetingSinkClaims | null> {
   const payload = await verifySignedToken(key, token, MEETING_SINK_TOKEN_TYPE);
   if (payload === null) return null;
-  const { firmId, recordingId, trackName, expiresAt } = payload;
+  const { firmId, recordingId, trackId, adapterNonce, expiresAt } = payload;
   if (typeof firmId !== "string" || !isIdentifier(firmId, "firm")) return null;
   if (typeof recordingId !== "string" || !isIdentifier(recordingId, "meetingRecording"))
     return null;
-  if (typeof trackName !== "string" || trackName === "") return null;
+  if (typeof trackId !== "string" || !isIdentifier(trackId, "meetingRecordingTrack")) return null;
+  if (typeof adapterNonce !== "string" || adapterNonce === "") return null;
   if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt) || expiresAt <= now) return null;
   return {
     firmId: firmId as FirmId,
     recordingId: recordingId as MeetingRecordingId,
-    trackName,
+    trackId: trackId as MeetingRecordingTrackId,
+    adapterNonce,
     expiresAt,
   };
+}
+
+/**
+ * The token an upgrade offered as its subprotocol (`meeting-sink`, then the token), or null when it
+ * offered none. Only the two-entry form: it is the one whose answer — the bare protocol name — never
+ * echoes the credential.
+ */
+export function sinkTokenFromSocketProtocols(offered: string | undefined | null): string | null {
+  if (offered === undefined || offered === null || offered === "") return null;
+  const protocols = offered
+    .split(",")
+    .map((protocol) => protocol.trim())
+    .filter((protocol) => protocol !== "");
+  const named = protocols.indexOf(MEETING_SINK_SOCKET_PROTOCOL);
+  if (named < 0) return null;
+  const token = protocols[named + 1];
+  return token === undefined || token === "" ? null : token;
 }
 
 /**

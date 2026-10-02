@@ -11,6 +11,11 @@ import type {
 import { PCM_FRAME_PAYLOAD_FIELD } from "@magna-carta/meetings/pcm-frame";
 import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 import type { MeetingRoom } from "../../src/meetings/meeting-room.ts";
+import {
+  MEETING_SINK_PATH_PREFIX,
+  verifySinkToken,
+  type MeetingSinkClaims,
+} from "../../src/meetings/sink-token.ts";
 
 // The shared scaffolding of the recording suites: a meeting on a matter in a firm's own database, a
 // recording row with its tracks, a room whose roster carries those tracks, a fake routing service
@@ -143,6 +148,7 @@ export async function seedRunningRecording(
 /**
  * Puts these tracks on the room's roster exactly as the room writes a participant who has published
  * a microphone — so the recorder's reconciliation finds the people it is recording still there.
+ * Tracks that share a participant are that participant's several audio tracks.
  */
 export async function seedRoomRoster(
   meeting: RecordedMeeting,
@@ -151,17 +157,29 @@ export async function seedRoomRoster(
   const stub = env.MEETING_ROOM.get(
     env.MEETING_ROOM.idFromName(`${meeting.firmId}:${meeting.meetingId}`),
   );
+  const byParticipant = new Map<string, SeededTrack[]>();
+  for (const track of tracks) {
+    byParticipant.set(track.participantId, [
+      ...(byParticipant.get(track.participantId) ?? []),
+      track,
+    ]);
+  }
   await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
     const entries: Record<string, unknown> = {
       room: { firmId: meeting.firmId, meetingId: meeting.meetingId, medium: "audio" },
     };
-    for (const track of tracks) {
+    for (const participantTracks of byParticipant.values()) {
+      const track = participantTracks[0]!;
       entries[`participant:${track.participantId}`] = {
         userId: track.userId,
         participantKind: "member",
         displayName: "Recorded Member",
         sfuSessionId: track.sessionId,
-        tracks: [{ trackName: track.trackName, kind: "audio", mid: "0" }],
+        tracks: participantTracks.map((one, index) => ({
+          trackName: one.trackName,
+          kind: "audio",
+          mid: String(index),
+        })),
         socketLostAt: null,
         speaking: false,
         muted: false,
@@ -257,6 +275,29 @@ export function pcmEnvelope(
     ...varint(payload.length),
     ...payload,
   ]);
+}
+
+/**
+ * The claims of the sink token the routing service was handed for this track — the LATEST adapter
+ * opened for it, or an earlier one by index — read back out of the address the fake was given.
+ */
+export async function sinkClaimsFor(
+  calls: readonly AdapterCall[],
+  trackName: string,
+  signingKey: string,
+  which: "latest" | number = "latest",
+): Promise<MeetingSinkClaims & { readonly token: string }> {
+  const endpoints = calls
+    .filter((call) => call.path.endsWith("/adapters/websocket/new"))
+    .flatMap((call) => (call.body["tracks"] ?? []) as { trackName: string; endpoint: string }[])
+    .filter((request) => request.trackName === trackName)
+    .map((request) => new URL(request.endpoint));
+  const endpoint = which === "latest" ? endpoints.at(-1) : endpoints[which];
+  if (endpoint === undefined) throw new Error("no adapter was opened for that track");
+  const token = endpoint.pathname.slice(MEETING_SINK_PATH_PREFIX.length);
+  const claims = await verifySinkToken(signingKey, token, Date.now());
+  if (claims === null) throw new Error("the adapter was handed a token that does not verify");
+  return { ...claims, token };
 }
 
 /** Waits on a condition for up to ten seconds — the suites share a box with other runtimes. */

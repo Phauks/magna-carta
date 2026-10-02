@@ -972,3 +972,64 @@ made (every track lost), and a guest's copy carries `by.userId: null`.
 either key would refuse the other; the handler reads the key and the service asks the grant, and anybody
 holding neither is answered 403 `permission-denied`. `MeetingSummary.recordingState` also carries
 `abandoned`, the fifth state, so the field never has to widen.
+
+### Amendments from the adversarial review of the first slice
+
+Recorded 2026-10-02, after an adversarial review of the recorder and its sink. Each names the section it
+amends and says what changed and why.
+
+**A11 — The recorder reads the record on every pass (§6 "Stopping", §14).** A stop the route committed
+whose call never reached the recorder — it failed, or was cancelled — left the recorder capturing,
+because the alarm reconciled only against the room and a frame was checked only against memory. Each
+pass now reads the recording's row first and settles (adapters closed, uploads flushed and completed,
+capture stopped) when it is no longer `recording`, so capture after any stop is bounded by one alarm
+interval (five seconds). The route's half: a cancelled event's batch must stop a running recording too.
+
+**A12 — A recording nobody stops ends (§6, §14).** With no track open and the room reporting nobody
+publishing audio for ten minutes, the recorder stops the recording itself with `stop_reason: 'abandoned'`
+— a recording that never had a track is held to the same rule. At `MAXIMUM_RECORDING_HOURS` (twelve) it
+stops with `stop_reason: 'ceiling'`; that constant was a token lifetime only, and every sink token now
+expires with the recording's own maximum length rather than twelve hours after it was minted. Both stops
+commit the same three statements as every stop with nobody behind it and are announced to the room.
+
+**A13 — The memory ceiling is arithmetic, and the track ceiling follows from it (§6.2, §8).** §8's
+"thirty-two tracks is 256 MiB of worst-case carry" was twice an isolate's 128 MB. The staging is now one
+buffer per open track, preallocated when it opens, written in place and released when it closes: a part
+of R2's minimum size (5 MiB — the part size moves from 8 MiB) plus a 1 MiB overflow for the frames that
+arrive while a part uploads. At most one part per track and two per recorder are in flight; a frame that
+arrives when the overflow is full is dropped, counted, and kept on the timeline as silence. A gap is a
+count of silence, uploaded from one shared part of zeros, never an allocation of its length. With 40 MiB
+reserved for everything that is not audio, one shared silence part and a copy per upload in flight, the
+recorder holds `floor((122.07 − 40 − 5 − 10) / 6) = 11` tracks, and `meetings.recordedTrackCeiling`
+defaults to and is capped at that number; the arithmetic is stated once in
+`packages/meetings/src/settings.ts`. Two recordings the platform places in one isolate share its memory;
+that is the margin's to absorb, and a larger room is the sharded recorder §8 already names.
+
+**A14 — A restart is accounted for, not silently absorbed (§6, §14).** A recorder that restarts marks
+every open track as having lost its socket and as resuming on the wall clock, so a track whose socket is
+not redialled is lost on the ordinary path and a redialled one lands at its own instant. Whatever was
+buffered and not uploaded is counted as dropped frames once (a second restart before anything more
+uploads does not count it again) and put back as silence; `stagedSamples` counts only parts that have
+uploaded, and the captured length never includes silence that stands in for lost audio.
+
+**A15 — Sequence numbers are resynchronised, and every discarded frame is counted (§6.2).** The first
+frame on every accepted socket is placed by the wall clock, because a new socket is a new counter as far
+as the recorder can tell. A frame up to fifty behind the last one taken is a repeat and is discarded; a
+jump further back, or forward past the five-minute gap limit, is a counter that started again and is
+placed by the wall clock. `frames_dropped` counts every frame the recorder discarded — repeats included —
+as well as every frame that never arrived.
+
+**A16 — The sink token names the track row and the adapter, and admits one socket (§6.1).** The token
+carries the track ROW's identifier (never the browser-chosen track name) and a nonce the recorder mints
+for each adapter it opens and rotates on reopen, so an earlier adapter's token opens nothing. The recorder
+refuses a dial against a track whose socket is live. The sink route also takes the token from
+`Sec-WebSocket-Protocol: meeting-sink, <token>` (on the bare `/internal/meeting-audio` too) and answers
+`meeting-sink`, so the token can leave the address once the A3 experiment confirms the live adapter
+offers a subprotocol; until then the path is still what the recorder hands out.
+
+**A17 — Smaller fixes (§6, §8).** The recorder writes only the tracks that changed since its last write,
+in batches of at most 128 keys (the storage API's limit). The ceiling counts STAYS: a stay holds one open
+recorded track, and its further audio tracks are recorded `lost` rather than taking another
+participant's slot. A part that fails to upload keeps its bytes and is retried once on the next pass; if
+that fails too it is replaced by a part of silence and its frames are counted as dropped, so the timeline
+keeps its length.

@@ -8,8 +8,10 @@ import type { RecorderStartInput } from "../src/meetings/meeting-recorder.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import {
   MEETING_SINK_PATH_PREFIX,
+  MEETING_SINK_SOCKET_PROTOCOL,
   mintSinkToken,
   setMeetingSinkSigningKeyForTests,
+  type MeetingSinkClaims,
 } from "../src/meetings/sink-token.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -18,6 +20,7 @@ import {
   seedRecordedMeeting,
   seedRoomRoster,
   seedRunningRecording,
+  sinkClaimsFor,
   type AdapterCall,
   type SeededTrack,
 } from "./support/meeting-recording-fixture.ts";
@@ -25,9 +28,11 @@ import { seedFirmRow } from "./support/test-auth.ts";
 
 // THE SECURITY SURFACE: the one route on this Worker that admits a caller with no session at all.
 //
-// The routing service dials `/internal/meeting-audio/<token>`, and what decides whether that socket
-// reaches a recorder is the token's signature, its expiry, the firm it names, and the record — the
-// recording must still be running and the track still open. Every refusal is the same bare 404 so a
+// The routing service dials `/internal/meeting-audio/<token>` (or offers the token as the subprotocol
+// pair `meeting-sink, <token>`), and what decides whether that socket reaches a recorder is the
+// token's signature, its expiry, the firm it names, the record — the recording must still be running
+// and the track ROW still open — and the recorder, which takes one socket per track and only for the
+// adapter it opened last. Every refusal is the same bare 404 so a
 // caller who is not the routing service learns nothing by asking. Two refusals come before the token
 // is looked at, because they are about the request: any Origin at all (a page, on any site including
 // this one, must never reach this path) and a request that is not an upgrade.
@@ -60,6 +65,7 @@ async function startedTrack(): Promise<{
   recordingId: string;
   track: SeededTrack;
   endpoint: URL;
+  claims: MeetingSinkClaims & { readonly token: string };
 }> {
   const meeting = await seedRecordedMeeting(firmId);
   const member = await seedMemberIn(firmId, "A Member");
@@ -89,7 +95,8 @@ async function startedTrack(): Promise<{
     .start(input);
   const opened = calls.find((call) => call.path.endsWith("/adapters/websocket/new"));
   const [request] = (opened?.body["tracks"] ?? []) as { endpoint: string }[];
-  return { recordingId, track, endpoint: new URL(request?.endpoint ?? "") };
+  const claims = await sinkClaimsFor(calls, track.trackName, SIGNING_KEY);
+  return { recordingId, track, endpoint: new URL(request?.endpoint ?? ""), claims };
 }
 
 async function dial(path: string, headers: Record<string, string> = {}): Promise<Response> {
@@ -125,23 +132,68 @@ describe("the socket the routing service dials", () => {
     expect(response.status).toBe(426);
   });
 
-  it("refuses an expired token", async () => {
-    const { recordingId, track } = await startedTrack();
+  it("takes the token from the subprotocol, answering with the bare protocol name and never the token", async () => {
+    const { claims } = await startedTrack();
+    const response = await dial("/internal/meeting-audio", {
+      "sec-websocket-protocol": `${MEETING_SINK_SOCKET_PROTOCOL}, ${claims.token}`,
+    });
+    expect(response.status).toBe(101);
+    expect(response.headers.get("sec-websocket-protocol")).toBe(MEETING_SINK_SOCKET_PROTOCOL);
+    response.webSocket?.accept();
+    response.webSocket?.close(1000, "done");
+  });
+
+  it("refuses two different tokens on one request, one in the path and one in the subprotocol", async () => {
+    const { endpoint } = await startedTrack();
+    const other = await startedTrack();
+    const response = await dial(endpoint.pathname, {
+      "sec-websocket-protocol": `${MEETING_SINK_SOCKET_PROTOCOL}, ${other.claims.token}`,
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it("refuses a second dial against a track whose socket is live", async () => {
+    const { endpoint } = await startedTrack();
+    const first = await dial(endpoint.pathname);
+    expect(first.status).toBe(101);
+    first.webSocket?.accept();
+    const second = await dial(endpoint.pathname);
+    expect(second.status).toBe(404);
+    expect(await second.text()).toBe("");
+    first.webSocket?.close(1000, "done");
+  });
+
+  it("refuses a token naming the right track row with an adapter the recorder never opened", async () => {
+    const { claims } = await startedTrack();
     const token = await mintSinkToken(SIGNING_KEY, {
       firmId,
-      recordingId: recordingId as never,
-      trackName: track.trackName,
+      recordingId: claims.recordingId,
+      trackId: claims.trackId,
+      adapterNonce: "an-adapter-that-was-never-opened",
+      expiresAt: Date.now() + 60_000,
+    });
+    expect((await dial(`${MEETING_SINK_PATH_PREFIX}${token}`)).status).toBe(404);
+  });
+
+  it("refuses an expired token", async () => {
+    const { claims } = await startedTrack();
+    const token = await mintSinkToken(SIGNING_KEY, {
+      firmId,
+      recordingId: claims.recordingId,
+      trackId: claims.trackId,
+      adapterNonce: claims.adapterNonce,
       expiresAt: Date.now() - 1_000,
     });
     expect((await dial(`${MEETING_SINK_PATH_PREFIX}${token}`)).status).toBe(404);
   });
 
   it("refuses a token this Worker did not sign, and one that is not a token at all", async () => {
-    const { recordingId, track } = await startedTrack();
+    const { claims } = await startedTrack();
     const forged = await mintSinkToken("a-key-this-deployment-does-not-hold", {
       firmId,
-      recordingId: recordingId as never,
-      trackName: track.trackName,
+      recordingId: claims.recordingId,
+      trackId: claims.trackId,
+      adapterNonce: claims.adapterNonce,
       expiresAt: Date.now() + 60_000,
     });
     expect((await dial(`${MEETING_SINK_PATH_PREFIX}${forged}`)).status).toBe(404);
@@ -171,13 +223,14 @@ describe("the socket the routing service dials", () => {
   });
 
   it("refuses a token naming ANOTHER firm, which reaches that firm's record and finds nothing", async () => {
-    const { recordingId, track } = await startedTrack();
+    const { claims } = await startedTrack();
     const otherFirm = newIdentifier("firm") as FirmId;
     await seedFirmRow(otherFirm);
     const token = await mintSinkToken(SIGNING_KEY, {
       firmId: otherFirm,
-      recordingId: recordingId as never,
-      trackName: track.trackName,
+      recordingId: claims.recordingId,
+      trackId: claims.trackId,
+      adapterNonce: claims.adapterNonce,
       expiresAt: Date.now() + 60_000,
     });
     expect((await dial(`${MEETING_SINK_PATH_PREFIX}${token}`)).status).toBe(404);

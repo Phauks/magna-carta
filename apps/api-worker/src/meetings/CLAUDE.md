@@ -78,8 +78,12 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `meeting-recorder.ts` — `MeetingRecorder`, one per RECORDING (`firmId:recordingId`) and NOT
   hibernating: the one object in this directory the media does cross. The routing service's WebSocket
   adapter streams each audio track to it as PCM; it folds to mono, writes silence for missing frames,
-  stages each track in the firm's own bucket in 8 MiB parts, reconciles against the room on its alarm,
-  and holds no audio in its storage — only the carry, in memory.
+  stages each track in the firm's own bucket in 5 MiB parts (R2's minimum) through one preallocated
+  6 MiB buffer per open track, reconciles against the room AND reads its own record on every alarm
+  pass (so a stop that never reached it still ends capture within one pass), stops itself when the
+  room has been empty ten minutes or the recording reaches its maximum length, and holds no audio in
+  its storage. The track ceiling is derived from the isolate's memory in
+  `packages/meetings/src/settings.ts` (eleven), and one stay holds at most one recorded track.
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
   `routes/meeting-sink.ts`, outside the chokepoint.
@@ -229,7 +233,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   go directly between a browser and Realtime, and the room never holds a frame of any of them. The
   one exception is `meeting-recorder.ts`, which receives each recorded participant's audio from the
   routing service's WebSocket adapter while a recording runs and stages it to the firm's own bucket;
-  it holds at most one part per track in memory, writes no audio to its own storage, and no telemetry
+  it holds one fixed buffer per open track in memory, writes no audio to its own storage, and no telemetry
   field, refusal or log line it emits can carry a track name, a display name, a sink token or an
   object key. Nothing else here has a redaction step because there is nothing else here to redact —
   and an upstream body is never carried into a refusal, because it can name the application the whole

@@ -452,18 +452,16 @@ describe("tracks and notices", () => {
     const meetingId = await startedMeeting(database);
     const started = await record(database, meetingId, [track(0)]);
     await database.database.prepare(`UPDATE meeting_recording_track SET state = 'lost'`).run();
-    await database.database.batch([
-      settleTrackStatement(database.database, {
-        recordingId: started.recording.id,
-        trackName: track(0).trackName,
-        framesReceived: 12,
-        framesDropped: 3,
-        firstFrameAt: "2026-09-18T12:00:01.000Z",
-        lastFrameAt: "2026-09-18T12:00:02.000Z",
-        state: "closed",
-        now: clock.now(),
-      }),
-    ]);
+    await settleTrackStatement(database.database, {
+      recordingId: started.recording.id,
+      trackName: track(0).trackName,
+      framesReceived: 12,
+      framesDropped: 3,
+      firstFrameAt: "2026-09-18T12:00:01.000Z",
+      lastFrameAt: "2026-09-18T12:00:02.000Z",
+      state: "closed",
+      now: clock.now(),
+    }).run();
     const [settled] = await listRecordingTracks(database.database, started.recording.id);
     expect(settled?.state).toBe("lost");
     expect(settled?.frames_received).toBe(12);

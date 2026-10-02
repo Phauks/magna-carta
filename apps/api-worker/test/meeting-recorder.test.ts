@@ -1,12 +1,22 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
+import {
+  RECORDED_TRACK_CEILING_MAXIMUM,
+  RECORDER_ISOLATE_MEMORY_BYTES,
+  RECORDER_RESERVED_BYTES,
+  RECORDING_PART_UPLOADS_IN_FLIGHT,
+  RECORDING_TRACK_BUFFER_BYTES,
+} from "@magna-carta/meetings/settings";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
+  EMPTY_ROOM_ABANDON_MILLISECONDS,
+  MAXIMUM_RECORDING_MILLISECONDS,
+  MeetingRecorder,
   RECORDING_PART_BYTES,
+  STORAGE_PUT_BATCH_KEYS,
   TRACK_LOSS_GRACE_MILLISECONDS,
-  type MeetingRecorder,
   type RecorderStartInput,
 } from "../src/meetings/meeting-recorder.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
@@ -14,6 +24,7 @@ import {
   MEETING_SINK_PATH_PREFIX,
   setMeetingSinkSigningKeyForTests,
   verifySinkToken,
+  type MeetingSinkClaims,
 } from "../src/meetings/sink-token.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -23,6 +34,7 @@ import {
   seedRecordedMeeting,
   seedRoomRoster,
   seedRunningRecording,
+  sinkClaimsFor,
   waitUntil,
   type AdapterCall,
   type RecordedMeeting,
@@ -36,8 +48,10 @@ import { seedFirmRow } from "./support/test-auth.ts";
 // with a signed address and an upload in the firm's own bucket; frames become mono parts of exactly
 // the part size, with silence written for every frame the sequence numbers say never arrived; a stop
 // closes every adapter and completes every upload with what was actually captured; a track whose
-// socket never comes back is recorded as lost; and a recording whose every track is lost stops
-// itself rather than run on under a mark that says it is recording.
+// socket never comes back is recorded as lost; a recording whose every track is lost, whose room has
+// been empty too long, or that reached its maximum length stops itself; a stop the record holds is
+// honoured on the next pass even if it never reached the recorder; and what the recorder holds in
+// memory is the bound the settings arithmetic promises, however large a gap or however full a room.
 //
 // The recorder is not hibernating, and the test pool runs it as the runtime would: real sockets, a
 // real multipart upload, the firm's own database through the proxy. The routing service and the sink
@@ -107,18 +121,56 @@ async function startRecorder(trackCount: number, ceiling = 32): Promise<Started>
   return { meeting, recordingId, tracks, stub };
 }
 
-/** Opens the socket the routing service would dial for one track, straight to the recorder. */
-async function dial(stub: Started["stub"], trackName: string): Promise<WebSocket> {
+/** The upgrade the sink route forwards, built from a token's verified claims. */
+async function dialWith(stub: Started["stub"], claims: MeetingSinkClaims): Promise<Response> {
   const address = new URL("https://meeting-recorder.invalid/sink");
-  address.searchParams.set("track", trackName);
-  const response = await stub.fetch(
-    new Request(address.toString(), { headers: { Upgrade: "websocket" } }),
-  );
+  address.searchParams.set("track", claims.trackId);
+  address.searchParams.set("adapter", claims.adapterNonce);
+  return await stub.fetch(new Request(address.toString(), { headers: { Upgrade: "websocket" } }));
+}
+
+/** Opens the socket the routing service would dial for one track's current adapter. */
+async function dial(stub: Started["stub"], trackName: string): Promise<WebSocket> {
+  const response = await dialWith(stub, await sinkClaimsFor(calls, trackName, SIGNING_KEY));
   expect(response.status).toBe(101);
   const socket = response.webSocket;
   if (socket === null || socket === undefined) throw new Error("no socket on the 101");
   socket.accept();
   return socket;
+}
+
+/** Takes participants off the room's roster, as the room does when they leave. */
+async function removeFromRoom(meeting: RecordedMeeting, participantIds: readonly string[]) {
+  await runInDurableObject(
+    env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meeting.meetingId}`)),
+    async (_room, state) => {
+      await state.storage.delete(participantIds.map((id) => `participant:${id}`));
+    },
+  );
+}
+
+/** Reaches into the live recorder — the one thing a test may wind back is the clock it measures. */
+interface RecorderInternals {
+  recording: { startedAt: string; emptySince: number | null } | null;
+  tracks: Map<
+    string,
+    {
+      trackId: string;
+      socketLostAt: number | null;
+      resumeFromWallClock: boolean;
+      framesDropped: number;
+      stagedSamples: number;
+      timelineSamples: number;
+    }
+  >;
+  dirty: Set<string>;
+  bucket: R2Bucket | null;
+  ctx: DurableObjectState;
+  persistTracks(): Promise<void>;
+}
+
+function internals(instance: MeetingRecorder): RecorderInternals {
+  return instance as unknown as RecorderInternals;
 }
 
 async function trackRows(recordingId: string) {
@@ -154,12 +206,28 @@ async function recordingRow(recordingId: string) {
   return results[0];
 }
 
+/** The route's own stop, committed to the record without the call to the recorder. */
+async function stopInRecordOnly(recordingId: string): Promise<void> {
+  await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+    .prepare(
+      `UPDATE meeting_recording SET state = 'composing', stopped_at = ?2, stop_reason = 'member' WHERE id = ?1`,
+    )
+    .bind(recordingId, new Date().toISOString())
+    .run();
+}
+
+// A 32 KiB stereo payload folds to 16 KiB of mono, so this many frames fill exactly one part.
+const PAIRS_PER_LARGE_FRAME = 8192;
+const MONO_BYTES_PER_LARGE_FRAME = PAIRS_PER_LARGE_FRAME * 2;
+const LARGE_FRAMES_PER_PART = RECORDING_PART_BYTES / MONO_BYTES_PER_LARGE_FRAME;
+
 describe("starting the recorder", () => {
-  it("opens one adapter per track, each dialling a signed address for that track alone", async () => {
+  it("opens one adapter per track, each dialling a signed address for that track row and adapter", async () => {
     const { recordingId, tracks } = await startRecorder(2);
 
     const opened = calls.filter((call) => call.path.endsWith("/adapters/websocket/new"));
     expect(opened).toHaveLength(2);
+    const nonces = new Set<string>();
     for (const [index, call] of opened.entries()) {
       const [request] = call.body["tracks"] as {
         location: string;
@@ -173,7 +241,7 @@ describe("starting the recorder", () => {
       expect(request?.sessionId).toBe(tracks[index]?.sessionId);
       expect(request?.trackName).toBe(tracks[index]?.trackName);
       // THE ADDRESS IS THE CREDENTIAL: this deployment's own origin, the sink path, and a token that
-      // verifies to exactly this firm, recording and track.
+      // verifies to exactly this firm, recording and track ROW — never the browser's track name.
       const endpoint = new URL(request?.endpoint ?? "");
       expect(endpoint.protocol).toBe("wss:");
       expect(endpoint.pathname.startsWith(MEETING_SINK_PATH_PREFIX)).toBe(true);
@@ -182,10 +250,13 @@ describe("starting the recorder", () => {
         endpoint.pathname.slice(MEETING_SINK_PATH_PREFIX.length),
         Date.now(),
       );
-      expect(claims).toMatchObject({ firmId, recordingId, trackName: tracks[index]?.trackName });
+      expect(claims).toMatchObject({ firmId, recordingId, trackId: tracks[index]?.trackId });
+      expect(claims && "trackName" in claims).toBe(false);
+      nonces.add(claims?.adapterNonce ?? "");
       // The token never rides a query string, where the platform's request log would keep it whole.
       expect(endpoint.search).toBe("");
     }
+    expect(nonces.size).toBe(2);
 
     const rows = await trackRows(recordingId);
     expect(rows.every((row) => row.adapter_id !== null && row.staging_key !== null)).toBe(true);
@@ -207,13 +278,9 @@ describe("frames in, bytes out", () => {
     const track = tracks[0]!;
     const socket = await dial(stub, track.trackName);
 
-    // A 32 KiB stereo payload folds to 16 KiB of mono, so this many frames cross one part.
-    const pairsPerFrame = 8192;
-    const monoBytesPerFrame = pairsPerFrame * 2;
-    const framesForOnePart = RECORDING_PART_BYTES / monoBytesPerFrame;
-    const frameCount = framesForOnePart + 10;
+    const frameCount = LARGE_FRAMES_PER_PART + 10;
     for (let sequence = 1; sequence <= frameCount; sequence += 1) {
-      socket.send(pcmEnvelope(sequence, pairsPerFrame));
+      socket.send(pcmEnvelope(sequence, PAIRS_PER_LARGE_FRAME));
     }
     await waitUntil(async () => {
       const inspected = await stub.inspect();
@@ -221,8 +288,10 @@ describe("frames in, bytes out", () => {
     });
     const inspected = await stub.inspect();
     expect(inspected.tracks[0]?.parts).toBe(1);
-    // What is left in memory is the carry past the part, and never more than a part.
-    expect(inspected.tracks[0]?.carriedBytes).toBe(10 * monoBytesPerFrame);
+    // What is left in memory is the overflow past the part, moved down in place.
+    expect(inspected.tracks[0]?.carriedBytes).toBe(10 * MONO_BYTES_PER_LARGE_FRAME);
+    // Only what has UPLOADED counts as staged.
+    expect(inspected.tracks[0]?.stagedSamples).toBe(RECORDING_PART_BYTES / 2);
 
     const outcome = await stub.stop("member");
     expect(outcome?.outcome).toBe("composing");
@@ -231,7 +300,7 @@ describe("frames in, bytes out", () => {
     expect(row?.frames_received).toBe(frameCount);
     expect(row?.state).toBe("closed");
     const object = await env.R2.get(row?.staging_key ?? "");
-    expect(object?.size).toBe(frameCount * monoBytesPerFrame);
+    expect(object?.size).toBe(frameCount * MONO_BYTES_PER_LARGE_FRAME);
     // Mono is the average of the two channels: (1000 + 3000) / 2.
     const head = new DataView((await object!.arrayBuffer()).slice(0, 4));
     expect(head.getInt16(0, true)).toBe(2000);
@@ -239,23 +308,24 @@ describe("frames in, bytes out", () => {
     expect(object?.customMetadata?.["object_class"]).toBe("meeting-recording-track");
 
     expect((await recordingRow(recordingId))?.captured_seconds).toBeGreaterThanOrEqual(
-      Math.floor((frameCount * pairsPerFrame) / 48_000),
+      Math.floor((frameCount * PAIRS_PER_LARGE_FRAME) / 48_000),
     );
   });
 
-  it("writes silence of exactly the gap's length for frames that never arrived, and counts them", async () => {
+  it("writes silence of exactly the gap's length for frames that never arrived, and counts every discarded frame", async () => {
     const { recordingId, tracks, stub } = await startRecorder(1);
     const track = tracks[0]!;
     const socket = await dial(stub, track.trackName);
     const pairs = 960;
-    // Frames 3 and 4 never arrive; a duplicate of 5 arrives late and is not taken twice.
+    // Frames 3 and 4 never arrive; a duplicate of 5 arrives late and is not taken twice — but it is
+    // counted, because every frame the recorder discards is one the record should account for.
     for (const sequence of [1, 2, 5, 5, 6]) socket.send(pcmEnvelope(sequence, pairs));
     await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 4);
     await stub.stop("member");
 
     const [row] = await trackRows(recordingId);
     expect(row?.frames_received).toBe(4);
-    expect(row?.frames_dropped).toBe(2);
+    expect(row?.frames_dropped).toBe(3);
     const bytes = new Uint8Array(await (await env.R2.get(row?.staging_key ?? ""))!.arrayBuffer());
     // Four frames of audio and two of silence: the timeline stays real.
     expect(bytes.length).toBe(6 * pairs * 2);
@@ -273,6 +343,486 @@ describe("frames in, bytes out", () => {
     await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 1);
     expect((await stub.inspect()).tracks[0]?.framesDropped).toBe(1);
     await stub.stop("member");
+  });
+});
+
+describe("the sequence, against the wall clock", () => {
+  it("places the first frame on a NEW socket by the wall clock, so a counter that restarted is taken", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const first = await dial(stub, tracks[0]!.trackName);
+    for (let sequence = 1; sequence <= 5; sequence += 1) first.send(pcmEnvelope(sequence, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 5);
+    first.close(1000, "routing service reconnecting");
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.attached === false);
+
+    // The redialled adapter's counter starts at one again.
+    const second = await dial(stub, tracks[0]!.trackName);
+    second.send(pcmEnvelope(1, 960));
+    second.send(pcmEnvelope(2, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 7);
+    expect((await stub.inspect()).tracks[0]?.framesReceived).toBe(7);
+    await stub.stop("member");
+    expect((await trackRows(recordingId))[0]?.frames_received).toBe(7);
+  });
+
+  it("reads a jump backwards past the reorder window as a counter reset, and discards repeats inside it", async () => {
+    const { tracks, stub } = await startRecorder(1);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    // 1002 repeated and 1001 behind are inside the window: discarded and counted. Then the counter
+    // restarts at 1, which is far behind — a reset, taken, not a repeat.
+    for (const sequence of [1000, 1001, 1002, 1002, 1001, 1, 2]) {
+      socket.send(pcmEnvelope(sequence, 960));
+    }
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 5);
+    const inspected = (await stub.inspect()).tracks[0];
+    expect(inspected?.framesReceived).toBe(5);
+    expect(inspected?.framesDropped).toBeGreaterThanOrEqual(2);
+    await stub.stop("member");
+  });
+});
+
+describe("what the recorder holds in memory", () => {
+  it("never holds more buffers than the ceiling the memory allows, nor more uploads in flight than the bound", async () => {
+    // The caller asks for far more than the memory allows; the recorder holds the bound and records
+    // the rest as not heard.
+    const { recordingId, tracks, stub } = await startRecorder(
+      RECORDED_TRACK_CEILING_MAXIMUM + 2,
+      64,
+    );
+    const started = await stub.inspect();
+    expect(started.memory.trackBuffers).toBe(RECORDED_TRACK_CEILING_MAXIMUM);
+    expect(started.memory.trackBufferBytes).toBe(
+      RECORDED_TRACK_CEILING_MAXIMUM * RECORDING_TRACK_BUFFER_BYTES,
+    );
+    const rows = await trackRows(recordingId);
+    expect(rows.filter((row) => row.state === "lost")).toHaveLength(2);
+    expect(started.tracks.every((one) => one.bufferBytes <= RECORDING_TRACK_BUFFER_BYTES)).toBe(
+      true,
+    );
+
+    // Three tracks cross a part at the same moment, so their uploads contend.
+    const sockets = await Promise.all(tracks.slice(0, 3).map((one) => dial(stub, one.trackName)));
+    const frameCount = LARGE_FRAMES_PER_PART + 2;
+    for (let sequence = 1; sequence <= frameCount; sequence += 1) {
+      for (const socket of sockets) socket.send(pcmEnvelope(sequence, PAIRS_PER_LARGE_FRAME));
+    }
+    await waitUntil(async () =>
+      (await stub.inspect()).tracks.slice(0, 3).every((one) => one.parts === 1),
+    );
+    const inspected = await stub.inspect();
+    expect(inspected.tracks.slice(0, 3).every((one) => one.parts === 1)).toBe(true);
+    expect(inspected.memory.peakTrackBuffers).toBeLessThanOrEqual(RECORDED_TRACK_CEILING_MAXIMUM);
+    expect(inspected.memory.peakUploadsInFlight).toBeLessThanOrEqual(
+      RECORDING_PART_UPLOADS_IN_FLIGHT,
+    );
+    // And what that bound is in bytes fits the isolate with its reserve: buffers, one shared part of
+    // silence, and a copy per upload in flight.
+    expect(
+      inspected.memory.peakTrackBuffers * RECORDING_TRACK_BUFFER_BYTES +
+        (1 + RECORDING_PART_UPLOADS_IN_FLIGHT) * RECORDING_PART_BYTES +
+        RECORDER_RESERVED_BYTES,
+    ).toBeLessThanOrEqual(RECORDER_ISOLATE_MEMORY_BYTES);
+
+    await stub.stop("member");
+    expect((await stub.inspect()).memory.trackBuffers).toBe(0);
+  });
+
+  it("does not allocate a long gap: five minutes of silence is counted parts, not twenty-eight megabytes in memory", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    const pairs = 960;
+    const gapFrames = 14_998;
+    socket.send(pcmEnvelope(1, pairs));
+    socket.send(pcmEnvelope(2 + gapFrames, pairs));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 2);
+    const inspected = await stub.inspect();
+    expect(inspected.memory.trackBuffers).toBe(1);
+    expect(inspected.tracks[0]?.bufferBytes).toBe(RECORDING_TRACK_BUFFER_BYTES);
+    expect(inspected.memory.peakTrackBuffers).toBe(1);
+    // The gap is about 28.8 MB; the track holds at most its one buffer while it is staged.
+    expect(inspected.tracks[0]?.carriedBytes).toBeLessThanOrEqual(RECORDING_TRACK_BUFFER_BYTES);
+
+    await stub.stop("member");
+    const [row] = await trackRows(recordingId);
+    expect(row?.frames_dropped).toBe(gapFrames);
+    const object = await env.R2.head(row?.staging_key ?? "");
+    expect(object?.size).toBe((2 + gapFrames) * pairs * 2);
+  });
+
+  it("flushes and releases a track's buffer when its participant leaves", async () => {
+    const { meeting, recordingId, tracks, stub } = await startRecorder(2);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    socket.send(pcmEnvelope(1, 960));
+    const leaving = await dial(stub, tracks[1]!.trackName);
+    leaving.send(pcmEnvelope(1, 960));
+    await waitUntil(async () =>
+      (await stub.inspect()).tracks.every((one) => one.framesReceived === 1),
+    );
+    expect((await stub.inspect()).memory.trackBuffers).toBe(2);
+    await removeFromRoom(meeting, [tracks[1]!.participantId]);
+    await runDurableObjectAlarm(stub);
+
+    const rows = await trackRows(recordingId);
+    expect(rows.find((row) => row.track_name === tracks[1]!.trackName)?.state).toBe("closed");
+    expect(rows.find((row) => row.track_name === tracks[0]!.trackName)?.state).toBe("open");
+    expect((await recordingRow(recordingId))?.state).toBe("recording");
+    const inspected = await stub.inspect();
+    expect(inspected.memory.trackBuffers).toBe(1);
+    // What the departed track held went up, padded to a part boundary.
+    expect(inspected.tracks[1]?.parts).toBe(1);
+    await stub.stop("member");
+    // The record never claims the padding: a part is about fifty-five seconds, and one frame of
+    // twenty milliseconds on each track is all that was heard.
+    expect((await recordingRow(recordingId))?.captured_seconds).toBeLessThan(10);
+  });
+});
+
+describe("a stop the recorder never heard about", () => {
+  it("settles on its next pass when the record says the recording stopped, and captures nothing after", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    let closed = false;
+    socket.addEventListener("close", () => {
+      closed = true;
+    });
+    socket.send(pcmEnvelope(1, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 1);
+
+    // The route committed the stop; its call to the recorder never arrived.
+    await stopInRecordOnly(recordingId);
+    await runDurableObjectAlarm(stub);
+
+    expect((await stub.inspect()).state).toBe("stopped");
+    await waitUntil(() => closed);
+    expect(closed).toBe(true);
+    const [row] = await trackRows(recordingId);
+    expect(row?.state).toBe("closed");
+    expect(row?.frames_received).toBe(1);
+    const object = await env.R2.head(row?.staging_key ?? "");
+    expect(object?.size).toBe(960 * 2);
+    expect((await recordingRow(recordingId))?.state).toBe("composing");
+  });
+});
+
+describe("a recording nobody stops", () => {
+  it("stops as abandoned once nobody has been in the room for the sustained window", async () => {
+    const { meeting, recordingId, tracks, stub } = await startRecorder(1);
+    await removeFromRoom(meeting, [tracks[0]!.participantId]);
+    await runDurableObjectAlarm(stub);
+    expect((await trackRows(recordingId))[0]?.state).toBe("closed");
+    expect((await recordingRow(recordingId))?.state).toBe("recording");
+
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      const recording = internals(instance).recording;
+      expect(recording?.emptySince).not.toBeNull();
+      internals(instance).recording = {
+        ...recording!,
+        emptySince: Date.now() - EMPTY_ROOM_ABANDON_MILLISECONDS - 1_000,
+      };
+    });
+    await runDurableObjectAlarm(stub);
+    const recording = await recordingRow(recordingId);
+    expect(recording?.stop_reason).toBe("abandoned");
+    expect((await stub.inspect()).state).toBe("stopped");
+  });
+
+  it("holds a recording that never had a track to the same rule", async () => {
+    const { recordingId, stub } = await startRecorder(0);
+    await runDurableObjectAlarm(stub);
+    expect((await recordingRow(recordingId))?.state).toBe("recording");
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      const recording = internals(instance).recording;
+      internals(instance).recording = {
+        ...recording!,
+        emptySince: Date.now() - EMPTY_ROOM_ABANDON_MILLISECONDS - 1_000,
+      };
+    });
+    await runDurableObjectAlarm(stub);
+    expect((await recordingRow(recordingId))?.stop_reason).toBe("abandoned");
+  });
+
+  it("stops at its maximum length with the ceiling reason", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    socket.send(pcmEnvelope(1, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 1);
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      const recording = internals(instance).recording;
+      internals(instance).recording = {
+        ...recording!,
+        startedAt: new Date(Date.now() - MAXIMUM_RECORDING_MILLISECONDS - 60_000).toISOString(),
+      };
+    });
+    await runDurableObjectAlarm(stub);
+    const recording = await recordingRow(recordingId);
+    expect(recording?.stop_reason).toBe("ceiling");
+    expect(recording?.state).not.toBe("recording");
+    expect((await stub.inspect()).state).toBe("stopped");
+  });
+});
+
+describe("a restart", () => {
+  it("counts the audio it lost as dropped once, and waits for the socket on the ordinary loss path", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    for (let sequence = 1; sequence <= 20; sequence += 1) socket.send(pcmEnvelope(sequence, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 20);
+    // A pass writes the metadata down, as it does every few seconds.
+    await runDurableObjectAlarm(stub);
+
+    await runInDurableObject(stub, async (_instance: MeetingRecorder, state) => {
+      // AN EVICTION: a new instance over the same storage, with nothing of the old one's memory.
+      const revived = new MeetingRecorder(state, env);
+      await waitUntil(() => internals(revived).tracks.size === 1);
+      const track = [...internals(revived).tracks.values()][0]!;
+      expect(track.socketLostAt).not.toBeNull();
+      expect(track.resumeFromWallClock).toBe(true);
+      // Twenty frames were in memory and never uploaded: counted as dropped, not as staged.
+      expect(track.framesDropped).toBe(20);
+      expect(track.stagedSamples).toBe(0);
+      const revivedTrack = (await revived.inspect()).tracks[0];
+      // Their length is silence now, so the next frame still lands at its own instant.
+      expect(revivedTrack?.carriedBytes).toBe(20 * 960 * 2);
+
+      // A second restart before anything more uploaded does not count the same loss again.
+      const again = new MeetingRecorder(state, env);
+      await waitUntil(() => internals(again).tracks.size === 1);
+      expect([...internals(again).tracks.values()][0]!.framesDropped).toBe(20);
+
+      // Nobody redials: the grace runs out and the track is lost the ordinary way.
+      for (const one of internals(again).tracks.values()) {
+        one.socketLostAt = Date.now() - TRACK_LOSS_GRACE_MILLISECONDS - 1_000;
+      }
+      await again.alarm();
+    });
+    const [row] = await trackRows(recordingId);
+    expect(row?.state).toBe("lost");
+    expect(row?.frames_dropped).toBe(20);
+  });
+});
+
+describe("the sink token, at the recorder", () => {
+  it("refuses an earlier adapter's token after the track is reopened on a new one", async () => {
+    const { meeting, tracks, stub } = await startRecorder(1);
+    const trackName = tracks[0]!.trackName;
+    const earlier = await sinkClaimsFor(calls, trackName, SIGNING_KEY, 0);
+    await removeFromRoom(meeting, [tracks[0]!.participantId]);
+    await runDurableObjectAlarm(stub);
+    await seedRoomRoster(meeting, tracks);
+    await runDurableObjectAlarm(stub);
+    const later = await sinkClaimsFor(calls, trackName, SIGNING_KEY);
+    expect(later.adapterNonce).not.toBe(earlier.adapterNonce);
+    expect(later.trackId).toBe(earlier.trackId);
+
+    expect((await dialWith(stub, earlier)).status).toBe(404);
+    const accepted = await dialWith(stub, later);
+    expect(accepted.status).toBe(101);
+    accepted.webSocket?.accept();
+    accepted.webSocket?.close(1000, "done");
+    await stub.stop("member");
+  });
+
+  it("refuses a second dial against a track whose socket is live, and takes one once it has dropped", async () => {
+    const { tracks, stub } = await startRecorder(1);
+    const claims = await sinkClaimsFor(calls, tracks[0]!.trackName, SIGNING_KEY);
+    const first = await dialWith(stub, claims);
+    expect(first.status).toBe(101);
+    first.webSocket?.accept();
+    expect((await dialWith(stub, claims)).status).toBe(404);
+
+    first.webSocket?.close(1000, "dropped");
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.attached === false);
+    const redial = await dialWith(stub, claims);
+    expect(redial.status).toBe(101);
+    redial.webSocket?.accept();
+    await stub.stop("member");
+  });
+});
+
+describe("the ceiling counts stays", () => {
+  it("records a stay's second audio track as not heard, rather than letting it take another stay's slot", async () => {
+    const { meeting, recordingId, tracks, stub } = await startRecorder(1, 2);
+    const speaker = tracks[0]!;
+    const extra = (suffix: string): SeededTrack => ({
+      ...speaker,
+      trackId: newIdentifier("meetingRecordingTrack") as SeededTrack["trackId"],
+      trackName: `${speaker.participantId}:${suffix}`,
+    });
+    const otherUser = await seedMemberIn(firmId, "Another Speaker");
+    const otherParticipant = newIdentifier("meetingAttendance");
+    const other: SeededTrack = {
+      trackId: newIdentifier("meetingRecordingTrack") as SeededTrack["trackId"],
+      trackName: `${otherParticipant}:microphone`,
+      sessionId: `routing-session-other-${otherParticipant}`,
+      participantId: otherParticipant,
+      userId: otherUser,
+    };
+    await seedRoomRoster(meeting, [
+      speaker,
+      extra("screen-audio"),
+      extra("second-microphone"),
+      other,
+    ]);
+    const socket = await dial(stub, speaker.trackName);
+    socket.send(pcmEnvelope(1, 960));
+    await runDurableObjectAlarm(stub);
+
+    const rows = await trackRows(recordingId);
+    const stateOf = (name: string) => rows.find((row) => row.track_name === name)?.state;
+    expect(stateOf(speaker.trackName)).toBe("open");
+    expect(stateOf(`${speaker.participantId}:screen-audio`)).toBe("lost");
+    expect(stateOf(`${speaker.participantId}:second-microphone`)).toBe("lost");
+    // The other participant is heard: one participant's tracks did not take their slot.
+    expect(stateOf(other.trackName)).toBe("open");
+    await stub.stop("member");
+  });
+});
+
+describe("writing the metadata down", () => {
+  it("writes only the tracks that changed, in batches the storage API accepts", async () => {
+    const { tracks, stub } = await startRecorder(2);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      await internals(instance).persistTracks();
+    });
+    socket.send(pcmEnvelope(1, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 1);
+
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      const recorder = internals(instance);
+      const realContext = recorder.ctx;
+      const written: string[][] = [];
+      // What the write was handed, and nothing written: the keys are the measurement.
+      recorder.ctx = {
+        storage: {
+          put: async (entries: Record<string, unknown>): Promise<void> => {
+            written.push(Object.keys(entries));
+          },
+        },
+      } as unknown as DurableObjectState;
+      try {
+        await internals(instance).persistTracks();
+        expect(written).toEqual([[`track:${tracks[0]!.trackId}`]]);
+
+        // A recording that has seen hundreds of tracks writes them in batches of at most 128.
+        written.length = 0;
+        const template = [...internals(instance).tracks.values()][1]!;
+        for (let index = 0; index < 300; index += 1) {
+          const trackId = `track-${String(index)}`;
+          internals(instance).tracks.set(trackId, { ...template, trackId });
+          internals(instance).dirty.add(trackId);
+        }
+        await internals(instance).persistTracks();
+        expect(written.every((keys) => keys.length <= STORAGE_PUT_BATCH_KEYS)).toBe(true);
+        expect(written.flat()).toHaveLength(300);
+        for (let index = 0; index < 300; index += 1) {
+          internals(instance).tracks.delete(`track-${String(index)}`);
+        }
+      } finally {
+        recorder.ctx = realContext;
+      }
+    });
+    await stub.stop("member");
+  });
+});
+
+/** The firm's bucket with the next `failures` part uploads refused. */
+function bucketFailingParts(
+  bucket: R2Bucket,
+  failures: { remaining: number; attempts: number },
+): R2Bucket {
+  // Every other method is the runtime's own, called on the runtime's own object.
+  const passThrough = (target: object, property: string | symbol): unknown => {
+    const value: unknown = Reflect.get(target, property);
+    return typeof value === "function"
+      ? (value as (...args: unknown[]) => unknown).bind(target)
+      : value;
+  };
+  return new Proxy(bucket, {
+    get(target, property) {
+      if (property !== "resumeMultipartUpload") return passThrough(target, property);
+      return (key: string, uploadId: string) => {
+        const upload = target.resumeMultipartUpload(key, uploadId);
+        return new Proxy(upload, {
+          get(inner, name) {
+            if (name !== "uploadPart") return passThrough(inner, name);
+            return async (partNumber: number, value: Uint8Array) => {
+              failures.attempts += 1;
+              if (failures.remaining > 0) {
+                failures.remaining -= 1;
+                throw new Error("storage refused the part");
+              }
+              return await inner.uploadPart(partNumber, value);
+            };
+          },
+        });
+      };
+    },
+  });
+}
+
+describe("a part that fails to upload", () => {
+  it("keeps the bytes, does not count them as staged, and retries once on the next pass", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const failures = { remaining: 1, attempts: 0 };
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      const recorder = internals(instance);
+      recorder.bucket = bucketFailingParts(recorder.bucket!, failures);
+    });
+    const socket = await dial(stub, tracks[0]!.trackName);
+    for (let sequence = 1; sequence <= LARGE_FRAMES_PER_PART; sequence += 1) {
+      socket.send(pcmEnvelope(sequence, PAIRS_PER_LARGE_FRAME));
+    }
+    await waitUntil(() => failures.attempts === 1);
+    await waitUntil(
+      async () => (await stub.inspect()).tracks[0]?.framesReceived === LARGE_FRAMES_PER_PART,
+    );
+    let inspected = (await stub.inspect()).tracks[0];
+    expect(inspected?.parts).toBe(0);
+    expect(inspected?.stagedSamples).toBe(0);
+    expect(inspected?.carriedBytes).toBe(RECORDING_PART_BYTES);
+
+    await runDurableObjectAlarm(stub);
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.parts === 1);
+    inspected = (await stub.inspect()).tracks[0];
+    expect(inspected?.parts).toBe(1);
+    expect(inspected?.stagedSamples).toBe(RECORDING_PART_BYTES / 2);
+    await stub.stop("member");
+    const [row] = await trackRows(recordingId);
+    expect(row?.frames_dropped).toBe(0);
+    const object = await env.R2.get(row?.staging_key ?? "");
+    const head = new DataView((await object!.arrayBuffer()).slice(0, 2));
+    expect(head.getInt16(0, true)).toBe(2000);
+  });
+
+  it("records the loss as a gap when the retry fails too", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(1);
+    const failures = { remaining: 2, attempts: 0 };
+    await runInDurableObject(stub, async (instance: MeetingRecorder) => {
+      const recorder = internals(instance);
+      recorder.bucket = bucketFailingParts(recorder.bucket!, failures);
+    });
+    const socket = await dial(stub, tracks[0]!.trackName);
+    for (let sequence = 1; sequence <= LARGE_FRAMES_PER_PART + 1; sequence += 1) {
+      socket.send(pcmEnvelope(sequence, PAIRS_PER_LARGE_FRAME));
+    }
+    await waitUntil(() => failures.attempts === 1);
+    await runDurableObjectAlarm(stub);
+    // The retry fails; the part is given up as silence, which then uploads.
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.parts === 1);
+    const inspected = (await stub.inspect()).tracks[0];
+    expect(inspected?.framesDropped).toBe(LARGE_FRAMES_PER_PART);
+    await stub.stop("member");
+
+    const [row] = await trackRows(recordingId);
+    expect(row?.frames_dropped).toBe(LARGE_FRAMES_PER_PART);
+    const object = await env.R2.get(row?.staging_key ?? "");
+    const bytes = new Uint8Array(await object!.arrayBuffer());
+    // The timeline keeps its length: a part of silence where the audio could not be staged, and the
+    // frame after it still at its own instant.
+    expect(bytes.length).toBe((LARGE_FRAMES_PER_PART + 1) * MONO_BYTES_PER_LARGE_FRAME);
+    expect(bytes.subarray(0, RECORDING_PART_BYTES).every((byte) => byte === 0)).toBe(true);
+    expect(new DataView(bytes.buffer, RECORDING_PART_BYTES, 2).getInt16(0, true)).toBe(2000);
   });
 });
 
@@ -304,12 +854,7 @@ describe("stopping", () => {
   it("fails a recording that captured nothing at all, with an Error ID and no staged object", async () => {
     const { recordingId, stub } = await startRecorder(1);
     // The route commits the stop before it calls the recorder.
-    await firmDatabaseFor(env.FIRM_DATABASE, firmId)
-      .prepare(
-        `UPDATE meeting_recording SET state = 'composing', stopped_at = ?2, stop_reason = 'member' WHERE id = ?1`,
-      )
-      .bind(recordingId, new Date().toISOString())
-      .run();
+    await stopInRecordOnly(recordingId);
     const outcome = await stub.stop("member");
     expect(outcome?.outcome).toBe("failed");
     const recording = await recordingRow(recordingId);
@@ -324,13 +869,10 @@ describe("stopping", () => {
 
 describe("a track the recorder cannot hear", () => {
   it("is recorded as lost once its socket has been gone past the grace — and when every track is, the recording stops itself", async () => {
-    const { meeting, recordingId, stub } = await startRecorder(1);
+    const { recordingId, stub } = await startRecorder(1);
     // The routing service never dialled. Wind the track's clock back past the grace rather than wait.
     await runInDurableObject(stub, async (instance: MeetingRecorder) => {
-      const tracks = (
-        instance as unknown as { tracks: Map<string, { socketLostAt: number | null }> }
-      ).tracks;
-      for (const track of tracks.values()) {
+      for (const track of internals(instance).tracks.values()) {
         track.socketLostAt = Date.now() - TRACK_LOSS_GRACE_MILLISECONDS - 1_000;
       }
     });
@@ -344,7 +886,6 @@ describe("a track the recorder cannot hear", () => {
     expect(recording?.state).toBe("failed");
     expect(recording?.failure_error_id).toMatch(/^error_/);
     expect((await stub.inspect()).state).toBe("stopped");
-    expect(meeting.meetingId).toBeDefined();
   });
 
   it("admits a track published after the start, and records one past the ceiling as lost with no frames", async () => {
@@ -368,27 +909,6 @@ describe("a track the recorder cannot hear", () => {
     const lateRow = rows.find((row) => row.track_name === late.trackName);
     expect(lateRow?.state).toBe("lost");
     expect(lateRow?.frames_received).toBe(0);
-    await stub.stop("member");
-  });
-
-  it("closes the track of a participant who left the room, and keeps the recording running", async () => {
-    const { meeting, recordingId, tracks, stub } = await startRecorder(2);
-    const socket = await dial(stub, tracks[0]!.trackName);
-    socket.send(pcmEnvelope(1, 960));
-    await dial(stub, tracks[1]!.trackName);
-    // The second participant is no longer on the roster.
-    await seedRoomRoster(meeting, [tracks[0]!]);
-    await runInDurableObject(
-      env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meeting.meetingId}`)),
-      async (_room, state) => {
-        await state.storage.delete(`participant:${tracks[1]!.participantId}`);
-      },
-    );
-    await runDurableObjectAlarm(stub);
-    const rows = await trackRows(recordingId);
-    expect(rows.find((row) => row.track_name === tracks[1]!.trackName)?.state).toBe("closed");
-    expect(rows.find((row) => row.track_name === tracks[0]!.trackName)?.state).toBe("open");
-    expect((await recordingRow(recordingId))?.state).toBe("recording");
     await stub.stop("member");
   });
 });
