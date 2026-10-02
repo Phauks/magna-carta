@@ -81,7 +81,7 @@
     polls,
     hosting = false,
     viewerUserId = null,
-    inRoom = 0,
+    membersInRoom = 0,
     loading = false,
     failed = false,
     opening = false,
@@ -110,8 +110,11 @@
      * — from a poll another host opened, which they are asked like anybody.
      */
     viewerUserId?: string | null;
-    /** How many are in the room, for "12 of 30 answered". */
-    inRoom?: number;
+    /**
+     * How many members are in the room, for "12 of 30 answered". Members only: a guest cannot answer
+     * a poll, so a total counting guests is one the tally never reaches.
+     */
+    membersInRoom?: number;
     /** True while the first read has not arrived. A later backstop read is not this state. */
     loading?: boolean;
     /** True where the polls could not be read and there is nothing to show instead. */
@@ -230,8 +233,8 @@
   function answeredLine(poll: MeetingPollView): string {
     // "Of how many" is a fact about who is in the room NOW, which is only worth saying while the
     // poll is still taking answers.
-    return poll.closedAt === null && inRoom > 0
-      ? `${String(poll.respondents)} of ${String(inRoom)} answered`
+    return poll.closedAt === null && membersInRoom > 0
+      ? `${String(poll.respondents)} of ${String(membersInRoom)} answered`
       : `${String(poll.respondents)} answered`;
   }
 

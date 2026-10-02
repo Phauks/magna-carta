@@ -102,6 +102,13 @@ export interface MeetingParticipant {
    * hosting route commits, so a grant withdrawn mid-meeting reaches every screen on the next roster.
    */
   readonly hostRole: MeetingHostRole | null;
+  /**
+   * Whether this is somebody from the firm or a guest from outside it. The room's roster carries it;
+   * a row from a room that predates it is read as a member, which is what every row then was. Read
+   * where the two kinds can do different things — a guest cannot answer a poll — rather than guessed
+   * from whether an identifier happens to be present.
+   */
+  readonly kind: "member" | "guest";
 }
 
 /**
@@ -205,6 +212,7 @@ export function readParticipants(value: unknown): readonly MeetingParticipant[] 
       // Absent is "not running this meeting", which is what a roster without the field always meant
       // and what is true of everybody but one or two people in any room.
       hostRole: readHostRole(entry.hostRole),
+      kind: entry.kind === "guest" ? "guest" : "member",
     });
   }
   return participants;

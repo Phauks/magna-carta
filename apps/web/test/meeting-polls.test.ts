@@ -22,6 +22,7 @@ import {
   isAcceptableAnswer,
   isOpenablePoll,
   MeetingPolls,
+  membersWhoCanAnswer,
   readPoll,
   readPollTally,
   type MeetingPollSeams,
@@ -169,6 +170,28 @@ describe("what a poll will take", () => {
     expect(
       isOpenablePoll({ ...draft, options: Array.from({ length: 11 }, String), maxChoices: 1 }),
     ).toBe(false);
+  });
+});
+
+describe("who a poll can be answered by", () => {
+  it("counts the members in the room and never a guest, who has no way to answer", () => {
+    expect(
+      membersWhoCanAnswer([
+        { userId: "usr_1", kind: "member" },
+        { userId: "usr_2", kind: "member" },
+        { userId: "", kind: "guest" },
+        { userId: "", kind: "guest" },
+      ]),
+    ).toBe(2);
+  });
+
+  it("reads a row without a kind by the member identity a guest does not have", () => {
+    // A member's roster names a guest with no member handle, which the browser reads as empty.
+    expect(membersWhoCanAnswer([{ userId: "usr_1" }, { userId: "usr_2" }, { userId: "" }])).toBe(2);
+  });
+
+  it("takes the row's kind over the handle where the two disagree", () => {
+    expect(membersWhoCanAnswer([{ userId: "usr_1", kind: "guest" }])).toBe(0);
   });
 });
 
@@ -328,7 +351,7 @@ describe("the polls panel", () => {
       subject: { facts: ["Hearing preparation"] },
       polls: [poll()],
       hosting: false,
-      inRoom: 30,
+      membersInRoom: 30,
       onOpenPoll: () => Promise.resolve(true),
       onAnswer: (pollId: string, optionIds: readonly string[]) => {
         asked.push(`answer:${pollId}:${optionIds.join(",")}`);

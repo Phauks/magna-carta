@@ -80,8 +80,8 @@
   import { readWaitingParticipants } from "$lib/meetings/client/lobby.ts";
   import UsersRound from "@lucide/svelte/icons/users-round";
   import Disc from "@lucide/svelte/icons/disc";
-  import X from "@lucide/svelte/icons/x";
   import RecordingMark from "$lib/meetings/screen/recording-mark.svelte";
+  import RecordingNotice from "$lib/meetings/screen/recording-notice.svelte";
   import { recordingRefusal } from "$lib/meetings/client/recording.svelte.ts";
   import { guestAttendeeLabel } from "$lib/meetings/screen/meeting-host-labels.ts";
   import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
@@ -93,7 +93,7 @@
   import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
   import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
   import MeetingQuestionsPanel from "$lib/meetings/screen/meeting-questions-panel.svelte";
-  import { MeetingPolls } from "$lib/meetings/client/polls.svelte.ts";
+  import { MeetingPolls, membersWhoCanAnswer } from "$lib/meetings/client/polls.svelte.ts";
   import {
     MAX_MEETING_QUESTION_LENGTH,
     MeetingQuestions,
@@ -1404,28 +1404,9 @@
     {client.recording.announcement}
   </div>
 
-  {#if client.recording.notice !== null}
-    <!-- The banner across the header, until the member dismisses it; the mark beside the title is
-         what stays. It is not itself a live region, because the region above has already said it. -->
-    <div class="flex items-start gap-8" data-recording-notice="">
-      <Alert.Root
-        variant={client.recording.notice.occasion === "stopped" ? "info" : "warning"}
-        role="note"
-        class="min-w-0 flex-1"
-      >
-        <Alert.Title>{client.recording.notice.title}</Alert.Title>
-        <Alert.Description>{client.recording.notice.sentence}</Alert.Description>
-      </Alert.Root>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Dismiss"
-        onclick={() => client.recording.dismiss()}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </div>
-  {/if}
+  <!-- The banner across the header, until the member dismisses it; the mark beside the title is
+       what stays. -->
+  <RecordingNotice recording={client.recording} />
 
   {#if canHost && summary !== null}
     <!-- Beside the header whose control opens it, rather than inside the room: a host who has not
@@ -1792,7 +1773,7 @@
         polls={polls.polls}
         hosting={myRole !== null}
         {viewerUserId}
-        inRoom={client.participants.length}
+        membersInRoom={membersWhoCanAnswer(client.participants)}
         loading={polls.reading}
         failed={polls.readFailure !== null && polls.polls.length === 0}
         opening={polls.opening}

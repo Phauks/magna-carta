@@ -139,6 +139,19 @@ function zoneCodeOn(meeting: MeetingSummary): string {
   }
 }
 
+/**
+ * Whether a recording is running in this meeting right now, which is when its row and its calendar
+ * entry carry the Recording mark.
+ *
+ * THE MARK IS SEEN WHERE THE MEETING IS LISTED, not only inside the room: somebody deciding whether
+ * to walk in is owed the answer to "is this being recorded" before they press Join, and the room's
+ * own announcement only reaches them after. A room that has ended records nothing, whatever its last
+ * recording is still doing on the way to the matter, so only a live meeting is ever marked.
+ */
+export function meetingIsBeingRecorded(meeting: MeetingSummary): boolean {
+  return meeting.status === "live" && meeting.recordingState === "recording";
+}
+
 /** When a meeting ended, as an instant in the reader's own zone. Empty while it has not. */
 export function meetingEnded(meeting: MeetingSummary): string {
   return meeting.endedAt === null ? "" : formatInstant(meeting.endedAt);

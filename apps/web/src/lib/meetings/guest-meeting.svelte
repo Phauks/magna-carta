@@ -37,7 +37,6 @@
    */
   import { onDestroy, onMount, untrack } from "svelte";
   import * as Alert from "@magna-carta/design-system/alert";
-  import X from "@lucide/svelte/icons/x";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FailureBand from "@magna-carta/design-system/failure-band";
@@ -104,6 +103,7 @@
   import MeetingReactions from "./screen/meeting-reactions.svelte";
   import MeetingRoster from "./screen/meeting-roster.svelte";
   import RecordingMark from "./screen/recording-mark.svelte";
+  import RecordingNotice from "./screen/recording-notice.svelte";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
 
@@ -538,28 +538,9 @@
         {/snippet}
       </ScreenHeader>
 
-      {#if client.recording.notice !== null}
-        <!-- The banner, until the guest dismisses it; the mark in the header is what stays. Not a
-             live region itself, because the page's own region has already said it. -->
-        <div class="flex items-start gap-8" data-recording-notice="">
-          <Alert.Root
-            variant={client.recording.notice.occasion === "stopped" ? "info" : "warning"}
-            role="note"
-            class="min-w-0 flex-1"
-          >
-            <Alert.Title>{client.recording.notice.title}</Alert.Title>
-            <Alert.Description>{client.recording.notice.sentence}</Alert.Description>
-          </Alert.Root>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Dismiss"
-            onclick={() => client.recording.dismiss()}
-          >
-            <X class="size-16" aria-hidden="true" />
-          </Button>
-        </div>
-      {/if}
+      <!-- The banner, until the guest dismisses it; the mark in the header is what stays. The same
+           component a member's room draws, in the same words. -->
+      <RecordingNotice recording={client.recording} />
 
       {#if superseded}
         <!-- No Rejoin: this guest is already back in the room somewhere else, and a Rejoin here

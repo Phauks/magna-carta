@@ -135,6 +135,25 @@ describe("a member who may join", () => {
 
     expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Join Call (0)");
   });
+
+  it("is shown the room's Recording mark beside Join while a recording runs, and not otherwise", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, recordingState: "recording" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("[data-recording-mark]")?.textContent).toContain("Recording");
+    expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Join Meeting (0)");
+  });
+
+  it("carries no mark for a room whose recording has stopped", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, recordingState: "composing" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("[data-recording-mark]")).toBeNull();
+  });
 });
 
 describe("a room whose host has shut the door", () => {
@@ -150,6 +169,16 @@ describe("a room whose host has shut the door", () => {
     expect(control?.textContent?.trim()).toBe("Locked");
     expect(control?.disabled).toBe(true);
     expect(control?.getAttribute("title")).toContain("locked");
+  });
+
+  it("still says the room is being recorded: the people inside are, whoever may come in", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, locked: true, recordingState: "recording" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("[data-recording-mark]")).not.toBeNull();
+    expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Locked");
   });
 });
 

@@ -259,6 +259,33 @@ export function awaitsAnswerFrom(poll: MeetingPollView, userId: string | null): 
   return userId === null || poll.askedByUserId !== userId;
 }
 
+/** Somebody in the room, as far as whether they can answer a poll depends on it. */
+export interface MeetingPollRespondent {
+  /** The firm member behind the stay. Empty for a guest, whom a member's roster names without one. */
+  readonly userId: string;
+  /** Whether the stay is a member's or a guest's, where the roster row says so. */
+  readonly kind?: "member" | "guest";
+}
+
+/**
+ * How many people in the room a poll can be answered by, which is what "12 of 30 answered" is out of.
+ *
+ * MEMBERS ONLY. Answering is a member route and there is no guest lane for it, so a guest in the room
+ * is somebody the poll can never hear from; counting them would leave every poll in a meeting with a
+ * client in it short of its total for ever. The roster row's `kind` says who is a guest where the row
+ * carries one; a row without it is read by the member identity a guest does not have, which on a
+ * member's screen — the only screen with polls on it — is the same answer.
+ */
+export function membersWhoCanAnswer(participants: readonly MeetingPollRespondent[]): number {
+  let members = 0;
+  for (const participant of participants) {
+    const isMember =
+      participant.kind === undefined ? participant.userId !== "" : participant.kind === "member";
+    if (isMember) members += 1;
+  }
+  return members;
+}
+
 /**
  * Whether a set of chosen options is an answer this poll will take.
  *

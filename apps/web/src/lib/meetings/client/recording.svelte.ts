@@ -23,10 +23,18 @@
  * rejoin, and a welcome naming that same recording restores the mark in silence. A welcome naming a
  * different one, or none where one was running, is a transition, and is announced as one.
  *
+ * EVERY TRANSITION IS SPOKEN, EVEN ONE WORDED LIKE THE LAST. An assertive live region is read when
+ * its text CHANGES, and a screen reader says nothing when the new text is the old text — so a second
+ * "Recording in progress", for a reconnect into a different recording, would reach the banner and
+ * the tone and never the reader. The region is therefore emptied at each transition and written a
+ * moment later: two changes, the second of which is the sentence. The moment is a short wait rather
+ * than the next microtask, because the accessibility tree is rebuilt on the browser's rendering
+ * pass, and an empty-then-full within one task reaches it as no change at all.
+ *
  * EVERY EDGE IS A SEAM. The tone and the voice are a device and a platform service; the routes are
- * the screen's. Under a test both are fakes, and the default for each is silence and refusal, so a
- * client built without them — a guest's, which may not start anything — does nothing it was not
- * given the means to do.
+ * the screen's; the wait before the region is rewritten is a clock. Under a test all three are
+ * fakes, and the default for the first two is silence and refusal, so a client built without them —
+ * a guest's, which may not start anything — does nothing it was not given the means to do.
  */
 import type { MeetingRecordingAnnouncement } from "@magna-carta/meeting-protocol/types";
 import type { Failure } from "$lib/api/problem.ts";
@@ -39,6 +47,23 @@ export type { MeetingRecordingAnnouncement };
 export const RECORDING_IN_PROGRESS = "Recording in progress";
 /** The words said and announced when it stops. */
 export const RECORDING_STOPPED = "Recording stopped";
+
+/**
+ * How long the live region stays empty before it is written, in milliseconds: long enough for the
+ * browser to have rendered the emptiness, short enough that nobody hears a gap.
+ */
+export const ANNOUNCEMENT_REWRITE_MILLISECONDS = 100;
+
+/** Wait, then run. Answers with the way to call it off. */
+export type MeetingRecordingDelay = (milliseconds: number, run: () => void) => () => void;
+
+/** The wait as a browser keeps it. */
+export const browserRecordingDelay: MeetingRecordingDelay = (milliseconds, run) => {
+  const waiting = setTimeout(run, milliseconds);
+  return () => {
+    clearTimeout(waiting);
+  };
+};
 
 /** What somebody with no name on the announcement is called in a sentence about them. */
 const UNNAMED_ACTOR = "Somebody";
@@ -314,9 +339,10 @@ export class MeetingRecording {
   notice = $state<MeetingRecordingNotice | null>(null);
 
   /**
-   * The sentence the assertive live region carries. Rewritten at each transition, so a reader using
-   * a screen reader is interrupted with it, and never cleared on a dismissal — a region that empties
-   * is a region some readers announce as empty.
+   * The sentence the assertive live region carries. Emptied at each transition and written again a
+   * moment later, so a reader using a screen reader is interrupted with it even where it reads as
+   * the last one did. Empty only for that moment: never cleared on a dismissal, because a region
+   * left empty is a region some readers announce as empty.
    */
   announcement = $state("");
 
@@ -330,6 +356,9 @@ export class MeetingRecording {
   refusedAct = $state<"start" | "stop" | null>(null);
 
   readonly #sounds: MeetingRecordingSounds;
+  readonly #after: MeetingRecordingDelay;
+  /** Calls off the region's pending rewrite, while one is waiting. */
+  #cancelRewrite: (() => void) | null = null;
   #routes: MeetingRecordingRoutes | null = null;
   /**
    * The recording this member was last told is running.
@@ -341,8 +370,12 @@ export class MeetingRecording {
    */
   #told: string | null = null;
 
-  constructor(sounds: MeetingRecordingSounds = SILENT_RECORDING_SOUNDS) {
+  constructor(
+    sounds: MeetingRecordingSounds = SILENT_RECORDING_SOUNDS,
+    after: MeetingRecordingDelay = browserRecordingDelay,
+  ) {
     this.#sounds = sounds;
+    this.#after = after;
   }
 
   /** Let the screen's routes be what Record and Stop reach. */
@@ -406,6 +439,8 @@ export class MeetingRecording {
   clear(): void {
     this.running = null;
     this.notice = null;
+    this.#cancelRewrite?.();
+    this.#cancelRewrite = null;
     this.announcement = "";
     this.#told = null;
     this.writeFailure = null;
@@ -453,7 +488,14 @@ export class MeetingRecording {
   ): void {
     this.notice = recordingNotice(occasion, announcement);
     const words = occasion === "stopped" ? RECORDING_STOPPED : RECORDING_IN_PROGRESS;
-    this.announcement = words;
+    // Emptied now and written after the wait, so the region changes twice and the second change is
+    // read; a transition arriving inside the wait replaces the one still waiting.
+    this.#cancelRewrite?.();
+    this.announcement = "";
+    this.#cancelRewrite = this.#after(ANNOUNCEMENT_REWRITE_MILLISECONDS, () => {
+      this.#cancelRewrite = null;
+      this.announcement = words;
+    });
     this.#sounds.chime(occasion === "stopped" ? "stopped" : "started");
     this.#sounds.speak(words);
   }

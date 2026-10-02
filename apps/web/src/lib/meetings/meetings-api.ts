@@ -26,8 +26,10 @@ import {
   meetingsListPollAnswers,
   meetingsListPolls,
   meetingsListQuestions,
+  meetingsListRecordings,
   meetingsLobby,
   meetingsOpenPoll,
+  meetingsRecordingNotices,
   meetingsRedactMessage,
   meetingsRedactQuestion,
   meetingsRemoveParticipant,
@@ -37,6 +39,8 @@ import {
   meetingsSetLocked,
   meetingsSetQuestionAnswered,
   meetingsStart,
+  meetingsStartRecording,
+  meetingsStopRecording,
   meetingsUpvoteQuestion,
   meetingsWithdrawQuestionUpvote,
   type JoinedMeeting,
@@ -51,6 +55,9 @@ import {
   type MeetingPoll,
   type MeetingPollAnswer,
   type MeetingQuestion,
+  type MeetingRecordingNoticeEntry,
+  type MeetingRecordingSummary,
+  type MeetingSummary,
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { client } from "@magna-carta/api-client/client";
@@ -716,46 +723,19 @@ export function redactMeetingQuestion(
  * the route. What the room broadcasts is what lights the mark on every screen — this browser's
  * included — so nothing here answers with anything a screen draws the mark from.
  *
- * TYPED HERE UNTIL THE GENERATED CLIENT CARRIES THE FOUR OPERATIONS. The shapes below mirror the
- * contract's own (`MeetingRecordingSummary` and the notice entry), and the calls go through the same
- * configured client every generated operation does, so a failure is the same `Failure` record and
- * is reported by the same interceptor. When the snapshot is regenerated, each call becomes the
- * generated function of the same path and these interfaces become the generated types.
+ * The four calls are the generated operations and the view types are the contract's own, so a
+ * change to a recording's shape on the server is a type error here rather than a screen that
+ * quietly reads a field that is no longer sent.
  */
 
 /** Somebody named on a recording: who started it, or who stopped it. */
-export interface MeetingRecordingActorView {
-  /** The member behind the act. Null on a guest's copy, which never carries a firm's handles. */
-  readonly userId: string | null;
-  readonly displayName: string;
-}
+export type MeetingRecordingActorView = MeetingRecordingSummary["startedBy"];
 
 /** Where one recording is in its life, in the server's own vocabulary. */
-export type MeetingRecordingStateView =
-  | "recording"
-  | "composing"
-  | "filed"
-  | "failed"
-  | "abandoned";
+export type MeetingRecordingStateView = MeetingRecordingSummary["state"];
 
 /** One recording, as the list reads it: identifiers, instants, a count and a state. No audio. */
-export interface MeetingRecordingView {
-  readonly id: string;
-  readonly meetingId: string;
-  readonly state: MeetingRecordingStateView;
-  readonly startedBy: MeetingRecordingActorView;
-  readonly startedAt: string;
-  readonly stoppedBy: MeetingRecordingActorView | null;
-  readonly stoppedAt: string | null;
-  /** Why it stopped: a member, a host, the meeting ending, the audio lost, the ceiling, a sweep. */
-  readonly stopReason: string | null;
-  readonly trackCount: number;
-  readonly capturedSeconds: number | null;
-  /** The document it became on the matter. Null until it has been added there. */
-  readonly fileId: string | null;
-  readonly transcriptId: string | null;
-  readonly summaryState: string | null;
-}
+export type MeetingRecordingView = MeetingRecordingSummary;
 
 /** One page of a meeting's recordings, and where the next page starts. */
 export interface MeetingRecordingPageView {
@@ -764,28 +744,14 @@ export interface MeetingRecordingPageView {
 }
 
 /** Why somebody was told: the start, an arrival while it ran, or the stop. */
-export type MeetingRecordingNoticeReasonView = "start" | "arrival" | "stop";
+export type MeetingRecordingNoticeReasonView = MeetingRecordingNoticeEntry["reason"];
 
 /** One occasion on which the room told somebody, which is the consent record. */
-export interface MeetingRecordingNoticeView {
-  readonly id: string;
-  readonly participantKind: "member" | "guest";
-  readonly participantId: string;
-  readonly userId: string | null;
-  readonly displayName: string;
-  readonly reason: MeetingRecordingNoticeReasonView;
-  readonly deliveredAt: string;
-}
+export type MeetingRecordingNoticeView = MeetingRecordingNoticeEntry;
 
 /** One page of who was told, and where the next page starts. */
 export interface MeetingRecordingNoticePageView {
   readonly notices: readonly MeetingRecordingNoticeView[];
-  readonly nextCursor: string | null;
-}
-
-/** A page as the list routes answer: the rows and the cursor, under the house's own field names. */
-interface PageOf<T> {
-  readonly data: readonly T[];
   readonly nextCursor: string | null;
 }
 
@@ -799,8 +765,7 @@ export function startMeetingRecording(
   meetingId: string,
 ): Promise<MeetingWrite<MeetingRecordingView>> {
   return write(() =>
-    client.post<{ 201: MeetingRecordingView }, unknown, true>({
-      url: "/api/v1/meetings/{meetingId}/recording",
+    meetingsStartRecording({
       path: { meetingId },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
@@ -816,8 +781,7 @@ export function stopMeetingRecording(
   meetingId: string,
 ): Promise<MeetingWrite<MeetingRecordingView>> {
   return write(() =>
-    client.delete<{ 200: MeetingRecordingView }, unknown, true>({
-      url: "/api/v1/meetings/{meetingId}/recording",
+    meetingsStopRecording({
       path: { meetingId },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
@@ -829,12 +793,11 @@ export function stopMeetingRecording(
  * Whether the firm can record this meeting at all, as the meeting's summary states it: the
  * deployment can carry a recording AND the firm has switched recording on. The screen reads it to
  * say so in place of the control, rather than offering an act the route would refuse.
- *
- * Read off the summary by name until the generated `MeetingSummary` carries `recordingConfigured`;
- * a summary that does not say is taken as able, and the route's own refusal then says it instead.
  */
-export function recordingIsConfigured(summary: object): boolean {
-  return Reflect.get(summary, "recordingConfigured") !== false;
+export function recordingIsConfigured(
+  summary: Pick<MeetingSummary, "recordingConfigured">,
+): boolean {
+  return summary.recordingConfigured;
 }
 
 /** One page of this meeting's recordings. Everybody who may join the meeting may read it. */
@@ -843,8 +806,7 @@ export function readMeetingRecordings(
   cursor: string | null = null,
 ): Promise<MeetingWrite<MeetingRecordingPageView>> {
   return write(async () => {
-    const { data } = await client.get<{ 200: PageOf<MeetingRecordingView> }, unknown, true>({
-      url: "/api/v1/meetings/{meetingId}/recordings",
+    const { data } = await meetingsListRecordings({
       path: { meetingId },
       query: cursor === null ? undefined : { cursor },
       throwOnError: true,
@@ -863,8 +825,7 @@ export function readMeetingRecordingNotices(
   cursor: string | null = null,
 ): Promise<MeetingWrite<MeetingRecordingNoticePageView>> {
   return write(async () => {
-    const { data } = await client.get<{ 200: PageOf<MeetingRecordingNoticeView> }, unknown, true>({
-      url: "/api/v1/meetings/{meetingId}/recordings/{recordingId}/notices",
+    const { data } = await meetingsRecordingNotices({
       path: { meetingId, recordingId },
       query: cursor === null ? undefined : { cursor },
       throwOnError: true,

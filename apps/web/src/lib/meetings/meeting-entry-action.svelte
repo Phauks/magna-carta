@@ -37,6 +37,8 @@
   import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
   import { startMeeting } from "./meetings-api.ts";
   import MeetingGuestsPanel from "./meeting-guests-panel.svelte";
+  import RecordingMark from "./screen/recording-mark.svelte";
+  import { meetingIsBeingRecorded } from "./meeting-list.ts";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
@@ -174,6 +176,12 @@
 {/if}
 
 {#if canJoin && configured}
+  {#if running !== null && meetingIsBeingRecorded(running)}
+    <!-- The room's own mark, beside the way into it: whether the meeting is being recorded is
+         answered on the entry, before Join, rather than by the announcement after it. Shown on a
+         locked room too, because the people inside are being recorded whoever may come in. -->
+    <RecordingMark />
+  {/if}
   {#if locked}
     <Button variant="secondary" disabled title={lockedReason}>
       <Lock class="size-16" aria-hidden="true" />

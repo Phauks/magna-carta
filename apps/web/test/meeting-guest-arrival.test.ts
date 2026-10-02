@@ -28,6 +28,7 @@ import {
 } from "../src/lib/meetings/guest-api.ts";
 import { isGuestPageAddress } from "../src/lib/meetings/guest-render-boundary.svelte";
 import type { GuestDeviceSeams } from "../src/lib/meetings/client/guest-devices.ts";
+import { ANNOUNCEMENT_REWRITE_MILLISECONDS } from "../src/lib/meetings/client/recording.svelte.ts";
 import GuestErrorPage from "../src/routes/join/+error.svelte";
 import { page } from "./stubs/app-state.ts";
 import Harness from "./guest-meeting-harness.svelte";
@@ -882,6 +883,12 @@ describe("a recording, as a guest meets it", () => {
     return target.querySelector("[data-recording-mark]");
   }
 
+  /** Let the live region's rewrite land: it is emptied at a transition and written a moment later. */
+  async function rewritten(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ANNOUNCEMENT_REWRITE_MILLISECONDS + 20));
+    await settle();
+  }
+
   it("is marked in the guest's header from the announcement until the stop, and announced", async () => {
     await draw();
     const socket = await enterTheRoom();
@@ -889,6 +896,7 @@ describe("a recording, as a guest meets it", () => {
 
     socket?.deliver({ v: 1, type: "recording", ...recording });
     await settle();
+    await rewritten();
     expect(recordingMark()?.textContent).toContain("Recording");
     expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
       "Rosalind Chase started recording this meeting.",
@@ -902,8 +910,17 @@ describe("a recording, as a guest meets it", () => {
     expect(names).not.toContain("Stop Recording");
     expect(document.body.innerHTML).not.toContain("usr_");
 
+    // The member's own banner component: Dismiss takes the banner and leaves the mark.
+    target
+      .querySelector<HTMLButtonElement>('[data-recording-notice] button[aria-label="Dismiss"]')
+      ?.click();
+    await settle();
+    expect(target.querySelector("[data-recording-notice]")).toBeNull();
+    expect(recordingMark()).not.toBeNull();
+
     socket?.deliver({ v: 1, type: "recording", ...recording, state: "stopped" });
     await settle();
+    await rewritten();
     expect(recordingMark()).toBeNull();
     expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
       "Recording stopped",
@@ -925,6 +942,7 @@ describe("a recording, as a guest meets it", () => {
       recording,
     });
     await settle();
+    await rewritten();
 
     expect(recordingMark()).not.toBeNull();
     expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(

@@ -24,6 +24,7 @@ import {
   type MeetingClientSeams,
 } from "$lib/meetings/client/meeting-client.svelte.ts";
 import {
+  ANNOUNCEMENT_REWRITE_MILLISECONDS,
   browserRecordingSounds,
   MeetingRecording,
   readRecordingAnnouncement,
@@ -38,6 +39,7 @@ import { queryClient } from "../src/lib/api/screen-data.ts";
 import { page } from "./stubs/app-state.ts";
 import { sessionPermissions } from "../src/lib/access/session-permissions.svelte.ts";
 import Harness from "./meeting-room-harness.svelte";
+import RecordingNotice from "../src/lib/meetings/screen/recording-notice.svelte";
 
 const MEETING_ID = "meeting_1";
 const ORIGIN = "https://app.example";
@@ -60,6 +62,15 @@ function stopped(recordingId = "meetingRecording_1"): Record<string, unknown> {
     by: { userId: "usr_2", displayName: "Rosalind Chase" },
     at: "2026-09-20T15:30:00.000Z",
   };
+}
+
+/**
+ * Let the live region's rewrite land. The region is emptied at a transition and written after a
+ * short wait, so a reader hears even a sentence worded like the last; this is that wait, on the real
+ * clock, because the client under test keeps it with the browser's own timer.
+ */
+async function rewritten(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ANNOUNCEMENT_REWRITE_MILLISECONDS + 20));
 }
 
 /** The tone and the voice, counted rather than played. */
@@ -197,7 +208,7 @@ describe("reading an announcement", () => {
 });
 
 describe("the announcement on start", () => {
-  it("lights the mark and goes out through every channel at once", () => {
+  it("lights the mark and goes out through every channel at once", async () => {
     const { client: meeting, socket, sounds } = wired();
     welcome(socket);
     expect(meeting.recording.running).toBeNull();
@@ -206,6 +217,7 @@ describe("the announcement on start", () => {
     socket.deliver({ v: 1, type: "recording", ...started() });
 
     expect(meeting.recording.running?.recordingId).toBe("meetingRecording_1");
+    await rewritten();
     expect(meeting.recording.announcement).toBe(RECORDING_IN_PROGRESS);
     expect(meeting.recording.notice?.title).toBe("Recording in Progress");
     expect(meeting.recording.notice?.sentence).toBe(
@@ -235,9 +247,10 @@ describe("the announcement on start", () => {
 });
 
 describe("the announcement on arrival", () => {
-  it("tells somebody who arrives while a recording runs, from their own welcome", () => {
+  it("tells somebody who arrives while a recording runs, from their own welcome", async () => {
     const { client: meeting, socket, sounds } = wired();
     welcome(socket, started());
+    await rewritten();
 
     expect(meeting.recording.running?.recordingId).toBe("meetingRecording_1");
     expect(meeting.recording.notice?.occasion).toBe("arrival");
@@ -285,7 +298,7 @@ describe("the announcement on arrival", () => {
 });
 
 describe("the mark", () => {
-  it("persists through everything else the room says, and clears on the stop", () => {
+  it("persists through everything else the room says, and clears on the stop", async () => {
     const { client: meeting, socket, sounds } = wired();
     welcome(socket);
     socket.deliver({ v: 1, type: "recording", ...started() });
@@ -296,6 +309,7 @@ describe("the mark", () => {
 
     socket.deliver({ v: 1, type: "recording", ...stopped() });
     expect(meeting.recording.running).toBeNull();
+    await rewritten();
     expect(meeting.recording.announcement).toBe(RECORDING_STOPPED);
     expect(meeting.recording.notice?.sentence).toBe("Rosalind Chase stopped the recording.");
     expect(sounds.chimes).toEqual(["started", "stopped"]);
@@ -331,9 +345,10 @@ describe("the sounds a browser makes", () => {
     }).not.toThrow();
   });
 
-  it("are not the only channel: a client with none still announces on screen and to a reader", () => {
+  it("are not the only channel: a client with none still announces on screen and to a reader", async () => {
     const recording = new MeetingRecording();
     recording.noteFrame(readRecordingAnnouncement(started()));
+    await rewritten();
     expect(recording.announcement).toBe(RECORDING_IN_PROGRESS);
     expect(recording.notice?.title).toBe("Recording in Progress");
   });
@@ -347,6 +362,99 @@ function failed(slug: string, status: number): Failure {
     failedAt: new Date("2026-09-20T15:00:00.000Z"),
   };
 }
+
+/** A wait driven by hand: what is waiting, and the way to let it run. */
+class HandDelay {
+  readonly waiting: { milliseconds: number; run: () => void; cancelled: boolean }[] = [];
+  after = (milliseconds: number, run: () => void): (() => void) => {
+    const entry = { milliseconds, run, cancelled: false };
+    this.waiting.push(entry);
+    return () => {
+      entry.cancelled = true;
+    };
+  };
+  /** Run everything still waiting, as the clock passing would. */
+  pass(): void {
+    for (const entry of this.waiting.splice(0)) if (!entry.cancelled) entry.run();
+  }
+}
+
+describe("the live region", () => {
+  it("speaks two identical announcements in a row, by emptying before each one", () => {
+    const delay = new HandDelay();
+    const recording = new MeetingRecording(undefined, delay.after);
+    const heard: string[] = [];
+    const listen = (): void => {
+      if (heard.at(-1) !== recording.announcement) heard.push(recording.announcement);
+    };
+
+    recording.noteFrame(readRecordingAnnouncement(started("meetingRecording_1")));
+    listen();
+    delay.pass();
+    listen();
+    // The connection blinks, and the welcome after it names a DIFFERENT recording: the same words,
+    // and a transition the reader is owed.
+    recording.noteDisconnected();
+    recording.noteWelcome(readRecordingAnnouncement(started("meetingRecording_2")));
+    listen();
+    delay.pass();
+    listen();
+
+    expect(heard).toEqual(["", RECORDING_IN_PROGRESS, "", RECORDING_IN_PROGRESS]);
+    expect(delay.waiting).toHaveLength(0);
+  });
+
+  it("waits the stated moment, and lets a later transition replace one still waiting", () => {
+    const delay = new HandDelay();
+    const recording = new MeetingRecording(undefined, delay.after);
+    recording.noteFrame(readRecordingAnnouncement(started()));
+    expect(delay.waiting[0]?.milliseconds).toBe(ANNOUNCEMENT_REWRITE_MILLISECONDS);
+
+    recording.noteFrame(readRecordingAnnouncement(stopped()));
+    delay.pass();
+    expect(recording.announcement).toBe(RECORDING_STOPPED);
+  });
+
+  it("writes nothing after the meeting is over for this browser", () => {
+    const delay = new HandDelay();
+    const recording = new MeetingRecording(undefined, delay.after);
+    recording.noteFrame(readRecordingAnnouncement(started()));
+    recording.clear();
+    delay.pass();
+    expect(recording.announcement).toBe("");
+  });
+});
+
+describe("the banner", () => {
+  it("is one component: drawn from the concern, gone on Dismiss, and back on the next transition", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const recording = new MeetingRecording();
+    const drawn = mount(RecordingNotice, { target: host, props: { recording } });
+    flushSync();
+    expect(host.querySelector("[data-recording-notice]")).toBeNull();
+
+    recording.noteFrame(readRecordingAnnouncement(started()));
+    flushSync();
+    const banner = host.querySelector("[data-recording-notice]");
+    expect(banner?.textContent).toContain("Recording in Progress");
+    expect(banner?.textContent).toContain("Rosalind Chase started recording this meeting.");
+    // Not a live region: the page's own region says the sentence, and saying it twice is noise.
+    expect(banner?.querySelector("[aria-live]")).toBeNull();
+
+    host.querySelector<HTMLButtonElement>('button[aria-label="Dismiss"]')?.click();
+    flushSync();
+    expect(host.querySelector("[data-recording-notice]")).toBeNull();
+
+    recording.noteFrame(readRecordingAnnouncement(stopped()));
+    flushSync();
+    expect(host.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "Rosalind Chase stopped the recording.",
+    );
+    void unmount(drawn);
+    host.remove();
+  });
+});
 
 describe("starting and stopping", () => {
   it("does not light the mark on the route's answer, only on the room's announcement", async () => {
@@ -411,6 +519,9 @@ const SUMMARY = {
   locked: false,
   lobby: "off",
   configured: true,
+  recordingState: "none",
+  recordingConfigured: true,
+  captionsAvailable: false,
 };
 
 class ScreenSocket {
@@ -570,6 +681,8 @@ describe("the room screen's mark", () => {
 
     sockets[0]?.deliver({ v: 1, type: "recording", ...started() });
     await settle();
+    await rewritten();
+    await settle();
     expect(mark()?.textContent).toContain("Recording");
     expect(liveRegion()?.textContent?.trim()).toBe(RECORDING_IN_PROGRESS);
     expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
@@ -586,12 +699,44 @@ describe("the room screen's mark", () => {
 
     sockets[0]?.deliver({ v: 1, type: "recording", ...stopped() });
     await settle();
+    await rewritten();
+    await settle();
     expect(mark()).toBeNull();
     expect(liveRegion()?.textContent?.trim()).toBe(RECORDING_STOPPED);
   });
 
+  it("changes the live region for each of two identical announcements in a row", async () => {
+    await enter(null);
+    const region = liveRegion();
+    expect(region).toBeDefined();
+    const held: string[] = [];
+    const observer = new MutationObserver(() => {
+      const text = region?.textContent?.trim() ?? "";
+      if (held.at(-1) !== text) held.push(text);
+    });
+    if (region !== undefined) {
+      observer.observe(region, { childList: true, characterData: true, subtree: true });
+    }
+
+    sockets[0]?.deliver({ v: 1, type: "recording", ...started("meetingRecording_1") });
+    await settle();
+    await rewritten();
+    await settle();
+    // A second recording announced with no stop heard between: the same sentence, a new fact.
+    sockets[0]?.deliver({ v: 1, type: "recording", ...started("meetingRecording_2") });
+    await settle();
+    await rewritten();
+    await settle();
+    observer.disconnect();
+
+    expect(held.filter((text) => text === RECORDING_IN_PROGRESS)).toHaveLength(2);
+    expect(held.slice(-3)).toEqual([RECORDING_IN_PROGRESS, "", RECORDING_IN_PROGRESS]);
+  });
+
   it("is there from the welcome for somebody arriving mid-recording, with the banner", async () => {
     await enter(null, started());
+    await rewritten();
+    await settle();
     expect(mark()).not.toBeNull();
     expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
       "This meeting is being recorded.",

@@ -81,7 +81,9 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   (`recordThrough`). THE ROOM'S FRAME LIGHTS THE MARK, NEVER THE MEMBER'S PRESS: the `recording` frame
   and the welcome's `recording` field are the only things that light or clear it. It announces once
   per transition, and what it has told survives a lost socket, so a rejoin into the same recording
-  restores the mark in silence. The sounds are a seam (`MeetingClientSeams.createRecordingSounds`,
+  restores the mark in silence. The live region is EMPTIED AND REWRITTEN a moment later on every
+  transition, because an assertive region does not re-read text identical to what it already holds
+  and the accessibility tree updates only when the browser renders. The sounds are a seam (`MeetingClientSeams.createRecordingSounds`,
   silent by default) with an audio context of its own, because the meter's does not exist for a
   member who published no microphone.
 - `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
@@ -97,7 +99,9 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 
 **`screen/` — what is drawn.** `meeting-reactions.svelte` (the control-bar menu of six),
 `recording-mark.svelte` (the static Recording badge drawn in the header of the room and guest pages
-while the room says a recording runs), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+while the room says a recording runs, and beside a recorded meeting's row and calendar entry from the
+summary's `recordingState`), `recording-notice.svelte` (the one dismissible banner both pages draw
+from the recording concern), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who

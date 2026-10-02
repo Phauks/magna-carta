@@ -22,11 +22,13 @@
   import Video from "@lucide/svelte/icons/video";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { eventAddress } from "./meetings-api.ts";
+  import RecordingMark from "./screen/recording-mark.svelte";
   import {
     matterAddress,
     meetingAddress,
     meetingColumns,
     meetingInitialSort,
+    meetingIsBeingRecorded,
     MEETING_COLUMN_IDENTIFIERS,
     MEETING_SECTIONS,
     type MeetingScope,
@@ -93,6 +95,14 @@
         <Video class="mc-table-grid-row-glyph shrink-0" aria-label="Video meeting" />
       {/if}
       <span class="truncate" title={row.title}>{text}</span>
+      {#if meetingIsBeingRecorded(row)}
+        <!-- The same mark the room's header draws, beside the name of the meeting it is about, so
+             whether a meeting is being recorded is answered before anybody presses Join. It keeps
+             its width and the title gives way, because the mark is the fact that must not be cut. -->
+        <span class="flex shrink-0">
+          <RecordingMark />
+        </span>
+      {/if}
     </span>
   {:else if column.id === MEETING_COLUMN_IDENTIFIERS.where}
     {@const address = matterAddress(row)}

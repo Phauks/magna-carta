@@ -20,6 +20,7 @@ import {
   meetingAddress,
   meetingColumns,
   meetingEnded,
+  meetingIsBeingRecorded,
   meetingWhen,
   meetingWhere,
   MEETING_COLUMN_IDENTIFIERS,
@@ -48,6 +49,9 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     locked: false,
     lobby: "off",
     configured: true,
+    recordingState: "none",
+    recordingConfigured: true,
+    captionsAvailable: false,
     ...overrides,
   };
 }
@@ -78,6 +82,22 @@ describe("what a row says", () => {
   it("names the room by the meeting rather than letting an identifier shape the address", () => {
     expect(meetingAddress(meeting())).toBe("/meetings/meeting_1");
     expect(meetingAddress(meeting({ id: "a/b" }))).toBe("/meetings/a%2Fb");
+  });
+
+  it("marks a meeting as being recorded only while it is live and its recording is running", () => {
+    expect(meetingIsBeingRecorded(meeting({ recordingState: "recording" }))).toBe(true);
+    expect(meetingIsBeingRecorded(meeting())).toBe(false);
+    // Stopped and on its way to the matter: nobody in the room is being recorded any more.
+    expect(meetingIsBeingRecorded(meeting({ recordingState: "composing" }))).toBe(false);
+    expect(
+      meetingIsBeingRecorded(
+        meeting({
+          status: "ended",
+          endedAt: "2026-09-18T16:00:00.000Z",
+          recordingState: "recording",
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("leaves the ended column empty for a meeting that has not ended", () => {
@@ -170,6 +190,24 @@ describe("a section of the screen", () => {
     // somebody who cannot see the glyph.
     expect(rendered.querySelector('[aria-label="Call"]')).not.toBeNull();
     expect(rendered.querySelector('[aria-label="Video meeting"]')).toBeNull();
+  });
+
+  it("carries the room's Recording mark on the row of a live meeting being recorded, and no other", () => {
+    const rendered = draw({
+      scope: "live",
+      meetings: [
+        meeting({ recordingState: "recording" }),
+        meeting({ id: "meeting_2", title: "Client call", recordingState: "composing" }),
+      ],
+    });
+
+    const marks = [...rendered.querySelectorAll("[data-recording-mark]")];
+    expect(marks).toHaveLength(1);
+    expect(marks[0]?.textContent).toContain("Recording");
+    // Beside the name of the meeting it is about, in that row's own cell.
+    expect(marks[0]?.closest("td, [role='gridcell'], [role='cell']")?.textContent).toContain(
+      "Hearing preparation",
+    );
   });
 
   it("says a locked room is locked, where the row would otherwise offer a way in", () => {
