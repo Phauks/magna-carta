@@ -273,6 +273,12 @@ export type Bindings = {
   // absent in every test environment and until the deploy-time binding is added; while unset,
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
+  // The dedicated address engine worker (magna-carta-address), reached over a service binding. It owns
+  // the OpenAddresses index Containers and the platform bucket the index lives in. Optional: absent in
+  // every test environment and until the deploy-time binding is added; while unset, US addresses are
+  // suggested by Smarty when its secrets are set and by nothing otherwise
+  // (address-lookup/address-lookup-engine.ts).
+  ADDRESS_SERVICE?: Fetcher;
   // The in-app document-editing worker (magna-carta-edit), reached over a service binding ONLY for
   // the aggregate version read — the editing traffic itself flows the other way (that worker calls
   // this one's WOPI host over its own APP_WORKER binding). Optional: absent in every test

@@ -6,6 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./port": "./src/port.ts",
+    "./routed": "./src/routed.ts",
+    "./self-hosted": "./src/self-hosted.ts",
     "./smarty": "./src/smarty.ts"
   },
   "scripts": {

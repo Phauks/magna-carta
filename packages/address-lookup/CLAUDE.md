@@ -1,10 +1,11 @@
 # @magna-carta/address-lookup — local notes
 
-The **address autocomplete port and its engine**: the port a surface asks "what addresses match what
+The **address autocomplete port and its engines**: the port a surface asks "what addresses match what
 this person has typed" through, the deferred implementation that answers honestly while no engine is
-provisioned, and the Smarty adapter that is the engine once it is. Pure package — no runtime
-dependencies, no `env`, no UI; the adapter's `fetch` is injected, and the Worker decides which port a
-request gets.
+provisioned, the self-hosted adapter over the platform's own US index, the Smarty adapter for every
+other country, and the routed port that composes them by country. Pure package — no runtime
+dependencies, no `env`, no UI; each adapter's transport is injected, and the Worker decides which port
+a request gets.
 
 **Why a port with no engine behind it.** A surface written against `deferredAddressLookupPort()`
 degrades to exactly today's behaviour — the person types the address themselves — with no branch at
@@ -18,6 +19,11 @@ same reason.
   `deferredAddressLookupPort()`
 - `src/smarty.ts` — `smartyAddressLookupPort(credentials, fetch)`: US Autocomplete Pro for the United
   States, International Autocomplete everywhere else
+- `src/self-hosted.ts` — `selfHostedAddressLookupPort(binding)`: the port over `apps/address-worker`'s
+  `/suggestions` and `/units`, translating the engine's corpus vocabulary into a record's parts
+- `src/routed.ts` — `routedAddressLookupPort({ byCountry, otherwise })`: one port over several, with the
+  minting engine's name prefixed to every identifier so `resolve` can route
+- `src/opaque-handle.ts` — the base64url JSON identifier both adapters mint and decode
 - `src/country-alpha-three.ts` — alpha-2 to alpha-3, because the international service alone asks for
   the longer code
 
@@ -91,3 +97,28 @@ same reason.
 - **International is two steps, and only the second is charged.** A search returns lines of text and
   identifiers; the parts arrive when somebody chooses one. That is why an international suggestion's
   `parts` holds only the country.
+
+## The self-hosted adapter
+
+- **The engine speaks corpus vocabulary; this adapter is where it becomes a record's.** OpenAddresses
+  holds a house number, a street and a unit in capitals. The adapter assembles the street line, puts
+  the unit on the second line behind `#` (the corpus does not say whether it is an apartment or a
+  suite, and `#` is the designator the postal service accepts for any), and writes street and city in
+  the case a person would (`inWrittenCase`). Do that here once, never in a form.
+- **`unavailable` from the engine is `engine-not-implemented` here.** The engine is deployed but no
+  index has been published yet, which a person experiences exactly like no engine at all.
+- **An identifier outlives the index build that minted it.** An address identifier carries its parts
+  and coordinates; a group identifier carries its building (number, street, city, region, postcode),
+  not a row id. A monthly rebuild between the offer and the choice therefore changes nothing.
+- **`near` is a bias, never a filter**, and the engine is what applies it. The adapter forwards it in
+  capitals and drops nothing else.
+
+## The routed port
+
+- **Every identifier leaving it is `<engine name>.<engine's identifier>`.** `resolve` has only an
+  identifier, so the prefix is the routing. An identifier with no known prefix is `expired`, and no
+  engine is asked about it. Engine names are lowercase letters — a name with a `.` in it would split
+  wrongly.
+- **A country with no engine is `no-coverage`**, not `engine-not-implemented`: some engine is
+  provisioned, it just does not cover that country. The Worker returns the bare deferred port, not a
+  routed one, when nothing at all is provisioned.

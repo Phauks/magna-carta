@@ -255,6 +255,7 @@
               <StreetSuggestionField
                 text={value.street ?? ""}
                 country={value.country}
+                near={value.region}
                 {lookup}
                 fieldName={field.label}
                 controlProperties={props}

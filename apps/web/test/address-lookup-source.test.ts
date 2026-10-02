@@ -57,6 +57,22 @@ describe("addressLookup", () => {
     expect(asked).toEqual([["US", "14 Rose"]]);
   });
 
+  it("sends the form's region as a bias only when it is a subdivision code", async () => {
+    const asked: (string | undefined)[] = [];
+    const lookup = addressLookup(
+      ports({
+        suggest: (_country, _query, near) => {
+          asked.push(near);
+          return Promise.resolve({ outcome: "suggestions", suggestions: [] });
+        },
+      }),
+    );
+    await lookup.suggest("US", "14 Rose", " nc ");
+    await lookup.suggest("US", "14 Rose", "North Carolina");
+    await lookup.suggest("US", "14 Rose");
+    expect(asked).toEqual(["nc", undefined, undefined]);
+  });
+
   it("passes no-coverage and unavailable through as answers, not failures", async () => {
     const outcomes = ["no-coverage", "unavailable"] as const;
     const answers = await Promise.all(

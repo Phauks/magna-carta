@@ -36,15 +36,15 @@ import type {
 
 /** The two calls, as ports, so a test can answer them without a server. */
 export interface AddressLookupPorts {
-  suggest(country: string, query: string): Promise<AddressSuggestionsResponse>;
+  suggest(country: string, query: string, near?: string): Promise<AddressSuggestionsResponse>;
   resolve(suggestionId: string): Promise<AddressResolutionResponse>;
 }
 
 /** The ports over the generated client. Both throw on failure, which is the contract above. */
 export const generatedAddressLookupPorts: AddressLookupPorts = {
-  async suggest(country, query) {
+  async suggest(country, query, near) {
     const { data } = await addressLookupSuggest({
-      body: { country, query },
+      body: { country, query, ...(near === undefined ? {} : { near }) },
       throwOnError: true,
     });
     return data;
@@ -73,12 +73,22 @@ function partsFrom(parts: AddressLookupParts): AddressParts {
   return { ...parts };
 }
 
+/**
+ * The form's region as a bias the Worker accepts: a subdivision code ("NC"), or nothing. A region a
+ * person typed out in full is not a code, and sending it would refuse the whole request — the bias
+ * is a nicety, so it is dropped rather than allowed to cost the suggestions.
+ */
+function regionCodeOf(near: string | undefined): string | undefined {
+  const region = near?.trim() ?? "";
+  return /^[A-Za-z0-9]{1,3}$/u.test(region) ? region : undefined;
+}
+
 export function addressLookup(
   ports: AddressLookupPorts = generatedAddressLookupPorts,
 ): AddressLookup {
   return {
-    async suggest(country: string, query: string): Promise<AddressLookupAnswer> {
-      const body = await ports.suggest(country, query);
+    async suggest(country: string, query: string, near?: string): Promise<AddressLookupAnswer> {
+      const body = await ports.suggest(country, query, regionCodeOf(near));
       if (body.outcome === "suggestions") {
         return { kind: "offers", offers: body.suggestions.map(offerFrom) };
       }

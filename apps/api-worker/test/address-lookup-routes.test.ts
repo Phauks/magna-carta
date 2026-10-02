@@ -22,6 +22,7 @@ const base = "https://example.com/api/v1/address-lookup";
 const PROVISIONED = { ...env, SMARTY_AUTH_ID: "test-id", SMARTY_AUTH_TOKEN: "test-token" };
 
 let firmId: FirmId;
+let ownerUserId: string;
 let ownerCookie: string;
 let unprivilegedCookie: string;
 
@@ -33,6 +34,7 @@ beforeAll(async () => {
     userName: "Lookup Owner",
     firmId,
   });
+  ownerUserId = userId;
   await mirrorMemberWithOwnerRole(userId, "Lookup Owner", firmId);
   ownerCookie = await signInForSessionCookie("address-lookup-owner@example.com");
   // Present in the firm but holding no role, so no directory:edit.
@@ -208,5 +210,162 @@ describe("the provisioned state", () => {
     expect(text).toContain("typed by hand");
     expect(text).not.toContain("Rosewood");
     expect(text).not.toContain("test-token");
+  });
+});
+
+/** The address worker as the app sees it: a service binding that records what it was asked. */
+function addressService(answer: (operation: string, body: Record<string, unknown>) => unknown) {
+  const asked: { operation: string; body: Record<string, unknown> }[] = [];
+  const binding = {
+    async fetch(input: RequestInfo | URL, init?: RequestInit) {
+      const request = new Request(input, init);
+      const body = (await request.json()) as Record<string, unknown>;
+      const operation = new URL(request.url).pathname;
+      asked.push({ operation, body });
+      return Response.json(answer(operation, body));
+    },
+  } as unknown as Fetcher;
+  return { binding, asked };
+}
+
+const WAKE_FOREST = {
+  number: "1402",
+  street: "LAWSON CREEK WAY",
+  unit: "",
+  city: "WAKE FOREST",
+  region: "NC",
+  postcode: "27587",
+  longitude: -78.51,
+  latitude: 35.97,
+};
+
+function writeRequest(method: string, path: string, body: unknown): [string, RequestInit] {
+  return [
+    `https://example.com/api/v1/${path}`,
+    {
+      method,
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/json",
+        "idempotency-key": crypto.randomUUID(),
+      },
+      body: JSON.stringify(body),
+    },
+  ];
+}
+
+describe("the platform's own engine", () => {
+  it("answers the United States from the address worker, with the region the form sent", async () => {
+    answerSmartyWith(() => new Response("must not be called", { status: 500 }));
+    const service = addressService(() => ({
+      outcome: "suggestions",
+      offers: [{ kind: "address", address: WAKE_FOREST }],
+    }));
+    const response = await app.request(
+      ...post("suggestions", { country: "us", query: "1402 lawson", near: "nc" }, ownerCookie),
+      { ...PROVISIONED, ADDRESS_SERVICE: service.binding },
+    );
+    const offered = (await response.json()) as {
+      outcome: string;
+      suggestions: { suggestionId: string; label: string }[];
+    };
+    expect(offered.outcome).toBe("suggestions");
+    expect(offered.suggestions[0]?.label).toBe("1402 Lawson Creek Way, Wake Forest, NC 27587");
+    expect(service.asked).toEqual([
+      {
+        operation: "/suggestions",
+        body: { country: "US", query: "1402 lawson", limit: 8, near: "NC" },
+      },
+    ]);
+    expect(smartyCalls).toHaveLength(0);
+
+    const resolution = await app.request(
+      ...post("resolutions", { suggestionId: offered.suggestions[0]!.suggestionId }, ownerCookie),
+      { ...PROVISIONED, ADDRESS_SERVICE: service.binding },
+    );
+    expect(await resolution.json()).toEqual({
+      outcome: "address",
+      parts: {
+        street: "1402 Lawson Creek Way",
+        city: "Wake Forest",
+        region: "NC",
+        postal: "27587",
+        country: "US",
+      },
+      location: { latitude: 35.97, longitude: -78.51 },
+    });
+    // An address carries its own parts: choosing it asked the worker nothing more.
+    expect(service.asked).toHaveLength(1);
+  });
+
+  it("sends every other country to Smarty when it is provisioned, and covers none when it is not", async () => {
+    answerSmartyWith(() => Response.json({ candidates: [] }));
+    const service = addressService(() => ({ outcome: "suggestions", offers: [] }));
+    const viaSmarty = await app.request(
+      ...post("suggestions", { country: "CA", query: "12 Rue" }, ownerCookie),
+      { ...PROVISIONED, ADDRESS_SERVICE: service.binding },
+    );
+    expect(await viaSmarty.json()).toEqual({ outcome: "suggestions", suggestions: [] });
+    expect(smartyCalls).toHaveLength(1);
+
+    const uncovered = await app.request(
+      ...post("suggestions", { country: "CA", query: "12 Rue" }, ownerCookie),
+      { ...env, SMARTY_AUTH_ID: undefined, SMARTY_AUTH_TOKEN: undefined, ADDRESS_SERVICE: service.binding },
+    );
+    expect(await uncovered.json()).toEqual({ outcome: "no-coverage" });
+    expect(service.asked).toHaveLength(0);
+  });
+
+  it("stands the caller's primary office in for a region the form did not send", async () => {
+    const created = await app.request(
+      ...writeRequest("POST", "locations", { name: "Raleigh", numberCode: "RAL" }),
+      env,
+    );
+    expect(created.status).toBe(201);
+    const { id: locationId } = (await created.json()) as { id: string };
+    const addressed = await app.request(
+      ...writeRequest("PUT", `locations/${locationId}/addresses`, {
+        addresses: [{ kind: "physical", street: "1 Fayetteville St", region: "NC", country: "US" }],
+      }),
+      env,
+    );
+    expect(addressed.status).toBe(200);
+    const staffed = await app.request(
+      ...writeRequest("PUT", `locations/${locationId}/members/${ownerUserId}`, { isPrimary: true }),
+      env,
+    );
+    expect(staffed.status).toBeLessThan(300);
+
+    const service = addressService(() => ({ outcome: "suggestions", offers: [] }));
+    await app.request(...post("suggestions", { country: "US", query: "1402 lawson" }, ownerCookie), {
+      ...env,
+      ADDRESS_SERVICE: service.binding,
+    });
+    expect(service.asked[0]?.body.near).toBe("NC");
+
+    // What the form sent wins over the office.
+    await app.request(
+      ...post("suggestions", { country: "US", query: "1402 lawson", near: "TX" }, ownerCookie),
+      { ...env, ADDRESS_SERVICE: service.binding },
+    );
+    expect(service.asked[1]?.body.near).toBe("TX");
+  });
+
+  it("answers unavailable while the worker has no index built yet", async () => {
+    const service = addressService(() => ({ outcome: "unavailable" }));
+    const response = await app.request(
+      ...post("suggestions", { country: "US", query: "1402 lawson" }, ownerCookie),
+      { ...env, ADDRESS_SERVICE: service.binding },
+    );
+    expect(await response.json()).toEqual({ outcome: "unavailable" });
+  });
+
+  it("refuses a bias that is not a subdivision code", async () => {
+    const response = await app.request(
+      ...post("suggestions", { country: "US", query: "1402 lawson", near: "US-NC" }, ownerCookie),
+      env,
+    );
+    expect(response.status).toBe(422);
   });
 });

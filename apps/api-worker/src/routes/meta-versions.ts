@@ -39,6 +39,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
  * would fail this worker's own deploy — the binding line lands with that worker's deploy).
  */
 export const SERVICE_VERSION_ROSTER = [
+  { id: "address", service: "magna-carta-address", binding: "ADDRESS_SERVICE" },
   { id: "bundle", service: "magna-carta-bundle", binding: "BUNDLE_SERVICE" },
   { id: "convert", service: "magna-carta-convert", binding: "CONVERT" },
   { id: "discovery", service: "magna-carta-discovery", binding: "DISCOVERY_SERVICE" },

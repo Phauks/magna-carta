@@ -25,6 +25,7 @@
  * Pure: `fetch` is injected, nothing reads `env`, and nothing is held between calls.
  */
 import { alphaThreeFor, alphaTwoFor } from "./country-alpha-three.ts";
+import { decodeOpaqueHandle, encodeOpaqueHandle, partsFrom } from "./opaque-handle.ts";
 import {
   addressAdapterError,
   addressCountryNotCovered,
@@ -85,33 +86,7 @@ type Handle =
   | { readonly route: "international-address"; readonly parts: SuggestedAddressParts };
 
 function encodeHandle(handle: Handle): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(handle));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
-}
-
-const PART_KEYS = [
-  "street",
-  "streetTwo",
-  "dependentLocality",
-  "city",
-  "region",
-  "postal",
-  "sortingCode",
-  "country",
-] as const;
-
-/** Only the known string parts survive a round trip through the browser; anything else is dropped. */
-function partsFrom(value: unknown): SuggestedAddressParts | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const source = value as Record<string, unknown>;
-  const parts: Record<string, string> = {};
-  for (const key of PART_KEYS) {
-    const part = source[key];
-    if (typeof part === "string" && part !== "") parts[key] = part;
-  }
-  return parts;
+  return encodeOpaqueHandle(handle);
 }
 
 /**
@@ -120,17 +95,8 @@ function partsFrom(value: unknown): SuggestedAddressParts | undefined {
  * port's `expired` answer rather than an error.
  */
 function decodeHandle(suggestionId: string): Handle | undefined {
-  let decoded: unknown;
-  try {
-    const base64 = suggestionId.replaceAll("-", "+").replaceAll("_", "/");
-    const binary = atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4));
-    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    decoded = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    return undefined;
-  }
-  if (typeof decoded !== "object" || decoded === null) return undefined;
-  const handle = decoded as Record<string, unknown>;
+  const handle = decodeOpaqueHandle(suggestionId);
+  if (handle === undefined) return undefined;
   switch (handle.route) {
     case "united-states-address":
     case "international-address": {

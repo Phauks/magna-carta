@@ -1,40 +1,89 @@
 /*
  * Which address-lookup engine a request gets.
  *
- * ABSENT IS THE SHIPPED STATE. With no Smarty credentials provisioned, every request gets the deferred
- * port, which answers `engine-not-implemented` to everything, and the address form behaves exactly as
- * it did before autocomplete existed: a person types the address themselves. Provisioning the two
- * secrets is the whole of switching it on, and removing either switches it off again — the same
- * shape the conversion engines take with their service bindings (conversions/conversion-engine.ts).
+ * TWO ENGINES, COMPOSED BY COUNTRY. The platform's own index (the address worker, over a service
+ * binding) answers the United States for nothing; Smarty, when its key pair is set, answers every
+ * other country — and the United States too when the platform's index is not bound. Each is switched
+ * on by provisioning it and off by removing it, the shape the conversion engines take with their
+ * service bindings (conversions/conversion-engine.ts).
  *
- * Both secrets or neither. One without the other is a half-finished provisioning rather than a
- * request to call the service with a missing credential, so it resolves to the deferred port too.
+ * ABSENT IS STILL A STATE THAT SHIPS. With neither provisioned, every request gets the deferred port,
+ * which answers `engine-not-implemented` to everything, and the address form behaves exactly as it did
+ * before autocomplete existed: a person types the address themselves.
+ *
+ * Smarty takes both secrets or neither. One without the other is a half-finished provisioning rather
+ * than a request to call the service with a missing credential, so it counts as not provisioned.
  */
 import {
   deferredAddressLookupPort,
   type AddressLookupPort,
 } from "@magna-carta/address-lookup/port";
+import {
+  engineForCountry,
+  engineForSuggestion,
+  routedAddressLookupPort,
+  type NamedAddressLookupPort,
+  type RoutedAddressLookup,
+} from "@magna-carta/address-lookup/routed";
+import { selfHostedAddressLookupPort } from "@magna-carta/address-lookup/self-hosted";
 import { smartyAddressLookupPort } from "@magna-carta/address-lookup/smarty";
 import type { Bindings } from "../app.ts";
 
-/** Which engine served a request — a metric dimension, so an operator can see what is live. */
-export type AddressLookupEngine = "smarty" | "deferred";
+/**
+ * Which engine served a request — a metric dimension, so an operator can see what is live. The
+ * platform's own engine is named for its data rather than for the worker, because the data is what
+ * decides what it can answer.
+ */
+export type AddressLookupEngine = "openaddresses" | "smarty" | "deferred";
+
+/** The only country the platform's own index covers. */
+const SELF_HOSTED_COUNTRY = "US";
 
 export interface ResolvedAddressLookup {
   readonly port: AddressLookupPort;
-  readonly engine: AddressLookupEngine;
+  /** The engine a suggestion for this country goes to. */
+  engineForCountry(country: string): AddressLookupEngine;
+  /** The engine that minted this identifier — the one a resolution goes to. */
+  engineForSuggestion(suggestionId: string): AddressLookupEngine;
+}
+
+function engineNamed(engine: NamedAddressLookupPort | undefined): AddressLookupEngine {
+  return engine?.name === "openaddresses" || engine?.name === "smarty" ? engine.name : "deferred";
 }
 
 export function resolveAddressLookupPort(
-  env: Pick<Bindings, "SMARTY_AUTH_ID" | "SMARTY_AUTH_TOKEN">,
+  env: Pick<Bindings, "ADDRESS_SERVICE" | "SMARTY_AUTH_ID" | "SMARTY_AUTH_TOKEN">,
 ): ResolvedAddressLookup {
   const authenticationIdentifier = env.SMARTY_AUTH_ID?.trim() ?? "";
   const authenticationToken = env.SMARTY_AUTH_TOKEN?.trim() ?? "";
-  if (authenticationIdentifier === "" || authenticationToken === "") {
-    return { port: deferredAddressLookupPort(), engine: "deferred" };
+  const smarty: NamedAddressLookupPort | undefined =
+    authenticationIdentifier === "" || authenticationToken === ""
+      ? undefined
+      : {
+          name: "smarty",
+          port: smartyAddressLookupPort({ authenticationIdentifier, authenticationToken }),
+        };
+  const selfHosted: NamedAddressLookupPort | undefined =
+    env.ADDRESS_SERVICE === undefined
+      ? undefined
+      : { name: "openaddresses", port: selfHostedAddressLookupPort(env.ADDRESS_SERVICE) };
+
+  if (smarty === undefined && selfHosted === undefined) {
+    return {
+      port: deferredAddressLookupPort(),
+      engineForCountry: () => "deferred",
+      engineForSuggestion: () => "deferred",
+    };
   }
+
+  const routes: RoutedAddressLookup = {
+    byCountry: selfHosted === undefined ? {} : { [SELF_HOSTED_COUNTRY]: selfHosted },
+    ...(smarty !== undefined && { otherwise: smarty }),
+  };
   return {
-    port: smartyAddressLookupPort({ authenticationIdentifier, authenticationToken }),
-    engine: "smarty",
+    port: routedAddressLookupPort(routes),
+    engineForCountry: (country) => engineNamed(engineForCountry(routes, country)),
+    engineForSuggestion: (suggestionId) =>
+      engineNamed(engineForSuggestion(routes, suggestionId)?.engine),
   };
 }

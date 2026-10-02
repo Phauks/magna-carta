@@ -2957,6 +2957,10 @@ export type AddressSuggestionsRequest = {
      */
     query: string;
     limit?: number;
+    /**
+     * The region the address is probably in — the subdivision part of an ISO 3166-2 code, without the country (`NC`, not `US-NC`). Ranks nearby addresses first and never hides the rest. Absent, the caller's primary office stands in for it.
+     */
+    near?: string;
 };
 
 /**
@@ -2965,6 +2969,7 @@ export type AddressSuggestionsRequest = {
 export type AddressResolutionResponse = {
     outcome: 'address';
     parts: AddressLookupParts;
+    location?: AddressLocation;
 } | {
     outcome: 'group';
     suggestions: Array<AddressSuggestion>;
@@ -2974,6 +2979,14 @@ export type AddressResolutionResponse = {
     outcome: 'no-coverage';
 } | {
     outcome: 'unavailable';
+};
+
+/**
+ * Where the address is, as the open address data records it. For a map or a distance; not a postal fact.
+ */
+export type AddressLocation = {
+    latitude: number;
+    longitude: number;
 };
 
 export type AddressResolutionRequest = {

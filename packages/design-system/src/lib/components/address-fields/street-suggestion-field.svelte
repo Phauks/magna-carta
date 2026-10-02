@@ -58,6 +58,7 @@
   let {
     text,
     country,
+    near,
     lookup,
     fieldName,
     controlProperties,
@@ -69,6 +70,8 @@
     text: string;
     /** The country the address is in. Nothing is asked without one. */
     country: string | undefined;
+    /** The region the form already holds, if any — a bias for the service, read when it is asked. */
+    near?: string | undefined;
     /** How addresses are looked up. The box never fetches on its own. */
     lookup: AddressLookup;
     /** The box's name as the country's form writes it. Also its ghost text. */
@@ -157,7 +160,7 @@
     }
     let answer: AddressLookupAnswer;
     try {
-      answer = await lookup.suggest(askedCountry, question);
+      answer = await lookup.suggest(askedCountry, question, near);
     } catch {
       if (turn === searchTurn) couldNotAnswer();
       return;

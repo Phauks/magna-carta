@@ -88,6 +88,22 @@ export interface SuggestInput {
   readonly country: string;
   /** How many offers to return at most. An engine may return fewer, never more. */
   readonly limit?: number;
+  /**
+   * The region the person is most likely entering an address in — the subdivision part of an ISO
+   * 3166-2 code without its country prefix ("NC", not "US-NC"). A BIAS, never a filter: an office in
+   * Nevada enters clients in Texas too, so an engine that honours this ranks nearby addresses first
+   * and still offers the rest. An engine that cannot use it ignores it.
+   */
+  readonly near?: string;
+}
+
+/**
+ * Where an address is, as the open corpus records it. A coordinate is what a map pin, a distance or a
+ * mileage figure needs; it is not a postal fact, and nothing should treat it as one.
+ */
+export interface AddressLocation {
+  readonly latitude: number;
+  readonly longitude: number;
 }
 
 export interface ResolveInput {
@@ -130,7 +146,13 @@ export type SuggestResult =
  *   the choice. Nothing went wrong, and the caller simply asks again.
  */
 export type ResolveResult =
-  | { readonly ok: true; readonly resolution: "address"; readonly parts: SuggestedAddressParts }
+  | {
+      readonly ok: true;
+      readonly resolution: "address";
+      readonly parts: SuggestedAddressParts;
+      /** Where the address is, when the engine knows. Optional because not every engine does. */
+      readonly location?: AddressLocation;
+    }
   | {
       readonly ok: true;
       readonly resolution: "group";
@@ -150,8 +172,13 @@ export function suggested(suggestions: readonly AddressSuggestion[]): SuggestRes
   return { ok: true, suggestions };
 }
 
-export function resolvedAddress(parts: SuggestedAddressParts): ResolveResult {
-  return { ok: true, resolution: "address", parts };
+export function resolvedAddress(
+  parts: SuggestedAddressParts,
+  location?: AddressLocation,
+): ResolveResult {
+  return location === undefined
+    ? { ok: true, resolution: "address", parts }
+    : { ok: true, resolution: "address", parts, location };
 }
 
 export function resolvedGroup(suggestions: readonly AddressSuggestion[]): ResolveResult {

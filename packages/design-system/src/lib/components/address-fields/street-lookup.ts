@@ -50,7 +50,11 @@ export type AddressLookupResolution =
  * so a failed service is never rendered as a country with no matching addresses.
  */
 export interface AddressLookup {
-  suggest(country: string, query: string): Promise<AddressLookupAnswer>;
+  /**
+   * `near` is the region the form already holds, as it holds it — a bias for the service to rank
+   * nearby addresses first, never a filter. The lookup decides whether it is a region it can use.
+   */
+  suggest(country: string, query: string, near?: string): Promise<AddressLookupAnswer>;
   resolve(identifier: string): Promise<AddressLookupResolution>;
 }
 

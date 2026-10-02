@@ -149,9 +149,17 @@ describe("asking", () => {
     type("14 Rose");
     await settle();
     expect(lookup.suggest).toHaveBeenCalledTimes(1);
-    expect(lookup.suggest).toHaveBeenCalledWith("US", "14 Rose");
+    expect(lookup.suggest).toHaveBeenCalledWith("US", "14 Rose", undefined);
     expect(isOpen()).toBe(true);
     expect(rows()).toEqual([ROSEWOOD.label]);
+  });
+
+  it("hands the region the form already holds to the lookup, as a bias", async () => {
+    const lookup = lookupAnswering(() => Promise.resolve({ kind: "offers", offers: [ROSEWOOD] }));
+    render(lookup, { country: "US", region: "NV" });
+    type("14 Rose");
+    await settle();
+    expect(lookup.suggest).toHaveBeenCalledWith("US", "14 Rose", "NV");
   });
 });
 
@@ -269,7 +277,7 @@ describe("the kinds of no offers", () => {
     key("Enter");
     await settle();
     expect(lookup.suggest).toHaveBeenCalledTimes(2);
-    expect(lookup.suggest).toHaveBeenLastCalledWith("US", "14 Rosew");
+    expect(lookup.suggest).toHaveBeenLastCalledWith("US", "14 Rosew", undefined);
     // Pressing Try Again leaves the words "Try Again" nowhere near the address.
     expect(streetBox().value).toBe("14 Rosew");
     expect(held.street).toBe("14 Rosew");

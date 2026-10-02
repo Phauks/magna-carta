@@ -24,10 +24,18 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { AddressSuggestion as PortSuggestion } from "@magna-carta/address-lookup/port";
 import type { Context } from "hono";
-import { resolveAddressLookupPort } from "../address-lookup/address-lookup-engine.ts";
+import { readMemberPrimaryOfficeRegion } from "@magna-carta/locations/statements";
+import {
+  resolveAddressLookupPort,
+  type AddressLookupEngine,
+} from "../address-lookup/address-lookup-engine.ts";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
@@ -82,8 +90,29 @@ const SuggestionsRequest = z
       .openapi({ description: "ISO 3166-1 alpha-2: the country the address is in." }),
     query: z.string().max(200).openapi({ description: "What has been typed so far." }),
     limit: z.number().int().min(1).max(10).optional(),
+    near: z
+      .string()
+      .regex(/^[A-Za-z0-9]{1,3}$/)
+      .optional()
+      .openapi({
+        description:
+          "The region the address is probably in — the subdivision part of an ISO 3166-2 code, " +
+          "without the country (`NC`, not `US-NC`). Ranks nearby addresses first and never hides " +
+          "the rest. Absent, the caller's primary office stands in for it.",
+      }),
   })
   .openapi("AddressSuggestionsRequest");
+
+const AddressLocation = z
+  .object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+  })
+  .openapi("AddressLocation", {
+    description:
+      "Where the address is, as the open address data records it. For a map or a distance; not a " +
+      "postal fact.",
+  });
 
 const SuggestionsResponse = z
   .discriminatedUnion("outcome", [
@@ -105,7 +134,11 @@ const ResolutionRequest = z
 
 const ResolutionResponse = z
   .discriminatedUnion("outcome", [
-    z.object({ outcome: z.literal("address"), parts: AddressLookupParts }),
+    z.object({
+      outcome: z.literal("address"),
+      parts: AddressLookupParts,
+      location: AddressLocation.optional(),
+    }),
     z.object({ outcome: z.literal("group"), suggestions: z.array(AddressSuggestion) }),
     z.object({ outcome: z.literal("expired") }),
     z.object({ outcome: z.literal("no-coverage") }),
@@ -216,6 +249,34 @@ function lookupFailed(c: Context) {
   });
 }
 
+/**
+ * The caller's primary office region, standing in for the `near` a form did not send — most clients
+ * live near the office that takes them on. Only the platform's own engine ranks by region, so nobody
+ * else's request pays for the read; and an office in another country says nothing about this one.
+ *
+ * A bias is a nicety: a read that fails costs the ranking, never the suggestions, so it is swallowed
+ * here rather than turned into a failed lookup.
+ */
+async function primaryOfficeRegion(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  country: string,
+  engine: AddressLookupEngine,
+): Promise<string | undefined> {
+  if (engine !== "openaddresses") return undefined;
+  try {
+    const office = await readMemberPrimaryOfficeRegion(
+      requireChokepointFirmContext(c).firmDatabase,
+      requireChokepointUserId(c),
+    );
+    if (office === null || office.country.toUpperCase() !== country.toUpperCase()) return undefined;
+    // An office records its region as the form wrote it; only a subdivision code is a bias the
+    // engine can match, so a free-text region ("North Carolina") is not passed on.
+    return /^[A-Za-z0-9]{1,3}$/u.test(office.region) ? office.region : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function registerAddressLookupRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -226,12 +287,15 @@ export function registerAddressLookupRoutes(
       middleware: chokepointMiddleware(chokepoint, addressSuggestionsRoute),
     },
     async (c) => {
-      const { country, query, limit } = c.req.valid("json");
-      const { port, engine } = resolveAddressLookupPort(c.env);
-      const answer = await port.suggest({
+      const { country, query, limit, near } = c.req.valid("json");
+      const lookup = resolveAddressLookupPort(c.env);
+      const engine = lookup.engineForCountry(country);
+      const region = near ?? (await primaryOfficeRegion(c, country, engine));
+      const answer = await lookup.port.suggest({
         country: country.toUpperCase(),
         query,
         ...(limit !== undefined && { limit }),
+        ...(region !== undefined && { near: region.toUpperCase() }),
       });
       const count = (outcome: string) =>
         c.get("logger")?.count("addresses.lookup", { operation: "suggest", engine, outcome });
@@ -263,8 +327,9 @@ export function registerAddressLookupRoutes(
     },
     async (c) => {
       const { suggestionId } = c.req.valid("json");
-      const { port, engine } = resolveAddressLookupPort(c.env);
-      const answer = await port.resolve({ suggestionId });
+      const lookup = resolveAddressLookupPort(c.env);
+      const engine = lookup.engineForSuggestion(suggestionId);
+      const answer = await lookup.port.resolve({ suggestionId });
       const count = (outcome: string) =>
         c.get("logger")?.count("addresses.lookup", { operation: "resolve", engine, outcome });
 
@@ -272,7 +337,14 @@ export function registerAddressLookupRoutes(
         count(answer.resolution);
         switch (answer.resolution) {
           case "address":
-            return c.json({ outcome: "address" as const, parts: { ...answer.parts } }, 200);
+            return c.json(
+              {
+                outcome: "address" as const,
+                parts: { ...answer.parts },
+                ...(answer.location !== undefined && { location: { ...answer.location } }),
+              },
+              200,
+            );
           case "group":
             return c.json(
               { outcome: "group" as const, suggestions: answer.suggestions.map(toContract) },
