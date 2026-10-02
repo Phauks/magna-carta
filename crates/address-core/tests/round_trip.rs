@@ -76,19 +76,19 @@ impl RangeReader for CountingReader {
 const FIXTURES: &[(&str, &str)] = &[
     (
         "us/nc/sample",
-        include_str!("fixtures/us_nc_sample.geojson"),
+        include_str!("fixtures/us_nc_sample.ndjson"),
     ),
     (
         "us/ut/sample",
-        include_str!("fixtures/us_ut_sample.geojson"),
+        include_str!("fixtures/us_ut_sample.ndjson"),
     ),
     (
         "us/nv/sample",
-        include_str!("fixtures/us_nv_sample.geojson"),
+        include_str!("fixtures/us_nv_sample.ndjson"),
     ),
     (
         "us/ny/sample",
-        include_str!("fixtures/us_ny_sample.geojson"),
+        include_str!("fixtures/us_ny_sample.ndjson"),
     ),
 ];
 
