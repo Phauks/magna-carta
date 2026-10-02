@@ -163,6 +163,15 @@
       expect(getComputedStyle(navigation).scrollbarGutter).toBe("stable");
       expect(getComputedStyle(content).scrollbarGutter).toBe("stable");
     });
+
+    await step("Neither column stands taller than the layout, so the canvas never scrolls beside them", async () => {
+      // The navigation column is content-box, so a full height plus its gutter overshot the row by
+      // two gutters and the canvas grew a second scrollbar on every long settings page. Measured
+      // here in a real layout because no reading of the class list can see an overshoot.
+      const bottom = root.getBoundingClientRect().bottom;
+      expect(navigation.getBoundingClientRect().bottom).toBeLessThanOrEqual(bottom + 0.5);
+      expect(content.getBoundingClientRect().bottom).toBeLessThanOrEqual(bottom + 0.5);
+    });
   }}
 >
   {#snippet template(args: NavigationLayoutStoryArgs)}

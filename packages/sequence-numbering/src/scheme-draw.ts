@@ -1,7 +1,7 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   ensureCounterRowStatement,
-  guardedIncrementStatement,
+  guardedAdvanceStatement,
   readCounterValue,
   type SequenceNumberingTables,
 } from "./counter-statements.ts";
@@ -13,13 +13,20 @@ import { startValueOf, type NumberSegment } from "./segments.ts";
 // A draw of a scheme-shaped number, planned in one place for every purpose that has one.
 //
 // The draw is the same four steps whoever asks: load the scheme in force (configured, or the
-// purpose's default), derive the counter scope from the scoping segments under the purpose's
-// prefix, read the counter, render. Matters wrote those steps inline and conflicts and custodian
-// each wrote their own variation; a variation of a draw is where the subtlety goes missing, so the
-// steps live here and a consumer composes what it returns into its own batch: the two opening
-// statements first, its own record write, the allocation row last (the owner column is a foreign
-// key). The bounded retry around the whole thing is bounded-retry.ts, and `observe` is fed from the
-// plan so a losing attempt can advance this scope's counter out of band.
+// purpose's default), settle the counter scope, read the counter, render. Matters wrote those steps
+// inline and conflicts and custodian each wrote their own variation; a variation of a draw is where
+// the subtlety goes missing, so the steps live here and a consumer composes what it returns into
+// its own batch: the two opening statements first, its own record write, the allocation row last
+// (the owner column is a foreign key). The bounded retry around the whole thing is bounded-retry.ts,
+// and `observe` is fed from the plan so a losing attempt can advance this scope's counter out of
+// band.
+//
+// TWO WAYS THE SCOPE IS SETTLED, and the register says which (purposes.ts, `scopeSource`). Usually
+// it is the scheme's own scoping parts, which is the safe case: the scope key IS the joined
+// rendered values of those parts, so two records in different scopes differ in a part the number
+// renders and the rendered number cannot collide. Where the DOMAIN decides instead — a time entry
+// counts within its matter, an invoice within the letterhead a bill was finalized under — the
+// caller passes the key, because neither of those is a value the template renders.
 
 // A purpose with nothing in force and no default: only the matter run can reach this. The caller
 // translates it into its own refusal — matters into `scheme-missing` — because the sentence a
@@ -31,14 +38,32 @@ export class NumberingSchemeMissingError extends Error {
   }
 }
 
+export interface SchemeDrawOptions {
+  /**
+   * The counter scope, for a purpose the register marks `scopeSource: "owner"`. Required for those
+   * and refused for the others: a caller that could pass a scope to a segments-scoped run would be
+   * a second answer to a question the template already answers.
+   */
+  readonly scopeKey?: string;
+  /**
+   * How many consecutive numbers this draw consumes. One unless the caller is capturing a block of
+   * records on one scope in a single batch.
+   */
+  readonly count?: number;
+}
+
 export interface SchemeDrawPlan {
   readonly segments: readonly NumberSegment[];
-  /** The counter row this draw counts under: the purpose's prefix plus the scoping segments' values. */
+  /** The counter row this draw counts under. */
   readonly scopeKey: string;
-  /** The counter value this draw will consume, as read; the bounded retry's `observe` takes it. */
+  /** The counter value this draw starts at, as read; the bounded retry's `observe` takes it. */
   readonly observedValue: number;
   readonly startValue: number;
-  /** The rendered number, for the record write. */
+  /** How many values it consumes, which is what the opening statements advance the counter by. */
+  readonly count: number;
+  /** The rendered numbers, in order. One unless this is a block. */
+  readonly numbers: readonly string[];
+  /** The first rendered number, which is the whole of it for a draw of one. */
   readonly number: string;
 }
 
@@ -60,23 +85,35 @@ export async function planSchemeDraw(
   purpose: SchemeNumberingPurpose,
   tables: SequenceNumberingTables,
   context: RenderContext,
+  options: SchemeDrawOptions = {},
 ): Promise<SchemeDrawPlan> {
+  const definition = schemePurposeOf(purpose);
   const segments = await loadSchemeForDraw(database, purpose);
-  const scopeKey = schemePurposeOf(purpose).scopePrefix + deriveScopeKey(segments, context);
+  if (definition.scopeSource === "owner" && options.scopeKey === undefined) {
+    throw new Error(`the ${purpose} numbering run counts within a scope its caller supplies`);
+  }
+  const scopeKey = options.scopeKey ?? definition.scopePrefix + deriveScopeKey(segments, context);
   const startValue = startValueOf(segments);
   const observedValue = (await readCounterValue(database, tables, scopeKey)) ?? startValue;
+  const count = options.count ?? 1;
+  const numbers = Array.from({ length: count }, (_unused, offset) =>
+    renderNumber(segments, context, observedValue + offset),
+  );
   return {
     segments,
     scopeKey,
     observedValue,
     startValue,
-    number: renderNumber(segments, context, observedValue),
+    count,
+    numbers,
+    number: numbers[0] ?? "",
   };
 }
 
 // The statements that open the draw: the counter row if it is the scope's first draw, then the
-// guarded increment. Composed FIRST in the consumer's batch. The guard aborts nothing on its own —
-// the allocation row the consumer composes last is the load-bearing backstop (counter-statements.ts).
+// guarded advance by what this draw consumes. Composed FIRST in the consumer's batch. The guard
+// aborts nothing on its own — the allocation row the consumer composes last is the load-bearing
+// backstop (counter-statements.ts).
 export function schemeDrawOpeningStatements(
   database: SqlDatabase,
   tables: SequenceNumberingTables,
@@ -84,7 +121,7 @@ export function schemeDrawOpeningStatements(
 ): SqlStatement[] {
   return [
     ensureCounterRowStatement(database, tables, plan.scopeKey, plan.startValue),
-    guardedIncrementStatement(database, tables, plan.scopeKey, plan.observedValue),
+    guardedAdvanceStatement(database, tables, plan.scopeKey, plan.observedValue, plan.count),
   ];
 }
 
@@ -97,6 +134,7 @@ export async function previewNextNumber(
   purpose: SchemeNumberingPurpose,
   tables: SequenceNumberingTables,
   context: RenderContext,
+  options: SchemeDrawOptions = {},
 ): Promise<string> {
-  return (await planSchemeDraw(database, purpose, tables, context)).number;
+  return (await planSchemeDraw(database, purpose, tables, context, options)).number;
 }

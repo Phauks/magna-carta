@@ -11,12 +11,13 @@ import { type NumberSegment, type NumberSegmentKind, NUMBER_SEGMENT_KINDS } from
  * looking for where its numbers are decided found one screen that named one of them.
  *
  * So what a sequence IS lives here, as one row per purpose: what it is called, when its number is
- * drawn, whether the firm shapes it and with which parts, what keeps its counters separate from
- * another purpose's in a shared counter table, and what renders until the firm chooses. A purpose
- * that is shaped by a scheme reads its active template from `numbering_scheme` (one active row per
- * purpose) and falls back to the default recorded here. A purpose whose shape is FIXED — ruled by
- * the owner rather than left to the firm — is still listed, with the shape and the reason, so the
- * one settings screen is the whole inventory rather than the configurable half of it.
+ * drawn, which parts it may be built from, what decides the counter's scope, what keeps its
+ * counters separate from another purpose's in a shared counter table, and what renders until the
+ * firm chooses. Every purpose reads its active template from `numbering_scheme` (one active row per
+ * purpose) and falls back to the default recorded here, so the one settings screen is the whole
+ * inventory rather than the configurable half of it — the three runs that were once listed with a
+ * fixed shape and a reason are schemes like the rest, each defaulting to exactly what it used to
+ * render.
  *
  * The register is static on purpose: a new sequence is one row here, one `purpose` value on the
  * scheme table's enum, and the owning package's counter tables. Nothing registers at runtime, so a
@@ -33,13 +34,13 @@ export type NumberingPurpose =
   | "time_entry"
   | "communication";
 
-/** The purposes whose shape the firm writes as a scheme, in the order the settings screen lists them. */
-export type SchemeNumberingPurpose =
-  | "matter"
-  | "consultation"
-  | "intake"
-  | "conflicts_check"
-  | "custody_packet";
+/**
+ * The purposes whose shape the firm writes as a scheme — every one of them, since the owner's
+ * ruling of 2026-09-19 that the last three fixed runs become the firm's to shape too. The type is
+ * kept distinct from NumberingPurpose so a later run that genuinely cannot be shaped has somewhere
+ * to sit without widening every call site.
+ */
+export type SchemeNumberingPurpose = NumberingPurpose;
 
 interface PurposeCommon {
   readonly purpose: NumberingPurpose;
@@ -76,6 +77,30 @@ export interface SchemeNumberingPurposeDefinition extends PurposeCommon {
    */
   readonly scopePrefix: string;
   /**
+   * WHAT DECIDES THE COUNTER'S SCOPE.
+   *
+   * `segments` — the scheme's own scoping parts, which is the general case and the safe one: the
+   * scope key IS the joined rendered values of those parts, so two records in different scopes
+   * differ in a part the number renders, and the rendered number cannot collide. A firm that drops
+   * the year from such a scheme gets one firm-wide run rather than a collision.
+   *
+   * `owner` — the domain decides, and the caller passes the key: a time entry counts within its
+   * MATTER (the matter's handle, which a renumber does not move), an invoice within the letterhead
+   * chosen when the bill was finalized. Neither is a rendered value, so neither can be derived from
+   * the template, and scoping marks mean nothing on those runs — the schema refuses them rather
+   * than letting a firm set a switch that does nothing.
+   */
+  readonly scopeSource: "segments" | "owner";
+  /**
+   * OWNER-SCOPED RUNS ONLY: the part that tells one scope's numbers from another's, which such a
+   * scheme must carry. An owner-scoped run gets no uniqueness from its template for free — two
+   * matters both count 0001 — so the part naming the scope is what keeps the rendered numbers
+   * apart, and the schema requires it. Null where the run has one scope until a firm deliberately
+   * opens a second (the invoice run), where the refusal belongs at the moment the second scope is
+   * opened rather than on every scheme.
+   */
+  readonly scopeDistinguishedBy: NumberSegmentKind | null;
+  /**
    * The scheme to render from when the firm has configured none, or null to refuse.
    *
    * Only the matter run refuses. A matter number is the firm's own file numbering and there is no
@@ -87,25 +112,24 @@ export interface SchemeNumberingPurposeDefinition extends PurposeCommon {
   readonly fallbackScheme: readonly NumberSegment[] | null;
 }
 
-/** A purpose whose shape is fixed by ruling: listed so the inventory is complete, never edited. */
-export interface FixedNumberingPurposeDefinition extends PurposeCommon {
-  readonly formulation: "fixed";
-  /**
-   * What renders, in one sentence a settings row can carry as its descriptor. WHY the firm does not
-   * choose it is the user guide's to explain (docs/user/admin/numbering.md), not the screen's.
-   */
-  readonly fixedShape: string;
-  /** What the first record of 2026 renders as. */
-  readonly example: string;
-}
-
-export type NumberingPurposeDefinition =
-  | SchemeNumberingPurposeDefinition
-  | FixedNumberingPurposeDefinition;
+export type NumberingPurposeDefinition = SchemeNumberingPurposeDefinition;
 
 // The parts a record numbered on its own — with no matter behind it — can use: text, the counter,
 // and the day it was numbered. Everything else on the vocabulary is a fact about a matter.
-const DATE_ONLY_KINDS: readonly NumberSegmentKind[] = ["literal", "counter", "year", "date_opened"];
+const DATE_ONLY_KINDS: readonly NumberSegmentKind[] = [
+  "literal",
+  "counter",
+  "year",
+  "month",
+  "day",
+  "date_opened",
+];
+
+// Everything a MATTER carries. Not its own number: a matter number built from a matter number is a
+// definition that eats itself, and the run it would read from is this one.
+const MATTER_KINDS: readonly NumberSegmentKind[] = NUMBER_SEGMENT_KINDS.filter(
+  (kind) => kind !== "matter_number",
+);
 
 /*
  * The consultation sequence is a SEPARATE sequence from the matter number, not a preview of it. A
@@ -165,6 +189,54 @@ export const DEFAULT_CUSTODY_PACKET_SCHEME: readonly NumberSegment[] = [
   { kind: "counter", padWidth: 5, start: 1 },
 ];
 
+/*
+ * The invoice sequence: a five-digit count that never restarts, which is what it rendered before
+ * the firm could shape it, so nothing a firm has already sent changes. It never restarts because a
+ * tax invoice's number is a run the firm's auditors read end to end, and a run that restarts each
+ * January is two runs to reconcile.
+ *
+ * The count is per LETTERHEAD, chosen when the bill is finalized, not per anything the template
+ * renders — so the scope is the caller's. A firm issuing on one letterhead has one scope and needs
+ * nothing in its number to tell scopes apart; a firm that opens a second is refused at that moment
+ * unless its scheme carries the office code, which is where the refusal can actually be acted on.
+ */
+export const DEFAULT_INVOICE_SCHEME: readonly NumberSegment[] = [
+  { kind: "counter", padWidth: 5, start: 1 },
+];
+
+/*
+ * The time entry sequence: the matter's own number, a dot, and a four-digit count within that
+ * matter — "2026-0001.0042", which is what it rendered before the firm could shape it. An entry is
+ * read against the matter it belongs to, so its number carries that matter's, and the count is per
+ * matter: the scope is the matter's handle, which a renumber does not move, so a matter renumbered
+ * after the fact keeps its entries' numbering dense.
+ */
+export const DEFAULT_TIME_ENTRY_SCHEME: readonly NumberSegment[] = [
+  { kind: "matter_number" },
+  { kind: "literal", text: "." },
+  { kind: "counter", padWidth: 4, start: 1 },
+];
+
+/*
+ * The call and text sequence: the day it happened, then a four-digit count for that day —
+ * "2026-09-08-0042", which is what it rendered before the firm could shape it. The day is in the
+ * number so a reader knows when the call was without a lookup, and the three date parts scope the
+ * count, so a firm-wide run never reaches the five digits a year of traffic would otherwise take.
+ *
+ * The day is the UTC day of the instant, the platform's rule for the day of a recorded moment used
+ * as a key (docs/conventions/dates.md): a number is a key before it is a sentence, and pinned to
+ * UTC it reads the same in every office.
+ */
+export const DEFAULT_COMMUNICATION_SCHEME: readonly NumberSegment[] = [
+  { kind: "year", digits: 4, scoping: true },
+  { kind: "literal", text: "-" },
+  { kind: "month", scoping: true },
+  { kind: "literal", text: "-" },
+  { kind: "day", scoping: true },
+  { kind: "literal", text: "-" },
+  { kind: "counter", padWidth: 4, start: 1 },
+];
+
 // See the prefix reasoning on `scopePrefix` above: '/' is outside the URL-safe set, and the two
 // words are distinct.
 export const CONSULTATION_SCOPE_PREFIX = "consultation/";
@@ -179,7 +251,9 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subject: "matter",
     subjects: "matters",
     drawnWhen: "Drawn once, the moment a matter opens, and frozen from then on.",
-    segmentKinds: NUMBER_SEGMENT_KINDS,
+    segmentKinds: MATTER_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
     scopePrefix: "",
     fallbackScheme: null,
   },
@@ -192,7 +266,9 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "consultations",
     drawnWhen:
       "Drawn when an enquiry becomes a consultation, from its own run, and kept beside the matter number once the matter opens.",
-    segmentKinds: NUMBER_SEGMENT_KINDS,
+    segmentKinds: MATTER_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
     scopePrefix: CONSULTATION_SCOPE_PREFIX,
     fallbackScheme: DEFAULT_CONSULTATION_SCHEME,
   },
@@ -205,7 +281,9 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "enquiries",
     drawnWhen:
       "Drawn the moment an enquiry is written down, from its own run, and kept beside every number the file draws later.",
-    segmentKinds: NUMBER_SEGMENT_KINDS,
+    segmentKinds: MATTER_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
     scopePrefix: INTAKE_SCOPE_PREFIX,
     fallbackScheme: DEFAULT_INTAKE_SCHEME,
   },
@@ -219,6 +297,8 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     drawnWhen:
       "Drawn the moment a conflicts check is opened; every run of the check belongs to the same number.",
     segmentKinds: DATE_ONLY_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
     scopePrefix: "",
     fallbackScheme: DEFAULT_CONFLICTS_CHECK_SCHEME,
   },
@@ -232,53 +312,68 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     drawnWhen:
       "Drawn when a packet is logged into custody, unless a number carried in from a paper register is recorded instead.",
     segmentKinds: DATE_ONLY_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
     scopePrefix: "",
     fallbackScheme: DEFAULT_CUSTODY_PACKET_SCHEME,
   },
   {
     purpose: "invoice",
-    formulation: "fixed",
+    formulation: "scheme",
     title: "Invoice Numbers",
     label: "invoice number",
     subject: "invoice",
     subjects: "invoices",
     drawnWhen: "Drawn when a bill is finalized, never at draft.",
-    fixedShape:
-      "A five-digit count that never restarts, firm-wide or under the letterhead scope chosen when the bill is finalized.",
-    example: "00001",
+    // A bill can cover several matters, so it carries no one matter's client, office or area. The
+    // office code renders the letterhead the bill was finalized under.
+    segmentKinds: ["literal", "counter", "year", "month", "day", "date_opened", "location_code"],
+    scopeSource: "owner",
+    scopeDistinguishedBy: null,
+    scopePrefix: "",
+    fallbackScheme: DEFAULT_INVOICE_SCHEME,
   },
   {
     purpose: "time_entry",
-    formulation: "fixed",
+    formulation: "scheme",
     title: "Time Entry Numbers",
     label: "time entry number",
     subject: "time entry",
     subjects: "time entries",
     drawnWhen: "Drawn when an entry is captured, in capture order on its matter.",
-    fixedShape: "The matter's own number, a dot, and a four-digit count per matter.",
-    example: "2026-0001.0001",
+    // No date parts, deliberately. A capture batch takes several entries on one matter from ONE
+    // counter read, and a block renders its numbers from one context — so a date part would stamp
+    // every entry in the batch with the day the batch was taken rather than the day each was
+    // worked. The matter's own number already carries whatever date the firm put in it.
+    segmentKinds: ["literal", "counter", "matter_number"],
+    scopeSource: "owner",
+    scopeDistinguishedBy: "matter_number",
+    scopePrefix: "",
+    fallbackScheme: DEFAULT_TIME_ENTRY_SCHEME,
   },
   {
     purpose: "communication",
-    formulation: "fixed",
+    formulation: "scheme",
     title: "Call and Text Numbers",
     label: "communication number",
     subject: "call or text",
     subjects: "calls and texts",
     drawnWhen: "Drawn when a call or text is recorded.",
-    fixedShape: "The day it happened, then a four-digit count for that day.",
-    example: "2026-01-01-0001",
+    segmentKinds: DATE_ONLY_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
+    scopePrefix: "",
+    fallbackScheme: DEFAULT_COMMUNICATION_SCHEME,
   },
 ];
 
 /** Every purpose, in the order the settings screen lists them. */
 export const NUMBERING_PURPOSES: readonly NumberingPurposeDefinition[] = DEFINITIONS;
 
-/** The purposes a firm shapes with a scheme, in the same order. */
-export const SCHEME_NUMBERING_PURPOSES: readonly SchemeNumberingPurpose[] = DEFINITIONS.filter(
-  (definition): definition is SchemeNumberingPurposeDefinition =>
-    definition.formulation === "scheme",
-).map((definition) => definition.purpose);
+/** The purposes a firm shapes with a scheme: every one of them, in the same order. */
+export const SCHEME_NUMBERING_PURPOSES: readonly SchemeNumberingPurpose[] = DEFINITIONS.map(
+  (definition) => definition.purpose,
+);
 
 /** What this purpose is. The one place any of its facts is answered. */
 export function purposeOf(purpose: NumberingPurpose): NumberingPurposeDefinition {
@@ -287,13 +382,9 @@ export function purposeOf(purpose: NumberingPurpose): NumberingPurposeDefinition
   return definition;
 }
 
-/** A purpose shaped by a scheme, or a thrown error for one that is fixed — the scheme paths ask this. */
+/** A purpose shaped by a scheme. Every purpose is, so this is `purposeOf` under the scheme paths' name. */
 export function schemePurposeOf(purpose: SchemeNumberingPurpose): SchemeNumberingPurposeDefinition {
-  const definition = purposeOf(purpose);
-  if (definition.formulation !== "scheme") {
-    throw new Error(`numbering purpose ${purpose} is fixed and takes no scheme`);
-  }
-  return definition;
+  return purposeOf(purpose);
 }
 
 export function isSchemeNumberingPurpose(purpose: string): purpose is SchemeNumberingPurpose {

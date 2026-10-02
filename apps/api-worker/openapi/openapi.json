@@ -7079,25 +7079,18 @@
           "drawnWhen": {
             "type": "string"
           },
-          "formulation": {
-            "type": "string",
-            "enum": [
-              "scheme",
-              "fixed"
-            ]
-          },
           "segmentKinds": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": "array",
             "items": {
               "type": "string",
               "enum": [
                 "literal",
                 "counter",
                 "year",
+                "month",
+                "day",
                 "date_opened",
+                "matter_number",
                 "location_code",
                 "matter_type_code",
                 "client_code",
@@ -7116,15 +7109,13 @@
             }
           },
           "usingDefault": {
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "type": "boolean"
           },
-          "fixedShape": {
-            "type": [
-              "string",
-              "null"
+          "scopeSource": {
+            "type": "string",
+            "enum": [
+              "segments",
+              "owner"
             ]
           },
           "example": {
@@ -7141,11 +7132,10 @@
           "subject",
           "subjects",
           "drawnWhen",
-          "formulation",
           "segmentKinds",
           "segments",
           "usingDefault",
-          "fixedShape",
+          "scopeSource",
           "example"
         ]
       },
@@ -7233,7 +7223,58 @@
               "kind": {
                 "type": "string",
                 "enum": [
+                  "month"
+                ]
+              },
+              "scoping": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "day"
+                ]
+              },
+              "scoping": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
                   "date_opened"
+                ]
+              },
+              "scoping": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "matter_number"
                 ]
               },
               "scoping": {
@@ -7338,6 +7379,9 @@
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
+          "matterNumber": {
+            "type": "string"
+          },
           "locationCode": {
             "type": "string"
           },
@@ -7356,6 +7400,7 @@
         },
         "required": [
           "openedDate",
+          "matterNumber",
           "locationCode",
           "matterTypeCode",
           "clientCode",
@@ -7382,7 +7427,10 @@
               "consultation",
               "intake",
               "conflicts_check",
-              "custody_packet"
+              "custody_packet",
+              "invoice",
+              "time_entry",
+              "communication"
             ]
           },
           "usingDefault": {
@@ -7411,7 +7459,10 @@
               "consultation",
               "intake",
               "conflicts_check",
-              "custody_packet"
+              "custody_packet",
+              "invoice",
+              "time_entry",
+              "communication"
             ],
             "default": "matter"
           }
@@ -7428,11 +7479,18 @@
           },
           "scopeKey": {
             "type": "string"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "number",
-          "scopeKey"
+          "scopeKey",
+          "parts"
         ]
       },
       "NumberingPreviewRequest": {
@@ -7451,7 +7509,10 @@
               "consultation",
               "intake",
               "conflicts_check",
-              "custody_packet"
+              "custody_packet",
+              "invoice",
+              "time_entry",
+              "communication"
             ],
             "default": "matter"
           },
@@ -7466,6 +7527,9 @@
               "openedDate": {
                 "type": "string",
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "matterNumber": {
+                "type": "string"
               },
               "locationCode": {
                 "type": "string"
@@ -53754,7 +53818,10 @@
                 "consultation",
                 "intake",
                 "conflicts_check",
-                "custody_packet"
+                "custody_packet",
+                "invoice",
+                "time_entry",
+                "communication"
               ],
               "default": "matter"
             },

@@ -20,6 +20,17 @@ export class NumberingRenderError extends Error {
 // the record was numbered on (the day a matter opened, a check was opened, a packet was logged).
 export interface RenderContext {
   readonly openedDate: string; // ISO civil date YYYY-MM-DD
+  /**
+   * The number of the matter the record belongs to, for a sequence that counts within one — a time
+   * entry is read against its matter, so it carries that matter's number. Absent for a record that
+   * belongs to no matter.
+   */
+  readonly matterNumber?: string;
+  /**
+   * The office, practice area, client and attorney a MATTER carries. On the invoice run the
+   * location code is the letterhead scope the bill was finalized under, which is what a
+   * multi-letterhead firm means by its office.
+   */
   readonly locationCode?: string;
   readonly matterTypeCode?: string;
   readonly clientCode?: string;
@@ -60,8 +71,14 @@ function renderValueSegment(segment: NumberSegment, context: RenderContext): str
       return segment.text;
     case "year":
       return segment.digits === 2 ? context.openedDate.slice(2, 4) : context.openedDate.slice(0, 4);
+    case "month":
+      return context.openedDate.slice(5, 7);
+    case "day":
+      return context.openedDate.slice(8, 10);
     case "date_opened":
       return context.openedDate.replace(/-/g, "");
+    case "matter_number":
+      return required(context.matterNumber, "matter_number");
     case "location_code":
       return required(context.locationCode, "location_code");
     case "matter_type_code":
@@ -95,11 +112,20 @@ export function renderNumber(
   context: RenderContext,
   counterValue: number,
 ): string {
-  return segments
-    .map((segment) =>
-      segment.kind === "counter"
-        ? String(counterValue).padStart(segment.padWidth, "0")
-        : renderValueSegment(segment, context),
-    )
-    .join("");
+  return renderParts(segments, context, counterValue).join("");
+}
+
+// The same render, part by part rather than joined. The settings editor states what each part of a
+// scheme will put into the number, and it has to be THIS renderer that says so: a second answer
+// composed on the screen is a second renderer, and the one that draws real numbers is this one.
+export function renderParts(
+  segments: readonly NumberSegment[],
+  context: RenderContext,
+  counterValue: number,
+): string[] {
+  return segments.map((segment) =>
+    segment.kind === "counter"
+      ? String(counterValue).padStart(segment.padWidth, "0")
+      : renderValueSegment(segment, context),
+  );
 }

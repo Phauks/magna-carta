@@ -148,11 +148,19 @@
     than two that can drift. `min-h-0` is what lets the columns scroll inside a flex parent.
   -->
   <div class="flex min-h-0 flex-1 flex-col max-lg:overflow-visible lg:flex-row lg:items-start">
+    <!--
+      STRETCHED, NEVER `h-full`. The column is sized content-box (navigation-layout.css) so its
+      width is two tokens and no arithmetic, and content-box applies on BOTH axes: a full height
+      would be the content box's, with the space-24 gutter above and below added on top, so the
+      column stood 48px taller than the row and pushed the canvas into growing a scrollbar of its
+      own beside the column's. Stretch sizes the column's OUTER box to the row whatever its box
+      sizing, so the gutter falls inside the height and the canvas never scrolls.
+    -->
     <nav
       aria-label={navigationLabel}
       data-navigation-layout="navigation"
       class={mergeClasses(
-        "shrink-0 max-lg:overflow-visible lg:h-full",
+        "shrink-0 max-lg:overflow-visible lg:self-stretch",
         // With a pinned footer the <nav> is a stack and the INNER div scrolls; without one the
         // <nav> is the scroll region, exactly as it was.
         navigationFooter ? "flex flex-col" : "mc-navigation-layout-navigation mc-scrollbar",
