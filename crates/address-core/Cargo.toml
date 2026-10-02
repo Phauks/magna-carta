@@ -1,0 +1,24 @@
+[package]
+name = "address-core"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# The split format and the ranged directory, reused unchanged: an address partition is packaged exactly
+# like a discovery split (index files, a footer, a trailer), so the same `SplitDirectory` serves it from
+# object storage by range.
+search-core = { path = "../search-core" }
+# Same engine and version as search-core. Pure Rust; see the note on zstd in containers/address/CLAUDE.md
+# for the one transitive native library tantivy's default features bring in through search-core.
+tantivy = "0.26"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# Build scratch for the round-trip tests. Production callers hand the builder a directory of their own.
+tempfile = "3"
+
+# The workspace lint floor (see crates/Cargo.toml). A member that omits this table is not covered.
+[lints]
+workspace = true

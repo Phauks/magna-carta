@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "address-core",
   "engine-host",
   "ocr-core",
   "pdf-core",
