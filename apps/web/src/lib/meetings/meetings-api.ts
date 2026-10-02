@@ -26,7 +26,6 @@ import {
   meetingsListPollAnswers,
   meetingsListPolls,
   meetingsListQuestions,
-  meetingsListRecordings,
   meetingsLobby,
   meetingsOpenPoll,
   meetingsRecordingNotices,
@@ -60,7 +59,6 @@ import {
   type MeetingSummary,
   type StartedMeeting,
 } from "@magna-carta/api-client";
-import { client } from "@magna-carta/api-client/client";
 import { failureOf } from "$lib/api/api-client.ts";
 import type { MeetingHostRole, MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "./meeting-client.svelte.ts";
@@ -723,9 +721,10 @@ export function redactMeetingQuestion(
  * the route. What the room broadcasts is what lights the mark on every screen — this browser's
  * included — so nothing here answers with anything a screen draws the mark from.
  *
- * The four calls are the generated operations and the view types are the contract's own, so a
- * change to a recording's shape on the server is a type error here rather than a screen that
- * quietly reads a field that is no longer sent.
+ * The calls are the generated operations and the view types are the contract's own, so a change to
+ * a recording's shape on the server is a type error here rather than a screen that quietly reads a
+ * field that is no longer sent. The list itself is read through the generated query options, into
+ * the one cache, by `screen/recording-list.svelte`.
  */
 
 /** Somebody named on a recording: who started it, or who stopped it. */
@@ -734,14 +733,21 @@ export type MeetingRecordingActorView = MeetingRecordingSummary["startedBy"];
 /** Where one recording is in its life, in the server's own vocabulary. */
 export type MeetingRecordingStateView = MeetingRecordingSummary["state"];
 
-/** One recording, as the list reads it: identifiers, instants, a count and a state. No audio. */
-export type MeetingRecordingView = MeetingRecordingSummary;
-
-/** One page of a meeting's recordings, and where the next page starts. */
-export interface MeetingRecordingPageView {
-  readonly recordings: readonly MeetingRecordingView[];
-  readonly nextCursor: string | null;
-}
+/**
+ * One recording, as the list reads it: identifiers, instants, a count and a state. No audio.
+ *
+ * Two fields are stated here rather than taken as generated. `stoppedBy` is null on the wire while a
+ * recording runs and when nobody stopped it — the route's schema says so — but the generated type
+ * intersects the actor with its nullable arm and loses the null, so a screen reading it as never null
+ * would be wrong about every recording that stopped on its own. `failureErrorId` is the Error ID a
+ * failed recording was recorded under (the record's `failure_error_id`); it is optional because the
+ * list states it only where the summary carries one, and a summary that does not send it reads as a
+ * failure with no Error ID.
+ */
+export type MeetingRecordingView = Omit<MeetingRecordingSummary, "stoppedBy"> & {
+  readonly stoppedBy: MeetingRecordingActorView | null;
+  readonly failureErrorId?: string | null;
+};
 
 /** Why somebody was told: the start, an arrival while it ran, or the stop. */
 export type MeetingRecordingNoticeReasonView = MeetingRecordingNoticeEntry["reason"];
@@ -798,21 +804,6 @@ export function recordingIsConfigured(
   summary: Pick<MeetingSummary, "recordingConfigured">,
 ): boolean {
   return summary.recordingConfigured;
-}
-
-/** One page of this meeting's recordings. Everybody who may join the meeting may read it. */
-export function readMeetingRecordings(
-  meetingId: string,
-  cursor: string | null = null,
-): Promise<MeetingWrite<MeetingRecordingPageView>> {
-  return write(async () => {
-    const { data } = await meetingsListRecordings({
-      path: { meetingId },
-      query: cursor === null ? undefined : { cursor },
-      throwOnError: true,
-    });
-    return { data: { recordings: data.data, nextCursor: data.nextCursor } };
-  });
 }
 
 /**

@@ -95,12 +95,11 @@ import {
 } from "./questions.svelte.ts";
 import { MeetingNegotiation } from "./negotiation.ts";
 import {
-  browserRecordingSounds,
   MeetingRecording,
   readRecordingAnnouncement,
   type MeetingRecordingRoutes,
-  type MeetingRecordingSounds,
 } from "./recording.svelte.ts";
+import { pageRecordingSounds, type MeetingRecordingSounds } from "./recording-sounds.ts";
 import { MeetingPresence } from "./presence.ts";
 import {
   browserReactionSeams,
@@ -363,7 +362,10 @@ export function browserMeetingSeams(): MeetingClientSeams {
     // name `voiceIsolation` at all. Asked here because this is the one function in the client that
     // may touch `navigator`.
     createMediaEffects: () => passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
-    createRecordingSounds: () => browserRecordingSounds(),
+    // The page's one device rather than one of the room's own: the press that unlocks it is often
+    // on the screen before this one — the calendar entry's Join — and a device made here, after
+    // that press is over, is one Safari keeps silent for the whole meeting.
+    createRecordingSounds: () => pageRecordingSounds,
   };
 }
 

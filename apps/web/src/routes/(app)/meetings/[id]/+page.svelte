@@ -33,7 +33,6 @@
   import Button from "@magna-carta/design-system/button";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import FailureBand from "@magna-carta/design-system/failure-band";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
@@ -82,6 +81,7 @@
   import Disc from "@lucide/svelte/icons/disc";
   import RecordingMark from "$lib/meetings/screen/recording-mark.svelte";
   import RecordingNotice from "$lib/meetings/screen/recording-notice.svelte";
+  import RecordingList from "$lib/meetings/screen/recording-list.svelte";
   import { recordingRefusal } from "$lib/meetings/client/recording.svelte.ts";
   import { guestAttendeeLabel } from "$lib/meetings/screen/meeting-host-labels.ts";
   import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
@@ -123,7 +123,6 @@
     meetingQuestionSeams,
     meetingRecordingRoutes,
     readMeetingRecordingNotices,
-    readMeetingRecordings,
     recordingIsConfigured,
     readMeetingHosts,
     readMeetingLobby,
@@ -235,12 +234,13 @@
 
   async function arrive(id: string, medium: MeetingMedium): Promise<void> {
     /*
-     * The recording tone's audio is opened here, before anything is awaited. The member's Join was
-     * pressed on the entry surface and what reaches this page is the navigation it caused, which
-     * most browsers count as the person having interacted with the page; Safari counts only a press
-     * in progress, so for it the context opened here stays suspended and the first press in the room
-     * below is what wakes it. Until something does, a recording is announced on screen and to a
-     * screen reader without the tone, never with a tone that plays late.
+     * The recording tone's audio is asked to run here too, before anything is awaited. The press
+     * that matters happened on the screen before this one: the calendar entry's Join or Start, or
+     * the Meetings page's Join, woke the page's one tone device while the press was in progress, and
+     * the room chimes on that same device. Arriving any other way — an address typed or a reload —
+     * Safari keeps the device suspended until the first press in the room below wakes it, and until
+     * something does, a recording is announced on screen and to a screen reader without the tone,
+     * never with a tone that plays late.
      */
     client.unlockRecordingSounds();
     const outcome = await joinMeeting(id);
@@ -904,84 +904,6 @@
 
   /** Whether the panel listing what has been recorded is open. */
   let recordingsOpen = $state(false);
-  let recordingRows = $state<readonly MeetingRecordingView[]>([]);
-  let recordingsCursor = $state<string | null>(null);
-  let recordingsReading = $state(false);
-  let recordingsLoadingMore = $state(false);
-  let recordingsFailure = $state<Failure | null>(null);
-
-  /*
-   * Read when the panel opens, and again whenever the room announces a recording starting or
-   * stopping while it is open — the list is a record of exactly those transitions, so a panel that
-   * kept its first answer would show a recording as still running after everybody heard it stop.
-   */
-  $effect(() => {
-    if (!recordingsOpen) return;
-    void client.recording.running;
-    untrack(() => {
-      void refreshRecordings();
-    });
-  });
-
-  async function refreshRecordings(): Promise<void> {
-    recordingsReading = true;
-    const outcome = await readMeetingRecordings(meetingId);
-    recordingsReading = false;
-    if (outcome.kind !== "ok") {
-      recordingsFailure = outcome.failure;
-      return;
-    }
-    recordingsFailure = null;
-    recordingRows = outcome.value.recordings;
-    recordingsCursor = outcome.value.nextCursor;
-  }
-
-  async function loadMoreRecordings(): Promise<void> {
-    const cursor = recordingsCursor;
-    if (cursor === null || recordingsLoadingMore) return;
-    recordingsLoadingMore = true;
-    const outcome = await readMeetingRecordings(meetingId, cursor);
-    recordingsLoadingMore = false;
-    if (outcome.kind !== "ok") {
-      recordingsFailure = outcome.failure;
-      return;
-    }
-    recordingRows = [...recordingRows, ...outcome.value.recordings];
-    recordingsCursor = outcome.value.nextCursor;
-  }
-
-  /** What one recording's state is called. A stopped recording waits to be added to the matter. */
-  function recordingStateWord(state: MeetingRecordingView["state"]): string {
-    switch (state) {
-      case "recording":
-        return "Recording";
-      case "composing":
-        return "Stopped";
-      case "filed":
-        return "Added to the Matter";
-      case "failed":
-        return "Failed";
-      case "abandoned":
-        return "Interrupted";
-    }
-  }
-
-  /** Who stopped a recording, or what did where nobody did. */
-  function stoppedByWord(row: MeetingRecordingView): string {
-    if (row.stoppedBy !== null) return row.stoppedBy.displayName;
-    switch (row.stopReason) {
-      case null:
-        return "";
-      case "meeting-ended":
-        return "The meeting ended";
-      case "sink-lost":
-        return "The sound was lost";
-      case "ceiling":
-        return "Too many people speaking";
-      default:
-        return "Interrupted";
-    }
-  }
 
   /**
    * WHO WAS TOLD, AND WHEN: the consent record of one recording. A host's read, opened from a row of
@@ -1027,52 +949,6 @@
         return "When it stopped";
     }
   }
-
-  const recordingsGrid = DataTable.createDataTableGrid<MeetingRecordingView>({
-    columns: () => [
-      {
-        id: "state",
-        label: "State",
-        type: "text",
-        anchored: true,
-        filter: "text",
-        value: (row) => recordingStateWord(row.state),
-      },
-      {
-        id: "started",
-        label: "Started",
-        type: "date",
-        value: (row) => row.startedAt,
-        text: (row) => formatInstant(row.startedAt),
-      },
-      {
-        id: "startedBy",
-        label: "Started By",
-        type: "text",
-        filter: "text",
-        value: (row) => row.startedBy.displayName,
-      },
-      {
-        id: "stopped",
-        label: "Stopped",
-        type: "date",
-        value: (row) => row.stoppedAt,
-        text: (row) => (row.stoppedAt === null ? "" : formatInstant(row.stoppedAt)),
-      },
-      {
-        id: "stoppedBy",
-        label: "Stopped By",
-        type: "text",
-        value: (row) => stoppedByWord(row),
-      },
-    ],
-    rows: () => recordingRows,
-    rowKey: (row) => row.id,
-    // Read once: the newest recording first, which is the one somebody opening the panel asks about.
-    initialSort: untrack(() => ({ columnId: "started", direction: "descending" as const })),
-    itemNoun: { singular: "recording", plural: "recordings" },
-    onActivate: (row) => openNotices(row),
-  });
 
   const noticesGrid = DataTable.createDataTableGrid<MeetingRecordingNoticeView>({
     columns: () => [
@@ -1954,55 +1830,13 @@
     <!-- What has been recorded, beside the header control that opens it rather than inside the
          room: a meeting that ended last week still has its recordings, and so does a room this
          member could not get into. -->
-    <ActionDialog
+    <RecordingList
       bind:open={recordingsOpen}
-      kind="reading"
-      heading="Recordings"
-      subtitle={endSubject}
-      width="wide"
-    >
-      {#snippet fields()}
-        {#if recordingsFailure !== null && recordingRows.length === 0}
-          <FailureNotice
-            failure={recordingsFailure}
-            subject="This meeting"
-            fallback="This meeting's recordings could not be read."
-            whenSilent="Nothing answered. This meeting's recordings could not be read."
-            onRetry={() => void refreshRecordings()}
-          />
-        {:else}
-          <div class="flex flex-col gap-8">
-            <DataTable.Grid
-              grid={recordingsGrid}
-              caption="What has been recorded in this meeting"
-              loading={recordingsReading && recordingRows.length === 0}
-              placeholderCount={2}
-            />
-            <DataTable.GridFooter grid={recordingsGrid}>
-              {#snippet end()}
-                <DataTable.LoadMore
-                  noun="recordings"
-                  more={recordingsCursor !== null}
-                  loading={recordingsLoadingMore}
-                  onLoad={() => void loadMoreRecordings()}
-                />
-              {/snippet}
-            </DataTable.GridFooter>
-            <!-- DESIGNED, AND NOT SERVED YET. A recording becomes something to play once it is
-                 put together and added to the matter's documents, which is the next step this
-                 subsystem takes; until then the control is here, disabled, saying so. -->
-            <SoonAffordance
-              reason="recordings being added to the matter's documents"
-              reasonPlacement="line"
-            >
-              {#snippet control(soon)}
-                <Button variant="secondary" {...soon}>Play</Button>
-              {/snippet}
-            </SoonAffordance>
-          </div>
-        {/if}
-      {/snippet}
-    </ActionDialog>
+      {meetingId}
+      subject={endSubject}
+      announced={client.recording.running}
+      onWhoWasTold={canHost ? openNotices : undefined}
+    />
 
     {#if canHost}
       <!-- Who was told about one recording, and when: the consent record. Opened from a row of the

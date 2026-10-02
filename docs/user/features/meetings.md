@@ -93,7 +93,7 @@ meeting and would rather not go looking for the event it belongs to. It has thre
   event they belong to, in that event's own time zone. **Join** works here too, so you can be first
   into a room rather than waiting for somebody else to arrive.
 - **Recently ended** — what finished in the last thirty days, with when it ended, **Attendance** for
-  who was in the room, and a way back to the event.
+  who was in the room, **Recordings** where the meeting was recorded, and a way back to the event.
 
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
 matter, the row links back to it.
@@ -550,28 +550,57 @@ hears the words "Recording in progress" where their browser can speak them, and 
 who started it. Somebody using a screen reader is told the same words. Anybody who joins while the
 recording runs is told the same way as they arrive. The banner can be dismissed; the **Recording**
 mark beside the meeting's title cannot, and stays for as long as the recording runs. If your
-connection drops and you come straight back into the same recording, you are not told again, but the
-mark returns.
+connection drops and you come straight back into the same recording, the banner and the mark return
+but the tone does not sound a second time. If you join from a calendar event or from the Meetings
+page, the press on **Join** is what lets your browser play the tone; if you arrive some other way,
+such as by reloading the page, some browsers (Safari among them) stay silent until you next press
+something in the room, and you are told by the banner alone until then.
 
 **Stopping.** Press **Stop Recording** in the control bar. Everybody hears one lower tone, is told
 "Recording stopped", and the mark goes. Ending the meeting stops the recording too.
 
-**What has been recorded.** **Recordings** at the top of the meeting's screen lists every recording
-made in it: whether it is still running, when it started and who started it, and when it stopped and
-who or what stopped it. Somebody hosting meetings can open a recording from the list to see who was
-told about it and when: everybody who was in the room when it started, everybody who arrived while it
-ran, and everybody who was there when it stopped. That list is the firm's record that people were
-told.
+**After a recording stops.** The recording is put together into one audio file, with everybody who
+spoke while it ran on it, guests included, and added to the matter's documents. It arrives in the
+matter's **Files** the way an upload does: it is checked by the same safety scan as anything else
+added to the matter, it cannot be opened until the check has finished, and if the check holds it,
+it stays held like any other held file. Putting a recording together takes a little while after it
+stops; a long meeting takes longer. Only the sound is in it.
 
-**Playing a recording is not built yet.** A recording is not yet added to the matter's documents, so
-there is nothing to play or download. The list shows **Play** as coming soon.
+**What has been recorded.** **Recordings** at the top of the meeting's screen lists every recording
+made in it, newest first: what has become of it, when it started and who started it, and when and how
+it stopped. The same list opens from **Recordings** on the meeting's row under **Recently ended** on
+the Meetings page, so a recording can be found after the meeting is over without going back into the
+room. Somebody hosting meetings can open a recording's row in the room to see who was told about it
+and when: everybody who was in the room when it started, everybody who arrived while it ran, and
+everybody who was there when it stopped. That list is the firm's record that people were told.
+
+What each recording's state means:
+
+- **Recording** — it is running now.
+- **Being Put Together** — it has stopped and is being made into one audio file. Nothing is lost
+  while it waits; it moves on by itself.
+- **Added to the Matter** — it is in the matter's Files. **Open** in its row opens that file in a
+  new tab, where your browser plays it; it is the matter's own document, not a copy, so it is also
+  found, downloaded and shared from the Files section like any other document.
+- **Failed** — it could not be put together, or nothing at all was captured, so no document was
+  added. The row shows an **Error ID**; quote it to your administrator or to support.
+- **Interrupted** — the recording stopped without anybody stopping it and was gathered up
+  afterwards.
+
+How a recording stopped is said in its own words: who pressed **Stop Recording**; "The meeting
+ended"; "The sound was lost", when every voice it was hearing dropped and did not come back; "It
+reached the longest a recording may run"; "It ended on its own", when nobody was speaking for a long
+while or the recording was cut off; and "It could not start", when the recording was stopped before
+anybody's voice was captured because it could not be begun properly. A recording that could not
+start captured nothing.
 
 ### If you are a guest
 
 You are told about a recording exactly as everybody else is: the tone, the words, the banner and the
 **Recording** mark beside the meeting's title for as long as it runs. A guest cannot start or stop a
-recording. If you do not want to be recorded, you can leave the meeting with **Leave** at any time,
-and tell the firm.
+recording. Your voice is in the recording while you are in the room, and the recording is kept by
+the firm with the matter's documents. If you do not want to be recorded, you can leave the meeting
+with **Leave** at any time, and tell the firm.
 
 ## Ending a meeting
 

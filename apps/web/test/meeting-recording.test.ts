@@ -28,14 +28,18 @@ import {
 } from "$lib/meetings/client/meeting-client.svelte.ts";
 import {
   ANNOUNCEMENT_REWRITE_MILLISECONDS,
-  browserRecordingSounds,
   MeetingRecording,
   readRecordingAnnouncement,
   RECORDING_IN_PROGRESS,
   RECORDING_STOPPED,
   recordingRefusal,
-  type MeetingRecordingSounds,
+  sameRecording,
 } from "$lib/meetings/client/recording.svelte.ts";
+import {
+  browserRecordingSounds,
+  pageRecordingSounds,
+  type MeetingRecordingSounds,
+} from "$lib/meetings/client/recording-sounds.ts";
 import { meetingProblemType } from "$lib/meetings/meetings-api.ts";
 import type { Failure } from "$lib/api/problem.ts";
 import { queryClient } from "../src/lib/api/screen-data.ts";
@@ -64,6 +68,15 @@ function stopped(recordingId = "meetingRecording_1"): Record<string, unknown> {
     recordingId,
     by: { userId: "usr_2", displayName: "Rosalind Chase" },
     at: "2026-09-20T15:30:00.000Z",
+  };
+}
+
+/** The same announcement as a guest's socket receives it: no handle for the firm's own records. */
+function guestCopy(announcement: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...announcement,
+    recordingId: null,
+    by: { userId: null, displayName: "Rosalind Chase" },
   };
 }
 
@@ -269,8 +282,91 @@ describe("reading an announcement", () => {
         ?.by,
     ).toEqual({ userId: null, displayName: "Rosalind" });
     expect(readRecordingAnnouncement({ ...started(), recordingId: undefined })).toBeNull();
+    expect(readRecordingAnnouncement({ ...started(), recordingId: 7 })).toBeNull();
+    expect(readRecordingAnnouncement({ ...started(), at: undefined })).toBeNull();
     expect(readRecordingAnnouncement({ ...started(), state: "paused" })).toBeNull();
     expect(readRecordingAnnouncement(undefined)).toBeNull();
+  });
+
+  it("reads a guest's copy, which carries no handle for the recording, as an announcement", () => {
+    expect(readRecordingAnnouncement(guestCopy(started()))).toEqual({
+      state: "started",
+      recordingId: null,
+      by: { userId: null, displayName: "Rosalind Chase" },
+      at: "2026-09-20T15:00:00.000Z",
+    });
+  });
+
+  it("tells two recordings apart by handle where both carry one, and by when they started where not", () => {
+    const first = readRecordingAnnouncement(started("meetingRecording_1"));
+    const second = readRecordingAnnouncement({
+      ...started("meetingRecording_2"),
+      at: "2026-09-20T16:00:00.000Z",
+    });
+    const firstAsAGuest = readRecordingAnnouncement(guestCopy(started()));
+    const secondAsAGuest = readRecordingAnnouncement(
+      guestCopy({ ...started("meetingRecording_2"), at: "2026-09-20T16:00:00.000Z" }),
+    );
+    if (first === null || second === null || firstAsAGuest === null || secondAsAGuest === null) {
+      throw new Error("every copy above is an announcement");
+    }
+    expect(sameRecording(first, first)).toBe(true);
+    expect(sameRecording(first, second)).toBe(false);
+    expect(sameRecording(firstAsAGuest, firstAsAGuest)).toBe(true);
+    expect(sameRecording(firstAsAGuest, secondAsAGuest)).toBe(false);
+    expect(sameRecording(first, firstAsAGuest)).toBe(true);
+  });
+});
+
+describe("the announcement on a guest's copy, which names no recording", () => {
+  it("lights the mark and sounds on the start, and not again for a copy of the same start", () => {
+    const sounds = new FakeSounds();
+    const recording = new MeetingRecording(sounds);
+    recording.noteFrame(readRecordingAnnouncement(guestCopy(started())));
+    expect(recording.running).not.toBeNull();
+    expect(recording.notice?.occasion).toBe("started");
+    recording.noteFrame(readRecordingAnnouncement(guestCopy(started())));
+    expect(sounds.chimes).toEqual(["started"]);
+  });
+
+  it("decides a start after a stop is a new recording from the transition alone", () => {
+    const sounds = new FakeSounds();
+    const recording = new MeetingRecording(sounds);
+    recording.noteFrame(readRecordingAnnouncement(guestCopy(started())));
+    recording.noteFrame(readRecordingAnnouncement(guestCopy(stopped())));
+    expect(recording.running).toBeNull();
+    // Even a start the room stamped with the same instant: a start after a stop is news.
+    recording.noteFrame(readRecordingAnnouncement(guestCopy(started())));
+    expect(recording.running).not.toBeNull();
+    expect(sounds.chimes).toEqual(["started", "stopped", "started"]);
+  });
+
+  it("sounds a welcome naming a running recording after a socket that had none", () => {
+    const sounds = new FakeSounds();
+    const recording = new MeetingRecording(sounds);
+    recording.noteWelcome(null);
+    recording.noteDisconnected();
+    recording.noteWelcome(readRecordingAnnouncement(guestCopy(started())));
+    expect(recording.running).not.toBeNull();
+    expect(recording.notice?.occasion).toBe("arrival");
+    expect(sounds.chimes).toEqual(["started"]);
+  });
+
+  it("tells a rejoin into the same recording on screen without the tone, and sounds a different one", () => {
+    const sounds = new FakeSounds();
+    const recording = new MeetingRecording(sounds);
+    recording.noteWelcome(readRecordingAnnouncement(guestCopy(started())));
+    recording.noteDisconnected();
+    recording.noteWelcome(readRecordingAnnouncement(guestCopy(started())));
+    expect(recording.notice?.occasion).toBe("arrival");
+    expect(sounds.chimes).toEqual(["started"]);
+
+    // Stopped and started again while this browser was away: a later start, so a new recording.
+    recording.noteDisconnected();
+    recording.noteWelcome(
+      readRecordingAnnouncement(guestCopy({ ...started(), at: "2026-09-20T16:00:00.000Z" })),
+    );
+    expect(sounds.chimes).toEqual(["started", "started"]);
   });
 });
 
@@ -870,6 +966,8 @@ afterEach(() => {
   if (instance !== undefined) void unmount(instance);
   instance = undefined;
   target.remove();
+  // The page's one tone device outlives a screen by design; each case starts with none open.
+  pageRecordingSounds.release();
   page.params = {};
   sessionPermissions.session = null;
   sessionPermissions.settled = false;

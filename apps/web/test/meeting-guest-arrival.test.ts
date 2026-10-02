@@ -29,6 +29,7 @@ import {
 import { isGuestPageAddress } from "../src/lib/meetings/guest-render-boundary.svelte";
 import type { GuestDeviceSeams } from "../src/lib/meetings/client/guest-devices.ts";
 import { ANNOUNCEMENT_REWRITE_MILLISECONDS } from "../src/lib/meetings/client/recording.svelte.ts";
+import { pageRecordingSounds } from "../src/lib/meetings/client/recording-sounds.ts";
 import GuestErrorPage from "../src/routes/join/+error.svelte";
 import { page } from "./stubs/app-state.ts";
 import Harness from "./guest-meeting-harness.svelte";
@@ -372,6 +373,8 @@ afterEach(() => {
   if (instance !== undefined) void unmount(instance);
   instance = undefined;
   target.remove();
+  // The page's one tone device outlives a screen by design; each case starts with none open.
+  pageRecordingSounds.release();
   vi.unstubAllGlobals();
   client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
 });
@@ -924,8 +927,9 @@ describe("a guest's page that breaks", () => {
 describe("a recording, as a guest meets it", () => {
   const recording = {
     state: "started",
-    recordingId: "meetingRecording_1",
-    // A guest's copy of the announcement carries no member handle.
+    // A guest's copy of the announcement names no firm record: no handle for the recording, and no
+    // member handle for who started it. The mark, the banner and the tone are owed all the same.
+    recordingId: null,
     by: { userId: null, displayName: "Rosalind Chase" },
     at: "2026-09-24T18:05:00Z",
   };
@@ -955,6 +959,7 @@ describe("a recording, as a guest meets it", () => {
     expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
       "Recording in progress",
     );
+    expect(document.body.innerHTML).not.toContain("meetingRecording_");
     // A guest holds no grant on the room, so neither act is offered to them.
     const names = controlNames();
     expect(names).not.toContain("Record");

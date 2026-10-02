@@ -84,15 +84,27 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   the live region written again, because the room records each welcome as an occasion the person was
   told and the socket that came back may be at another device. The tone and the voice sound once per
   recording on this page — which one was announced aloud survives a lost socket — so a flaky
-  connection does not chime every few seconds. The live region is EMPTIED AND REWRITTEN a moment
-  later on every announcement, because an assertive region does not re-read text identical to what
-  it already holds and the accessibility tree updates only when the browser renders. The sounds are a
-  seam (`MeetingClientSeams.createRecordingSounds`, silent by default) with an audio context of its
-  own, because the meter's does not exist for a member who published no microphone. THAT CONTEXT IS
-  OPENED INSIDE A PRESS, NEVER AT THE CHIME: Safari and iOS leave a context made outside a gesture
-  suspended, so the screens call `unlockRecordingSounds()` first thing in Join and Rejoin (before
-  anything is awaited) and from any press in the room, and a chime on a context that is not running
-  schedules nothing rather than a tone that plays late.
+  connection does not chime every few seconds. WHETHER A START IS NEWS IS DECIDED BY THE TRANSITION,
+  NEVER BY THE HANDLE: a guest's copy carries `recordingId: null` (the handle names a firm record),
+  so a start after a stop, or a welcome naming a running recording after a socket that had none, is
+  news on its own; only a welcome after a socket that had one asks `sameRecording`, which compares
+  handles where both copies carry one and the start instant (`at`) where they do not. The live
+  region is EMPTIED AND REWRITTEN a moment later on every announcement, because an assertive region
+  does not re-read text identical to what it already holds and the accessibility tree updates only
+  when the browser renders.
+- `recording-sounds.ts` — the tone and the voice (`MeetingRecordingSounds`, reached through
+  `MeetingClientSeams.createRecordingSounds`, silent by default), with an audio context of their own
+  because the meter's does not exist for a member who published no microphone. ONE DEVICE PER PAGE,
+  `pageRecordingSounds`, BECAUSE THE PRESS THAT OPENS IT IS OFTEN ON ANOTHER SCREEN: Safari and iOS
+  leave a context made or resumed outside a press suspended, and a member who joins from a calendar
+  entry pressed Join there, while the room's arrival runs from an effect after the navigation. So
+  every press that leads into a room unlocks `pageRecordingSounds` before it awaits or navigates —
+  the entry action's Join and Start, the Meetings page's Join, the room's own Join and Rejoin
+  (through `unlockRecordingSounds()`) and any press in the room — and the browser seams hand the
+  room's client that same instance, so its first chime lands on the device the press woke. A chime
+  on a context that is not running schedules nothing rather than a tone that plays late. A test that
+  mounts a screen releases `pageRecordingSounds` after each case, because the device outlives a
+  screen by design.
 - `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
   rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`). NO READ ON A TIMER WHILE
   THE SOCKET IS HEALTHY: a full read on arrival and on reconnect, a read when a panel opens (forward
@@ -108,7 +120,11 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 `recording-mark.svelte` (the static Recording badge drawn in the header of the room and guest pages
 while the room says a recording runs, and beside a recorded meeting's row and calendar entry from the
 summary's `recordingState`), `recording-notice.svelte` (the one dismissible banner both pages draw
-from the recording concern), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+from the recording concern), `recording-list.svelte` with `recording-list.ts` (the one Recordings
+reading panel, opened from the room's header and from an ended meeting's row on the Meetings page: a
+recording on the matter is opened as THE DOCUMENT, through the file's own download route in a new
+tab, never through a player of ours; every state and every stop reason has its own words there, a
+failed recording states its Error ID, and the server's `filed` is never the word on screen), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who
