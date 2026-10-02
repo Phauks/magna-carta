@@ -255,6 +255,31 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
 
+  apps/address-worker:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: 'catalog:'
+        version: 0.3.7
+      '@magna-carta/build-identity':
+        specifier: workspace:*
+        version: link:../../packages/build-identity
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260713.1
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(svelte@5.56.2)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.110.0(@cloudflare/workers-types@5.20260713.1)(@types/node@26.1.2)
+
   apps/api-worker:
     dependencies:
       '@cloudflare/containers':
