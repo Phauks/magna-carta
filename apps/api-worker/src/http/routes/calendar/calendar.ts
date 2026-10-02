@@ -119,6 +119,7 @@ import {
   UpdateResourceRequest,
   firmEventRequestFields,
   matterEventRequestFields,
+  ParticipantRequest,
 } from "@magna-carta/calendar/contract";
 import { readMatterEventTypes } from "@magna-carta/calendar/event-type-statements";
 import { encodeCursor } from "@magna-carta/data-access/cursor-pagination";

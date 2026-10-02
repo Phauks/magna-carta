@@ -51,7 +51,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "billing/billing.ts": { lines: 3059, shapes: 70 },
   "billing/costs.ts": { lines: 1202, shapes: 8 },
   "billing/reports.ts": { lines: 534, shapes: 32 },
-  "calendar/calendar.ts": { lines: 3581, shapes: 4 },
+  "calendar/calendar.ts": { lines: 3582, shapes: 4 },
   "communications/communications.ts": { lines: 1032, shapes: 9 },
   "communications/meeting-chat.ts": { lines: 634, shapes: 3 },
   "communications/meeting-hosting.ts": { lines: 598, shapes: 5 },
