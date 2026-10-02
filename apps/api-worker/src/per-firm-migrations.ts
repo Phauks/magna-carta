@@ -43,6 +43,7 @@ import hostingIsAGrantOnTheMeetingSql from "@magna-carta/database/drizzle/per-fi
 import arrivalsWaitInALobbySql from "@magna-carta/database/drizzle/per-firm/20260924T182331_arrivals-wait-in-a-lobby.sql";
 import aGuestHoldsASignedLinkAndAStayOfItsOwnSql from "@magna-carta/database/drizzle/per-firm/20260924T182332_a-guest-holds-a-signed-link-and-a-stay-of-its-own.sql";
 import meetingPollsAndQuestionsSql from "@magna-carta/database/drizzle/per-firm/20260924T184938_meeting-polls-and-questions.sql";
+import meetingRecordingAndWhoWasToldSql from "@magna-carta/database/drizzle/per-firm/20261002T183316_meeting-recording-and-who-was-told.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -83,6 +84,7 @@ export function perFirmMigrations(): Migration[] {
     "20260924T182332_a-guest-holds-a-signed-link-and-a-stay-of-its-own":
       aGuestHoldsASignedLinkAndAStayOfItsOwnSql,
     "20260924T184938_meeting-polls-and-questions": meetingPollsAndQuestionsSql,
+    "20261002T183316_meeting-recording-and-who-was-told": meetingRecordingAndWhoWasToldSql,
   });
 }
 

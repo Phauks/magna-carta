@@ -72,8 +72,20 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   zone, which is what a link's life is measured from.
 - `guest-refusals.ts` — the one table from a link's refusal code to the problem a guest is told,
   read by both the chokepoint's guest lane and the guest routes so one condition says one sentence.
-- `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit, and the test
-  seam a meeting-room test installs a fake through.
+- `room/room-recording.ts` — the recording's announcement and its record: the `recording` frame to
+  every welcomed socket, the running recording a welcome carries, the notice rows for every stay told
+  (one batch per fan-out), and the audio tracks the recorder asks the room for.
+- `meeting-recorder.ts` — `MeetingRecorder`, one per RECORDING (`firmId:recordingId`) and NOT
+  hibernating: the one object in this directory the media does cross. The routing service's WebSocket
+  adapter streams each audio track to it as PCM; it folds to mono, writes silence for missing frames,
+  stages each track in the firm's own bucket in 8 MiB parts, reconciles against the room on its alarm,
+  and holds no audio in its storage — only the carry, in memory.
+- `sink-token.ts` — the signed per-track address the routing service dials, its own secret
+  (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
+  `routes/meeting-sink.ts`, outside the chokepoint.
+- `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit (sessions,
+  tracks, and the WebSocket adapter's open and close), and the test seam a meeting-room test installs a
+  fake through.
 - `sfu/turn-credentials.ts` — minting relay credentials from Realtime's TURN service, shared with
   `routes/tools-turn-credentials.ts`.
 - `sfu/realtime-failure.ts` — one failure through the standard pipeline, answering with the Error ID
@@ -93,11 +105,19 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   module state keyed by the room's own state, a map from a stay to the routing-service call that is
   opening its session. It holds work in flight and nothing else: a room cannot hibernate mid-frame,
   a completed opening is written onto the participant record with the first publish or subscribe
-  and leaves the map, and a failed one leaves it so the next frame asks again. It exists so that
+  and leaves the map, and a failed call leaves it so the next frame asks again. It exists so that
   `blockConcurrencyWhile` is never held across a network call — three hundred arrivals used to open
   their sessions one at a time behind one lock, and one slow upstream answer stalled every frame in
-  the room. Two frames from one stay still open exactly one session, because the first claims the
-  map before its first await and nothing is delivered to the object while a storage read is out.
+  the room. Two frames from one stay still open exactly one session: the first claims the map after
+  its one storage read and before any other await, and that is safe because the input gate delivers
+  nothing to the object — no frame, no upstream answer — while a storage read is out. An opening
+  whose act was REFUSED, or wrote nothing (a layer change, a renegotiation, a close), STAYS in the
+  map until something resets it: a reconnect of the stay (`admitParticipant` gives up an opening
+  the service has answered, inside the gate that resets the record, and closes its session — one
+  still unanswered is inherited by the new socket, since nothing can have been offered into it), a
+  leave (`releaseParticipant`, which closes an unrecorded session whether or not a roster entry was
+  there to remove), or hibernation, after which the next frame reads no session on the record and
+  opens another.
 - **Nothing about a participant may live on the instance.** Class properties do not survive
   hibernation. Everything a frame needs rides on the per-socket attachment; everything the room needs
   is read back out of storage on each call, which is why `RoomContext` is built per call rather than
@@ -205,8 +225,13 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   who has no user to name. A new frame carrying a user identifier goes through the same projection;
   a broadcast of one shared payload would hand a guest the firm's identifiers. The hosts' `waiting`
   list carries `kind` and, for a guest, `invitedName` beside the name typed at the door.
-- **The media never crosses this directory.** Audio, video and screen share go directly between a
-  browser and Realtime. Nothing here has a redaction step because there is nothing here to redact —
+- **The media crosses this directory in one place only: the recorder.** Audio, video and screen share
+  go directly between a browser and Realtime, and the room never holds a frame of any of them. The
+  one exception is `meeting-recorder.ts`, which receives each recorded participant's audio from the
+  routing service's WebSocket adapter while a recording runs and stages it to the firm's own bucket;
+  it holds at most one part per track in memory, writes no audio to its own storage, and no telemetry
+  field, refusal or log line it emits can carry a track name, a display name, a sink token or an
+  object key. Nothing else here has a redaction step because there is nothing else here to redact —
   and an upstream body is never carried into a refusal, because it can name the application the whole
   fleet's meetings run on.
 - **A direct reply to one socket goes through `trySend`, never `socket.send`.** `send` on a closed

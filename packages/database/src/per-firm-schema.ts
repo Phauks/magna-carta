@@ -135,6 +135,9 @@ import type {
   MeetingPollRespondentId,
   MeetingQuestionId,
   MeetingQuestionUpvoteId,
+  MeetingRecordingId,
+  MeetingRecordingNoticeId,
+  MeetingRecordingTrackId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -11265,6 +11268,214 @@ export const meetingQuestionUpvote = sqliteTable(
     ),
     check(
       "meeting_question_upvote_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Meeting recording — the audio a meeting was recorded with, and the record of who was told.
+// ---------------------------------------------------------------------------------------------
+
+// ONE RECORDING OF ONE MEETING: from the moment a member pressed Record to the moment it stopped.
+// A stop and a second start are two rows, because each began with its own announcement to the room
+// and each has its own consent record beneath it.
+//
+// THE ROW HOLDS NO AUDIO. The bytes are staged per track in the firm's own bucket and later composed
+// into one document filed under the matter; this row is identifiers, instants, counts and a state.
+// `matter_id` is denormalized from the meeting's event because a recording can only be filed into a
+// matter — a firm event has none, so a firm meeting cannot be recorded at all.
+//
+// THE VOCABULARIES ARE WHOLE FROM THE FIRST MIGRATION. This is a parent table (its tracks and notices
+// point at it), and SQLite cannot widen a CHECK on a parent without the rebuild this lineage refuses
+// — so every state and every stop reason the later slices write (composing, filed, a sweep's
+// abandoned) is in the CHECK now, before anything writes them.
+//
+// `breakout_id` names the breakout room a recording was made in, BY VALUE with no foreign key, and is
+// null for the main room — which is every recording today. On meeting_poll's precedent: a nullable
+// column added before its table exists is free, and one added later is not.
+export const meetingRecording = sqliteTable(
+  "meeting_recording",
+  {
+    id: text("id").primaryKey().$type<MeetingRecordingId>(), // meetingRecording_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The breakout room this was recorded in, by value; null for the main room.
+    breakoutId: text("breakout_id"),
+    state: text("state", {
+      enum: ["recording", "composing", "filed", "failed", "abandoned"],
+    }).notNull(),
+    // Who pressed Record. Always a member: a guest cannot hold the permission it takes.
+    startedByUserId: text("started_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    startedAt: text("started_at").notNull(), // ISO-8601 instant
+    // Who stopped it — null when nobody did: every track was lost, or a sweep found the recorder gone.
+    stoppedByUserId: text("stopped_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    stoppedAt: text("stopped_at"), // ISO-8601 instant
+    stopReason: text("stop_reason", {
+      enum: ["member", "host", "meeting-ended", "sink-lost", "ceiling", "abandoned"],
+    }),
+    // How many tracks the recording held when it stopped, open, closed and lost alike.
+    trackCount: integer("track_count").notNull().default(0),
+    // What the composite actually contains, which is not the wall-clock span: a recording never claims
+    // more than it captured. Null until the recorder has settled its tracks.
+    capturedSeconds: integer("captured_seconds"),
+    // The filed audio document, once the compose step has filed it.
+    fileId: text("file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    fileVersionId: text("file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    // The standard pipeline's Error ID when the recording failed — never a message.
+    failureErrorId: text("failure_error_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("meeting_recording_meeting_started_index").on(table.meetingId, table.startedAt, table.id),
+    index("meeting_recording_state_index").on(table.state),
+    // ONE RUNNING RECORDING PER ROOM, held by the database. Two members pressing Record together
+    // both read "nothing running" a round trip before they write; the second insert is what this
+    // refuses. Partial on the running state, because the stopped rows are the record and a room may
+    // hold as many as it had presses — and on the main room alone, because NULLs are distinct in a
+    // unique index, so a breakout's own recordings take an index of their own when breakouts land.
+    uniqueIndex("meeting_recording_one_running_unique_index")
+      .on(table.meetingId)
+      .where(sql`${table.state} = 'recording' AND ${table.breakoutId} IS NULL`),
+    check(
+      "meeting_recording_state_check",
+      sql`${table.state} IN ('recording', 'composing', 'filed', 'failed', 'abandoned')`,
+    ),
+    check(
+      "meeting_recording_stop_reason_check",
+      sql`${table.stopReason} IS NULL
+        OR ${table.stopReason} IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned')`,
+    ),
+    // RUNNING MEANS NOT STOPPED, in both directions: a running recording carries no stop, and every
+    // other state carries the instant and the reason it stopped. Half of that pair is a record nobody
+    // can question — the line meeting_ended_shape_check sits on.
+    check(
+      "meeting_recording_stopped_shape_check",
+      sql`(${table.state} = 'recording' AND ${table.stoppedAt} IS NULL AND ${table.stopReason} IS NULL)
+        OR (${table.state} <> 'recording' AND ${table.stoppedAt} IS NOT NULL AND ${table.stopReason} IS NOT NULL)`,
+    ),
+    check("meeting_recording_track_count_check", sql`${table.trackCount} >= 0`),
+  ],
+);
+
+// ONE PARTICIPANT'S AUDIO INSIDE ONE RECORDING. The track name is the attribution key every later
+// transcript line rests on: a speaker is named because their track was theirs, never because a model
+// guessed who was talking.
+//
+// THE STAY IS NAMED BY VALUE, ACROSS THREE KINDS, on meeting_message's precedent: a member's
+// `meeting_attendance`, a guest's `meeting_guest_stay`, and a webinar's `attendee` — so a guest or a
+// phone caller can have a track as well as a member. `user_id` is the member behind a member's stay
+// and null for anybody else.
+//
+// A TRACK THE RECORDER COULD NOT HOLD IS STILL A ROW. One whose socket never came back, or one past
+// the track ceiling, is `lost` with whatever frames it has — zero for the second — because a record
+// that silently omitted a speaker is worse than one that says it could not hear them.
+export const meetingRecordingTrack = sqliteTable(
+  "meeting_recording_track",
+  {
+    id: text("id").primaryKey().$type<MeetingRecordingTrackId>(), // meetingRecordingTrack_ handle
+    recordingId: text("recording_id")
+      .notNull()
+      .$type<MeetingRecordingId>()
+      .references(() => meetingRecording.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    userId: text("user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // The routing service's name for the track, which is the attribution key.
+    trackName: text("track_name").notNull(),
+    // The routing service's handle for the adapter that carries it, which is what closing it takes.
+    adapterId: text("adapter_id"),
+    // The object this track's audio is staged under in the firm's bucket; null once swept.
+    stagingKey: text("staging_key"),
+    firstFrameAt: text("first_frame_at"), // ISO-8601 instant
+    lastFrameAt: text("last_frame_at"), // ISO-8601 instant
+    framesReceived: integer("frames_received").notNull().default(0),
+    // Frames the sequence numbers say never arrived, each of which became silence of its own length.
+    framesDropped: integer("frames_dropped").notNull().default(0),
+    state: text("state", { enum: ["open", "closed", "lost"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_recording_track_name_unique_index").on(table.recordingId, table.trackName),
+    index("meeting_recording_track_state_index").on(table.recordingId, table.state),
+    check("meeting_recording_track_state_check", sql`${table.state} IN ('open', 'closed', 'lost')`),
+    check(
+      "meeting_recording_track_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+    check(
+      "meeting_recording_track_frames_check",
+      sql`${table.framesReceived} >= 0 AND ${table.framesDropped} >= 0`,
+    ),
+  ],
+);
+
+// ONE OCCASION ON WHICH ONE STAY WAS TOLD — the consent record the owner's ruling makes of the
+// announcement. What the SERVER announced to whom, not what a browser rendered: a row says that a
+// person in the room at an instant had the frame delivered to their socket, for one of three reasons
+// — the recording started, it was running when they arrived, or it stopped.
+//
+// Identifiers and an instant, and nothing about what anybody said. Written in one batch per fan-out,
+// never one write per socket. A reconnect is another arrival and another row, correctly: each is a
+// separate occasion on which they were told.
+//
+// The stay is named BY VALUE across three kinds, as the track's is, so a guest who was told is on the
+// record exactly as a member is.
+export const meetingRecordingNotice = sqliteTable(
+  "meeting_recording_notice",
+  {
+    id: text("id").primaryKey().$type<MeetingRecordingNoticeId>(), // meetingRecordingNotice_ handle
+    recordingId: text("recording_id")
+      .notNull()
+      .$type<MeetingRecordingId>()
+      .references(() => meetingRecording.id),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }).notNull(),
+    participantId: text("participant_id").notNull(),
+    userId: text("user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    reason: text("reason", { enum: ["start", "arrival", "stop"] }).notNull(),
+    // The instant the room fanned the frame out — the server's, never a browser's.
+    deliveredAt: text("delivered_at").notNull(), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // THE READ AND THE KEYSET IN ONE INDEX: one recording's notices, oldest first, walked by
+    // (delivered_at, id).
+    index("meeting_recording_notice_delivered_index").on(
+      table.recordingId,
+      table.deliveredAt,
+      table.id,
+    ),
+    check(
+      "meeting_recording_notice_reason_check",
+      sql`${table.reason} IN ('start', 'arrival', 'stop')`,
+    ),
+    check(
+      "meeting_recording_notice_participant_kind_check",
       sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
     ),
   ],

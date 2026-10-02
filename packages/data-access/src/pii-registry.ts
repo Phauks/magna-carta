@@ -478,6 +478,50 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "the stay that upvoted a question is who did it and the proof they were in the room",
   },
+  // Recording — who recorded, who was recorded and who was told. IDENTIFIERS ONLY: the audio itself is
+  // staged in the firm's bucket and filed as a document under the matter, where it takes the document's
+  // own retention, and nothing in these three tables is content. Every reference takes the attendance
+  // row's basis, because who recorded a conversation on a matter, whose voice is in it and who was told
+  // it was being recorded is part of what the record says happened — and the notice rows are the
+  // consent record the owner's ruling made of the announcement, which erasure must never thin out.
+  // A stay is carried by value, and a member resolves through meeting_attendance.user_id as well as
+  // through the user_id column each row carries beside it.
+  {
+    table: "meeting_recording",
+    subjectKey: "started_by_user_id",
+    action: "retain-under-matter",
+    note: "who pressed Record on a meeting on a matter is the act the recording's whole record hangs from",
+  },
+  {
+    table: "meeting_recording",
+    subjectKey: "stopped_by_user_id",
+    action: "retain-under-matter",
+    note: "who stopped a recording, and when, closes the span it claims to have captured; null when nobody did",
+  },
+  {
+    table: "meeting_recording_track",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay whose audio a track carries is whose voice the recording holds, and the attribution of every later transcript line",
+  },
+  {
+    table: "meeting_recording_track",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a recorded track, beside the stay; null for a guest or anybody else without a user",
+  },
+  {
+    table: "meeting_recording_notice",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that was told a recording started, was running when they arrived, or stopped — the consent record itself",
+  },
+  {
+    table: "meeting_recording_notice",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a notice, beside the stay; null for a guest, who was told exactly as a member was",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and

@@ -235,6 +235,9 @@ describe("GET /api/v1/me", () => {
         // seats' act (20260919T001020_seed-meetings-permissions).
         "meetings:host",
         "meetings:join",
+        // meetings:record is seeded to exactly the seats that hold meetings:host, so no firm's
+        // behaviour changes the day it lands (20261002T183316_meeting-recording-and-who-was-told).
+        "meetings:record",
         // Seeded onto EVERY default role including Read-only — the deliberate contrast with
         // trust:read (20260807T020000_notifications-delivery). Reading one's own feed is not a
         // privilege: it is scoped to the session's own user id and every row is filtered by matter

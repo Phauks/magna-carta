@@ -19,9 +19,15 @@ import {
   recordSwept,
   recordWelcomed,
 } from "./room-diagnostics.ts";
-import { releaseMedia, releaseParticipant } from "./room-media.ts";
+import {
+  abandonAnsweredOpening,
+  closeUnrecordedSession,
+  releaseMedia,
+  releaseParticipant,
+} from "./room-media.ts";
 import { flushDeferredPresence, presenceFlushDeadlineOf } from "./room-presence.ts";
 import { flushReactions, reactionFlushDeadlineOf } from "./room-reactions.ts";
+import { recordingForWelcome } from "./room-recording.ts";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   attachmentOf,
@@ -105,6 +111,11 @@ const ENDED_RETENTION_HOURS = 24;
  * session and everybody re-subscribes by its id, which is the only sequence that actually
  * reconnects somebody. Read-modify-write under the gate, because two sockets arriving together
  * would otherwise both read the same predecessor and both try to retire it.
+ *
+ * THE SESSION BEING OPENED FOR THE OLD SOCKET IS RESET WITH THE RECORD, in the same gate. The record
+ * is not the only place a session can be: `room-media.ts` keeps, per stay, the session the service
+ * has answered and no record names yet, and one the old connection offered into would otherwise
+ * greet the returning browser's first publish as somebody else's and refuse it.
  */
 export async function admitParticipant(
   room: RoomContext,
@@ -112,7 +123,7 @@ export async function admitParticipant(
   server: WebSocket,
 ): Promise<void> {
   const superseded = socketsFor(room, attachment.attendanceId, server);
-  const previous = await room.ctx.blockConcurrencyWhile(async () => {
+  const { previous, unrecordedSession } = await room.ctx.blockConcurrencyWhile(async () => {
     await putRoom(room, {
       firmId: attachment.firmId,
       meetingId: attachment.meetingId,
@@ -175,7 +186,12 @@ export async function admitParticipant(
       hostRole:
         existing === undefined ? (attachment.hostRole ?? null) : (existing.hostRole ?? null),
     });
-    return existing;
+    // After the reset and before the gate opens, so no frame can find the old opening against the
+    // new record.
+    return {
+      previous: existing,
+      unrecordedSession: abandonAnsweredOpening(room, attachment.attendanceId),
+    };
   });
 
   // Told BEFORE anything else, so the displaced browser learns why rather than watching a socket
@@ -212,6 +228,10 @@ export async function admitParticipant(
   const doorList = hostRole === null ? [] : waitingParticipantsFrom(await storedWaiting(room));
   // Built for WHO IS ARRIVING: a guest's welcome carries the same roster with the identifiers taken
   // out, which is the rule every later roster frame to their socket follows too.
+  //
+  // AND THE RECORDING RUNNING AS THEY ARRIVE, if one is — the "and on arrival" half of the consent
+  // ruling, told in the same vocabulary the room was told in at the start, with an `arrival` notice
+  // written for this stay (room-recording.ts). A reconnect is another arrival, and is told again.
   trySend(
     server,
     welcomeFrame(
@@ -219,6 +239,7 @@ export async function admitParticipant(
       rosterFrom(stored, viewerKindOf(attachment)),
       await roomStateOf(room),
       doorList,
+      await recordingForWelcome(room, attachment),
     ),
   );
   await recordWelcomed(room, attachment, attachment.attendanceId, stored.size, doorList.length);
@@ -245,8 +266,10 @@ export async function admitParticipant(
   }
 
   // Last, and best-effort: the predecessor's session is nobody's now, and the routing service goes
-  // on forwarding and billing it until it is told otherwise.
+  // on forwarding and billing it until it is told otherwise — and so is one the service opened for
+  // the old connection that no record ever named.
   if (previous !== undefined) await releaseMedia(room, [previous]);
+  if (unrecordedSession !== null) await closeUnrecordedSession(room, unrecordedSession);
 }
 
 /**

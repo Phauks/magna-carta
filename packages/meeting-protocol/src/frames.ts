@@ -9,6 +9,7 @@ import {
   type MeetingQuestionSnapshot,
   type MeetingQuestionUpvoteCount,
   type MeetingReaction,
+  type MeetingRecordingAnnouncement,
   type MeetingRoomState,
   type PreferredRid,
   type RosterParticipant,
@@ -520,6 +521,11 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   "lobby",
   "admitted",
   "waiting",
+  // THE ANNOUNCEMENT THAT A RECORDING STARTED OR STOPPED, which the owner's ruling makes the consent
+  // mechanism. To every WELCOMED socket — a guest's as much as a member's, because everybody whose
+  // voice is being captured is told — and never to the lobby, where nobody is being recorded. Start
+  // and stop are ROUTES: the browser sends nothing new on the socket to cause either.
+  "recording",
   "ended",
   "refused",
   "pong",
@@ -687,8 +693,37 @@ export function welcomeFrame(
   roster: readonly RosterParticipant[],
   roomState: MeetingRoomState,
   waiting: readonly WaitingParticipant[],
+  // THE RECORDING RUNNING WHEN THIS SOCKET ARRIVED — the "and on arrival" half of the consent ruling.
+  // It is server-sent, so a browser that never paints it was still told; and it is the same
+  // announcement the room broadcast at the start, so a late arrival hears exactly what the room heard.
+  // Always `started` when present. ABSENT, not null, when nothing is being recorded: a welcome to a
+  // room that is not recording is then byte-for-byte the welcome it always was, and a browser reads
+  // the missing field as "not recording", which is what it means.
+  recording: MeetingRecordingAnnouncement | null = null,
 ): string {
-  return frame({ type: "welcome", participantId, roster, roomState, waiting });
+  return frame({
+    type: "welcome",
+    participantId,
+    roster,
+    roomState,
+    waiting,
+    ...(recording === null ? {} : { recording }),
+  });
+}
+
+/**
+ * A RECORDING STARTED OR STOPPED — the announcement, broadcast to every welcomed socket the instant
+ * the route committed the transition.
+ *
+ * The browser plays it three ways at once (a synthesized tone, spoken words where the browser offers
+ * them, and a banner with a live-region announcement), and draws the persistent mark for as long as
+ * the state is `started`. What the server records is not what was rendered but what it delivered: the
+ * room writes a notice for every stay it sent this frame to.
+ *
+ * A guest's copy carries `by.userId: null`, the rule every frame naming a firm user follows.
+ */
+export function recordingFrame(announcement: MeetingRecordingAnnouncement): string {
+  return frame({ type: "recording", ...announcement });
 }
 
 /** The answer to the browser's offer, and where each published track landed. */
@@ -1049,6 +1084,8 @@ export type {
   MeetingQuestionSnapshot,
   MeetingQuestionUpvoteCount,
   MeetingReaction,
+  MeetingRecordingActor,
+  MeetingRecordingAnnouncement,
   MeetingRoomState,
   MeetingSpotlight,
   PreferredRid,

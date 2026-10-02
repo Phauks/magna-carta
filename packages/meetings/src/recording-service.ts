@@ -1,0 +1,538 @@
+import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
+import type { EffectStatement, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { RandomSource } from "@magna-carta/identifiers/random";
+import type {
+  MeetingId,
+  MeetingRecordingId,
+  MeetingRecordingTrackId,
+  UserId,
+} from "@magna-carta/identifiers/types";
+import { readLiveHostGrant } from "./hosting-statements.ts";
+import { readMeeting, readMeetingSummary } from "./meeting-statements.ts";
+import {
+  closeOpenTracksStatement,
+  incrementTrackCountStatement,
+  insertRecordingNoticeStatement,
+  insertRecordingStatement,
+  insertRecordingTrackStatement,
+  listRecordingTracks,
+  readRecordingById,
+  readRunningRecording,
+  stopRecordingStatement,
+} from "./recording-statements.ts";
+import type {
+  MeetingRecordingCandidateTrack,
+  MeetingRecordingNoticeReason,
+  MeetingRecordingParticipant,
+  MeetingRecordingRow,
+  MeetingRecordingStopReason,
+  MeetingRecordingSummary,
+} from "./recording-types.ts";
+import type { MeetingRow } from "./types.ts";
+import { refuse, refuseRecording } from "./validation.ts";
+
+// Starting a recording, stopping it, admitting a track that arrived late, and writing down who was
+// told. Each returns an effect for the caller to commit, beside its audit rows; nothing here reads a
+// clock, holds a binding or calls anything external — the routing service, the recorder and the room
+// are the Worker's.
+//
+// WHO MAY RECORD. Starting is `meetings:record`, which the route's chokepoint asks. Stopping is the
+// same key — or a live grant on this meeting, because a member running the room can already end the
+// meeting and ending it stops the recording; that stop is labelled `host` so the record says which.
+// The service is handed whether the caller holds the key (it cannot read a permission set) and asks
+// the grant itself, because the grant is a fact in this database.
+//
+// THE AUDIT ROWS CARRY IDENTIFIERS, INSTANTS AND COUNTS, and nothing else: there is no audio here to
+// carry, and the notice row's audit is ONE row per fan-out with the count, never a row per person —
+// the per-person record is the notice table itself.
+
+/** The label the stop carries, exported because a caller has to match on it. */
+export const STOP_RECORDING_GUARD = "meeting.recording.stop";
+
+export interface MeetingRecordingOptions {
+  readonly clock: { now(): string };
+  readonly actorUserId: UserId;
+  readonly randomSource?: RandomSource;
+  // The same predicate every calendar source composes. A recording has no visibility rule of its own
+  // — it inherits the meeting's, which inherits the event's — so a recording of a room a list read
+  // could not reach is as absent as the room.
+  readonly visibility: VisibleMatterPredicate;
+}
+
+/** The platform acting on its own record — the room, the recorder — with no member behind it. */
+export interface MeetingRecordingSystemOptions {
+  readonly clock: { now(): string };
+  readonly randomSource?: RandomSource;
+}
+
+/** The meeting, through the gate, or the room's own one refusal for every way it is out of reach. */
+async function reachMeeting(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  visibility: VisibleMatterPredicate,
+): Promise<MeetingRow> {
+  const meeting = await readMeeting(database, meetingId, visibility);
+  if (meeting === undefined) refuse("meeting-unknown-event", "that is not a meeting you can reach");
+  return meeting;
+}
+
+/** Track names are the attribution key, so one name is one track however many times it is offered. */
+function distinctTracks(
+  tracks: readonly MeetingRecordingCandidateTrack[],
+): MeetingRecordingCandidateTrack[] {
+  const seen = new Set<string>();
+  const distinct: MeetingRecordingCandidateTrack[] = [];
+  for (const track of tracks) {
+    if (seen.has(track.trackName)) continue;
+    seen.add(track.trackName);
+    distinct.push(track);
+  }
+  return distinct;
+}
+
+/** A started recording's tracks, with the handles minted for them. */
+export interface StartedRecordingTrack extends MeetingRecordingCandidateTrack {
+  readonly trackId: MeetingRecordingTrackId;
+}
+
+/**
+ * Pressing Record.
+ *
+ * REFUSED, IN THIS ORDER, for: a room the caller cannot reach; a meeting that has ended (there is
+ * nobody left to record and nobody left to tell); a meeting on a FIRM event (a recording is filed into
+ * a matter, and a firm event has none); a room already being recorded; and a room carrying more audio
+ * tracks than one recording may hold — refused at the door, before the mark lights, because a
+ * recording that started and then crashed would have told everybody something untrue.
+ *
+ * A room nobody is talking in yet may still be recorded: its tracks are admitted as they are
+ * published, and every arrival is told on their own welcome.
+ *
+ * ONE BATCH: the recording, every track the room is carrying, and the audit row. The one-running index
+ * is what settles two members pressing Record in the same instant; the loser's batch rolls back and
+ * the route answers that the room is already being recorded.
+ */
+export async function startMeetingRecording(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  input: {
+    readonly tracks: readonly MeetingRecordingCandidateTrack[];
+    readonly ceiling: number;
+  },
+  options: MeetingRecordingOptions,
+): Promise<{
+  recording: MeetingRecordingRow;
+  tracks: readonly StartedRecordingTrack[];
+  effect: EffectWrite;
+}> {
+  const meeting = await readMeetingSummary(database, meetingId, options.visibility);
+  if (meeting === undefined) {
+    refuse("meeting-unknown-event", "that is not a meeting you can reach");
+  }
+  if (meeting.status === "ended") refuse("meeting-already-ended", "this meeting has ended");
+  if (meeting.eventKind !== "matter" || meeting.matterId === null) {
+    refuseRecording(
+      "meeting-recording-needs-matter",
+      "a meeting on a firm event cannot be recorded: a recording is filed into a matter, and this event has none",
+    );
+  }
+  if ((await readRunningRecording(database, meetingId)) !== undefined) {
+    refuseRecording("meeting-recording-already-running", "this meeting is already being recorded");
+  }
+  const candidates = distinctTracks(input.tracks);
+  if (candidates.length > input.ceiling) {
+    refuseRecording(
+      "meeting-recording-too-many-tracks",
+      `this room is carrying ${String(candidates.length)} audio tracks and one recording holds at most ${String(input.ceiling)}`,
+    );
+  }
+
+  const now = options.clock.now();
+  const recordingId = newIdentifier("meetingRecording", options.randomSource);
+  const tracks: StartedRecordingTrack[] = candidates.map((track) => ({
+    ...track,
+    trackId: newIdentifier("meetingRecordingTrack", options.randomSource),
+  }));
+  const recording: MeetingRecordingRow = {
+    id: recordingId,
+    meeting_id: meetingId,
+    matter_id: meeting.matterId,
+    breakout_id: null,
+    state: "recording",
+    started_by_user_id: options.actorUserId,
+    started_at: now,
+    stopped_by_user_id: null,
+    stopped_at: null,
+    stop_reason: null,
+    track_count: tracks.length,
+    captured_seconds: null,
+    file_id: null,
+    file_version_id: null,
+    failure_error_id: null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  const statements: EffectStatement[] = [
+    insertRecordingStatement(database, {
+      id: recordingId,
+      meetingId,
+      matterId: meeting.matterId,
+      startedByUserId: options.actorUserId,
+      trackCount: tracks.length,
+      now,
+    }),
+    ...tracks.map((track) =>
+      insertRecordingTrackStatement(database, {
+        id: track.trackId,
+        recordingId,
+        participantKind: track.participantKind,
+        participantId: track.participantId,
+        userId: track.userId,
+        trackName: track.trackName,
+        state: "open",
+        now,
+      }),
+    ),
+    domainAuditStatement(database, {
+      event: "meetings.recording.started",
+      subjectId: recordingId,
+      actorUserId: options.actorUserId,
+      clock: options.clock,
+      randomSource: options.randomSource,
+      metadata: { meetingId, startedAt: now, trackCount: tracks.length },
+    }),
+  ];
+  return { recording, tracks, effect: { statements, outboxMessages: [] } };
+}
+
+/** The statements that stop one running recording, and the instant they stop it at. */
+function stopStatements(
+  database: SqlDatabase,
+  recording: MeetingRecordingRow,
+  trackCount: number,
+  stop: {
+    readonly stoppedByUserId: UserId | null;
+    readonly stopReason: MeetingRecordingStopReason;
+    readonly now: string;
+  },
+  options: MeetingRecordingSystemOptions,
+): EffectStatement[] {
+  return [
+    guarded(
+      stopRecordingStatement(database, {
+        id: recording.id,
+        stoppedByUserId: stop.stoppedByUserId,
+        stopReason: stop.stopReason,
+        trackCount,
+        now: stop.now,
+      }),
+      STOP_RECORDING_GUARD,
+    ),
+    // EVERY OPEN TRACK AT THE SAME INSTANT, and a lost one is left lost: a track whose socket never
+    // came back was not heard after it went, and a stop is not evidence that it was.
+    closeOpenTracksStatement(database, recording.id, stop.now),
+    domainAuditStatement(database, {
+      event: "meetings.recording.stopped",
+      subjectId: recording.id,
+      actorUserId: stop.stoppedByUserId,
+      clock: { now: () => stop.now },
+      randomSource: options.randomSource,
+      metadata: {
+        meetingId: recording.meeting_id,
+        stoppedAt: stop.now,
+        stopReason: stop.stopReason,
+        trackCount,
+      },
+    }),
+  ];
+}
+
+/** What a stop produced: the recording as it now stands, and the effect that makes it so. */
+export interface StoppedRecording {
+  readonly recording: MeetingRecordingRow;
+  readonly effect: EffectWrite;
+}
+
+/**
+ * Pressing Stop.
+ *
+ * WHO MAY: a member holding `meetings:record` (`mayRecord`, which the route reads off the permission
+ * set) — labelled `member`; otherwise a member holding a live grant on THIS meeting — labelled `host`,
+ * because a member running the room can already end the meeting and ending it stops the recording.
+ * Anybody else is refused `meeting-recording-not-permitted`.
+ *
+ * Stopping a recording when none is running is refused `meeting-recording-not-running`: somebody else
+ * stopped it, the meeting ended, or every track was lost. Not a success, because what the caller
+ * wanted — that THEY stopped it — is not what happened, and the screen should say so.
+ */
+export async function stopMeetingRecording(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  input: { readonly mayRecord: boolean },
+  options: MeetingRecordingOptions,
+): Promise<StoppedRecording> {
+  await reachMeeting(database, meetingId, options.visibility);
+  const running = await readRunningRecording(database, meetingId);
+  if (running === undefined) {
+    refuseRecording("meeting-recording-not-running", "this meeting is not being recorded");
+  }
+  let stopReason: MeetingRecordingStopReason = "member";
+  if (!input.mayRecord) {
+    const grant = await readLiveHostGrant(database, meetingId, options.actorUserId);
+    if (grant === undefined) {
+      refuseRecording(
+        "meeting-recording-not-permitted",
+        "stopping a recording needs the recording permission, or a member running this meeting",
+      );
+    }
+    stopReason = "host";
+  }
+  const trackCount = (await listRecordingTracks(database, running.id)).length;
+  const now = options.clock.now();
+  return {
+    recording: {
+      ...running,
+      state: "composing",
+      stopped_by_user_id: options.actorUserId,
+      stopped_at: now,
+      stop_reason: stopReason,
+      track_count: trackCount,
+      updated_at: now,
+    },
+    effect: {
+      statements: stopStatements(
+        database,
+        running,
+        trackCount,
+        { stoppedByUserId: options.actorUserId, stopReason, now },
+        options,
+      ),
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * THE MEETING IS ENDING, and a recording running in it stops with it — `meeting-ended`, attributed to
+ * the member ending the meeting. Composed into the END's own batch by the route, after the end has
+ * already reached the meeting through the gate; no recording running produces no statements.
+ */
+export async function stopRecordingForMeetingEnd(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  options: {
+    readonly clock: { now(): string };
+    readonly actorUserId: UserId;
+    readonly randomSource?: RandomSource;
+  },
+): Promise<StoppedRecording | undefined> {
+  const running = await readRunningRecording(database, meetingId);
+  if (running === undefined) return undefined;
+  const trackCount = (await listRecordingTracks(database, running.id)).length;
+  const now = options.clock.now();
+  return {
+    recording: {
+      ...running,
+      state: "composing",
+      stopped_by_user_id: options.actorUserId,
+      stopped_at: now,
+      stop_reason: "meeting-ended",
+      track_count: trackCount,
+      updated_at: now,
+    },
+    effect: {
+      statements: stopStatements(
+        database,
+        running,
+        trackCount,
+        { stoppedByUserId: options.actorUserId, stopReason: "meeting-ended", now },
+        options,
+      ),
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * THE RECORDER STOPPING ITSELF because every track it held was lost: `sink-lost`, with nobody behind
+ * it. A recording already stopped produces no statements — whichever stop committed first is the one
+ * the record keeps.
+ */
+export async function stopRecordingAfterSinkLoss(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  options: MeetingRecordingSystemOptions,
+): Promise<StoppedRecording | undefined> {
+  const running = await readRecordingById(database, recordingId);
+  if (running === undefined || running.state !== "recording") return undefined;
+  const trackCount = (await listRecordingTracks(database, running.id)).length;
+  const now = options.clock.now();
+  return {
+    recording: {
+      ...running,
+      state: "composing",
+      stopped_at: now,
+      stop_reason: "sink-lost",
+      track_count: trackCount,
+      updated_at: now,
+    },
+    effect: {
+      statements: stopStatements(
+        database,
+        running,
+        trackCount,
+        { stoppedByUserId: null, stopReason: "sink-lost", now },
+        options,
+      ),
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * A TRACK PUBLISHED AFTER THE RECORDING STARTED — somebody arrived, or somebody unmuted for the first
+ * time. Written `open` while the recording holds fewer open tracks than the ceiling, and `lost` with
+ * no frames when it holds that many already: the recording keeps the people it can hear and the record
+ * says plainly who it could not.
+ */
+export function admitTrackStatements(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  track: MeetingRecordingCandidateTrack,
+  input: { readonly openTracks: number; readonly ceiling: number },
+  options: MeetingRecordingSystemOptions,
+): { trackId: MeetingRecordingTrackId; state: "open" | "lost"; statements: EffectStatement[] } {
+  const now = options.clock.now();
+  const trackId = newIdentifier("meetingRecordingTrack", options.randomSource);
+  const state = input.openTracks >= input.ceiling ? "lost" : "open";
+  return {
+    trackId,
+    state,
+    statements: [
+      insertRecordingTrackStatement(database, {
+        id: trackId,
+        recordingId,
+        participantKind: track.participantKind,
+        participantId: track.participantId,
+        userId: track.userId,
+        trackName: track.trackName,
+        state,
+        now,
+      }),
+      incrementTrackCountStatement(database, recordingId, now),
+    ],
+  };
+}
+
+/**
+ * WHO WAS TOLD — one notice per stay the room fanned the frame out to, in ONE batch, and ONE audit row
+ * for the fan-out with the count. The room calls this with the stays it actually sent the frame to;
+ * the notice is the record of that delivery, which is why nothing here re-reads a stay.
+ *
+ * An empty fan-out still writes its audit row: a recording started in a room nobody was in is a fact
+ * the log should carry, and the count of zero is what says it.
+ */
+export function recordingNoticeEffect(
+  database: SqlDatabase,
+  input: {
+    readonly recordingId: MeetingRecordingId;
+    readonly meetingId: MeetingId;
+    readonly reason: MeetingRecordingNoticeReason;
+    readonly deliveredAt: string;
+    readonly recipients: readonly MeetingRecordingParticipant[];
+  },
+  options: MeetingRecordingSystemOptions,
+): EffectWrite {
+  const statements: EffectStatement[] = input.recipients.map((recipient) =>
+    insertRecordingNoticeStatement(database, {
+      id: newIdentifier("meetingRecordingNotice", options.randomSource),
+      recordingId: input.recordingId,
+      participantKind: recipient.participantKind,
+      participantId: recipient.participantId,
+      userId: recipient.userId,
+      reason: input.reason,
+      deliveredAt: input.deliveredAt,
+    }),
+  );
+  statements.push(
+    domainAuditStatement(database, {
+      event: "meetings.recording.noticed",
+      subjectId: input.recordingId,
+      actorUserId: null,
+      clock: { now: () => input.deliveredAt },
+      randomSource: options.randomSource,
+      metadata: {
+        meetingId: input.meetingId,
+        reason: input.reason,
+        deliveredAt: input.deliveredAt,
+        noticeCount: input.recipients.length,
+      },
+    }),
+  );
+  return { statements, outboxMessages: [] };
+}
+
+/**
+ * THE AUDIT ROW FOR A RECORDING THAT FAILED — with the Error ID the standard pipeline recorded, never
+ * a message. Written beside the `failed` state by whichever part of the Worker gave up on it.
+ */
+export function recordingFailedAuditStatement(
+  database: SqlDatabase,
+  input: {
+    readonly recordingId: MeetingRecordingId;
+    readonly meetingId: MeetingId;
+    readonly failureErrorId: string;
+  },
+  options: MeetingRecordingSystemOptions,
+): EffectStatement {
+  return domainAuditStatement(database, {
+    event: "meetings.recording.failed",
+    subjectId: input.recordingId,
+    actorUserId: null,
+    clock: options.clock,
+    randomSource: options.randomSource,
+    metadata: { meetingId: input.meetingId, failureErrorId: input.failureErrorId },
+  });
+}
+
+/** One stored recording, as a surface paints it — the two names supplied by the caller's read. */
+export function toRecordingSummary(
+  row: MeetingRecordingRow,
+  names: { readonly startedBy: string; readonly stoppedBy: string | null },
+): MeetingRecordingSummary {
+  return {
+    id: row.id,
+    meetingId: row.meeting_id,
+    state: row.state,
+    startedBy: { userId: row.started_by_user_id, displayName: names.startedBy },
+    startedAt: row.started_at,
+    stoppedBy:
+      row.stopped_by_user_id === null
+        ? null
+        : { userId: row.stopped_by_user_id, displayName: names.stoppedBy ?? "" },
+    stoppedAt: row.stopped_at,
+    stopReason: row.stop_reason,
+    trackCount: row.track_count,
+    capturedSeconds: row.captured_seconds,
+    fileId: row.file_id,
+    // The transcript and summary slices write these; until then a recording has neither.
+    transcriptId: null,
+    summaryState: null,
+  };
+}
+
+/**
+ * THE MEETING A RECORDING BELONGS TO, through the gate — for the reads that address a recording by
+ * its handle under a meeting the caller names.
+ */
+export async function reachRecordedMeeting(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  visibility: VisibleMatterPredicate,
+): Promise<MeetingRow> {
+  return await reachMeeting(database, meetingId, visibility);
+}

@@ -1,6 +1,7 @@
 # Meetings — recording, live captions, transcript and summary, design
 
-**Status:** Design (brainstormed), 2026-09-20. Extends
+**Status:** Design (brainstormed), 2026-09-20. Slice R1's server half built 2026-10-02 behind a fake
+routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -891,3 +892,83 @@ Written as fragments under `docs/decisions/pending/` in the commit that lands R1
 - **The summary runs through `InferencePort`, not as a Magnus conversation**, on the on-Cloudflare
   model path by default, and remains subject to ADR-0108's open consent question for the frontier
   path.
+
+---
+
+## 18. Amendments
+
+Recorded as the build met the design. Each says what changed and why; the section it amends is named.
+
+**A1 — The stay is named by kind and by value (§3, §5). 2026-10-02.** `meeting_recording_track` and
+`meeting_recording_notice` carry `participant_kind` (`member` | `guest` | `attendee`), `participant_id`
+with no foreign key, and a nullable `user_id`, in place of `attendance_id` and a NOT NULL `user_id` —
+`meeting_message`'s precedent. A guest's stay is a `meeting_guest_stay` row and a webinar attendee's
+will be a table of its own, so a foreign key onto `meeting_attendance` would have barred both from the
+consent record, and widening it later is the rebuild this lineage refuses. A guest or a phone caller is
+now recorded as having been told, and as having a track, exactly as a member is.
+
+**A2 — `meeting_recording.breakout_id`, nullable, by value (§5). 2026-10-02.** On the poll's
+precedent, null for the main room, which is every recording today. The one-running-recording index is
+partial on `state = 'recording' AND breakout_id IS NULL`, because NULLs are distinct in a unique index;
+a breakout's own recordings take an index of their own when breakouts land.
+
+**A3 — The §6.1 gate is an OWNER ACTION outstanding, and R1 was built behind the fake (§6.1, §16).
+2026-10-02.** The experiment needs the live Cloudflare Realtime application, which the building session
+did not have. R1 was built against the routing-service fake the meeting tests already use, extended with
+`adapters/websocket/new` and `adapters/websocket/close`, keeping the token design of §6.1 exactly: the
+token rides the PATH (`/internal/meeting-audio/<token>`), never a query string, so the experiment needs
+to prove only that the adapter dials the endpoint with its path intact. Until it has — and the envelope's
+field numbers (`sequenceNumber = 1`, `timestamp = 2`, `payload = 5`, named once in
+`packages/meetings/src/pcm-frame.ts`) are confirmed in the same run — `MEETING_SINK_SIGNING_KEY` is not
+set and the start route answers 503 `meeting-recording-not-configured`. The owner's steps, in order: run
+the experiment; set `MEETING_SINK_SIGNING_KEY` with `wrangler secret put`; add the `/internal/*` zone
+route to the api Worker (a new top-level family, `run_worker_first` already names it); then a firm
+switches `meetings.recordingEnabled` on.
+
+**A4 — Announced first, captured second (§6 "Starting", step 4). 2026-10-02.** The design had the
+recorder open every adapter and then ask the room to announce. The build reverses it: the start route
+asks the room to broadcast and write the `start` notices, and only then hands the recording to the
+recorder, so nobody's voice is captured before the announcement reached them. A start the room could not
+announce, or the recorder could not take, is stopped and failed in the record with the Error ID, and the
+room is told it stopped. Symmetrically on stop: the recorder closes every adapter first and the room
+announces after, so nothing is captured after the stop is announced.
+
+**A5 — A late track is admitted by the recorder's reconciliation, not by a hook in the room's publish
+(§6 "Starting"). 2026-10-02.** The recorder asks the room (`recordingCandidates`) every five seconds
+while it records and reconciles: arrivals are admitted (or recorded `lost` past the ceiling), a
+participant no longer publishing has their adapter closed and their track `closed`, the same track on a
+new session gets a new adapter into the SAME staged object (one track with a gap, not two), and a track
+whose socket has been gone fifteen seconds is `lost`. This keeps the room's media path free of any
+recording concern, at the cost of up to five seconds before a late arrival's audio is captured — and the
+arrival was told on their welcome at once, which is what the ruling is about.
+
+**A6 — The staged object key is minted from the track ROW, not the track name (§6 "Starting", step 3).
+2026-10-02.** `meeting-recordings/<meetingId>/<recordingId>/<trackId>.pcm`. The track name is chosen by
+a browser; an object key is opaque and server-minted, the rule every other object a firm holds is
+written under. The staged object is stamped with the matter and a new object class,
+`meeting-recording-track`.
+
+**A7 — The carry is in memory only (§6 "What it holds"). 2026-10-02.** §6.2 says the recorder writes no
+content to its own storage; §6's list put `carry` in storage beside the metadata. The build keeps §6.2:
+storage holds each track's upload, parts and counters, and the carry (at most one 8 MiB part per track)
+is in memory. A recorder that dies loses at most its carry, which is the abandoned-recording sweep's
+case (R2).
+
+**A8 — Compose is handed on through an optional queue binding (§6 "Stopping", §16 R2). 2026-10-02.**
+The task for R1 included enqueuing compose. The message type is defined
+(`MeetingRecordingComposeMessage` in `apps/api-worker/src/meetings/meeting-recorder.ts`); the queue
+binding (`MEETING_RECORDING_COMPOSE`) is optional and not declared in `wrangler.jsonc`, because the queue
+and its consumer are R2's. Until then a stopped recording waits in `composing`. A recording that
+captured nothing at all is `failed` with an Error ID at the stop, and its empty staged uploads are
+aborted.
+
+**A9 — The welcome's `recording` field is absent, not null, when nothing is recorded (§3, §7).
+2026-10-02.** So a welcome to a room that is not recording is byte-for-byte the welcome it always was.
+A browser reads the missing field as not recording. `by` is nullable on the frame, for a stop nobody
+made (every track lost), and a guest's copy carries `by.userId: null`.
+
+**A10 — Stop is gated on `meetings:join` at the chokepoint (§4, §7). 2026-10-02.** A member holding
+`meetings:record` and a member running the meeting may both stop a recording, and a chokepoint gate on
+either key would refuse the other; the handler reads the key and the service asks the grant, and anybody
+holding neither is answered 403 `permission-denied`. `MeetingSummary.recordingState` also carries
+`abandoned`, the fifth state, so the field never has to widen.

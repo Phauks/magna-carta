@@ -232,6 +232,13 @@
       "when": 1790275777938,
       "tag": "20260924T184938_meeting-polls-and-questions",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1790965996000,
+      "tag": "20261002T183316_meeting-recording-and-who-was-told",
+      "breakpoints": true
     }
   ]
 }

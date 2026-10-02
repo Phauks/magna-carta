@@ -53,6 +53,7 @@ import { registerMeetingHostingRoutes } from "./routes/meeting-hosting.ts";
 import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
 import { registerMeetingGuestRoutes } from "./routes/meetings-guest.ts";
 import { registerMeetingInspectRoutes } from "./routes/meeting-inspect.ts";
+import { registerMeetingSinkRoute } from "./routes/meeting-sink.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
@@ -474,6 +475,24 @@ export type Bindings = {
   // with the routing service and keeps the roster; it holds no media and stores nothing anybody
   // said. Addressed by the SESSION firm id at the route, never a path value.
   MEETING_ROOM: DurableObjectNamespace<import("./meetings/meeting-room.ts").MeetingRoom>;
+  // One recording's sink, keyed `${firmId}:${recordingId}`: the Durable Object the routing service's
+  // WebSocket adapters dial, one socket per recorded track, which stages each track's audio in the
+  // firm's own bucket. Not hibernating — it receives fifty frames a second per track while it works.
+  // Optional, because a deployment that does not bind it cannot record, and the start route answers
+  // 503 `meeting-recording-not-configured` rather than failing deeper in.
+  MEETING_RECORDER?: DurableObjectNamespace<
+    import("./meetings/meeting-recorder.ts").MeetingRecorder
+  >;
+  // The secret the recorder signs each track's sink address with (meetings/sink-token.ts) — its own,
+  // rather than AUTH_SECRET, because the token rides an address and the secret behind it must be one
+  // whose rotation costs nothing but the recordings running at that moment. Optional, and ABSENT IS
+  // THE SHIPPED STATE until the owner has proved the routing service preserves the sink address and
+  // set it with `wrangler secret put MEETING_SINK_SIGNING_KEY`: absent, recording answers 503 and the
+  // Record control is not offered. Never logged, never echoed, never sent anywhere.
+  MEETING_SINK_SIGNING_KEY?: string;
+  // The queue a stopped recording is handed to for composing. Not bound yet: the consumer is the
+  // compose slice's, and until it lands a stopped recording waits in `composing` for it.
+  MEETING_RECORDING_COMPOSE?: Queue;
 };
 
 // createApp options exist for tests (the seam is ours): a memory logger to assert emitted events, an
@@ -744,6 +763,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // Container, which holds no session and no R2 credentials. This is where a ranged read by the engine
   // becomes a ranged R2 GET, and where a published split is stamped with its object dimensions.
   registerSplitObjectHostRoutes(app);
+  // The socket the media routing service dials to hand a recorder a track's audio
+  // (/internal/meeting-audio/*) — OUTSIDE the chokepoint for the reason the two surfaces above are:
+  // the caller is a Cloudflare service with no session and no cookie. Guarded by a signed, short-lived
+  // token per track, and refusing any request that carries an Origin, so no page can ever reach it.
+  registerMeetingSinkRoute(app);
   // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
   // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
   registerDocumentCheckoutRoutes(app, chokepoint);

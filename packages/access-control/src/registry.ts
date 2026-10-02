@@ -209,6 +209,15 @@ export const PERMISSIONS = [
   // whoever holds these keys.
   "meetings:join", // join a meeting on an event the member may see, and read who was in the room
   "meetings:host", // start a meeting on such an event, and end one
+  // RECORDING IS A THIRD KEY, not a power folded into hosting, because the two acts have different
+  // consequences: hosting runs a room and every one of its acts ends when the meeting does, while a
+  // recording is a durable, discoverable, privileged artifact that outlives the room and enters the
+  // matter file. A firm happy for any attorney to convene a call is not thereby happy for any attorney
+  // to record a client conversation. Seeded to exactly the roles that hold meetings:host, so nothing
+  // changes for any firm on the day it lands; a firm that wants it narrower now has a key to narrow.
+  // Stopping is this key too — and a member running the room may stop one without it, because ending
+  // the meeting already stops it. Binds resource: "firm" for the reason the other two do.
+  "meetings:record", // start and stop a recording of a meeting on an event the member may see
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
   // resource: "firm"; an assembly is matter-rooted like every other document operation, so

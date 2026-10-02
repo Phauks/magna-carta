@@ -74,3 +74,38 @@ export class MeetingValidationError extends Error {
 export function refuse(code: MeetingValidationCode, message: string): never {
   throw new MeetingValidationError(code, message);
 }
+
+// THE RECORDING'S OWN REFUSALS, as a vocabulary of their own rather than a widening of the one above
+// — the poll's precedent. Every member route maps the room's codes through one switch, and a code
+// only the recording routes can raise belongs to the recording routes' own mapping. Reaching the
+// meeting at all still raises `meeting-unknown-event` above: a recording is reachable only through its
+// meeting, so a recording in a room the caller cannot see is as absent as the room.
+export type MeetingRecordingRefusalCode =
+  // A recording is already running in this room. Two members pressing Record together is the ordinary
+  // way to meet it, and the remedy is that the room is already being recorded.
+  | "meeting-recording-already-running"
+  // Stopping a recording when none is running — stopped already by somebody else, by the meeting
+  // ending, or by every track being lost.
+  | "meeting-recording-not-running"
+  // A meeting on a FIRM event. A recording can only be filed into a matter, and a firm event has none,
+  // so there is nowhere under the matter model to put the bytes.
+  | "meeting-recording-needs-matter"
+  // The room already holds more audio tracks than one recording may: the recorder's memory is bounded,
+  // and refusing at the door is what keeps a full room from becoming a crash halfway through.
+  | "meeting-recording-too-many-tracks"
+  // Stopping a recording without the key that starts one and without running the room.
+  | "meeting-recording-not-permitted";
+
+export class MeetingRecordingRefusedError extends Error {
+  constructor(
+    readonly code: MeetingRecordingRefusalCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "MeetingRecordingRefusedError";
+  }
+}
+
+export function refuseRecording(code: MeetingRecordingRefusalCode, message: string): never {
+  throw new MeetingRecordingRefusedError(code, message);
+}

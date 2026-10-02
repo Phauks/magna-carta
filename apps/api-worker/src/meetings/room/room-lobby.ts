@@ -6,6 +6,7 @@ import {
   type WaitingParticipant,
 } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
+import { recordingForWelcome } from "./room-recording.ts";
 import { announceRoster, rosterEntriesFor, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   recordAdmitted,
@@ -298,6 +299,10 @@ export async function participantsAdmitted(
           rosterEntriesFor(roster, viewerKindOf(attachment)),
           roomState,
           [],
+          // Somebody let in while a recording runs is told on arrival, exactly as one who walked
+          // straight in is: the announcement and the notice row are the consent, and a welcome from
+          // the door that carried neither would be a person recorded who was never told.
+          await recordingForWelcome(room, attachment),
         ),
       );
       // IN THE ROOM FROM HERE, and `waiting` lowered in the same write: the attachment is what

@@ -20,6 +20,7 @@
     "./lobby-types": "./src/lobby-types.ts",
     "./meeting-service": "./src/meeting-service.ts",
     "./meeting-statements": "./src/meeting-statements.ts",
+    "./pcm-frame": "./src/pcm-frame.ts",
     "./poll-service": "./src/poll-service.ts",
     "./poll-statements": "./src/poll-statements.ts",
     "./poll-types": "./src/poll-types.ts",
@@ -28,6 +29,10 @@
     "./question-statements": "./src/question-statements.ts",
     "./question-types": "./src/question-types.ts",
     "./question-validation": "./src/question-validation.ts",
+    "./recording-service": "./src/recording-service.ts",
+    "./recording-statements": "./src/recording-statements.ts",
+    "./recording-types": "./src/recording-types.ts",
+    "./settings": "./src/settings.ts",
     "./types": "./src/types.ts",
     "./validation": "./src/validation.ts"
   },
@@ -38,7 +43,8 @@
     "@magna-carta/calendar": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

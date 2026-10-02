@@ -128,8 +128,9 @@ package enforces, which is why nothing here has a redaction step.
   routing service are the Worker's (`apps/api-worker/src/meetings/`). Nothing in this package knows
   whether meetings are configured at all — that is a fact about bindings, so the route carries it
   beside a summary rather than inside one.
-- **Recording.** Server-side media processing and a consent gate on the jurisdiction profile, neither
-  of which is basic. Nothing here is shaped around it.
+- **The recording's audio and its sink.** The recorder, the socket the routing service dials and the
+  announcement are the Worker's (`apps/api-worker/src/meetings/`); this package holds the recording's
+  RECORD and the arithmetic over a frame — see the section on recording below.
 
 ## Authority over a meeting is a grant on the meeting, not a capability of a seat
 
@@ -279,7 +280,21 @@ already answered or upvoted — otherwise leaving and rejoining is a second vote
 
 **An answer names its option as a pair.** `(poll_id, option_id)` references the option table's own
 unique `(poll_id, id)`, so an answer to another poll's option fails at the foreign key whoever writes
-it; `assertAnswerChoices` gives the member the reason first.
+it; `assertAnswerChoices` gives the member the reason first. **`max_choices` is held by that
+validator and the one-respondent guard, never by the database**: on an anonymous poll the answer
+rows carry no participant, so no CHECK or index can count one person's rows — the respondent row is
+written once per participation and the validator bounds what that one participation may contain.
+
+**The idempotency record is a third table, and it is held to the same split.** The answer route
+(`apps/api-worker/src/routes/meeting-polls.ts`) stores the poll's handle and nothing else as the
+replayable body, and its fingerprint is over the path alone: a digest of a body that is one of ten
+choices is the choice, and two consecutive tallies differ by exactly it.
+
+**Two rules on the queue that look like small choices.** An upvote on a question that has been taken
+back is refused (`meeting-question-redacted`) — withdrawing one is not, so a signal can always be
+cleared. And a withdrawal's audit row names the stay the upvote was CAST from, which is the stay the
+`upvoted` row beside it names, not whichever stay the member holds when they take it back. `since`
+without `sinceId` on the queue is inclusive (`asked_at >= ?`) and the caller drops ids it holds.
 
 **Every host act asks the grant.** Opening, closing, reading who answered what, marking a question
 answered — and the host half of taking a question back — go through `requireHostGrant` or
@@ -347,3 +362,40 @@ event is refused as withdrawn at the summary read and at the arrival — the hos
 may never have opened the Guests panel — and the refused arrival carries its own audit row
 (`meetings.guest.arrivalRefused`) on `GuestNoLongerOnTheEventError`, which the route commits before
 answering. The summary writes nothing, because opening the link is a read.
+
+## A recording is a record of what it captured and who was told
+
+`recording-types.ts` / `recording-statements.ts` / `recording-service.ts` are the recording's trio,
+`settings.ts` holds its four firm switches (all default off — recording, captions, summaries — and the
+track ceiling), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
+envelope plus the mono fold, the silence and the sequence-gap arithmetic. The design is
+[`docs/specs/2026-09-20-meetings-recording-and-transcription-design.md`](../../docs/specs/2026-09-20-meetings-recording-and-transcription-design.md).
+
+Five rules travel with it.
+
+**The consent record is what the server delivered, not what a browser rendered.** The owner's ruling
+made the announcement the consent mechanism, so `meeting_recording_notice` holds a row per stay per
+fan-out — `start`, `arrival`, `stop` — written by the ROOM from the sockets it actually sent the frame
+to (`recordingNoticeEffect`, one batch and ONE audit row with the count). This package re-reads no stay
+for it: the room is the only witness to a delivery. A reconnect is another arrival and another row.
+
+**Every stay is named by kind and by value**, on chat's precedent: `participant_kind` (`member`,
+`guest`, `attendee`), `participant_id` with no foreign key, and a nullable `user_id`, on both the track
+and the notice. A guest is on the consent record, and has a track, exactly as a member does.
+
+**The recording's vocabularies are whole from the first migration.** `meeting_recording` is a parent
+table, so every state (`recording`, `composing`, `filed`, `failed`, `abandoned`) and every stop reason
+the later slices write is in its CHECK now; and running means not stopped, in both directions, held by
+`meeting_recording_stopped_shape_check`. One recording runs per room, held by a partial unique index on
+the main room (`breakout_id IS NULL`); `isRunningRecordingConflict` lets the route answer the loser of a
+race as `meeting-recording-already-running`.
+
+**Who may.** Starting is `meetings:record` (the route's chokepoint) and refuses a firm event (no matter
+to file into), an ended meeting, a running recording and a room past the ceiling. Stopping is the key —
+labelled `member` — or a live grant on this meeting — labelled `host`; the route passes `mayRecord` and
+the service asks the grant. A track is never dropped from the record: one past the ceiling, or whose
+socket never came back, is a `lost` row, and a lost track stays lost through every later settle.
+
+**Its refusals are a vocabulary of their own** (`MeetingRecordingRefusedError` in `validation.ts`), on
+the poll's precedent, so the room's one switch over `MeetingValidationCode` is not widened by codes only
+the recording routes raise. Reaching the meeting at all still raises `meeting-unknown-event`.

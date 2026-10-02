@@ -328,3 +328,33 @@ export interface MeetingQuestionUpvoteCount {
   readonly questionId: string;
   readonly upvotes: number;
 }
+
+/**
+ * WHO PRESSED RECORD, OR STOP — named on the announcement so the room hears it from somebody.
+ *
+ * `userId` is the member's own identifier on a member's socket and NULL on a guest's, which is the
+ * rule every frame naming a firm user follows: somebody from outside the firm is told a name and never
+ * an identifier. The whole actor is null when nobody acted — every track was lost, or the recorder
+ * disappeared — because inventing somebody to blame would be a record of an act nobody took.
+ */
+export interface MeetingRecordingActor {
+  readonly userId: string | null;
+  readonly displayName: string;
+}
+
+/**
+ * THE ANNOUNCEMENT, which the owner's ruling makes the consent mechanism: a recording started, or it
+ * stopped. The same shape rides the `recording` frame the room broadcasts at each transition and the
+ * `recording` field of a welcome — always `started` there, because a welcome only carries a recording
+ * that is running — so a late arrival is told in exactly the vocabulary the room was told in, and one
+ * code path in the browser plays both.
+ *
+ * `at` is the instant of the transition: when it started, on a start and on every welcome; when it
+ * stopped, on a stop. The server's instant, never a browser's.
+ */
+export interface MeetingRecordingAnnouncement {
+  readonly state: "started" | "stopped";
+  readonly recordingId: string;
+  readonly by: MeetingRecordingActor | null;
+  readonly at: string;
+}

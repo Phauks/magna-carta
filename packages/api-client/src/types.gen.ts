@@ -3864,6 +3864,9 @@ export type MeetingSummary = {
     locked: boolean;
     lobby: 'off' | 'on';
     configured: boolean;
+    recordingState: 'none' | 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
+    recordingConfigured: boolean;
+    captionsAvailable: boolean;
 };
 
 export type JoinedMeeting = {
@@ -3900,6 +3903,49 @@ export type MeetingAttendanceEntry = {
     waitingFrom: string | null;
     admittedAt: string | null;
     endedReason: 'left' | 'socket-lost' | 'removed' | 'denied' | null;
+};
+
+export type MeetingRecordingSummary = {
+    id: string;
+    meetingId: string;
+    state: 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
+    startedBy: MeetingRecordingActor;
+    startedAt: string;
+    stoppedBy: MeetingRecordingActor & ({
+        [key: string]: unknown;
+    } | null);
+    stoppedAt: string | null;
+    stopReason: 'member' | 'host' | 'meeting-ended' | 'sink-lost' | 'ceiling' | 'abandoned' | null;
+    trackCount: number;
+    capturedSeconds: number | null;
+    fileId: string | null;
+    transcriptId: string | null;
+    summaryState: string | null;
+};
+
+export type MeetingRecordingActor = {
+    userId: string;
+    displayName: string;
+};
+
+export type MeetingRecordingPage = {
+    data: Array<MeetingRecordingSummary>;
+    nextCursor: string | null;
+};
+
+export type MeetingRecordingNoticePage = {
+    data: Array<MeetingRecordingNoticeEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingRecordingNoticeEntry = {
+    id: string;
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+    reason: 'start' | 'arrival' | 'stop';
+    deliveredAt: string;
 };
 
 export type MeetingMessage = {
@@ -22561,6 +22607,205 @@ export type MeetingsAttendanceResponses = {
 
 export type MeetingsAttendanceResponse = MeetingsAttendanceResponses[keyof MeetingsAttendanceResponses];
 
+export type MeetingsStopRecordingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recording';
+};
+
+export type MeetingsStopRecordingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, a recording is already running (or none is), the room carries more audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The meeting is on a firm event, which has no matter to file a recording into
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment, or this firm, cannot record a meeting
+     */
+    503: Problem;
+};
+
+export type MeetingsStopRecordingError = MeetingsStopRecordingErrors[keyof MeetingsStopRecordingErrors];
+
+export type MeetingsStopRecordingResponses = {
+    /**
+     * The recording has stopped
+     */
+    200: MeetingRecordingSummary;
+};
+
+export type MeetingsStopRecordingResponse = MeetingsStopRecordingResponses[keyof MeetingsStopRecordingResponses];
+
+export type MeetingsStartRecordingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recording';
+};
+
+export type MeetingsStartRecordingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, a recording is already running (or none is), the room carries more audio tracks than one recording may hold, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The meeting is on a firm event, which has no matter to file a recording into
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment, or this firm, cannot record a meeting
+     */
+    503: Problem;
+};
+
+export type MeetingsStartRecordingError = MeetingsStartRecordingErrors[keyof MeetingsStartRecordingErrors];
+
+export type MeetingsStartRecordingResponses = {
+    /**
+     * The recording has started
+     */
+    201: MeetingRecordingSummary;
+};
+
+export type MeetingsStartRecordingResponse = MeetingsStartRecordingResponses[keyof MeetingsStartRecordingResponses];
+
+export type MeetingsListRecordingsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings';
+};
+
+export type MeetingsListRecordingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListRecordingsError = MeetingsListRecordingsErrors[keyof MeetingsListRecordingsErrors];
+
+export type MeetingsListRecordingsResponses = {
+    /**
+     * One page of this meeting's recordings
+     */
+    200: MeetingRecordingPage;
+};
+
+export type MeetingsListRecordingsResponse = MeetingsListRecordingsResponses[keyof MeetingsListRecordingsResponses];
+
+export type MeetingsRecordingNoticesData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/notices';
+};
+
+export type MeetingsRecordingNoticesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingNoticesError = MeetingsRecordingNoticesErrors[keyof MeetingsRecordingNoticesErrors];
+
+export type MeetingsRecordingNoticesResponses = {
+    /**
+     * One page of this recording's notices
+     */
+    200: MeetingRecordingNoticePage;
+};
+
+export type MeetingsRecordingNoticesResponse = MeetingsRecordingNoticesResponses[keyof MeetingsRecordingNoticesResponses];
+
 export type MeetingsSocketData = {
     body?: never;
     path: {
@@ -23119,7 +23364,7 @@ export type MeetingsAskQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -23174,7 +23419,7 @@ export type MeetingsUpvoteQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -23229,7 +23474,7 @@ export type MeetingsWithdrawQuestionUpvoteErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -23284,7 +23529,7 @@ export type MeetingsSetQuestionAnsweredErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -23339,7 +23584,7 @@ export type MeetingsRedactQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
