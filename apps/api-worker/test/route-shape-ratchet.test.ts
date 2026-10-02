@@ -44,71 +44,87 @@ interface Shape {
   readonly shapes: number;
 }
 
-// Every route module over a cap on 2026-09-24, with the value it held. Keyed by the path under
+// Every route module over a cap on 2026-10-02, with the value it held (re-recorded that day when the
+// shape count learned to see a chain the formatter breaks after `z`). Keyed by the path under
 // src/http/routes/ (domain directory included). Lower an entry when the file shrinks; delete it when the file clears both caps.
 export const LEDGER: Readonly<Record<string, Shape>> = {
-  "billing/billing.ts": { lines: 3059, shapes: 14 },
-  "billing/costs.ts": { lines: 1202, shapes: 3 },
-  "billing/reports.ts": { lines: 534, shapes: 18 },
-  "calendar/calendar.ts": { lines: 3581, shapes: 1 },
-  "communications/communications.ts": { lines: 1032, shapes: 2 },
-  "communications/meeting-chat.ts": { lines: 634, shapes: 0 },
-  "communications/meeting-hosting.ts": { lines: 598, shapes: 2 },
-  "communications/meeting-inspect.ts": { lines: 243, shapes: 5 },
-  "communications/meeting-lobby.ts": { lines: 564, shapes: 3 },
-  "communications/meeting-polls.ts": { lines: 886, shapes: 0 },
-  "communications/meeting-questions.ts": { lines: 816, shapes: 0 },
-  "communications/meetings-guest.ts": { lines: 1419, shapes: 2 },
-  "communications/meetings.ts": { lines: 1295, shapes: 1 },
-  "communications/shipping.ts": { lines: 1364, shapes: 16 },
-  "custody/custody.ts": { lines: 3145, shapes: 14 },
+  "billing/billing.ts": { lines: 3059, shapes: 70 },
+  "billing/costs.ts": { lines: 1202, shapes: 8 },
+  "billing/reports.ts": { lines: 534, shapes: 32 },
+  "calendar/calendar.ts": { lines: 3581, shapes: 4 },
+  "communications/communications.ts": { lines: 1032, shapes: 9 },
+  "communications/meeting-chat.ts": { lines: 634, shapes: 3 },
+  "communications/meeting-hosting.ts": { lines: 598, shapes: 5 },
+  "communications/meeting-inspect.ts": { lines: 243, shapes: 9 },
+  "communications/meeting-lobby.ts": { lines: 564, shapes: 7 },
+  "communications/meeting-polls.ts": { lines: 886, shapes: 5 },
+  "communications/meeting-questions.ts": { lines: 816, shapes: 3 },
+  "communications/meetings-guest.ts": { lines: 1419, shapes: 8 },
+  "communications/meetings.ts": { lines: 1295, shapes: 7 },
+  "communications/shipping.ts": { lines: 1364, shapes: 26 },
+  "custody/custody.ts": { lines: 3145, shapes: 65 },
   "developer/dev-seed.ts": { lines: 516, shapes: 0 },
-  "directory/conflicts.ts": { lines: 1840, shapes: 2 },
+  "directory/conflicts.ts": { lines: 1840, shapes: 40 },
   "directory/directory.ts": { lines: 2558, shapes: 5 },
-  "discovery/discovery-coding.ts": { lines: 1347, shapes: 6 },
-  "discovery/discovery-review-reads.ts": { lines: 742, shapes: 2 },
-  "discovery/discovery.ts": { lines: 1607, shapes: 5 },
-  "documents/document-seal.ts": { lines: 316, shapes: 10 },
-  "documents/templates.ts": { lines: 2029, shapes: 6 },
-  "email/auto-file-rules.ts": { lines: 1135, shapes: 2 },
-  "email/capture-addresses.ts": { lines: 728, shapes: 0 },
-  "email/email-add-in.ts": { lines: 607, shapes: 5 },
+  "discovery/discovery-coding.ts": { lines: 1347, shapes: 21 },
+  "discovery/discovery-review-reads.ts": { lines: 742, shapes: 9 },
+  "discovery/discovery.ts": { lines: 1607, shapes: 16 },
+  "documents/conversions.ts": { lines: 423, shapes: 6 },
+  "documents/document-seal.ts": { lines: 316, shapes: 12 },
+  "documents/templates.ts": { lines: 2029, shapes: 26 },
+  "email/auto-file-rules.ts": { lines: 1135, shapes: 8 },
+  "email/capture-addresses.ts": { lines: 728, shapes: 4 },
+  "email/email-add-in.ts": { lines: 607, shapes: 9 },
   "email/email-inspector.ts": { lines: 199, shapes: 8 },
-  "email/emails.ts": { lines: 866, shapes: 5 },
-  "files/downloads-register.ts": { lines: 578, shapes: 2 },
-  "files/downloads.ts": { lines: 591, shapes: 1 },
-  "files/file-repair.ts": { lines: 711, shapes: 8 },
-  "files/files.ts": { lines: 2161, shapes: 6 },
+  "email/emails.ts": { lines: 866, shapes: 11 },
+  "files/decryption.ts": { lines: 455, shapes: 6 },
+  "files/downloads-register.ts": { lines: 578, shapes: 7 },
+  "files/downloads.ts": { lines: 591, shapes: 3 },
+  "files/file-integrity.ts": { lines: 370, shapes: 5 },
+  "files/file-repair.ts": { lines: 711, shapes: 10 },
+  "files/file-scans.ts": { lines: 324, shapes: 5 },
+  "files/files.ts": { lines: 2161, shapes: 21 },
+  "files/folders.ts": { lines: 437, shapes: 7 },
+  "files/metadata.ts": { lines: 235, shapes: 5 },
   "files/ocr.ts": { lines: 320, shapes: 6 },
-  "files/recovery.ts": { lines: 450, shapes: 5 },
-  "files/uploads.ts": { lines: 1005, shapes: 6 },
-  "firm/custom-fields.ts": { lines: 1302, shapes: 11 },
-  "firm/firm-ai-settings.ts": { lines: 494, shapes: 5 },
-  "firm/firm-profile.ts": { lines: 713, shapes: 1 },
-  "firm/firm-usage.ts": { lines: 261, shapes: 15 },
-  "firm/numbering.ts": { lines: 610, shapes: 10 },
-  "magnus/magnus.ts": { lines: 1507, shapes: 5 },
-  "matters/intake.ts": { lines: 1171, shapes: 7 },
-  "matters/locations.ts": { lines: 1307, shapes: 3 },
-  "matters/matter-assets.ts": { lines: 2330, shapes: 12 },
-  "matters/matter-plans.ts": { lines: 1003, shapes: 6 },
-  "matters/matter-records.ts": { lines: 637, shapes: 3 },
-  "matters/matters.ts": { lines: 1676, shapes: 7 },
-  "notes-and-tasks/notes.ts": { lines: 685, shapes: 2 },
-  "notes-and-tasks/tasks.ts": { lines: 1511, shapes: 7 },
-  "notifications/notification-preferences.ts": { lines: 541, shapes: 1 },
-  "notifications/notifications.ts": { lines: 630, shapes: 1 },
-  "platform/meta-database-health.ts": { lines: 536, shapes: 1 },
-  "session/member-administration.ts": { lines: 605, shapes: 1 },
-  "session/registrations.ts": { lines: 794, shapes: 0 },
-  "timekeeping/fees.ts": { lines: 976, shapes: 2 },
-  "timekeeping/time-entries.ts": { lines: 2399, shapes: 3 },
-  "timekeeping/timer.ts": { lines: 698, shapes: 2 },
-  "tools/safe-browse.ts": { lines: 596, shapes: 2 },
-  "trust/trust-firm-funds.ts": { lines: 601, shapes: 0 },
-  "trust/trust-reconciliation.ts": { lines: 1393, shapes: 1 },
-  "trust/trust-unclaimed-funds.ts": { lines: 760, shapes: 0 },
-  "trust/trust.ts": { lines: 1509, shapes: 0 },
+  "files/recovery.ts": { lines: 450, shapes: 7 },
+  "files/uploads.ts": { lines: 1005, shapes: 15 },
+  "firm/classification-type-routes.ts": { lines: 426, shapes: 6 },
+  "firm/custom-fields.ts": { lines: 1302, shapes: 27 },
+  "firm/firm-ai-settings.ts": { lines: 494, shapes: 10 },
+  "firm/firm-profile.ts": { lines: 713, shapes: 7 },
+  "firm/firm-usage.ts": { lines: 261, shapes: 16 },
+  "firm/numbering.ts": { lines: 610, shapes: 17 },
+  "firm/scan-policy.ts": { lines: 350, shapes: 6 },
+  "magnus/magnus.ts": { lines: 1507, shapes: 17 },
+  "matters/intake.ts": { lines: 1171, shapes: 22 },
+  "matters/locations.ts": { lines: 1307, shapes: 15 },
+  "matters/matter-assets.ts": { lines: 2330, shapes: 52 },
+  "matters/matter-plans.ts": { lines: 1003, shapes: 14 },
+  "matters/matter-records.ts": { lines: 637, shapes: 10 },
+  "matters/matters.ts": { lines: 1676, shapes: 23 },
+  "notes-and-tasks/notes.ts": { lines: 685, shapes: 7 },
+  "notes-and-tasks/tasks.ts": { lines: 1511, shapes: 20 },
+  "notifications/notification-preferences.ts": { lines: 541, shapes: 8 },
+  "notifications/notifications.ts": { lines: 630, shapes: 6 },
+  "platform/meta-database-health.ts": { lines: 536, shapes: 9 },
+  "platform/meta-versions.ts": { lines: 330, shapes: 5 },
+  "platform/platform-status.ts": { lines: 407, shapes: 6 },
+  "session/me.ts": { lines: 300, shapes: 6 },
+  "session/member-administration.ts": { lines: 605, shapes: 5 },
+  "session/registrations.ts": { lines: 794, shapes: 4 },
+  "support/support-grants.ts": { lines: 386, shapes: 6 },
+  "timekeeping/fees.ts": { lines: 976, shapes: 5 },
+  "timekeeping/narrative-templates.ts": { lines: 349, shapes: 5 },
+  "timekeeping/non-billable-categories.ts": { lines: 414, shapes: 5 },
+  "timekeeping/rate-cards.ts": { lines: 403, shapes: 8 },
+  "timekeeping/time-entries.ts": { lines: 2399, shapes: 22 },
+  "timekeeping/timer.ts": { lines: 698, shapes: 7 },
+  "tools/safe-browse.ts": { lines: 596, shapes: 3 },
+  "trust/trust-firm-funds.ts": { lines: 601, shapes: 6 },
+  "trust/trust-reconciliation.ts": { lines: 1393, shapes: 29 },
+  "trust/trust-unclaimed-funds.ts": { lines: 760, shapes: 11 },
+  "trust/trust.ts": { lines: 1509, shapes: 20 },
 };
 
 function routeFileName(modulePath: string): string {
@@ -119,11 +135,13 @@ function routeFileName(modulePath: string): string {
 // convention that tells them apart is the name: a path-parameter or query object is a camelCase
 // const (`matterIdParam`, `resourcesQuery`), a body or response a PascalCase one or an inline
 // schema in a route. Addressing stays with the route by design, so it does not count.
-const ADDRESSING_DECLARATION = /^const [a-z][A-Za-z0-9]*(?:Param|Params|Query) = z\.object\(/gm;
+const ADDRESSING_DECLARATION = /^const [a-z][A-Za-z0-9]*(?:Param|Params|Query) = z\s*\.object\(/gm;
 
 export function measure(source: string): Shape {
   const lines = source.endsWith("\n") ? source.split("\n").length - 1 : source.split("\n").length;
-  const all = (source.match(/\bz\.object\(/g) ?? []).length;
+  // `z` and `.object(` may sit on two lines: the formatter breaks a long chain after `z`, which is
+  // how most named shapes are written, so a measure that wanted them on one line saw almost none.
+  const all = (source.match(/\bz\s*\.object\(/g) ?? []).length;
   const addressing = (source.match(ADDRESSING_DECLARATION) ?? []).length;
   return { lines, shapes: all - addressing };
 }
@@ -184,6 +202,12 @@ describe("route module shape ratchet (src/routes)", () => {
 
   it("is not vacuous — it measures the real route surface", () => {
     expect(Object.keys(ROUTE_SOURCES).length).toBeGreaterThan(90);
+  });
+
+  it("counts a shape the formatter wrote across two lines, and not an addressing object", () => {
+    const shape = 'const Body = z\n  .object({ name: z.string() })\n  .openapi("Body");\n';
+    const addressing = "const thingIdParam = z\n  .object({ id: z.string() });\n";
+    expect(measure(shape + addressing).shapes).toBe(1);
   });
 
   it("catches growth, a stale entry, a missing entry and a vanished file in a fixture", () => {

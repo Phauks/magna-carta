@@ -38,12 +38,8 @@ describe("the calendar contract", () => {
       timeZone: "America/Denver",
     };
     expect(event.safeParse(body).success).toBe(true);
-    expect(event.safeParse({ ...body, startsOn: "October 2" }).success).toBe(
-      false,
-    );
-    expect(event.safeParse({ ...body, startsAtTime: "9:30" }).success).toBe(
-      false,
-    );
+    expect(event.safeParse({ ...body, startsOn: "October 2" }).success).toBe(false);
+    expect(event.safeParse({ ...body, startsAtTime: "9:30" }).success).toBe(false);
   });
 
   it("refuses a malformed identifier in a body field and accepts a well-formed one", () => {
