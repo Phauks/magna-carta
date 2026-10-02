@@ -425,16 +425,16 @@ Audit rows through `domainAuditStatement`, identifiers and instants only: `meeti
 
 ### 8.1 The public lane (`apps/api-worker/src/routes/booking-visitor.ts`)
 
-| method | path                                    | lane          | does                                                                                                                                                      |
-| ------ | --------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/v1/booking/page`                  | `page`        | the public summary; writes nothing                                                                                                                        |
-| `GET`  | `/api/v1/booking/page/slots`            | `page`        | `from`, `to` instants, window at most fifteen days; `{ slots: [{ startsAt, endsAt }], truncated }`                                                        |
-| `POST` | `/api/v1/booking/holds`                 | `page`        | body `{ startsAt, givenName, familyName?, email, timeZone }`; human verification; idempotency required; 201 `{ startsAt, endsAt, holdExpiresAt }`; mails |
-| `GET`  | `/api/v1/booking/appointment`           | `appointment` | the appointment as the visitor may know it; writes nothing, spends nothing                                                                                |
-| `GET`  | `/api/v1/booking/appointment/slots`     | `appointment` | the page's slots for a move, with this appointment's own time not counting against it                                                                     |
-| `POST` | `/api/v1/booking/confirmation`          | `appointment` | idempotency required; confirms (section 5.3); 200 with the appointment; mails                                                                             |
-| `POST` | `/api/v1/booking/rescheduling`          | `appointment` | body `{ startsAt }`; idempotency required; mails                                                                                                          |
-| `POST` | `/api/v1/booking/cancellation`          | `appointment` | idempotency required; mails                                                                                                                               |
+| method | path                                | lane          | does                                                                                                                                                     |
+| ------ | ----------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/booking/page`              | `page`        | the public summary; writes nothing                                                                                                                       |
+| `GET`  | `/api/v1/booking/page/slots`        | `page`        | `from`, `to` instants, window at most fifteen days; `{ slots: [{ startsAt, endsAt }], truncated }`                                                       |
+| `POST` | `/api/v1/booking/holds`             | `page`        | body `{ startsAt, givenName, familyName?, email, timeZone }`; human verification; idempotency required; 201 `{ startsAt, endsAt, holdExpiresAt }`; mails |
+| `GET`  | `/api/v1/booking/appointment`       | `appointment` | the appointment as the visitor may know it; writes nothing, spends nothing                                                                               |
+| `GET`  | `/api/v1/booking/appointment/slots` | `appointment` | the page's slots for a move, with this appointment's own time not counting against it                                                                    |
+| `POST` | `/api/v1/booking/confirmation`      | `appointment` | idempotency required; confirms (section 5.3); 200 with the appointment; mails                                                                            |
+| `POST` | `/api/v1/booking/rescheduling`      | `appointment` | body `{ startsAt }`; idempotency required; mails                                                                                                         |
+| `POST` | `/api/v1/booking/cancellation`      | `appointment` | idempotency required; mails                                                                                                                              |
 
 **No route carries an identifier in the path.** The page and the appointment are facts of the credential, as the meeting is a fact of a guest's. The shapes are distinct schemas with nothing that names a matter, an event, a meeting, a member's user id or a Directory handle:
 
@@ -445,20 +445,20 @@ Refusals: `appointment-time-taken` (409, with the sentence _"Somebody took that 
 
 ### 8.2 The member's routes (`apps/api-worker/src/routes/booking-pages.ts`)
 
-| method   | path                                                        | permission                     | does                                                                                                 |
-| -------- | ----------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `GET`    | `/api/v1/booking-pages`                                     | `meetings:publishBookingPages` | the caller's own pages, cursor-paged                                                                 |
-| `POST`   | `/api/v1/booking-pages`                                     | `meetings:publishBookingPages` | create a draft; 201                                                                                  |
-| `GET`    | `/api/v1/booking-pages/{bookingPageId}`                     | `meetings:publishBookingPages` | one of the caller's pages, with its hours and, when published, its `address`                          |
-| `PATCH`  | `/api/v1/booking-pages/{bookingPageId}`                     | `meetings:publishBookingPages` | the rules; `hours` replaces the set where supplied                                                   |
-| `POST`   | `/api/v1/booking-pages/{bookingPageId}/publication`         | `meetings:publishBookingPages` | publish; refused 409 `booking-pages-disabled` while the firm's switch is off, 403 without the other keys |
-| `POST`   | `/api/v1/booking-pages/{bookingPageId}/address-rotation`    | `meetings:publishBookingPages` | a new address; every old one refuses                                                                 |
-| `POST`   | `/api/v1/booking-pages/{bookingPageId}/retirement`          | `meetings:publishBookingPages` | retire; appointments on it stand                                                                     |
-| `GET`    | `/api/v1/booking-pages/{bookingPageId}/slots`               | `meetings:publishBookingPages` | the preview: the same computation and shape a visitor gets                                           |
-| `GET`    | `/api/v1/booking-appointments`                              | `meetings:publishBookingPages` | the caller's appointments; `scope` = `upcoming` \| `past` \| `review`, cursor-paged                  |
-| `POST`   | `/api/v1/booking-appointments/{bookingAppointmentId}/review` | `meetings:publishBookingPages` | body `{ outcome: "kept" \| "merged" \| "discarded", survivingEntityId? }`; merge also checks the Directory's merge key |
-| `GET`    | `/api/v1/meetings/policy`                                   | `firm:manageMeetingPolicy`     | `{ bookingPagesEnabled }`                                                                            |
-| `PUT`    | `/api/v1/meetings/policy`                                   | `firm:manageMeetingPolicy`     | set it; turning it off makes every page answer unavailable at once and changes no appointment        |
+| method  | path                                                         | permission                     | does                                                                                                                   |
+| ------- | ------------------------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `GET`   | `/api/v1/booking-pages`                                      | `meetings:publishBookingPages` | the caller's own pages, cursor-paged                                                                                   |
+| `POST`  | `/api/v1/booking-pages`                                      | `meetings:publishBookingPages` | create a draft; 201                                                                                                    |
+| `GET`   | `/api/v1/booking-pages/{bookingPageId}`                      | `meetings:publishBookingPages` | one of the caller's pages, with its hours and, when published, its `address`                                           |
+| `PATCH` | `/api/v1/booking-pages/{bookingPageId}`                      | `meetings:publishBookingPages` | the rules; `hours` replaces the set where supplied                                                                     |
+| `POST`  | `/api/v1/booking-pages/{bookingPageId}/publication`          | `meetings:publishBookingPages` | publish; refused 409 `booking-pages-disabled` while the firm's switch is off, 403 without the other keys               |
+| `POST`  | `/api/v1/booking-pages/{bookingPageId}/address-rotation`     | `meetings:publishBookingPages` | a new address; every old one refuses                                                                                   |
+| `POST`  | `/api/v1/booking-pages/{bookingPageId}/retirement`           | `meetings:publishBookingPages` | retire; appointments on it stand                                                                                       |
+| `GET`   | `/api/v1/booking-pages/{bookingPageId}/slots`                | `meetings:publishBookingPages` | the preview: the same computation and shape a visitor gets                                                             |
+| `GET`   | `/api/v1/booking-appointments`                               | `meetings:publishBookingPages` | the caller's appointments; `scope` = `upcoming` \| `past` \| `review`, cursor-paged                                    |
+| `POST`  | `/api/v1/booking-appointments/{bookingAppointmentId}/review` | `meetings:publishBookingPages` | body `{ outcome: "kept" \| "merged" \| "discarded", survivingEntityId? }`; merge also checks the Directory's merge key |
+| `GET`   | `/api/v1/meetings/policy`                                    | `firm:manageMeetingPolicy`     | `{ bookingPagesEnabled }`                                                                                              |
+| `PUT`   | `/api/v1/meetings/policy`                                    | `firm:manageMeetingPolicy`     | set it; turning it off makes every page answer unavailable at once and changes no appointment                          |
 
 Every page and appointment route is scoped to the **session's** user: another member's page is not found rather than forbidden, the notifications subsystem's rule for a row that belongs to somebody else. The policy routes live in `apps/api-worker/src/routes/meeting-policy.ts`, on the precedent of the other `firm:manage…Policy` pairs. Two new keys in `packages/access-control/src/registry.ts`, both `resource: "firm"`: `meetings:publishBookingPages` ("publish booking pages of one's own and review the appointments taken on them"), seeded to no default role — a firm decides who may put a page on the internet in its name — and `firm:manageMeetingPolicy`, seeded where the other policy keys are.
 
@@ -502,13 +502,13 @@ The appointment token's `exp` is the hold instant plus `maximum_days_ahead` plus
 
 Five new types in `packages/notifications/src/registry.ts`, all `raisedBy: "outbox-topic"`, category `calendar`, subscribing to topic constants exported from `packages/meetings/src/notification-topics.ts` so producer and subscriber share one spelling:
 
-| type key                         | topic                                   | subject kind      | audience                                   | facts                          |
-| -------------------------------- | --------------------------------------- | ----------------- | ------------------------------------------ | ------------------------------ |
-| `meetings.appointment.booked`    | `meetings.appointment.confirmed`        | `directoryEntity` | `named-recipient` (`ownerUserId`)          | `medium`, `directoryMatch`     |
-| `meetings.appointment.moved`     | `meetings.appointment.rescheduled`      | `directoryEntity` | `named-recipient` (`ownerUserId`)          | `medium`                       |
-| `meetings.appointment.cancelled` | `meetings.appointment.cancelled`        | `directoryEntity` | `named-recipient` (`ownerUserId`)          | `medium`                       |
-| `meetings.appointment.reminder`  | `meetings.appointment.reminderDue`      | `directoryEntity` | `named-recipient` (`ownerUserId`)          | `medium`, `lead`               |
-| `meetings.meeting.reminder`      | `meetings.meeting.reminderDue`          | `matterEvent`     | `named-recipient` (`memberUserId`)         | `medium`, `lead`               |
+| type key                         | topic                              | subject kind      | audience                           | facts                      |
+| -------------------------------- | ---------------------------------- | ----------------- | ---------------------------------- | -------------------------- |
+| `meetings.appointment.booked`    | `meetings.appointment.confirmed`   | `directoryEntity` | `named-recipient` (`ownerUserId`)  | `medium`, `directoryMatch` |
+| `meetings.appointment.moved`     | `meetings.appointment.rescheduled` | `directoryEntity` | `named-recipient` (`ownerUserId`)  | `medium`                   |
+| `meetings.appointment.cancelled` | `meetings.appointment.cancelled`   | `directoryEntity` | `named-recipient` (`ownerUserId`)  | `medium`                   |
+| `meetings.appointment.reminder`  | `meetings.appointment.reminderDue` | `directoryEntity` | `named-recipient` (`ownerUserId`)  | `medium`, `lead`           |
+| `meetings.meeting.reminder`      | `meetings.meeting.reminderDue`     | `matterEvent`     | `named-recipient` (`memberUserId`) | `medium`, `lead`           |
 
 The four appointment types point at **the visitor's Directory person**, `matterResolution: none`, with the deep link `/meetings/appointments?visitor=<subjectId>`. That is the subject kind the schema's CHECK already admits, and it is the right subject rather than a workaround: what the member has to do about a booking is look at who booked it, and the Appointments screen opens on that person's appointments with Join on the next. The appointment's own moves raise `moved` and `cancelled` only when the **visitor** made them; a member's own move through the calendar tells the member nothing, because they did it. The meeting reminder is matter-anchored through its payload, like `meetings.meeting.scheduled`. Payloads are identifiers, the closed labels, and the user id named — no title, no name, no time, on the registry's standing reasoning that a stored time is a stale time; the sentence a member reads is composed at the deep link from the live record.
 
@@ -518,16 +518,16 @@ Email reaches members only as the digest's counts, exactly as for every other ty
 
 Sent through the `sendEmail` port after the commit that makes each true, each with its own `messageClass` so telemetry counts it without the body, each composed by a pure function in `apps/api-worker/src/meetings/booking-mail.ts` (visitors) or beside the guest invitation mail (guests):
 
-| message class                        | to                   | carries                                                                                  |
-| ------------------------------------ | -------------------- | ---------------------------------------------------------------------------------------- |
-| `booking-appointment-hold`           | the typed address    | the firm, the member, the time in both zones, the appointment link and the typed fallback |
-| `booking-appointment-confirmed`      | the visitor          | the time in both zones, the guest link or the date it will come, a pointer to the hold mail |
-| `booking-appointment-moved`          | the visitor          | who moved it, the new time in both zones, a fresh guest link or its date                  |
-| `booking-appointment-cancelled`      | the visitor          | who cancelled it, the time that no longer stands                                          |
-| `meeting-guest-announcement`         | a Directory guest    | the firm, the title, the start, the date the link will come                               |
-| `meeting-guest-moved`                | a Directory guest    | the new start, a fresh link or its date                                                   |
-| `meeting-guest-cancelled`            | a Directory guest    | the start that no longer stands                                                           |
-| `meeting-guest-reminder`             | any guest or visitor | the start, and a pointer to the mail that carried the link                                |
+| message class                   | to                   | carries                                                                                     |
+| ------------------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| `booking-appointment-hold`      | the typed address    | the firm, the member, the time in both zones, the appointment link and the typed fallback   |
+| `booking-appointment-confirmed` | the visitor          | the time in both zones, the guest link or the date it will come, a pointer to the hold mail |
+| `booking-appointment-moved`     | the visitor          | who moved it, the new time in both zones, a fresh guest link or its date                    |
+| `booking-appointment-cancelled` | the visitor          | who cancelled it, the time that no longer stands                                            |
+| `meeting-guest-announcement`    | a Directory guest    | the firm, the title, the start, the date the link will come                                 |
+| `meeting-guest-moved`           | a Directory guest    | the new start, a fresh link or its date                                                     |
+| `meeting-guest-cancelled`       | a Directory guest    | the start that no longer stands                                                             |
+| `meeting-guest-reminder`        | any guest or visitor | the start, and a pointer to the mail that carried the link                                  |
 
 **What a mail may carry about the firm's side** is the guests design's rule: the firm's name and the event's title because the member's own act discloses them, the member's name on a booking page because the member published it, and nothing about any matter. An appointment's title is the page heading, so its mails disclose nothing a visitor did not already read on the page.
 
