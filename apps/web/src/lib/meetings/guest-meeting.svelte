@@ -206,6 +206,9 @@
 
   async function arrive(confirmedName: string, devices: GuestDeviceChoice): Promise<void> {
     if (arriving || grant !== null) return;
+    // Join and Rejoin are presses, and this runs inside them up to the first await: the one moment
+    // Safari lets a page open the audio the recording tone is played on, and wake the voice.
+    client.unlockRecordingSounds();
     givenName = confirmedName;
     chosenDevices = devices;
     arriving = true;
@@ -241,6 +244,14 @@
   function rejoin(): void {
     grant = null;
     void arrive(givenName, chosenDevices);
+  }
+
+  /*
+   * Any press in the room wakes the tone's audio again, for the phone that suspended it when a call
+   * came in. Only while this guest holds a stay: after leaving, a press opens nothing.
+   */
+  function unlockSoundsOnPress(): void {
+    if (grant !== null) client.unlockRecordingSounds();
   }
 
   /** Back to the door after leaving on purpose. The link was not spent by leaving. */
@@ -450,7 +461,12 @@
   <meta name="referrer" content="no-referrer" />
 </svelte:head>
 
-<svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
+<svelte:window
+  onpagehide={departOnUnload}
+  onbeforeunload={departOnUnload}
+  onclick={unlockSoundsOnPress}
+  onkeydown={unlockSoundsOnPress}
+/>
 
 {#snippet reactionsControl()}
   <MeetingReactions onReact={(name) => client.react(name)} />

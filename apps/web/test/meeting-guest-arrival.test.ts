@@ -115,6 +115,57 @@ class FakeSocket {
   }
 }
 
+/** A gain ramp the fake device accepts and ignores: what is counted is the note, not its shape. */
+const noRamp = (): void => {};
+
+/**
+ * An audio device as Safari hands one to a page: suspended when it is made, running only once a
+ * resume is honoured, and counting every note asked of it rather than playing it.
+ */
+class FakeAudioContext {
+  static made: FakeAudioContext[] = [];
+  /** Whether a resume is honoured — as it is inside a press, and is not outside one on Safari. */
+  static honoursResume = false;
+  state: "suspended" | "running" | "closed" = "suspended";
+  currentTime = 0;
+  readonly destination = {};
+  resumes = 0;
+  notes = 0;
+  constructor() {
+    FakeAudioContext.made.push(this);
+  }
+  resume(): Promise<void> {
+    this.resumes += 1;
+    if (FakeAudioContext.honoursResume) this.state = "running";
+    return Promise.resolve();
+  }
+  close(): Promise<void> {
+    this.state = "closed";
+    return Promise.resolve();
+  }
+  createOscillator(): Record<string, unknown> {
+    return {
+      type: "",
+      frequency: { value: 0 },
+      connect: (node: unknown) => node,
+      start: () => {
+        this.notes += 1;
+      },
+      stop: () => {},
+    };
+  }
+  createGain(): Record<string, unknown> {
+    return {
+      gain: {
+        setValueAtTime: noRamp,
+        linearRampToValueAtTime: noRamp,
+        exponentialRampToValueAtTime: noRamp,
+      },
+      connect: (node: unknown) => node,
+    };
+  }
+}
+
 class FakePeerConnection {
   localDescription = { type: "offer", sdp: "local-offer" };
   addTransceiver(): { mid: string } {
@@ -951,5 +1002,85 @@ describe("a recording, as a guest meets it", () => {
     expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
       "Recording in progress",
     );
+  });
+
+  /** Let a guest in on the newest socket, with a welcome that carries the running recording. */
+  async function admitIntoTheRecording(): Promise<FakeSocket | undefined> {
+    const socket = sockets.at(-1);
+    socket?.deliver({ v: 1, type: "admitted", at: "2026-09-24T18:06:00Z" });
+    socket?.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: ARRIVAL.participantId,
+      roster: [],
+      roomState: { spotlight: null, locked: false },
+      recording,
+    });
+    await settle();
+    await rewritten();
+    return socket;
+  }
+
+  it("opens and resumes the tone's audio inside the Join press, and plays no tone it cannot play now", async () => {
+    FakeAudioContext.made = [];
+    FakeAudioContext.honoursResume = false;
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    await draw();
+    expect(FakeAudioContext.made).toHaveLength(0);
+
+    pressJoin();
+    // Inside the press itself, before the arrival's write is answered.
+    expect(FakeAudioContext.made).toHaveLength(1);
+    const device = FakeAudioContext.made[0];
+    expect(device?.resumes).toBe(1);
+
+    await settle();
+    await admitIntoTheRecording();
+    // Still suspended: the announcement is on screen and in the region, and the tone is not played.
+    expect(device?.notes).toBe(0);
+    expect(target.querySelector("[data-recording-notice]")).not.toBeNull();
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+
+    // A press in the room wakes it, and the tone that could not sound then is not played late.
+    FakeAudioContext.honoursResume = true;
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(device?.state).toBe("running");
+    await settle();
+    expect(device?.notes).toBe(0);
+  });
+
+  it("is told again on screen after a reconnect into the same recording, without a second tone", async () => {
+    FakeAudioContext.made = [];
+    FakeAudioContext.honoursResume = true;
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    await draw();
+    pressJoin();
+    await settle();
+    const first = await admitIntoTheRecording();
+    const device = FakeAudioContext.made[0];
+    // The two rising notes of the arrival, once.
+    expect(device?.notes).toBe(2);
+    target
+      .querySelector<HTMLButtonElement>('[data-recording-notice] button[aria-label="Dismiss"]')
+      ?.click();
+    await settle();
+    expect(target.querySelector("[data-recording-notice]")).toBeNull();
+
+    first?.drop();
+    await settle();
+    press("Rejoin");
+    await settle();
+    await admitIntoTheRecording();
+
+    // The room wrote this welcome down as another occasion the guest was told, and so does the page.
+    expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "This meeting is being recorded.",
+    );
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+    expect(device?.notes).toBe(2);
   });
 });

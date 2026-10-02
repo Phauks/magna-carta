@@ -962,6 +962,18 @@ export class MeetingClient {
   }
 
   /**
+   * Let the recording announcement make sound, from inside a press.
+   *
+   * A SCREEN CALLS IT, NEVER `join`. Some browsers let a page start its audio only while the person
+   * is pressing something, and `join` is reached after the arrival's write has been awaited — by
+   * which time the press is over. So the screen calls this first thing in its Join and Rejoin
+   * handlers, before anything is awaited, and from any press in the room after that.
+   */
+  unlockRecordingSounds(): void {
+    this.recording.unlockSounds();
+  }
+
+  /**
    * Ask the room to start recording. The mark lights when the room announces it to everybody, this
    * browser included, and not on this answer.
    */
@@ -1887,7 +1899,7 @@ export class MeetingClient {
     // one of them is a fact about the next few seconds of a meeting that is over.
     this.reactions.clear();
     // The mark goes with the socket, because this browser no longer knows what the room is doing;
-    // who was told about which recording is kept, so a rejoin into the same one is not news.
+    // which recording was announced aloud is kept, so a rejoin into the same one does not chime.
     this.recording.noteDisconnected();
     this.#capture?.close();
     this.#capture = null;

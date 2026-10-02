@@ -234,6 +234,15 @@
   });
 
   async function arrive(id: string, medium: MeetingMedium): Promise<void> {
+    /*
+     * The recording tone's audio is opened here, before anything is awaited. The member's Join was
+     * pressed on the entry surface and what reaches this page is the navigation it caused, which
+     * most browsers count as the person having interacted with the page; Safari counts only a press
+     * in progress, so for it the context opened here stays suspended and the first press in the room
+     * below is what wakes it. Until something does, a recording is announced on screen and to a
+     * screen reader without the tone, never with a tone that plays late.
+     */
+    client.unlockRecordingSounds();
     const outcome = await joinMeeting(id);
     if (outcome.kind !== "ok") {
       joinFailure = outcome.failure;
@@ -548,6 +557,8 @@
    * attendance, and this browser cannot know whether the one it had was closed on the way down.
    */
   function rejoin(): void {
+    // A press, and the arrival it causes runs after it is over: the tone's audio is woken now.
+    client.unlockRecordingSounds();
     joinedMeetingId = null;
     // Asked for, so the departure that closed this screen's last stay stops standing in the way.
     departedMeetingId = null;
@@ -555,6 +566,15 @@
     // The door is read again on the way back in: this browser holds a list from a socket that is
     // gone, and the next welcome may be a stay that is waiting rather than a host's.
     doorReadUnder = null;
+  }
+
+  /*
+   * Any press in the room wakes the recording tone's audio, for the browser that would not let the
+   * arrival do it and for the phone that suspended it when a call came in. Only while this page holds
+   * a stay: after leaving, a press opens no audio device for a meeting that is over.
+   */
+  function unlockSoundsOnPress(): void {
+    if (joinedMeetingId !== null) client.unlockRecordingSounds();
   }
 
   function toggleSharing(): void {
@@ -1359,7 +1379,12 @@
 
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
 
-<svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
+<svelte:window
+  onpagehide={departOnUnload}
+  onbeforeunload={departOnUnload}
+  onclick={unlockSoundsOnPress}
+  onkeydown={unlockSoundsOnPress}
+/>
 
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader

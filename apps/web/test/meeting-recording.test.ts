@@ -6,8 +6,11 @@
  * WHAT IS PINNED is the consent mechanism the owner ruled on, which no type can hold. The room's
  * announcement is what lights the mark — never the member's own press — and it goes out through
  * every channel at once: the tone, the words spoken, the banner, and the same sentence in an
- * assertive live region. It fires once per transition: a late arrival is told on their welcome, and a
- * connection that blinked and came back into the SAME recording is not told twice. The mark stays
+ * assertive live region. A late arrival is told on their welcome, and so is a connection that blinked
+ * and came back into the SAME recording — the banner and the live region again, because the room
+ * records that welcome as another occasion the person was told — but the tone and the voice sound
+ * once per recording, so a flaky connection does not chime every few seconds. The tone sounds only
+ * on an audio device a press has woken, and never late on one that was still asleep. The mark stays
  * until the room announces the stop. The Record control is drawn only for somebody holding the right
  * to record and a grant on the room, it asks before anything is sent, and the panel says that
  * everybody, guests included, will be told. A firm that has not switched recording on is told so in
@@ -73,11 +76,73 @@ async function rewritten(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ANNOUNCEMENT_REWRITE_MILLISECONDS + 20));
 }
 
+/** A gain ramp the fake device accepts and ignores: what is counted is the note, not its shape. */
+const noRamp = (): void => {};
+
+/**
+ * An audio device as Safari hands one to a page: suspended when it is made, running only once a
+ * resume is honoured, and counting every note asked of it rather than playing it.
+ */
+class FakeAudioContext {
+  static made: FakeAudioContext[] = [];
+  /** Whether a resume is honoured — as it is inside a press, and is not outside one on Safari. */
+  static honoursResume = false;
+  state: "suspended" | "running" | "closed" = "suspended";
+  currentTime = 0;
+  readonly destination = {};
+  resumes = 0;
+  notes = 0;
+  constructor() {
+    FakeAudioContext.made.push(this);
+  }
+  resume(): Promise<void> {
+    this.resumes += 1;
+    if (FakeAudioContext.honoursResume) this.state = "running";
+    return Promise.resolve();
+  }
+  close(): Promise<void> {
+    this.state = "closed";
+    return Promise.resolve();
+  }
+  createOscillator(): Record<string, unknown> {
+    return {
+      type: "",
+      frequency: { value: 0 },
+      connect: (node: unknown) => node,
+      start: () => {
+        this.notes += 1;
+      },
+      stop: () => {},
+    };
+  }
+  createGain(): Record<string, unknown> {
+    return {
+      gain: {
+        setValueAtTime: noRamp,
+        linearRampToValueAtTime: noRamp,
+        exponentialRampToValueAtTime: noRamp,
+      },
+      connect: (node: unknown) => node,
+    };
+  }
+}
+
+/** Put the fake device where the browser keeps its own, suspended and refusing to resume. */
+function installAudio(): void {
+  FakeAudioContext.made = [];
+  FakeAudioContext.honoursResume = false;
+  vi.stubGlobal("AudioContext", FakeAudioContext);
+}
+
 /** The tone and the voice, counted rather than played. */
 class FakeSounds implements MeetingRecordingSounds {
   readonly chimes: string[] = [];
   readonly spoken: string[] = [];
   released = 0;
+  unlocked = 0;
+  unlock = (): void => {
+    this.unlocked += 1;
+  };
   chime = (occasion: "started" | "stopped"): void => {
     this.chimes.push(occasion);
   };
@@ -186,6 +251,8 @@ function welcome(socket: WireSocket, recording?: Record<string, unknown>): void 
 
 afterEach(() => {
   for (const meeting of opened.splice(0)) meeting.dispose();
+  // The audio device and the voice some cases put where the browser keeps its own.
+  vi.unstubAllGlobals();
 });
 
 describe("reading an announcement", () => {
@@ -262,9 +329,10 @@ describe("the announcement on arrival", () => {
     expect(sounds.spoken).toEqual([RECORDING_IN_PROGRESS]);
   });
 
-  it("does not tell them again on a reconnect into the same recording, and restores the mark", () => {
+  it("tells them again on screen on a reconnect into the same recording, without the tone", async () => {
     const { client: meeting, socket, sounds, join } = wired();
     welcome(socket, started());
+    await rewritten();
     meeting.recording.dismiss();
 
     socket.close();
@@ -274,9 +342,41 @@ describe("the announcement on arrival", () => {
 
     join();
     welcome(socket, started());
+    // The room recorded this welcome as an occasion the person was told, and the socket that came
+    // back may be at another device: the banner is drawn again and the region emptied for a rewrite.
     expect(meeting.recording.running?.recordingId).toBe("meetingRecording_1");
-    expect(meeting.recording.notice).toBeNull();
+    expect(meeting.recording.notice?.occasion).toBe("arrival");
+    expect(meeting.recording.notice?.sentence).toBe(
+      "This meeting is being recorded. Rosalind Chase started the recording.",
+    );
+    expect(meeting.recording.announcement).toBe("");
+    await rewritten();
+    expect(meeting.recording.announcement).toBe(RECORDING_IN_PROGRESS);
+    // The tone and the voice have already sounded for this recording on this page.
     expect(sounds.chimes).toEqual(["started"]);
+    expect(sounds.spoken).toEqual([RECORDING_IN_PROGRESS]);
+  });
+
+  it("does not chime for every blink of a flaky connection into the same recording", () => {
+    const { client: meeting, socket, sounds, join } = wired();
+    welcome(socket, started());
+    for (let blink = 0; blink < 4; blink += 1) {
+      socket.close();
+      join();
+      welcome(socket, started());
+      expect(meeting.recording.notice?.occasion).toBe("arrival");
+    }
+    expect(sounds.chimes).toEqual(["started"]);
+    expect(sounds.spoken).toEqual([RECORDING_IN_PROGRESS]);
+  });
+
+  it("sounds again for the same recording after the member left and came back on purpose", () => {
+    const { client: meeting, socket, sounds, join } = wired();
+    welcome(socket, started());
+    meeting.leave();
+    join();
+    welcome(socket, started());
+    expect(sounds.chimes).toEqual(["started", "started"]);
   });
 
   it("tells them on a reconnect into a DIFFERENT recording, and of a stop they missed", () => {
@@ -345,6 +445,88 @@ describe("the sounds a browser makes", () => {
     }).not.toThrow();
   });
 
+  it("open the audio device on the press, and ask it to run", () => {
+    installAudio();
+    const sounds = browserRecordingSounds();
+    // Nothing is opened before the press: a chime with no device asks for none.
+    sounds.chime("started");
+    expect(FakeAudioContext.made).toHaveLength(0);
+
+    sounds.unlock();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(FakeAudioContext.made[0]?.resumes).toBe(1);
+
+    // A second press resumes the same device rather than opening another.
+    sounds.unlock();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(FakeAudioContext.made[0]?.resumes).toBe(2);
+  });
+
+  it("schedule nothing on a device that is still suspended, and never play it late", () => {
+    installAudio();
+    const sounds = browserRecordingSounds();
+    sounds.unlock();
+    const device = FakeAudioContext.made[0];
+    expect(device?.state).toBe("suspended");
+
+    sounds.chime("started");
+    expect(device?.notes).toBe(0);
+
+    // The next press is honoured. The chime that could not sound is not owed: nothing plays now.
+    FakeAudioContext.honoursResume = true;
+    sounds.unlock();
+    expect(device?.state).toBe("running");
+    expect(device?.notes).toBe(0);
+
+    sounds.chime("started");
+    expect(device?.notes).toBe(2);
+    sounds.chime("stopped");
+    expect(device?.notes).toBe(3);
+  });
+
+  it("let go of the device when the meeting is over, and open a fresh one on the next press", () => {
+    installAudio();
+    FakeAudioContext.honoursResume = true;
+    const sounds = browserRecordingSounds();
+    sounds.unlock();
+    sounds.release();
+    expect(FakeAudioContext.made[0]?.state).toBe("closed");
+    sounds.chime("started");
+    expect(FakeAudioContext.made[0]?.notes).toBe(0);
+
+    sounds.unlock();
+    expect(FakeAudioContext.made).toHaveLength(2);
+    sounds.chime("started");
+    expect(FakeAudioContext.made[1]?.notes).toBe(2);
+  });
+
+  it("wake the voice on the first press, once, and then say the sentence", () => {
+    const said: string[] = [];
+    vi.stubGlobal("speechSynthesis", {
+      speak: (utterance: { text: string }) => said.push(utterance.text),
+    });
+    vi.stubGlobal(
+      "SpeechSynthesisUtterance",
+      class {
+        readonly text: string;
+        constructor(text: string) {
+          this.text = text;
+        }
+      },
+    );
+    const sounds = browserRecordingSounds();
+    sounds.unlock();
+    sounds.unlock();
+    sounds.speak(RECORDING_IN_PROGRESS);
+    expect(said).toEqual(["", RECORDING_IN_PROGRESS]);
+  });
+
+  it("are woken through the client, which a screen calls from its press", () => {
+    const { client: meeting, sounds } = wired();
+    meeting.unlockRecordingSounds();
+    expect(sounds.unlocked).toBe(1);
+  });
+
   it("are not the only channel: a client with none still announces on screen and to a reader", async () => {
     const recording = new MeetingRecording();
     recording.noteFrame(readRecordingAnnouncement(started()));
@@ -402,6 +584,27 @@ describe("the live region", () => {
 
     expect(heard).toEqual(["", RECORDING_IN_PROGRESS, "", RECORDING_IN_PROGRESS]);
     expect(delay.waiting).toHaveLength(0);
+  });
+
+  it("is rewritten on a rejoin into the SAME recording, by emptying first", () => {
+    const delay = new HandDelay();
+    const recording = new MeetingRecording(undefined, delay.after);
+    const heard: string[] = [];
+    const listen = (): void => {
+      if (heard.at(-1) !== recording.announcement) heard.push(recording.announcement);
+    };
+
+    recording.noteWelcome(readRecordingAnnouncement(started()));
+    listen();
+    delay.pass();
+    listen();
+    recording.noteDisconnected();
+    recording.noteWelcome(readRecordingAnnouncement(started()));
+    listen();
+    delay.pass();
+    listen();
+
+    expect(heard).toEqual(["", RECORDING_IN_PROGRESS, "", RECORDING_IN_PROGRESS]);
   });
 
   it("waits the stated moment, and lets a later transition replace one still waiting", () => {
@@ -742,6 +945,42 @@ describe("the room screen's mark", () => {
       "This meeting is being recorded.",
     );
     expect(liveRegion()?.textContent?.trim()).toBe(RECORDING_IN_PROGRESS);
+  });
+});
+
+describe("the room screen's tone", () => {
+  it("opens and resumes the audio as the member arrives, and on any press in the room", async () => {
+    installAudio();
+    await enter(null);
+    expect(FakeAudioContext.made).toHaveLength(1);
+    const device = FakeAudioContext.made[0];
+    expect(device?.resumes).toBe(1);
+
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(device?.resumes).toBe(2);
+  });
+
+  it("announces on screen without a tone while the audio sleeps, and never plays that tone late", async () => {
+    installAudio();
+    await enter(null, started());
+    await rewritten();
+    await settle();
+    const device = FakeAudioContext.made[0];
+    expect(device?.state).toBe("suspended");
+    expect(device?.notes).toBe(0);
+    expect(target.querySelector("[data-recording-notice]")).not.toBeNull();
+    expect(liveRegion()?.textContent?.trim()).toBe(RECORDING_IN_PROGRESS);
+
+    // A press wakes it. The arrival's tone is not owed: nothing plays until the next announcement.
+    FakeAudioContext.honoursResume = true;
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
+    expect(device?.state).toBe("running");
+    expect(device?.notes).toBe(0);
+
+    sockets[0]?.deliver({ v: 1, type: "recording", ...stopped() });
+    await settle();
+    expect(device?.notes).toBe(1);
   });
 });
 

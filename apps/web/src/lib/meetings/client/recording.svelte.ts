@@ -16,12 +16,16 @@
  * before the room had told anybody else, and the mark is a statement about what EVERYBODY was told.
  * What the server keeps as the record is what it delivered to whom; nothing here is the record.
  *
- * ONCE PER TRANSITION, AND NOT AGAIN ON A RECONNECT THAT SAYS THE SAME THING. A socket lost and
+ * EVERY WELCOME THAT CARRIES A RECORDING IS TOLD; ONLY THE FIRST IS SOUNDED. A socket lost and
  * re-established is welcomed again, and the welcome carries the running recording — the "and on
- * arrival" half of the ruling. Somebody who was told thirty seconds ago and whose connection blinked
- * is not a late arrival, so the recording this browser last told them about is remembered across the
- * rejoin, and a welcome naming that same recording restores the mark in silence. A welcome naming a
- * different one, or none where one was running, is a transition, and is announced as one.
+ * arrival" half of the ruling. The room writes that welcome down as a separate occasion on which this
+ * person was told, because the socket that came back may be a different device in a different room
+ * from the one that went away. The browser agrees with that record on the conservative side: every
+ * welcome naming a running recording draws the banner again and writes the live region again. What
+ * is NOT repeated is the tone and the voice — the recording this page has already announced aloud is
+ * remembered across the rejoin, so a connection that blinks every few seconds does not chime every few
+ * seconds. A welcome naming a different recording, or none where one was running, is a transition,
+ * and is announced aloud as one.
  *
  * EVERY TRANSITION IS SPOKEN, EVEN ONE WORDED LIKE THE LAST. An assertive live region is read when
  * its text CHANGES, and a screen reader says nothing when the new text is the old text — so a second
@@ -152,16 +156,25 @@ export function recordingNotice(
  * browser, and the screen and the live region carry the words regardless.
  */
 export interface MeetingRecordingSounds {
-  /** Two short rising notes for a recording found running, one lower note for one that stopped. */
+  /**
+   * Open the audio device and ask it to run. Called from inside a press — Join, Rejoin, or any press
+   * in the room — because that is the only moment some browsers let a page start making sound.
+   */
+  unlock: () => void;
+  /**
+   * Two short rising notes for a recording found running, one lower note for one that stopped —
+   * now, or not at all.
+   */
   chime: (occasion: "started" | "stopped") => void;
   /** Say the sentence aloud, where the platform can. */
   speak: (sentence: string) => void;
-  /** Let go of the audio device, for a meeting that is over. A later chime opens it again. */
+  /** Let go of the audio device, for a meeting that is over. The next press opens it again. */
   release: () => void;
 }
 
 /** Sounds that make none, for a client built without a browser behind it. */
 export const SILENT_RECORDING_SOUNDS: MeetingRecordingSounds = Object.freeze({
+  unlock: () => {},
   chime: () => {},
   speak: () => {},
   release: () => {},
@@ -182,38 +195,76 @@ const STARTED_NOTES_HERTZ = [660, 880] as const;
 /** The stop's one note, lower: something ended. */
 const STOPPED_NOTES_HERTZ = [520] as const;
 
+/** The platform's voice, where it offers one. */
+function speechPlatform(): {
+  synthesis: SpeechSynthesis;
+  Utterance: typeof SpeechSynthesisUtterance;
+} | null {
+  const synthesis: unknown = Reflect.get(globalThis, "speechSynthesis");
+  const Utterance: unknown = Reflect.get(globalThis, "SpeechSynthesisUtterance");
+  if (!isRecord(synthesis) || typeof Utterance !== "function") return null;
+  return {
+    synthesis: synthesis as unknown as SpeechSynthesis,
+    Utterance: Utterance as typeof SpeechSynthesisUtterance,
+  };
+}
+
 /**
  * The sounds as a real browser makes them: a Web Audio oscillator for the tone, the Web Speech API
  * for the words.
  *
  * SYNTHESIZED, NOT SHIPPED. No audio file is bundled: no asset to lose in a build, no codec, no
- * decode, and the same notes on every browser. The context is this module's own and opened at the
- * first chime rather than at construction, because a context opened before anything is announced is
- * a device held for a meeting that may never be recorded. Joining was a press, which is the gesture
- * the browser's autoplay rule asks for; where it still starts suspended it is asked to resume, and
- * where it cannot the banner and the live region carry the announcement alone.
+ * decode, and the same notes on every browser.
+ *
+ * THE DEVICE IS OPENED INSIDE A PRESS, NEVER AT THE CHIME. Safari, and every browser on iOS, leaves an
+ * audio context suspended unless it was created or resumed while the person was pressing something,
+ * and gates speech the same way. The first chime arrives on a frame off the socket, which is never a
+ * press — so a context opened there stays silent for the whole meeting. `unlock` is what the screens
+ * call from Join, Rejoin and any press in the room, and it is the only place a context is made. The
+ * voice is woken there too, with an empty utterance, which is what lets a later sentence through.
+ *
+ * A NOTE IS SCHEDULED ONLY ON A CONTEXT THAT IS RUNNING. One still suspended would hold the notes and
+ * play them when it is finally resumed — a "Recording in progress" tone a minute late, for a recording
+ * that may have stopped since. A chime that cannot sound now does not sound; the banner and the live
+ * region, which always work, carry the announcement alone.
  */
 export function browserRecordingSounds(): MeetingRecordingSounds {
   let context: AudioContext | null = null;
+  /** Whether the voice has been woken from inside a press. Once is enough for the document. */
+  let voiceWoken = false;
 
-  function audio(): AudioContext | null {
-    if (context !== null) return context;
-    const Context: unknown = Reflect.get(globalThis, "AudioContext");
-    if (typeof Context !== "function") return null;
+  function wakeVoice(): void {
+    if (voiceWoken) return;
+    const voice = speechPlatform();
+    if (voice === null) return;
+    voiceWoken = true;
     try {
-      context = new (Context as typeof AudioContext)();
+      voice.synthesis.speak(new voice.Utterance(""));
     } catch {
-      return null;
+      // Best effort by construction: a browser that will not speak changes nothing else.
     }
-    return context;
   }
 
   return {
+    unlock() {
+      wakeVoice();
+      if (context === null) {
+        const Context: unknown = Reflect.get(globalThis, "AudioContext");
+        if (typeof Context !== "function") return;
+        try {
+          context = new (Context as typeof AudioContext)();
+        } catch {
+          return;
+        }
+      }
+      // Asked every time, not only after creating it: a phone suspends a running context when a call
+      // comes in or the page goes to the background, and the next press is what brings it back.
+      if (context.state !== "running") void context.resume().catch(() => {});
+    },
     chime(occasion) {
-      const output = audio();
-      if (output === null) return;
+      const output = context;
+      if (output?.state !== "running") return;
       try {
-        if (output.state === "suspended") void output.resume().catch(() => {});
         let at = output.currentTime;
         for (const hertz of occasion === "started" ? STARTED_NOTES_HERTZ : STOPPED_NOTES_HERTZ) {
           const oscillator = output.createOscillator();
@@ -233,13 +284,10 @@ export function browserRecordingSounds(): MeetingRecordingSounds {
       }
     },
     speak(sentence) {
-      const synthesis: unknown = Reflect.get(globalThis, "speechSynthesis");
-      const Utterance: unknown = Reflect.get(globalThis, "SpeechSynthesisUtterance");
-      if (!isRecord(synthesis) || typeof Utterance !== "function") return;
+      const voice = speechPlatform();
+      if (voice === null) return;
       try {
-        (synthesis as unknown as SpeechSynthesis).speak(
-          new (Utterance as typeof SpeechSynthesisUtterance)(sentence),
-        );
+        voice.synthesis.speak(new voice.Utterance(sentence));
       } catch {
         // Best effort by construction: a browser with no voice changes nothing else.
       }
@@ -361,14 +409,14 @@ export class MeetingRecording {
   #cancelRewrite: (() => void) | null = null;
   #routes: MeetingRecordingRoutes | null = null;
   /**
-   * The recording this member was last told is running.
+   * The recording this page has announced ALOUD as running — the tone and the voice.
    *
    * Kept across a lost socket and the rejoin that follows, which is what keeps a connection that
-   * blinked from replaying the announcement: the welcome after it names the same recording, and the
-   * member has already been told about that one. Forgotten when the recording stops or the member
-   * leaves, because either way the next one is news.
+   * blinks from chiming every time it comes back: the welcome after it names the same recording,
+   * and the banner and the live region say so again, but the tone has already sounded for that one.
+   * Forgotten when the recording stops or the member leaves, because either way the next one is news.
    */
-  #told: string | null = null;
+  #announcedAloud: string | null = null;
 
   constructor(
     sounds: MeetingRecordingSounds = SILENT_RECORDING_SOUNDS,
@@ -386,22 +434,25 @@ export class MeetingRecording {
   /**
    * What the welcome said about a recording: running, or nothing.
    *
-   * The "and on arrival" half of the ruling. A recording this member was already told about is
-   * restored in silence; any other is announced as an arrival into it; and a welcome naming none
-   * where one was running is the stop this browser did not hear while it was away.
+   * The "and on arrival" half of the ruling. A running recording is announced as an arrival into it
+   * on EVERY welcome, a rejoin into the same one included — the banner drawn again and the live
+   * region written again — because the room records each welcome as an occasion this person was
+   * told, and the socket that came back may be at another device. Only the tone and the voice are
+   * held back for a recording this page has already sounded. A welcome naming none where one was
+   * running is the stop this browser did not hear while it was away.
    */
   noteWelcome(announcement: MeetingRecordingAnnouncement | null): void {
     if (announcement !== null && announcement.state === "started") {
       this.running = announcement;
-      if (this.#told === announcement.recordingId) return;
-      this.#told = announcement.recordingId;
-      this.#announce("arrival", announcement);
+      const aloud = this.#announcedAloud !== announcement.recordingId;
+      this.#announcedAloud = announcement.recordingId;
+      this.#announce("arrival", announcement, aloud);
       return;
     }
     this.running = null;
-    if (this.#told === null) return;
-    this.#told = null;
-    this.#announce("stopped", null);
+    if (this.#announcedAloud === null) return;
+    this.#announcedAloud = null;
+    this.#announce("stopped", null, true);
   }
 
   /** The room broadcast a transition. A repeat of the state already held is not one. */
@@ -410,15 +461,25 @@ export class MeetingRecording {
     if (announcement.state === "started") {
       if (this.running?.recordingId === announcement.recordingId) return;
       this.running = announcement;
-      this.#told = announcement.recordingId;
-      this.#announce("started", announcement);
+      const aloud = this.#announcedAloud !== announcement.recordingId;
+      this.#announcedAloud = announcement.recordingId;
+      this.#announce("started", announcement, aloud);
       return;
     }
     // A stop for a recording nobody here was told about has nothing to take down and nothing to say.
-    if (this.running === null && this.#told === null) return;
+    if (this.running === null && this.#announcedAloud === null) return;
     this.running = null;
-    this.#told = null;
-    this.#announce("stopped", announcement);
+    this.#announcedAloud = null;
+    this.#announce("stopped", announcement, true);
+  }
+
+  /**
+   * Open the audio device and wake the voice, from inside a press. The screens call it from Join,
+   * Rejoin and any press in the room; a browser that only lets a page make sound from a press
+   * would otherwise never chime.
+   */
+  unlockSounds(): void {
+    this.#sounds.unlock();
   }
 
   /** The member read the banner. The mark stays: it is the part that lasts as long as the recording. */
@@ -428,7 +489,7 @@ export class MeetingRecording {
 
   /**
    * The socket went away. What is drawn goes with it — this browser no longer knows what the room is
-   * doing — but who was told what is kept, for the welcome that follows a rejoin.
+   * doing — but which recording was announced aloud is kept, for the welcome that follows a rejoin.
    */
   noteDisconnected(): void {
     this.running = null;
@@ -442,7 +503,7 @@ export class MeetingRecording {
     this.#cancelRewrite?.();
     this.#cancelRewrite = null;
     this.announcement = "";
-    this.#told = null;
+    this.#announcedAloud = null;
     this.writeFailure = null;
     this.refusedAct = null;
     this.#sounds.release();
@@ -481,10 +542,14 @@ export class MeetingRecording {
     return false;
   }
 
-  /** Every channel at once: the banner, the live region, the tone and the voice. */
+  /**
+   * Every channel at once: the banner, the live region and — where `aloud` — the tone and the voice.
+   * The first two always; the second two only the first time this page announces a recording.
+   */
   #announce(
     occasion: MeetingRecordingOccasion,
     announcement: MeetingRecordingAnnouncement | null,
+    aloud: boolean,
   ): void {
     this.notice = recordingNotice(occasion, announcement);
     const words = occasion === "stopped" ? RECORDING_STOPPED : RECORDING_IN_PROGRESS;
@@ -496,6 +561,7 @@ export class MeetingRecording {
       this.#cancelRewrite = null;
       this.announcement = words;
     });
+    if (!aloud) return;
     this.#sounds.chime(occasion === "stopped" ? "stopped" : "started");
     this.#sounds.speak(words);
   }
