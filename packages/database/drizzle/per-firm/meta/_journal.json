@@ -232,6 +232,13 @@
       "when": 1790275777938,
       "tag": "20260924T184938_meeting-polls-and-questions",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1789928863768,
+      "tag": "20261002T192145_communication-number-scope-parts",
+      "breakpoints": true
     }
   ]
 }

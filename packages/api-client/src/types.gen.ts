@@ -1756,11 +1756,10 @@ export type NumberingListedPurpose = {
     subject: string;
     subjects: string;
     drawnWhen: string;
-    formulation: 'scheme' | 'fixed';
-    segmentKinds: Array<'literal' | 'counter' | 'year' | 'date_opened' | 'location_code' | 'matter_type_code' | 'client_code' | 'staff_initials' | 'client_name'> | null;
+    segmentKinds: Array<'literal' | 'counter' | 'year' | 'month' | 'day' | 'date_opened' | 'matter_number' | 'location_code' | 'matter_type_code' | 'client_code' | 'staff_initials' | 'client_name'>;
     segments: Array<NumberSegment> | null;
-    usingDefault: boolean | null;
-    fixedShape: string | null;
+    usingDefault: boolean;
+    scopeSource: 'segments' | 'owner';
     example: string | null;
 };
 
@@ -1776,7 +1775,16 @@ export type NumberSegment = {
     digits: 2 | 4;
     scoping?: boolean;
 } | {
+    kind: 'month';
+    scoping?: boolean;
+} | {
+    kind: 'day';
+    scoping?: boolean;
+} | {
     kind: 'date_opened';
+    scoping?: boolean;
+} | {
+    kind: 'matter_number';
     scoping?: boolean;
 } | {
     kind: 'location_code';
@@ -1797,6 +1805,7 @@ export type NumberSegment = {
 
 export type NumberingSampleContext = {
     openedDate: string;
+    matterNumber: string;
     locationCode: string;
     matterTypeCode: string;
     clientCode: string;
@@ -1806,26 +1815,28 @@ export type NumberingSampleContext = {
 
 export type NumberingSchemeResponse = {
     segments: Array<NumberSegment> | null;
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
     usingDefault: boolean;
 };
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
 };
 
 export type NumberingPreviewResponse = {
     number: string;
     scopeKey: string;
+    parts: Array<string>;
 };
 
 export type NumberingPreviewRequest = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
     counterValue?: number;
     context?: {
         openedDate?: string;
+        matterNumber?: string;
         locationCode?: string;
         matterTypeCode?: string;
         clientCode?: string;
@@ -15429,7 +15440,7 @@ export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
     };
     url: '/api/v1/numbering-scheme';
 };

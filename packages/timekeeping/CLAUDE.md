@@ -23,8 +23,9 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 - `src/queries.ts` / `src/my-day.ts` — the WIP / weekly-grid / per-matter-unbilled / My Day reads, the
   one shared RECORD read every listing and the single-entry detail go through (`readTimeEntryRecord`),
   and the entry's own cursor-paged event history
-- `src/entry-numbering.ts` — the matter-scoped entry number (`2026-0147.0042`): the per-matter counter
-  block drawn through `@magna-carta/sequence-numbering`, rendered against the matter's own number
+- `src/entry-numbering.ts` — the matter-scoped entry number (`2026-0147.0042` by default): the
+  per-matter counter block planned through `@magna-carta/sequence-numbering`'s `planSchemeDraw`.
+  Nothing here renders a number; the shape is the firm's, written on the numbering settings screen
 - `src/time-entry-attachments.ts` — the many-file relation to the entry's matter's documents; attach
   refuses a file on another matter, detach removes the link and never the file
 - `src/task-time.ts` — how long a task took: the grouped read over `time_entry.task_id`, batched by
@@ -68,6 +69,15 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
   captured before the sequence existed stays null rather than being backfilled with a guess. Because
   the number's shape names the matter it was drawn on, a refiled entry's prefix is provenance rather
   than an assertion about where it lives now.
+- **The count runs within the MATTER'S HANDLE, and the matter number is a rendered part.** The
+  `time_entry` purpose is `scopeSource: "owner"` on the register: the draw passes the matter id, so
+  a matter renumbered after the fact does not restart its entries' count and issue a second 0001.
+  The purpose's `scopeDistinguishedBy` is `matter_number`, so a scheme that drops that part is
+  refused at the save — without it two matters would both render `0001`.
+- **The run takes no date part, by register.** A capture block draws several entries on one matter
+  from one counter read and renders them from ONE context, so a date part would stamp every entry
+  in the batch with the day the batch was taken rather than the day each was worked. The purpose's
+  allowed parts exclude dates for that reason; do not widen them.
 - **The matter moves only through `refileTimeEntry`, and takes the rate with it.** `matterId` is not
   a `DraftPatch` field: moving it is a cross-matter write, and the rate and rounding an entry carries
   were resolved against the matter it is leaving. The caller re-resolves against the destination on

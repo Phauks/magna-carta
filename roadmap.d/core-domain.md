@@ -234,12 +234,12 @@
 
 - id: matters.numbering.register
   name: One numbering register for every sequence
-  scope: Every number the firm issues on one register in @magna-carta/sequence-numbering (purpose, when drawn, scheme-shaped or fixed, parts, default); conflicts check and custody numbers drawn through the shared planner from firm-written schemes; the numbering listing route; Settings · Numbering listing every sequence.
+  scope: Every number the firm issues on one register in @magna-carta/sequence-numbering (purpose, when drawn, parts, what decides the counter scope, default); all eight sequences drawn through the shared planner from firm-written schemes; the numbering listing route; Settings · Numbering as one fold per sequence.
   status: shipped
   surface: screen
   slices: 1-1-matters-locations-file-manager
-  evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/routes/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migration 20260918T195508_conflicts-check-numbering-scheme
-  notes: Shipped 2026-09-18. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are registered with their fixed shapes and listed read-only; making any of them scheme-shaped is one row flipping on the register plus its draw site.
+  evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; the draws in packages/billing/src/finalize.ts, packages/timekeeping/src/entry-numbering.ts and packages/communications/src/communication-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/routes/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migrations 20260918T195508_conflicts-check-numbering-scheme and 20261002T192145_communication-number-scope-parts
+  notes: Shipped 2026-09-18; the last three fixed runs became schemes on 2026-09-20. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are schemes like the rest, each defaulting to byte-for-byte what it rendered before — which needed the month, day and matter-number parts plus scopeSource (template-derived scope versus a key the domain passes) and scopeDistinguishedBy on the register. A new sequence is a row here and a draw site; nothing about its shape goes in the owning package.
 
 - id: matters.numbering.location-segment
   name: Location segment in numbering

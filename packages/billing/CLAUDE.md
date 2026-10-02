@@ -32,7 +32,8 @@ ADR-0072, ADR-0079.) **Invariants:**
   merged into ONE batch
 - `src/account-roles.ts` — the `firm_account_role` map, its configuration composer, and the resolver
   that refuses by name when a role is unmapped
-- `src/numbering.ts` — the invoice sequence's tables, start value, scope convention, and renderer
+- `src/numbering.ts` — the invoice sequence's tables and scope convention. The SHAPE is not here:
+  it is the `invoice` purpose on the register in `@magna-carta/sequence-numbering`
 - `src/line-amounts.ts` — `invoiceLineAmountMinor` (through `roundInvoiceLine`) and `aggregateMinor`
 - `src/queries.ts` — the unbilled work-in-progress read (the hot one), the invoice list and detail,
   the per-matter receivable, and the aging read
@@ -167,6 +168,11 @@ ADR-0072, ADR-0079.) **Invariants:**
   abandoned draft, and gaps are the first thing an auditor asks about. The mechanism is
   `@magna-carta/sequence-numbering`; the allocation's composite primary key is the load-bearing
   backstop, and the caller wraps the whole commit in a bounded retry.
+- **The SHAPE of the number is the firm's, and finalize renders nothing.** The `invoice` purpose is
+  on the numbering register like every other run since the owner's ruling of 2026-09-19; finalize
+  calls `planSchemeDraw` and composes what it returns. The built-in default is a five-digit count,
+  which is byte-for-byte what this run rendered when the renderer lived here. Never add a render
+  function back to this package: a second renderer is exactly what the register replaced.
 - **An unmapped account role REFUSES.** The product chart of accounts does not exist; a fact we do not
   have is not a fact we invent. Only the roles an invoice's lines actually need are resolved, so a
   firm that never bills a hard cost is not made to map `client_costs_advanced`.
@@ -186,11 +192,21 @@ ADR-0072, ADR-0079.) **Invariants:**
   bill whose total is positive. That posts as a DEBIT of its magnitude — a ledger line is always a
   positive amount plus a direction. A per-matter subtotal that nets negative is refused by name
   (`invoice-matter-total-negative`) before the balance CHECK can abort the batch on a column name.
-- **A numbering scope is opened deliberately.** The scope key selects which counter the number is
-  drawn from, so an unrecognized one is refused (`unknown-number-scope`) unless the caller passes
-  `createNumberScope`. It is never normalized to rescue a near-miss: folding `nyc` into `NYC` merges
-  two sequences a firm may have meant to keep apart. Gaplessness is what an auditor asks about, and a
-  typo must not be able to redefine which sequence it is a property of.
+- **A numbering scope is opened deliberately, and a second one needs the office code on the
+  scheme.** The scope key selects which counter the number is drawn from, so an unrecognized one is
+  refused (`unknown-number-scope`) unless the caller passes `createNumberScope`. It is never
+  normalized to rescue a near-miss: folding `nyc` into `NYC` merges two sequences a firm may have
+  meant to keep apart. Gaplessness is what an auditor asks about, and a typo must not be able to
+  redefine which sequence it is a property of. The scope is the LETTERHEAD, not a rendered value —
+  the purpose is `scopeSource: "owner"` on the register, so finalize passes the key rather than the
+  template deriving it. That leaves one thing for finalize to hold: a bill drawn under a non-
+  firm-wide scope whose scheme carries no `location_code` part is refused by name, naming the
+  settings screen. Silently rendering `00042` under two letterheads, where the firm-wide run has
+  already issued `00042`, is a duplicate invoice number in a run an auditor reads end to end. The
+  mirror is refused too: a firm-wide bill under a scheme that DOES print the office code has no code
+  to print, and is refused as `invoice-numbering-needs-letterhead` rather than reaching the renderer
+  and failing as a server error. The web app names no letterhead today, so for it that refusal is
+  what adding the part means — never let it fall back to rendering the part empty.
 - **Hard costs credit Client Costs Advanced; soft costs credit Cost Recovery Income.** The firm is
   being repaid for money it advanced, not earning. `cost_entry.disbursement_class` already carries
   the distinction. That account runs negative until operating disbursements land — a documented open

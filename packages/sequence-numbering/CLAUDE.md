@@ -1,9 +1,10 @@
 # @magna-carta/sequence-numbering — CLAUDE.md
 
 **Purpose.** The one home of every number the firm issues: the register of purposes (what each
-sequence is, when it is drawn, whether the firm shapes it and with which parts, what renders until it
-does), the segment-template scheme model and its renderer, the scheme table's write path, the draw
-planner every scheme-shaped purpose composes its batch from, and underneath all of it the
+sequence is, when it is drawn, which parts it may be built from, what decides its counter's scope,
+what renders until the firm writes its own), the segment-template scheme model and its renderer, the
+scheme table's write path, the draw planner every purpose composes its batch from, and underneath
+all of it the
 sequential-number draw itself — a counter row per scope, a guarded increment, an allocation row per
 value consumed, and the bounded retry a losing draw takes. Grown out of `@magna-carta/matters`, which
 owned the scheme engine while matters were the only sequence a firm could shape, so that matters,
@@ -19,9 +20,11 @@ planner is handed a database for, no clock, no binding.
 ## Key files / entry points
 
 - `src/purposes.ts` — **the register**: `NUMBERING_PURPOSES`, one row per purpose (`matter`,
-  `consultation`, `intake`, `conflicts_check`, `custody_packet` shaped by a scheme; `invoice`,
-  `time_entry`, `communication` fixed by ruling), the built-in default schemes with the reasoning
-  for each, the scope prefixes, `purposeOf` / `schemePurposeOf` / `SCHEME_NUMBERING_PURPOSES`
+  `consultation`, `intake`, `conflicts_check`, `custody_packet`, `invoice`, `time_entry`,
+  `communication` — every one of them shaped by a scheme since the owner's ruling of 2026-09-19),
+  the built-in default schemes with the reasoning for each, `scopeSource` and
+  `scopeDistinguishedBy`, the scope prefixes, `purposeOf` / `schemePurposeOf` /
+  `SCHEME_NUMBERING_PURPOSES`
 - `src/segments.ts` — `NumberSegment` types, `NUMBER_SEGMENT_KINDS`, `URL_SAFE_PATTERN`, the zod
   `numberingSchemeSchema` (exactly one counter), `startValueOf`
 - `src/render.ts` — `renderNumber` + `deriveScopeKey` (pure; dates and codes arrive as strings in a
@@ -30,9 +33,10 @@ planner is handed a database for, no clock, no binding.
   one-active-scheme-PER-PURPOSE write path; `readSchemeInForce` (configured, else the register's
   default, else undefined); `schemeSchemaFor(purpose)` (the shape rules plus the purpose's own
   vocabulary)
-- `src/scheme-draw.ts` — `planSchemeDraw`: load the scheme in force, derive the scope under the
-  purpose's prefix, read the counter, render; `schemeDrawOpeningStatements`; `previewNextNumber`;
-  `NumberingSchemeMissingError`
+- `src/scheme-draw.ts` — `planSchemeDraw`: load the scheme in force, settle the scope (the
+  template's scoping parts under the purpose's prefix, or the key the caller passed for an
+  owner-scoped run), read the counter, render `count` consecutive numbers;
+  `schemeDrawOpeningStatements`; `previewNextNumber`; `NumberingSchemeMissingError`
 - `src/counter-statements.ts` — `SequenceNumberingTables` + `ensureCounterRowStatement` /
   `guardedIncrementStatement` / `allocateCounterValueStatement` / `isNumberAllocationConflict` /
   `readCounterValue`
@@ -57,7 +61,26 @@ planner is handed a database for, no clock, no binding.
   the whole of that rule.
 - **A scheme is validated against its purpose's vocabulary at the save, not at the draw.** A
   conflicts check has no client code to render; `schemeSchemaFor` refuses the part where the person
-  who wrote the scheme is looking, so the first draw cannot be the place it is discovered.
+  who wrote the scheme is looking, so the first draw cannot be the place it is discovered. It
+  refuses three things on that principle: a part the purpose cannot render, a scoping mark on an
+  owner-scoped run, and an owner-scoped scheme missing its `scopeDistinguishedBy` part.
+- **A counter's scope comes from the template OR from the domain, and the register says which.**
+  `scopeSource: "segments"` is the general case and the collision-proof one: the scope key IS the
+  joined rendered values of the scheme's scoping parts, so two records in different scopes differ
+  in a part the number renders. `scopeSource: "owner"` is for a run the domain scopes — a time
+  entry counts within its matter's handle, an invoice within the letterhead the bill was finalized
+  under — and there the caller passes the key, because neither is a value the template renders. A
+  scoping mark on such a run is refused rather than stored as a switch that does nothing, and
+  `scopeDistinguishedBy` names the part that keeps two scopes' rendered numbers apart, because an
+  owner-scoped template gets no uniqueness for free — two matters both count 0001. The invoice run
+  names none, because a firm has one letterhead scope until it deliberately opens a second; that
+  refusal lives at finalize (`packages/billing/src/finalize.ts`), where the bill drawn under a
+  scope the scheme does not render is refused by name.
+- **A default renders what the run has always rendered.** Every purpose that joined the register
+  after its sequence was already issuing numbers carries a default that is byte-for-byte its old
+  renderer — the call number's year, month, day and count; the entry number's matter number, dot
+  and count. That is the whole licence for retiring a hand-written renderer, so a change to one of
+  those defaults is a change to numbers a firm has already said out loud, not a refactor.
 - **Padding is a floor, never a ceiling.** `renderNumber` pads the counter to `padWidth` and never
   truncates: a run past its width grows a digit rather than wrapping or refusing, so no sequence
   ever "runs out". A default that restarts the count each year (the `year` segment marked scoping)
@@ -85,10 +108,11 @@ planner is handed a database for, no clock, no binding.
   audit wrapper, `@magna-carta/identifiers` for the scheme id, and `zod` for the scheme schema.
 - Consumed by `@magna-carta/matters` (matter, consultation and intake numbers),
   `@magna-carta/conflicts` (check numbers), `@magna-carta/custodian` (custody packet numbers),
-  `@magna-carta/billing` (invoice numbers, counter mechanism only), `@magna-carta/timekeeping` and
-  `@magna-carta/communications` (counter mechanism only), and the API worker's `routes/numbering.ts`
-  (the settings surface over the register). A change here RIPPLES to all of them — re-run every one
-  of their suites, never just one. Custodian's is the sharpest test of a change: a custody number is
+  `@magna-carta/billing` (invoice numbers), `@magna-carta/timekeeping` (time entry numbers, drawn a
+  block at a time), `@magna-carta/communications` (call and text numbers), and the API worker's
+  `routes/numbering.ts` (the settings surface over the register). Every one of them draws through
+  `planSchemeDraw` and none of them renders a number itself. A change here RIPPLES to all of them —
+  re-run every one of their suites, never just one. Custodian's is the sharpest test of a change: a custody number is
   printed on a physical label and read out over the phone, so a rendered-shape change there is not a
   refactor.
 

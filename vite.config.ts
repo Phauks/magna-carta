@@ -182,6 +182,7 @@ export default defineConfig({
       "tooling/lint-modal-headers/vitest.config.ts",
       "tooling/lint-modal-reflow/vitest.config.ts",
       "tooling/lint-scrollbar/vitest.config.ts",
+      "tooling/lint-settings-scroll/vitest.config.ts",
       "tooling/lint-structured-empty/vitest.config.ts",
       "tooling/lint-ungranted-permissions/vitest.config.ts",
       "tooling/lint-unwired-writes/vitest.config.ts",

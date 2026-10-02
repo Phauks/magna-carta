@@ -5,6 +5,8 @@ import { addClaimsToDraft, createInvoiceDraft, updateDraftLine } from "../src/dr
 import { finalizeInvoice } from "../src/finalize.ts";
 import { readInvoiceMatterBalances } from "../src/statements.ts";
 import { readUnbilledWorkInProgress } from "../src/queries.ts";
+import { setActiveNumberingScheme } from "@magna-carta/sequence-numbering/scheme-service";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   billingFixture,
   clock,
@@ -468,8 +470,64 @@ describe("finalization — the one batch", () => {
     expect(counter?.next_value).toBe(4);
   });
 
+  // A firm that issues on two letterheads has to render the letterhead IN the number: one scope's
+  // count says nothing about another's, so two five-digit runs with nothing to tell them apart
+  // would both reach 00001. The scheme is where a firm says so, and finalize refuses a scoped bill
+  // until it has.
+  const scopeRenderingScheme = async (fixture: Awaited<ReturnType<typeof billingFixture>>) => {
+    const { effect } = setActiveNumberingScheme(
+      fixture.database,
+      [
+        { kind: "location_code" },
+        { kind: "literal", text: "-" },
+        { kind: "counter", padWidth: 5, start: 1 },
+      ],
+      { clock: options.clock, actorUserId: fixture.memberUserId },
+      "invoice",
+    );
+    await commitEffectBatch(fixture.database, effect, { now: options.clock.now });
+  };
+
+  it("refuses a bill drawn under a letterhead the firm's invoice numbering does not render", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
+    const draft = await draftWithWork(fixture, ACME);
+    await expect(
+      finalizeInvoice(
+        fixture.database,
+        {
+          invoiceId: draft.invoiceId,
+          ...FINALIZE_DATES,
+          finalizedBy: fixture.memberUserId,
+          numberScopeKey: "RENO",
+          createNumberScope: true,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "unknown-number-scope" });
+  });
+
+  // The mirror of the refusal above. Once the scheme prints the office code, a bill issued under
+  // no letterhead has no code to print; it is refused by name rather than reaching the renderer and
+  // failing as a server error, which is what every bill the web app sends would otherwise do the
+  // moment an administrator added the part.
+  it("refuses a bill issued under no letterhead once the invoice numbering prints the office code", async () => {
+    const fixture = await billingFixture();
+    await scopeRenderingScheme(fixture);
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
+    const draft = await draftWithWork(fixture, ACME);
+    await expect(
+      finalizeInvoice(
+        fixture.database,
+        { invoiceId: draft.invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "invoice-numbering-needs-letterhead" });
+  });
+
   it("gives a per-office scope its own independent sequence", async () => {
     const fixture = await billingFixture();
+    await scopeRenderingScheme(fixture);
     await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
     const first = await draftWithWork(fixture, ACME);
     const firstFinal = await finalizeInvoice(
@@ -509,6 +567,7 @@ describe("finalization — the one batch", () => {
   // as a perfectly gapless sequence of one. Gaplessness is what an auditor asks about.
   it("refuses a numbering scope the firm has never used unless the caller opens it deliberately", async () => {
     const fixture = await billingFixture();
+    await scopeRenderingScheme(fixture);
     await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
 
     const first = await draftWithWork(fixture, ACME);

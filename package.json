@@ -56,6 +56,7 @@
     "lint:modal-reflow": "node tooling/lint-modal-reflow/index.mjs",
     "lint:structured-empty": "node tooling/lint-structured-empty/index.mjs",
     "lint:scrollbar": "node tooling/lint-scrollbar/index.mjs",
+    "lint:settings-scroll": "node tooling/lint-settings-scroll/index.mjs",
     "lint:workspace-search": "node tooling/lint-workspace-search/index.mjs",
     "lint:matter-search-coverage": "node tooling/lint-matter-search-coverage/index.mjs",
     "lint:matter-timeline-coverage": "node tooling/lint-matter-timeline-coverage/index.mjs",

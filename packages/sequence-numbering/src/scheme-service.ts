@@ -56,21 +56,41 @@ export async function readSchemeInForce(
   return fallback === null ? undefined : { segments: fallback, usingDefault: true };
 }
 
-// A scheme is validated against its purpose's vocabulary as well as the shape rules: a conflicts
-// check has no client code to render, so a scheme that names one would refuse on its first draw,
-// and the refusal belongs at the save, where the person who wrote the scheme is looking.
+// A scheme is validated against its purpose as well as against the shape rules, and every one of
+// these refusals belongs at the SAVE, where the person who wrote the scheme is looking, rather than
+// on the first draw under it — which is a record somebody was trying to create.
 export function schemeSchemaFor(
   purpose: SchemeNumberingPurpose,
 ): z.ZodType<readonly NumberSegment[]> {
-  const allowed = new Set<string>(schemePurposeOf(purpose).segmentKinds);
+  const definition = schemePurposeOf(purpose);
+  const allowed = new Set<string>(definition.segmentKinds);
   return numberingSchemeSchema.superRefine((segments, ctx) => {
+    const refuse = (message: string): void => {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    };
     for (const segment of segments) {
+      // A conflicts check has no client code to render, and a matter number built from a matter
+      // number is a definition that eats itself.
       if (!allowed.has(segment.kind)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `a ${purpose} numbering scheme cannot use a ${segment.kind} segment`,
-        });
+        refuse(`a ${purpose} numbering scheme cannot use a ${segment.kind} part`);
       }
+      // On a run whose count is scoped by the domain rather than by the template, a part marked as
+      // restarting the count restarts nothing: the scope is the matter or the letterhead either
+      // way. A switch that does nothing is worse than one that is not offered.
+      if (definition.scopeSource === "owner" && "scoping" in segment && segment.scoping === true) {
+        refuse(
+          `a ${purpose} number already counts within its own scope, so no part of it restarts the count`,
+        );
+      }
+    }
+    // An owner-scoped run gets no uniqueness from its template for free: two matters both count
+    // 0001, so the part that names the scope is what keeps their numbers apart, and a scheme
+    // without it would render the same number on two records.
+    const distinguisher = definition.scopeDistinguishedBy;
+    if (distinguisher !== null && !segments.some((segment) => segment.kind === distinguisher)) {
+      refuse(
+        `a ${purpose} numbering scheme needs its ${distinguisher} part to tell one run from another`,
+      );
     }
   });
 }
