@@ -60,7 +60,7 @@ CREATE TABLE `meeting_recording` (
 	FOREIGN KEY (`file_version_id`) REFERENCES `file_version`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "meeting_recording_state_check" CHECK("meeting_recording"."state" IN ('recording', 'composing', 'filed', 'failed', 'abandoned')),
 	CONSTRAINT "meeting_recording_stop_reason_check" CHECK("meeting_recording"."stop_reason" IS NULL
-        OR "meeting_recording"."stop_reason" IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned')),
+        OR "meeting_recording"."stop_reason" IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned', 'start-failed')),
 	CONSTRAINT "meeting_recording_stopped_shape_check" CHECK(("meeting_recording"."state" = 'recording' AND "meeting_recording"."stopped_at" IS NULL AND "meeting_recording"."stop_reason" IS NULL)
         OR ("meeting_recording"."state" <> 'recording' AND "meeting_recording"."stopped_at" IS NOT NULL AND "meeting_recording"."stop_reason" IS NOT NULL)),
 	CONSTRAINT "meeting_recording_track_count_check" CHECK("meeting_recording"."track_count" >= 0)

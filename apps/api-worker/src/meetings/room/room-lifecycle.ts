@@ -231,17 +231,21 @@ export async function admitParticipant(
   //
   // AND THE RECORDING RUNNING AS THEY ARRIVE, if one is — the "and on arrival" half of the consent
   // ruling, told in the same vocabulary the room was told in at the start, with an `arrival` notice
-  // written for this stay (room-recording.ts). A reconnect is another arrival, and is told again.
-  trySend(
+  // written for this stay (room-recording.ts). A reconnect is another arrival, and is told again. The
+  // notice is written only once the welcome was actually handed to the socket: it records that this
+  // person was told, and a welcome swallowed by a socket closing under it told nobody.
+  const recording = await recordingForWelcome(room, attachment);
+  const welcomed = trySend(
     server,
     welcomeFrame(
       attachment.attendanceId,
       rosterFrom(stored, viewerKindOf(attachment)),
       await roomStateOf(room),
       doorList,
-      await recordingForWelcome(room, attachment),
+      recording?.announcement ?? null,
     ),
   );
+  if (welcomed) recording?.welcomeSent();
   await recordWelcomed(room, attachment, attachment.attendanceId, stored.size, doorList.length);
   // IN THE ROOM FROM HERE, and not before: until this frame is on the wire the browser holds no
   // roster, so a difference broadcast at it is a gap it can only close by asking for the whole list.

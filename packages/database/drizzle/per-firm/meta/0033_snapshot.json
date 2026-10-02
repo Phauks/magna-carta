@@ -20203,7 +20203,7 @@
         },
         "meeting_recording_stop_reason_check": {
           "name": "meeting_recording_stop_reason_check",
-          "value": "\"meeting_recording\".\"stop_reason\" IS NULL\n        OR \"meeting_recording\".\"stop_reason\" IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned')"
+          "value": "\"meeting_recording\".\"stop_reason\" IS NULL\n        OR \"meeting_recording\".\"stop_reason\" IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned', 'start-failed')"
         },
         "meeting_recording_stopped_shape_check": {
           "name": "meeting_recording_stopped_shape_check",

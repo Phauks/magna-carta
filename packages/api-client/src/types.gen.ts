@@ -3915,7 +3915,7 @@ export type MeetingRecordingSummary = {
         [key: string]: unknown;
     } | null);
     stoppedAt: string | null;
-    stopReason: 'member' | 'host' | 'meeting-ended' | 'sink-lost' | 'ceiling' | 'abandoned' | null;
+    stopReason: 'member' | 'host' | 'meeting-ended' | 'sink-lost' | 'ceiling' | 'abandoned' | 'start-failed' | null;
     trackCount: number;
     capturedSeconds: number | null;
     fileId: string | null;

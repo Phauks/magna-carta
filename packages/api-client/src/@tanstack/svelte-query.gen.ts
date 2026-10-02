@@ -5999,7 +5999,7 @@ export const meetingsStopRecordingMutation = (options?: Partial<Options<Meetings
 };
 
 /**
- * Starts recording a meeting's audio. Everybody in the room — guests included — is told at once, and everybody who arrives while it runs is told on arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is no matter to file the recording into), for a room already being recorded, and for a room carrying more audio tracks than one recording may hold. Answers 503 where this deployment or this firm cannot record.
+ * Starts recording a meeting's audio. Needs the recording permission and a member running this meeting: a member who is not hosting it is refused 403 meeting-not-host. Everybody in the room — guests included — is told at once, and everybody who arrives while it runs is told on arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is no matter to file the recording into), for a room already being recorded, and for a room carrying more audio tracks than one recording may hold. Answers 503 where this deployment or this firm cannot record.
  */
 export const meetingsStartRecordingMutation = (options?: Partial<Options<MeetingsStartRecordingData>>): MutationOptions<MeetingsStartRecordingResponse, MeetingsStartRecordingError, Options<MeetingsStartRecordingData>> => {
     const mutationOptions: MutationOptions<MeetingsStartRecordingResponse, MeetingsStartRecordingError, Options<MeetingsStartRecordingData>> = {

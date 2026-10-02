@@ -101,6 +101,11 @@ function participantOf(attachment: MeetingSocketAttachment): MeetingRecordingPar
  * needs to know WHO was sent the frame, not only how many — and the walk that sends is the only
  * witness to that. One stay holding two sockets (a reconnect a heartbeat from being superseded) is one
  * person told once, so the recipients are distinct by stay.
+ *
+ * A STAY IS A RECIPIENT ONLY WHEN THE FRAME WAS HANDED TO ITS SOCKET. A socket closing between the
+ * walk and the send swallows the frame in `trySend`, and writing a notice for it would put on the
+ * consent record that somebody was told who was not. Their close handler is already running; if they
+ * come back, their welcome tells them, and that is an `arrival` notice of its own.
  */
 function announce(
   room: RoomContext,
@@ -117,8 +122,9 @@ function announce(
       payload = payloadFor(viewer);
       built.set(viewer, payload);
     }
-    trySend(socket, payload);
-    recipients.set(attachment.attendanceId, participantOf(attachment));
+    if (trySend(socket, payload)) {
+      recipients.set(attachment.attendanceId, participantOf(attachment));
+    }
   }
   return [...recipients.values()];
 }
@@ -234,38 +240,53 @@ export async function recordingStopped(
   return { recipientCount: recipients.length, noticeCount };
 }
 
+/** The running recording a welcome carries, and the act of recording that it was delivered. */
+export interface RecordingOnWelcome {
+  // What the welcome says, as the arriving socket's kind of reader is told it.
+  readonly announcement: MeetingRecordingAnnouncement;
+  // Called by the caller ONLY once the welcome was handed to the socket — see below.
+  readonly welcomeSent: () => void;
+}
+
 /**
  * WHAT A WELCOME CARRIES ABOUT RECORDING — the "and on arrival" half of the ruling.
  *
  * Answers the running recording as the arriving socket's kind of reader is told it, or null when
- * nothing is being recorded; the caller puts it on the welcome. When a recording IS running, an
- * `arrival` notice for this stay is written beside the welcome, in the background — the welcome is
- * never held up by a write to the firm's database, and the notice's instant is the moment the welcome
- * was built. A reconnect is another arrival and another notice, correctly: each is a separate occasion
- * on which somebody was told.
+ * nothing is being recorded; the caller puts the announcement on the welcome, sends it, and calls
+ * `welcomeSent` only when `trySend` answered that the welcome went out. That is what writes the
+ * `arrival` notice for this stay: the notice says this person was told, and a welcome swallowed by a
+ * socket that closed under it told nobody — so the record of it is written after the send rather
+ * than beside the build. It is written in the background, so the welcome is never held up by a write
+ * to the firm's database, and its instant is the moment the welcome went out. A reconnect is another
+ * arrival and another notice, correctly: each is a separate occasion on which somebody was told.
  */
 export async function recordingForWelcome(
   room: RoomContext,
   attachment: MeetingSocketAttachment,
-): Promise<MeetingRecordingAnnouncement | null> {
+): Promise<RecordingOnWelcome | null> {
   const stored = await room.ctx.storage.get<StoredRoomRecording>(RECORDING_KEY);
   if (stored === undefined) return null;
-  const at = new Date().toISOString();
-  const transition: RecordingTransition = {
-    firmId: stored.firmId,
-    meetingId: stored.meetingId,
-    recordingId: stored.recordingId,
-    at,
-    by: stored.by,
-  };
-  room.ctx.waitUntil(
-    trackBackgroundWork(recordNotices(room, transition, "arrival", [participantOf(attachment)])),
-  );
   return {
-    state: "started",
-    recordingId: stored.recordingId,
-    by: actorFor(stored.by, viewerKindOf(attachment)),
-    at: stored.startedAt,
+    announcement: {
+      state: "started",
+      recordingId: stored.recordingId,
+      by: actorFor(stored.by, viewerKindOf(attachment)),
+      at: stored.startedAt,
+    },
+    welcomeSent: () => {
+      const transition: RecordingTransition = {
+        firmId: stored.firmId,
+        meetingId: stored.meetingId,
+        recordingId: stored.recordingId,
+        at: new Date().toISOString(),
+        by: stored.by,
+      };
+      room.ctx.waitUntil(
+        trackBackgroundWork(
+          recordNotices(room, transition, "arrival", [participantOf(attachment)]),
+        ),
+      );
+    },
   };
 }
 

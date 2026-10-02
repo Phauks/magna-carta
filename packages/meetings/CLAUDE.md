@@ -371,13 +371,15 @@ track ceiling), and `pcm-frame.ts` is the hand-written reader of the routing ser
 envelope plus the mono fold, the silence and the sequence-gap arithmetic. The design is
 [`docs/specs/2026-09-20-meetings-recording-and-transcription-design.md`](../../docs/specs/2026-09-20-meetings-recording-and-transcription-design.md).
 
-Five rules travel with it.
+Six rules travel with it.
 
 **The consent record is what the server delivered, not what a browser rendered.** The owner's ruling
 made the announcement the consent mechanism, so `meeting_recording_notice` holds a row per stay per
-fan-out — `start`, `arrival`, `stop` — written by the ROOM from the sockets it actually sent the frame
-to (`recordingNoticeEffect`, one batch and ONE audit row with the count). This package re-reads no stay
-for it: the room is the only witness to a delivery. A reconnect is another arrival and another row.
+fan-out — `start`, `arrival`, `stop` — written by the ROOM from the sockets it actually handed the
+frame to (`recordingNoticeEffect`, one batch and ONE audit row with the count). This package re-reads
+no stay for it: the room is the only witness to a delivery. A reconnect is another arrival and another
+row. The start route checks the room's answer before anything is captured: fewer notices than
+recipients is somebody told with no record of it, and the start fails rather than recording.
 
 **Every stay is named by kind and by value**, on chat's precedent: `participant_kind` (`member`,
 `guest`, `attendee`), `participant_id` with no foreign key, and a nullable `user_id`, on both the track
@@ -390,11 +392,24 @@ the later slices write is in its CHECK now; and running means not stopped, in bo
 the main room (`breakout_id IS NULL`); `isRunningRecordingConflict` lets the route answer the loser of a
 race as `meeting-recording-already-running`.
 
-**Who may.** Starting is `meetings:record` (the route's chokepoint) and refuses a firm event (no matter
-to file into), an ended meeting, a running recording and a room past the ceiling. Stopping is the key —
-labelled `member` — or a live grant on this meeting — labelled `host`; the route passes `mayRecord` and
-the service asks the grant. A track is never dropped from the record: one past the ceiling, or whose
+**Who may.** Starting is `meetings:record` (the route's chokepoint) AND a live grant on this meeting
+(the service asks it, `meeting-not-host`): the key says the firm lets this member create a recording at
+all, the grant says they are running THIS room. It refuses a firm event (no matter to file into), an
+ended meeting, a running recording and a room past the ceiling. Stopping is the key — labelled `member`
+— or a live grant on this meeting — labelled `host`; the route passes `mayRecord` and the service asks
+the grant. Every ending of a meeting stops its recording in the same batch: the host's end
+(`stopRecordingForMeetingEnd`) and a cancelled event's closing (`endScheduledMeetingForCancelledEvent`),
+both `meeting-ended`. A track is never dropped from the record: one past the ceiling, or whose
 socket never came back, is a `lost` row, and a lost track stays lost through every later settle.
+
+**A failure is recorded once, and a start that failed says so.** A start the room or the recorder
+could not carry out stops as `start-failed` (`stopRecordingAfterStartFailure`), never `sink-lost` —
+one is a recording that never began, the other a meeting whose audio went away. Two parts of the
+Worker can give up on one recording, and `failRecordingStatement` lets only the first move it to
+`failed`; `recordingFailedAuditStatement` is written only when the row carries ITS Error ID afterwards,
+so the log says it failed once. A stop the recorder never acknowledged leaves the state alone and puts
+the Error ID on the `composing` row (`recordRecorderUnreachableStatement`); the recorder settles itself
+later, and an Error ID on a row that is not `failed` names a fault on the way, never the outcome.
 
 **Its refusals are a vocabulary of their own** (`MeetingRecordingRefusedError` in `validation.ts`), on
 the poll's precedent, so the room's one switch over `MeetingValidationCode` is not widened by codes only

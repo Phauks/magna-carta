@@ -4,6 +4,8 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
+import { recordingForWelcome, recordingStarted } from "../src/meetings/room/room-recording.ts";
+import type { MeetingSocketAttachment, RoomContext } from "../src/meetings/room/room-state.ts";
 import {
   seedMemberIn,
   seedRecordedMeeting,
@@ -358,5 +360,133 @@ describe("what the room tells the recorder", () => {
         sessionId: "routing-session-talker",
       },
     ]);
+  });
+});
+
+// A ROOM DRIVEN WITHOUT THE RUNTIME, for the two cases the runtime will not produce on demand: a
+// socket that throws on `send` (closed between the walk and the send) and a welcome that has been
+// built and not yet sent. The modules take `RoomContext` explicitly so they can be driven like this;
+// the firm's database is the real one.
+interface DrivenSocket {
+  readonly socket: WebSocket;
+  readonly sent: string[];
+}
+
+function drivenSocket(
+  attachment: Pick<MeetingSocketAttachment, "attendanceId" | "userId"> & {
+    readonly guest?: boolean;
+    readonly closed?: boolean;
+  },
+  meetingId: string,
+): DrivenSocket {
+  const sent: string[] = [];
+  const stored = {
+    attendanceId: attachment.attendanceId,
+    userId: attachment.userId,
+    meetingId,
+    welcomed: true,
+    participantKind: attachment.guest === true ? "guest" : "member",
+  };
+  const socket = {
+    send(payload: string) {
+      if (attachment.closed === true) throw new TypeError("WebSocket send() after close()");
+      sent.push(payload);
+    },
+    deserializeAttachment: () => stored,
+  };
+  return { socket: socket as unknown as WebSocket, sent };
+}
+
+function drivenRoom(sockets: readonly WebSocket[]): {
+  readonly room: RoomContext;
+  readonly background: Promise<unknown>[];
+} {
+  const storage = new Map<string, unknown>();
+  const background: Promise<unknown>[] = [];
+  const ctx = {
+    getWebSockets: () => [...sockets],
+    storage: {
+      get: async (key: string) => storage.get(key),
+      put: async (key: string, value: unknown) => {
+        storage.set(key, value);
+      },
+      delete: async (key: string) => storage.delete(key),
+    },
+    waitUntil: (work: Promise<unknown>) => {
+      background.push(work);
+    },
+  };
+  return { room: { ctx: ctx as unknown as DurableObjectState, env }, background };
+}
+
+describe("what counts as told", () => {
+  it("writes a notice only for a stay whose socket was actually handed the frame", async () => {
+    const meeting = await seedRecordedMeeting(firmId);
+    const memberUserId = await seedMemberIn(firmId, "Still Here");
+    const memberStay = newIdentifier("meetingAttendance");
+    const goneStay = newIdentifier("meetingAttendance");
+    const present = drivenSocket(
+      { attendanceId: memberStay, userId: memberUserId },
+      meeting.meetingId,
+    );
+    const gone = drivenSocket(
+      { attendanceId: goneStay, userId: await seedMemberIn(firmId, "Just Left"), closed: true },
+      meeting.meetingId,
+    );
+    const { recordingId, startedAt } = await seedRunningRecording(meeting, []);
+    const { room } = drivenRoom([present.socket, gone.socket]);
+
+    const reached = await recordingStarted(room, {
+      firmId,
+      meetingId: meeting.meetingId,
+      recordingId,
+      at: startedAt,
+      by: { userId: meeting.hostUserId, displayName: "A Host" },
+    });
+    // The socket that closed under the send told nobody, so it is neither a recipient nor a notice.
+    expect(reached).toEqual({ recipientCount: 1, noticeCount: 1 });
+    expect(present.sent).toHaveLength(1);
+    expect((await notices(recordingId)).map((row) => row.participant_id)).toEqual([memberStay]);
+  });
+
+  it("writes the arrival notice only once the welcome that carried the recording was sent", async () => {
+    const meeting = await seedRecordedMeeting(firmId);
+    const { recordingId, startedAt } = await seedRunningRecording(meeting, []);
+    const { room, background } = drivenRoom([]);
+    await recordingStarted(room, {
+      firmId,
+      meetingId: meeting.meetingId,
+      recordingId,
+      at: startedAt,
+      by: { userId: meeting.hostUserId, displayName: "A Host" },
+    });
+    const arrivingUserId = await seedMemberIn(firmId, "Arriving");
+    const arrivingStay = newIdentifier("meetingAttendance");
+    const attachment = {
+      attendanceId: arrivingStay,
+      userId: arrivingUserId,
+      meetingId: meeting.meetingId,
+      welcomed: false,
+      participantKind: "member",
+    } as unknown as MeetingSocketAttachment;
+
+    const onWelcome = await recordingForWelcome(room, attachment);
+    expect(onWelcome?.announcement).toEqual({
+      state: "started",
+      recordingId,
+      by: { userId: meeting.hostUserId, displayName: "A Host" },
+      at: startedAt,
+    });
+    // Built, and not yet sent: nobody has been told, so nothing is on the record.
+    await Promise.all(background);
+    expect((await notices(recordingId)).filter((row) => row.reason === "arrival")).toEqual([]);
+
+    onWelcome?.welcomeSent();
+    await Promise.all(background);
+    expect(
+      (await notices(recordingId))
+        .filter((row) => row.reason === "arrival")
+        .map((row) => [row.participant_id, row.user_id]),
+    ).toEqual([[arrivingStay, arrivingUserId]]);
   });
 });

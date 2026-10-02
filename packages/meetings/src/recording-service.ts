@@ -1,5 +1,6 @@
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectStatement, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
@@ -16,6 +17,7 @@ import { readMeeting, readMeetingSummary } from "./meeting-statements.ts";
 import {
   closeOpenTracksStatement,
   incrementTrackCountStatement,
+  insertRecordingFailedAuditStatement,
   insertRecordingNoticeStatement,
   insertRecordingStatement,
   insertRecordingTrackStatement,
@@ -40,11 +42,15 @@ import { refuse, refuseRecording } from "./validation.ts";
 // clock, holds a binding or calls anything external — the routing service, the recorder and the room
 // are the Worker's.
 //
-// WHO MAY RECORD. Starting is `meetings:record`, which the route's chokepoint asks. Stopping is the
-// same key — or a live grant on this meeting, because a member running the room can already end the
-// meeting and ending it stops the recording; that stop is labelled `host` so the record says which.
-// The service is handed whether the caller holds the key (it cannot read a permission set) and asks
-// the grant itself, because the grant is a fact in this database.
+// WHO MAY RECORD. Starting is `meetings:record`, which the route's chokepoint asks, AND a live grant
+// on this meeting, which this service asks: the key says the firm trusts this member to create a
+// recording at all, the grant says they are running THIS room — and a member who could start a
+// recording of any meeting they can see the event for, from outside it, would be recording a
+// conversation they are not part of. Stopping is the key — or a live grant on this meeting, because a
+// member running the room can already end the meeting and ending it stops the recording; that stop is
+// labelled `host` so the record says which. The service is handed whether the caller holds the key (it
+// cannot read a permission set) and asks the grant itself, because the grant is a fact in this
+// database.
 //
 // THE AUDIT ROWS CARRY IDENTIFIERS, INSTANTS AND COUNTS, and nothing else: there is no audio here to
 // carry, and the notice row's audit is ONE row per fan-out with the count, never a row per person —
@@ -103,10 +109,12 @@ export interface StartedRecordingTrack extends MeetingRecordingCandidateTrack {
  * Pressing Record.
  *
  * REFUSED, IN THIS ORDER, for: a room the caller cannot reach; a meeting that has ended (there is
- * nobody left to record and nobody left to tell); a meeting on a FIRM event (a recording is filed into
- * a matter, and a firm event has none); a room already being recorded; and a room carrying more audio
- * tracks than one recording may hold — refused at the door, before the mark lights, because a
- * recording that started and then crashed would have told everybody something untrue.
+ * nobody left to record and nobody left to tell); a caller who is not running this meeting
+ * (`meeting-not-host` — the key alone is not enough, see the note at the top of the file); a meeting
+ * on a FIRM event (a recording is filed into a matter, and a firm event has none); a room already
+ * being recorded; and a room carrying more audio tracks than one recording may hold — refused at the
+ * door, before the mark lights, because a recording that started and then crashed would have told
+ * everybody something untrue.
  *
  * A room nobody is talking in yet may still be recorded: its tracks are admitted as they are
  * published, and every arrival is told on their own welcome.
@@ -133,6 +141,12 @@ export async function startMeetingRecording(
     refuse("meeting-unknown-event", "that is not a meeting you can reach");
   }
   if (meeting.status === "ended") refuse("meeting-already-ended", "this meeting has ended");
+  if ((await readLiveHostGrant(database, meetingId, options.actorUserId)) === undefined) {
+    refuse(
+      "meeting-not-host",
+      "starting a recording needs the recording permission and a member running this meeting",
+    );
+  }
   if (meeting.eventKind !== "matter" || meeting.matterId === null) {
     refuseRecording(
       "meeting-recording-needs-matter",
@@ -357,14 +371,11 @@ export async function stopRecordingForMeetingEnd(
   };
 }
 
-/**
- * THE RECORDER STOPPING ITSELF because every track it held was lost: `sink-lost`, with nobody behind
- * it. A recording already stopped produces no statements — whichever stop committed first is the one
- * the record keeps.
- */
-export async function stopRecordingAfterSinkLoss(
+/** A stop the platform makes on its own record, with nobody behind it. */
+async function stopRecordingWithNobodyBehindIt(
   database: SqlDatabase,
   recordingId: MeetingRecordingId,
+  stopReason: "sink-lost" | "start-failed",
   options: MeetingRecordingSystemOptions,
 ): Promise<StoppedRecording | undefined> {
   const running = await readRecordingById(database, recordingId);
@@ -376,7 +387,7 @@ export async function stopRecordingAfterSinkLoss(
       ...running,
       state: "composing",
       stopped_at: now,
-      stop_reason: "sink-lost",
+      stop_reason: stopReason,
       track_count: trackCount,
       updated_at: now,
     },
@@ -385,12 +396,39 @@ export async function stopRecordingAfterSinkLoss(
         database,
         running,
         trackCount,
-        { stoppedByUserId: null, stopReason: "sink-lost", now },
+        { stoppedByUserId: null, stopReason, now },
         options,
       ),
       outboxMessages: [],
     },
   };
+}
+
+/**
+ * THE RECORDER STOPPING ITSELF because every track it held was lost: `sink-lost`, with nobody behind
+ * it. A recording already stopped produces no statements — whichever stop committed first is the one
+ * the record keeps.
+ */
+export async function stopRecordingAfterSinkLoss(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  options: MeetingRecordingSystemOptions,
+): Promise<StoppedRecording | undefined> {
+  return await stopRecordingWithNobodyBehindIt(database, recordingId, "sink-lost", options);
+}
+
+/**
+ * A START THAT COULD NOT BE CARRIED OUT — the room could not be told (or could not write down who it
+ * told), or the recorder could not take the recording: `start-failed`, with nobody behind it, so the
+ * record never mistakes a recording that never began for one whose audio went away. A recording
+ * already stopped produces no statements, on the same rule as the sink's own stop.
+ */
+export async function stopRecordingAfterStartFailure(
+  database: SqlDatabase,
+  recordingId: MeetingRecordingId,
+  options: MeetingRecordingSystemOptions,
+): Promise<StoppedRecording | undefined> {
+  return await stopRecordingWithNobodyBehindIt(database, recordingId, "start-failed", options);
 }
 
 /**
@@ -478,7 +516,10 @@ export function recordingNoticeEffect(
 
 /**
  * THE AUDIT ROW FOR A RECORDING THAT FAILED — with the Error ID the standard pipeline recorded, never
- * a message. Written beside the `failed` state by whichever part of the Worker gave up on it.
+ * a message. Written beside the `failed` state by whichever part of the Worker gave up on it, and
+ * placed AFTER `failRecordingStatement` in the same batch, because it is written only when that
+ * statement left the row failed with this Error ID: two parts of the Worker giving up on one
+ * recording write one audit row between them, not two (`insertRecordingFailedAuditStatement`).
  */
 export function recordingFailedAuditStatement(
   database: SqlDatabase,
@@ -489,13 +530,16 @@ export function recordingFailedAuditStatement(
   },
   options: MeetingRecordingSystemOptions,
 ): EffectStatement {
-  return domainAuditStatement(database, {
-    event: "meetings.recording.failed",
-    subjectId: input.recordingId,
-    actorUserId: null,
-    clock: options.clock,
-    randomSource: options.randomSource,
-    metadata: { meetingId: input.meetingId, failureErrorId: input.failureErrorId },
+  return insertRecordingFailedAuditStatement(database, {
+    auditLogId: newIdentifier("auditLog", options.randomSource),
+    recordingId: input.recordingId,
+    failureErrorId: input.failureErrorId,
+    // Handles only: the meeting and the Error ID. There is nothing else here, and nothing else may be.
+    metadata: canonicalJsonStringify({
+      meetingId: input.meetingId,
+      failureErrorId: input.failureErrorId,
+    }),
+    now: options.clock.now(),
   });
 }
 

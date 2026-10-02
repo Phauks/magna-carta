@@ -11323,7 +11323,15 @@ export const meetingRecording = sqliteTable(
       .references(() => member.userId),
     stoppedAt: text("stopped_at"), // ISO-8601 instant
     stopReason: text("stop_reason", {
-      enum: ["member", "host", "meeting-ended", "sink-lost", "ceiling", "abandoned"],
+      enum: [
+        "member",
+        "host",
+        "meeting-ended",
+        "sink-lost",
+        "ceiling",
+        "abandoned",
+        "start-failed",
+      ],
     }),
     // How many tracks the recording held when it stopped, open, closed and lost alike.
     trackCount: integer("track_count").notNull().default(0),
@@ -11360,7 +11368,7 @@ export const meetingRecording = sqliteTable(
     check(
       "meeting_recording_stop_reason_check",
       sql`${table.stopReason} IS NULL
-        OR ${table.stopReason} IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned')`,
+        OR ${table.stopReason} IN ('member', 'host', 'meeting-ended', 'sink-lost', 'ceiling', 'abandoned', 'start-failed')`,
     ),
     // RUNNING MEANS NOT STOPPED, in both directions: a running recording carries no stop, and every
     // other state carries the instant and the reason it stopped. Half of that pair is a record nobody

@@ -34,8 +34,12 @@ export type MeetingRecordingState = (typeof MEETING_RECORDING_STATES)[number];
 
 // WHY A RECORDING STOPPED. A member holding the key pressed Stop; a member running the room pressed
 // it without the key; the meeting ended under it; every track's socket was lost and did not return;
-// the ceiling refused it; or a sweep found the recorder gone. One labelled reason rather than six
-// states, because "it stopped" is the fact and the label is its footnote.
+// the ceiling refused it; a sweep found the recorder gone; or the start itself could not be carried
+// out — the room could not be told, or the recorder could not take it — so the recording was stopped
+// before anybody's voice was captured. One labelled reason rather than seven states, because "it
+// stopped" is the fact and the label is its footnote. A start that failed is its own reason rather
+// than `sink-lost` because the two are different faults with different remedies: one is a meeting
+// whose audio went away, the other a recording that never began.
 export const MEETING_RECORDING_STOP_REASONS = Object.freeze([
   "member",
   "host",
@@ -43,6 +47,7 @@ export const MEETING_RECORDING_STOP_REASONS = Object.freeze([
   "sink-lost",
   "ceiling",
   "abandoned",
+  "start-failed",
 ] as const);
 export type MeetingRecordingStopReason = (typeof MEETING_RECORDING_STOP_REASONS)[number];
 

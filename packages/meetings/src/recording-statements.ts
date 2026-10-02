@@ -1,3 +1,4 @@
+import { AUDIT_LOG_TABLE } from "@magna-carta/data-access/audit-statements";
 import { keysetClause, type SortCursor } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
@@ -618,4 +619,68 @@ export function failRecordingStatement(
         `WHERE id = ? AND state = 'composing'`,
     )
     .bind(input.failureErrorId, input.now, input.id);
+}
+
+/**
+ * A STOPPED RECORDING WHOSE RECORDER COULD NOT BE REACHED to let go of it: the Error ID of that
+ * failure, written onto the row while it is `composing`, so the record says a fault happened at the
+ * stop rather than leaving it to a log nobody reads beside it.
+ *
+ * The state is NOT moved. Whether anything was captured is the recorder's to say, and a recorder that
+ * missed the stop settles itself on its next pass once it reads that the record is no longer
+ * `recording` — failing the row then if nothing was captured (which replaces this Error ID with its
+ * own, the one that names the outcome), or handing it on to be composed if something was. So an
+ * Error ID on a recording that is not `failed` names a fault on the way, never the outcome.
+ */
+// fitness:unguarded-write — a zero means the recording had already moved past `composing`, or already
+// carries an Error ID, by the time this was written; either of those is the truer record.
+export function recordRecorderUnreachableStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingRecordingId;
+    readonly failureErrorId: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET failure_error_id = ?, updated_at = ? ` +
+        `WHERE id = ? AND state = 'composing' AND failure_error_id IS NULL`,
+    )
+    .bind(input.failureErrorId, input.now, input.id);
+}
+
+/**
+ * THE AUDIT ROW FOR A RECORDING THAT FAILED, written only when the failure it names is the one the
+ * record kept.
+ *
+ * Two parts of the Worker can give up on one recording — the start route when the room or the
+ * recorder could not take it, and the recorder when it settles having captured nothing — and both
+ * write `failed` beside this row. `failRecordingStatement` lets only the first of them move the state
+ * (it is conditional on `composing`), so a second failure changes nothing in the record; an
+ * unconditional audit row beside it would still say the recording failed twice. This one is written
+ * only when the row, as the same batch has just left it, is `failed` with THIS Error ID — so the
+ * failure that lost the race leaves no row behind, and the log and the record tell one story.
+ *
+ * The same columns `insertAuditLogStatement` writes, and the metadata is canonical JSON of handles
+ * only (the meeting and the Error ID) — the caller composes it, and nothing in it can carry content.
+ */
+export function insertRecordingFailedAuditStatement(
+  database: SqlDatabase,
+  input: {
+    readonly auditLogId: string;
+    readonly recordingId: MeetingRecordingId;
+    readonly failureErrorId: string;
+    readonly metadata: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${AUDIT_LOG_TABLE} (id, event, actor_user_id, subject_id, metadata, created_at) ` +
+        `SELECT ?1, 'meetings.recording.failed', NULL, ?2, ?3, ?4 ` +
+        `WHERE EXISTS (SELECT 1 FROM ${MEETING_RECORDING_TABLE} WHERE id = ?2 ` +
+        `AND state = 'failed' AND failure_error_id = ?5)`,
+    )
+    .bind(input.auditLogId, input.recordingId, input.metadata, input.now, input.failureErrorId);
 }

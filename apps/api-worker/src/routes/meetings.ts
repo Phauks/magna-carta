@@ -48,12 +48,12 @@ import type { MeetingParticipantHandle } from "@magna-carta/meetings/types";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
-import type { MeetingRecordingId } from "@magna-carta/identifiers/types";
+import type { FirmId, MatterId, MeetingRecordingId } from "@magna-carta/identifiers/types";
 import {
   recordingFailedAuditStatement,
   startMeetingRecording,
   stopMeetingRecording,
-  stopRecordingAfterSinkLoss,
+  stopRecordingAfterStartFailure,
   stopRecordingForMeetingEnd,
   toRecordingSummary,
 } from "@magna-carta/meetings/recording-service";
@@ -61,17 +61,20 @@ import {
   failRecordingStatement,
   isRunningRecordingConflict,
   listRecordingNotices,
+  listRecordingTracks,
   listRecordings,
   MAX_NOTICE_PAGE_SIZE,
   MAX_RECORDING_PAGE_SIZE,
   readRecording,
   readRecordingStatesOfRooms,
+  recordRecorderUnreachableStatement,
 } from "@magna-carta/meetings/recording-statements";
 import {
   MEETING_RECORDING_NOTICE_REASONS,
   MEETING_RECORDING_STATES,
   MEETING_RECORDING_STOP_REASONS,
   type MeetingRecordingStateOfRoom,
+  type MeetingRecordingStopReason,
   type MeetingRecordingSummary as MeetingRecordingSummaryValue,
 } from "@magna-carta/meetings/recording-types";
 import {
@@ -82,6 +85,7 @@ import { MEETING_CONTRIBUTOR_KINDS } from "@magna-carta/meetings/types";
 import { MeetingRecordingRefusedError } from "@magna-carta/meetings/validation";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import { trackBackgroundWork } from "../background.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -721,24 +725,36 @@ const recordingWriteErrors = {
   },
 };
 
-const startRecordingRoute = defineOpenAPIRoute(writeMeta("startRecording", RECORD), {
-  method: "post",
-  path: "/api/v1/meetings/{meetingId}/recording",
-  description:
-    "Starts recording a meeting's audio. Everybody in the room — guests included — is told at once, " +
-    "and everybody who arrives while it runs is told on arrival; who was told, and when, is " +
-    "recorded. Refused for a meeting on a firm event (there is no matter to file the recording " +
-    "into), for a room already being recorded, and for a room carrying more audio tracks than one " +
-    "recording may hold. Answers 503 where this deployment or this firm cannot record.",
-  request: { params: meetingIdParam, headers: idempotencyKeyHeader },
-  responses: {
-    201: {
-      description: "The recording has started",
-      content: { "application/json": { schema: MeetingRecordingSummarySchema } },
+// THE START'S REPLAY REACHES THE HANDLER. Its fingerprint is over the path alone — the request has no
+// body, so nothing is lost by it — which is what takes the gate's own pre-decision away and lets a
+// retry under the same key run the handler's commit path. That path answers the retry from the stored
+// record, and FIRST finishes what the original request may not have lived to do: a start whose
+// request was cancelled between the commit and the announcement left a recording that nobody was told
+// about and nothing is capturing, and the gate replaying the stored reply verbatim would have answered
+// "recording" over it forever.
+const startRecordingRoute = defineOpenAPIRoute(
+  { ...writeMeta("startRecording", RECORD), idempotencyFingerprint: "path" },
+  {
+    method: "post",
+    path: "/api/v1/meetings/{meetingId}/recording",
+    description:
+      "Starts recording a meeting's audio. Needs the recording permission and a member running this " +
+      "meeting: a member who is not hosting it is refused 403 meeting-not-host. Everybody in the " +
+      "room — guests included — is told at once, and everybody who arrives while it runs is told on " +
+      "arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is " +
+      "no matter to file the recording into), for a room already being recorded, and for a room " +
+      "carrying more audio tracks than one recording may hold. Answers 503 where this deployment or " +
+      "this firm cannot record.",
+    request: { params: meetingIdParam, headers: idempotencyKeyHeader },
+    responses: {
+      201: {
+        description: "The recording has started",
+        content: { "application/json": { schema: MeetingRecordingSummarySchema } },
+      },
+      ...recordingWriteErrors,
     },
-    ...recordingWriteErrors,
   },
-});
+);
 
 // STOP IS ON meetings:join AT THE CHOKEPOINT, and that is not a weakening. Two kinds of member may
 // stop a recording — one holding meetings:record, and one running this meeting, who can end it
@@ -1253,33 +1269,103 @@ export function meetingRoomFor(env: Bindings, firmId: string, meetingId: string)
 }
 
 /**
+ * WORK THAT FOLLOWS A COMMIT AND MUST NOT DIE WITH THE REQUEST.
+ *
+ * Once a recording's start or stop has committed, the recorder and the room have to be told — and a
+ * request the runtime cancels after the commit (the browser navigated away, the connection dropped)
+ * would otherwise stop those calls mid-way: a recording in the record with no announcement and no
+ * recorder behind it, or a stop the recorder never heard about. So the work is handed to the request's
+ * `waitUntil`, which keeps it running past a cancelled response, and the handler still awaits it, so
+ * an ordinary request answers with what the work actually produced.
+ *
+ * The work never rejects for a reason the caller could act on: each step records its own failure
+ * through the standard pipeline. A harness that built the request without an execution context gets
+ * the same awaited work and no keep-alive.
+ */
+function outliveTheRequest<T>(c: MeetingContext, work: Promise<T>): Promise<T> {
+  const tracked = trackBackgroundWork(work);
+  try {
+    c.executionCtx.waitUntil(tracked);
+  } catch {
+    void tracked.catch(() => {});
+  }
+  return work;
+}
+
+// HOW MANY TIMES THE RECORDER IS ASKED TO LET GO before the room is told without it. Twice: a call
+// into another object can fail once for reasons of the moment (the object was being moved, a
+// connection reset), and a second attempt is cheap beside a stop the recorder never heard about. Not
+// more, because everybody in the room is waiting on the announcement that it stopped.
+const RECORDER_STOP_ATTEMPTS = 2;
+
+/**
  * A RECORDING HAS STOPPED in the record: the recorder lets go of it (every adapter closed, every
  * staged upload completed) and THEN the room tells everybody, so nothing is captured after the stop is
- * announced. Neither half can undo the stop the record already holds, so each is best-effort and
- * recorded through the standard pipeline when it fails: a recorder that will not answer is the
- * abandoned-recording sweep's to close, and the room is told regardless, because a mark left lit on a
- * recording that has stopped would be a lie.
+ * announced.
+ *
+ * The recorder is asked twice before it is given up on, each time through a fresh stub because a stub
+ * that has thrown may stay broken. A recorder that acknowledged has stopped capturing, and the room is
+ * told. One that could not be reached is still announced as stopped — the record already says so, and
+ * a mark left lit on a recording that has stopped would be a lie — but the failure is recorded with an
+ * Error ID through the standard pipeline AND on the recording's own row, so the record says a fault
+ * happened at the stop; the recorder lets go of the recording itself on its next pass, once it reads
+ * that the record is no longer `recording`.
  */
 async function settleStoppedRecording(
   c: MeetingContext,
+  database: SqlDatabase & BatchDatabase,
   stop: {
     readonly firmId: string;
     readonly meetingId: string;
-    readonly recordingId: string;
-    readonly stopReason: "member" | "host" | "meeting-ended" | "sink-lost";
+    readonly recordingId: MeetingRecordingId;
+    readonly stopReason: MeetingRecordingStopReason;
     readonly at: string;
     readonly by: { readonly userId: string; readonly displayName: string } | null;
   },
 ): Promise<void> {
-  try {
-    await meetingRecorderFor(c.env, stop.firmId, stop.recordingId)?.stop(stop.stopReason);
-  } catch (caught) {
-    recordRealtimeFailure(
+  let acknowledged = false;
+  let failure: unknown = new Error("no recorder is bound");
+  for (let attempt = 1; attempt <= RECORDER_STOP_ATTEMPTS && !acknowledged; attempt += 1) {
+    const recorder = meetingRecorderFor(c.env, stop.firmId, stop.recordingId);
+    if (recorder === null) break;
+    try {
+      await recorder.stop(stop.stopReason);
+      acknowledged = true;
+    } catch (caught) {
+      failure = caught;
+    }
+  }
+  if (!acknowledged) {
+    const failureErrorId = recordRealtimeFailure(
       c.get("logger"),
       "meetings.recording.stop-recorder",
-      caught,
+      failure,
       c.get("correlationId"),
     );
+    try {
+      const now = () => new Date().toISOString();
+      await commitEffectBatch(
+        database,
+        {
+          statements: [
+            recordRecorderUnreachableStatement(database, {
+              id: stop.recordingId,
+              failureErrorId,
+              now: now(),
+            }),
+          ],
+          outboxMessages: [],
+        },
+        { now },
+      );
+    } catch (caught) {
+      recordRealtimeFailure(
+        c.get("logger"),
+        "meetings.recording.record-stop-failure",
+        caught,
+        c.get("correlationId"),
+      );
+    }
   }
   try {
     await meetingRoomFor(c.env, stop.firmId, stop.meetingId).recordingStopped({
@@ -1300,11 +1386,16 @@ async function settleStoppedRecording(
 }
 
 /**
- * A START THAT COULD NOT BE CARRIED OUT — the room could not be told, or the recorder could not take
- * the recording. Nobody's voice may be captured without the announcement, and a recording row left
- * `recording` with nothing behind it would light a mark over nothing, so the recording is stopped
- * and failed in the record with the Error ID of what went wrong, the recorder is let go of, and the
- * room is told it stopped.
+ * A START THAT COULD NOT BE CARRIED OUT — the room could not be told, could not write down everybody
+ * it told, or the recorder could not take the recording. Nobody's voice may be captured without the
+ * announcement and its record, and a recording row left `recording` with nothing behind it would
+ * light a mark over nothing, so the recording is stopped (`start-failed`) and failed in the record
+ * with the Error ID of what went wrong, in one batch with ONE failed audit row; the recorder is let go
+ * of, and the room is told it stopped. A recorder that did take the recording and settles it with
+ * nothing captured writes no second failure: the record already holds this one
+ * (`recordingFailedAuditStatement`).
+ *
+ * A recording somebody else stopped in the meantime is left to that stop, which has its own settling.
  */
 async function failStartedRecording(
   c: MeetingContext,
@@ -1318,12 +1409,13 @@ async function failStartedRecording(
 ): Promise<void> {
   const now = () => new Date().toISOString();
   const system = { clock: { now }, randomSource: cryptoRandomSource };
-  const stopped = await stopRecordingAfterSinkLoss(database, start.recordingId, system);
+  const stopped = await stopRecordingAfterStartFailure(database, start.recordingId, system);
+  if (stopped === undefined) return;
   await commitEffectBatch(
     database,
     {
       statements: [
-        ...(stopped?.effect.statements ?? []),
+        ...stopped.effect.statements,
         failRecordingStatement(database, {
           id: start.recordingId,
           failureErrorId: start.failureErrorId,
@@ -1343,13 +1435,151 @@ async function failStartedRecording(
     },
     { now },
   );
-  await settleStoppedRecording(c, {
+  await settleStoppedRecording(c, database, {
     firmId: start.firmId,
     meetingId: start.meetingId,
     recordingId: start.recordingId,
-    stopReason: "sink-lost",
-    at: stopped?.recording.stopped_at ?? now(),
+    stopReason: "start-failed",
+    at: stopped.recording.stopped_at ?? now(),
     by: null,
+  });
+}
+
+/** Everything the room and the recorder are handed when a committed recording is carried out. */
+interface RecordingToCarryOut {
+  readonly firmId: string;
+  readonly meetingId: string;
+  readonly matterId: MatterId;
+  readonly recordingId: MeetingRecordingId;
+  readonly startedAt: string;
+  readonly ceiling: number;
+  readonly tracks: RecorderStartInput["tracks"];
+  readonly by: { readonly userId: string; readonly displayName: string };
+  // Whether the room is already holding this recording — a replay that finds the announcement was
+  // made, and only the recorder may still be missing it.
+  readonly announced: boolean;
+}
+
+/**
+ * TOLD FIRST, CAPTURED SECOND. The room announces the recording to every welcomed socket and writes
+ * who was told before a single adapter is opened, so nobody's voice is captured before the
+ * announcement reached them — and the room's answer is checked before the recorder is started: a
+ * notice count below the count of stays the frame was handed to is somebody told with no record that
+ * they were, which is a consent record that cannot be produced later, so the start fails rather than
+ * capturing. A room that cannot be told at all, or a recorder that cannot take the recording, fails it
+ * the same way.
+ */
+async function carryOutRecordingStart(
+  c: MeetingContext,
+  database: SqlDatabase & BatchDatabase,
+  start: RecordingToCarryOut,
+): Promise<void> {
+  try {
+    if (!start.announced) {
+      const told = await meetingRoomFor(c.env, start.firmId, start.meetingId).recordingStarted({
+        firmId: start.firmId,
+        meetingId: start.meetingId,
+        recordingId: start.recordingId,
+        at: start.startedAt,
+        by: start.by,
+      });
+      if (told.noticeCount < told.recipientCount) {
+        throw new Error(
+          `the room told ${String(told.recipientCount)} stays and recorded ` +
+            `${String(told.noticeCount)} of them`,
+        );
+      }
+    }
+    const recorder = meetingRecorderFor(c.env, start.firmId, start.recordingId);
+    if (recorder === null) throw new Error("no recorder is bound");
+    const input: RecorderStartInput = {
+      firmId: start.firmId as FirmId,
+      meetingId: start.meetingId as MeetingId,
+      matterId: start.matterId,
+      recordingId: start.recordingId,
+      startedAt: start.startedAt,
+      ceiling: start.ceiling,
+      tracks: start.tracks,
+    };
+    // A second call for a recording the recorder already holds changes nothing, which is what lets a
+    // replay ask again without knowing whether the first request got this far.
+    await recorder.start(input);
+  } catch (caught) {
+    const failureErrorId = recordRealtimeFailure(
+      c.get("logger"),
+      "meetings.recording.start",
+      caught,
+      c.get("correlationId"),
+    );
+    await failStartedRecording(c, database, {
+      firmId: start.firmId,
+      meetingId: start.meetingId,
+      recordingId: start.recordingId,
+      failureErrorId,
+    });
+  }
+}
+
+/**
+ * A REPLAYED START WHOSE FIRST REQUEST MAY NOT HAVE FINISHED. The idempotency record and the
+ * recording committed together, so a replay knows the recording exists; it cannot know whether the
+ * request that committed it lived long enough to tell the room and hand the recording to the
+ * recorder. When the recording is still `recording`, the room is asked: one not holding it was never
+ * told, and is told now — the announcement, its notices and only then the recorder — and one holding
+ * it has the recorder asked again, which changes nothing when it already has the recording.
+ *
+ * The tracks are the recording's own rows, with the routing session each is published in read off the
+ * room now: a track the room no longer carries is left to the recorder's own pass, which admits a
+ * participant when they publish again.
+ */
+async function resumeRecordingStart(
+  c: MeetingContext,
+  database: SqlDatabase & BatchDatabase,
+  located: {
+    readonly firmId: string;
+    readonly meetingId: string;
+    readonly recordingId: MeetingRecordingId;
+  },
+): Promise<void> {
+  const recording = await readRecording(
+    database,
+    located.meetingId as MeetingId,
+    located.recordingId,
+  );
+  if (recording === undefined || recording.state !== "recording") return;
+  const room = meetingRoomFor(c.env, located.firmId, located.meetingId);
+  const [held, candidates, rows, ceiling, displayName] = await Promise.all([
+    room.runningRecording(),
+    room.recordingCandidates(),
+    listRecordingTracks(database, recording.id),
+    readFirmSetting(database, recordedTrackCeilingDefinition),
+    displayNameOf(database, recording.started_by_user_id),
+  ]);
+  const sessions = new Map(candidates.map((track) => [track.trackName, track.sessionId]));
+  const tracks: RecorderStartInput["tracks"] = rows.flatMap((row) => {
+    const sessionId = sessions.get(row.track_name);
+    if (row.state !== "open" || sessionId === undefined) return [];
+    return [
+      {
+        trackId: row.id,
+        trackName: row.track_name,
+        sessionId,
+        participantKind: row.participant_kind,
+        participantId: row.participant_id,
+        userId: row.user_id,
+      },
+    ];
+  });
+  await carryOutRecordingStart(c, database, {
+    firmId: located.firmId,
+    meetingId: located.meetingId,
+    matterId: recording.matter_id,
+    recordingId: recording.id,
+    startedAt: recording.started_at,
+    ceiling,
+    tracks,
+    by: { userId: recording.started_by_user_id, displayName },
+    announced: held?.recordingId === recording.id,
   });
 }
 
@@ -1697,21 +1927,30 @@ export function registerMeetingsRoutes(
       // THE RECORDER STOPS BEFORE THE ROOM CLOSES ITS SOCKETS, so the stop is announced to everybody
       // still there and a stop notice is written for each of them. Only on the request that ended the
       // meeting: a replay must not tell the room twice.
-      const stoppedRecordingId = outcome.value.stoppedRecordingId ?? null;
-      if (outcome.executed && stoppedRecordingId !== null) {
-        await settleStoppedRecording(c, {
-          firmId,
-          meetingId,
-          recordingId: stoppedRecordingId,
-          stopReason: "meeting-ended",
-          at: outcome.value.endedAt,
-          by: { userId, displayName: await displayNameOf(firm.firmDatabase, userId) },
-        });
-      }
-
+      //
       // After the commit, for the same reason leaving is: a participant must never be told the
-      // meeting ended by a write that did not land.
-      await meetingRoomFor(c.env, firmId, meetingId).end(outcome.value.endedAt);
+      // meeting ended by a write that did not land. And kept alive past the request, because a
+      // meeting that has ended in the record must end in the room even when the browser that asked
+      // has gone (`outliveTheRequest`).
+      const stoppedRecordingId = (outcome.value.stoppedRecordingId ??
+        null) as MeetingRecordingId | null;
+      const endedAt = outcome.value.endedAt;
+      await outliveTheRequest(
+        c,
+        (async () => {
+          if (outcome.executed && stoppedRecordingId !== null) {
+            await settleStoppedRecording(c, firm.firmDatabase, {
+              firmId,
+              meetingId,
+              recordingId: stoppedRecordingId,
+              stopReason: "meeting-ended",
+              at: endedAt,
+              by: { userId, displayName: await displayNameOf(firm.firmDatabase, userId) },
+            });
+          }
+          await meetingRoomFor(c.env, firmId, meetingId).end(endedAt);
+        })(),
+      );
       return c.json({ ok: true } as const, 200);
     },
   );
@@ -1809,52 +2048,36 @@ export function registerMeetingsRoutes(
         },
       );
       if (!outcome.ok) return outcome.problem;
-      // A REPLAY IS ANSWERED WITH WHAT THE FIRST REQUEST ANSWERED, and tells nobody anything: the
-      // room was told once, when the recording actually started.
-      if (!outcome.executed || started === undefined) return c.json(outcome.value, 201);
-
-      const recording = started.recording;
-      // TOLD FIRST, CAPTURED SECOND. The room announces the recording to every welcomed socket and
-      // writes who was told before a single adapter is opened, so nobody's voice is captured before
-      // the announcement reached them. A room that cannot be told is a recording that must not run.
-      try {
-        await meetingRoomFor(c.env, firmId, meetingId).recordingStarted({
-          firmId,
-          meetingId,
-          recordingId: recording.id,
-          at: recording.started_at,
-          by: { userId, displayName },
-        });
-        const recorder = meetingRecorderFor(c.env, firmId, recording.id);
-        if (recorder === null) throw new Error("no recorder is bound");
-        const input: RecorderStartInput = {
-          firmId: firmId,
-          meetingId: meetingId as MeetingId,
-          matterId: recording.matter_id,
-          recordingId: recording.id,
-          startedAt: recording.started_at,
-          ceiling,
-          tracks: started.tracks,
-        };
-        await recorder.start(input);
-      } catch (caught) {
-        const failureErrorId = recordRealtimeFailure(
-          c.get("logger"),
-          "meetings.recording.start",
-          caught,
-          c.get("correlationId"),
+      const recordingId = outcome.value.id;
+      if (!outcome.executed || started === undefined) {
+        // A REPLAY IS ANSWERED WITH WHAT IS TRUE NOW, after making sure the first request's work was
+        // done: a request cancelled between the commit and the announcement would otherwise leave a
+        // recording in the record that nobody was told about and nothing is capturing.
+        await outliveTheRequest(
+          c,
+          resumeRecordingStart(c, firm.firmDatabase, { firmId, meetingId, recordingId }),
         );
-        await failStartedRecording(c, firm.firmDatabase, {
-          firmId,
-          meetingId,
-          recordingId: recording.id,
-          failureErrorId,
-        });
+      } else {
+        const recording = started.recording;
+        await outliveTheRequest(
+          c,
+          carryOutRecordingStart(c, firm.firmDatabase, {
+            firmId,
+            meetingId,
+            matterId: recording.matter_id,
+            recordingId: recording.id,
+            startedAt: recording.started_at,
+            ceiling,
+            tracks: started.tracks,
+            by: { userId, displayName },
+            announced: false,
+          }),
+        );
       }
       const summary = await recordingSummaryFor(
         firm.firmDatabase,
         meetingId as MeetingId,
-        recording.id,
+        recordingId,
       );
       return c.json(summary ?? outcome.value, 201);
     },
@@ -1899,14 +2122,17 @@ export function registerMeetingsRoutes(
       if (!outcome.executed) return c.json(outcome.value, 200);
 
       const stopped = outcome.value;
-      await settleStoppedRecording(c, {
-        firmId,
-        meetingId,
-        recordingId: stopped.id,
-        stopReason: stopped.stopReason === "host" ? "host" : "member",
-        at: stopped.stoppedAt ?? new Date().toISOString(),
-        by: { userId, displayName: stopped.stoppedBy?.displayName ?? "" },
-      });
+      await outliveTheRequest(
+        c,
+        settleStoppedRecording(c, firm.firmDatabase, {
+          firmId,
+          meetingId,
+          recordingId: stopped.id,
+          stopReason: stopped.stopReason === "host" ? "host" : "member",
+          at: stopped.stoppedAt ?? new Date().toISOString(),
+          by: { userId, displayName: stopped.stoppedBy?.displayName ?? "" },
+        }),
+      );
       // Read back after the recorder settled, so the answer says what was actually captured — and
       // `failed` when nothing was.
       const summary = await recordingSummaryFor(

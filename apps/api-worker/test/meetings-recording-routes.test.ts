@@ -7,7 +7,7 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import { setMeetingSinkSigningKeyForTests } from "../src/meetings/sink-token.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { fakeAdapterService } from "./support/meeting-recording-fixture.ts";
+import { fakeAdapterService, waitUntil } from "./support/meeting-recording-fixture.ts";
 import {
   mirrorMemberWithOwnerRole,
   mirrorMemberWithRole,
@@ -55,17 +55,122 @@ async function request(
   path: string,
   cookie: string,
   body?: unknown,
+  through: {
+    readonly environment?: typeof ROUTED_ENVIRONMENT;
+    readonly idempotencyKey?: string;
+    readonly executionContext?: ExecutionContext;
+  } = {},
 ): Promise<Response> {
   const headers: Record<string, string> = { cookie };
   if (method !== "GET") {
-    headers["idempotency-key"] = crypto.randomUUID();
+    headers["idempotency-key"] = through.idempotencyKey ?? crypto.randomUUID();
     headers["content-type"] = "application/json";
   }
   return await app.request(
     `${base}${path}`,
     { method, headers, body: method === "GET" ? undefined : JSON.stringify(body ?? {}) },
-    ROUTED_ENVIRONMENT,
+    through.environment ?? ROUTED_ENVIRONMENT,
+    through.executionContext,
   );
+}
+
+/** The real room a meeting's routes reach, addressed exactly as they address it. */
+function roomOf(meetingId: string) {
+  return env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meetingId}`));
+}
+
+/** What a stand-in recorder was asked to do, in order. */
+interface RecorderCalls {
+  readonly starts: unknown[];
+  readonly stops: string[];
+}
+
+/**
+ * The deployment with a STAND-IN recorder: the routes reach it exactly as they reach the real one
+ * (by name, through the binding), and it answers as the test says — so a recorder that fails, or
+ * that never answers, is a thing a test can arrange.
+ */
+function withRecorder(behaviour: {
+  readonly start?: (input: unknown) => Promise<unknown>;
+  readonly stop?: (reason: string, attempt: number) => Promise<unknown>;
+}): { environment: typeof ROUTED_ENVIRONMENT; calls: RecorderCalls } {
+  const calls: RecorderCalls = { starts: [], stops: [] };
+  const recorder = {
+    start: async (input: unknown) => {
+      calls.starts.push(input);
+      return await (behaviour.start?.(input) ?? Promise.resolve({ opened: 0, lost: 0 }));
+    },
+    stop: async (reason: string) => {
+      calls.stops.push(reason);
+      return await (behaviour.stop?.(reason, calls.stops.length) ?? Promise.resolve(null));
+    },
+  };
+  const namespace = { idFromName: (name: string) => ({ name }), get: () => recorder };
+  return {
+    environment: {
+      ...ROUTED_ENVIRONMENT,
+      MEETING_RECORDER: namespace as unknown as typeof env.MEETING_RECORDER,
+    },
+    calls,
+  };
+}
+
+/** The deployment with the real room behind a stand-in whose `recordingStarted` answers as given. */
+function withRoom(
+  recordingStarted: (
+    real: ReturnType<typeof roomOf>,
+    transition: Parameters<ReturnType<typeof roomOf>["recordingStarted"]>[0],
+  ) => Promise<{ recipientCount: number; noticeCount: number }>,
+  around: typeof ROUTED_ENVIRONMENT = ROUTED_ENVIRONMENT,
+): typeof ROUTED_ENVIRONMENT {
+  const namespace = {
+    idFromName: (name: string) => env.MEETING_ROOM.idFromName(name),
+    get: (id: DurableObjectId) => {
+      const real = env.MEETING_ROOM.get(id);
+      return {
+        recordingStarted: async (
+          transition: Parameters<ReturnType<typeof roomOf>["recordingStarted"]>[0],
+        ) => await recordingStarted(real, transition),
+        recordingStopped: async (
+          transition: Parameters<ReturnType<typeof roomOf>["recordingStopped"]>[0],
+        ) => await real.recordingStopped(transition),
+        recordingCandidates: async () => await real.recordingCandidates(),
+        runningRecording: async () => await real.runningRecording(),
+        end: async (at: string) => await real.end(at),
+      };
+    },
+  };
+  return { ...around, MEETING_ROOM: namespace as unknown as typeof env.MEETING_ROOM };
+}
+
+async function recordingRow(recordingId: string) {
+  return await firmDatabase
+    .prepare(`SELECT state, stop_reason, failure_error_id FROM meeting_recording WHERE id = ?1`)
+    .bind(recordingId)
+    .first<{ state: string; stop_reason: string | null; failure_error_id: string | null }>();
+}
+
+async function failedAuditCount(recordingId: string): Promise<number> {
+  const row = await firmDatabase
+    .prepare(
+      `SELECT COUNT(*) AS count FROM audit_log WHERE event = 'meetings.recording.failed' AND subject_id = ?1`,
+    )
+    .bind(recordingId)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
+/** Hands this meeting's room to one more member, as naming a co-host does. */
+async function grantCoHost(meetingId: string, userId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await firmDatabase
+    .prepare(
+      `INSERT INTO meeting_host (id, meeting_id, user_id, role, granted_by_user_id, granted_at, ` +
+        `revoked_at, revoked_by_user_id, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, 'co-host', ?3, ?4, NULL, NULL, ?4, ?4)`,
+    )
+    .bind(newIdentifier("meetingHost"), meetingId, userId, now)
+    .run();
 }
 
 async function freshEvent(): Promise<MatterEventId> {
@@ -253,6 +358,8 @@ describe("starting and stopping", () => {
     );
     expect(refused.status).toBe(403);
 
+    // The owner holds the key and is named to run the room too, which is what starting needs.
+    await grantCoHost(meetingId, ownerUserId);
     expect(
       (await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie)).status,
     ).toBe(201);
@@ -263,6 +370,25 @@ describe("starting and stopping", () => {
     );
     expect(stopped.status).toBe(200);
     expect((await readJson<RecordingSummary>(stopped)).stopReason).toBe("host");
+  });
+
+  it("refuses a member holding the key who is not running this meeting — and starts once they are", async () => {
+    await setRecordingEnabled(true);
+    // The attorney convenes it; the owner holds meetings:record and no grant on this room.
+    const meetingId = await startMeeting(attorneyCookie);
+    const refused = await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie);
+    expect(refused.status).toBe(403);
+    expect((await readJson<{ type: string }>(refused)).type).toContain("meeting-not-host");
+    const page = await readJson<{ data: RecordingSummary[] }>(
+      await request("GET", `/api/v1/meetings/${meetingId}/recordings`, ownerCookie),
+    );
+    expect(page.data).toEqual([]);
+
+    await grantCoHost(meetingId, ownerUserId);
+    expect(
+      (await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie)).status,
+    ).toBe(201);
+    await request("DELETE", `/api/v1/meetings/${meetingId}/recording`, ownerCookie);
   });
 
   it("refuses a stop by a member holding neither the key nor a grant on the meeting", async () => {
@@ -409,5 +535,243 @@ describe("reading recordings and who was told", () => {
       ).status,
     ).toBe(404);
     await request("DELETE", `/api/v1/meetings/${first}/recording`, ownerCookie);
+  });
+});
+
+describe("after the commit — the recorder and the room", () => {
+  it("asks the recorder again when the first stop fails, and announces the stop only after it acknowledged", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const heldWhenAsked: (string | null)[] = [];
+    const { environment, calls } = withRecorder({
+      stop: async (_reason, attempt) => {
+        heldWhenAsked.push((await roomOf(meetingId).runningRecording())?.recordingId ?? null);
+        if (attempt === 1) throw new Error("the recorder was being moved");
+        return null;
+      },
+    });
+    const started = await readJson<RecordingSummary>(
+      await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie, undefined, {
+        environment,
+      }),
+    );
+    expect(calls.starts).toHaveLength(1);
+
+    const stopped = await request(
+      "DELETE",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment },
+    );
+    expect(stopped.status).toBe(200);
+    expect(calls.stops).toEqual(["member", "member"]);
+    // The room still held the recording at BOTH asks: nobody was told it stopped before the recorder
+    // had let go of it.
+    expect(heldWhenAsked).toEqual([started.id, started.id]);
+    expect(await roomOf(meetingId).runningRecording()).toBeNull();
+    expect(await recordingRow(started.id)).toMatchObject({
+      state: "composing",
+      failure_error_id: null,
+    });
+  });
+
+  it("still announces the stop when the recorder cannot be reached, and the record carries the failure", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const { environment, calls } = withRecorder({
+      stop: () => Promise.reject(new Error("the recorder is unreachable")),
+    });
+    const started = await readJson<RecordingSummary>(
+      await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie, undefined, {
+        environment,
+      }),
+    );
+    const stopped = await request(
+      "DELETE",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment },
+    );
+    expect(stopped.status).toBe(200);
+    expect(calls.stops).toHaveLength(2);
+    // The mark clears for everybody: the record says it stopped, and a lit mark would be a lie.
+    expect(await roomOf(meetingId).runningRecording()).toBeNull();
+    // Still composing — whether anything was captured is the recorder's to say on its own next
+    // pass — with the Error ID of the stop it missed.
+    const row = await recordingRow(started.id);
+    expect(row?.state).toBe("composing");
+    expect(row?.failure_error_id).toMatch(/\S/);
+  });
+
+  it("hands the work after the commit to the request's waitUntil, so a cancelled request still finishes it", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const keptAlive: Promise<unknown>[] = [];
+    const executionContext = {
+      waitUntil: (work: Promise<unknown>) => {
+        keptAlive.push(work);
+      },
+      passThroughOnException: () => {},
+      props: {},
+    } as unknown as ExecutionContext;
+    let keptAliveWhenStarted = -1;
+    let keptAliveWhenStopped = -1;
+    // Each stand-in yields once before it looks: a request can only be cancelled at an await, so
+    // what matters is that the work was handed over before the first one — which is the turn the
+    // call into the recorder begins in.
+    const { environment } = withRecorder({
+      start: async () => {
+        await Promise.resolve();
+        keptAliveWhenStarted = keptAlive.length;
+        return { opened: 0, lost: 0 };
+      },
+      stop: async () => {
+        await Promise.resolve();
+        keptAliveWhenStopped = keptAlive.length;
+        return null;
+      },
+    });
+    const started = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment, executionContext },
+    );
+    expect(started.status).toBe(201);
+    expect(keptAliveWhenStarted).toBeGreaterThan(0);
+    const before = keptAlive.length;
+    const stopped = await request(
+      "DELETE",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment, executionContext },
+    );
+    expect(stopped.status).toBe(200);
+    expect(keptAliveWhenStopped).toBeGreaterThan(before);
+    await Promise.allSettled(keptAlive);
+  });
+
+  it("fails the start before anything is captured when the room could not record everybody it told", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const { environment: withStandIn, calls } = withRecorder({});
+    const environment = withRoom(async (real, transition) => {
+      const told = await real.recordingStarted(transition);
+      // One stay more was handed the frame than the room managed to write down.
+      return { recipientCount: told.recipientCount + 1, noticeCount: told.noticeCount };
+    }, withStandIn);
+    const response = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment },
+    );
+    expect(response.status).toBe(201);
+    const recording = await readJson<RecordingSummary>(response);
+    expect(recording).toMatchObject({
+      state: "failed",
+      stopReason: "start-failed",
+      stoppedBy: null,
+    });
+    // Nothing was handed to the recorder to capture.
+    expect(calls.starts).toEqual([]);
+    expect(await roomOf(meetingId).runningRecording()).toBeNull();
+    expect(await failedAuditCount(recording.id)).toBe(1);
+  });
+
+  it("writes ONE failed audit row when the start fails after the recorder had already taken the recording", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    // The real recorder takes the recording, and the answer is lost on the way back: the route gives
+    // up on the start, and the recorder then settles a recording that captured nothing.
+    const recorders = env.MEETING_RECORDER;
+    if (recorders === undefined) throw new Error("the test pool binds a recorder");
+    const namespace = {
+      idFromName: (name: string) => recorders.idFromName(name),
+      get: (id: DurableObjectId) => {
+        const real = recorders.get(id);
+        return {
+          start: async (input: Parameters<typeof real.start>[0]) => {
+            await real.start(input);
+            throw new Error("the recorder's answer was lost");
+          },
+          stop: async (reason: Parameters<typeof real.stop>[0]) => await real.stop(reason),
+        };
+      },
+    };
+    const environment = {
+      ...ROUTED_ENVIRONMENT,
+      MEETING_RECORDER: namespace as unknown as typeof env.MEETING_RECORDER,
+    };
+    const response = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment },
+    );
+    const recording = await readJson<RecordingSummary>(response);
+    expect(recording).toMatchObject({ state: "failed", stopReason: "start-failed" });
+    expect(await failedAuditCount(recording.id)).toBe(1);
+  });
+
+  it("finishes a start whose first request was cut off after the commit, when the start is replayed", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const idempotencyKey = crypto.randomUUID();
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // The first request commits and then never gets to the room — the shape a request cancelled
+    // between the commit and the announcement leaves behind.
+    const stalled = withRoom(async () => {
+      await held;
+      throw new Error("the first request never reached the room");
+    });
+    const first = request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      {
+        environment: stalled,
+        idempotencyKey,
+      },
+    );
+    let recordingId: string | undefined;
+    await waitUntil(async () => {
+      const row = await firmDatabase
+        .prepare(`SELECT id FROM meeting_recording WHERE meeting_id = ?1 AND state = 'recording'`)
+        .bind(meetingId)
+        .first<{ id: string }>();
+      recordingId = row?.id;
+      return recordingId !== undefined;
+    });
+    expect(recordingId).toBeDefined();
+    expect(await roomOf(meetingId).runningRecording()).toBeNull();
+
+    const { environment, calls } = withRecorder({});
+    const replay = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment, idempotencyKey },
+    );
+    expect(replay.status).toBe(201);
+    expect((await readJson<RecordingSummary>(replay)).id).toBe(recordingId);
+    // Told now, and only then handed to the recorder.
+    expect((await roomOf(meetingId).runningRecording())?.recordingId).toBe(recordingId);
+    expect(calls.starts).toHaveLength(1);
+    expect(await recordingRow(recordingId ?? "")).toMatchObject({ state: "recording" });
+
+    release?.();
+    await first;
   });
 });

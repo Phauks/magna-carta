@@ -2,22 +2,31 @@ import { describe, expect, it } from "vitest";
 import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import type { MeetingId, UserId } from "@magna-carta/identifiers/types";
 import { grantHosting } from "../src/hosting-service.ts";
-import { createMeeting, joinMeeting } from "../src/meeting-service.ts";
+import {
+  createMeeting,
+  endScheduledMeetingForCancelledEvent,
+  joinMeeting,
+} from "../src/meeting-service.ts";
 import {
   admitTrackStatements,
+  recordingFailedAuditStatement,
   recordingNoticeEffect,
   startMeetingRecording,
   STOP_RECORDING_GUARD,
   stopMeetingRecording,
   stopRecordingAfterSinkLoss,
+  stopRecordingAfterStartFailure,
   stopRecordingForMeetingEnd,
 } from "../src/recording-service.ts";
 import {
+  failRecordingStatement,
   isRunningRecordingConflict,
   listRecordingNotices,
   listRecordingTracks,
   readRecordingStatesOfRooms,
+  readRecordingById,
   readRunningRecording,
+  recordRecorderUnreachableStatement,
   settleTrackStatement,
 } from "../src/recording-statements.ts";
 import type { MeetingRecordingCandidateTrack } from "../src/recording-types.ts";
@@ -541,5 +550,220 @@ describe("tracks and notices", () => {
       { clock },
     );
     expect(effect.statements).toHaveLength(2);
+  });
+});
+
+describe("who may start a recording", () => {
+  it("refuses a member holding the key but no grant on this meeting, and starts once they hold one", async () => {
+    const database = fresh();
+    const meetingId = await startedMeeting(database);
+    const joined = await joinMeeting(database.database, meetingId, optionsFor(GUEST));
+    await commit(database.database, joined.effect);
+    // The route's chokepoint has already asked the key; what is left is whether this member is
+    // running THIS room, and they are not.
+    expect(
+      await refusal(
+        startMeetingRecording(
+          database.database,
+          meetingId,
+          { tracks: [], ceiling: 32 },
+          optionsFor(GUEST),
+        ),
+      ),
+    ).toBe("meeting-not-host");
+    expect(await readRunningRecording(database.database, meetingId)).toBeUndefined();
+
+    const granted = await grantHosting(
+      database.database,
+      meetingId,
+      { userId: GUEST, role: "co-host" },
+      options,
+    );
+    await commit(database.database, granted.effect);
+    const started = await startMeetingRecording(
+      database.database,
+      meetingId,
+      { tracks: [], ceiling: 32 },
+      optionsFor(GUEST),
+    );
+    await commit(database.database, started.effect);
+    expect(started.recording.started_by_user_id).toBe(GUEST);
+  });
+});
+
+describe("a start that could not be carried out", () => {
+  it("stops as `start-failed` with nobody behind it, and fails in the record with ONE audit row however many parts give up on it", async () => {
+    const database = fresh();
+    const meetingId = await startedMeeting(database);
+    const started = await record(database, meetingId);
+    const stopped = await stopRecordingAfterStartFailure(database.database, started.recording.id, {
+      clock,
+    });
+    expect(stopped?.recording.stop_reason).toBe("start-failed");
+    expect(stopped?.recording.stopped_by_user_id).toBeNull();
+
+    // The start route gives up first, with the Error ID of what went wrong…
+    await commit(database.database, {
+      statements: [
+        ...(stopped?.effect.statements ?? []),
+        failRecordingStatement(database.database, {
+          id: started.recording.id,
+          failureErrorId: "error_startRouteGaveUp",
+          now: clock.now(),
+        }),
+        recordingFailedAuditStatement(
+          database.database,
+          {
+            recordingId: started.recording.id,
+            meetingId,
+            failureErrorId: "error_startRouteGaveUp",
+          },
+          { clock },
+        ),
+      ],
+      outboxMessages: [],
+    });
+    // …and a recorder that had taken it settles with nothing captured and gives up as well.
+    await commit(database.database, {
+      statements: [
+        failRecordingStatement(database.database, {
+          id: started.recording.id,
+          failureErrorId: "error_recorderGaveUpToo",
+          now: clock.now(),
+        }),
+        recordingFailedAuditStatement(
+          database.database,
+          {
+            recordingId: started.recording.id,
+            meetingId,
+            failureErrorId: "error_recorderGaveUpToo",
+          },
+          { clock },
+        ),
+      ],
+      outboxMessages: [],
+    });
+
+    const row = await readRecordingById(database.database, started.recording.id);
+    expect(row).toMatchObject({
+      state: "failed",
+      stop_reason: "start-failed",
+      failure_error_id: "error_startRouteGaveUp",
+    });
+    const audit = database.raw
+      .prepare(
+        `SELECT actor_user_id, metadata FROM audit_log WHERE event = 'meetings.recording.failed'`,
+      )
+      .all() as { actor_user_id: string | null; metadata: string }[];
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.actor_user_id).toBeNull();
+    expect(JSON.parse(audit[0]?.metadata ?? "{}")).toEqual({
+      meetingId,
+      failureErrorId: "error_startRouteGaveUp",
+    });
+  });
+});
+
+describe("a stop the recorder did not hear", () => {
+  it("carries the Error ID on a composing recording without moving its state — and never over a later outcome", async () => {
+    const database = fresh();
+    const meetingId = await startedMeeting(database);
+    const started = await record(database, meetingId);
+    const stopped = await stopMeetingRecording(
+      database.database,
+      meetingId,
+      { mayRecord: true },
+      options,
+    );
+    await commit(database.database, stopped.effect);
+    await commit(database.database, {
+      statements: [
+        recordRecorderUnreachableStatement(database.database, {
+          id: started.recording.id,
+          failureErrorId: "error_recorderUnreachable",
+          now: clock.now(),
+        }),
+      ],
+      outboxMessages: [],
+    });
+    expect(await readRecordingById(database.database, started.recording.id)).toMatchObject({
+      state: "composing",
+      failure_error_id: "error_recorderUnreachable",
+    });
+
+    // The recorder, settling on its own pass with nothing captured, names the outcome — and its
+    // failure is the one the record and the log keep.
+    await commit(database.database, {
+      statements: [
+        failRecordingStatement(database.database, {
+          id: started.recording.id,
+          failureErrorId: "error_nothingCaptured",
+          now: clock.now(),
+        }),
+        recordingFailedAuditStatement(
+          database.database,
+          { recordingId: started.recording.id, meetingId, failureErrorId: "error_nothingCaptured" },
+          { clock },
+        ),
+      ],
+      outboxMessages: [],
+    });
+    expect(await readRecordingById(database.database, started.recording.id)).toMatchObject({
+      state: "failed",
+      failure_error_id: "error_nothingCaptured",
+    });
+    expect(
+      database.raw
+        .prepare(
+          `SELECT COUNT(*) AS count FROM audit_log WHERE event = 'meetings.recording.failed'`,
+        )
+        .get(),
+    ).toEqual({ count: 1 });
+  });
+});
+
+describe("a cancelled event's meeting", () => {
+  it("stops a recording running in a room nobody walked into, in the cancel's own batch", async () => {
+    const database = fresh();
+    // Created and never joined: the meeting is still scheduled, which is the only meeting a
+    // cancellation closes — and a recording may already be running in it.
+    const { meetingId, effect } = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT },
+      options,
+    );
+    await commit(database.database, effect);
+    const started = await record(database, meetingId, []);
+
+    const closing = await endScheduledMeetingForCancelledEvent(
+      database.database,
+      meetingId,
+      options,
+    );
+    expect(closing.stoppedRecordingId).toBe(started.recording.id);
+    await commit(database.database, closing.effect);
+
+    expect(await readRunningRecording(database.database, meetingId)).toBeUndefined();
+    expect(await readRecordingById(database.database, started.recording.id)).toMatchObject({
+      state: "composing",
+      stop_reason: "meeting-ended",
+      stopped_by_user_id: HOST,
+    });
+  });
+
+  it("names no recording when none is running", async () => {
+    const database = fresh();
+    const { meetingId, effect } = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT },
+      options,
+    );
+    await commit(database.database, effect);
+    const closing = await endScheduledMeetingForCancelledEvent(
+      database.database,
+      meetingId,
+      options,
+    );
+    expect(closing.stoppedRecordingId).toBeNull();
   });
 });
