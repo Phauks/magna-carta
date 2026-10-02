@@ -3348,8 +3348,9 @@ export type PatchCalendarSettingsRequest = {
     weekStartsOn?: CalendarWeekStartsOn;
 };
 
-export type CalendarCreatedResponse = {
+export type CalendarEventRecordedResponse = {
     id: string;
+    meetingId: string | null;
 };
 
 export type CreateMatterEventRequest = {
@@ -3367,6 +3368,7 @@ export type CreateMatterEventRequest = {
     courtReference?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
 };
 
 export type MatterEventParticipantInput = {
@@ -3377,8 +3379,14 @@ export type MatterEventParticipantInput = {
     role?: string | null;
 };
 
-export type CalendarAckResponse = {
+export type CalendarEventMeetingInput = {
+    medium: 'video' | 'audio';
+    lobby?: 'off' | 'on';
+} | null;
+
+export type CalendarEventUpdatedResponse = {
     ok: true;
+    meetingId: string | null;
 };
 
 export type UpdateMatterEventRequest = {
@@ -3396,10 +3404,19 @@ export type UpdateMatterEventRequest = {
     courtReference?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
+};
+
+export type CalendarAckResponse = {
+    ok: true;
 };
 
 export type CancelEventRequest = {
     statusReason?: string | null;
+};
+
+export type CalendarCreatedResponse = {
+    id: string;
 };
 
 export type CreateMatterDeadlineRequest = {
@@ -3492,6 +3509,7 @@ export type CreateFirmEventRequest = {
     conferenceUrl?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
 };
 
 export type UpdateFirmEventRequest = {
@@ -3510,6 +3528,7 @@ export type UpdateFirmEventRequest = {
     conferenceUrl?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
 };
 
 export type FirmResourceList = {
@@ -3830,6 +3849,7 @@ export type StartMeetingRequest = {
     eventKind: 'matter' | 'firm';
     eventId: string;
     medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
 };
 
 export type MeetingSummaryPage = {
@@ -3852,12 +3872,15 @@ export type MeetingSummary = {
     endedAt: string | null;
     medium: 'video' | 'audio';
     liveCount: number;
+    locked: boolean;
+    lobby: 'off' | 'on';
     configured: boolean;
 };
 
 export type JoinedMeeting = {
     participantId: string;
     displayName: string;
+    waiting: boolean;
     iceServers: Array<MeetingIceServer>;
 };
 
@@ -3878,9 +3901,300 @@ export type MeetingAttendancePage = {
 
 export type MeetingAttendanceEntry = {
     id: string;
-    userId: string;
+    participantKind: 'member' | 'guest';
+    userId: string | null;
+    displayName: string;
+    entityId: string | null;
+    invitedName: string | null;
     joinedAt: string;
     leftAt: string | null;
+    waitingFrom: string | null;
+    admittedAt: string | null;
+    endedReason: 'left' | 'socket-lost' | 'removed' | 'denied' | null;
+};
+
+export type MeetingMessage = {
+    id: string;
+    meetingId: string;
+    participantKind: 'member' | 'guest';
+    participantId: string;
+    userId: string | null;
+    sentAt: string;
+    body: string;
+    redactedAt: string | null;
+    redactedByUserId: string | null;
+};
+
+export type SendMeetingMessageRequest = {
+    body: string;
+};
+
+export type MeetingMessagePage = {
+    data: Array<MeetingMessage>;
+    nextCursor: string | null;
+    redacted: Array<RedactedMeetingMessage>;
+};
+
+export type RedactedMeetingMessage = {
+    id: string;
+    redactedAt: string;
+};
+
+export type MeetingPoll = {
+    id: string;
+    meetingId: string;
+    askedByUserId: string;
+    question: string;
+    anonymous: boolean;
+    maxChoices: number;
+    openedAt: string;
+    closedAt: string | null;
+    closedByUserId: string | null;
+    options: Array<MeetingPollOption>;
+    respondents: number;
+    answeredByCaller: boolean;
+};
+
+export type MeetingPollOption = {
+    optionId: string;
+    position: number;
+    label: string;
+    count: number;
+};
+
+export type OpenMeetingPollRequest = {
+    question: string;
+    options: Array<string>;
+    anonymous: boolean;
+    maxChoices?: number;
+};
+
+export type MeetingPollPage = {
+    data: Array<MeetingPoll>;
+    nextCursor: string | null;
+};
+
+export type AnswerMeetingPollRequest = {
+    optionIds: Array<string>;
+};
+
+export type MeetingPollAnswerPage = {
+    data: Array<MeetingPollAnswer>;
+    nextCursor: string | null;
+};
+
+export type MeetingPollAnswer = {
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    optionIds: Array<string>;
+    answeredAt: string;
+};
+
+export type MeetingQuestion = {
+    id: string;
+    meetingId: string;
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    body: string;
+    askedAt: string;
+    answeredAt: string | null;
+    answeredByUserId: string | null;
+    redactedAt: string | null;
+    redactedByUserId: string | null;
+    upvotes: number;
+    upvotedByCaller: boolean;
+};
+
+export type AskMeetingQuestionRequest = {
+    body: string;
+};
+
+export type MeetingQuestionPage = {
+    data: Array<MeetingQuestion>;
+    nextCursor: string | null;
+};
+
+export type SetMeetingQuestionAnsweredRequest = {
+    answered: boolean;
+};
+
+export type MeetingHostGrants = {
+    data: Array<MeetingHostGrant>;
+};
+
+export type MeetingHostGrant = {
+    userId: string;
+    role: 'host' | 'co-host';
+    grantedAt: string;
+};
+
+export type GrantMeetingHostingRequest = {
+    userId: string;
+    role: 'host' | 'co-host';
+};
+
+export type MeetingHostingAcknowledged = {
+    ok: true;
+};
+
+export type SetMeetingLockedRequest = {
+    locked: boolean;
+};
+
+export type MeetingLobbyAcknowledged = {
+    ok: true;
+};
+
+export type SetMeetingLobbyRequest = {
+    lobby: 'off' | 'on';
+};
+
+export type MeetingLobby = {
+    data: Array<MeetingLobbyEntry>;
+};
+
+export type MeetingLobbyEntry = {
+    participantId: string;
+    kind: 'member' | 'guest';
+    userId: string | null;
+    displayName: string;
+    invitedName: string | null;
+    waitingFrom: string;
+};
+
+export type MeetingLobbyDecisions = {
+    data: Array<{
+        participantId: string;
+        outcome: 'admitted' | 'not-waiting' | 'room-full' | 'denied';
+    }>;
+};
+
+export type MeetingLobbyDecisionRequest = {
+    participantIds: Array<string>;
+};
+
+export type MeetingGuestInvitation = {
+    id: string;
+    entityKind: 'person' | 'organization';
+    entityId: string;
+    invitedName: string;
+    expiresAt: string;
+    revokedAt: string | null;
+    arrivalCount: number;
+    lastArrivalAt: string | null;
+};
+
+export type InviteMeetingGuestRequest = {
+    entityId: string;
+    directoryEmailId?: string;
+};
+
+export type MeetingGuestInvitationPage = {
+    data: Array<MeetingGuestInvitation>;
+    nextCursor: string | null;
+};
+
+export type GuestMeetingSummary = {
+    firmName: string;
+    title: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    medium: 'video' | 'audio';
+    status: 'scheduled' | 'live' | 'ended';
+    invitedName: string;
+};
+
+export type GuestArrival = {
+    waiting: boolean;
+    participantId: string;
+    displayName: string;
+    iceServers: Array<MeetingIceServer>;
+    medium: 'video' | 'audio';
+    guestGrant: string;
+};
+
+export type GuestArrivalRequest = {
+    confirmedName: string;
+};
+
+export type GuestAcknowledged = {
+    ok: true;
+};
+
+export type SendGuestMeetingMessageRequest = {
+    body: string;
+};
+
+export type MeetingRoomInspection = {
+    firmId: string | null;
+    meetingId: string | null;
+    medium: string | null;
+    locked: boolean;
+    lobby: string;
+    spotlight: {
+        participantId: string;
+        by: string;
+        at: string;
+    } | null;
+    endedAt: string | null;
+    roster: Array<MeetingRoomInspectedParticipant>;
+    waiting: Array<MeetingRoomInspectedWaiting>;
+    sockets: {
+        count: number;
+        attendanceIds: Array<string>;
+        unreadable: number;
+        welcomed: number;
+    };
+    alarm: {
+        at: string | null;
+        pendingJobs: Array<'participant-grace' | 'door-grace' | 'presence-flush' | 'reaction-flush' | 'ended-marker-retirement'>;
+    };
+    storage: {
+        keyCount: number;
+        approximateBytes: number;
+    };
+    sfuSessionIds: Array<string>;
+};
+
+export type MeetingRoomInspectedParticipant = {
+    participantId: string;
+    userId: string;
+    hostRole: 'host' | 'co-host' | null;
+    speaking: boolean;
+    muted: boolean;
+    presenceDirty: boolean;
+    handRaisedAt: string | null;
+    connected: boolean;
+    socketLostAt: string | null;
+    sfuSessionId: string | null;
+    trackCount: number;
+    subscribedMidCount: number;
+    reportAt: string | null;
+    lastSample: MeetingRoomClientSample;
+};
+
+export type MeetingRoomClientSample = {
+    at: string;
+    quality: string | null;
+    roundTripMilliseconds: number | null;
+    lossFraction: number | null;
+    jitterMilliseconds: number | null;
+    outboundRid: string | null;
+    outboundWidth: number | null;
+    outboundHeight: number | null;
+    outboundBitsPerSecond: number | null;
+    inboundCount: number | null;
+} | null;
+
+export type MeetingRoomInspectedWaiting = {
+    participantId: string;
+    userId: string;
+    waitingFrom: string;
+    socketLostAt: string | null;
 };
 
 export type MatterSearchAnswer = {
@@ -19181,9 +19495,9 @@ export type CalendarCreateEventError = CalendarCreateEventErrors[keyof CalendarC
 
 export type CalendarCreateEventResponses = {
     /**
-     * The recorded event
+     * The recorded event, with its meeting where one was asked for
      */
-    201: CalendarCreatedResponse;
+    201: CalendarEventRecordedResponse;
 };
 
 export type CalendarCreateEventResponse = CalendarCreateEventResponses[keyof CalendarCreateEventResponses];
@@ -19274,9 +19588,9 @@ export type CalendarUpdateEventError = CalendarUpdateEventErrors[keyof CalendarU
 
 export type CalendarUpdateEventResponses = {
     /**
-     * The event was updated
+     * The event was updated, with its meeting where it has one
      */
-    200: CalendarAckResponse;
+    200: CalendarEventUpdatedResponse;
 };
 
 export type CalendarUpdateEventResponse = CalendarUpdateEventResponses[keyof CalendarUpdateEventResponses];
@@ -20082,9 +20396,9 @@ export type CalendarCreateFirmEventError = CalendarCreateFirmEventErrors[keyof C
 
 export type CalendarCreateFirmEventResponses = {
     /**
-     * The recorded firm event
+     * The recorded firm event, with its meeting where one was asked for
      */
-    201: CalendarCreatedResponse;
+    201: CalendarEventRecordedResponse;
 };
 
 export type CalendarCreateFirmEventResponse = CalendarCreateFirmEventResponses[keyof CalendarCreateFirmEventResponses];
@@ -20175,9 +20489,9 @@ export type CalendarUpdateFirmEventError = CalendarUpdateFirmEventErrors[keyof C
 
 export type CalendarUpdateFirmEventResponses = {
     /**
-     * The firm event was updated
+     * The firm event was updated, with its meeting where it has one
      */
-    200: CalendarAckResponse;
+    200: CalendarEventUpdatedResponse;
 };
 
 export type CalendarUpdateFirmEventResponse = CalendarUpdateFirmEventResponses[keyof CalendarUpdateFirmEventResponses];
@@ -22299,6 +22613,1819 @@ export type MeetingsSocketErrors = {
 };
 
 export type MeetingsSocketError = MeetingsSocketErrors[keyof MeetingsSocketErrors];
+
+export type MeetingsListMessagesData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+        since?: string;
+        sinceId?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/messages';
+};
+
+export type MeetingsListMessagesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting — or no message in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListMessagesError = MeetingsListMessagesErrors[keyof MeetingsListMessagesErrors];
+
+export type MeetingsListMessagesResponses = {
+    /**
+     * One page of this meeting's chat
+     */
+    200: MeetingMessagePage;
+};
+
+export type MeetingsListMessagesResponse = MeetingsListMessagesResponses[keyof MeetingsListMessagesResponses];
+
+export type MeetingsSendMessageData = {
+    body: SendMeetingMessageRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/messages';
+};
+
+export type MeetingsSendMessageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting — or no message in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The message is empty, or longer than a message may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsSendMessageError = MeetingsSendMessageErrors[keyof MeetingsSendMessageErrors];
+
+export type MeetingsSendMessageResponses = {
+    /**
+     * The message is on the record
+     */
+    201: MeetingMessage;
+};
+
+export type MeetingsSendMessageResponse = MeetingsSendMessageResponses[keyof MeetingsSendMessageResponses];
+
+export type MeetingsRedactMessageData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        messageId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/messages/{messageId}/redact';
+};
+
+export type MeetingsRedactMessageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting — or no message in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The message is empty, or longer than a message may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRedactMessageError = MeetingsRedactMessageErrors[keyof MeetingsRedactMessageErrors];
+
+export type MeetingsRedactMessageResponses = {
+    /**
+     * The message has been taken back
+     */
+    200: MeetingMessage;
+};
+
+export type MeetingsRedactMessageResponse = MeetingsRedactMessageResponses[keyof MeetingsRedactMessageResponses];
+
+export type MeetingsListPollsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/polls';
+};
+
+export type MeetingsListPollsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting — or no poll in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListPollsError = MeetingsListPollsErrors[keyof MeetingsListPollsErrors];
+
+export type MeetingsListPollsResponses = {
+    /**
+     * One page of this meeting's polls
+     */
+    200: MeetingPollPage;
+};
+
+export type MeetingsListPollsResponse = MeetingsListPollsResponses[keyof MeetingsListPollsResponses];
+
+export type MeetingsOpenPollData = {
+    body: OpenMeetingPollRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/polls';
+};
+
+export type MeetingsOpenPollErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting — or no poll in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the poll has closed or was already answered, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The poll, or the choices, are not ones this poll accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsOpenPollError = MeetingsOpenPollErrors[keyof MeetingsOpenPollErrors];
+
+export type MeetingsOpenPollResponses = {
+    /**
+     * The poll is open and on the record
+     */
+    201: MeetingPoll;
+};
+
+export type MeetingsOpenPollResponse = MeetingsOpenPollResponses[keyof MeetingsOpenPollResponses];
+
+export type MeetingsReadPollData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        pollId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/polls/{pollId}';
+};
+
+export type MeetingsReadPollErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting — or no poll in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsReadPollError = MeetingsReadPollErrors[keyof MeetingsReadPollErrors];
+
+export type MeetingsReadPollResponses = {
+    /**
+     * The poll
+     */
+    200: MeetingPoll;
+};
+
+export type MeetingsReadPollResponse = MeetingsReadPollResponses[keyof MeetingsReadPollResponses];
+
+export type MeetingsClosePollData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        pollId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/polls/{pollId}/close';
+};
+
+export type MeetingsClosePollErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting — or no poll in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the poll has closed or was already answered, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The poll, or the choices, are not ones this poll accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsClosePollError = MeetingsClosePollErrors[keyof MeetingsClosePollErrors];
+
+export type MeetingsClosePollResponses = {
+    /**
+     * The poll is closed
+     */
+    200: MeetingPoll;
+};
+
+export type MeetingsClosePollResponse = MeetingsClosePollResponses[keyof MeetingsClosePollResponses];
+
+export type MeetingsListPollAnswersData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        pollId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/polls/{pollId}/answers';
+};
+
+export type MeetingsListPollAnswersErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting — or no poll in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The poll does not show names with its answers
+     */
+    409: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListPollAnswersError = MeetingsListPollAnswersErrors[keyof MeetingsListPollAnswersErrors];
+
+export type MeetingsListPollAnswersResponses = {
+    /**
+     * One page of who answered what
+     */
+    200: MeetingPollAnswerPage;
+};
+
+export type MeetingsListPollAnswersResponse = MeetingsListPollAnswersResponses[keyof MeetingsListPollAnswersResponses];
+
+export type MeetingsAnswerPollData = {
+    body: AnswerMeetingPollRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        pollId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/polls/{pollId}/answers';
+};
+
+export type MeetingsAnswerPollErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting — or no poll in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the poll has closed or was already answered, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The poll, or the choices, are not ones this poll accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsAnswerPollError = MeetingsAnswerPollErrors[keyof MeetingsAnswerPollErrors];
+
+export type MeetingsAnswerPollResponses = {
+    /**
+     * The answer is on the record; the poll as the caller now sees it
+     */
+    200: MeetingPoll;
+};
+
+export type MeetingsAnswerPollResponse = MeetingsAnswerPollResponses[keyof MeetingsAnswerPollResponses];
+
+export type MeetingsListQuestionsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+        since?: string;
+        sinceId?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/questions';
+};
+
+export type MeetingsListQuestionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, is not hosting this meeting, or may not take this question back
+     */
+    403: Problem;
+    /**
+     * No meeting — or no question in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListQuestionsError = MeetingsListQuestionsErrors[keyof MeetingsListQuestionsErrors];
+
+export type MeetingsListQuestionsResponses = {
+    /**
+     * One page of this meeting's questions
+     */
+    200: MeetingQuestionPage;
+};
+
+export type MeetingsListQuestionsResponse = MeetingsListQuestionsResponses[keyof MeetingsListQuestionsResponses];
+
+export type MeetingsAskQuestionData = {
+    body: AskMeetingQuestionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/questions';
+};
+
+export type MeetingsAskQuestionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, is not hosting this meeting, or may not take this question back
+     */
+    403: Problem;
+    /**
+     * No meeting — or no question in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The question is empty, or longer than a question may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsAskQuestionError = MeetingsAskQuestionErrors[keyof MeetingsAskQuestionErrors];
+
+export type MeetingsAskQuestionResponses = {
+    /**
+     * The question is on the record
+     */
+    201: MeetingQuestion;
+};
+
+export type MeetingsAskQuestionResponse = MeetingsAskQuestionResponses[keyof MeetingsAskQuestionResponses];
+
+export type MeetingsUpvoteQuestionData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        questionId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes';
+};
+
+export type MeetingsUpvoteQuestionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, is not hosting this meeting, or may not take this question back
+     */
+    403: Problem;
+    /**
+     * No meeting — or no question in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The question is empty, or longer than a question may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsUpvoteQuestionError = MeetingsUpvoteQuestionErrors[keyof MeetingsUpvoteQuestionErrors];
+
+export type MeetingsUpvoteQuestionResponses = {
+    /**
+     * The question as the caller now sees it
+     */
+    200: MeetingQuestion;
+};
+
+export type MeetingsUpvoteQuestionResponse = MeetingsUpvoteQuestionResponses[keyof MeetingsUpvoteQuestionResponses];
+
+export type MeetingsWithdrawQuestionUpvoteData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        questionId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes/withdrawal';
+};
+
+export type MeetingsWithdrawQuestionUpvoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, is not hosting this meeting, or may not take this question back
+     */
+    403: Problem;
+    /**
+     * No meeting — or no question in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The question is empty, or longer than a question may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsWithdrawQuestionUpvoteError = MeetingsWithdrawQuestionUpvoteErrors[keyof MeetingsWithdrawQuestionUpvoteErrors];
+
+export type MeetingsWithdrawQuestionUpvoteResponses = {
+    /**
+     * The question as the caller now sees it
+     */
+    200: MeetingQuestion;
+};
+
+export type MeetingsWithdrawQuestionUpvoteResponse = MeetingsWithdrawQuestionUpvoteResponses[keyof MeetingsWithdrawQuestionUpvoteResponses];
+
+export type MeetingsSetQuestionAnsweredData = {
+    body: SetMeetingQuestionAnsweredRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        questionId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/questions/{questionId}/answered';
+};
+
+export type MeetingsSetQuestionAnsweredErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, is not hosting this meeting, or may not take this question back
+     */
+    403: Problem;
+    /**
+     * No meeting — or no question in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The question is empty, or longer than a question may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsSetQuestionAnsweredError = MeetingsSetQuestionAnsweredErrors[keyof MeetingsSetQuestionAnsweredErrors];
+
+export type MeetingsSetQuestionAnsweredResponses = {
+    /**
+     * The question as the record now holds it
+     */
+    200: MeetingQuestion;
+};
+
+export type MeetingsSetQuestionAnsweredResponse = MeetingsSetQuestionAnsweredResponses[keyof MeetingsSetQuestionAnsweredResponses];
+
+export type MeetingsRedactQuestionData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        questionId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/questions/{questionId}/redact';
+};
+
+export type MeetingsRedactQuestionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, is not hosting this meeting, or may not take this question back
+     */
+    403: Problem;
+    /**
+     * No meeting — or no question in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The question is empty, or longer than a question may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRedactQuestionError = MeetingsRedactQuestionErrors[keyof MeetingsRedactQuestionErrors];
+
+export type MeetingsRedactQuestionResponses = {
+    /**
+     * The question has been taken back
+     */
+    200: MeetingQuestion;
+};
+
+export type MeetingsRedactQuestionResponse = MeetingsRedactQuestionResponses[keyof MeetingsRedactQuestionResponses];
+
+export type MeetingsHostsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/hosts';
+};
+
+export type MeetingsHostsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsHostsError = MeetingsHostsErrors[keyof MeetingsHostsErrors];
+
+export type MeetingsHostsResponses = {
+    /**
+     * The live grants
+     */
+    200: MeetingHostGrants;
+};
+
+export type MeetingsHostsResponse = MeetingsHostsResponses[keyof MeetingsHostsResponses];
+
+export type MeetingsGrantHostingData = {
+    body: GrantMeetingHostingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/hosts';
+};
+
+export type MeetingsGrantHostingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGrantHostingError = MeetingsGrantHostingErrors[keyof MeetingsGrantHostingErrors];
+
+export type MeetingsGrantHostingResponses = {
+    /**
+     * The grants now standing
+     */
+    200: MeetingHostGrants;
+};
+
+export type MeetingsGrantHostingResponse = MeetingsGrantHostingResponses[keyof MeetingsGrantHostingResponses];
+
+export type MeetingsRevokeHostingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/hosts/{userId}/revoke';
+};
+
+export type MeetingsRevokeHostingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRevokeHostingError = MeetingsRevokeHostingErrors[keyof MeetingsRevokeHostingErrors];
+
+export type MeetingsRevokeHostingResponses = {
+    /**
+     * The grants now standing
+     */
+    200: MeetingHostGrants;
+};
+
+export type MeetingsRevokeHostingResponse = MeetingsRevokeHostingResponses[keyof MeetingsRevokeHostingResponses];
+
+export type MeetingsRemoveParticipantData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        participantId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/participants/{participantId}/remove';
+};
+
+export type MeetingsRemoveParticipantErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRemoveParticipantError = MeetingsRemoveParticipantErrors[keyof MeetingsRemoveParticipantErrors];
+
+export type MeetingsRemoveParticipantResponses = {
+    /**
+     * The member is out of the meeting
+     */
+    200: MeetingHostingAcknowledged;
+};
+
+export type MeetingsRemoveParticipantResponse = MeetingsRemoveParticipantResponses[keyof MeetingsRemoveParticipantResponses];
+
+export type MeetingsSetLockedData = {
+    body: SetMeetingLockedRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lock';
+};
+
+export type MeetingsSetLockedErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsSetLockedError = MeetingsSetLockedErrors[keyof MeetingsSetLockedErrors];
+
+export type MeetingsSetLockedResponses = {
+    /**
+     * The door is where the caller asked for it
+     */
+    200: MeetingHostingAcknowledged;
+};
+
+export type MeetingsSetLockedResponse = MeetingsSetLockedResponses[keyof MeetingsSetLockedResponses];
+
+export type MeetingsLobbyData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby';
+};
+
+export type MeetingsLobbyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsLobbyError = MeetingsLobbyErrors[keyof MeetingsLobbyErrors];
+
+export type MeetingsLobbyResponses = {
+    /**
+     * Who is at the door
+     */
+    200: MeetingLobby;
+};
+
+export type MeetingsLobbyResponse = MeetingsLobbyResponses[keyof MeetingsLobbyResponses];
+
+export type MeetingsSetLobbyData = {
+    body: SetMeetingLobbyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby';
+};
+
+export type MeetingsSetLobbyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsSetLobbyError = MeetingsSetLobbyErrors[keyof MeetingsSetLobbyErrors];
+
+export type MeetingsSetLobbyResponses = {
+    /**
+     * The door is where the caller asked for it
+     */
+    200: MeetingLobbyAcknowledged;
+};
+
+export type MeetingsSetLobbyResponse = MeetingsSetLobbyResponses[keyof MeetingsSetLobbyResponses];
+
+export type MeetingsAdmitToLobbyData = {
+    body: MeetingLobbyDecisionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby/admissions';
+};
+
+export type MeetingsAdmitToLobbyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsAdmitToLobbyError = MeetingsAdmitToLobbyErrors[keyof MeetingsAdmitToLobbyErrors];
+
+export type MeetingsAdmitToLobbyResponses = {
+    /**
+     * What became of each named arrival
+     */
+    200: MeetingLobbyDecisions;
+};
+
+export type MeetingsAdmitToLobbyResponse = MeetingsAdmitToLobbyResponses[keyof MeetingsAdmitToLobbyResponses];
+
+export type MeetingsDenyFromLobbyData = {
+    body: MeetingLobbyDecisionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby/denials';
+};
+
+export type MeetingsDenyFromLobbyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsDenyFromLobbyError = MeetingsDenyFromLobbyErrors[keyof MeetingsDenyFromLobbyErrors];
+
+export type MeetingsDenyFromLobbyResponses = {
+    /**
+     * What became of each named arrival
+     */
+    200: MeetingLobbyDecisions;
+};
+
+export type MeetingsDenyFromLobbyResponse = MeetingsDenyFromLobbyResponses[keyof MeetingsDenyFromLobbyResponses];
+
+export type MeetingsListGuestsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/guests';
+};
+
+export type MeetingsListGuestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting, or no invitation on it, this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListGuestsError = MeetingsListGuestsErrors[keyof MeetingsListGuestsErrors];
+
+export type MeetingsListGuestsResponses = {
+    /**
+     * One page of this meeting's invitations
+     */
+    200: MeetingGuestInvitationPage;
+};
+
+export type MeetingsListGuestsResponse = MeetingsListGuestsResponses[keyof MeetingsListGuestsResponses];
+
+export type MeetingsInviteGuestData = {
+    body: InviteMeetingGuestRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/guests';
+};
+
+export type MeetingsInviteGuestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting, or no invitation on it, this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The link was withdrawn; invite the entity again to send a new one
+     */
+    410: Problem;
+    /**
+     * The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link
+     */
+    503: Problem;
+};
+
+export type MeetingsInviteGuestError = MeetingsInviteGuestErrors[keyof MeetingsInviteGuestErrors];
+
+export type MeetingsInviteGuestResponses = {
+    /**
+     * An existing invitation was sent again with a fresh link
+     */
+    200: MeetingGuestInvitation;
+    /**
+     * The invitation was created and sent
+     */
+    201: MeetingGuestInvitation;
+};
+
+export type MeetingsInviteGuestResponse = MeetingsInviteGuestResponses[keyof MeetingsInviteGuestResponses];
+
+export type MeetingsRotateGuestLinkData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/guests/{invitationId}/rotation';
+};
+
+export type MeetingsRotateGuestLinkErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting, or no invitation on it, this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The link was withdrawn; invite the entity again to send a new one
+     */
+    410: Problem;
+    /**
+     * The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link
+     */
+    503: Problem;
+};
+
+export type MeetingsRotateGuestLinkError = MeetingsRotateGuestLinkErrors[keyof MeetingsRotateGuestLinkErrors];
+
+export type MeetingsRotateGuestLinkResponses = {
+    /**
+     * The fresh link was sent
+     */
+    200: MeetingGuestInvitation;
+};
+
+export type MeetingsRotateGuestLinkResponse = MeetingsRotateGuestLinkResponses[keyof MeetingsRotateGuestLinkResponses];
+
+export type MeetingsRevokeGuestLinkData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        invitationId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/guests/{invitationId}';
+};
+
+export type MeetingsRevokeGuestLinkErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting, or no invitation on it, this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The link was withdrawn; invite the entity again to send a new one
+     */
+    410: Problem;
+    /**
+     * The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link
+     */
+    503: Problem;
+};
+
+export type MeetingsRevokeGuestLinkError = MeetingsRevokeGuestLinkErrors[keyof MeetingsRevokeGuestLinkErrors];
+
+export type MeetingsRevokeGuestLinkResponses = {
+    /**
+     * The link no longer works
+     */
+    200: MeetingGuestInvitation;
+};
+
+export type MeetingsRevokeGuestLinkResponse = MeetingsRevokeGuestLinkResponses[keyof MeetingsRevokeGuestLinkResponses];
+
+export type GuestMeetingSummaryData = {
+    body?: never;
+    headers?: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/meeting';
+};
+
+export type GuestMeetingSummaryErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The request is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type GuestMeetingSummaryError = GuestMeetingSummaryErrors[keyof GuestMeetingSummaryErrors];
+
+export type GuestMeetingSummaryResponses = {
+    /**
+     * The meeting, as the link's holder may know it
+     */
+    200: GuestMeetingSummary;
+};
+
+export type GuestMeetingSummaryResponse = GuestMeetingSummaryResponses[keyof GuestMeetingSummaryResponses];
+
+export type GuestArriveData = {
+    body: GuestArrivalRequest;
+    headers?: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/arrivals';
+};
+
+export type GuestArriveErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The name given at the door is empty or too long
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type GuestArriveError = GuestArriveErrors[keyof GuestArriveErrors];
+
+export type GuestArriveResponses = {
+    /**
+     * The guest's open stay, with a fresh grant
+     */
+    200: GuestArrival;
+    /**
+     * The guest is at the door
+     */
+    201: GuestArrival;
+};
+
+export type GuestArriveResponse = GuestArriveResponses[keyof GuestArriveResponses];
+
+export type GuestMeetingSocketData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * The grant, from a browser built before the subprotocol form. Prefer the subprotocol: an address can be recorded by request logging a header is not.
+         */
+        guest?: string;
+    };
+    url: '/api/v1/guest/meeting/socket';
+};
+
+export type GuestMeetingSocketErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The request is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type GuestMeetingSocketError = GuestMeetingSocketErrors[keyof GuestMeetingSocketErrors];
+
+export type GuestDepartData = {
+    body?: never;
+    headers?: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/departures';
+};
+
+export type GuestDepartErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The request is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type GuestDepartError = GuestDepartErrors[keyof GuestDepartErrors];
+
+export type GuestDepartResponses = {
+    /**
+     * The guest has left
+     */
+    200: GuestAcknowledged;
+};
+
+export type GuestDepartResponse = GuestDepartResponses[keyof GuestDepartResponses];
+
+export type GuestListMessagesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: {
+        cursor?: string;
+        since?: string;
+        sinceId?: string;
+    };
+    url: '/api/v1/guest/meeting/messages';
+};
+
+export type GuestListMessagesErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The request is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type GuestListMessagesError = GuestListMessagesErrors[keyof GuestListMessagesErrors];
+
+export type GuestListMessagesResponses = {
+    /**
+     * One page of this meeting's chat
+     */
+    200: MeetingMessagePage;
+};
+
+export type GuestListMessagesResponse = GuestListMessagesResponses[keyof GuestListMessagesResponses];
+
+export type GuestSendMessageData = {
+    body: SendGuestMeetingMessageRequest;
+    headers: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/meeting/messages';
+};
+
+export type GuestSendMessageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The message is empty, or longer than a message may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type GuestSendMessageError = GuestSendMessageErrors[keyof GuestSendMessageErrors];
+
+export type GuestSendMessageResponses = {
+    /**
+     * The message is on the record
+     */
+    201: MeetingMessage;
+};
+
+export type GuestSendMessageResponse = GuestSendMessageResponses[keyof GuestSendMessageResponses];
+
+export type MeetingsInspectData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query: {
+        firmId: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/inspect';
+};
+
+export type MeetingsInspectErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * The meeting or firm handle is not a well-formed identifier
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsInspectError = MeetingsInspectErrors[keyof MeetingsInspectErrors];
+
+export type MeetingsInspectResponses = {
+    /**
+     * What the room is holding
+     */
+    200: MeetingRoomInspection;
+};
+
+export type MeetingsInspectResponse = MeetingsInspectResponses[keyof MeetingsInspectResponses];
 
 export type MatterSearchSearchData = {
     body?: never;

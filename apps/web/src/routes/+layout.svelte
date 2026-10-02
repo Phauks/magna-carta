@@ -16,6 +16,13 @@
   // rather than leaving a blank page (the same crash above was the console-only kind). Inside the
   // Provider, so the failure screen's own controls have every context the rest of the app has.
   import RenderBoundary from '$lib/diagnostics/render-boundary.svelte'
+  // A guest's page gets its own boundary instead. Its address is the link it was opened from, token
+  // and all, and the application's failure screen prints the address and offers a way into the
+  // application — neither of which somebody outside the firm may be handed.
+  import GuestRenderBoundary, {
+    isGuestPageAddress,
+  } from '$lib/meetings/guest-render-boundary.svelte'
+  import { page } from '$app/state'
   // The one query cache: every screen's reads resolve against it, which is what lets a read started
   // in a route's load (on hover, before the click) be the same read the component then renders from.
   // It sits at the root rather than inside the (app) group because the sign-in and joining screens
@@ -28,9 +35,15 @@
 
 <QueryClientProvider client={queryClient}>
   <Tooltip.Provider>
-    <RenderBoundary>
-      {@render children()}
-    </RenderBoundary>
+    {#if isGuestPageAddress(page.url.pathname)}
+      <GuestRenderBoundary>
+        {@render children()}
+      </GuestRenderBoundary>
+    {:else}
+      <RenderBoundary>
+        {@render children()}
+      </RenderBoundary>
+    {/if}
     <Toaster />
   </Tooltip.Provider>
 </QueryClientProvider>

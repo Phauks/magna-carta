@@ -591,6 +591,53 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
   "invitations.redeem",
 ]);
 
+/**
+ * THE THIRD POPULATION ON THE PUBLIC SURFACE: a PLATFORM OPERATOR's read.
+ *
+ * It is neither of the other two and must not be filed under either. The platform-admin set is a
+ * header secret with no session at all; the joining set is no session and no authentication. This
+ * one is a signed-in human — with a platform-operator grant and a second factor — reading something
+ * no firm permission could ever authorize, because every permission in the registry is firm-scoped
+ * and an operator belongs to no firm. So it rides `surface: "public"` to skip the session-firm and
+ * RBAC gates, names NO permission for the same reason the firmless doors name none, and is guarded
+ * by `platformOperatorGuard` instead.
+ *
+ * Enumerated rather than allowed by shape, on the same terms as the two sets above: a future route
+ * that named no permission and rode the public surface would otherwise hide behind this one.
+ */
+const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set(["meetings.inspect"]);
+
+/**
+ * THE FOURTH POPULATION, AND THE ONE ON THE APP SURFACE: a MEETING GUEST's lane.
+ *
+ * Somebody from outside the firm holding a signed, expiring link minted for one Directory entity on
+ * one meeting. They hold no session and never will, so these routes are `authenticated: false` with
+ * no permission — and they are NOT anonymous in the sense the joining set is: every one is admitted
+ * by the chokepoint's guest lane (`x-mc-guestLane`), which verifies the credential's signature before
+ * anything is read, reads the invitation row it names on every request, and stashes no user id. They
+ * are on the app surface because the guest page is served from the firm's own origin.
+ *
+ * Enumerated rather than allowed by shape, like the three above: a route that dropped its session
+ * would otherwise hide behind this one.
+ */
+const GUEST_LANE_OPERATIONS: ReadonlySet<string> = new Set([
+  "guest.meetingSummary",
+  "guest.arrive",
+  "guest.meetingSocket",
+  "guest.depart",
+  "guest.listMessages",
+  "guest.sendMessage",
+]);
+
+/** The shape every guest-lane operation must have, asserted wherever the sweeps meet one. */
+function expectGuestLaneShape(operation: OpenApiOperation, label: string): void {
+  expect(operation["x-mc-authenticated"], label).toBe(false);
+  expect(operation["x-mc-permission"], label).toBeNull();
+  expect(operation["x-mc-surface"], label).toBe("app");
+  expect(operation["x-mc-resource"], label).toBe("firm");
+  expect(["invitation", "grant"], label).toContain(operation["x-mc-guestLane"]);
+}
+
 interface EmittedOperation {
   readonly path: string;
   readonly method: string;
@@ -668,6 +715,11 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         expect(operation["x-mc-rateLimit"], label).toBe("auth");
         continue;
       }
+      // A meeting guest's write: admitted by the guest lane's verified credential, never a session.
+      if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
+        expectGuestLaneShape(operation, label);
+        continue;
+      }
       expect(operation["x-mc-authenticated"], label).toBe(true);
       // The third shape, and the newest: authenticated, but held by an account that belongs to no
       // firm yet. Every permission in the registry is firm-scoped, so there is no true one to name
@@ -707,7 +759,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
     const platformAdminSurface = publicSurface.filter(
-      (entry) => !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
+      (entry) =>
+        !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string) &&
+        !PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string),
     );
     expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual([
       "firms.provision",
@@ -735,6 +789,27 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         .map((entry) => entry.operation["operationId"])
         .toSorted(),
     ).toEqual([...ANONYMOUS_JOINING_OPERATIONS].toSorted());
+
+    // AND THE OPERATOR SET, asserted in its own shape rather than folded into either of the others.
+    // Authenticated like the platform-admin set and permissionless like the joining one, which is
+    // exactly why conflating it with either would let a future route inherit the wrong pin: filed
+    // under platform-admin it would be asserted to name a permission it cannot have, and filed
+    // under joining it would be asserted unauthenticated, which would be a genuine hole.
+    const operatorSurface = publicSurface.filter((entry) =>
+      PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string),
+    );
+    expect(operatorSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual(
+      [...PLATFORM_OPERATOR_OPERATIONS].toSorted(),
+    );
+    for (const { operation, method, label } of operatorSurface) {
+      // A signed-in human, and no firm permission to name — the guard is the authority, and it
+      // demands the operator grant AND a second factor before the handler runs.
+      expect(operation["x-mc-authenticated"], label).toBe(true);
+      expect(operation["x-mc-permission"], label).toBeNull();
+      // A READ. An operator act that CHANGED a firm's data would be a different posture needing its
+      // own argument, so this pin refuses one here rather than waiting to be told about it.
+      expect(MUTATING_METHODS, label).not.toContain(method);
+    }
 
     // Every other /v1 operation is an app-surface (session cookie) operation.
     const publicOperations = new Set(publicSurface.map((entry) => entry.operation));
@@ -765,8 +840,22 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     // contract without this literal being edited in the same change.
     for (const { operation, label } of emittedOperations(document, MUTATING_METHODS)) {
       if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) continue;
+      // A guest's write creates no account and no credential of any kind a session could become;
+      // it is admitted by a signed link the firm sent, and the lane's shape is asserted.
+      if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
+        expectGuestLaneShape(operation, label);
+        continue;
+      }
       expect(operation["x-mc-authenticated"], label).toBe(true);
     }
+    // AND THE GUEST SET, every member present and nothing else wearing its shape: an operation that
+    // declares the lane without being enumerated here is a new way in nobody decided on.
+    expect(
+      emittedOperations(document, ALL_METHODS)
+        .filter((entry) => entry.operation["x-mc-guestLane"] !== undefined)
+        .map((entry) => entry.operation["operationId"])
+        .toSorted(),
+    ).toEqual([...GUEST_LANE_OPERATIONS].toSorted());
   });
 
   it("ENFORCES every declared-authenticated operation behaviorally: a credential-less request answers 401", async () => {

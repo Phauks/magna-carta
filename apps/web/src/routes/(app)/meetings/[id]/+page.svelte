@@ -33,28 +33,89 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
+  import { toast } from "@magna-carta/design-system/toast";
   import { meetingSocketUrl } from "$lib/api/socket-url.ts";
   import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { formatWallClock } from "$lib/calendar/calendar-api.ts";
   import {
+    DENIED_REASON,
+    DENIED_STATEMENT,
     MeetingClient,
     browserMeetingSeams,
+    PROTOCOL_MISMATCH_REASON,
     refusalStatement,
+    REMOVED_REASON,
     SUPERSEDED_REASON,
+    type MeetingLobbyMode,
     type MeetingMedium,
-  } from "$lib/meetings/meeting-client.svelte.ts";
-  import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
-  import MeetingGrid from "$lib/meetings/meeting-grid.svelte";
-  import MeetingControls from "$lib/meetings/meeting-controls.svelte";
-  import MeetingRoster from "$lib/meetings/meeting-roster.svelte";
+    type MeetingParticipant,
+  } from "$lib/meetings/client/meeting-client.svelte.ts";
   import {
+    meetingTiles,
+    participantName,
+    sharedScreenTile,
+    speakerViewTile,
+    type MeetingTileModel,
+  } from "$lib/meetings/screen/meeting-tiles.ts";
+  import MeetingHostMenu from "$lib/meetings/meeting-host-menu.svelte";
+  import MeetingHostsPanel from "$lib/meetings/meeting-hosts-panel.svelte";
+  import MeetingLobbyPanel from "$lib/meetings/meeting-lobby-panel.svelte";
+  import MeetingLobbyWait from "$lib/meetings/meeting-lobby-wait.svelte";
+  import MeetingGuestsPanel from "$lib/meetings/meeting-guests-panel.svelte";
+  import { readWaitingParticipants } from "$lib/meetings/client/lobby.ts";
+  import UsersRound from "@lucide/svelte/icons/users-round";
+  import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
+  import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
+  import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
+  import MeetingRoster from "$lib/meetings/screen/meeting-roster.svelte";
+  import MeetingConnectionPanel from "$lib/meetings/screen/meeting-connection-panel.svelte";
+  import MeetingChatPanel from "$lib/meetings/screen/meeting-chat-panel.svelte";
+  import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
+  import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
+  import MeetingQuestionsPanel from "$lib/meetings/screen/meeting-questions-panel.svelte";
+  import { MeetingPolls } from "$lib/meetings/client/polls.svelte.ts";
+  import {
+    MAX_MEETING_QUESTION_LENGTH,
+    MeetingQuestions,
+    type MeetingQuestionView,
+  } from "$lib/meetings/client/questions.svelte.ts";
+  import type { MediaEffectSettings } from "$lib/meetings/client/media-effects.ts";
+  import { meetingEffectsPreference } from "$lib/meetings/meeting-effects-preference.svelte.ts";
+  import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
+  import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
+  import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
+  import {
+    connectionEvents,
+    connectionParticipants,
+    connectionUplink,
+  } from "$lib/meetings/screen/meeting-connection.ts";
+  import {
+    admitToMeetingLobby,
+    denyFromMeetingLobby,
+    doorDecisionStatement,
     endMeeting,
     eventAddress,
+    grantMeetingHosting,
     joinMeeting,
     leaveMeeting,
+    MAX_MEETING_MESSAGE_LENGTH,
+    meetingPollSeams,
+    meetingQuestionSeams,
+    readMeetingHosts,
+    readMeetingLobby,
+    refusedAs,
+    removeMeetingParticipant,
+    revokeMeetingHosting,
+    setMeetingLobby,
+    setMeetingLocked,
     type MeetingWrite,
   } from "$lib/meetings/meetings-api.ts";
+  import type {
+    MeetingHostGrant,
+    MeetingLobbyDecisions,
+    MeetingMessage,
+  } from "@magna-carta/api-client";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { Failure } from "$lib/api/problem.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -65,6 +126,22 @@
   const summary = $derived(summaryRead.data ?? null);
 
   const client = new MeetingClient(browserMeetingSeams());
+
+  /*
+   * What this member chose for their own sound and picture, remembered in this browser rather than on
+   * their record: whether an effect is possible at all is a fact about this machine.
+   */
+  const effectsPreference = meetingEffectsPreference();
+  $effect(() => effectsPreference.followAcrossTabs());
+
+  /**
+   * A change made in the Effects panel: remembered first, so the next capture on this machine asks
+   * for it, and then asked of the tracks already running, whose answer is what the panel shows.
+   */
+  function changeEffects(settings: MediaEffectSettings): void {
+    effectsPreference.set(settings);
+    void client.changeEffects(settings);
+  }
 
   /** The join's refusal, where joining is what failed. Null while nothing has. */
   let joinFailure = $state<Failure | null>(null);
@@ -145,7 +222,19 @@
       // The record's own answer, not this screen's guess: it decides whether a camera is captured
       // at all, and it was settled when somebody opened the room.
       medium,
+      // Whether this stay is at the DOOR. The server decides it — the lobby is on, and this member
+      // is not running the room — and it is what stops anything being captured below.
+      waiting: outcome.value.waiting,
+      // What this member chose for their own sound and picture on this machine, applied at the
+      // capture below and at every rejoin, so a choice made once is not made again.
+      effects: effectsPreference.current,
     });
+    /*
+     * Asked for on every arrival, including one that is waiting: the client refuses it at the door
+     * and asks again itself the moment a host admits them. A screen that decided this would be a
+     * second place the camera rule is written, and the rule is that a waiter's camera light must
+     * not come on.
+     */
     await client.publish();
   }
 
@@ -226,6 +315,196 @@
     depart();
   });
 
+  /*
+   * RUNNING THE MEETING. Everything below is a host act, and the split between the two kinds is the
+   * one the design settles: the acts that leave nothing behind go out as frames on the socket and
+   * are instant, and the acts somebody could later ask "who did that" about are routes with audit
+   * rows. A member who is not hosting sees none of the controls that reach either.
+   */
+
+  /** The refusal the last hosting write came back with, rendered where the act was asked for. */
+  let hostingRefusal = $state<Failure | null>(null);
+  /** Whether the panel naming who runs this meeting is open. */
+  let hostsOpen = $state(false);
+  /**
+   * Whether the panel naming who from outside the firm may come is open. Offered to a member who
+   * holds the key to host meetings, which is what sending, replacing and withdrawing a link ride on.
+   */
+  let guestsOpen = $state(false);
+  /** The live grants, or null while the read is in flight. */
+  let hostGrants = $state<readonly MeetingHostGrant[] | null>(null);
+  let hostsReading = $state(false);
+  let hostsFailure = $state<Failure | null>(null);
+
+  /** How this member runs the meeting, as the roster states it. Null for most of the room. */
+  const myRole = $derived(client.myRole);
+
+  /*
+   * Read who is hosting when the panel opens, and never before.
+   *
+   * It is not in the page's own screen data because nothing outside this panel asks it: every badge
+   * on every tile comes off the roster the socket is already carrying, which is also the only place
+   * a grant written mid-meeting arrives promptly. The read is for the panel's own list of WHEN each
+   * grant was written, which the roster does not carry.
+   */
+  $effect(() => {
+    if (!hostsOpen) return;
+    void refreshHosts();
+  });
+
+  async function refreshHosts(): Promise<void> {
+    hostsReading = true;
+    const outcome = await readMeetingHosts(meetingId);
+    hostsReading = false;
+    if (outcome.kind === "ok") {
+      hostGrants = outcome.value;
+      hostsFailure = null;
+      return;
+    }
+    hostsFailure = outcome.failure;
+  }
+
+  /*
+   * THE DOOR. The list a host reads is the LIVE one the room broadcasts to every socket holding a
+   * grant; the read below fills the one gap that list has, and the writes are routes because
+   * arrivals refused at a door somebody shut is a fact that outlives the room.
+   */
+
+  /** Whether the panel naming who is at the door is open. */
+  let lobbyOpen = $state(false);
+  /** The door's own refusal — a read or a decision — rendered in the panel's reserved band. */
+  let lobbyRefusal = $state<Failure | null>(null);
+  /**
+   * The meeting and the grant the door was last read under.
+   *
+   * The read exists for one case and it is worth naming: a member named co-host at the twentieth
+   * minute is sent the roster that says so and nothing about the people already standing outside,
+   * because the room sends the waiting list as those people ARRIVE. Keyed on the grant as well as
+   * the meeting, so a grant written later reads the door again rather than trusting a list that was
+   * never sent to this socket.
+   */
+  let doorReadUnder = $state<string | null>(null);
+  /** True once the hosts have been told somebody is outside, so they are told once and not per frame. */
+  let arrivalAnnounced = $state(false);
+  /** What the last batch at the door did not do, where it did not do all of it. */
+  let doorShortfall = $state<string | null>(null);
+
+  $effect(() => {
+    const id = meetingId;
+    if (id === "" || myRole === null || client.state !== "live") return;
+    const key = `${id}:${myRole}`;
+    if (doorReadUnder === key) return;
+    doorReadUnder = key;
+    void refreshLobby(id);
+  });
+
+  async function refreshLobby(id: string): Promise<void> {
+    const outcome = await readMeetingLobby(id);
+    if (outcome.kind !== "ok") {
+      lobbyRefusal = outcome.failure;
+      return;
+    }
+    lobbyRefusal = null;
+    // Read through the same reader the frames are, so a guest at the door is marked as one and
+    // carries the name their link was minted for whichever way the list arrived.
+    client.noteWhoIsWaiting(readWaitingParticipants(outcome.value));
+  }
+
+  /*
+   * SOMEBODY IS OUTSIDE, SAID ONCE AND NAMING NOBODY.
+   *
+   * A count on a control a host is not looking at is a person left standing at a door for ten
+   * minutes, so the first arrival is raised where a host cannot miss it. It names nobody: who is at
+   * the door is a list a host has not decided about yet, and a passer-by reading a colleague's
+   * screen should not learn who was turned away.
+   */
+  $effect(() => {
+    if (client.lobbyList.length === 0) {
+      // An empty door arms it again, so a second arrival an hour later is announced as well.
+      arrivalAnnounced = false;
+      return;
+    }
+    if (myRole === null || arrivalAnnounced || lobbyOpen) return;
+    arrivalAnnounced = true;
+    toast("Somebody is waiting to be let in.");
+  });
+
+  /**
+   * Let people in, or turn them away.
+   *
+   * The room tells every host what is left either way, so nothing here rebuilds the list. What is
+   * kept is what the batch did NOT do: a host admitting five people into two free seats is told
+   * which three did not get in, rather than watching three rows stay where they were.
+   */
+  function decideAtTheDoor(
+    act: (participantIds: readonly string[]) => Promise<MeetingWrite<MeetingLobbyDecisions>>,
+    participantIds: readonly string[],
+    wanted: "admitted" | "denied",
+  ): void {
+    if (participantIds.length === 0) return;
+    lobbyRefusal = null;
+    doorShortfall = null;
+    void act(participantIds).then((outcome) => {
+      if (outcome.kind !== "ok") {
+        lobbyRefusal = outcome.failure;
+        return;
+      }
+      doorShortfall = doorDecisionStatement(outcome.value, wanted);
+    });
+  }
+
+  /** What a member is called, out of the roster this browser already holds. */
+  function nameOfMember(userId: string): string {
+    const participant = client.participants.find((one) => one.userId === userId);
+    return participant === undefined ? "Somebody who has left" : participantName(participant);
+  }
+
+  /**
+   * Whether this room has nobody running it, so a key-holder may take it.
+   *
+   * Read off the ROSTER rather than off the grants: a grant belonging to somebody who is not in the
+   * room is exactly the state the claim exists to end, and the roster is the one list that says who
+   * is actually here.
+   */
+  const hostless = $derived(
+    client.state === "live" &&
+      client.participants.length > 0 &&
+      !client.participants.some((participant) => participant.hostRole !== null),
+  );
+  const canClaim = $derived(canHost && hostless);
+
+  /** Run a hosting write and keep whatever it refused, for the surface that asked. */
+  async function hostingWrite(
+    act: () => Promise<MeetingWrite<unknown>>,
+  ): Promise<ActionOutcome> {
+    hostingRefusal = null;
+    const outcome = await act();
+    if (outcome.kind === "ok") {
+      /*
+       * The room rewrites its stored roles and broadcasts, so the badges and the menus follow from
+       * the roster rather than from anything held here. The panel's own list is the exception: it
+       * carries when each grant was written, which no frame does.
+       *
+       * IT IS RE-READ WHETHER OR NOT THE PANEL IS OPEN, and handing the meeting over is why. That
+       * act is taken from a tile or a roster row, and it changes the ACTOR's own grant as well as
+       * the other person's — the outgoing host keeps a co-host grant rather than losing everything
+       * — so a panel that only re-read on its own opening would have shown a list in which the
+       * person who pressed the control was still the host. A hosting write is a handful per
+       * meeting; a read each is not a cost worth reasoning about.
+       */
+      void refreshHosts();
+      return "committed";
+    }
+    hostingRefusal = outcome.failure;
+    return "refused";
+  }
+
+  function claimHosting(): void {
+    const userId = sessionPermissions.session?.user.id;
+    if (userId === undefined) return;
+    void hostingWrite(() => grantMeetingHosting(meetingId, userId, "host"));
+  }
+
   async function end(): Promise<ActionOutcome> {
     endRefusal = null;
     const outcome: MeetingWrite<unknown> = await endMeeting(meetingId);
@@ -246,12 +525,257 @@
     // Asked for, so the departure that closed this screen's last stay stops standing in the way.
     departedMeetingId = null;
     joinFailure = null;
+    // The door is read again on the way back in: this browser holds a list from a socket that is
+    // gone, and the next welcome may be a stay that is waiting rather than a host's.
+    doorReadUnder = null;
   }
 
   function toggleSharing(): void {
     if (client.sharing) void client.stopSharing();
     else void client.shareScreen();
   }
+
+  /*
+   * WHAT IS BEING SAID IN THE ROOM.
+   *
+   * The transcript is the meeting's one stored content, so it is a route and a record rather than
+   * anything the socket holds: a message is written by a POST, read back from its own cursor, and
+   * taken back rather than deleted. The room will later relay a copy of a committed row so a
+   * message arrives as it is said; the poll is what fills that gap today, and it is also what
+   * catches a browser back up that missed the frame.
+   */
+  const chat = new MeetingChat(meetingChatSeams(() => meetingId));
+  /*
+   * The room relays a copy of every committed row, so a message arrives as it is said rather than
+   * on the poll's next tick — and the poll stretches to its backstop pace the moment the first
+   * frame lands. Wired here rather than inside the client because the transcript is the SCREEN's:
+   * it is a route and a record, and the client is what is torn down when a connection drops.
+   */
+  client.relayMessagesTo(chat);
+  /** Whether the chat panel is showing, which is also what decides if a message counts as unread. */
+  let chatOpen = $state(false);
+  /** What is typed and not yet said. Held by the screen, so closing the panel does not lose it. */
+  let chatDraft = $state("");
+
+  /*
+   * ASKING FOR THE FLOOR, AND WORKING THE QUEUE. A raised hand and a reaction are the two signals
+   * this subsystem relays and never stores; what the screen adds is the place to put them.
+   */
+
+  /** Whether the host's queue is open. */
+  let handsOpen = $state(false);
+
+  /**
+   * The queue, with the names and microphones the panel draws.
+   *
+   * The ORDER is the client's — a pure sort of the instants the room stamped — and what is added
+   * here is only what the panel has to read: what somebody is called, and whether their microphone
+   * is off, which is what decides whether Ask to Unmute is worth offering at all.
+   */
+  const raisedHands = $derived(
+    client.raisedHands.flatMap((hand) => {
+      const participant = client.participants.find(
+        (one) => one.participantId === hand.participantId,
+      );
+      if (participant === undefined) return [];
+      return [
+        {
+          participantId: hand.participantId,
+          name: participantName(participant),
+          muted: client.presenceOf(participant).muted,
+        },
+      ];
+    }),
+  );
+
+  /*
+   * Followed while this browser is IN the room and never before: a socket at the door has no stay
+   * the route would accept a message from, and the transcript is a fact about a meeting this member
+   * has not been let into yet.
+   */
+  $effect(() => {
+    if (client.state !== "live") return;
+    chat.start();
+    return () => {
+      chat.stop();
+    };
+  });
+
+  $effect(() => {
+    if (chatOpen) chat.noteOpened();
+    else chat.noteClosed();
+  });
+
+  /** Who said something, out of the roster this browser already holds. */
+  function chatSenderName(message: MeetingMessage): string {
+    const stay = client.participants.find(
+      (one) => one.participantId === message.participantId,
+    );
+    if (stay !== undefined) return participantName(stay);
+    // The stay has closed, or it belongs to a guest and was never on the roster. The member behind
+    // it is the next honest answer, and where the roster does not hold them either there is nothing
+    // left to say but that they have gone.
+    const member =
+      message.userId === null
+        ? undefined
+        : client.participants.find((one) => one.userId === message.userId);
+    return member === undefined ? "Somebody who left" : participantName(member);
+  }
+
+  /**
+   * Whether this reader may take a message back.
+   *
+   * Their own, or any of them while they are running the meeting: a host moderates the room and a
+   * member takes back what they said. The route decides it again from the record, so this only
+   * governs whether the control is offered.
+   */
+  function mayTakeBack(message: MeetingMessage): boolean {
+    if (myRole !== null) return true;
+    return message.userId !== null && message.userId === sessionPermissions.session?.user.id;
+  }
+
+  /** What a refused message reads as: the two refusals with words of their own, and the rest. */
+  const chatWriteTitle = $derived.by(() => {
+    if (refusedAs(chat.writeFailure, "meeting-message-too-long")) return "That Message Is Too Long";
+    if (refusedAs(chat.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    return "Nothing Was Said";
+  });
+  const chatWriteSentence = $derived.by(() => {
+    if (refusedAs(chat.writeFailure, "meeting-message-too-long")) {
+      return `A message holds ${String(MAX_MEETING_MESSAGE_LENGTH)} characters at most, and this one is longer.`;
+    }
+    if (refusedAs(chat.writeFailure, "meeting-not-joined")) {
+      return "Your stay in this meeting has closed, so nothing can be said in it from here.";
+    }
+    return "That did not reach this meeting's record.";
+  });
+
+  /*
+   * WHAT A HOST ASKS THE ROOM, AND WHAT THE ROOM ASKS A HOST.
+   *
+   * Both are records on the transcript's own terms: written by routes, read back by pages, and
+   * relayed by the room as copies of committed rows so they arrive as they happen. The screen holds
+   * them for the reason it holds the transcript — the client is what is torn down when a connection
+   * drops, and a record does not go with it.
+   */
+  const polls = new MeetingPolls(meetingPollSeams(() => meetingId));
+  const questions = new MeetingQuestions(meetingQuestionSeams(() => meetingId));
+  client.relayPollsTo(polls);
+  client.relayQuestionsTo(questions);
+  let pollsOpen = $state(false);
+  let questionsOpen = $state(false);
+  /** What is typed and not yet asked. Held by the screen, so closing the panel does not lose it. */
+  let questionDraft = $state("");
+
+  /*
+   * Followed while this browser is IN the room and never before, for the transcript's reason: a
+   * socket at the door has no stay the routes would accept an answer or a question from.
+   */
+  $effect(() => {
+    if (client.state !== "live") return;
+    polls.start();
+    questions.start();
+    return () => {
+      polls.stop();
+      questions.stop();
+    };
+  });
+
+  $effect(() => {
+    if (pollsOpen) polls.noteOpened();
+    else polls.noteClosed();
+  });
+
+  $effect(() => {
+    if (questionsOpen) questions.noteOpened();
+  });
+
+  /** True once the member has been told a poll opened, so a burst of polls is said once. */
+  let pollAnnounced = $state(false);
+
+  /*
+   * A POLL IS OPEN, SAID ONCE AND NAMING NOTHING BUT THE ACT, on the lobby toast's precedent: a count
+   * on a control a member is not looking at is a poll nobody answers. Opening the panel is what
+   * re-arms it, because then the member has seen what there was to see.
+   */
+  $effect(() => {
+    if (polls.openedUnseen === 0) {
+      pollAnnounced = false;
+      return;
+    }
+    if (pollAnnounced || pollsOpen) return;
+    pollAnnounced = true;
+    toast("A poll is open.");
+  });
+
+  /** Who gave an answer, out of the roster, and the member behind the stay where it has closed. */
+  function nameOfStay(participantId: string, userId: string | null): string {
+    const stay = client.participants.find((one) => one.participantId === participantId);
+    if (stay !== undefined) return participantName(stay);
+    const member =
+      userId === null ? undefined : client.participants.find((one) => one.userId === userId);
+    return member === undefined ? "Somebody who left" : participantName(member);
+  }
+
+  /**
+   * Whether this reader asked a question, which is what offers them Redact on their own row: the
+   * stay they are in now, or the member behind it where they asked from an earlier stay.
+   */
+  function askedByMe(question: MeetingQuestionView): boolean {
+    if (question.participantId === client.participantId) return true;
+    return question.userId !== null && question.userId === sessionPermissions.session?.user.id;
+  }
+
+  /** What a refused poll act reads as: the refusals with words of their own, and the rest. */
+  const pollWriteTitle = $derived.by(() => {
+    if (refusedAs(polls.writeFailure, "meeting-poll-closed")) return "That Poll Is Closed";
+    if (refusedAs(polls.writeFailure, "meeting-poll-already-answered")) {
+      return "You Have Answered This Poll";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-not-host")) return "You Are Not Hosting This Meeting";
+    if (refusedAs(polls.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    return "Nothing Changed";
+  });
+  const pollWriteSentence = $derived.by(() => {
+    if (refusedAs(polls.writeFailure, "meeting-poll-closed")) {
+      return "A host closed this poll, so it takes no more answers.";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-poll-already-answered")) {
+      return "An answer cannot be changed once it is given.";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-not-host")) {
+      return "Only somebody hosting this meeting can open or close a poll.";
+    }
+    if (refusedAs(polls.writeFailure, "meeting-not-joined")) {
+      return "Your stay in this meeting has closed, so nothing can be answered from here.";
+    }
+    return "That did not reach this meeting's record.";
+  });
+
+  const questionWriteTitle = $derived.by(() => {
+    if (refusedAs(questions.writeFailure, "meeting-question-too-long")) {
+      return "That Question Is Too Long";
+    }
+    if (refusedAs(questions.writeFailure, "meeting-question-limit-reached")) {
+      return "This Meeting Has Too Many Questions";
+    }
+    if (refusedAs(questions.writeFailure, "meeting-not-joined")) {
+      return "You Are Not in This Meeting";
+    }
+    return "Nothing Changed";
+  });
+  const questionWriteSentence = $derived.by(() => {
+    if (refusedAs(questions.writeFailure, "meeting-question-too-long")) {
+      return `A question holds ${String(MAX_MEETING_QUESTION_LENGTH)} characters at most, and this one is longer.`;
+    }
+    if (refusedAs(questions.writeFailure, "meeting-question-limit-reached")) {
+      return "No more questions can be asked in this meeting.";
+    }
+    if (refusedAs(questions.writeFailure, "meeting-not-joined")) {
+      return "Your stay in this meeting has closed, so nothing can be asked from here.";
+    }
+    return "That did not reach this meeting's record.";
+  });
 
   // ---- what the header says -------------------------------------------------------------------
 
@@ -285,6 +809,18 @@
       : formatWallClock(summary.endsAtTime, summary.timeZone, summary.timeZone),
   );
 
+  /**
+   * The day and time, as one line for a surface that has no header band to spread them across.
+   *
+   * Somebody following a link an hour early is the case it exists for: standing at a door with no
+   * idea whether anybody is behind it yet is the one thing the waiting screen can answer for them.
+   */
+  const whenLine = $derived.by(() => {
+    if (summary === null) return null;
+    const day = formatDate(summary.startsOn);
+    return startsAt === null ? day : `${day} at ${startsAt} ${zoneCode}`.trim();
+  });
+
   const backAddress = $derived(
     summary === null
       ? "/calendar"
@@ -297,12 +833,41 @@
 
   const tiles = $derived(meetingTiles(client, displayName));
   const sharedScreen = $derived(sharedScreenTile(client, displayName));
+  /*
+   * The large slot in speaker view, which is whoever the plan put first. There is none in the even
+   * gallery, and none in a call: a call has no picture to make large.
+   */
+  const spotlight = $derived(
+    client.speakerView && client.medium === "video" ? speakerViewTile(tiles) : null,
+  );
 
   /*
    * The meeting is over when the room says so, and also when the record already said so before this
    * browser arrived — somebody following a link to a meeting that ended last Tuesday.
    */
   const over = $derived(client.state === "ended" || summary?.status === "ended");
+  /*
+   * A host put this member out of the room, or refused them at the door because they had been.
+   *
+   * Two routes to one state and both end here: the socket refusal while they were in it, and the
+   * join's own 409 for somebody following a link back to a meeting they are barred from. There is no
+   * Rejoin either way — the join would be refused, and offering it would be the screen inviting a
+   * member to be told no.
+   */
+  const removed = $derived(
+    client.failureReason === REMOVED_REASON || refusedAs(joinFailure, "meeting-removed"),
+  );
+  /*
+   * A host turned this member away at the door — the twin of being removed, by the two same routes:
+   * the socket's own refusal while they stood there, and the join's 409 for somebody following a
+   * link back to a meeting they were denied. Barred entry is one rule with two labels, so there is
+   * no way back in from either, and only the sentence differs.
+   */
+  const denied = $derived(
+    client.failureReason === DENIED_REASON || refusedAs(joinFailure, "meeting-not-admitted"),
+  );
+  /** Standing at the door: not in the room, and nothing captured until a host says so. */
+  const atTheDoor = $derived(client.state === "waiting");
   const unconfigured = $derived(summary !== null && !summary.configured);
   /*
    * This socket lost the stay to a newer one of this member's own. The meeting is NOT over — it is
@@ -311,19 +876,164 @@
    */
   const superseded = $derived(client.failureReason === SUPERSEDED_REASON);
   /*
+   * The room is speaking a protocol this page does not know — a page left open across a deploy.
+   * There is no Rejoin for it: the same page code would meet the same room again. Reloading is the
+   * whole remedy, and it is the one thing the member can do themselves.
+   */
+  const outOfDate = $derived(client.failureReason === PROTOCOL_MISMATCH_REASON);
+  /*
    * What this room IS, named on the header's own line beside the day and the count — because a call
    * and a meeting look different the moment you are in one (no picture, no share) and a reader
    * arriving at the address should know which they are about to join before they are in it.
    */
   const kindWord = $derived(client.medium === "audio" ? "Call" : "Meeting");
+
+  // ---- what the connection surface draws ---------------------------------------------------------
+
+  const uplink = $derived(connectionUplink(client));
+  const connectionRoom = $derived(connectionParticipants(client));
+  const wireEvents = $derived(connectionEvents(client.diagnostics.recent));
 </script>
+
+<!--
+  The host's menu for one person, written once and rendered in the two places a host finds somebody:
+  a tile, and a row in the rail. The rail is the one that matters in a large room — sixteen of three
+  hundred people have a tile, and all three hundred have a row that can be searched.
+-->
+{#snippet hostMenuFor(
+  participantId: string,
+  userId: string | null,
+  name: string,
+  targetRole: MeetingParticipant["hostRole"],
+)}
+  <MeetingHostMenu
+    {name}
+    viewerRole={myRole}
+    {targetRole}
+    spotlighted={client.roomState.spotlight?.participantId === participantId}
+    onMute={() => client.mute(participantId)}
+    onAskToUnmute={() => client.askToUnmute(participantId)}
+    onSpotlight={(wanted) => client.spotlight(wanted ? participantId : null)}
+    onMakeCoHost={() =>
+      userId === null
+        ? undefined
+        : void hostingWrite(() => grantMeetingHosting(meetingId, userId, "co-host"))}
+    onWithdrawCoHost={() =>
+      userId === null
+        ? undefined
+        : void hostingWrite(() => revokeMeetingHosting(meetingId, userId))}
+    onHandHosting={() =>
+      userId === null
+        ? Promise.resolve<ActionOutcome>("refused")
+        : hostingWrite(() => grantMeetingHosting(meetingId, userId, "host"))}
+    onRemove={() => hostingWrite(() => removeMeetingParticipant(meetingId, participantId))}
+  >
+    {#snippet writeFailure()}
+      {@render hostingFailure()}
+    {/snippet}
+  </MeetingHostMenu>
+{/snippet}
+
+{#snippet tileMenu(tile: MeetingTileModel)}
+  {@render hostMenuFor(tile.participantId ?? "", tile.userId, tile.name, tile.hostRole)}
+{/snippet}
+
+{#snippet rowMenu(participant: MeetingParticipant)}
+  {@render hostMenuFor(
+    participant.participantId,
+    participant.userId,
+    participantName(participant),
+    participant.hostRole,
+  )}
+{/snippet}
+
+<!--
+  What is being said, beside what is being sent. It is passed to the band as a snippet rather than
+  rendered here, for the reason the connection control is: the band owns where a control sits, and
+  the control owns what it says and what it opens.
+-->
+{#snippet chatControl()}
+  <MeetingChatPanel
+    bind:open={chatOpen}
+    bind:draft={chatDraft}
+    messages={chat.messages}
+    unread={chat.unread}
+    loading={chat.reading}
+    failed={chat.readFailure !== null && chat.messages.length === 0}
+    sending={chat.sending}
+    nameOf={chatSenderName}
+    canTakeBack={mayTakeBack}
+    onSend={(body) => chat.send(body)}
+    onTakeBack={(messageId) => void chat.redact(messageId)}
+  >
+    {#snippet readFailure()}
+      {#if chat.readFailure !== null}
+        <FailureNotice
+          failure={chat.readFailure}
+          subject="This meeting"
+          title="Nothing Could Be Read"
+          fallback="What has been said in this meeting could not be read."
+          whenSilent="Nothing answered. What has been said in this meeting could not be read."
+          onRetry={() => void chat.refresh()}
+        />
+      {/if}
+    {/snippet}
+
+    {#snippet writeFailure()}
+      {#if chat.writeFailure !== null}
+        <FailureNotice
+          failure={chat.writeFailure}
+          subject="This meeting"
+          title={chatWriteTitle}
+          fallback={chatWriteSentence}
+          whenSilent="Nothing answered, so nothing was said in this meeting."
+        />
+      {/if}
+    {/snippet}
+  </MeetingChatPanel>
+{/snippet}
+
+<!--
+  The six, behind one control in the band. Passed as a snippet for the reason the chat and
+  connection controls are: the band owns where a control sits, the control owns what it offers.
+-->
+{#snippet reactionsControl()}
+  <MeetingReactions onReact={(name) => client.react(name)} />
+{/snippet}
+
+<!-- One reading of a refused hosting write, rendered wherever the act was asked for. -->
+{#snippet hostingFailure()}
+  {#if hostingRefusal !== null}
+    <FailureNotice
+      failure={hostingRefusal}
+      subject="This meeting"
+      title="Nothing Changed"
+      fallback="That did not happen."
+      whenSilent="Nothing answered, so nothing changed in this meeting."
+    />
+  {/if}
+{/snippet}
+
+<!-- Who from outside the firm may come. In the header rather than the control bar: it is about the
+     meeting's guest list, not about what is happening in the room this second. Passed only to a
+     member who may send a link, so nobody else's header carries an empty actions column. -->
+{#snippet guestsControl()}
+  <Button variant="secondary" onclick={() => (guestsOpen = true)}>
+    <UsersRound class="size-16" aria-hidden="true" />
+    Guests
+  </Button>
+{/snippet}
 
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
 
 <svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader {title} back="meetings">
+  <ScreenHeader
+    {title}
+    back="meetings"
+    actions={canHost && summary !== null && !over ? guestsControl : undefined}
+  >
     {#snippet meta()}
       {#if summary !== null}
         <span>{formatDate(summary.startsOn)}</span>
@@ -331,10 +1041,32 @@
           <span>{endsAt === null ? startsAt : `${startsAt} to ${endsAt}`} {zoneCode}</span>
         {/if}
         <span>{kindWord}</span>
+        {#if client.roomState.locked}
+          <!-- On the line that already carries the day and the head count, because whether the
+               door is shut is a fact about the room rather than an act anybody here can take. -->
+          <span>Locked</span>
+        {/if}
         <span>{summary.liveCount === 1 ? "1 in the room" : `${summary.liveCount} in the room`}</span>
+        <!-- ABOVE THE THRESHOLD THE ROOM SENDS COUNTS RATHER THAN BUBBLES, and the counts are what
+             is true at that size: a bubble on the right face is a promise a sixteen-tile gallery
+             cannot keep for three hundred people. It draws nothing at all when nothing has
+             arrived, and it fades on the same dwell a bubble does. -->
+        <MeetingReactionCounts counts={client.reactions.counts} />
       {/if}
     {/snippet}
   </ScreenHeader>
+
+  {#if canHost && summary !== null}
+    <!-- Beside the header whose control opens it, rather than inside the room: a host who has not
+         walked in yet, or whose join was refused, can still see who has a link. -->
+    <MeetingGuestsPanel
+      bind:open={guestsOpen}
+      subject={endSubject}
+      {meetingId}
+      eventKind={summary.eventKind}
+      eventId={summary.eventId}
+    />
+  {/if}
 
   <LoadingRegion
     class="flex min-h-0 flex-1 flex-col gap-16"
@@ -367,6 +1099,21 @@
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}
       </EmptyState>
+    {:else if denied}
+      <EmptyState title="You Were Not Let Into This Meeting">
+        {DENIED_STATEMENT}
+        {#snippet actions()}
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        {/snippet}
+      </EmptyState>
+    {:else if removed}
+      <EmptyState title="You Were Removed From This Meeting">
+        A host took you out of the room. You cannot come back into this meeting, and the record
+        keeps when your stay began and when it ended.
+        {#snippet actions()}
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        {/snippet}
+      </EmptyState>
     {:else if joinFailure !== null}
       <FailureNotice
         failure={joinFailure}
@@ -374,6 +1121,17 @@
         title="You Are Not in the Room"
         fallback="You were not joined to this meeting."
         whenSilent="Nothing answered. You were not joined to this meeting."
+      />
+    {:else if atTheDoor}
+      <!-- NOT THE ROOM WITH THINGS MISSING. A waiting socket holds no roster and this browser has
+           captured nothing, so there is no grid to page, no rail to read and no control bar to
+           draw — the one act somebody at a door has is going away again. -->
+      <MeetingLobbyWait
+        {title}
+        when={whenLine}
+        place={client.waiting}
+        {leaving}
+        onLeave={() => void leave()}
       />
     {:else}
       <!-- The room's own faults are not API failures and are not dressed as them: no request was
@@ -389,6 +1147,19 @@
             <Alert.Title>This Meeting Moved</Alert.Title>
             <Alert.Description>
               {refusalStatement({ reason: SUPERSEDED_REASON, errorId: null })}
+            </Alert.Description>
+          </Alert.Root>
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        </div>
+      {:else if outOfDate}
+        <!-- No Rejoin: this page and this room disagree about the wire, and pressing it would
+             reach the same disagreement again. The way out is a reload, which is what it says. -->
+        <div class="flex flex-col items-start gap-8">
+          <Alert.Root variant="warning">
+            <Alert.Title>This Page Is Out of Date</Alert.Title>
+            <Alert.Description>
+              This page was open while the meeting service was updated, so it no longer understands
+              what the room is sending. Reload the page to join.
             </Alert.Description>
           </Alert.Root>
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
@@ -432,43 +1203,317 @@
         </Alert.Root>
       {/if}
 
+      <!-- WHAT A HOST DID TO THIS MEMBER, and it is not an error. A microphone that goes dead with
+           nothing on screen is read as a broken machine, so the room says what happened; the way
+           back is the ordinary microphone control, which republishes. -->
+      {#if client.lastNotice !== null}
+        <Alert.Root variant="info">
+          <Alert.Title>Your Microphone</Alert.Title>
+          <Alert.Description>{client.lastNotice}</Alert.Description>
+        </Alert.Root>
+      {/if}
+
+      <!-- ASKED, NOT OPENED. Nothing on this platform can turn somebody's microphone on from
+           another member's click, so the request arrives as a question with no default: the member
+           may be in a room with a client, on a call they muted themselves for. -->
+      {#if client.unmuteRequest !== null}
+        <div class="flex flex-col items-start gap-8">
+          <Alert.Root variant="info">
+            <Alert.Title>A Host Asked You to Unmute</Alert.Title>
+            <Alert.Description>
+              Nothing has changed. Your microphone stays off until you turn it on.
+            </Alert.Description>
+          </Alert.Root>
+          <div class="flex flex-wrap items-center gap-8">
+            <Button variant="secondary" onclick={() => client.toggleMicrophone()}>Unmute</Button>
+            <Button variant="ghost" onclick={() => client.declineUnmuteRequest()}>
+              Stay Muted
+            </Button>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Every voice the room is sending, played once and out of sight. It sits outside the grid
+           because the people heard are not the people shown: whoever speaks from another page is
+           pulled and played while their tile is nowhere on this one. -->
+      <MeetingAudio streams={client.remoteStreams} />
+
       <div class="flex min-h-0 flex-1 gap-16">
         <div class="min-h-0 min-w-0 flex-1">
-          <MeetingGrid {tiles} {sharedScreen} medium={client.medium} />
+          <MeetingGrid
+            {tiles}
+            {sharedScreen}
+            {spotlight}
+            medium={client.medium}
+            page={client.page}
+            pages={client.pages}
+            roomSize={client.participants.length}
+            onPage={(wanted) => client.setPage(wanted)}
+            onPin={(participantId) =>
+              client.isPinned(participantId)
+                ? client.unpin(participantId)
+                : client.pin(participantId)}
+            hostMenu={myRole === null ? undefined : tileMenu}
+          />
         </div>
         <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
           <MeetingRoster
             participants={client.participants}
             ownParticipantId={client.participantId}
+            presenceOf={(participant) => client.presenceOf(participant)}
+            qualityOf={(participant) => client.qualityOf(participant.participantId)}
+            spotlightedParticipantId={client.roomState.spotlight?.participantId ?? null}
+            hostMenu={myRole === null ? undefined : rowMenu}
           />
         </aside>
       </div>
+
+      <!-- WHAT A READER WHO CANNOT SEE THE MARKS IS TOLD, politely and once. A raised hand is
+           announced at every room size, because it is a request for the floor; a reaction is
+           announced only where the room named who threw it, and the coalesced counts strip is not
+           announced at all — a stream of changing numbers read out once a second is noise. -->
+      <div aria-live="polite" class="sr-only">{client.reactions.announcement}</div>
 
       <MeetingControls
         microphoneOn={client.microphoneOn}
         cameraOn={client.cameraOn}
         sharing={client.sharing}
+        speakerView={client.speakerView}
         medium={client.medium}
         canEnd={canHost}
+        hosting={myRole !== null}
+        handRaised={client.reactions.hand}
+        raisedHandCount={client.raisedHands.length}
+        locked={client.roomState.locked}
+        lobby={client.roomState.lobby}
+        waitingCount={client.lobbyList.length}
+        spotlighted={client.roomState.spotlight !== null}
         subtitle={endSubject}
+        appliedEffects={client.appliedEffects}
+        effectSettings={client.effectSettings}
+        pollsWaiting={myRole === null ? polls.waitingForAnswer : 0}
+        questionsWaiting={questions.waiting}
+        onChangeEffects={changeEffects}
+        onOpenPolls={() => (pollsOpen = true)}
+        onOpenQuestions={() => (questionsOpen = true)}
         onToggleMicrophone={() => client.toggleMicrophone()}
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
+        onToggleHand={() => (client.reactions.hand ? client.lowerHand() : client.raiseHand())}
+        onOpenHands={() => (handsOpen = true)}
+        onLowerAllHands={() => client.lowerHands(null)}
+        onToggleSpeakerView={() => client.toggleSpeakerView()}
+        onMuteAll={() => client.muteAll()}
+        onSetLocked={(wanted) => void hostingWrite(() => setMeetingLocked(meetingId, wanted))}
+        onSetLobby={(wanted: MeetingLobbyMode) =>
+          void hostingWrite(() => setMeetingLobby(meetingId, wanted))}
+        onOpenLobby={() => (lobbyOpen = true)}
+        onClearSpotlight={() => client.spotlight(null)}
+        onOpenHosts={() => (hostsOpen = true)}
         onLeave={() => void leave()}
         onEnd={end}
+        chat={chatControl}
+        reactions={reactionsControl}
       >
+        {#snippet connection()}
+          <MeetingConnectionPanel
+            {uplink}
+            participants={connectionRoom}
+            events={wireEvents}
+          />
+        {/snippet}
+
         {#snippet endFailure()}
           {#if endRefusal !== null}
+            <!-- AN AUTHORITY ANSWER RATHER THAN A PERMISSION ONE. The member holds the key; what
+                 they do not hold is a grant on this room. Somebody hosting it can hand it to them,
+                 and where nobody is running it at all they may take it. -->
             <FailureNotice
               failure={endRefusal}
               subject="This meeting"
-              title="Nothing Changed"
-              fallback="The meeting was not ended."
+              title={refusedAs(endRefusal, "meeting-not-host")
+                ? "You Are Not Hosting This Meeting"
+                : "Nothing Changed"}
+              fallback={refusedAs(endRefusal, "meeting-not-host")
+                ? "Only somebody hosting this meeting can end it."
+                : "The meeting was not ended."}
               whenSilent="Nothing answered. The meeting was not ended and is still running."
             />
+            {#if refusedAs(endRefusal, "meeting-not-host") && canClaim}
+              <Button variant="secondary" onclick={claimHosting}>Claim Hosting</Button>
+            {/if}
           {/if}
         {/snippet}
       </MeetingControls>
+
+      <!-- The queue, in the order the hands went up. Opened from a control that is absent for
+           everybody who is not running the meeting: lowering somebody else's hand is a host act,
+           and everybody lowers their own from the band's own toggle. -->
+      <MeetingHandsPanel
+        bind:open={handsOpen}
+        subject={endSubject}
+        hands={raisedHands}
+        onAskToUnmute={(participantId) => client.askToUnmute(participantId)}
+        onLowerHand={(participantId) => client.lowerHands(participantId)}
+        onLowerAll={() => client.lowerHands(null)}
+      />
+
+      <!-- What a host has asked the room. Everybody answers from here, and a host asks from the top
+           of the same panel. -->
+      <MeetingPollsPanel
+        bind:open={pollsOpen}
+        subject={endSubject}
+        polls={polls.polls}
+        hosting={myRole !== null}
+        inRoom={client.participants.length}
+        loading={polls.reading}
+        failed={polls.readFailure !== null && polls.polls.length === 0}
+        opening={polls.opening}
+        answering={polls.answering}
+        onOpenPoll={(draft) => polls.open(draft)}
+        onAnswer={(pollId, optionIds) => polls.answer(pollId, optionIds)}
+        onClosePoll={(pollId) => polls.close(pollId)}
+        onReadAnswers={(pollId, cursor) => polls.whoAnswered(pollId, cursor)}
+        nameOfAnswer={(answer) => nameOfStay(answer.participantId, answer.userId)}
+      >
+        {#snippet readFailure()}
+          {#if polls.readFailure !== null}
+            <FailureNotice
+              failure={polls.readFailure}
+              subject="This meeting"
+              title="Nothing Could Be Read"
+              fallback="This meeting's polls could not be read."
+              whenSilent="Nothing answered. This meeting's polls could not be read."
+              onRetry={() => void polls.refresh()}
+            />
+          {/if}
+        {/snippet}
+
+        {#snippet writeFailure()}
+          {#if polls.writeFailure !== null}
+            <FailureNotice
+              failure={polls.writeFailure}
+              subject="This meeting"
+              title={pollWriteTitle}
+              fallback={pollWriteSentence}
+              whenSilent="Nothing answered, so nothing changed in this meeting's polls."
+            />
+          {/if}
+        {/snippet}
+      </MeetingPollsPanel>
+
+      <!-- What the room has asked, in the order a host works it. -->
+      <MeetingQuestionsPanel
+        bind:open={questionsOpen}
+        bind:draft={questionDraft}
+        subject={endSubject}
+        queue={questions.queue}
+        hosting={myRole !== null}
+        loading={questions.reading}
+        failed={questions.readFailure !== null && questions.questions.length === 0}
+        asking={questions.asking}
+        upvoting={questions.upvoting}
+        nameOf={(question) => nameOfStay(question.participantId, question.userId)}
+        isMine={askedByMe}
+        onAsk={(body) => questions.ask(body)}
+        onToggleUpvote={(questionId) => void questions.toggleUpvote(questionId)}
+        onMarkAnswered={(questionId, answered) => void questions.markAnswered(questionId, answered)}
+        onRedact={(questionId) => void questions.redact(questionId)}
+      >
+        {#snippet readFailure()}
+          {#if questions.readFailure !== null}
+            <FailureNotice
+              failure={questions.readFailure}
+              subject="This meeting"
+              title="Nothing Could Be Read"
+              fallback="The questions asked in this meeting could not be read."
+              whenSilent="Nothing answered. The questions asked in this meeting could not be read."
+              onRetry={() => void questions.refresh()}
+            />
+          {/if}
+        {/snippet}
+
+        {#snippet writeFailure()}
+          {#if questions.writeFailure !== null}
+            <FailureNotice
+              failure={questions.writeFailure}
+              subject="This meeting"
+              title={questionWriteTitle}
+              fallback={questionWriteSentence}
+              whenSilent="Nothing answered, so nothing changed in this meeting's questions."
+            />
+          {/if}
+        {/snippet}
+      </MeetingQuestionsPanel>
+
+      <!-- Who is at the door. Opened from a control that is absent for everybody who is not running
+           the meeting, and it would have nothing to draw for them either: the room sends the list
+           to the sockets holding a grant and to nobody else. -->
+      <MeetingLobbyPanel
+        bind:open={lobbyOpen}
+        subject={endSubject}
+        waiting={client.lobbyList}
+        onAdmit={(participantIds) =>
+          decideAtTheDoor(
+            (ids) => admitToMeetingLobby(meetingId, ids),
+            participantIds,
+            "admitted",
+          )}
+        onDeny={(participantIds) =>
+          decideAtTheDoor((ids) => denyFromMeetingLobby(meetingId, ids), participantIds, "denied")}
+      >
+        {#snippet writeFailure()}
+          {#if lobbyRefusal !== null}
+            <FailureNotice
+              failure={lobbyRefusal}
+              subject="This meeting"
+              title="Nobody Moved"
+              fallback="Nothing changed at the door."
+              whenSilent="Nothing answered, so nothing changed at the door."
+              onRetry={() => void refreshLobby(meetingId)}
+            />
+          {:else if doorShortfall !== null}
+            <!-- A batch that half-landed. Not a failure and not dressed as one: the request was
+                 served, and what it says is which of the people named did not move. -->
+            <Alert.Root variant="info">
+              <Alert.Title>Not Everybody Moved</Alert.Title>
+              <Alert.Description>{doorShortfall}</Alert.Description>
+            </Alert.Root>
+          {/if}
+        {/snippet}
+      </MeetingLobbyPanel>
+
+      <!-- Who is running this meeting. Open to everybody in the room — the grants read rides on the
+           permission to JOIN, because everybody a decision governs may know who makes it — and what
+           changes with the reader is only what they may do here. -->
+      <MeetingHostsPanel
+        bind:open={hostsOpen}
+        subject={endSubject}
+        grants={hostGrants}
+        loading={hostsReading && hostGrants === null}
+        failed={hostsFailure !== null}
+        nameOf={nameOfMember}
+        canWithdraw={myRole === "host"}
+        {canClaim}
+        onWithdraw={(userId) => void hostingWrite(() => revokeMeetingHosting(meetingId, userId))}
+        onClaim={claimHosting}
+      >
+        {#snippet readFailure()}
+          {#if hostsFailure !== null}
+            <FailureNotice
+              failure={hostsFailure}
+              subject="This meeting"
+              fallback="Who is hosting this meeting could not be read."
+              whenSilent="Nothing answered. Who is hosting this meeting could not be read."
+              onRetry={() => void refreshHosts()}
+            />
+          {/if}
+        {/snippet}
+
+        {#snippet writeFailure()}
+          {@render hostingFailure()}
+        {/snippet}
+      </MeetingHostsPanel>
     {/if}
   </LoadingRegion>
 </div>

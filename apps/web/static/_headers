@@ -1,0 +1,10 @@
+# Response headers for the static assets Workers serves beside the api-worker (the assets binding in
+# apps/api-worker/wrangler.jsonc, with single-page-application fallback). Rules match the request
+# path, so the fallback document served for a route under /join/ carries them too.
+#
+# A guest arrives at /join/<token>, where the token is a bearer credential. The page itself sets a
+# no-referrer meta tag and every guest fetch sends referrerPolicy: "no-referrer", but the document's
+# own script and stylesheet requests go out before either takes effect, and a Referer carrying the
+# path would carry the secret into the platform's request logs. The header closes that window.
+/join/*
+  Referrer-Policy: no-referrer

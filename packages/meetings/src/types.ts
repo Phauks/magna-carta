@@ -3,9 +3,11 @@ import type {
   MatterEventId,
   MatterId,
   MeetingAttendanceId,
+  MeetingGuestStayId,
   MeetingId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { MeetingLobbyMode } from "./lobby-types.ts";
 
 // The meeting's vocabularies and its one ceiling. Both vocabularies are also SQLite CHECKs on the
 // per-firm schema, so a value that reaches a write without appearing here fails at the database and
@@ -54,26 +56,77 @@ export function isMeetingMedium(value: string): value is MeetingMedium {
 export const MEETING_LIST_SCOPES = Object.freeze(["live", "upcoming", "recent"] as const);
 export type MeetingListScope = (typeof MEETING_LIST_SCOPES)[number];
 
-// HOW A STAY ENDED, as a closed vocabulary on the departure audit row. Two ways and only two: the
-// member said so, or their connection went and did not come back inside the grace the room allows.
-// One event name with a labelled reason rather than two event names, because the question a record is
-// read for is "when did they stop being in the room" and the label is the footnote to it — a second
-// event would split every such read in half. It is a label and never a diagnosis: which network
-// failed is not the firm's record of who was in a meeting.
-export const MEETING_DEPARTURE_REASONS = Object.freeze(["left", "socket-lost"] as const);
+// HOW A STAY ENDED, as a closed vocabulary on the departure audit row AND on the stay's own column.
+// Four ways: the member said so, their connection went and did not come back inside the grace the
+// room allows, a host put them out, or a host turned them away at the door. One event name with a
+// labelled reason rather than four event names, because the question a record is read for is "when
+// did they stop being in the room" and the label is the footnote to it — a second event name would
+// split every such read in half. It is a label and never a diagnosis: which network failed is not
+// the firm's record of who was in a meeting.
+//
+// `denied` is the lobby's: a host turned them away at the door rather than out of the room. It bars
+// re-entry exactly as `removed` does — a denial that did not bar would be a button that does
+// nothing, since the member presses Join again and is back at the front of the queue — so barred
+// entry is one rule with two labels, and only the sentence differs.
+//
+// A stay closed by the meeting ENDING carries no reason at all. The meeting row already says the
+// gathering ended, and a fifth value for it would be a second answer to a question already answered.
+export const MEETING_DEPARTURE_REASONS = Object.freeze([
+  "left",
+  "socket-lost",
+  "removed",
+  "denied",
+] as const);
 export type MeetingDepartureReason = (typeof MEETING_DEPARTURE_REASONS)[number];
 
 // THE ROOM'S CEILING, counted over the open attendance rows rather than over the sockets.
 //
-// Twelve is a product decision and not a limit of the routing layer: the selective forwarding unit
-// scales far past it, but the tile layout, the bandwidth adaptation and the active-speaker detection
-// that make a large room usable are their own work. A cap that refuses the thirteenth person with a
-// clear reason is honest; a room that admits fifty and degrades for all of them is not.
+// Three hundred is a product decision and not a limit of the routing layer: the selective forwarding
+// unit forwards whatever it is asked for, and the whole of the work a room this size needed was on
+// the two ends. Each browser pulls video only for the tiles it is showing and audio only for the
+// people talking; cameras publish three simulcast layers, so a small tile costs a small stream; and
+// the signaling room sends what CHANGED rather than the whole roster, because a full roster to three
+// hundred sockets on every one of three hundred arrivals is ninety thousand frames. Until those
+// existed, a low cap was the honest number — a room that admits three hundred and degrades for all
+// of them is not a room that holds three hundred.
 //
 // Counted over ATTENDANCE, which is what makes the number mean anything: a participant is somebody
 // with an open stay, so a browser that reconnects occupies one seat rather than two, and a member
 // who closed their laptop without leaving frees theirs when the meeting ends.
-export const MAX_MEETING_PARTICIPANTS = 12;
+//
+// Counted over the stays that are IN THE ROOM, which is the narrower half of that since the lobby
+// landed: somebody at the door holds an open stay and occupies no seat. That is also why the guard
+// that actually holds this number moved from the door to the ADMISSION — see
+// `admitAttendanceUnderCapStatement` in ./meeting-statements.ts. The door has its own, smaller
+// ceiling (`MAX_MEETING_LOBBY` in ./lobby-types.ts).
+export const MAX_MEETING_PARTICIPANTS = 300;
+
+// WHICH KIND OF STAY SOMEBODY HOLDS. Two kinds because there are two stay tables: a firm member's is
+// a `meeting_attendance` row, and an external guest's is a `meeting_guest_stay` row — a second table
+// rather than a nullable user column, because relaxing that NOT NULL would be a rebuild of a table
+// other tables point at. Every read that says who was present carries this, so a reader always
+// knows which of the two it is looking at.
+export const MEETING_PARTICIPANT_KINDS = Object.freeze(["member", "guest"] as const);
+export type MeetingParticipantKind = (typeof MEETING_PARTICIPANT_KINDS)[number];
+
+// WHICH KIND OF STAY A POLL ANSWER, A QUESTION OR AN UPVOTE MAY COME FROM — the two above, and a
+// webinar's `attendee`, whose stay table a later slice adds. It is a separate vocabulary rather than
+// a widening of the one above because the chat message's CHECK accepts two kinds and the roster
+// draws two; the poll and question tables accept three NOW, because widening a CHECK later is a
+// rebuild of a table other tables point at, and a column added before its first writer costs
+// nothing. Nothing in this package writes `attendee` yet — every write path here writes `member`.
+export const MEETING_CONTRIBUTOR_KINDS = Object.freeze(["member", "guest", "attendee"] as const);
+export type MeetingContributorKind = (typeof MEETING_CONTRIBUTOR_KINDS)[number];
+
+/**
+ * A STAY'S HANDLE, WHICHEVER TABLE IT IS IN.
+ *
+ * Every frame on the signaling wire, the lobby's decisions and the removal route name somebody by
+ * their stay, and a guest's stay is a `meetingGuestStay_` handle where a member's is a
+ * `meetingAttendance_` one. The prefix says which table, so the two can never be confused and a
+ * service resolves which it was handed without a second argument.
+ */
+export type MeetingParticipantHandle = MeetingAttendanceId | MeetingGuestStayId;
 
 // ---------------------------------------------------------------------------------------------
 // The stored rows, in the database's own column names.
@@ -98,6 +151,13 @@ export interface MeetingRow {
   readonly started_at: string | null;
   readonly ended_at: string | null;
   readonly ended_by_user_id: UserId | null;
+  // The door. Null while it is open; an instant and an actor together, because half of that pair is
+  // a record nobody can question. A locked room refuses arrivals and touches nobody already in it.
+  readonly locked_at: string | null;
+  readonly locked_by_user_id: UserId | null;
+  // Whether arrivals wait at a door. Chosen at Start and changeable by a host thereafter, which is
+  // the one setting on this row that is — see the note on `MEETING_LOBBY_MODES`.
+  readonly lobby: MeetingLobbyMode;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -113,8 +173,43 @@ export interface MeetingAttendanceRow {
   // Null while the person is still in the room. Ending the meeting closes every open row at one
   // instant, so a member who never pressed Leave still has an end rather than a stay running forever.
   readonly left_at: string | null;
+  // HOW IT ENDED, and the queryable half of a fact the audit row also carries. Null on a stay that
+  // is still open, on one the meeting's ending closed, and on every stay closed before the column
+  // existed — which is why nothing reads it as "left".
+  readonly ended_reason: MeetingDepartureReason | null;
+  // THE DOOR, IN TWO INSTANTS. `waiting_from` is when this stay reached the door and is null for
+  // somebody who never waited; `admitted_at` is when a host let them in and is null while they are
+  // still out there. `joined_at` above therefore means "when this stay began", at the door or in the
+  // room — a widening that is stated rather than papered over, and the reason the read carries all
+  // three instants: nothing downstream has to infer anything.
+  readonly waiting_from: string | null;
+  readonly admitted_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+/**
+ * ONE STAY IN THE ATTENDANCE RECORD, whichever table it lives in — the row the attendance read
+ * returns, in the database's own column names.
+ *
+ * `user_id` is null for a guest, who has none, and that is a widening rather than a parallel guest
+ * list on purpose: every reader then has to say, once, what it does with the absent case, instead of
+ * a silent under-report nobody catches. `display_name` is the member's name for a member and the name
+ * typed at the door for a guest; `entity_id` and `invited_name` are the Directory entity the guest's
+ * link was minted for and its name at mint, and are null for a member.
+ */
+export interface MeetingAttendanceRecord {
+  readonly id: MeetingParticipantHandle;
+  readonly participant_kind: MeetingParticipantKind;
+  readonly user_id: UserId | null;
+  readonly display_name: string;
+  readonly entity_id: string | null;
+  readonly invited_name: string | null;
+  readonly joined_at: string;
+  readonly left_at: string | null;
+  readonly ended_reason: MeetingDepartureReason | null;
+  readonly waiting_from: string | null;
+  readonly admitted_at: string | null;
 }
 
 // The event's own facts, resolved by the read rather than copied onto the meeting row. A firm event
@@ -157,4 +252,14 @@ export interface MeetingSummary {
   readonly startedAt: string | null;
   readonly endedAt: string | null;
   readonly liveCount: number;
+  // WHETHER THE DOOR IS SHUT, so a Join control can say so before the click rather than after it.
+  //
+  // It deliberately does not gain "are you the host". That would put a per-caller subquery on every
+  // row of a fifty-row list to answer a question only the room screen asks, and the room screen has
+  // the answer on the wire.
+  readonly locked: boolean;
+  // WHETHER ARRIVALS WAIT. A Start control reads it to show what it chose, and a host's panel to
+  // draw the switch; the people at the door are a separate read, because a fifty-row list must not
+  // carry a subquery for a question only the room screen asks.
+  readonly lobby: MeetingLobbyMode;
 }

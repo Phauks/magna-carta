@@ -286,3 +286,58 @@
     transform: translateY(calc(-1 * var(--mc-space-8)));
   }
 }
+
+/*
+ * The reaction rise — a mark thrown on a tile, which appears where it was thrown, travels up out of
+ * the tile and is gone. One keyframe over the whole dwell rather than a fade layered on a
+ * translate: the two have to agree about when the mark is legible, and two animations on one
+ * element agree only by arithmetic somebody has to keep in step.
+ *
+ * THE DWELL IS THE ANIMATION'S WHOLE LENGTH AND IT IS THE CALLER'S NUMBER, handed in as
+ * `--mc-reaction-dwell` (the recipe in styles/recipes/presence.css declares the default). Only the
+ * browser reads the dwell — it is what decides when the mark stops being drawn at all — so the one
+ * home for it is the client constant, and a second copy of it here would be a second answer that
+ * drifts the first time either moves.
+ *
+ * The percentage stops are the shape of the motion, not design values: the mark is legible almost
+ * at once and spends the last fifth of its life leaving. The travel is a token off the space scale,
+ * like the settle-fade's offset above, and the motion is compositor-only.
+ */
+@keyframes mc-reaction-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0) scale(0.7);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--mc-space-96))) scale(1);
+  }
+}
+
+/*
+ * The same mark for a reader who has asked for less motion: it appears where it was thrown, holds
+ * for the same dwell and fades where it is. The DWELL is information — it is how long the room
+ * agreed the mark is worth looking at — and the MOVEMENT is decoration, so the decoration is what
+ * goes and the timing is untouched.
+ */
+@keyframes mc-reaction-hold {
+  from {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

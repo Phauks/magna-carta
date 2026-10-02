@@ -24,9 +24,12 @@ import {
   EVENT_FIELDS,
   participantDraftFrom,
   participantInput,
+  meetingInput,
   recurrenceChanged,
   timingShortfalls,
   type EventTimingDraft,
+  type MeetingChoice,
+  type MeetingLobbyChoice,
   type ParticipantDraft,
 } from "./event-draft.ts";
 
@@ -42,11 +45,16 @@ export interface FirmEventDraft extends EventTimingDraft {
   /** The rule this meeting repeats on, or null for a one-off. A staff meeting usually has one. */
   recurrence: RecurrenceRule | null;
   participants: ParticipantDraft[];
+  /** Whether this setting is also a meeting, and what kind. The same answer a matter event takes. */
+  meeting: MeetingChoice;
+  /** And whether that room opens with a door. The same answer, for the same reason. */
+  meetingLobby: MeetingLobbyChoice;
 }
 
 export function emptyFirmEventDraft(
   timeZone: string,
   startsOn: string | null = null,
+  meeting: MeetingChoice = "none",
 ): FirmEventDraft {
   return {
     title: "",
@@ -63,6 +71,8 @@ export function emptyFirmEventDraft(
     conferenceUrl: "",
     recurrence: null,
     participants: [],
+    meeting,
+    meetingLobby: "off",
   };
 }
 
@@ -95,6 +105,8 @@ export function firmEventDraftStarted(draft: FirmEventDraft, since: FirmEventDra
     draft.locationId !== since.locationId ||
     draft.locationText !== since.locationText ||
     draft.conferenceUrl !== since.conferenceUrl ||
+    draft.meeting !== since.meeting ||
+    draft.meetingLobby !== since.meetingLobby ||
     recurrenceChanged(draft.recurrence, since.recurrence) ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
@@ -124,6 +136,7 @@ export function firmEventDraftRequest(draft: FirmEventDraft): CreateFirmEventReq
     recurrenceRule: draft.recurrence === null ? null : formatRecurrence(draft.recurrence),
     // An all-members event lists nobody: it is on every calendar by construction.
     participants: draft.audience === "all_members" ? [] : draft.participants.map(participantInput),
+    meeting: meetingInput(draft.meeting, draft.meetingLobby),
   };
 }
 
@@ -150,5 +163,9 @@ export function firmEventDraftFrom(
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),
     ),
+    // None, for the reason the matter event's draft gives: a correction never takes a meeting off
+    // an event, so this answer can only ever add one.
+    meeting: "none",
+    meetingLobby: "off",
   };
 }

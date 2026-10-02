@@ -65,6 +65,9 @@ describe("the event draft", () => {
       courtReference: null,
       recurrenceRule: null,
       participants: [],
+      // A hearing happens in a courtroom: no meeting is the answer for almost every event, and it
+      // is sent as null rather than omitted so it cannot be read as an older client.
+      meeting: null,
     });
   });
 

@@ -68,6 +68,38 @@
     }
   }
   /*
+   * The reaction rise — a mark thrown on a tile, rising out of it and gone (keyframes in
+   * styles/animations.css). It is NOT a presence pair: there is no closed state to animate back
+   * to, because nothing ever closes it — the mark is drawn for its dwell and then is not drawn at
+   * all — so one keyframe, one direction, and no data-state rules.
+   *
+   * THE DWELL IS THE CALLER'S NUMBER. How long a reaction is worth looking at is read by the
+   * browser alone (it decides when the mark stops being rendered), so its one home is the client
+   * constant and the caller hands it in on `--mc-reaction-dwell`. The declaration below is the
+   * default this recipe holds when nobody has: a caller that says nothing still gets a mark that
+   * rises and goes, rather than an invalid duration that makes it vanish the frame it appears.
+   * Same shape as the table grid's own scale lengths — a metric declared as the token it already
+   * was, which an inline declaration outranks when, and only when, a surface has asked.
+   */
+  .mc-reaction-rise {
+    --mc-reaction-dwell: var(--mc-duration-signature);
+    animation-name: mc-reaction-rise;
+    animation-duration: var(--mc-reaction-dwell);
+    animation-timing-function: var(--mc-easing-decelerate);
+    animation-fill-mode: both;
+  }
+  /*
+   * Less motion, same dwell. The other presence recipes collapse to the instant duration here
+   * because their whole content is the movement; this one's content is the MARK, and how long it
+   * stands is what the room is being told. So the travel goes and the timing stays — the reader
+   * still sees that somebody reacted, and for exactly as long as everybody else does.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .mc-reaction-rise {
+      animation-name: mc-reaction-hold;
+    }
+  }
+  /*
    * No presence at all: the surface appears fully formed the same frame it mounts and
    * vanishes the same frame it closes. animation-name: none removes the animation outright
    * and the instant duration neutralizes any fill-mode hold, so Bits' wait-for-animation

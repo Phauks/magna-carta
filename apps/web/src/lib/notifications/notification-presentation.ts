@@ -228,6 +228,17 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
   "calendar.event.scheduled": { title: "Event scheduled" },
   "calendar.event.rescheduled": { title: "Event moved" },
   "calendar.event.cancelled": { title: "Event cancelled" },
+  // The medium is the one fact this kind carries, and it is what the reader needs before they open
+  // it: a call and a meeting are prepared for differently. The title, the day and the hour are on
+  // the event behind the deep link, where they are read live and under the access check.
+  "meetings.meeting.scheduled": {
+    title: "You are invited to a meeting",
+    detail: (facts) => {
+      const medium = text(facts, "medium");
+      if (medium === null) return null;
+      return medium === "audio" ? "Audio call" : "Video meeting";
+    },
+  },
   "tasks.task.assigned": { title: "Task assigned to you", detail: taskDetail },
   "tasks.task.reassigned": { title: "Task passed to you", detail: taskDetail },
   "tasks.firmTask.assigned": { title: "Firm task assigned to you", detail: taskDetail },
