@@ -12,7 +12,12 @@ import type { RouteConfig } from "@hono/zod-openapi";
 import type { KnownPermission, Permission } from "@magna-carta/access-control/registry";
 import { reversalDeclarationProblem, type RouteReversal } from "./reversal.ts";
 
-export type RateLimitBucket = "default" | "auth" | "expensive" | "incident-report";
+export type RateLimitBucket =
+  | "default"
+  | "auth"
+  | "expensive"
+  | "incident-report"
+  | "guest-arrival";
 
 export interface RouteMeta {
   operationId: string; // 'subsystem.action' — ^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$
@@ -78,6 +83,23 @@ export interface RouteMeta {
    * mutating methods are worked through. Optional elsewhere and validated wherever it appears.
    */
   reversal?: RouteReversal;
+  /**
+   * THE MEETING GUEST'S LANE — a route reached by somebody from outside the firm holding a signed
+   * credential rather than a session. Absent on every other route in the platform, and absent means
+   * nothing changes at all.
+   *
+   *   "invitation" — the link the e-mail carries, in the `x-meeting-guest` header.
+   *   "grant"      — the credential an arrival mints, in the same header, or in the `guest` query
+   *                  parameter on a WebSocket upgrade and nowhere else.
+   *
+   * Present, the chokepoint admits the request through the lane INSTEAD of the session path: it never
+   * resolves a session, never loads a permission, and stashes the firm and the credential but never a
+   * user id — so a member handler pointed at a guest route fails on its first line. Registration
+   * refuses the field unless the route is also `authenticated: false`, `permission: null`,
+   * `surface: "app"` and `resource: "firm"`: there is no principal to hold a capability, so a guest
+   * route cannot be written that names one.
+   */
+  guestLane?: "invitation" | "grant";
 }
 
 // The meta as attached to a defined route: optional fields resolved to their defaults, so the
@@ -213,7 +235,7 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   //
   // #1 Public routes cannot name a capability: the chokepoint never reads a public route's
   // permission, so naming one is a confused contract that misleads the next reader.
-  if (meta.authenticated === false && meta.permission !== null) {
+  if (!meta.authenticated && meta.permission !== null) {
     throw new TypeError(
       `Route ${JSON.stringify(meta.operationId)} is public (authenticated: false) but names a ` +
         `permission ${JSON.stringify(meta.permission)} — the chokepoint ignores a public route's ` +
@@ -227,7 +249,7 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   // methods trip this guard.
   if (
     isMutatingMethod(routeConfig.method) &&
-    meta.authenticated === true &&
+    meta.authenticated &&
     meta.permission === null &&
     // The one exemption, and it is structural rather than a waiver: a "only"-firmless route is
     // unreachable for any session that HAS a firm (the chokepoint answers those the reserved 404),
@@ -283,6 +305,29 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     throw new TypeError(`Route ${JSON.stringify(meta.operationId)}: ${reversalProblem}`);
   }
 
+  // #5 A meeting guest's lane admits somebody who holds no session and never will, so the route may
+  // claim nothing a session would carry. A guest route naming a capability would be a contract with
+  // no principal to hold it; one marked authenticated would send a guest to the session path, which
+  // has nothing to find; and a guest belongs to a FIRM's app surface — the lane resolves the firm from
+  // the credential — so any other surface or tenancy root is a route in the wrong place. The two
+  // session-path admissions are refused beside them: the lane never reaches the code that reads them.
+  if (
+    meta.guestLane !== undefined &&
+    (meta.authenticated ||
+      meta.permission !== null ||
+      meta.surface !== "app" ||
+      meta.resource !== "firm" ||
+      meta.firmlessSession !== undefined ||
+      meta.firmDatabaseOutage !== undefined)
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} declares guestLane ${JSON.stringify(meta.guestLane)} ` +
+        `but a guest route must be authenticated: false, permission: null, surface: "app" and ` +
+        `resource: "firm", with no firmlessSession or firmDatabaseOutage — a guest holds no session ` +
+        `and no capability, so the route can claim nothing a session would carry.`,
+    );
+  }
+
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
@@ -318,6 +363,9 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     // an undo stack's decision to offer a step are both this fact, and a copy of it in a Svelte file
     // is a copy that drifts the first time the route gains a restore.
     ...(resolvedMeta.reversal === undefined ? {} : { "x-mc-reversal": resolvedMeta.reversal }),
+    // Emitted because it stands where a permission would on the few routes that carry it: a reader
+    // of the contract that could not see it would find an anonymous route serving firm data.
+    ...(resolvedMeta.guestLane === undefined ? {} : { "x-mc-guestLane": resolvedMeta.guestLane }),
     "x-mc-tags": resolvedMeta.tags,
     "x-mc-deprecated": resolvedMeta.deprecated,
   });

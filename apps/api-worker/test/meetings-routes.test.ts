@@ -29,7 +29,7 @@ import {
 //     Billing and meetings:host deliberately not, so a Billing member can be in a meeting and cannot
 //     open or close one. Asserted against that seat rather than against a direct grant, because the
 //     seeds are what decides the seat.
-//   - THE SIGNALING SOCKET NEEDS AN OPEN STAY. The room's roster and the twelve-person cap are both
+//   - THE SIGNALING SOCKET NEEDS AN OPEN STAY. The room's roster and the participant cap are both
 //     counted over attendance, so a socket that did not need one would be a way past both.
 //
 // The routing credentials are supplied as an ENVIRONMENT OVERRIDE rather than put in a shared
@@ -157,27 +157,40 @@ async function startMeetingOn(eventId: string): Promise<string> {
 
 /**
  * Fills a room with fabricated members' open stays, so the cap can be met without standing up a
- * dozen sessions. The rows are what the cap is counted over, so this is the same room state a dozen
- * real joins produce.
+ * session per seat. The rows are what the cap is counted over, so this is the same room state that
+ * many real joins produce.
+ *
+ * WRITTEN IN BATCHES RATHER THAN ROW BY ROW, and that is about this test finishing rather than about
+ * tidiness. The firm's database is a Durable Object reached over RPC, so a member and a stay per
+ * seat is two round trips per seat and six hundred of them for a full room — seconds of doing
+ * nothing on a loaded box, all of it inside one test's own timeout, none of it the thing the test is
+ * about. Batched, the same rows are a handful of calls.
  */
 async function fillRoomTo(meetingId: string, occupants: number): Promise<void> {
   const now = new Date().toISOString();
+  const statements = [];
   for (let seat = 0; seat < occupants; seat += 1) {
     const userId = newIdentifier("user");
-    await firmDatabase
-      .prepare(
-        `INSERT INTO member (user_id, display_name, status, created_at) ` +
-          `VALUES (?1, ?2, 'active', ?3)`,
-      )
-      .bind(userId, `Seat ${String(seat)}`, now)
-      .run();
-    await firmDatabase
-      .prepare(
-        `INSERT INTO meeting_attendance (id, meeting_id, user_id, joined_at, left_at, created_at, ` +
-          `updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4)`,
-      )
-      .bind(newIdentifier("meetingAttendance"), meetingId, userId, now)
-      .run();
+    statements.push(
+      firmDatabase
+        .prepare(
+          `INSERT INTO member (user_id, display_name, status, created_at) ` +
+            `VALUES (?1, ?2, 'active', ?3)`,
+        )
+        .bind(userId, `Seat ${String(seat)}`, now),
+      firmDatabase
+        .prepare(
+          `INSERT INTO meeting_attendance (id, meeting_id, user_id, joined_at, left_at, created_at, ` +
+            `updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4)`,
+        )
+        .bind(newIdentifier("meetingAttendance"), meetingId, userId, now),
+    );
+  }
+  // Chunked rather than sent whole: one transaction of six hundred statements is a different thing
+  // to ask a Durable Object for than a few of a hundred, and nothing here needs the seats to arrive
+  // atomically — the room is empty until this returns either way.
+  for (let start = 0; start < statements.length; start += 100) {
+    await firmDatabase.batch(statements.slice(start, start + 100));
   }
 }
 
@@ -391,13 +404,14 @@ describe("arriving, and leaving a record of it", () => {
     expect((await readJson<JoinedMeeting>(response)).displayName).toBe("Meetings Bookkeeper");
   });
 
-  it("answers the thirteenth arrival with a full room rather than a server error", async () => {
+  it("answers the arrival past the cap with a full room rather than a server error", async () => {
     const meetingId = await freshMeeting();
     await fillRoomTo(meetingId, MAX_MEETING_PARTICIPANTS - 1);
 
-    // ONE SEAT, TWO ARRIVALS. Whichever way the two land — both counting eleven and the insert's
-    // guard refusing the loser, or the second counting twelve and refusing itself — the answer the
-    // member gets is the same one, and it is never an Error ID for a batch they cannot see.
+    // ONE SEAT, TWO ARRIVALS. Whichever way the two land — both counting the free seat and the
+    // insert's guard refusing the loser, or the second counting a full room and refusing itself —
+    // the answer the member gets is the same one, and it is never an Error ID for a batch they
+    // cannot see.
     const [first, second] = await Promise.all([
       post(`/api/v1/meetings/${meetingId}/join`, ownerCookie),
       post(`/api/v1/meetings/${meetingId}/join`, billingCookie),
@@ -406,7 +420,7 @@ describe("arriving, and leaving a record of it", () => {
     const refused = first.status === 409 ? first : second;
     expect((await readJson<{ type: string }>(refused)).type).toContain("meeting-room-full");
 
-    // And the room holds exactly its dozen, never a thirteenth.
+    // And the room holds exactly its ceiling, never one past it.
     const summary = await readJson<MeetingSummary>(
       await get(`/api/v1/meetings/${meetingId}`, ownerCookie),
     );

@@ -631,6 +631,89 @@ export const PROBLEM_TYPES = {
   // meeting's audio and video to go. A fact about the deployment rather than about the caller or
   // their firm, which is why it is not a 403: nobody here can fix it by being granted something.
   "meetings-not-configured": "meetings-not-configured",
+  // A calendar act refused because the event's meeting is running (HTTP 409): people are in the room
+  // right now. Its own type rather than the generic `conflict` because the remedy is a NAMED act the
+  // caller can take — end the meeting, then cancel the event — and a surface that can read the type
+  // can offer that act instead of restating a sentence. The opposite of `meeting-ended`: that one
+  // says the gathering is over, this one says it has not finished.
+  "meeting-in-progress": "meeting-in-progress",
+  // A chat message nothing can reach (HTTP 404): a handle naming no message, and a message that
+  // belongs to a different meeting from the one the caller was authorized against. One type for
+  // both, on the reasoning `meeting-not-found` above states — a message is reachable only through
+  // its meeting, so telling them apart would make the route an existence oracle for a room the
+  // caller cannot see into.
+  "meeting-message-not-found": "meeting-message-not-found",
+  // A chat message longer than a message may be (HTTP 422). Its own type rather than the generic
+  // `validation` because the remedy is a specific one a surface can act on — shorten it, or put the
+  // long thing on the file as a document — and because a message silently truncated to fit would be
+  // a record of something nobody said.
+  "meeting-message-too-long": "meeting-message-too-long",
+  // A POLL nothing can reach (HTTP 404) — a handle naming no poll, and a poll in another meeting, on
+  // the chat message's reasoning.
+  "meeting-poll-not-found": "meeting-poll-not-found",
+  // A host closed it, so it takes no more answers (HTTP 409).
+  "meeting-poll-closed": "meeting-poll-closed",
+  // This member has already answered it, from this stay or an earlier one (HTTP 409). An answer
+  // cannot be changed; a host who wants the room asked again opens a second poll.
+  "meeting-poll-already-answered": "meeting-poll-already-answered",
+  // Who answered what, asked of a poll that does not show names (HTTP 409). Refused rather than
+  // answered with an empty page, which would read as "nobody answered".
+  "meeting-poll-answers-not-attributed": "meeting-poll-answers-not-attributed",
+  // A poll body — or an answer's choices — that is not one this poll accepts (HTTP 422). ONE type for
+  // the question's length, the option count, an option's length and the choices, because they are
+  // one validation of one body; the problem's `errors` names the field that failed.
+  "meeting-poll-invalid": "meeting-poll-invalid",
+  // A QUESTION from the queue nothing can reach (HTTP 404), on the chat message's reasoning.
+  "meeting-question-not-found": "meeting-question-not-found",
+  // A question longer than a question may be (HTTP 422) — refused rather than truncated.
+  "meeting-question-too-long": "meeting-question-too-long",
+  // The meeting's queue already holds as many questions as a queue may (HTTP 409).
+  "meeting-question-limit-reached": "meeting-question-limit-reached",
+  // The caller is not running this meeting (HTTP 403). A 403 rather than a 409 because it is an
+  // authority question and retrying changes nothing; its OWN type rather than the chokepoint's
+  // `permission-denied` because the member holds the permission and the remedy is different —
+  // somebody has to hand them the room, or, where nobody is running it, they claim it. Authority
+  // over a meeting is a grant on the meeting rather than a capability of a seat, and this is the
+  // refusal that says so.
+  "meeting-not-host": "meeting-not-host",
+  // The door is shut (HTTP 409). A late arrival reads a sentence rather than meeting a silent
+  // failure, and the meeting summary carries `locked` so a Join control can say so before the click
+  // rather than after it. Fixed by a host unlocking the room, which is why it is neither an absence
+  // nor a permission answer.
+  "meeting-locked": "meeting-locked",
+  // A host put this member out of this meeting (HTTP 409). Its own type because a surface has to
+  // answer it differently from every other refusal: the way back is not to retry and not to ask for
+  // anything, so the screen offers no Rejoin at all. It is the MEETING they are barred from and not
+  // the event — a new meeting on the same event is a new room.
+  "meeting-removed": "meeting-removed",
+  // The lobby is full (HTTP 409) — the hundred-and-first arrival at a door a hundred people are
+  // already waiting at. DELIBERATELY NOT `meeting-room-full`: the two ceilings answer different
+  // questions and the remedies differ, so a surface that collapsed them would tell somebody to wait
+  // for a seat when what is needed is a host looking at the list. A queue is also not somewhere a
+  // firm should be able to accumulate rows without limit, which is why the number is much smaller
+  // than the room's.
+  "meeting-lobby-full": "meeting-lobby-full",
+  // A host turned this member away at the door (HTTP 409), and they are arriving again. The twin of
+  // `meeting-removed` — barred entry is one rule with two labels, and both bar the member for as
+  // long as the meeting runs. Its own type because a screen has to say the right thing: one is
+  // being put out of the room, the other is never having been let in.
+  "meeting-not-admitted": "meeting-not-admitted",
+  // A MEETING GUEST'S LINK THAT CANNOT BE USED, said to somebody holding a correctly SIGNED one — which
+  // only somebody the firm sent it to can hold, so each is specific and actionable. A token whose
+  // signature does not verify never reaches any of these: it gets the reserved `not-found`, one flat
+  // answer that says nothing about whether a meeting or a firm exists.
+  //
+  // Signed, but it matches no live invitation — the firm sent a newer link in its place (HTTP 410).
+  "guest-link-not-valid": "guest-link-not-valid",
+  // Past the instant computed when the link was minted (HTTP 410).
+  "guest-link-expired": "guest-link-expired",
+  // A host withdrew it (HTTP 410). The invitation row stays; the link does not work.
+  "guest-link-revoked": "guest-link-revoked",
+  // Spent at the door as many times as one link may be (HTTP 409).
+  "guest-link-exhausted": "guest-link-exhausted",
+  // A host asked to invite somebody the record cannot resolve to a Directory entity on the event with
+  // an address the firm may use (HTTP 422). The remedy is in the Directory, not in retrying.
+  "guest-not-invitable": "guest-not-invitable",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

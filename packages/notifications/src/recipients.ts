@@ -28,6 +28,12 @@ export interface RecipientResolutionContext {
   // audience, and a `named-recipient` type that resolves to null reaches nobody, which is the
   // correct outcome for a task assigned to no one.
   readonly namedRecipientUserId: UserId | null;
+  // The members a `named-members` type's payload names — the member participants on the event a
+  // meeting was scheduled on. Extracted by the caller from the payload for the same reason the
+  // single handle above is, and empty for every other audience. A `named-members` type that
+  // resolves to nobody reaches nobody, which is the correct outcome for an event with no colleague
+  // on it: the member who recorded it is not invited to their own meeting by a notification.
+  readonly namedMemberUserIds: readonly UserId[];
   // Supplied rather than read here: this package holds no binding and reads no clock, so the one
   // resolver that needs the time (direct-grant expiry) is handed it by whoever is running the pass.
   readonly now: () => string;
@@ -130,6 +136,15 @@ async function resolveDeclaredAudience(
       return {
         recipientUserIds:
           context.namedRecipientUserId === null ? [] : [context.namedRecipientUserId],
+        substituted: false,
+      };
+    case "named-members":
+      // Deduplicated here rather than trusted from the producer: a participant list is edited by
+      // hand, and one member listed twice on an event must not become two feed rows for one
+      // invitation. The list is bounded by the event's own participant cap before it is written, so
+      // there is nothing to clamp that the fan-out ceiling does not already clamp.
+      return {
+        recipientUserIds: [...new Set(context.namedMemberUserIds)],
         substituted: false,
       };
     case "actor":

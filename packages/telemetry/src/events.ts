@@ -198,6 +198,370 @@ export const naturalLanguageFeedReconciliationMismatch = defineEvent(
   ["objectsWithoutLiveRow", "liveRowsWithoutObject"] as const,
 );
 
+// ── A meeting's signaling room ───────────────────────────────────────────────
+//
+// WHY A MEETING NEEDS A STREAM OF ITS OWN. Everything else this platform records leaves a row
+// behind: a failed import has a record, a dead-lettered message has a topic and an attempt count.
+// A meeting leaves attendance and nothing else — the roster, the sessions, the tracks and the
+// sockets are deleted when the meeting ends, by design — so a room of three hundred that went badly
+// used to be a thing nobody could ask a question about afterwards. These events are the only
+// durable trace, and they are what an operator reads when a firm says "the meeting broke".
+//
+// WHAT IS STRUCTURALLY ABSENT, and it is most of what a meeting contains. There is no field here
+// for a display name, a track name, a session description, a chat line or a routing-service body.
+// That is not restraint at the call sites: the allowlist gives none of them a slot, so a future
+// edit cannot add one without adding it here first, where it would have to be argued for. What is
+// left is identifiers the platform minted, counts, closed enums and instants — which is the same
+// posture the custody and asset registers take, and for a sharper reason: the metadata of a law
+// firm's meetings is a disclosure on its own.
+//
+// CORRELATED BY THE THREE HANDLES. `firmId` and `meetingId` are on every event in the family and
+// `attendanceId` is on every one that is about a person — so a meeting is one query and a
+// participant's whole passage through it is one filter. The correlation id is minted per event,
+// because a room is not a request: it is woken by a frame, an alarm or a route and there is no
+// enclosing unit of work for the three to share. The meeting is the join key, not the correlation.
+//
+// WHAT IS DELIBERATELY NOT RECORDED PER OCCURRENCE. Presence is relayed many times a second in a
+// live discussion and a `sync` is answered on demand — one event each would be the hot-path work
+// golden rule 10 forbids, and would cost more than the room does. Presence is recorded once per
+// coalesced flush with the count it covered, and the room's read cost is SAMPLED rather than
+// counted (see `meetings.room.storageReadBudget`).
+
+/** A socket took a stay: somebody arrived, or the same person's browser came back. */
+export const meetingRoomJoined = defineEvent("meetings.room.joined", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "medium",
+  "hostRole",
+  // Whether this socket went to the door rather than into the room, and whether it displaced one
+  // that already held the stay. A rejoin is the shape behind most "my tile is black" reports.
+  "waiting",
+  "rejoined",
+] as const);
+
+/**
+ * The welcome is on the wire, which is the instant a socket is in the room.
+ *
+ * `waitingSize` is the door list this welcome CARRIED, which is empty for anybody who is not running
+ * the meeting — who is at the door is a list of people a host has not yet decided about, and the
+ * room is not told. The room's own read of the door is not made for a non-host, so the alternative
+ * would be a list read per join to fill a field.
+ */
+export const meetingRoomWelcomed = defineEvent("meetings.room.welcomed", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "rosterSize",
+  "waitingSize",
+] as const);
+
+/** Tracks the routing service confirmed, counted by kind — never named. */
+export const meetingRoomPublished = defineEvent("meetings.room.published", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "trackCount",
+  "audioCount",
+  "videoCount",
+  // What the service would not carry. A non-zero here with a published count beside it is the
+  // difference between "nobody can see them" and "they never offered a camera".
+  "refusedCount",
+] as const);
+
+/** Somebody else's tracks forwarded to this browser: what it asked for against what it got. */
+export const meetingRoomSubscribed = defineEvent("meetings.room.subscribed", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "requestedCount",
+  "forwardedCount",
+] as const);
+
+/** A change of simulcast layer, and how much of it the service refused. */
+export const meetingRoomLayerChanged = defineEvent("meetings.room.layerChanged", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "trackCount",
+  "refusedCount",
+] as const);
+
+/**
+ * The held-back presence transitions the alarm relayed, as ONE event per flush.
+ *
+ * `relayedCount` is the coalescing made visible: a room where it sits at one is a quiet meeting, and
+ * a room where it is forty is a discussion the throttle is earning its place in.
+ */
+export const meetingRoomPresenceRelayed = defineEvent("meetings.room.presenceRelayed", [
+  "firmId",
+  "meetingId",
+  "relayedCount",
+] as const);
+
+/**
+ * REACTIONS RELAYED, and whether the room named the person or counted the room.
+ *
+ * `coalesced` is the branch made visible. False is one reaction in a room small enough for a bubble
+ * on a face, and the count is one. True is a whole second of a large room's applause as a single
+ * frame, and the count is what that frame covered — eleven people applauding is the number the
+ * coalescing exists to be able to send. A stream where `coalesced` is true and the count sits at one
+ * is a room paying for a bucket it does not need.
+ *
+ * There is no field for WHICH reaction and there will not be one: the vocabulary is six names, the
+ * name says something about a person's opinion of what was just said, and the whole subsystem is
+ * careful not to record the mechanics of a conversation.
+ */
+export const meetingRoomReactionsRelayed = defineEvent("meetings.room.reactionsRelayed", [
+  "firmId",
+  "meetingId",
+  "reactionCount",
+  "coalesced",
+] as const);
+
+/**
+ * A chat message carried to the people in the room, as a COUNT OF SOCKETS and nothing else.
+ *
+ * The room is not the record here — the route is, and the row is already committed before this
+ * happens — so what is worth recording is the only thing the route cannot see: whether the copy
+ * reached anybody. A relay to zero sockets is an ordinary meeting nobody is connected to and a relay
+ * to three hundred is a live room; a stream where the first is the only shape is a relay that has
+ * stopped working, which is otherwise invisible because the poller covers for it.
+ *
+ * `redaction` tells the two acts apart. There is NO field for the message handle and none for its
+ * body: what was said is the transcript's to hold, under the matter's own retention, and the
+ * telemetry stream has different readers and a different retention from the record.
+ */
+export const meetingRoomMessageRelayed = defineEvent("meetings.room.messageRelayed", [
+  "firmId",
+  "meetingId",
+  "recipientCount",
+  "redaction",
+] as const);
+
+/**
+ * A poll's copy carried to the people in the room: opened, closed, or a second's tallies.
+ *
+ * The route is the record here exactly as it is for chat, so what is worth recording is whether the
+ * copy reached anybody (`recipientCount`) and, for a tally, how many polls one flush covered
+ * (`pollCount`) — the number that says whether the per-second bucket is earning its place. `act` is
+ * `opened`, `closed` or `tally`.
+ *
+ * THERE IS NO FIELD FOR THE QUESTION, AN OPTION, A COUNT PER OPTION OR THE POLL'S HANDLE, and there
+ * will not be one: the question and the labels are content the firm's own record holds under the
+ * matter's retention, and a per-option count on a poll that does not show names is one join away
+ * from the thing that promise withholds.
+ */
+export const meetingRoomPollRelayed = defineEvent("meetings.room.pollRelayed", [
+  "firmId",
+  "meetingId",
+  "act",
+  "recipientCount",
+  "pollCount",
+] as const);
+
+/**
+ * A question's copy carried to the people in the room: asked, its state changed, or a second's
+ * upvote counts.
+ *
+ * On the chat event's terms: the socket count, and for a tally how many questions one flush covered
+ * (`questionCount`). `act` is `asked`, `updated` or `tally`. No field for the body, the asker or the
+ * question's handle — what somebody asked the room is the transcript's to hold.
+ */
+export const meetingRoomQuestionRelayed = defineEvent("meetings.room.questionRelayed", [
+  "firmId",
+  "meetingId",
+  "act",
+  "recipientCount",
+  "questionCount",
+] as const);
+
+/**
+ * A frame the room would not act on.
+ *
+ * The reason is the protocol's own closed vocabulary and the Error ID is the handle the member is
+ * holding, so a support call quoting one lands on the frame that produced it. `frameType` is the
+ * protocol's own enum; the empty string means the room never named one — a frame too malformed to
+ * carry a type, or one refused for its socket's frame budget, which is decided before the parse so
+ * that a flood does not buy a parse apiece.
+ *
+ * NOT EVERY REFUSAL OF THAT LAST KIND IS RECORDED. A budget refusal is what a client sending in a
+ * loop receives, so it is sampled where every other refusal here is one event per act; the room's
+ * own module holds the rate. Every refused frame is still answered on the wire.
+ */
+export const meetingRoomRefused = defineEvent("meetings.room.refused", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "reason",
+  "errorId",
+  "frameType",
+] as const);
+
+/** A socket went away and a grace period started — or was found already superseded. */
+export const meetingRoomSocketLost = defineEvent("meetings.room.socketLost", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "waiting",
+] as const);
+
+/** The grace sweep closed stays whose own minute ran out — the roster's and the door's. */
+export const meetingRoomSwept = defineEvent("meetings.room.swept", [
+  "firmId",
+  "meetingId",
+  "participantCount",
+  "waitingCount",
+] as const);
+
+/** A newer socket took a stay over, and the older ones were hung up on. */
+export const meetingRoomSuperseded = defineEvent("meetings.room.superseded", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "socketCount",
+] as const);
+
+/** A host let people in from the door, counted per decision rather than per person. */
+export const meetingRoomAdmitted = defineEvent("meetings.room.admitted", [
+  "firmId",
+  "meetingId",
+  "admittedCount",
+] as const);
+
+/** A host turned people away at the door. */
+export const meetingRoomDenied = defineEvent("meetings.room.denied", [
+  "firmId",
+  "meetingId",
+  "deniedCount",
+] as const);
+
+/**
+ * A microphone closed by a host, or the whole room's.
+ *
+ * `attendanceId` names the person muted and is null for the whole-room act, which carries its count
+ * instead — a host clearing the floor in a room of three hundred is one event, not three hundred.
+ */
+export const meetingRoomMuted = defineEvent("meetings.room.muted", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "byAttendanceId",
+  "scope",
+  "mutedCount",
+] as const);
+
+/** A host put somebody out of the meeting. The record of WHO is the hosting route's audit row. */
+export const meetingRoomRemoved = defineEvent("meetings.room.removed", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+] as const);
+
+/** The door moved — shut or opened again. */
+export const meetingRoomLocked = defineEvent("meetings.room.locked", [
+  "firmId",
+  "meetingId",
+  "locked",
+] as const);
+
+/** The meeting is over, with the size it ended at. */
+export const meetingRoomEnded = defineEvent("meetings.room.ended", [
+  "firmId",
+  "meetingId",
+  "participantCount",
+  "waitingCount",
+] as const);
+
+/**
+ * The one alarm woke, and which of its jobs it found due.
+ *
+ * A room has exactly one alarm serving four deadlines, so "the alarm ran" says almost nothing on its
+ * own: the jobs are what distinguishes a room sweeping a dropped connection from one flushing a
+ * burst of presence, and an alarm that ran and did none of them is the shape of a deadline nobody
+ * lowered — which is the one way this mechanism can spin.
+ */
+export const meetingRoomAlarmRan = defineEvent("meetings.room.alarmRan", [
+  "firmId",
+  "meetingId",
+  "sweptParticipants",
+  "sweptWaiting",
+  "presenceFlushed",
+  // How many reactions the wake sent on as one coalesced frame. Zero is the ordinary case — a bucket
+  // exists only while somebody is reacting — and a non-zero is the wake the sub-second deadline was
+  // armed for.
+  "reactionsFlushed",
+  "endedMarkerRetired",
+  "rearmed",
+] as const);
+
+/**
+ * WHAT ONE FRAME COST THE ROOM IN STORAGE, sampled.
+ *
+ * The room's whole design is a budget — the roster is read at most once per frame, because in a room
+ * of three hundred that read is three hundred keys — and nothing was measuring whether it held. This
+ * is the measurement: the list and get operations a frame of each kind spent. It is SAMPLED rather
+ * than recorded per frame because a signal that costs as much as the thing it measures is not a
+ * signal, and it is approximate under concurrency: the counters belong to the room, so two frames in
+ * flight share their spend. It is a budget, never a ledger.
+ */
+export const meetingRoomStorageReadBudget = defineEvent("meetings.room.storageReadBudget", [
+  "firmId",
+  "meetingId",
+  "frameType",
+  "listCount",
+  "getCount",
+] as const);
+
+/**
+ * A browser's own account of how its connection is behaving.
+ *
+ * The numbers are the browser's measurement of itself — nothing on the server can take them, because
+ * the media never crosses it. Rates, counts and one enum; there is no slot for a track, a name or a
+ * description, and the frame that carries it is bounded field by field so an impossible claim is
+ * refused at the parse rather than aggregated here.
+ */
+export const meetingRoomClientReport = defineEvent("meetings.room.clientReport", [
+  "firmId",
+  "meetingId",
+  "attendanceId",
+  "quality",
+  "roundTripMilliseconds",
+  "lossFraction",
+  "jitterMilliseconds",
+  "outboundRid",
+  "outboundWidth",
+  "outboundHeight",
+  "outboundBitsPerSecond",
+  "inboundCount",
+] as const);
+
+// ── A meeting's guest lane ───────────────────────────────────────────────────
+//
+// A GATE THAT IS SILENT WHEN IT IS WORKING IS A GATE NOBODY NOTICES HAS STOPPED. Every refusal at the
+// chokepoint's guest lane and at the guest's own arrival is counted here — the flat refusal of a token
+// whose signature did not verify most of all, because that is the one a stranger guessing at the
+// route produces, and a rising count of it is the only sign anybody is.
+//
+// WHAT IS STRUCTURALLY ABSENT: the token, the secret, the grant, the address the link went to, the
+// name typed at the door. None has a slot, so none can be added without being argued for here.
+
+/**
+ * A guest credential refused.
+ *
+ * `lane` is the route's lane (`invitation` or `grant`); `reason` is `credential` for the flat refusal
+ * of a token that is not one — absent, unsigned, the wrong kind, or expired by its own clock — and
+ * otherwise the subsystem's own refusal code for a signed one that cannot be used now. The three
+ * handles are null on the flat refusal, because nothing about an unverified token is believed.
+ */
+export const meetingGuestRefused = defineEvent("meetings.guest.refused", [
+  "lane",
+  "reason",
+  "firmId",
+  "meetingId",
+  "invitationId",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -220,4 +584,28 @@ export const EVENT_NAMES = [
   naturalLanguageHitDropped,
   naturalLanguageInstanceOperationFailed,
   naturalLanguageFeedReconciliationMismatch,
+  meetingRoomJoined,
+  meetingRoomWelcomed,
+  meetingRoomPublished,
+  meetingRoomSubscribed,
+  meetingRoomLayerChanged,
+  meetingRoomPresenceRelayed,
+  meetingRoomReactionsRelayed,
+  meetingRoomMessageRelayed,
+  meetingRoomPollRelayed,
+  meetingRoomQuestionRelayed,
+  meetingRoomRefused,
+  meetingRoomSocketLost,
+  meetingRoomSwept,
+  meetingRoomSuperseded,
+  meetingRoomAdmitted,
+  meetingRoomDenied,
+  meetingRoomMuted,
+  meetingRoomRemoved,
+  meetingRoomLocked,
+  meetingRoomEnded,
+  meetingRoomAlarmRan,
+  meetingRoomStorageReadBudget,
+  meetingRoomClientReport,
+  meetingGuestRefused,
 ].map((builder) => builder.eventName);

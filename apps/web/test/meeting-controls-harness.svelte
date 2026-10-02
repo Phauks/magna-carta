@@ -5,7 +5,7 @@
    * above it throws as it mounts.
    */
   import * as Tooltip from "@magna-carta/design-system/tooltip";
-  import MeetingControls from "$lib/meetings/meeting-controls.svelte";
+  import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
   import type { ComponentProps } from "svelte";
 
   let props: ComponentProps<typeof MeetingControls> = $props();

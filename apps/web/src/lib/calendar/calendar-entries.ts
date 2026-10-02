@@ -152,6 +152,63 @@ export function entryFromTimelineRow(
   };
 }
 
+/**
+ * The words a federated firm-event row paints as.
+ *
+ * The source declares "Firm meeting · all_members" — the catalog type name and the audience column
+ * — because the TITLE is not the platform's to broadcast beyond the event's own access-gated read.
+ * The audience arrives as the column's own value, so it is read into the product's word here; a
+ * label with no audience the product knows is printed as it came, because a source that has learned
+ * a new audience should read oddly rather than be dropped.
+ */
+function firmEventTimelineLabel(label: string | null): string {
+  if (label === null || label.trim() === "") return UNCLASSIFIED_FIRM_EVENT_LABEL;
+  const parts = label.split(" · ");
+  const audience = parts.at(-1);
+  if (audience !== "all_members" && audience !== "participants") return label;
+  const said = firmEventAudienceLabel(audience);
+  return parts.length === 1
+    ? `${UNCLASSIFIED_FIRM_EVENT_LABEL} · ${said}`
+    : [...parts.slice(0, -1), said].join(" · ");
+}
+
+/**
+ * A row of the federated read as an AVAILABILITY answer — the projection above, plus the firm
+ * events it deliberately leaves to somebody else.
+ *
+ * The grid skips a firm-event row because the firm's own listing is read beside it and carries the
+ * title, so painting both would put the same event on the day twice. Availability has no second
+ * read to defer to: the member filter the server resolves in SQL is the whole question, and a firm
+ * event is on a colleague's calendar exactly as a hearing is. Dropped, somebody sitting in a
+ * firm-wide training read as "Free", which is the one answer this line must never give.
+ *
+ * What it prints is still never a title — `member-availability.ts` says why at length — and the
+ * source's own declared label is non-privileged by contract.
+ */
+export function availabilityEntryFromTimelineRow(
+  row: TimelineEntry,
+  context: EntryContext,
+): CalendarEntry | null {
+  if (row.kind !== "firmEvent") return entryFromTimelineRow(row, context);
+  const date = civilDayOf(row.sortKey);
+  return {
+    id: entryId("firmEvent", row.rowId),
+    kind: "firmEvent",
+    recordId: row.rowId,
+    matterId: null,
+    detailIsMatterNumber: false,
+    link: row.link,
+    settled: false,
+    sourceKeys: [],
+    date,
+    label: firmEventTimelineLabel(row.label),
+    time:
+      formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone, date) ?? undefined,
+    startMinute: minutesOf(row.timeOfDay),
+    tone: "accent",
+  };
+}
+
 /** A deadline, from its own read, which carries its title and its read-time overdue flag. */
 export function entryFromDeadline(
   deadline: CalendarDeadline,

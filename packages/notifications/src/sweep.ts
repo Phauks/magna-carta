@@ -234,7 +234,7 @@ async function collectDeadlineFindings(database: SqlDatabase, now: string): Prom
   const currentCivilDateByZone = new Map(
     cutoffs.map((cutoff) => [cutoff.timeZone, cutoff.currentCivilDate]),
   );
-  const civilDates = [...currentCivilDateByZone.values()].sort();
+  const civilDates = [...currentCivilDateByZone.values()].toSorted();
 
   // Read one more than the cap so a clamp is DETECTED rather than inferred from a full page, which
   // is the same reason a keyset page over-reads by one.
@@ -399,6 +399,7 @@ async function materializeComparisonFindings(options: {
         // And it names nobody: a comparison finds a condition, not a person. No type raised by this
         // path declares `named-recipient`, and one that did would reach nobody rather than guess.
         namedRecipientUserId: null,
+        namedMemberUserIds: [],
         now: () => options.now,
         policy: options.policy,
       });

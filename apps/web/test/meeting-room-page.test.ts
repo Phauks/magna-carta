@@ -48,6 +48,8 @@ const SUMMARY = {
   endedAt: null,
   medium: "video",
   liveCount: 1,
+  locked: false,
+  lobby: "off",
   configured: true,
 };
 
@@ -106,7 +108,7 @@ class FakePeerConnection {
  */
 const declinedCapture = (): Promise<never> => Promise.reject(new Error("NotAllowedError"));
 
-/** Answer the three calls this screen makes, and record every one of them. */
+/** Answer the calls this screen makes, and record every one of them. */
 function serveTheRoom(summary: Record<string, unknown> = SUMMARY): void {
   const answer = (method: string, path: string): Response => {
     requests.push({ method, path });
@@ -118,9 +120,30 @@ function serveTheRoom(summary: Record<string, unknown> = SUMMARY): void {
     }
     if (path.endsWith("/join")) {
       return new Response(
-        JSON.stringify({ participantId: "attendance_1", displayName: "You", iceServers: [] }),
+        JSON.stringify({
+          participantId: "attendance_1",
+          displayName: "You",
+          waiting: false,
+          iceServers: [],
+        }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
+    }
+    if (method === "GET" && path.endsWith("/lobby")) {
+      // The door, as a host's screen reads it once on arrival. Empty here: the cases that are about
+      // the door state it on the wire, which is what a host's screen is actually kept current by.
+      return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (method === "GET" && path.endsWith("/messages")) {
+      // What has been said, which the screen follows for as long as it is in the room. Empty here:
+      // the cases about chat are the chat module's own and the panel's.
+      return new Response(JSON.stringify({ data: [], nextCursor: null }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
@@ -274,5 +297,346 @@ describe("a newer socket for the same stay", () => {
     await settle();
     expect(leaveRequests()).toHaveLength(0);
     expect(joinRequests()).toHaveLength(1);
+  });
+});
+
+/** Say hello, then state the room's roster, in the order a browser is allowed to read them. */
+function welcomeWith(
+  socket: FakeSocket | undefined,
+  participants: Record<string, unknown>[],
+  roomState: Record<string, unknown> = { spotlight: null, locked: false },
+): void {
+  socket?.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [], roomState });
+  socket?.deliver({ v: 1, type: "roster", participants });
+}
+
+/** This browser and one colleague, with whatever grants a case is about. */
+function roomOfTwo(own: string | null): Record<string, unknown>[] {
+  return [
+    {
+      participantId: "attendance_1",
+      userId: "usr_1",
+      displayName: "You",
+      sfuSessionId: "session_1",
+      tracks: [],
+      hostRole: own,
+    },
+    {
+      participantId: "attendance_2",
+      userId: "usr_2",
+      displayName: "Rosalind Chase",
+      sfuSessionId: "session_2",
+      tracks: [],
+      hostRole: null,
+    },
+  ];
+}
+
+describe("running the meeting", () => {
+  it("offers nothing of it to a member who is not hosting", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo(null));
+    await settle();
+
+    const named = [...rendered.querySelectorAll("button")].map((control) =>
+      control.getAttribute("aria-label"),
+    );
+    // Absent, not disabled: for a member who is not running the meeting, none of it could happen.
+    expect(named).not.toContain("Host controls");
+    expect(named).not.toContain("Host controls for Rosalind Chase");
+  });
+
+  it("offers the room's menu and every person's, to a member who is", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo("host"));
+    await settle();
+
+    const named = [...rendered.querySelectorAll("button")].map((control) =>
+      control.getAttribute("aria-label"),
+    );
+    expect(named).toContain("Host controls");
+    // On the rail as well as on the tile, which is where a host of a large room finds somebody.
+    expect(
+      named.filter((label) => label === "Host controls for Rosalind Chase").length,
+    ).toBeGreaterThan(0);
+    // And the badge is drawn for everybody, whoever is reading.
+    expect(rendered.textContent).toContain("Host");
+  });
+
+  it("says on the header's own line when the door has been shut", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo("host"), { spotlight: null, locked: true });
+    await settle();
+
+    expect(rendered.textContent).toContain("Locked");
+  });
+});
+
+describe("a member a host put out of the room", () => {
+  it("is told what happened and offered no way back in", async () => {
+    const rendered = await draw();
+    const socket = sockets[0];
+    expect(socket).toBeDefined();
+
+    socket?.deliver({ v: 1, type: "refused", reason: "removed" });
+    await settle();
+
+    expect(rendered.textContent).toContain("You Were Removed From This Meeting");
+    const controls = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    // The join would be refused while the meeting runs, and offering it would be the screen
+    // inviting a member to be told no.
+    expect(controls).not.toContain("Rejoin");
+    expect(rendered.textContent).toContain("Back to the Event");
+  });
+});
+
+describe("ending a meeting somebody else is running", () => {
+  it("answers with the authority question and the one remedy that is open", async () => {
+    const answer = (method: string, path: string): Response => {
+      requests.push({ method, path });
+      if (method === "GET" && path === `/api/v1/meetings/${MEETING_ID}`) {
+        return new Response(JSON.stringify(SUMMARY), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.endsWith("/join")) {
+        return new Response(
+          JSON.stringify({ participantId: "attendance_1", displayName: "You", iceServers: [] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (path.endsWith("/end")) {
+        return new Response(
+          JSON.stringify({
+            type: "https://api.magnacarta.esq/problems/meeting-not-host",
+            title: "You are not hosting this meeting",
+            status: 403,
+          }),
+          { status: 403, headers: { "content-type": "application/problem+json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const stub = ((request: Request | string, init?: RequestInit) => {
+      if (typeof request === "string") {
+        return Promise.resolve(answer(init?.method ?? "GET", new URL(request, ORIGIN).pathname));
+      }
+      return Promise.resolve(answer(request.method, new URL(request.url).pathname));
+    }) as unknown as typeof fetch;
+    client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+    vi.stubGlobal("fetch", stub);
+
+    const rendered = await draw();
+    // Nobody in this room holds a grant, which is the state a claim exists to end.
+    welcomeWith(sockets[0], roomOfTwo(null));
+    await settle();
+
+    const open = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent?.trim() === "End Meeting",
+    );
+    open?.click();
+    await settle();
+
+    // The panel's own commit, not the band's control of the same name: both read "End Meeting",
+    // which is the point of the verb appearing in both places.
+    const panel = document.body.querySelector('[role="alertdialog"]');
+    const commit = [...(panel?.querySelectorAll("button") ?? [])].find(
+      (control) => control.textContent?.trim() === "End Meeting",
+    );
+    expect(commit).toBeDefined();
+    commit?.click();
+    await settle();
+
+    // Holding the key is not holding the room. The remedy is somebody handing it over — or, in a
+    // room nobody is running, taking it.
+    expect(panel?.textContent).toContain("You Are Not Hosting This Meeting");
+    const offered = [...document.body.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(offered).toContain("Claim Hosting");
+  });
+});
+
+describe("somebody following a link back to a meeting they are barred from", () => {
+  it("is told, at the door, without a way to try again", async () => {
+    const answer = (method: string, path: string): Response => {
+      requests.push({ method, path });
+      if (method === "GET" && path === `/api/v1/meetings/${MEETING_ID}`) {
+        return new Response(JSON.stringify(SUMMARY), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.endsWith("/join")) {
+        return new Response(
+          JSON.stringify({
+            type: "https://api.magnacarta.esq/problems/meeting-removed",
+            title: "You were removed from this meeting",
+            status: 409,
+          }),
+          { status: 409, headers: { "content-type": "application/problem+json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const stub = ((request: Request | string, init?: RequestInit) => {
+      if (typeof request === "string") {
+        return Promise.resolve(answer(init?.method ?? "GET", new URL(request, ORIGIN).pathname));
+      }
+      return Promise.resolve(answer(request.method, new URL(request.url).pathname));
+    }) as unknown as typeof fetch;
+    client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+    vi.stubGlobal("fetch", stub);
+
+    const rendered = await draw();
+
+    // The same state the socket's own refusal settles on: one sentence, the way back to the event,
+    // and no Rejoin — the join has just been refused and pressing it again would be refused too.
+    expect(rendered.textContent).toContain("You Were Removed From This Meeting");
+    const controls = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(controls).not.toContain("Rejoin");
+  });
+});
+
+describe("an arrival the lobby is holding", () => {
+  it("waits, with nothing captured and no room to control", async () => {
+    // The join is what decides it: the lobby is on and this member is not running the room, so the
+    // server answers `waiting` and the screen is a door rather than a room with things missing.
+    const answer = (method: string, path: string): Response => {
+      requests.push({ method, path });
+      if (method === "GET" && path === `/api/v1/meetings/${MEETING_ID}`) {
+        return new Response(JSON.stringify({ ...SUMMARY, lobby: "on" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.endsWith("/join")) {
+        return new Response(
+          JSON.stringify({
+            participantId: "attendance_1",
+            displayName: "You",
+            waiting: true,
+            iceServers: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const stub = ((request: Request | string, init?: RequestInit) => {
+      if (typeof request === "string") {
+        return Promise.resolve(answer(init?.method ?? "GET", new URL(request, ORIGIN).pathname));
+      }
+      return Promise.resolve(answer(request.method, new URL(request.url).pathname));
+    }) as unknown as typeof fetch;
+    client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+    vi.stubGlobal("fetch", stub);
+
+    const rendered = await draw();
+    sockets[0]?.deliver({
+      v: 1,
+      type: "lobby",
+      position: 2,
+      waiting: 2,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    await settle();
+
+    expect(rendered.textContent).toContain("Waiting to Be Let In");
+    expect(rendered.textContent).toContain("1 person is ahead of you.");
+    const offered = [...rendered.querySelectorAll("button")].map(
+      (control) => control.getAttribute("aria-label") ?? control.textContent?.trim() ?? "",
+    );
+    // No microphone and no camera: a browser that lit the device indicator for somebody standing at
+    // a door would be taking a picture nobody asked for.
+    expect(offered.some((label) => label.includes("microphone"))).toBe(false);
+    expect(offered.some((label) => label.includes("camera"))).toBe(false);
+    expect(offered).toContain("Leave");
+  });
+});
+
+describe("the door, to a host inside the room", () => {
+  it("carries its count on the control bar, from what the waiting frame says", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo("host"), { spotlight: null, locked: false, lobby: "on" });
+    sockets[0]?.deliver({
+      v: 1,
+      type: "waiting",
+      participants: [
+        {
+          participantId: "attendance_9",
+          userId: "usr_9",
+          displayName: "Rosalind Chase",
+          waitingFrom: "2026-09-20T15:00:00.000Z",
+        },
+      ],
+    });
+    await settle();
+
+    const lobby = [...rendered.querySelectorAll("button")].find((control) =>
+      control.textContent?.includes("Lobby"),
+    );
+    expect(lobby?.textContent?.replace(/\s+/gu, " ").trim()).toBe("Lobby 1");
+  });
+
+  it("offers none of it to a member who is not running the meeting", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo(null), { spotlight: null, locked: false, lobby: "on" });
+    await settle();
+
+    const offered = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(offered).not.toContain("Lobby");
+  });
+});
+
+describe("a large room", () => {
+  it("pages the gallery and states how much of the room is on screen", async () => {
+    const rendered = await draw();
+    const socket = sockets[0];
+    expect(socket).toBeDefined();
+
+    // The room says hello before it says anything about who is in it, and the screen reads it in
+    // that order: nothing about the room's contents is taken from a socket that has not been
+    // welcomed, because a frame landing in that gap names people an empty roster cannot hold.
+    socket?.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [] });
+    socket?.deliver({
+      v: 1,
+      type: "roster",
+      participants: Array.from({ length: 40 }, (_unused, index) => {
+        const participantId = `attendance_${index + 2}`;
+        return {
+          participantId,
+          userId: `user_${index + 2}`,
+          displayName: `Member ${index + 2}`,
+          sfuSessionId: `session_${index + 2}`,
+          tracks: [
+            { trackName: `${participantId}:audio`, kind: "audio" },
+            { trackName: `${participantId}:video`, kind: "video" },
+          ],
+        };
+      }),
+    });
+    await settle();
+
+    // Sixteen tiles of forty people: the gallery says so rather than silently showing a fraction.
+    expect(rendered.textContent).toContain("Page 1 of 3");
+    expect(rendered.textContent).toContain("Showing 17 of 40");
+    expect(rendered.textContent).toContain("In the Room (40)");
   });
 });

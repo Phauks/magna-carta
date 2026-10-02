@@ -49,16 +49,20 @@ export const HARD_RULES = [
     name: "import/no-cycle",
     code: "import(no-cycle)",
     plugins: ["--import-plugin"],
-    baseline: 36,
+    baseline: 16,
     summary: "a module that imports its way back to itself",
     why:
       "Sixty-one workspace packages and nothing looks for a cycle: the project-reference check " +
       "(tooling/tsconfig-refs) verifies that references EXIST, not that they form a directed acyclic " +
       "graph, and a bundler resolves a cycle silently by handing one side a half-initialised module. " +
       "The failure that reaches a person is a `undefined is not a function` at import time, in a file " +
-      "that is correct, on whichever of the two modules happened to be evaluated first. Thirty-six " +
-      "findings stand today (twenty-nine files, concentrated in the worker's route graph and the web " +
-      "app's calendar and directory screens), so this is a ratchet rather than a ban.",
+      "that is correct, on whichever of the two modules happened to be evaluated first. Sixteen " +
+      "findings stand today, concentrated in the web app's calendar and directory screens, so this " +
+      "is a ratchet rather than a ban. It stood at thirty-six until the api-worker's share went: " +
+      "every one of those ran through `authForEnv` living in app.ts, which imports every route " +
+      "module — so a route-specific guard that had to resolve a session for itself closed a cycle, " +
+      "and a second route in that lane added two more findings. It moved to src/auth-instance.ts, " +
+      "which takes only the `Bindings` type from app.ts, and twenty findings went with it.",
     fixture: {
       "first.ts": 'import { second } from "./second.ts";\nexport const first = () => second();\n',
       "second.ts": 'import { first } from "./first.ts";\nexport const second = () => first();\n',
