@@ -77,8 +77,8 @@ describe("routedAddressLookupPort", () => {
       byCountry: { US: { name: "openaddresses", port: home.port } },
     });
     const answers = await Promise.all(
-      ["", "no-prefix", ".leading-separator", "smarty.from-an-engine-not-here"].map((suggestionId) =>
-        port.resolve({ suggestionId }),
+      ["", "no-prefix", ".leading-separator", "smarty.from-an-engine-not-here"].map(
+        (suggestionId) => port.resolve({ suggestionId }),
       ),
     );
     expect(answers.every((answer) => answer.ok && answer.resolution === "expired")).toBe(true);

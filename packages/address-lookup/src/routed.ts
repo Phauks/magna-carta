@@ -35,7 +35,10 @@ export interface RoutedAddressLookup {
 
 const SEPARATOR = ".";
 
-function prefixed(engine: NamedAddressLookupPort, suggestion: AddressSuggestion): AddressSuggestion {
+function prefixed(
+  engine: NamedAddressLookupPort,
+  suggestion: AddressSuggestion,
+): AddressSuggestion {
   return { ...suggestion, suggestionId: `${engine.name}${SEPARATOR}${suggestion.suggestionId}` };
 }
 
@@ -55,7 +58,10 @@ export function engineForSuggestion(
   const separatorAt = suggestionId.indexOf(SEPARATOR);
   if (separatorAt <= 0) return undefined;
   const name = suggestionId.slice(0, separatorAt);
-  const engines = [...Object.values(routes.byCountry), ...(routes.otherwise ? [routes.otherwise] : [])];
+  const engines = [
+    ...Object.values(routes.byCountry),
+    ...(routes.otherwise ? [routes.otherwise] : []),
+  ];
   const engine = engines.find((candidate) => candidate.name === name);
   return engine === undefined
     ? undefined

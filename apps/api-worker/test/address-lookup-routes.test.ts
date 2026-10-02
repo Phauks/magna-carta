@@ -311,7 +311,12 @@ describe("the platform's own engine", () => {
 
     const uncovered = await app.request(
       ...post("suggestions", { country: "CA", query: "12 Rue" }, ownerCookie),
-      { ...env, SMARTY_AUTH_ID: undefined, SMARTY_AUTH_TOKEN: undefined, ADDRESS_SERVICE: service.binding },
+      {
+        ...env,
+        SMARTY_AUTH_ID: undefined,
+        SMARTY_AUTH_TOKEN: undefined,
+        ADDRESS_SERVICE: service.binding,
+      },
     );
     expect(await uncovered.json()).toEqual({ outcome: "no-coverage" });
     expect(service.asked).toHaveLength(0);
@@ -338,10 +343,13 @@ describe("the platform's own engine", () => {
     expect(staffed.status).toBeLessThan(300);
 
     const service = addressService(() => ({ outcome: "suggestions", offers: [] }));
-    await app.request(...post("suggestions", { country: "US", query: "1402 lawson" }, ownerCookie), {
-      ...env,
-      ADDRESS_SERVICE: service.binding,
-    });
+    await app.request(
+      ...post("suggestions", { country: "US", query: "1402 lawson" }, ownerCookie),
+      {
+        ...env,
+        ADDRESS_SERVICE: service.binding,
+      },
+    );
     expect(service.asked[0]?.body.near).toBe("NC");
 
     // What the form sent wins over the office.

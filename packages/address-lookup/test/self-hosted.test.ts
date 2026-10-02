@@ -227,7 +227,9 @@ describe("resolve", () => {
     const port = selfHostedAddressLookupPort(engine);
     const offered = await port.suggest({ country: "US", query: "1042 w center" });
     if (!offered.ok) throw new Error("expected suggestions");
-    const resolution = await port.resolve({ suggestionId: offered.suggestions[0]?.suggestionId ?? "" });
+    const resolution = await port.resolve({
+      suggestionId: offered.suggestions[0]?.suggestionId ?? "",
+    });
 
     expect(asked[1]).toEqual({
       operation: "/units",
@@ -239,7 +241,9 @@ describe("resolve", () => {
       "1042 W Center St #102, Orem, UT 84057",
     ]);
     // Each unit is an address in its own right: choosing one asks nobody.
-    const unit = await port.resolve({ suggestionId: resolution.suggestions[0]?.suggestionId ?? "" });
+    const unit = await port.resolve({
+      suggestionId: resolution.suggestions[0]?.suggestionId ?? "",
+    });
     expect(unit).toMatchObject({ ok: true, resolution: "address", parts: { streetTwo: "#101" } });
     expect(asked).toHaveLength(2);
   });

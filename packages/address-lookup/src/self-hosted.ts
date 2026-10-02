@@ -298,7 +298,9 @@ function decodeHandle(identifier: string): Handle | undefined {
 
 // ── Talking to the engine ───────────────────────────────────────────────────
 
-type Answered = { readonly ok: true; readonly body: Record<string, unknown> } | AddressLookupFailure;
+type Answered =
+  | { readonly ok: true; readonly body: Record<string, unknown> }
+  | AddressLookupFailure;
 
 /**
  * One request, and a failure that says what happened without saying what was asked: a fixed sentence
@@ -326,7 +328,9 @@ async function ask(
   try {
     const parsed: unknown = await response.json();
     if (typeof parsed !== "object" || parsed === null) {
-      return addressAdapterError("The address engine answered in a shape this adapter does not read.");
+      return addressAdapterError(
+        "The address engine answered in a shape this adapter does not read.",
+      );
     }
     return { ok: true, body: parsed as Record<string, unknown> };
   } catch {
@@ -335,7 +339,10 @@ async function ask(
 }
 
 /** The two answers every engine operation may give instead of its own. */
-function sharedOutcome(body: Record<string, unknown>, country: string): AddressLookupFailure | null {
+function sharedOutcome(
+  body: Record<string, unknown>,
+  country: string,
+): AddressLookupFailure | null {
   if (body.outcome === "no-coverage") return addressCountryNotCovered(country);
   // No index has been built yet: the engine is deployed but has nothing to answer from, which the
   // form reads exactly as it reads an engine that is not deployed at all.
@@ -358,7 +365,9 @@ export function selfHostedAddressLookupPort(engine: AddressEngineBinding): Addre
       const shared = sharedOutcome(answer.body, country);
       if (shared !== null) return shared;
       if (answer.body.outcome !== "suggestions") {
-        return addressAdapterError("The address engine answered in a shape this adapter does not read.");
+        return addressAdapterError(
+          "The address engine answered in a shape this adapter does not read.",
+        );
       }
       return suggested(offersFrom(answer.body.offers, country).slice(0, limit));
     },
@@ -376,7 +385,9 @@ export function selfHostedAddressLookupPort(engine: AddressEngineBinding): Addre
       const shared = sharedOutcome(answer.body, handle.country);
       if (shared !== null) return shared;
       if (answer.body.outcome !== "units" || !Array.isArray(answer.body.addresses)) {
-        return addressAdapterError("The address engine answered in a shape this adapter does not read.");
+        return addressAdapterError(
+          "The address engine answered in a shape this adapter does not read.",
+        );
       }
       const units = (answer.body.addresses as unknown[])
         .map(engineAddressFrom)
