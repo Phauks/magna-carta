@@ -4,11 +4,13 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   NUMBERING_PURPOSES,
+  schemePurposeOf,
   type SchemeNumberingPurpose,
 } from "@magna-carta/sequence-numbering/purposes";
 import {
   deriveScopeKey,
   renderNumber,
+  renderParts,
   NumberingRenderError,
   type RenderContext,
 } from "@magna-carta/sequence-numbering/render";
@@ -64,7 +66,10 @@ const NumberSegmentSchema = z
       digits: z.union([z.literal(2), z.literal(4)]),
       scoping: optionalScoping,
     }),
+    z.object({ kind: z.literal("month"), scoping: optionalScoping }),
+    z.object({ kind: z.literal("day"), scoping: optionalScoping }),
     z.object({ kind: z.literal("date_opened"), scoping: optionalScoping }),
+    z.object({ kind: z.literal("matter_number"), scoping: optionalScoping }),
     z.object({ kind: z.literal("location_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("matter_type_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("client_code"), scoping: optionalScoping }),
@@ -77,7 +82,10 @@ const SegmentKindSchema = z.enum([
   "literal",
   "counter",
   "year",
+  "month",
+  "day",
   "date_opened",
+  "matter_number",
   "location_code",
   "matter_type_code",
   "client_code",
@@ -85,16 +93,20 @@ const SegmentKindSchema = z.enum([
   "client_name",
 ]);
 
-// Which of the firm's scheme-shaped sequences a request is about. Absent means the matter number:
-// the surface predates the others, and a caller that says nothing means what it always meant. The
-// tuple is spelled here for the OpenAPI document; the register is what it has to agree with, and
-// the assignment below fails to compile if the two ever drift.
+// Which of the firm's sequences a request is about — every one of them, since the owner's ruling of
+// 2026-09-19 that the last three fixed runs become the firm's to shape too. Absent means the matter
+// number: the surface predates the others, and a caller that says nothing means what it always
+// meant. The tuple is spelled here for the OpenAPI document; the register is what it has to agree
+// with, and the assignment below fails to compile if the two ever drift.
 const SCHEME_PURPOSES = [
   "matter",
   "consultation",
   "intake",
   "conflicts_check",
   "custody_packet",
+  "invoice",
+  "time_entry",
+  "communication",
 ] as const satisfies readonly SchemeNumberingPurpose[];
 const registerAgreesWithContract: readonly (typeof SCHEME_PURPOSES)[number][] =
   [] as SchemeNumberingPurpose[];
@@ -111,6 +123,8 @@ const SchemeBody = z
 const SampleContextSchema = z
   .object({
     openedDate: z.string().regex(CIVIL_DATE_PATTERN),
+    // The number of the matter a sample record belongs to, for the runs that count within one.
+    matterNumber: z.string(),
     locationCode: z.string(),
     matterTypeCode: z.string(),
     clientCode: z.string(),
@@ -131,7 +145,14 @@ const PreviewRequest = z
   .openapi("NumberingPreviewRequest");
 
 const PreviewResponse = z
-  .object({ number: z.string(), scopeKey: z.string() })
+  .object({
+    number: z.string(),
+    scopeKey: z.string(),
+    // What each part of the scheme puts into that number, in template order. The editor states it
+    // beside the part a reader cannot type into, and it has to be THIS renderer that says so: a
+    // second answer composed on the screen would be a second renderer.
+    parts: z.array(z.string()),
+  })
   .openapi("NumberingPreviewResponse");
 
 const GetSchemeResponse = z
@@ -150,32 +171,24 @@ const GetSchemeResponse = z
 // is drawn, and either the scheme in force (with the parts it may use) or the fixed shape and why.
 const ListedPurposeSchema = z
   .object({
-    purpose: z.enum([
-      "matter",
-      "consultation",
-      "intake",
-      "conflicts_check",
-      "custody_packet",
-      "invoice",
-      "time_entry",
-      "communication",
-    ]),
+    purpose: z.enum(SCHEME_PURPOSES),
     title: z.string(),
     label: z.string(),
     subject: z.string(),
     subjects: z.string(),
     drawnWhen: z.string(),
-    formulation: z.enum(["scheme", "fixed"]),
-    // Scheme-shaped purposes: the parts a scheme may use, what is in force (null where nothing is
-    // and no default applies), and whether that is the built-in default.
-    segmentKinds: z.array(SegmentKindSchema).nullable(),
+    // The parts a scheme for this purpose may use, and what is in force (null where nothing is and
+    // no default applies — only the matter run, whose number refuses to be invented).
+    segmentKinds: z.array(SegmentKindSchema),
     segments: z.array(NumberSegmentSchema).nullable(),
-    usingDefault: z.boolean().nullable(),
-    // Fixed purposes: the shape and the reason. Null for a scheme-shaped purpose.
-    fixedShape: z.string().nullable(),
-    // What the first number of the sample would render as under what is in force — the scheme
-    // rendered against the sample below, or the fixed shape's own example. Null where nothing is
-    // in force.
+    usingDefault: z.boolean(),
+    // Whether the count runs within a scope the TEMPLATE decides (its scoping parts) or one the
+    // DOMAIN decides — a time entry counts within its matter, an invoice within the letterhead a
+    // bill was finalized under. On a domain-scoped run no part restarts the count, and the editor
+    // states that rather than offering a switch that does nothing.
+    scopeSource: z.enum(["segments", "owner"]),
+    // What the first number of the sample would render as under what is in force. Null where
+    // nothing is in force.
     example: z.string().nullable(),
   })
   .openapi("NumberingListedPurpose");
@@ -194,6 +207,7 @@ const ListSchemesResponse = z
 function sampleContext(): z.infer<typeof SampleContextSchema> {
   return {
     openedDate: todayInUtc(),
+    matterNumber: `${todayInUtc().slice(0, 4)}-0001`,
     locationCode: "RNO",
     matterTypeCode: "LIT",
     clientCode: "ASH",
@@ -454,26 +468,13 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
           subjects: definition.subjects,
           drawnWhen: definition.drawnWhen,
         };
-        if (definition.formulation === "fixed") {
-          purposes.push({
-            ...common,
-            formulation: "fixed",
-            segmentKinds: null,
-            segments: null,
-            usingDefault: null,
-            fixedShape: definition.fixedShape,
-            example: definition.example,
-          });
-          continue;
-        }
         const inForce = await readSchemeInForce(firm.firmDatabase, definition.purpose);
         purposes.push({
           ...common,
-          formulation: "scheme",
           segmentKinds: [...definition.segmentKinds],
           segments: inForce === undefined ? null : [...inForce.segments],
           usingDefault: inForce === undefined ? false : inForce.usingDefault,
-          fixedShape: null,
+          scopeSource: definition.scopeSource,
           example: inForce === undefined ? null : exampleOf(inForce.segments, sample),
         });
       }
@@ -584,6 +585,7 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
       }
       const context: RenderContext = {
         openedDate: request.context?.openedDate ?? "2026-01-01",
+        matterNumber: request.context?.matterNumber,
         locationCode: request.context?.locationCode,
         matterTypeCode: request.context?.matterTypeCode,
         clientCode: request.context?.clientCode,
@@ -591,9 +593,14 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
         clientName: request.context?.clientName,
       };
       try {
-        const number = renderNumber(segments, context, request.counterValue);
-        const scopeKey = deriveScopeKey(segments, context);
-        return c.json({ number, scopeKey }, 200);
+        const parts = renderParts(segments, context, request.counterValue);
+        // A run whose count is scoped by the domain rather than by the template has no scope to
+        // derive: the caller supplies it at the draw, so the preview reports none.
+        const scopeKey =
+          schemePurposeOf(request.purpose).scopeSource === "owner"
+            ? ""
+            : deriveScopeKey(segments, context);
+        return c.json({ number: parts.join(""), scopeKey, parts }, 200);
       } catch (caught) {
         if (caught instanceof NumberingRenderError) {
           return problemJson(c, {

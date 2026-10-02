@@ -20,14 +20,12 @@ import {
   type CommunicationWithMatterRow,
 } from "@magna-carta/communications/communication-statements";
 import {
-  communicationNumberScope,
+  communicationNumberDate,
   isCommunicationNumberConflict,
-  renderCommunicationNumber,
-  COMMUNICATION_NUMBER_START_VALUE,
   COMMUNICATION_NUMBERING_TABLES,
 } from "@magna-carta/communications/numbering";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
-import { readCounterValue } from "@magna-carta/sequence-numbering/counter-statements";
+import { previewNextNumber } from "@magna-carta/sequence-numbering/scheme-draw";
 import {
   COMMUNICATION_CHANNELS,
   COMMUNICATION_DIRECTIONS,
@@ -793,13 +791,17 @@ export function registerCommunicationsRoutes(
       // Canonicalized before the day is taken from it: the query accepts any ISO-8601 instant and
       // the scope key is the UTC day of a CANONICAL one.
       const instant = new Date(occurredAt ?? nowInstant());
-      const scopeKey = communicationNumberScope(
-        Number.isNaN(instant.getTime()) ? nowInstant() : instant.toISOString(),
+      const referenceNumber = await previewNextNumber(
+        firm.firmDatabase,
+        "communication",
+        COMMUNICATION_NUMBERING_TABLES,
+        {
+          openedDate: communicationNumberDate(
+            Number.isNaN(instant.getTime()) ? nowInstant() : instant.toISOString(),
+          ),
+        },
       );
-      const observed =
-        (await readCounterValue(firm.firmDatabase, COMMUNICATION_NUMBERING_TABLES, scopeKey)) ??
-        COMMUNICATION_NUMBER_START_VALUE;
-      return c.json({ referenceNumber: renderCommunicationNumber(scopeKey, observed) }, 200);
+      return c.json({ referenceNumber }, 200);
     },
   );
 

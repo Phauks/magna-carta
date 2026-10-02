@@ -628,7 +628,12 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
             fingerprint: liveRunId,
             now,
             effect: async () => {
-              const plan = await planEntryNumberBlock(firm.firmDatabase, matterId, 1);
+              const plan = await planEntryNumberBlock(
+                firm.firmDatabase,
+                matterId,
+                1,
+                civilDateOf(now()),
+              );
               observe({
                 scopeKey: plan.scopeKey,
                 observedValue: plan.observedValue,

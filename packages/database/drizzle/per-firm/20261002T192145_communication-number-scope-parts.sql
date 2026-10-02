@@ -1,0 +1,14 @@
+-- THE CALL AND TEXT COUNTER IS KEYED BY THE PARTS THAT SCOPE IT, NOT BY A DATE STRING.
+--
+-- A call's number is now drawn from the firm's own numbering scheme like every other number it
+-- issues, and the scope a scheme counts within is the joined rendered values of its scoping parts.
+-- The built-in shape renders the same 2026-09-08-0042 it always did, but it renders the day as
+-- three parts -- year, month, day -- so the scope key those parts derive is "2026:09:08" where the
+-- day was previously written whole as "2026-09-08".
+--
+-- Re-key the rows rather than leaving them: a counter nobody can find is a counter that restarts,
+-- and a day whose count restarts issues a reference number the firm has already said out loud. The
+-- rendered numbers on `communication` are untouched -- a number already drawn is frozen.
+--
+-- The replace is exact: a scope key here is a civil date and holds nothing else a ':' could reach.
+UPDATE `communication_number_counter` SET `scope_key` = replace(`scope_key`, '-', ':');

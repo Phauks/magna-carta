@@ -10,7 +10,10 @@ export type NumberSegment =
   | { kind: "literal"; text: string }
   | { kind: "counter"; padWidth: number; start?: number }
   | { kind: "year"; digits: 2 | 4; scoping?: boolean }
+  | { kind: "month"; scoping?: boolean } // two digits
+  | { kind: "day"; scoping?: boolean } // two digits
   | { kind: "date_opened"; scoping?: boolean } // YYYYMMDD
+  | { kind: "matter_number"; scoping?: boolean }
   | { kind: "location_code"; scoping?: boolean }
   | { kind: "matter_type_code"; scoping?: boolean }
   | { kind: "client_code"; scoping?: boolean }
@@ -25,7 +28,10 @@ export const NUMBER_SEGMENT_KINDS: readonly NumberSegmentKind[] = [
   "literal",
   "counter",
   "year",
+  "month",
+  "day",
   "date_opened",
+  "matter_number",
   "location_code",
   "matter_type_code",
   "client_code",
@@ -47,7 +53,10 @@ const segmentSchema = z.discriminatedUnion("kind", [
     start: z.number().int().positive().optional(),
   }),
   z.object({ kind: z.literal("year"), digits: z.union([z.literal(2), z.literal(4)]), scoping }),
+  z.object({ kind: z.literal("month"), scoping }),
+  z.object({ kind: z.literal("day"), scoping }),
   z.object({ kind: z.literal("date_opened"), scoping }),
+  z.object({ kind: z.literal("matter_number"), scoping }),
   z.object({ kind: z.literal("location_code"), scoping }),
   z.object({ kind: z.literal("matter_type_code"), scoping }),
   z.object({ kind: z.literal("client_code"), scoping }),

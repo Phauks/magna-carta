@@ -48,11 +48,26 @@ export function guardedIncrementStatement(
   scopeKey: string,
   observedValue: number,
 ): SqlStatement {
+  return guardedAdvanceStatement(database, tables, scopeKey, observedValue, 1);
+}
+
+// The same guarded advance, by a BLOCK of values rather than one. A capture batch may take several
+// records on one scope in a single request (the weekly time grid is the worked case), and the whole
+// point of planning a block is that it reads the counter once and consumes `by` consecutive values;
+// advancing one at a time would give the batch's own rows different counters to race for.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
+export function guardedAdvanceStatement(
+  database: SqlDatabase,
+  tables: SequenceNumberingTables,
+  scopeKey: string,
+  observedValue: number,
+  by: number,
+): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${tables.counterTable} SET next_value = next_value + 1 WHERE scope_key = ?1 AND next_value = ?2`,
+      `UPDATE ${tables.counterTable} SET next_value = next_value + ?3 WHERE scope_key = ?1 AND next_value = ?2`,
     )
-    .bind(scopeKey, observedValue);
+    .bind(scopeKey, observedValue, by);
 }
 
 // Claims the counter value this draw consumed. Composed AFTER the owning row's write in the draw
