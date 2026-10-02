@@ -1,4 +1,3 @@
-import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../../../effective-permissions.ts";
 import {
@@ -33,7 +32,7 @@ import {
 } from "@magna-carta/directory/contact-address";
 import { readContactPoints } from "@magna-carta/directory/contact-points";
 import { InvalidContactVerificationStatusError } from "@magna-carta/directory/contact-preference";
-import { IncompletePronounSetError, PRONOUN_VERB_NUMBERS } from "@magna-carta/directory/pronouns";
+import { IncompletePronounSetError } from "@magna-carta/directory/pronouns";
 import { createOrganization, readOrganization } from "@magna-carta/directory/organization";
 import { addName, changeName, readNames } from "@magna-carta/directory/name-history";
 import {
@@ -83,26 +82,61 @@ import {
   unlinkMatterParty,
 } from "@magna-carta/directory/party";
 import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-fields";
-import {
-  ADDRESS_TYPES,
-  ADDRESS_USES,
-  CONTACT_SYSTEMS,
-  CONTACT_USES,
-  CONTACT_VERIFICATION_STATUSES,
-  EDGE_TYPES,
-  ENTITY_KINDS,
-  IDENTIFIER_TYPES,
-  NAME_ROLES,
-} from "@magna-carta/directory/types";
+import { ENTITY_KINDS, IDENTIFIER_TYPES } from "@magna-carta/directory/types";
 import type { DirectoryWriteOptions } from "@magna-carta/directory/audit";
 import {
   DirectoryIdempotencyConflictError,
   type DirectoryIdempotencyContext,
 } from "@magna-carta/directory/run-directory-effect";
+import {
+  AckResponse,
+  AddAddressRequest,
+  AddEmailRequest,
+  AddIdentifierRequest,
+  AddNameRequest,
+  AddPhoneRequest,
+  AssignCategoryRequest,
+  ChangeNameRequest,
+  CreateCategoryRequest,
+  CreateEdgeRequest,
+  CreateOrganizationRequest,
+  CreatePersonRequest,
+  CreatedEntityResponse,
+  DirectoryAddressesResponse,
+  DirectoryCategoriesResponse,
+  DirectoryCategory,
+  DirectoryContactPointsResponse,
+  DirectoryEdgePage,
+  DirectoryEmailsResponse,
+  DirectoryEntityListingPage,
+  DirectoryIdentifierRecordsResponse,
+  DirectoryNamePage,
+  DirectoryPhonesResponse,
+  DuplicateCandidatesRequest,
+  DuplicateCandidatesResponse,
+  EntityDisplayNamesResponse,
+  EntityMatterPartyPage,
+  IdentifierValueResponse,
+  LinkMatterPartyRequest,
+  MatterPartyListResponse,
+  MatterPartyResponse,
+  MergeRequest,
+  MergeResponse,
+  OrganizationDetail,
+  PersonDetail,
+  SearchResponse,
+  SetPersonLifeDatesRequest,
+  SetPronounsRequest,
+  UnlinkMatterPartyResponse,
+  UpdateAddressRequest,
+  UpdateEmailRequest,
+  UpdatePhoneRequest,
+  directoryEntityIdPattern,
+} from "@magna-carta/directory/contract";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import { idempotencyKeyHeader } from "../../contracts/common.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
-import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
+import { cursorQuery } from "@magna-carta/data-access/pagination-contract";
 import type {
   DirectoryOrganizationId,
   DirectoryPersonId,
@@ -202,10 +236,8 @@ async function identifierContext(
 }
 
 // A directory-entity id path param: a person OR an organization handle (the name/identifier/category
-// paths are entity-generic — the domain resolves the kind from the id prefix). Validated as a
-// non-empty string with the directoryPerson_/directoryOrganization_ prefix; the brand is compile-time
-// only, so this emits as a plain pattern-checked string.
-const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$/;
+// paths are entity-generic — the domain resolves the kind from the id prefix). The brand is
+// compile-time only, so this emits as a plain pattern-checked string.
 const entityParam = z.object({
   id: z
     .string()
@@ -223,190 +255,6 @@ const personParam = z.object({
     .openapi({ param: { name: "id", in: "path" } }),
 });
 
-// ---- request/response contracts ----
-
-const CreatedEntityResponse = z
-  .object({ id: z.string() })
-  .openapi("CreatedDirectoryEntityResponse");
-
-// A person's pronouns, as the person states them. WHOLE OR NOT AT ALL: every form is required
-// together, because a half-recorded set is what puts one set's "she" and another's "them" in the
-// same sentence of a document that gets filed. Nothing here is derived from the name parts, and no
-// request may ask the platform to work a set out — it is stated or it is absent.
-//
-// ONE registered component, already nullable, used verbatim by both the read and the write. Applying
-// `.nullable()` or a second `.openapi()` at a use site re-registers the name under a different shape
-// — the contract conformance check rejects that, and the emitted component would be right for
-// neither caller.
-const PronounSetSchema = z
-  .object({
-    subject: z.string().min(1).openapi({ description: "As in: she signed." }),
-    object: z.string().min(1).openapi({ description: "As in: we served her." }),
-    possessiveDeterminer: z.string().min(1).openapi({ description: "As in: her signature." }),
-    possessivePronoun: z.string().min(1).openapi({ description: "As in: the signature is hers." }),
-    reflexive: z.string().min(1).openapi({ description: "As in: she represented herself." }),
-    verbNumber: z.enum(PRONOUN_VERB_NUMBERS).openapi({
-      description:
-        'Which verb form the set takes: "singular" for she is / he is, "plural" for they are. Recorded rather than worked out — nothing about the forms themselves says which.',
-    }),
-  })
-  .nullable()
-  .openapi("DirectoryPronounSet", {
-    description:
-      "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it.",
-  });
-
-const PersonDetail = z
-  .object({
-    id: z.string(),
-    prefix: z.string().nullable(),
-    given: z.string().nullable(),
-    middle: z.string().nullable(),
-    family: z.string().nullable(),
-    suffix: z.string().nullable(),
-    displayName: z.string().nullable(),
-    status: z.string(),
-    mergedIntoId: z.string().nullable(),
-    pronouns: PronounSetSchema,
-  })
-  .openapi("DirectoryPersonDetail");
-
-const SetPronounsRequest = z
-  .object({
-    pronouns: PronounSetSchema,
-  })
-  .openapi("SetDirectoryPersonPronounsRequest");
-
-const CreateOrganizationRequest = z
-  .object({
-    legalName: z.string().min(1),
-    displayName: z.string().nullable().optional(),
-  })
-  .openapi("CreateDirectoryOrganizationRequest");
-
-const OrganizationDetail = z
-  .object({
-    id: z.string(),
-    legalName: z.string().nullable(),
-    displayName: z.string().nullable(),
-    status: z.string(),
-    mergedIntoId: z.string().nullable(),
-  })
-  .openapi("DirectoryOrganizationDetail");
-
-const AddNameRequest = z
-  .object({
-    nameRole: z.enum(NAME_ROLES),
-    // Person fields.
-    given: z.string().optional(),
-    family: z.string().optional(),
-    prefix: z.string().nullable().optional(),
-    middle: z.string().nullable().optional(),
-    suffix: z.string().nullable().optional(),
-    // Organization field.
-    legalName: z.string().optional(),
-    displayName: z.string().nullable().optional(),
-  })
-  .openapi("AddDirectoryNameRequest");
-
-const AckResponse = z.object({ ok: z.boolean() }).openapi("DirectoryAckResponse");
-
-// A NAME CHANGE, which is a different act from appending an alias and the only one that can record
-// a marriage. Supply the person fields or the organization field, matching the entity the id names —
-// the kind is resolved from the handle, and a body shaped for the other kind is refused rather than
-// half-applied.
-const ChangeNameRequest = z
-  .object({
-    // Person fields. `family` is omitted for a person who has one name, on the same reasoning the
-    // create route carries: a mononym is an ordinary name, and the domain indexes it from the given
-    // name. An empty string is still refused — that is a value that cannot be a name.
-    given: z.string().min(1).optional(),
-    family: z.string().min(1).optional(),
-    prefix: z.string().nullable().optional(),
-    middle: z.string().nullable().optional(),
-    suffix: z.string().nullable().optional(),
-    // Organization fields.
-    legalName: z.string().min(1).optional(),
-    displayName: z.string().nullable().optional(),
-  })
-  .openapi("ChangeDirectoryNameRequest");
-
-// One name an entity has held — the shape a history rail reads.
-const DirectoryNameEntry = z
-  .object({
-    id: z.string(),
-    nameRole: z.string().openapi({
-      description:
-        "What this name is to the entity: its current name, a former one, a maiden name, a " +
-        "trading name. An open catalog, not a closed enum.",
-    }),
-    isCurrent: z.boolean().openapi({
-      description: "True for the one name the entity answers to today.",
-    }),
-    prefix: z.string().nullable(),
-    given: z.string().nullable(),
-    middle: z.string().nullable(),
-    family: z.string().nullable(),
-    suffix: z.string().nullable(),
-    displayName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "The name as it was recorded. Null for an organization: an organization's name row " +
-          "keeps only the case-folded form, so a caller falls back to normalizedDisplay and shows " +
-          "an honest lowercase former name rather than an invented capitalization.",
-      }),
-    normalizedDisplay: z.string().openapi({
-      description:
-        "The case-folded, punctuation-stripped form the search and conflicts corpus matches on. " +
-        "Always present, for every name row of either kind.",
-    }),
-    validFrom: z.string().nullable(),
-    validTo: z
-      .string()
-      .nullable()
-      .openapi({ description: "When the name stopped being used, or null while it still is." }),
-    recordedAt: z.string().openapi({
-      description:
-        "When the firm wrote the row down — which is not when the name came into use. A maiden " +
-        "name recorded onto a twenty-year-old file was recorded today and valid decades ago.",
-    }),
-  })
-  .openapi("DirectoryNameEntry");
-
-const DirectoryNamePage = paginated(DirectoryNameEntry).openapi("DirectoryNamePage");
-
-// The type decides the fields, and the shape is checked before anything is sealed
-// (packages/directory/src/identifier-shape.ts): a social security number is nine digits, a licence
-// needs the region that issued it, a bar number its jurisdiction, and an account is who it is held
-// with plus the number, with the username and secret that belong to it. A value that does not fit
-// is refused with the sentence the screen shows beside the field.
-const AddIdentifierRequest = z
-  .object({
-    type: z.enum(IDENTIFIER_TYPES),
-    label: z
-      .string()
-      .max(120)
-      .nullish()
-      .openapi({
-        description:
-          "The plaintext part a list shows without a reveal: the state or country that issued a " +
-          "licence, the jurisdiction behind a bar number, who an account is held with. Required " +
-          "where the type has one; never any part of the value.",
-      }),
-    number: z.string().min(1).max(128),
-    username: z.string().max(128).nullish().openapi({ description: "An account's username." }),
-    secret: z
-      .string()
-      .max(256)
-      .nullish()
-      .openapi({ description: "An account's secret, sealed beside its number and never indexed." }),
-    validFrom: z.string().nullable().optional(),
-    validTo: z.string().nullable().optional(),
-  })
-  .openapi("AddDirectoryIdentifierRequest");
-
 const identifierTypeParam = z.object({
   id: z
     .string()
@@ -414,432 +262,6 @@ const identifierTypeParam = z.object({
     .openapi({ param: { name: "id", in: "path" } }),
   type: z.enum(IDENTIFIER_TYPES).openapi({ param: { name: "type", in: "path" } }),
 });
-
-const IdentifierValueResponse = z
-  .object({
-    value: z.string().nullable().openapi({
-      description:
-        "The decrypted value — for an account, its number; the username and secret ride beside it.",
-    }),
-    username: z.string().nullable().optional(),
-    secret: z.string().nullable().optional(),
-  })
-  .openapi("DirectoryIdentifierValueResponse");
-
-const CreateEdgeRequest = z
-  .object({
-    from: z.string().regex(directoryEntityIdPattern),
-    to: z.string().regex(directoryEntityIdPattern),
-    edgeType: z.enum(EDGE_TYPES),
-    role: z.string().nullable().optional(),
-    note: z.string().nullable().optional(),
-    validFrom: z.string().nullable().optional(),
-    validTo: z.string().nullable().optional(),
-  })
-  .openapi("CreateDirectoryEdgeRequest");
-
-const CreateCategoryRequest = z
-  .object({
-    name: z.string().min(1),
-    appliesTo: z.enum(["person", "organization", "both"]),
-    position: z.number().int().optional(),
-  })
-  .openapi("CreateDirectoryCategoryRequest");
-
-const AssignCategoryRequest = z
-  .object({
-    entityId: z.string().regex(directoryEntityIdPattern),
-    categoryId: identifierField("directoryCategory"),
-  })
-  .openapi("AssignDirectoryCategoryRequest");
-
-const SearchHit = z
-  .object({
-    entityId: z.string(),
-    entityKind: z.string(),
-    displayName: z.string(),
-    matchedName: z.string().openapi({
-      description:
-        "WHICH of the entity's names the query landed on. A search that reported only the " +
-        "current name made a hit on a maiden name indistinguishable from a hit on the name " +
-        "typed, which defeats the point of keeping every name an entity has held.",
-    }),
-    matchedNameRole: z.string().openapi({
-      description: "What that matched name is to the entity — current, former, maiden, dba.",
-    }),
-    matchedNameIsCurrent: z.boolean(),
-    relevance: z.number(),
-  })
-  .openapi("DirectorySearchHit");
-
-const SearchResponse = z
-  .object({
-    data: z.array(SearchHit),
-    // True when the firm holds more matches than were returned. A relevance-ranked search answers
-    // with its best matches rather than all of them, and a caller must be able to tell a short
-    // answer from a complete one — otherwise "no more results" and "we stopped counting" look alike.
-    capped: z.boolean(),
-  })
-  .openapi("DirectorySearchResponse");
-
-const DuplicateCandidatesRequest = z
-  .object({
-    kind: z.enum(ENTITY_KINDS),
-    given: z.string().optional(),
-    family: z.string().optional(),
-    legalName: z.string().optional(),
-    identifiers: z
-      .array(z.object({ type: z.enum(IDENTIFIER_TYPES), value: z.string() }))
-      .optional(),
-    excludeEntityId: z.string().optional(),
-  })
-  .openapi("DirectoryDuplicateCandidatesRequest");
-
-const DuplicateCandidate = z
-  .object({
-    entityId: z.string(),
-    signalCount: z.number(),
-    // The candidate's display identity travels WITH the candidate. It is the same naming read
-    // /directory/entity-names performs, run once over the whole answer here: a caller that resolved
-    // each candidate itself made one request per candidate, and a duplicate check is a list.
-    entityKind: z.enum(["person", "organization", "unknown"]).openapi({
-      description:
-        "Which side of the directory the candidate resolves to. 'unknown' means the blocking " +
-        "channels surfaced an entity the node tables no longer hold — a fact worth showing.",
-    }),
-    displayName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "What to call the candidate, or null where the directory holds no name for it. A caller " +
-          "shows the gap rather than printing the handle.",
-      }),
-  })
-  .openapi("DirectoryDuplicateCandidate");
-
-const DuplicateCandidatesResponse = z
-  .object({ data: z.array(DuplicateCandidate) })
-  .openapi("DirectoryDuplicateCandidatesResponse");
-
-const MergeRequest = z
-  .object({
-    masterId: z.string().regex(directoryEntityIdPattern),
-    subordinateId: z.string().regex(directoryEntityIdPattern),
-    // The survivorship choice per conflicting node column: "subordinate" means the master takes the
-    // subordinate's value. An absent column keeps the master's own value.
-    survivorship: z.record(z.string(), z.literal("subordinate")).optional(),
-  })
-  .openapi("DirectoryMergeRequest");
-
-const MergeResponse = z.object({ mergeId: z.string() }).openapi("DirectoryMergeResponse");
-
-const LinkMatterPartyRequest = z
-  .object({
-    matterId: identifierField("matter"),
-    entityId: z.string().regex(directoryEntityIdPattern),
-    role: z.string().min(1),
-    capacity: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .openapi({
-        description:
-          "The capacity the entity acts in on this matter — Administrator, Trustee, " +
-          "Attorney-in-fact. Recorded by the firm, never inferred; documents that name a capacity " +
-          "read this value and show an honest gap where none was recorded.",
-      }),
-  })
-  .openapi("LinkMatterPartyRequest");
-
-const MatterPartyResponse = z.object({ id: z.string() }).openapi("MatterPartyResponse");
-
-const MatterPartyEntry = z
-  .object({
-    id: z.string(),
-    matterId: z.string(),
-    entityId: z.string(),
-    role: z.string(),
-    capacity: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "The capacity recorded on this link, or null where the firm recorded none. A null is an " +
-          "honest absence and never a default — nothing infers a capacity from the role.",
-      }),
-    entityKind: z.enum(["person", "organization", "unknown"]).openapi({
-      description:
-        "Which side of the directory the entity resolves to. 'unknown' means the link points at " +
-        "an entity that is no longer there, which is a fact worth showing rather than hiding.",
-    }),
-    displayName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "What to call this party, or null when the directory holds no name for the entity. A " +
-          "caller shows the identifier itself rather than inventing a placeholder.",
-      }),
-  })
-  .openapi("MatterPartyEntry");
-
-const MatterPartyListResponse = z
-  .object({ parties: z.array(MatterPartyEntry) })
-  .openapi("MatterPartyListResponse");
-
-const UnlinkMatterPartyResponse = z
-  .object({ unlinked: z.boolean() })
-  .openapi("UnlinkMatterPartyResponse");
-
-// ---- the naming read ----
-//
-// The one read that answers about MANY entities at once, and it answers display identity only. Three
-// surfaces were crippled without it and each was crippled the same way: the custody register says
-// what it holds for owners it can name only by handle, a conflicts hit names the party it matched by
-// handle, and a duplicate-candidate list is a column of handles. Every one of those is a page of
-// rows, so resolving them one entity per request is the N+1 this platform's listings are written to
-// avoid — which is why the surfaces render an honest gap instead.
-//
-// It carries no identifier, no contact detail and no decrypt, which is what makes it cheap enough to
-// call for a page and safe enough to name no capability beyond an authenticated session.
-
-const EntityDisplayName = z
-  .object({
-    entityId: z.string(),
-    entityKind: z.enum(["person", "organization"]),
-    displayName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "What to call this entity, or null where the directory holds no name for it at all. A " +
-          "caller renders the gap and never falls back to printing the handle.",
-      }),
-    mergedIntoId: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "The surviving record this one was folded into, or null while it stands on its own. A " +
-          "list row naming a folded record has to say so.",
-      }),
-  })
-  .openapi("DirectoryEntityDisplayName");
-
-const EntityDisplayNamesResponse = z
-  .object({ data: z.array(EntityDisplayName) })
-  .openapi("DirectoryEntityDisplayNamesResponse");
-
-// ---- the index: the whole directory, in name order ----
-
-// One row of the firm's directory as an index reads it.
-//
-// NO IDENTIFIER, EVER. Reading a sealed identifier is a decrypt: permission-gated, and audited
-// before any plaintext exists. A page of fifty rows cannot ask that, so nothing here touches one.
-//
-// The DEFAULT way to reach the record is a different question, and the index answers it. Each row
-// carries at most one email, one number and the locality of one address — the row a message goes to
-// when the sender named none — because "who is in Reno", "does the firm hold a number for her" and
-// "sort this book by family name" are what a reader asks of a directory and had to open records one
-// at a time to answer. It grants no reach a member did not already have: the same member can read
-// every contact point on any record through the contact-points route with the same session and no
-// further permission. The bulk NAMING read above still joins no contact row, and that distinction
-// is deliberate — it is called for every row of every screen that mentions a person, where this is
-// the directory itself being read as a directory.
-const DirectoryEntityListing = z
-  .object({
-    entityId: z.string(),
-    entityKind: z.enum(ENTITY_KINDS),
-    displayName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "What to call the record, or null where the directory holds no name for it at all. A " +
-          "caller shows the gap rather than printing the handle.",
-      }),
-    legalName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "An organization's legal name where it differs from what the firm calls it; null for a " +
-          "person, and null where the two are the same word.",
-      }),
-    givenName: z
-      .string()
-      .nullable()
-      .openapi({ description: "A person's first name. Null for an organization." }),
-    middleName: z
-      .string()
-      .nullable()
-      .openapi({ description: "A person's middle name, where the firm recorded one." }),
-    familyName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "A person's last name. Null for an organization, and null for a person who has one " +
-          "name — a record with no family name is one the firm keeps, not one it refuses.",
-      }),
-    emailAddress: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "The record's default email address — the primary row where one is marked, else the " +
-          "oldest. Null where the firm holds none. Not a contact register: the record's own " +
-          "contact-points read is where every channel lives.",
-      }),
-    phoneNumber: z.string().nullable().openapi({
-      description: "The record's default number, exactly as it was entered and never rewritten.",
-    }),
-    city: z
-      .string()
-      .nullable()
-      .openapi({ description: "The locality of the record's default address." }),
-    region: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "The administrative area of the default address — state, province, prefecture — where " +
-          "the country has one.",
-      }),
-    country: z
-      .string()
-      .nullable()
-      .openapi({ description: "The default address's country, ISO 3166-1 alpha-2." }),
-    recordedAt: z.string().openapi({ description: "When the firm wrote the record down." }),
-    changedAt: z.string().openapi({
-      description:
-        "When the record itself last changed. A change to something hanging off it — a name " +
-        "appended, an address added — does not move this.",
-    }),
-  })
-  .openapi("DirectoryEntityListing");
-
-// The page envelope plus the size of the whole record. `total` is what separates a listing from a
-// capped answer: a page of fifty out of two thousand and a page of fifty that IS the directory are
-// indistinguishable without it, and a firm that has entered twenty clients expects to be told it
-// holds twenty.
-const DirectoryEntityListingPage = paginated(DirectoryEntityListing)
-  .extend({
-    total: z
-      .number()
-      .int()
-      .openapi({
-        description:
-          "How many records the firm holds under these filters — every page of the walk when the " +
-          "directory is being listed, and the number of records answering when it is being " +
-          "searched, because a ranked answer's size is the answer's and not the book's.",
-      }),
-    capped: z.boolean().openapi({
-      description:
-        "True only where a ranked answer (`search`) was cut short: the firm holds more matches " +
-        "than were returned, so narrowing the query reaches the rest. False on every page of " +
-        "the plain index, which is walkable to its end by cursor and never cut.",
-    }),
-  })
-  .openapi("DirectoryEntityListingPage");
-
-// ---- an entity's edges, matters, categories, and the identifiers it holds ----
-
-const DirectoryEdgeEntry = z
-  .object({
-    id: z.string(),
-    edgeType: z.string(),
-    // Direction is kept rather than normalized away: "parent of" and "subsidiary of" are the same
-    // row read from opposite ends, and a caller that lost which end it was on would render one as
-    // the other.
-    direction: z.enum(["outbound", "inbound"]).openapi({
-      description:
-        "Whether the entity asked about is the FROM end of this edge (outbound) or the TO end " +
-        "(inbound). The relationship reads in the opposite sense from each end.",
-    }),
-    farEntityId: z.string().openapi({ description: "The entity at the other end of the edge." }),
-    farEntityKind: z.enum(["person", "organization", "unknown"]),
-    farDisplayName: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "What to call the far end, resolved through the same naming read the bulk endpoint " +
-          "performs — one lookup for the whole page, never one per row.",
-      }),
-    role: z.string().nullable(),
-    note: z.string().nullable(),
-    validFrom: z.string().nullable(),
-    validTo: z.string().nullable(),
-  })
-  .openapi("DirectoryEdgeEntry");
-
-const DirectoryEdgePage = paginated(DirectoryEdgeEntry).openapi("DirectoryEdgePage");
-
-const EntityMatterPartyEntry = z
-  .object({
-    id: z.string(),
-    matterId: z.string(),
-    role: z.string(),
-    capacity: z.string().nullable(),
-    matterTitle: z
-      .string()
-      .nullable()
-      .openapi({ description: "Null when the link points at a matter the firm no longer holds." }),
-    matterNumber: z
-      .string()
-      .nullable()
-      .openapi({ description: "Null while the matter is still consultation and undrawn." }),
-    matterStatus: z.string().nullable(),
-    linkedAt: z.string(),
-  })
-  .openapi("DirectoryEntityMatterPartyEntry");
-
-const EntityMatterPartyPage = paginated(EntityMatterPartyEntry).openapi(
-  "DirectoryEntityMatterPartyPage",
-);
-
-const DirectoryCategory = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    appliesTo: z.enum(["person", "organization", "both"]),
-    position: z.number(),
-    archived: z.boolean().openapi({
-      description:
-        "True for a label the firm has retired. Retired labels are still returned: an entity " +
-        "carrying one must still be able to show what it says.",
-    }),
-  })
-  .openapi("DirectoryCategory");
-
-const DirectoryCategoriesResponse = z
-  .object({ data: z.array(DirectoryCategory) })
-  .openapi("DirectoryCategoriesResponse");
-
-// What the firm holds for an entity, WITHOUT reading any of it. No value field is on this shape and
-// none belongs on it: the decrypt is the privileged, audited act, and a record that performed one to
-// draw a list of headings would write a plaintext social security number into the audit log every
-// time a page rendered.
-const DirectoryIdentifierRecord = z
-  .object({
-    id: z.string(),
-    type: z.enum(IDENTIFIER_TYPES),
-    label: z.string().nullable().openapi({
-      description:
-        "The plaintext part: the issuing region, the jurisdiction, who an account is held with.",
-    }),
-    validFrom: z.string().nullable(),
-    validTo: z.string().nullable(),
-    recordedAt: z.string(),
-  })
-  .openapi("DirectoryIdentifierRecord");
-
-const DirectoryIdentifierRecordsResponse = z
-  .object({ data: z.array(DirectoryIdentifierRecord) })
-  .openapi("DirectoryIdentifierRecordsResponse");
 
 // ---- shared error responses ----
 
@@ -1627,313 +1049,12 @@ const unlinkMatterPartyRoute = defineOpenAPIRoute(
   },
 );
 
-// ---- contact points ----------------------------------------------------------------------------
-//
-// Three tables, one vocabulary. `directory_email`, `directory_phone` and `directory_address` have
-// been in the schema since the baseline migration with nothing able to write to them, so until these
-// routes existed a firm could not record a client's telephone number.
-
-// Whether the firm MAY use a contact point and whether it SHOULD. Two facts, not one: a person can
-// be reachable at a number they would rather the firm did not ring, and can ask to be reached by
-// post while still holding an email address the firm may use. `isPrimary` is a third and different
-// thing — the channel's default row — and stays on the contact point itself.
-const ContactPreference = z
-  .object({
-    permitted: z
-      .boolean()
-      .optional()
-      .openapi({
-        description:
-          "May the firm use this contact point. Defaults to true. A contact point the person asked " +
-          "the firm not to use is recorded with the permission withdrawn and a note saying so, never " +
-          "deleted: deleting it loses the instruction along with the value.",
-      }),
-    preferred: z
-      .boolean()
-      .optional()
-      .openapi({
-        description:
-          "Is this the one route the person asked to be reached by. At most one per entity across " +
-          "email, phone and address together, because that preference is a single answer about every " +
-          "channel; promoting one demotes whichever was preferred before, in any of the three.",
-      }),
-    note: z.string().max(1000).nullish().openapi({
-      description: "Why the contact point may not be used, or how it should be.",
-    }),
-  })
-  .openapi("DirectoryContactPreference");
-
-const ContactVerification = z
-  .object({
-    status: z
-      .enum(CONTACT_VERIFICATION_STATUSES)
-      .optional()
-      .openapi({
-        description:
-          "What the firm found when it last tried to confirm this contact point. A failed status " +
-          "records returned mail, a bounced message or a disconnected line. It never blocks a send: " +
-          "it is surfaced to whoever is about to send, and the send proceeds.",
-      }),
-    detail: z.string().max(1000).nullish().openapi({
-      description: "What the failure said, in the words it said it.",
-    }),
-  })
-  .openapi("DirectoryContactVerification");
-
-const ContactPointState = z
-  .object({
-    permitted: z.boolean(),
-    preferred: z.boolean(),
-    note: z.string().nullable(),
-    verificationStatus: z.enum(CONTACT_VERIFICATION_STATUSES),
-    verifiedAt: z.string().nullable(),
-    verificationDetail: z.string().nullable(),
-  })
-  .openapi("DirectoryContactPointState");
-
-const DirectoryEmailEntry = z
-  .object({
-    id: z.string(),
-    address: z.string(),
-    contactUse: z.enum(CONTACT_USES).nullable(),
-    isPrimary: z.boolean().openapi({
-      description: "This channel's default row — where a message goes when no address was named.",
-    }),
-    state: ContactPointState,
-  })
-  .openapi("DirectoryEmailEntry");
-
-const DirectoryPhoneEntry = z
-  .object({
-    id: z.string(),
-    number: z.string().openapi({
-      description:
-        "The number exactly as it was entered. Never rewritten; this is what a screen shows.",
-    }),
-    contactSystem: z.enum(CONTACT_SYSTEMS).openapi({
-      description:
-        "What technology answers the number. A fax line is a fax by its system, not by a word in a " +
-        "label, so a delivery path can ask the question and get an answer.",
-    }),
-    contactUse: z.enum(CONTACT_USES).nullable(),
-    countryCallingCode: z
-      .string()
-      .nullable()
-      .openapi({
-        description:
-          "Null where the number carried no country — a national-form number says nothing about " +
-          "which country it belongs to, and the record says so rather than inventing one.",
-      }),
-    nationalNumber: z.string().nullable(),
-    extension: z.string().nullable(),
-    countryRegionCode: z.string().nullable(),
-    isPrimary: z.boolean(),
-    state: ContactPointState,
-  })
-  .openapi("DirectoryPhoneEntry");
-
-const DirectoryAddressEntry = z
-  .object({
-    id: z.string(),
-    recipient: z.string().nullable(),
-    organizationName: z.string().nullable(),
-    street: z.string().nullable(),
-    streetTwo: z.string().nullable(),
-    dependentLocality: z.string().nullable(),
-    city: z.string().nullable(),
-    region: z.string().nullable(),
-    postal: z.string().nullable(),
-    sortingCode: z.string().nullable(),
-    country: z.string().nullable(),
-    addressUse: z.enum(ADDRESS_USES).nullable(),
-    addressType: z.enum(ADDRESS_TYPES).openapi({
-      description:
-        "Whether the place physically exists. Personal service turns on this: a post office box is " +
-        "postal and cannot be served, a registered office is physical and can.",
-    }),
-    isPrimary: z.boolean(),
-    state: ContactPointState,
-  })
-  .openapi("DirectoryAddressEntry");
-
-const DirectoryEmailsResponse = z
-  .object({ data: z.array(DirectoryEmailEntry) })
-  .openapi("DirectoryEmailsResponse");
-const DirectoryPhonesResponse = z
-  .object({ data: z.array(DirectoryPhoneEntry) })
-  .openapi("DirectoryPhonesResponse");
-const DirectoryAddressesResponse = z
-  .object({ data: z.array(DirectoryAddressEntry) })
-  .openapi("DirectoryAddressesResponse");
-
-const DirectoryContactPointsResponse = z
-  .object({
-    emails: z.array(DirectoryEmailEntry),
-    phones: z.array(DirectoryPhoneEntry),
-    addresses: z.array(DirectoryAddressEntry),
-  })
-  .openapi("DirectoryContactPointsResponse");
-
-const AddEmailRequest = z
-  .object({
-    address: z.string().min(3).max(320),
-    contactUse: z.enum(CONTACT_USES).nullish(),
-    isPrimary: z.boolean().optional(),
-    preference: ContactPreference.optional(),
-    verification: ContactVerification.optional(),
-  })
-  .openapi("AddDirectoryEmailRequest");
-
-const UpdateEmailRequest = z
-  .object({
-    address: z.string().min(3).max(320).optional(),
-    contactUse: z.enum(CONTACT_USES).nullish(),
-    isPrimary: z.boolean().optional(),
-    preference: ContactPreference.optional(),
-    verification: ContactVerification.optional(),
-  })
-  .openapi("UpdateDirectoryEmailRequest");
-
-const AddPhoneRequest = z
-  .object({
-    number: z
-      .string()
-      .min(1)
-      .max(64)
-      .openapi({
-        description:
-          "The number as it was written. Stored verbatim and never rewritten; the structured columns " +
-          "beside it go null when it cannot be split, so an unparseable number is still recorded.",
-      }),
-    contactSystem: z.enum(CONTACT_SYSTEMS).optional(),
-    contactUse: z.enum(CONTACT_USES).nullish(),
-    extension: z.string().max(16).nullish(),
-    countryRegionCode: z.string().length(2).nullish(),
-    isPrimary: z.boolean().optional(),
-    preference: ContactPreference.optional(),
-    verification: ContactVerification.optional(),
-  })
-  .openapi("AddDirectoryPhoneRequest");
-
-const UpdatePhoneRequest = z
-  .object({
-    number: z.string().min(1).max(64).optional(),
-    contactSystem: z.enum(CONTACT_SYSTEMS).optional(),
-    contactUse: z.enum(CONTACT_USES).nullish(),
-    extension: z.string().max(16).nullish(),
-    countryRegionCode: z.string().length(2).nullish(),
-    isPrimary: z.boolean().optional(),
-    preference: ContactPreference.optional(),
-    verification: ContactVerification.optional(),
-  })
-  .openapi("UpdateDirectoryPhoneRequest");
-
-// Every field optional and none of them assumed. Which fields a country's addresses use, what a
-// reader there calls them and what order they read in are properties of the country, so nothing here
-// requires a state or a numeric postal code — and an address a firm holds only half of is still the
-// address it holds.
-const addressFields = {
-  recipient: z.string().max(200).nullish(),
-  organizationName: z.string().max(200).nullish(),
-  street: z.string().max(200).nullish(),
-  streetTwo: z.string().max(200).nullish(),
-  dependentLocality: z.string().max(200).nullish(),
-  city: z.string().max(200).nullish(),
-  region: z.string().max(200).nullish(),
-  postal: z.string().max(32).nullish(),
-  sortingCode: z.string().max(32).nullish(),
-  country: z.string().length(2).nullish(),
-  addressUse: z.enum(ADDRESS_USES).nullish(),
-  addressType: z.enum(ADDRESS_TYPES).optional(),
-  isPrimary: z.boolean().optional(),
-  preference: ContactPreference.optional(),
-  verification: ContactVerification.optional(),
-};
-
-const AddAddressRequest = z.object(addressFields).openapi("AddDirectoryAddressRequest");
-const UpdateAddressRequest = z.object(addressFields).openapi("UpdateDirectoryAddressRequest");
-
-const SetPersonLifeDatesRequest = z
-  .object({
-    dateOfBirth: z
-      .string()
-      .regex(CIVIL_DATE_PATTERN)
-      .nullish()
-      .openapi({
-        description:
-          "A plain calendar date. Held in the clear because every question a firm asks of a date of " +
-          "birth is a range — is this client a minor, has a limitation period tolled — and a range " +
-          "query over ciphertext is not a query.",
-      }),
-    dateOfDeath: z.string().regex(CIVIL_DATE_PATTERN).nullish(),
-    deceased: z
-      .boolean()
-      .optional()
-      .openapi({
-        description:
-          "Separate from the date, because known dead with the date unknown is a state probate work " +
-          "meets constantly. A recorded date of death implies this flag.",
-      }),
-  })
-  .openapi("SetDirectoryPersonLifeDatesRequest");
-
 // ---- creating a whole person in one request --------------------------------------------------
 //
 // The New Person screen reaches every section of the record at creation, and the record is written
 // in ONE batch: either all of it lands or none of it does, so a person is never half-recorded and a
 // retry never makes a second one. Every nested shape is the same shape its own route takes, so what
 // the create accepts is exactly what the record's panes accept one at a time afterwards.
-
-const PersonOtherNameRequest = z
-  .object({
-    given: z.string().min(1),
-    family: z.string().min(1),
-    nameRole: z.enum(NAME_ROLES),
-    prefix: z.string().nullable().optional(),
-    middle: z.string().nullable().optional(),
-    suffix: z.string().nullable().optional(),
-  })
-  .openapi("CreateDirectoryPersonOtherName");
-
-const PersonOrganizationRequest = z
-  .object({
-    organizationId: z.string().regex(directoryEntityIdPattern),
-    edgeType: z.enum(EDGE_TYPES),
-    personIs: z.enum(["from", "to"]).openapi({
-      description:
-        "Which end of the edge the person is. The type says which way a membership reads " +
-        "(employment runs person to organization); the screen decides and the record keeps it.",
-    }),
-    role: z.string().max(120).nullable().optional(),
-    note: z.string().max(1000).nullable().optional(),
-  })
-  .openapi("CreateDirectoryPersonOrganization");
-
-// A PERSON NEEDS A NAME, NOT TWO NAMES. A family name is optional here because plenty of people
-// do not have one — a mononym is the ordinary form of a name in much of the world, and a firm that
-// cannot file its client under the name that client actually has files them under a wrong one. The
-// domain already carries this: `createPerson` computes the phonetic blocking codes from the family
-// name where there is one and from the given name where there is not, so a mononym is indexed, is
-// searchable and is checked for conflicts exactly like anybody else. A GIVEN name is still required
-// — a person row with no name at all is a record nobody can find or refer to.
-const CreatePersonRequest = z
-  .object({
-    given: z.string().min(1),
-    family: z.string().optional(),
-    prefix: z.string().nullable().optional(),
-    middle: z.string().nullable().optional(),
-    suffix: z.string().nullable().optional(),
-    otherNames: z.array(PersonOtherNameRequest).max(20).optional(),
-    pronouns: PronounSetSchema.nullable().optional(),
-    dateOfBirth: z.string().nullable().optional(),
-    dateOfDeath: z.string().nullable().optional(),
-    emails: z.array(AddEmailRequest).max(20).optional(),
-    phones: z.array(AddPhoneRequest).max(20).optional(),
-    addresses: z.array(AddAddressRequest).max(20).optional(),
-    identifiers: z.array(AddIdentifierRequest).max(20).optional(),
-    organizations: z.array(PersonOrganizationRequest).max(50).optional(),
-  })
-  .openapi("CreateDirectoryPersonRequest");
 
 const createPersonRoute = defineOpenAPIRoute(mutationMeta("createPerson", WRITE_PERMISSION), {
   method: "post",

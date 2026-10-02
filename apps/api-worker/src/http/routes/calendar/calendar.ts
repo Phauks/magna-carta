@@ -1,5 +1,4 @@
 import { CIVIL_DATE_PATTERN, civilDateOf, todayInUtc } from "@magna-carta/civil-time/civil-date";
-import { WALL_CLOCK_TIME_PATTERN } from "@magna-carta/civil-time/wall-clock";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -78,7 +77,6 @@ import {
 } from "@magna-carta/calendar/settings";
 import {
   AcknowledgedResponse,
-  AvailabilityEntryDetail,
   BookingConflictDetail,
   BookingCreatedResponse,
   BookingUpdatedResponse,
@@ -86,8 +84,6 @@ import {
   CancelEventRequest,
   CloseDeadlineRequest,
   ContinuanceChain,
-  ContinuanceChainNodeDetail,
-  ContinuanceDeadlineReference,
   ContinueEventRequest,
   ContinueEventResponse,
   CreateBookingRequest,
@@ -102,10 +98,7 @@ import {
   EventBooking,
   EventBookings,
   EventDetail,
-  EventLinkDetail,
-  EventLinkEnd,
   EventLinks,
-  EventTypeDetail,
   FirmCalendarPage,
   FirmEventDetail,
   FirmEventPage,
@@ -115,21 +108,17 @@ import {
   MatterEventPage,
   MatterEventTypeList,
   MatterEventWithParticipants,
-  ParticipantDetail,
-  ParticipantRequest,
   PatchCalendarSettingsRequest,
   ResourceAvailability,
   ResourceDetail,
   SatisfyDeadlineRequest,
   TimelineEntryPage,
-  TimelineEntryResponse,
   UpdateBookingRequest,
   UpdateDeadlineRequest,
   UpdateEventRequest,
   UpdateEventTypeRequest,
   UpdateFirmEventRequest,
   UpdateResourceRequest,
-  WeekStartsOnValue,
 } from "@magna-carta/calendar/contract";
 import { readMatterEventTypes } from "@magna-carta/calendar/event-type-statements";
 import { encodeCursor } from "@magna-carta/data-access/cursor-pagination";
@@ -139,12 +128,9 @@ import { timelineSourceRegistry } from "@magna-carta/calendar/sources/all";
 import { readTimelinePage } from "@magna-carta/calendar/timeline";
 import {
   CALENDAR_SCOPES,
-  FIRM_EVENT_AUDIENCES,
   FIRM_RESOURCE_KINDS,
   MATTER_DEADLINE_STATES,
   CALENDAR_EVENT_LINK_KINDS,
-  MATTER_EVENT_CATEGORIES,
-  MATTER_EVENT_PARTICIPANT_KINDS,
   MATTER_EVENT_STATUSES,
   MAX_CALENDAR_WINDOW_DAYS,
   MAX_DEADLINE_HORIZON_DAYS,
@@ -196,7 +182,6 @@ const READ = "calendar:read" as const;
 const MANAGE = "calendar:manage" as const;
 
 const CIVIL_DATE = CIVIL_DATE_PATTERN;
-const WALL_CLOCK_TIME = WALL_CLOCK_TIME_PATTERN;
 
 const firmEventsQuery = cursorQuery.extend({
   // Required and capped, exactly as the firm calendar's window is: a wider window is refused, never

@@ -11,6 +11,12 @@
 
 ## Key files / entry points
 
+- `src/contract.ts` — **what the directory's API accepts and returns**, as plain zod: every request
+  body and response shape, each named with `.meta({ id })`, which the contract emitter reads as the
+  component name. The route module in `apps/api-worker` declares routes over these and restates no
+  field; path and query parameters stay with the routes (addressing, not shape). Rule and reasoning:
+  `docs/conventions/api.md` (_Where a contract shape lives_). A change here changes the committed
+  contract — re-emit the snapshot and the client in the same commit.
 - `src/types.ts` — domain types: branded identifier re-exports (`dpe_`/`dor_`/`dnm_`/`did_`/`ded_`/`dct_`/`dpr_`/`mtp_`/`eme_`), `EntityKind`, `NameRole`, `PhoneticScheme`, `EdgeType`, `IdentifierType`
 - `src/entity-kind.ts` — `entityKindFromId` / `nodeTableForEntityId` / `assertEntityExists` shared utilities (derive `EntityKind` and the node table from the handle prefix, and assert an entity exists AND is live — not soft-deleted, not merged away — before a referencing write; used by edges, party, categories, name-history, identifiers, merge, and search)
 - `src/normalize-name.ts` — frozen name normalization: NFC, case-fold, diacritic/punctuation strip, suffix/title parse — produces the `normalized_display` stored at write time
@@ -111,7 +117,7 @@
 
 ## Dependencies & contracts
 
-- Depends on: `@magna-carta/data-access` (effect batches, `composeProtectedWrite`/`readProtected`/`blindIndexValue`, `protectedField` registry), `@magna-carta/database` (per-firm schema), `@magna-carta/identifiers`, `words/double-metaphone` (pinned).
+- Depends on: `@magna-carta/data-access` (effect batches, `composeProtectedWrite`/`readProtected`/`blindIndexValue`, `protectedField` registry, the list envelopes the contract uses), `@magna-carta/database` (per-firm schema), `@magna-carta/identifiers`, `@magna-carta/civil-time` (the civil-date pattern), `zod` (the contract module only), `words/double-metaphone` (pinned).
 - Pure and synchronous per operation: produces statements for the caller to run via the data-access layer; holds no D1 binding and performs no I/O of its own.
 - The worker routes (`apps/api-worker/src/http/routes/directory/directory.ts`) are the only callers of `runDirectoryEffect` — they own threading `env`, the actor, and the crypto context.
 
