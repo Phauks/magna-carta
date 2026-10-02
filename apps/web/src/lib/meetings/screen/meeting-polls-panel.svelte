@@ -18,7 +18,8 @@
    * several are checkboxes; once this member has answered, or the poll has closed, the same card
    * becomes one bar per option in the order the room was shown them, with the count, the share and
    * how many of the room have answered. An answer cannot be changed, so there is nothing to go back
-   * to.
+   * to. A host answers like anybody: only the poll this member opened themselves is a tally from the
+   * start, because they are watching the answers to their own question arrive.
    *
    * WHAT ANONYMITY MEANS IS SAID BEFORE THE ANSWER, IN THE WORDS THAT ARE TRUE. "Answers are not
    * shown with names" is what the record keeps its promise to — no read, no export and no frame can
@@ -51,6 +52,7 @@
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import {
+    awaitsAnswerFrom,
     isAcceptableAnswer,
     isOpenablePoll,
     MAX_MEETING_POLL_OPTIONS,
@@ -78,6 +80,7 @@
     subject,
     polls,
     hosting = false,
+    viewerUserId = null,
     inRoom = 0,
     loading = false,
     failed = false,
@@ -102,6 +105,11 @@
      * Close Poll and no See Who Answered — absent rather than disabled, on the band's standing rule.
      */
     hosting?: boolean;
+    /**
+     * The member reading the panel, which is what tells the poll they opened — a tally from the start
+     * — from a poll another host opened, which they are asked like anybody.
+     */
+    viewerUserId?: string | null;
     /** How many are in the room, for "12 of 30 answered". */
     inRoom?: number;
     /** True while the first read has not arrived. A later backstop read is not this state. */
@@ -211,11 +219,12 @@
 
   /**
    * The poll a card is, or the tally it has become: once this member has answered, once the poll
-   * has closed, and always for somebody running the meeting — a host who asks the room is watching
-   * the answers arrive, which is what the panel switches to the moment a poll opens.
+   * has closed, and from the start on the poll this member opened — they asked the room, and the
+   * panel switches to the answers arriving the moment it opens. The count on the Polls control and
+   * the toast read the same rule, so neither ever names a poll this card would not let them answer.
    */
   function showsTally(poll: MeetingPollView): boolean {
-    return hosting || poll.answered || poll.closedAt !== null;
+    return !awaitsAnswerFrom(poll, viewerUserId);
   }
 
   function answeredLine(poll: MeetingPollView): string {
@@ -283,6 +292,7 @@
   const FIXTURE: readonly MeetingPollView[] = [
     {
       pollId: "fixture-poll",
+      askedByUserId: null,
       question: SAMPLE_SENTENCE,
       anonymous: false,
       maxChoices: 1,

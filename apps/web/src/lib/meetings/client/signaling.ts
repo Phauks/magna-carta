@@ -350,6 +350,15 @@ export interface RoomFrameHandlers {
    * a difference, and carried on a host's own `welcome` for the reason the roster is.
    */
   waiting(frame: Record<string, unknown>): void;
+  /**
+   * A recording started or stopped: the announcement the owner's ruling makes the consent mechanism.
+   *
+   * Sent to every WELCOMED socket — a guest's as much as a member's — the instant the route commits,
+   * and never to a socket at the door, where nobody is being recorded. The recording already running
+   * when a socket arrives rides on its `welcome` instead, in the same shape, so a late arrival is
+   * told in exactly the words the room was told in and one code path plays both.
+   */
+  recording(frame: Record<string, unknown>): void;
   ended(frame: Record<string, unknown>): void;
   refused(frame: Record<string, unknown>): void;
   /**
@@ -639,6 +648,11 @@ export class MeetingSignaling {
         return;
       case "waiting":
         this.#handlers.waiting(parsed);
+        return;
+      case "recording":
+        // Held behind the welcome like every frame about the room: the welcome itself carries the
+        // recording running at arrival, so nothing said before it is lost by waiting for it.
+        this.#handlers.recording(parsed);
         return;
       case "ended":
         this.#diagnostics.note({ kind: "ended" });

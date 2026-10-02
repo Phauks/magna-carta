@@ -22,9 +22,22 @@
    * WHAT A GUEST NEVER HAS. No End, no host controls, no attendance, and no member identifier on the
    * roster. What a guest DOES have is the room's chat, on the same record terms every line has, over
    * the guest's own two routes — and no way to take a line back, which is a member's act.
+   *
+   * NOR POLLS OR THE QUESTION QUEUE. The room relays both to every socket, a guest's included, but
+   * answering and asking are member routes and no guest lane for either exists — so this page wires
+   * no relay for them, and the client hands each of those frames to the relay nobody listens to. A
+   * panel drawn from frames alone would be a poll a guest could read and never answer.
+   *
+   * A GUEST IS TOLD ABOUT A RECORDING EXACTLY AS A MEMBER IS. Everybody whose voice is being captured
+   * is told, which is the whole of the consent ruling, so the room sends a guest the same
+   * announcement it sends everybody and this page plays it the same way: the tone, the words, the
+   * banner, the live region, and the mark in the header for as long as it runs. What a guest does
+   * not get is Record or Stop — a guest holds no grant on the room — so the client is given no routes
+   * to reach and the band draws no control.
    */
   import { onDestroy, onMount, untrack } from "svelte";
   import * as Alert from "@magna-carta/design-system/alert";
+  import X from "@lucide/svelte/icons/x";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FailureBand from "@magna-carta/design-system/failure-band";
@@ -90,6 +103,7 @@
   import MeetingReactionCounts from "./screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "./screen/meeting-reactions.svelte";
   import MeetingRoster from "./screen/meeting-roster.svelte";
+  import RecordingMark from "./screen/recording-mark.svelte";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
 
@@ -494,6 +508,14 @@
     <span class="min-w-0 truncate text-sm font-medium text-chrome-text">{firmName}</span>
   </TopBar.Root>
 
+  <!-- What a guest who cannot see the banner is told about a recording, assertively. Mounted from
+       the first paint rather than with the room, because the welcome that lets a guest in is also
+       what says a recording is running, and a region created in the same instant as its words is
+       one a screen reader does not announce. -->
+  <div aria-live="assertive" aria-atomic="true" class="sr-only">
+    {client.recording.announcement}
+  </div>
+
   {#if inTheRoom && summary !== null}
     {@const meeting = summary}
     <main class="flex min-h-0 flex-1 flex-col gap-16 overflow-hidden bg-surface-default p-24">
@@ -505,12 +527,39 @@
             <span>{endsAt === null ? startsAt : `${startsAt} to ${endsAt}`} {zoneCode}</span>
           {/if}
           <span>{kindWord}</span>
+          {#if client.recording.running !== null}
+            <!-- The mark, lit and cleared by the room's own announcement, as on a member's screen. -->
+            <RecordingMark />
+          {/if}
           {#if client.roomState.locked}
             <span>Locked</span>
           {/if}
           <MeetingReactionCounts counts={client.reactions.counts} />
         {/snippet}
       </ScreenHeader>
+
+      {#if client.recording.notice !== null}
+        <!-- The banner, until the guest dismisses it; the mark in the header is what stays. Not a
+             live region itself, because the page's own region has already said it. -->
+        <div class="flex items-start gap-8" data-recording-notice="">
+          <Alert.Root
+            variant={client.recording.notice.occasion === "stopped" ? "info" : "warning"}
+            role="note"
+            class="min-w-0 flex-1"
+          >
+            <Alert.Title>{client.recording.notice.title}</Alert.Title>
+            <Alert.Description>{client.recording.notice.sentence}</Alert.Description>
+          </Alert.Root>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Dismiss"
+            onclick={() => client.recording.dismiss()}
+          >
+            <X class="size-16" aria-hidden="true" />
+          </Button>
+        </div>
+      {/if}
 
       {#if superseded}
         <!-- No Rejoin: this guest is already back in the room somewhere else, and a Rejoin here
@@ -697,7 +746,9 @@
         {:else if removed}
           {@render refusalCard(guestRefusalNamed("meeting-removed"))}
         {:else if withdrawn}
-          {@render refusalCard(guestRefusalNamed("meeting-removed"))}
+          <!-- The link's own refusal, word for word as the link says it when pressed again: the
+               firm took it back, so no Rejoin is offered — a new link is the only way back. -->
+          {@render refusalCard(guestRefusalNamed("guest-link-revoked"))}
         {:else if summary !== null && atTheDoor}
           <!-- The member's own waiting surface, unchanged: what somebody at the door sees does not
                depend on whether they are at the firm. -->

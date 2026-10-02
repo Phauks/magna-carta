@@ -75,15 +75,29 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   instead, and the pure sort that puts a host's queue in the order the hands went up. The DWELL is a
   client constant because only the browser reads it, and it reaches the design system's motion
   recipe as `--mc-reaction-dwell` rather than being written down a second time in CSS.
+- `recording.svelte.ts` — a recording of the meeting: whether one runs, the announcement that is the
+  consent mechanism (a synthesized tone, the words spoken where the browser can, a dismissible banner,
+  and the same sentence in an assertive live region), and Record and Stop over the screen's routes
+  (`recordThrough`). THE ROOM'S FRAME LIGHTS THE MARK, NEVER THE MEMBER'S PRESS: the `recording` frame
+  and the welcome's `recording` field are the only things that light or clear it. It announces once
+  per transition, and what it has told survives a lost socket, so a rejoin into the same recording
+  restores the mark in silence. The sounds are a seam (`MeetingClientSeams.createRecordingSounds`,
+  silent by default) with an audio context of its own, because the meter's does not exist for a
+  member who published no microphone.
 - `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
-  rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`), with a fifteen-second
-  backstop read. A poll's counts only ever grow, so the two doors are merged by keeping the larger; the
-  question queue is walked whole on the record's own key and sorted here, unanswered then upvotes, so
-  it moves on a tally frame without a read. Whether THIS member answered or upvoted comes from the
-  read and their own press, never from a frame.
+  rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`). NO READ ON A TIMER WHILE
+  THE SOCKET IS HEALTHY: a full read on arrival and on reconnect, a read when a panel opens (forward
+  from the last row a read reached, by `since`/`sinceId`, merged by id), and a one-minute backstop
+  only while the socket is down — three hundred browsers re-reading every few seconds is the read
+  storm the relay exists to avoid, and it spends the firm's rate-limit budget. A poll's counts only
+  ever grow, so the doors are merged by keeping the larger; the question queue is sorted here,
+  unanswered then upvotes, so it moves on a tally frame without a read. Whether THIS member answered
+  or upvoted comes from the read and their own press, never from a frame. A poll waits for an answer
+  from everyone but the member who opened it, hosts included.
 
 **`screen/` — what is drawn.** `meeting-reactions.svelte` (the control-bar menu of six),
-`meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+`recording-mark.svelte` (the static Recording badge drawn in the header of the room and guest pages
+while the room says a recording runs), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who
@@ -163,8 +177,9 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   to write over a list a frame has already stated. The one thing the frames cannot cover is a grant
   written AFTER the last arrival — a member named co-host at the twentieth minute is told the roster
   changed and nothing about the people already outside — and that is the only gap the read fills.
-- **A refusal is not the end of a meeting unless it says so.** Five reasons end it
-  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`, `denied`); every other one leaves
+- **A refusal is not the end of a meeting unless it says so.** Six reasons end it
+  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`, `denied`, and `withdrawn`, which a
+  guest receives when the firm takes their link back); every other one leaves
   the socket open, the roster arriving and the member in the room, with a sentence on the screen.
   `not-host` and `not-admitted` are the two that are neither: nothing is wrong with this browser and
   nothing was refused about the meeting, so each is a notice rather than the band that reports a

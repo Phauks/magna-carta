@@ -53,6 +53,7 @@ import {
   type MeetingQuestion,
   type StartedMeeting,
 } from "@magna-carta/api-client";
+import { client } from "@magna-carta/api-client/client";
 import { failureOf } from "$lib/api/api-client.ts";
 import type { MeetingHostRole, MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "./meeting-client.svelte.ts";
@@ -67,9 +68,11 @@ import type {
 } from "./client/polls.svelte.ts";
 import type {
   MeetingQuestionPageView,
+  MeetingQuestionPosition,
   MeetingQuestionSeams,
   MeetingQuestionView,
 } from "./client/questions.svelte.ts";
+import type { MeetingRecordingRoutes } from "./client/recording.svelte.ts";
 
 /** What a write answered: the value, or the record a failure surface renders from. */
 export type MeetingWrite<T> =
@@ -454,6 +457,7 @@ export function redactMeetingMessage(
 function pollView(poll: MeetingPoll): MeetingPollView {
   return {
     pollId: poll.id,
+    askedByUserId: poll.askedByUserId,
     question: poll.question,
     anonymous: poll.anonymous,
     maxChoices: poll.maxChoices,
@@ -611,16 +615,23 @@ export function askMeetingQuestion(
 
 /**
  * One page of the queue, oldest first on the record's own stable key. The panel sorts what it holds;
- * a cursor walking a count that changes while it pages would repeat rows and skip rows.
+ * a cursor walking a count that changes while it pages would repeat rows and skip rows. `after` is
+ * a place on that same key — what a panel following the queue holds — and narrows the walk to what
+ * was asked from there on.
  */
 export function readMeetingQuestions(
   meetingId: string,
   cursor: string | null = null,
+  after: MeetingQuestionPosition | null = null,
 ): Promise<MeetingWrite<MeetingQuestionPageView>> {
   return write(async () => {
+    const query = {
+      ...(cursor === null ? {} : { cursor }),
+      ...(after === null ? {} : { since: after.askedAt, sinceId: after.questionId }),
+    };
     const { data } = await meetingsListQuestions({
       path: { meetingId },
-      query: cursor === null ? undefined : { cursor },
+      query: Object.keys(query).length === 0 ? undefined : query,
       throwOnError: true,
     });
     return { data: { questions: data.data.map(questionView), nextCursor: data.nextCursor } };
@@ -696,6 +707,172 @@ export function redactMeetingQuestion(
   });
 }
 
+/*
+ * RECORDING THE MEETING: starting and stopping it, the list of what has been recorded, and the
+ * record of who was told.
+ *
+ * Both acts are routes for the reason every act with an author is: the permission check, the audit
+ * row and the recording's own row belong at the server's chokepoint, and the room is then told by
+ * the route. What the room broadcasts is what lights the mark on every screen — this browser's
+ * included — so nothing here answers with anything a screen draws the mark from.
+ *
+ * TYPED HERE UNTIL THE GENERATED CLIENT CARRIES THE FOUR OPERATIONS. The shapes below mirror the
+ * contract's own (`MeetingRecordingSummary` and the notice entry), and the calls go through the same
+ * configured client every generated operation does, so a failure is the same `Failure` record and
+ * is reported by the same interceptor. When the snapshot is regenerated, each call becomes the
+ * generated function of the same path and these interfaces become the generated types.
+ */
+
+/** Somebody named on a recording: who started it, or who stopped it. */
+export interface MeetingRecordingActorView {
+  /** The member behind the act. Null on a guest's copy, which never carries a firm's handles. */
+  readonly userId: string | null;
+  readonly displayName: string;
+}
+
+/** Where one recording is in its life, in the server's own vocabulary. */
+export type MeetingRecordingStateView =
+  | "recording"
+  | "composing"
+  | "filed"
+  | "failed"
+  | "abandoned";
+
+/** One recording, as the list reads it: identifiers, instants, a count and a state. No audio. */
+export interface MeetingRecordingView {
+  readonly id: string;
+  readonly meetingId: string;
+  readonly state: MeetingRecordingStateView;
+  readonly startedBy: MeetingRecordingActorView;
+  readonly startedAt: string;
+  readonly stoppedBy: MeetingRecordingActorView | null;
+  readonly stoppedAt: string | null;
+  /** Why it stopped: a member, a host, the meeting ending, the audio lost, the ceiling, a sweep. */
+  readonly stopReason: string | null;
+  readonly trackCount: number;
+  readonly capturedSeconds: number | null;
+  /** The document it became on the matter. Null until it has been added there. */
+  readonly fileId: string | null;
+  readonly transcriptId: string | null;
+  readonly summaryState: string | null;
+}
+
+/** One page of a meeting's recordings, and where the next page starts. */
+export interface MeetingRecordingPageView {
+  readonly recordings: readonly MeetingRecordingView[];
+  readonly nextCursor: string | null;
+}
+
+/** Why somebody was told: the start, an arrival while it ran, or the stop. */
+export type MeetingRecordingNoticeReasonView = "start" | "arrival" | "stop";
+
+/** One occasion on which the room told somebody, which is the consent record. */
+export interface MeetingRecordingNoticeView {
+  readonly id: string;
+  readonly participantKind: "member" | "guest";
+  readonly participantId: string;
+  readonly userId: string | null;
+  readonly displayName: string;
+  readonly reason: MeetingRecordingNoticeReasonView;
+  readonly deliveredAt: string;
+}
+
+/** One page of who was told, and where the next page starts. */
+export interface MeetingRecordingNoticePageView {
+  readonly notices: readonly MeetingRecordingNoticeView[];
+  readonly nextCursor: string | null;
+}
+
+/** A page as the list routes answer: the rows and the cursor, under the house's own field names. */
+interface PageOf<T> {
+  readonly data: readonly T[];
+  readonly nextCursor: string | null;
+}
+
+/**
+ * Start recording this meeting. Answers with the recording; the mark lights on the room's frame.
+ *
+ * Refused `meeting-recording-not-configured` where the firm has not switched recording on, and with
+ * the recording problem types for a room already being recorded, a firm event, or a room too full.
+ */
+export function startMeetingRecording(
+  meetingId: string,
+): Promise<MeetingWrite<MeetingRecordingView>> {
+  return write(() =>
+    client.post<{ 201: MeetingRecordingView }, unknown, true>({
+      url: "/api/v1/meetings/{meetingId}/recording",
+      path: { meetingId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Stop the recording running in this meeting. The key that starts one stops it, and so does a grant
+ * on this meeting: somebody running the room can already end it, and ending it stops the recording.
+ */
+export function stopMeetingRecording(
+  meetingId: string,
+): Promise<MeetingWrite<MeetingRecordingView>> {
+  return write(() =>
+    client.delete<{ 200: MeetingRecordingView }, unknown, true>({
+      url: "/api/v1/meetings/{meetingId}/recording",
+      path: { meetingId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Whether the firm can record this meeting at all, as the meeting's summary states it: the
+ * deployment can carry a recording AND the firm has switched recording on. The screen reads it to
+ * say so in place of the control, rather than offering an act the route would refuse.
+ *
+ * Read off the summary by name until the generated `MeetingSummary` carries `recordingConfigured`;
+ * a summary that does not say is taken as able, and the route's own refusal then says it instead.
+ */
+export function recordingIsConfigured(summary: object): boolean {
+  return Reflect.get(summary, "recordingConfigured") !== false;
+}
+
+/** One page of this meeting's recordings. Everybody who may join the meeting may read it. */
+export function readMeetingRecordings(
+  meetingId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingRecordingPageView>> {
+  return write(async () => {
+    const { data } = await client.get<{ 200: PageOf<MeetingRecordingView> }, unknown, true>({
+      url: "/api/v1/meetings/{meetingId}/recordings",
+      path: { meetingId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    });
+    return { data: { recordings: data.data, nextCursor: data.nextCursor } };
+  });
+}
+
+/**
+ * Who was told about one recording, and when: the consent record. A host's read — the key to host
+ * meetings — because it is a list of everybody who was in the room, guests included.
+ */
+export function readMeetingRecordingNotices(
+  meetingId: string,
+  recordingId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingRecordingNoticePageView>> {
+  return write(async () => {
+    const { data } = await client.get<{ 200: PageOf<MeetingRecordingNoticeView> }, unknown, true>({
+      url: "/api/v1/meetings/{meetingId}/recordings/{recordingId}/notices",
+      path: { meetingId, recordingId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    });
+    return { data: { notices: data.data, nextCursor: data.nextCursor } };
+  });
+}
+
 /** Start ticking, and answer with the way to stop. The one timer the two records share. */
 function every(milliseconds: number, tick: () => void): () => void {
   const ticking = setInterval(tick, milliseconds);
@@ -722,7 +899,7 @@ export function meetingPollSeams(meetingId: () => string): MeetingPollSeams {
 /** The question queue's seams as the app supplies them, on the same terms. */
 export function meetingQuestionSeams(meetingId: () => string): MeetingQuestionSeams {
   return {
-    list: (cursor) => readMeetingQuestions(meetingId(), cursor),
+    list: (cursor, after) => readMeetingQuestions(meetingId(), cursor, after ?? null),
     ask: (body) => askMeetingQuestion(meetingId(), body),
     upvote: (questionId) => upvoteMeetingQuestion(meetingId(), questionId),
     withdrawUpvote: (questionId) => withdrawMeetingQuestionUpvote(meetingId(), questionId),
@@ -730,6 +907,14 @@ export function meetingQuestionSeams(meetingId: () => string): MeetingQuestionSe
       markMeetingQuestionAnswered(meetingId(), questionId, answered),
     redact: (questionId) => redactMeetingQuestion(meetingId(), questionId),
     every,
+  };
+}
+
+/** The two recording acts as the room client takes them, on the same terms as the records'. */
+export function meetingRecordingRoutes(meetingId: () => string): MeetingRecordingRoutes {
+  return {
+    start: () => startMeetingRecording(meetingId()),
+    stop: () => stopMeetingRecording(meetingId()),
   };
 }
 

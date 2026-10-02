@@ -13,7 +13,8 @@
  * chain (negotiation.ts), what is coming in against what the plan wants (subscriptions.ts, over the
  * pure policy in subscription-policy.ts), what is captured and how it is offered (the effects stage
  * in media-effects.ts says what to capture with, and capture.ts offers it), what this browser says
- * about its own microphone (presence.ts), and the door somebody may be waiting at (lobby.ts). The
+ * about its own microphone (presence.ts), the door somebody may be waiting at (lobby.ts), and a
+ * recording of the meeting with the announcement that tells the room about it (recording.svelte.ts). The
  * polls and the question queue are records the screen holds (polls.svelte.ts, questions.svelte.ts);
  * the room relays copies of them here and this file hands each one on. What is HERE is the runes
  * state a screen renders from and the wiring
@@ -81,6 +82,7 @@ import {
   passThroughEffects,
   type AppliedEffects,
   type EffectedCapture,
+  type EffectsChange,
   type MediaEffectSettings,
   type MediaEffectsStage,
 } from "./media-effects.ts";
@@ -92,6 +94,13 @@ import {
   type MeetingQuestionRelay,
 } from "./questions.svelte.ts";
 import { MeetingNegotiation } from "./negotiation.ts";
+import {
+  browserRecordingSounds,
+  MeetingRecording,
+  readRecordingAnnouncement,
+  type MeetingRecordingRoutes,
+  type MeetingRecordingSounds,
+} from "./recording.svelte.ts";
 import { MeetingPresence } from "./presence.ts";
 import {
   browserReactionSeams,
@@ -201,6 +210,10 @@ const FATAL_REFUSAL_REASONS = new Set([
   // The twin of `removed`, on the same terms: barred entry is one rule with two labels, and the
   // join path refuses them while the meeting runs.
   DENIED_REASON,
+  // A guest whose link the firm took back. The room closes the stay that arrived on it, and the
+  // link refuses every arrival after, so carrying on would leave a guest in a room that has
+  // already let them go — and a Rejoin offered from there would be refused on the spot.
+  WITHDRAWN_REASON,
 ]);
 
 /** A host frame from a socket holding no grant. The socket stays open; the member is told. */
@@ -329,6 +342,12 @@ export interface MeetingClientSeams {
    * wants, and exactly what a browser gets apart from the one name the real seam looks up.
    */
   createMediaEffects?: () => MediaEffectsStage;
+  /**
+   * The audible half of the recording announcement: a synthesized tone, and the words spoken where
+   * the browser can speak. Left out, it is silence — what a fake in a test wants, and never the only
+   * channel anyway: the banner and the live region carry the announcement whatever this does.
+   */
+  createRecordingSounds?: () => MeetingRecordingSounds;
 }
 
 /** The seams as a real browser supplies them. */
@@ -344,6 +363,7 @@ export function browserMeetingSeams(): MeetingClientSeams {
     // name `voiceIsolation` at all. Asked here because this is the one function in the client that
     // may touch `navigator`.
     createMediaEffects: () => passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
+    createRecordingSounds: () => browserRecordingSounds(),
   };
 }
 
@@ -561,6 +581,16 @@ export class MeetingClient {
    */
   readonly reactions: MeetingReactions;
 
+  /**
+   * Whether the meeting is being recorded, and the announcement that tells everybody in it so.
+   *
+   * Public because the screen draws the mark, the banner and the live region straight off it, and
+   * its own concern rather than a set of fields here. What it holds is set by the room's frames and
+   * the welcome alone: the mark says what everybody was told, so nothing this browser did on its own
+   * lights it.
+   */
+  readonly recording: MeetingRecording;
+
   /** Everybody but this browser — the people the gallery pages over. */
   readonly others = $derived(
     this.participants.filter((participant) => participant.participantId !== this.participantId),
@@ -706,6 +736,7 @@ export class MeetingClient {
     this.#seams = seams;
     this.#effects = seams.createMediaEffects?.() ?? passThroughEffects();
     this.diagnostics = diagnostics;
+    this.recording = new MeetingRecording(seams.createRecordingSounds?.());
     this.reactions = new MeetingReactions(
       browserReactionSeams(
         (frame) => this.#signaling.send(frame),
@@ -814,10 +845,14 @@ export class MeetingClient {
         waiting: (frame) => {
           this.lobbyList = readWaitingParticipants(frame.participants);
         },
+        // The announcement is the frame's whole content, so it is read whole and handed on; what it
+        // means for the mark and whether it is news is the recording module's to decide.
+        recording: (frame) => this.recording.noteFrame(readRecordingAnnouncement(frame)),
         ended: () => {
           this.#leaving = true;
           this.state = "ended";
           this.#teardown();
+          this.recording.clear();
         },
         refused: (frame) => this.#handleRefused(frame),
         // A room speaking a protocol this page does not know. Nothing is retried and nothing is read
@@ -916,16 +951,40 @@ export class MeetingClient {
   }
 
   /**
+   * Let Record and Stop reach the screen's routes.
+   *
+   * Wired by the screen because the acts are routes and the screen holds the meeting's address; a
+   * guest's screen wires nothing, because a guest may start nothing, and the client then refuses
+   * both without a request.
+   */
+  recordThrough(routes: MeetingRecordingRoutes): void {
+    this.recording.recordThrough(routes);
+  }
+
+  /**
+   * Ask the room to start recording. The mark lights when the room announces it to everybody, this
+   * browser included, and not on this answer.
+   */
+  startRecording(): Promise<"committed" | "refused"> {
+    return this.recording.start();
+  }
+
+  /** Ask the room to stop recording. The mark clears on the room's announcement, as it lit on one. */
+  stopRecording(): Promise<boolean> {
+    return this.recording.stop();
+  }
+
+  /**
    * Change what is done to this member's own sound and picture, without capturing again.
    *
    * What comes back is read off the tracks, so the panel shows what the browser did rather than what
    * was asked; where nothing has been captured yet, the choice is held and applied at the capture.
    */
-  async changeEffects(settings: MediaEffectSettings): Promise<void> {
+  async changeEffects(settings: MediaEffectSettings, change?: EffectsChange): Promise<void> {
     this.effectSettings = settings;
     const capture = this.#capture;
     if (capture === null) return;
-    const applied = await capture.update(settings);
+    const applied = await capture.update(settings, change);
     // A capture that went away while the browser was answering is not one to report on.
     if (this.#capture === capture) this.appliedEffects = applied;
   }
@@ -1092,7 +1151,7 @@ export class MeetingClient {
           refusal:
             "Your sound and picture are being sent as captured, without the effects you chose.",
         },
-        update: (next) => unprocessed.update(next),
+        update: (next, change) => unprocessed.update(next, change),
         setSourceEnabled: (kind, enabled) => unprocessed.setSourceEnabled(kind, enabled),
         close: () => unprocessed.close(),
       };
@@ -1336,12 +1395,15 @@ export class MeetingClient {
     this.#signaling.send({ type: "leave" });
     this.state = "ended";
     this.#teardown();
+    // Leaving is the end of this member's meeting, so the next recording they meet is news.
+    this.recording.clear();
   }
 
   /** Drop everything without telling the room. For a surface going away mid-meeting. */
   dispose(): void {
     this.#leaving = true;
     this.#teardown();
+    this.recording.clear();
   }
 
   /**
@@ -1376,6 +1438,9 @@ export class MeetingClient {
     // running the meeting — which is what the room sends them.
     this.lobbyList = readWaitingParticipants(frame.waiting);
     this.#adoptRoster(readParticipants(frame.roster));
+    // The recording running as this socket arrived — the "and on arrival" half of the consent
+    // ruling. Absent is "not recording", which is what a welcome without the field always meant.
+    this.recording.noteWelcome(readRecordingAnnouncement(frame.recording));
     if (!this.#publishOnWelcome) return;
     this.#publishOnWelcome = false;
     void this.publish();
@@ -1821,6 +1886,9 @@ export class MeetingClient {
     // The bubbles, the counts and this browser's own hand go with the room they were about: every
     // one of them is a fact about the next few seconds of a meeting that is over.
     this.reactions.clear();
+    // The mark goes with the socket, because this browser no longer knows what the room is doing;
+    // who was told about which recording is kept, so a rejoin into the same one is not news.
+    this.recording.noteDisconnected();
     this.#capture?.close();
     this.#capture = null;
     this.appliedEffects = null;

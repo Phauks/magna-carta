@@ -572,6 +572,62 @@ describe("after pressing Join", () => {
     expect(arrival?.credentials).toBe("omit");
   });
 
+  it("builds nothing from a poll or a question the room relays, and offers neither panel", async () => {
+    await draw();
+    const socket = await enterTheRoom();
+
+    socket?.deliver({
+      v: 1,
+      type: "poll-opened",
+      poll: {
+        id: "meetingPoll_1",
+        meetingId: "meeting_1",
+        askedByUserId: null,
+        question: "Which date works for the hearing?",
+        anonymous: false,
+        maxChoices: 1,
+        openedAt: "2026-09-24T18:05:00.000Z",
+        closedAt: null,
+        closedByUserId: null,
+        options: [
+          { optionId: "meetingPollOption_1", position: 0, label: "Thursday", count: 0 },
+          { optionId: "meetingPollOption_2", position: 1, label: "Friday", count: 0 },
+        ],
+        respondents: 0,
+      },
+    });
+    socket?.deliver({
+      v: 1,
+      type: "question-asked",
+      question: {
+        id: "meetingQuestion_1",
+        meetingId: "meeting_1",
+        participantKind: "member",
+        participantId: "attendance_2",
+        userId: null,
+        body: "When is the filing due?",
+        askedAt: "2026-09-24T18:06:00.000Z",
+        answeredAt: null,
+        answeredByUserId: null,
+        redactedAt: null,
+        redactedByUserId: null,
+        upvotes: 0,
+      },
+    });
+    await settle();
+
+    // Answering and asking are a member's routes, so a guest is shown neither, and nothing is read.
+    const names = controlNames();
+    expect(names.some((name) => name.startsWith("Polls"))).toBe(false);
+    expect(names.some((name) => name.startsWith("Q&A") || name.startsWith("Questions"))).toBe(
+      false,
+    );
+    expect(document.body.textContent).not.toContain("Which date works for the hearing?");
+    expect(document.body.textContent).not.toContain("When is the filing due?");
+    expect(document.body.textContent).not.toContain("A poll is open");
+    expect(requests.some((request) => /polls|questions/.test(request.path))).toBe(false);
+  });
+
   it("goes back to the door, not into the room, when a guest who was in it comes back", async () => {
     serve({
       arrival: [
@@ -618,6 +674,31 @@ describe("after pressing Join", () => {
     await settle();
     expect(target.textContent).not.toContain("Waiting to Be Let In");
     expect(controlNames()).toContain("Leave");
+  });
+
+  it("says the firm withdrew the link when the room lets a guest go for it, and offers no way back in", async () => {
+    await draw();
+    const socket = await enterTheRoom();
+    expect(controlNames()).toContain("Leave");
+
+    socket?.deliver({ v: 1, type: "refused", reason: "withdrawn" });
+    await settle();
+
+    // The link's own refusal, in the words the link says it in when pressed again.
+    expect(target.textContent).toContain("This Link Was Withdrawn");
+    expect(target.textContent).toContain("The firm withdrew this link.");
+    // Neither the removal sentence nor the connection-lost surface: nobody took this guest out, and
+    // nothing went wrong with the connection.
+    expect(target.textContent).not.toContain("You Were Removed From This Meeting");
+    expect(target.textContent).not.toContain("The Room Stopped Answering");
+    expect(controlNames()).not.toContain("Rejoin");
+    expect(controlNames()).not.toContain("Leave");
+
+    // The grant went with the link, so leaving the page closes nothing a second time.
+    if (instance !== undefined) void unmount(instance);
+    instance = undefined;
+    await settle();
+    expect(requests.some((request) => request.path === "/api/v1/guest/departures")).toBe(false);
   });
 
   it("says a locked room is locked under the control, and leaves the door standing", async () => {
@@ -785,5 +866,72 @@ describe("a guest's page that breaks", () => {
     expect(text).toContain("client_ABCDEFGH");
     expect(target.innerHTML).not.toContain(TOKEN);
     expect(target.querySelectorAll("a")).toHaveLength(0);
+  });
+});
+
+describe("a recording, as a guest meets it", () => {
+  const recording = {
+    state: "started",
+    recordingId: "meetingRecording_1",
+    // A guest's copy of the announcement carries no member handle.
+    by: { userId: null, displayName: "Rosalind Chase" },
+    at: "2026-09-24T18:05:00Z",
+  };
+
+  function recordingMark(): Element | null {
+    return target.querySelector("[data-recording-mark]");
+  }
+
+  it("is marked in the guest's header from the announcement until the stop, and announced", async () => {
+    await draw();
+    const socket = await enterTheRoom();
+    expect(recordingMark()).toBeNull();
+
+    socket?.deliver({ v: 1, type: "recording", ...recording });
+    await settle();
+    expect(recordingMark()?.textContent).toContain("Recording");
+    expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "Rosalind Chase started recording this meeting.",
+    );
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+    // A guest holds no grant on the room, so neither act is offered to them.
+    const names = controlNames();
+    expect(names).not.toContain("Record");
+    expect(names).not.toContain("Stop Recording");
+    expect(document.body.innerHTML).not.toContain("usr_");
+
+    socket?.deliver({ v: 1, type: "recording", ...recording, state: "stopped" });
+    await settle();
+    expect(recordingMark()).toBeNull();
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording stopped",
+    );
+  });
+
+  it("is told on being let in while a recording runs, from the welcome", async () => {
+    await draw();
+    pressJoin();
+    await settle();
+    const socket = sockets.at(-1);
+    socket?.deliver({ v: 1, type: "admitted", at: "2026-09-24T18:06:00Z" });
+    socket?.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: ARRIVAL.participantId,
+      roster: [],
+      roomState: { spotlight: null, locked: false },
+      recording,
+    });
+    await settle();
+
+    expect(recordingMark()).not.toBeNull();
+    expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "This meeting is being recorded.",
+    );
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
   });
 });

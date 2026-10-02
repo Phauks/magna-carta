@@ -21,6 +21,7 @@ import {
   BLUR_UNAVAILABLE_STATEMENT,
   DEFAULT_EFFECT_SETTINGS,
   type AppliedEffects,
+  type EffectsChange,
   type MediaEffectSettings,
 } from "$lib/meetings/client/media-effects.ts";
 
@@ -29,6 +30,8 @@ type ControlsProps = ComponentProps<typeof Controls>;
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 let changed: MediaEffectSettings[] = [];
+/** Which half of the panel each change said it came from. */
+let changeKinds: EffectsChange[] = [];
 let opened: string[] = [];
 
 /** What a browser that reports all three treatments and offers no blur would say. */
@@ -54,7 +57,10 @@ function bar(over: Partial<ControlsProps> = {}): ControlsProps {
     sharing: false,
     appliedEffects: applied(),
     effectSettings: DEFAULT_EFFECT_SETTINGS,
-    onChangeEffects: (settings: MediaEffectSettings) => changed.push(settings),
+    onChangeEffects: (settings: MediaEffectSettings, change: EffectsChange) => {
+      changed.push(settings);
+      changeKinds.push(change);
+    },
     onOpenPolls: () => opened.push("polls"),
     onOpenQuestions: () => opened.push("questions"),
     onToggleMicrophone: () => {},
@@ -88,6 +94,7 @@ beforeEach(() => {
   target = document.createElement("div");
   document.body.append(target);
   changed = [];
+  changeKinds = [];
   opened = [];
 });
 
@@ -159,6 +166,26 @@ describe("the Effects control", () => {
     buttonReading("Blur")?.click();
     flushSync();
     expect(changed).toEqual([{ background: "blur", reduceNoise: true }]);
+    expect(changeKinds).toEqual(["background"]);
+  });
+
+  it("says a change to the noise switch is about the microphone, so a blur nobody chose stays", () => {
+    instance = mount(Controls, {
+      target,
+      props: bar({
+        // The machine blurred a camera the product may set; the member asked for their own background.
+        effectSettings: { background: "none", reduceNoise: true },
+        appliedEffects: applied({ blur: "on" }),
+      }),
+    });
+    flushSync();
+    openEffects();
+
+    document.body.querySelector<HTMLButtonElement>('[role="switch"]')?.click();
+    flushSync();
+
+    expect(changed).toEqual([{ background: "none", reduceNoise: false }]);
+    expect(changeKinds).toEqual(["microphone"]);
   });
 
   it("stands the noise switch where the track says, not where the preference does", () => {
