@@ -18,6 +18,7 @@ export type BillingValidationCode =
   | "invoice-matter-total-negative"
   | "invoice-line-currency-mismatch"
   | "unknown-number-scope"
+  | "invoice-numbering-needs-letterhead"
   // The one application door, and the five conditions that let money leave a client's trust ledger
   // for the firm. Each names exactly which of them failed, because "the transfer was refused" is not
   // something a member can act on and "this invoice is still a draft" is.

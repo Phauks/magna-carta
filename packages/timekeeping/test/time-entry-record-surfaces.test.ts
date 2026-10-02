@@ -8,8 +8,10 @@ import {
   entryNumberBlockOpenStatements,
   isEntryNumberConflict,
   planEntryNumberBlock,
-  renderEntryNumber,
+  type EntryNumberBlockPlan,
 } from "../src/entry-numbering.ts";
+import { renderNumber } from "@magna-carta/sequence-numbering/render";
+import { DEFAULT_TIME_ENTRY_SCHEME } from "@magna-carta/sequence-numbering/purposes";
 import {
   attachFileToTimeEntry,
   detachFileFromTimeEntry,
@@ -69,7 +71,7 @@ async function captureNumbered(
   database: BatchDatabase,
   overrides: { memo?: string; timekeeperUserId?: string } = {},
 ): Promise<{ timeEntryId: TimeEntryId; entryNumber: string }> {
-  const plan = await planEntryNumberBlock(database, MATTER, 1);
+  const plan = await planEntryNumberBlock(database, MATTER, 1, "2026-06-13");
   const entryNumber = plan.numbers[0];
   if (entryNumber === undefined) throw new Error("plan rendered no number");
   const captured = await captureTimeEntry(
@@ -123,11 +125,17 @@ async function seedRateCard(database: BatchDatabase): Promise<void> {
 }
 
 describe("entry numbering", () => {
-  it("renders matter number + dot + zero-padded sequence, and falls back to the matter id", () => {
-    expect(renderEntryNumber("2026-0147", "matter_a", 42)).toBe("2026-0147.0042");
-    expect(renderEntryNumber(null, "matter_a", 1)).toBe("matter_a.0001");
+  // The built-in shape, which is what the firm gets until it writes its own on the numbering
+  // settings screen: the matter's number, a dot, and a zero-padded per-matter count.
+  const builtIn = (matterNumber: string, value: number): string =>
+    renderNumber(DEFAULT_TIME_ENTRY_SCHEME, { openedDate: "2026-06-13", matterNumber }, value);
+
+  it("renders matter number + dot + zero-padded sequence, and grows past its width", () => {
+    expect(builtIn("2026-0147", 42)).toBe("2026-0147.0042");
+    // A matter that has drawn no number yet falls back to its handle, which the draw supplies.
+    expect(builtIn("matter_a", 1)).toBe("matter_a.0001");
     // Past four digits the number grows rather than wrapping.
-    expect(renderEntryNumber("2026-0147", "matter_a", 12345)).toBe("2026-0147.12345");
+    expect(builtIn("2026-0147", 12345)).toBe("2026-0147.12345");
   });
 
   it("draws consecutive numbers per matter and advances the counter by the block size", async () => {
@@ -140,7 +148,7 @@ describe("entry numbering", () => {
     const second = await captureNumbered(database);
     expect(second.entryNumber).toBe("2026-0147.0002");
 
-    const plan = await planEntryNumberBlock(database, MATTER, 3);
+    const plan = await planEntryNumberBlock(database, MATTER, 3, "2026-06-13");
     expect(plan.numbers).toEqual(["2026-0147.0003", "2026-0147.0004", "2026-0147.0005"]);
 
     const record = await readTimeEntryRecord(database, first.timeEntryId);
@@ -155,12 +163,14 @@ describe("entry numbering", () => {
 
     // A racer that observed the pre-advance counter value: its allocation collides on the drawn
     // VALUE itself, which is what makes the loser's whole batch abort.
-    const stalePlan = {
+    const stalePlan: EntryNumberBlockPlan = {
+      segments: DEFAULT_TIME_ENTRY_SCHEME,
       scopeKey: MATTER as string,
       observedValue: 1,
       startValue: 1,
       count: 1,
       numbers: ["2026-0147.9999"],
+      number: "2026-0147.9999",
     };
     let caught: unknown;
     try {

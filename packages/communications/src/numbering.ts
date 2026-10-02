@@ -36,22 +36,17 @@ export const COMMUNICATION_NUMBERING_TABLES: SequenceNumberingTables = {
   ownerColumn: "id",
 };
 
-// The first number a day hands out. A sequence that starts at zero produces a call numbered 0, which
-// reads as an error rather than as the first call of the day.
-export const COMMUNICATION_NUMBER_START_VALUE = 1;
-
-// Four digits, on the time entry's reasoning: it covers a day of any firm's traffic, and a firm past
-// 9999 calls in one day simply grows a fifth digit rather than wrapping or refusing.
-const COMMUNICATION_NUMBER_PAD_WIDTH = 4;
-
-/** The counter a call drawn for this instant counts within: the UTC day it happened on. */
-export function communicationNumberScope(occurredAt: string): string {
+/**
+ * The day a call drawn for this instant is numbered under — the UTC day it happened on, which the
+ * scheme's year, month and day parts render and scope the count by.
+ *
+ * What the number LOOKS like is the firm's own choice now, written on the numbering settings screen
+ * under the `communication` purpose and read by the shared draw planner; the built-in default
+ * renders the same `2026-09-08-0042` this run has always rendered, and lives on the purpose
+ * register in @magna-carta/sequence-numbering with the reasoning for its shape.
+ */
+export function communicationNumberDate(occurredAt: string): string {
   return civilDateOf(occurredAt);
-}
-
-/** One rendered reference number: the day, then the day's own sequence. */
-export function renderCommunicationNumber(scopeKey: string, drawnValue: number): string {
-  return `${scopeKey}-${String(drawnValue).padStart(COMMUNICATION_NUMBER_PAD_WIDTH, "0")}`;
 }
 
 // The collision the counter cannot see by itself, and the load-bearing backstop on the draw: the

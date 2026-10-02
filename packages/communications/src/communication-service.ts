@@ -6,18 +6,12 @@ import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { CommunicationId, MatterId, UserId } from "@magna-carta/identifiers/types";
-import {
-  ensureCounterRowStatement,
-  guardedIncrementStatement,
-  readCounterValue,
-} from "@magna-carta/sequence-numbering/counter-statements";
 import type { ObservedDraw } from "@magna-carta/sequence-numbering/bounded-retry";
 import {
-  communicationNumberScope,
-  renderCommunicationNumber,
-  COMMUNICATION_NUMBER_START_VALUE,
-  COMMUNICATION_NUMBERING_TABLES,
-} from "./numbering.ts";
+  planSchemeDraw,
+  schemeDrawOpeningStatements,
+} from "@magna-carta/sequence-numbering/scheme-draw";
+import { communicationNumberDate, COMMUNICATION_NUMBERING_TABLES } from "./numbering.ts";
 import {
   insertCommunicationStatement,
   readCommunication,
@@ -122,34 +116,22 @@ export async function logCommunication(
   // draw safe go into the same batch as the insert. A losing draw aborts the whole batch on the
   // partial unique index over the rendered number, and the caller's bounded retry re-runs this with
   // the advanced counter (numbering.ts).
-  const scopeKey = communicationNumberScope(occurredAt);
-  const observedValue =
-    (await readCounterValue(database, COMMUNICATION_NUMBERING_TABLES, scopeKey)) ??
-    COMMUNICATION_NUMBER_START_VALUE;
-  options.observeDraw?.({
-    scopeKey,
-    observedValue,
-    startValue: COMMUNICATION_NUMBER_START_VALUE,
+  const plan = await planSchemeDraw(database, "communication", COMMUNICATION_NUMBERING_TABLES, {
+    openedDate: communicationNumberDate(occurredAt),
   });
-  const referenceNumber = renderCommunicationNumber(scopeKey, observedValue);
+  options.observeDraw?.({
+    scopeKey: plan.scopeKey,
+    observedValue: plan.observedValue,
+    startValue: plan.startValue,
+  });
+  const referenceNumber = plan.number;
 
   const communicationId = newIdentifier("communication", options.randomSource);
   return {
     communicationId,
     effect: {
       statements: [
-        ensureCounterRowStatement(
-          database,
-          COMMUNICATION_NUMBERING_TABLES,
-          scopeKey,
-          COMMUNICATION_NUMBER_START_VALUE,
-        ),
-        guardedIncrementStatement(
-          database,
-          COMMUNICATION_NUMBERING_TABLES,
-          scopeKey,
-          observedValue,
-        ),
+        ...schemeDrawOpeningStatements(database, COMMUNICATION_NUMBERING_TABLES, plan),
         insertCommunicationStatement(database, {
           id: communicationId,
           referenceNumber,

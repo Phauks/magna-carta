@@ -14,20 +14,18 @@ import { MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import type { EntryLineInput } from "@magna-carta/ledger/types";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import {
-  ensureCounterRowStatement,
-  guardedIncrementStatement,
+  allocateCounterValueStatement,
   readCounterValue,
 } from "@magna-carta/sequence-numbering/counter-statements";
-import { allocateCounterValueStatement } from "@magna-carta/sequence-numbering/counter-statements";
+import {
+  planSchemeDraw,
+  schemeDrawOpeningStatements,
+} from "@magna-carta/sequence-numbering/scheme-draw";
+import { NumberingRenderError } from "@magna-carta/sequence-numbering/render";
 import { readAccountRoleMap, resolveAccountRole, type AccountRoleMap } from "./account-roles.ts";
 import { BillingValidationError } from "./billing-validation.ts";
 import { aggregateMinor } from "./line-amounts.ts";
-import {
-  FIRM_WIDE_NUMBER_SCOPE,
-  INVOICE_NUMBER_START_VALUE,
-  INVOICE_NUMBERING_TABLES,
-  renderInvoiceNumber,
-} from "./numbering.ts";
+import { FIRM_WIDE_NUMBER_SCOPE, INVOICE_NUMBERING_TABLES } from "./numbering.ts";
 import {
   finalizeInvoiceStatement,
   insertInvoiceMatterBalanceStatement,
@@ -396,8 +394,49 @@ export async function finalizeInvoice(
       `this firm has never issued an invoice under the numbering scope "${scopeKey}": check the spelling against the scopes already in use, or say explicitly that a new sequence should be started`,
     );
   }
-  const observedValue = counterValue ?? INVOICE_NUMBER_START_VALUE;
-  const invoiceNumber = renderInvoiceNumber(scopeKey, observedValue);
+  // The SHAPE is the firm's, written on the numbering settings screen under the `invoice` purpose
+  // and read by the shared draw planner; the SCOPE is this bill's letterhead, which is a choice
+  // made at finalize and not a value the template renders, so the caller passes it.
+  //
+  // A second letterhead is where the two meet: one scope's count says nothing about another's, so
+  // two letterheads under a scheme that does not render the office code would issue the same number
+  // twice. The refusal belongs at the moment the second scope is opened — here — rather than on the
+  // bill that collides with it.
+  //
+  // The other direction has its own refusal. Once the scheme prints the office code, a bill issued
+  // under no letterhead has no code to print, and the one part the model will not do is render
+  // empty — an empty office code would make "-00042" and a letterhead's "RENO-00042" two readings of
+  // the same count. So that bill is refused by name, naming both ways out, rather than reaching the
+  // renderer and failing as though something had broken.
+  let plan: Awaited<ReturnType<typeof planSchemeDraw>>;
+  try {
+    plan = await planSchemeDraw(
+      database,
+      "invoice",
+      INVOICE_NUMBERING_TABLES,
+      { openedDate: input.issueDate, locationCode: scopeKey === "" ? undefined : scopeKey },
+      { scopeKey },
+    );
+  } catch (caught) {
+    if (scopeKey === FIRM_WIDE_NUMBER_SCOPE && caught instanceof NumberingRenderError) {
+      throw new BillingValidationError(
+        "invoice-numbering-needs-letterhead",
+        "this firm's invoice numbering prints the office code of the letterhead a bill is issued under, and this bill names no letterhead: issue it under one, or take the office code part out of the invoice numbering scheme, under Settings, Numbering",
+      );
+    }
+    throw caught;
+  }
+  if (
+    scopeKey !== FIRM_WIDE_NUMBER_SCOPE &&
+    !plan.segments.some((segment) => segment.kind === "location_code")
+  ) {
+    throw new BillingValidationError(
+      "unknown-number-scope",
+      `this firm's invoice numbering does not render the letterhead, so a bill drawn under "${scopeKey}" would carry a number the firm-wide run can issue as well: add the office code part to the invoice numbering scheme, under Settings, Numbering`,
+    );
+  }
+  const observedValue = plan.observedValue;
+  const invoiceNumber = plan.number;
   const now = options.clock.now();
   // The render shape: an explicit choice for THIS bill wins, otherwise the firm's default. Resolved
   // and snapshot here — the derivation reads the stored answer, never the live setting.
@@ -405,13 +444,7 @@ export async function finalizeInvoice(
     input.renderShape ?? (await readFirmSetting(database, multiMatterRenderShapeDefinition));
 
   const statements: EffectStatement[] = [
-    ensureCounterRowStatement(
-      database,
-      INVOICE_NUMBERING_TABLES,
-      scopeKey,
-      INVOICE_NUMBER_START_VALUE,
-    ),
-    guardedIncrementStatement(database, INVOICE_NUMBERING_TABLES, scopeKey, observedValue),
+    ...schemeDrawOpeningStatements(database, INVOICE_NUMBERING_TABLES, plan),
     finalizeInvoiceStatement(database, {
       id: input.invoiceId,
       invoiceNumber,

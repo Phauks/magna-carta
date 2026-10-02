@@ -199,6 +199,52 @@ every purpose from `GET /api/v1/numbering-schemes`; a scheme-shaped purpose rend
 the value posture. The loading fixture is the settled anatomy (eight plates), a failed read is the
 region's own state, and the page asks the shared `sessionPermissions` reader for its posture.
 
+### Numbering — the screen the owner walked (2026-09-19)
+
+The owner read the built screen and ruled on all of it. Two of these REVERSE rulings of 2026-09-11
+(M1 and M3); the reversal is the ruling, and the earlier row stays where it is so the change is
+legible rather than rewritten.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                      | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N5  | **"In Force" reads "Current".**                                                                                                                                                                                                                                                             | settled |
+| N6  | **The row controls sit at the END of the row: move up, move down, then remove.** REVERSES M3 (arrows lead the row). They are what you do TO the row, not part of what it says.                                                                                                              | settled |
+| N7  | **The parts are offered in alphabetical order.** A dozen parts is a list somebody scans for a name they already know.                                                                                                                                                                       | settled |
+| N8  | **A part carries no explanatory line beneath it in the table.** The picker's own entries carry what each part is; the table states facts.                                                                                                                                                   | settled |
+| N9  | **A cell a reader cannot type into states what the part will put there**, rather than standing empty and refused.                                                                                                                                                                           | settled |
+| N10 | **The scheme picker is demoted to "Load an example" and moved into the list's last row.** REVERSES M1 ("Start from" reads "&lt;Sequence&gt; Numbering Scheme"): named as a scheme at the top of the plate, it read as though choosing from it were the whole of what a number could be.     | settled |
+| N11 | **The page carries no description paragraph.**                                                                                                                                                                                                                                              | settled |
+| N12 | **Every sequence folds, and the closed page is the inventory.** The owner asked whether eight sequences wanted a summary at the top or a fold each; a fold each, with the current number on the heading, so the closed state is itself the quick view and there is no second list to drift. | settled |
+| N13 | **Invoice, time entry and call and text numbers are the firm's to shape too.** The register's `fixed` formulation is gone: every sequence takes a scheme.                                                                                                                                   | settled |
+| N14 | **Two scrollbars in a settings area is a lint, not a correction.** `pnpm run lint:settings-scroll` walks each settings page's own component graph and refuses a second scroll region inside the page's one.                                                                                 | settled |
+
+**What the code says today.** `apps/web/src/routes/(app)/settings/numbering/+page.svelte` folds
+every purpose the listing returns; `numbering-scheme-editor.svelte` draws the parts table. The value
+a cell states is the SERVER's rendering: the preview route returns each part's rendered piece beside
+the whole number, so the screen composes nothing.
+
+**N14 needed a rendered page, not only the lint.** The static scan holds the one-region rule, but
+two defects it cannot see kept the owner's two scrollbars on the screen after the first fix, and
+both were found by rendering the page in Chromium on 2026-09-24:
+
+- **The table was still wider than its column.** Taking the container-scale cell widths off left
+  each picker asking for a text input's default width, which a content-sized table takes as a
+  column's floor: 1038px of table in an 848px column at a 1440px window, so the table's own
+  scroller stayed and the row controls stayed out of sight. A picker in a cell now claims no width
+  of its own (`fillsCell` on `apps/web/src/lib/components/choice-picker.svelte`), Part alone takes
+  the spare width with its field capped, the long heading wraps, and the row controls are the small
+  icon size. It fits at every window from 1220px; below that the six columns cannot fit beside the
+  settings list, and collapsing the main sidebar gives them the room.
+  `apps/web/test/numbering-parts-table.test.ts` pins the mechanisms.
+- **Every settings page's canvas scrolled 48px.** The navigation column is content-box and was
+  `h-full`, so its space-24 gutter above and below stood on top of a full height. It stretches to
+  the row now (`packages/design-system/src/lib/components/navigation-layout/navigation-layout.svelte`),
+  and the layout's Storybook story measures that neither column stands past the layout's bottom.
+
+Below the `lg` breakpoint, where the two sides stack, every settings page still shows more than one
+vertical scroll region. That predates this and is its own layout question, recorded here so it is
+not mistaken for settled.
+
 ### Notes recorded this round
 
 Decisions taken in building G1–G3, P1–P4, S1–S2 and M1–M4, and the seams left. G4/G5 (the
