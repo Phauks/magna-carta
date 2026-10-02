@@ -119,8 +119,11 @@ the workflow is gone now regardless, so there is no longer a workflow to "fix".
 
 ## Meetings — what the account needs before video meetings and recording work (added 2026-10-02)
 
-None of this blocks a deploy: every piece answers that it is not configured until its half exists.
-In the order the features need them.
+Step 4 blocks a deploy, and it must be done before the pull request that adds the compose queues
+merges: `main` is production, `wrangler.jsonc` binds both queues, and Workers Builds fails on a
+queue that does not exist, taking every later merge down with it. Every other step only holds a
+feature back, because each piece answers that it is not configured until its half exists. In the
+order the features need them.
 
 1. **Cloudflare Realtime.** Create the Realtime SFU application, then
    `wrangler secret put REALTIME_SFU_APP_ID` and `wrangler secret put REALTIME_SFU_APP_SECRET` on
@@ -132,7 +135,7 @@ In the order the features need them.
    under the sink. Recording stays off until this passes.
 3. **The sink's secret and route.** `wrangler secret put MEETING_SINK_SIGNING_KEY`, and a zone route
    for `/internal/*` on the api Worker (`run_worker_first` already lists it).
-4. **The compose queues.** Create `magna-carta-production-meeting-recording-compose` and
+4. **The compose queues, before the merge.** Create `magna-carta-production-meeting-recording-compose` and
    `magna-carta-production-meeting-recording-compose-deadletter`; `wrangler.jsonc` binds both, and
    a deploy fails on a queue that does not exist.
 5. **An R2 lifecycle rule on every firm bucket** for the `meeting-recordings/` prefix that aborts
