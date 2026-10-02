@@ -194,6 +194,13 @@
     {
       "idx": 27,
       "version": "6",
+      "when": 1789758441099,
+      "tag": "20260924T181527_integration-credentials-have-their-own-gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
       "when": 1789928863768,
       "tag": "20260924T183850_communication-number-scope-parts",
       "breakpoints": true

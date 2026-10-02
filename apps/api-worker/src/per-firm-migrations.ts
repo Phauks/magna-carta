@@ -37,6 +37,7 @@ import oneOpenStayPerMemberSql from "@magna-carta/database/drizzle/per-firm/2026
 import aMeetingHasAMediumSql from "@magna-carta/database/drizzle/per-firm/20260919T001022_a-meeting-has-a-medium.sql";
 import memberPhotoSql from "@magna-carta/database/drizzle/per-firm/20260920T182353_member-photo.sql";
 import versionExportCopySql from "@magna-carta/database/drizzle/per-firm/20260924T171146_version-export-copy.sql";
+import integrationCredentialsHaveTheirOwnGateSql from "@magna-carta/database/drizzle/per-firm/20260924T181527_integration-credentials-have-their-own-gate.sql";
 import communicationNumberScopePartsSql from "@magna-carta/database/drizzle/per-firm/20260924T183850_communication-number-scope-parts.sql";
 
 export function perFirmMigrations(): Migration[] {
@@ -70,6 +71,8 @@ export function perFirmMigrations(): Migration[] {
     "20260919T001022_a-meeting-has-a-medium": aMeetingHasAMediumSql,
     "20260920T182353_member-photo": memberPhotoSql,
     "20260924T171146_version-export-copy": versionExportCopySql,
+    "20260924T181527_integration-credentials-have-their-own-gate":
+      integrationCredentialsHaveTheirOwnGateSql,
     "20260924T183850_communication-number-scope-parts": communicationNumberScopePartsSql,
   });
 }

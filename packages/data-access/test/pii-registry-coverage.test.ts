@@ -48,10 +48,13 @@ describe("PII registry coverage", () => {
     }
   });
 
-  // firm_secret holds firm-owned integration credentials (encrypted for confidentiality), not a data
-  // subject's personal data, so it is classified non-PII. Every other protected column IS personal
-  // data and must be attributed for erasure in PII_TABLES.
-  const protectedNonPersonalTables = new Set(["firm_secret"]);
+  // firm_secret and integration_credential hold the FIRM's own secrets — a vault entry and a
+  // credential for the firm's external account — encrypted for confidentiality rather than because
+  // they describe anybody. Neither is a data subject's personal data, so both are classified non-PII:
+  // erasing a person must leave them alone, and erasing them on a person's request would disconnect
+  // the firm's account. Every other protected column IS personal data and must be attributed for
+  // erasure in PII_TABLES.
+  const protectedNonPersonalTables = new Set(["firm_secret", "integration_credential"]);
 
   it("every protected column's per-firm table is classified correctly", () => {
     for (const protectedColumn of PROTECTED_COLUMNS) {

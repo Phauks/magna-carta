@@ -50,11 +50,13 @@ describe("toolDestinations", () => {
   });
 
   it("leaves a soon tool not launchable", () => {
-    // Shipping ships at `soon` — no page yet, so it must render as an inert "— soon" row.
-    const shipping = entries.find((entry) => entry.id === "shipping");
-    expect(shipping).toBeDefined();
-    expect(toolPresentation({ ...CATALOG[0]!, id: "shipping" }).stage).toBe("soon");
-    expect(shipping?.launchable).toBe(false);
+    // The property-listing links ship at `soon` — no page yet, so the row must render as an inert
+    // "— soon" rather than a link. Shipping used to be this example and stopped being one when its
+    // four surfaces landed; the case is about the STAGE, so it follows whichever tool still has it.
+    const listingLinks = entries.find((entry) => entry.id === "property-listing-links");
+    expect(listingLinks).toBeDefined();
+    expect(toolPresentation({ ...CATALOG[0]!, id: "property-listing-links" }).stage).toBe("soon");
+    expect(listingLinks?.launchable).toBe(false);
   });
 
   it("makes an alpha-or-better tool launchable", () => {
