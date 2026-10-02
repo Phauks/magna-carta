@@ -893,7 +893,7 @@ The United States is answered from an index the platform builds itself, with no 
 - The build: the address worker's logs carry the cron's decision (missing, fresh, stale, running) and the build Container's state. A build takes about an hour. A failed build leaves the previous index answering — nothing user-facing breaks — and the next day's cron tries again once the index is more than 30 days old.
 - The bucket: `us/current.json` names the live build; two builds are kept, so about 20–24 GB at steady state. `us/<build>/attribution.json` lists every source the build used.
 
-**The licence register.** Which OpenAddresses layers are excluded, and why, is a constant in `crates/address-core` with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build.
+**The licence register.** Which OpenAddresses layers are excluded, and why, is `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`, with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build.
 
 **What never appears anywhere.** As in §19: the query is a client's address. The Containers log no query text and no address, their error bodies carry engine vocabulary only, and the routes stay POSTs.
 

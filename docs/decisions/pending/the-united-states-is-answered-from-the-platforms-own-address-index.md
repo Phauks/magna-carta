@@ -40,7 +40,7 @@ everything here combined.
 all. Excluding them would empty the index, so the rule excludes what a recorded licence forbids or
 encumbers — share-alike (CC BY-SA, ODbL), non-commercial, and a bespoke licence agreement — and keeps
 the rest, including the twenty-six layers whose recorded licence is only an indemnification clause. The
-register of exclusions lives in the index crate with each reason beside it, and every build writes the
+register of exclusions lives in the build job with each reason beside it, and every build writes the
 list of sources it used. **The owner may reverse the indemnification call**; that is a change to the
 register, not to the design.
 

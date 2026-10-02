@@ -110,6 +110,14 @@ describe("suggest", () => {
     ]);
   });
 
+  it("drops a bias the engine cannot use rather than letting it refuse the request", async () => {
+    const { engine, asked } = scriptedEngine(() => json({ outcome: "suggestions", offers: [] }));
+    const port = selfHostedAddressLookupPort(engine);
+    await port.suggest({ country: "US", query: "1402 lawson", near: "N1" });
+    await port.suggest({ country: "US", query: "1402 lawson", near: " nv " });
+    expect(asked.map((request) => request.body.near)).toEqual([undefined, "NV"]);
+  });
+
   it("puts a unit on the second line behind the designator the postal service accepts for any unit", async () => {
     const { engine } = scriptedEngine(() =>
       json({

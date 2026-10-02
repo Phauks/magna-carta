@@ -350,6 +350,15 @@ function sharedOutcome(
   return null;
 }
 
+/**
+ * The engine's index holds US states, which are two letters, and refuses any other bias. A bias is a
+ * nicety, so one the engine cannot use is dropped here rather than allowed to refuse the request.
+ */
+function biasRegionOf(near: string | undefined): string | undefined {
+  const region = near?.trim().toUpperCase() ?? "";
+  return /^[A-Z]{2}$/u.test(region) ? region : undefined;
+}
+
 export function selfHostedAddressLookupPort(engine: AddressEngineBinding): AddressLookupPort {
   return {
     async suggest(input): Promise<SuggestResult> {
@@ -359,7 +368,7 @@ export function selfHostedAddressLookupPort(engine: AddressEngineBinding): Addre
         country,
         query: input.query,
         limit,
-        ...(input.near !== undefined && input.near !== "" && { near: input.near.toUpperCase() }),
+        ...(biasRegionOf(input.near) !== undefined && { near: biasRegionOf(input.near) }),
       });
       if (!answer.ok) return answer;
       const shared = sharedOutcome(answer.body, country);

@@ -1,7 +1,7 @@
 # Address autocomplete — the self-hosted engine
 
 **Date:** 2026-10-02
-**Status:** In build · Area: `crates/address-core` (new), `containers/address` (new), `apps/address-worker`
+**Status:** Built · Area: `crates/address-core` (new), `containers/address` (new), `apps/address-worker`
 (new), `packages/address-lookup`, `apps/api-worker/src/address-lookup/`
 **Scope:** The engine behind `AddressLookupPort` for the United States, run on the platform's own
 Cloudflare account from open address data, so that typing an address into a form is answered without a
@@ -59,8 +59,8 @@ presigned R2 URL). Regional collections need an account and are not used. One li
 **Which sources.** Layer `addresses`, source name under `us/`. A source whose recorded licence is
 share-alike, non-commercial, or a bespoke licence agreement is excluded; one with a permissive licence,
 an indemnification clause only, or no licence recorded is included. 88% of US sources record no
-licence at all, so excluding them would empty the index. The exclusion register lives in
-`crates/address-core` with the reason beside each entry; on 2026-10-02 it holds six layers:
+licence at all, so excluding them would empty the index. The exclusion register is `LICENCE_EXCLUSIONS` in
+`containers/address/src/build_job.rs`, with the reason beside each entry; on 2026-10-02 it holds six layers:
 `us/ca/mono` (CC BY-SA 4.0), `us/or/city_of_tigard` (CC BY-SA 4.0), `us/wa/jefferson` (ODbL 1.0),
 `us/wa/spokane` (CC BY-NC-SA 4.0), and both `us/mi/semcog` layers (a bespoke copyright licence
 agreement). Twenty-six layers record only an indemnification clause — San Diego County, Fulton County
@@ -125,6 +125,18 @@ unit with numbers in numeric order.
 
 **Rows are fetched in parallel.** Tantivy's searcher reads stored rows one at a time; eight sequential
 reads were the whole of the spike's p90. The engine fetches the stored rows of an answer concurrently.
+
+**As built (2026-10-02), where the build refined the above.** Scores are constants rather than BM25:
+with norms and frequencies off, BM25 varies only with each partition's own statistics, which makes a
+four-partition merge arbitrary — so a required clause scores 1, a matching `near` adds 2, and a last word
+that matches as a whole word adds 1 (`100 main` ranks MAIN ST above MAINSAIL DR). A word typed in full
+also matches its USPS abbreviation, and a two-letter state code also matches the region, so a pasted
+whole address finds itself. Abbreviation applies only in suffix or directional position (`LAWSON CREEK
+WAY` keeps `CREEK`). Each query's terms are fetched in parallel before Tantivy walks them, which took the
+p90 at 100 ms a read from 304 ms to 204 ms. The building query also requires the region. Measured on
+the same North Carolina and Nevada data: 60.9 bytes an address; a warm keystroke 2 reads at p50 and 10 at
+p90; p50 102 ms and p90 204 ms at 100 ms a read; the right address or its building in the top eight for
+100 of 100 sampled addresses, by the 7th character at the median.
 
 ## The container (`containers/address`)
 

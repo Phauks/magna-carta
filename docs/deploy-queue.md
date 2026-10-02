@@ -297,7 +297,7 @@ Smarty if its pair is set and to nothing otherwise. The full runbook is
 **One ruling is the owner's.** Sources whose only recorded licence is an indemnification
 clause (26 US layers, among them San Diego County, Fulton County and San Antonio) are
 included; share-alike, non-commercial and bespoke-agreement layers are excluded. Reversing
-the indemnification call is an edit to the register in `crates/address-core`.
+the indemnification call is an edit to `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`.
 
 ## Split compaction — done: the queues exist and the worker shipped (API-confirmed 2026-08-24)
 
