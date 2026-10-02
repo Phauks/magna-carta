@@ -68,8 +68,12 @@ A record answers the questions the firm keeps an answer to:
   Where address suggestions are available, the street box offers real addresses as you type, and
   choosing one fills in the town, the state or province and the postal code while keeping any
   apartment or suite you had already typed. A building with several units is offered once, with how
-  many addresses it holds, and choosing it lists the units. The offers are only a shortcut: what you
-  type is what is kept, whether or not you choose one. If a postal code does not look like one for
+  many addresses it holds, and choosing it lists the units. Addresses in the state you have already
+  chosen — or, before you choose one, the state your office is in — are offered first; the rest of
+  the country is still offered. In the United States the suggestions come from public address records
+  published by states, counties and cities, so a very new street, or the unit number in some
+  buildings, may not be there yet. The offers are only a shortcut: what you type is what is kept,
+  whether or not you choose one. If a postal code does not look like one for
   the chosen country, a note beneath it says so and the address saves anyway, and the state or
   province box offers the country's list without refusing a name that is not on it. Each
   address also says what it is for and whether the place physically exists, which is the difference

@@ -15,16 +15,16 @@ The port was built engine-agnostic, with Smarty as the first adapter and nothing
 then asked for the self-hosted route, with a measured spike first. The spike settled the open
 questions with numbers rather than estimates:
 
-| Question                     | Measured (North Carolina and Nevada, every OpenAddresses source)                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rows, after cleaning         | 15.97M raw → 11.12M distinct. 22.5% duplicates (statewide and county files overlap), 7.9% missing a number or street                                                    |
-| Index size                   | 0.69 GB, **62 bytes an address**. The United States extrapolates to 10–12 GB                                                                                            |
-| Build time                   | 140 s for 11.1M addresses on two threads                                                                                                                                 |
+| Question                     | Measured (North Carolina and Nevada, every OpenAddresses source)                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rows, after cleaning         | 15.97M raw → 11.12M distinct. 22.5% duplicates (statewide and county files overlap), 7.9% missing a number or street                                                       |
+| Index size                   | 0.69 GB, **62 bytes an address**. The United States extrapolates to 10–12 GB                                                                                               |
+| Build time                   | 140 s for 11.1M addresses on two threads                                                                                                                                   |
 | Does the right address show? | 273 of 300 random addresses in the top eight, by the 7th character typed at the median and the 9th at p90. The misses were units in large buildings, and dirty source rows |
-| Read cost a keystroke        | Warm: 1 ranged read at p50, 8 at p90. First query after an open: 35 reads, about 35 MB                                                                                  |
-| Latency a keystroke          | With rows fetched in parallel: p50 48 ms / p90 81 ms at 30 ms a read; p50 118 ms / p90 219 ms at 100 ms a read                                                          |
-| OpenStreetMap as the source  | Photon (OpenStreetMap) had the house number for 31 of 200 sampled addresses. Ruled out as the source                                                                    |
-| R2 range read latency        | 120 ms p50 measured from outside Cloudflare, of which about 30 ms was network                                                                                            |
+| Read cost a keystroke        | Warm: 1 ranged read at p50, 8 at p90. First query after an open: 35 reads, about 35 MB                                                                                     |
+| Latency a keystroke          | With rows fetched in parallel: p50 48 ms / p90 81 ms at 30 ms a read; p50 118 ms / p90 219 ms at 100 ms a read                                                             |
+| OpenStreetMap as the source  | Photon (OpenStreetMap) had the house number for 31 of 200 sampled addresses. Ruled out as the source                                                                       |
+| R2 range read latency        | 120 ms p50 measured from outside Cloudflare, of which about 30 ms was network                                                                                              |
 
 The rest of the case is cost and terms: R2 includes 10 GB-month of storage and 10M reads a month, a
 Container bills only while awake, and the data is the platform's to keep. Google's equivalent was
@@ -57,10 +57,16 @@ presigned R2 URL). Regional collections need an account and are not used. One li
 `{"properties": {"number","street","unit","city","district","region","postcode","hash"}, "geometry": {"coordinates": [lon, lat]}}`.
 
 **Which sources.** Layer `addresses`, source name under `us/`. A source whose recorded licence is
-share-alike, or names a bespoke agreement, is excluded; one with a permissive licence or none recorded
-is included. 88% of US sources record no licence at all, so excluding them would empty the index. This
-policy is the owner's to confirm (see _Owner flags_). Every build writes an attribution manifest — each
-included source and its recorded licence text — beside the index.
+share-alike, non-commercial, or a bespoke licence agreement is excluded; one with a permissive licence,
+an indemnification clause only, or no licence recorded is included. 88% of US sources record no
+licence at all, so excluding them would empty the index. The exclusion register lives in
+`crates/address-core` with the reason beside each entry; on 2026-10-02 it holds six layers:
+`us/ca/mono` (CC BY-SA 4.0), `us/or/city_of_tigard` (CC BY-SA 4.0), `us/wa/jefferson` (ODbL 1.0),
+`us/wa/spokane` (CC BY-NC-SA 4.0), and both `us/mi/semcog` layers (a bespoke copyright licence
+agreement). Twenty-six layers record only an indemnification clause — San Diego County, Fulton County
+and San Antonio among them — and are included. This policy is the owner's to confirm (see _Owner
+flags_). Every build writes an attribution manifest — each included source, layer and job — beside the
+index.
 
 **Cleaning.** Uppercase; non-alphanumerics other than `#` and `-` to spaces; whitespace collapsed.
 Street suffixes and directionals to USPS abbreviations (`STREET`→`ST`, `NORTH`→`N`, …). Unit
@@ -77,12 +83,12 @@ partitions**, the four census regions (the same four OpenAddresses uses for its 
 largest is about 3.5 GB, so its build and merge fit with room. A query reads all four in parallel and
 merges by score; a parallel read costs one round trip, not four.
 
-| Partition   | States                                                             |
-| ----------- | ------------------------------------------------------------------ |
-| `northeast` | CT ME MA NH NJ NY PA RI VT                                         |
-| `midwest`   | IL IN IA KS MI MN MO NE ND OH SD WI                                |
-| `south`     | AL AR DE DC FL GA KY LA MD MS NC OK SC TN TX VA WV PR              |
-| `west`      | AK AZ CA CO HI ID MT NV NM OR UT WA WY                             |
+| Partition   | States                                                |
+| ----------- | ----------------------------------------------------- |
+| `northeast` | CT ME MA NH NJ NY PA RI VT                            |
+| `midwest`   | IL IN IA KS MI MN MO NE ND OH SD WI                   |
+| `south`     | AL AR DE DC FL GA KY LA MD MS NC OK SC TN TX VA WV PR |
+| `west`      | AK AZ CA CO HI ID MT NV NM OR UT WA WY                |
 
 Puerto Rico rides with `south`; every other territory OpenAddresses carries goes there too.
 
@@ -91,13 +97,13 @@ Puerto Rico rides with `south`; every other territory OpenAddresses carries goes
 Pure Rust over Tantivy, using `search-core`'s split format and `SplitDirectory` unchanged. One Tantivy
 segment per partition.
 
-| Field      | Kind                                                     | Purpose                                     |
-| ---------- | -------------------------------------------------------- | ------------------------------------------- |
-| `number`   | raw string, lowercased, indexed                          | The house number, matched exactly           |
-| `words`    | tokenized (simple + lowercase), doc ids only, no norms   | Street, unit, city and postcode words       |
-| `prefixes` | the edge prefixes (2–12 characters) of the same words    | The word still being typed                  |
-| `region`   | raw string, lowercased, indexed                          | Bias toward the caller's state              |
-| stored     | number, street, unit, city, region, postcode, lon, lat   | The offer, and the parts a resolve returns  |
+| Field      | Kind                                                   | Purpose                                    |
+| ---------- | ------------------------------------------------------ | ------------------------------------------ |
+| `number`   | raw string, lowercased, indexed                        | The house number, matched exactly          |
+| `words`    | tokenized (simple + lowercase), doc ids only, no norms | Street, unit, city and postcode words      |
+| `prefixes` | the edge prefixes (2–12 characters) of the same words  | The word still being typed                 |
+| `region`   | raw string, lowercased, indexed                        | Bias toward the caller's state             |
+| stored     | number, street, unit, city, region, postcode, lon, lat | The offer, and the parts a resolve returns |
 
 Field norms are off everywhere: the spike's first query spent most of its 35 MB loading them, and the
 scoring here does not need document length.
@@ -135,19 +141,47 @@ A Rust `axum` service on port 8080, one image, run as two Container classes:
 ### Wire contract (JSON, POST unless stated)
 
 `POST /suggestions`
+
 ```json
 { "country": "US", "query": "1402 lawson cr", "limit": 8, "near": "NC" }
 ```
+
 →
+
 ```json
-{ "outcome": "suggestions", "offers": [
-  { "kind": "address", "label": "1402 LAWSON CREEK WAY, WAKE FOREST, NC 27587",
-    "address": { "number": "1402", "street": "LAWSON CREEK WAY", "unit": "", "city": "WAKE FOREST",
-                 "region": "NC", "postcode": "27587", "longitude": -78.51, "latitude": 35.97 } },
-  { "kind": "group", "label": "1042 W CENTER ST, OREM, UT 84057", "count": 24,
-    "building": { "number": "1042", "street": "W CENTER ST", "city": "OREM", "region": "UT", "postcode": "84057" } }
-] }
+{
+  "outcome": "suggestions",
+  "offers": [
+    {
+      "kind": "address",
+      "label": "1402 LAWSON CREEK WAY, WAKE FOREST, NC 27587",
+      "address": {
+        "number": "1402",
+        "street": "LAWSON CREEK WAY",
+        "unit": "",
+        "city": "WAKE FOREST",
+        "region": "NC",
+        "postcode": "27587",
+        "longitude": -78.51,
+        "latitude": 35.97
+      }
+    },
+    {
+      "kind": "group",
+      "label": "1042 W CENTER ST, OREM, UT 84057",
+      "count": 24,
+      "building": {
+        "number": "1042",
+        "street": "W CENTER ST",
+        "city": "OREM",
+        "region": "UT",
+        "postcode": "84057"
+      }
+    }
+  ]
+}
 ```
+
 or `{ "outcome": "no-coverage" }` for a country with no index, or `{ "outcome": "unavailable" }` when
 the index is not built yet or could not be read. `limit` is 1–10, default 8.
 
@@ -170,16 +204,16 @@ worker intercepts and serves from its `ADDRESS_INDEX` R2 binding. Keys are under
 - `us/<id>/<partition>.split` — a `search-core` split.
 - `us/<id>/attribution.json` — the manifest.
 
-| Method and path                                        | Meaning                                                        |
-| ------------------------------------------------------ | -------------------------------------------------------------- |
-| `HEAD /objects/<key>`                                  | Size in `content-length`; 404 if absent                        |
-| `GET /objects/<key>` with `Range: bytes=a-b`           | 206 with exactly those bytes. A GET without a range is refused |
-| `GET /objects/<key>` with `x-mc-whole: small`          | The whole object, refused above 1 MiB (pointer and manifest)   |
-| `PUT /objects/<key>`                                   | Put a small object (pointer, manifest), refused above 1 MiB    |
-| `POST /uploads/<key>`                                  | Start a multipart upload → `{ "uploadId" }`                    |
-| `PUT /uploads/<key>?uploadId=…&part=N`                 | One part (every part but the last exactly 64 MiB) → `{ "etag" }` |
-| `POST /uploads/<key>/complete?uploadId=…`              | `{ "parts": [{ "part", "etag" }] }` → 204                      |
-| `DELETE /objects/<key>`                                | Remove an object (an old build)                                |
+| Method and path                               | Meaning                                                          |
+| --------------------------------------------- | ---------------------------------------------------------------- |
+| `HEAD /objects/<key>`                         | Size in `content-length`; 404 if absent                          |
+| `GET /objects/<key>` with `Range: bytes=a-b`  | 206 with exactly those bytes. A GET without a range is refused   |
+| `GET /objects/<key>` with `x-mc-whole: small` | The whole object, refused above 1 MiB (pointer and manifest)     |
+| `PUT /objects/<key>`                          | Put a small object (pointer, manifest), refused above 1 MiB      |
+| `POST /uploads/<key>`                         | Start a multipart upload → `{ "uploadId" }`                      |
+| `PUT /uploads/<key>?uploadId=…&part=N`        | One part (every part but the last exactly 64 MiB) → `{ "etag" }` |
+| `POST /uploads/<key>/complete?uploadId=…`     | `{ "parts": [{ "part", "etag" }] }` → 204                        |
+| `DELETE /objects/<key>`                       | Remove an object (an old build)                                  |
 
 A split is assembled as it uploads: index files then footer, streamed in 64 MiB parts, so a partition
 never exists twice on the build disk.
@@ -238,22 +272,22 @@ hop to every keystroke for nothing.
 
 ## Failure behaviour
 
-| Situation                           | Answer                                                    |
-| ----------------------------------- | --------------------------------------------------------- |
-| No index built yet                  | `unavailable` (the form says suggestions are unavailable) |
-| Country without an index            | `no-coverage`                                             |
-| Worker or container unreachable     | 502 through the existing `adapter-error` path             |
-| Build fails                         | The previous index keeps answering; the failure is logged |
-| Identifier from a previous build    | Still resolves: it carries its own parts                  |
+| Situation                        | Answer                                                    |
+| -------------------------------- | --------------------------------------------------------- |
+| No index built yet               | `unavailable` (the form says suggestions are unavailable) |
+| Country without an index         | `no-coverage`                                             |
+| Worker or container unreachable  | 502 through the existing `adapter-error` path             |
+| Build fails                      | The previous index keeps answering; the failure is logged |
+| Identifier from a previous build | Still resolves: it carries its own parts                  |
 
 ## Cost
 
-| Item                     | Monthly                                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| R2 storage               | Two builds of 10–12 GB: about 12 GB over the 10 GB included → about $0.03–0.21               |
-| R2 reads                 | 10M included; an address costs about 5 queries × 4 partitions × 1–2 reads                   |
-| Query container          | `basic` while awake; 25 GiB-hours of memory included a month                                |
-| Build container          | `standard-4` for about an hour a month, inside the included CPU minutes                     |
+| Item            | Monthly                                                                        |
+| --------------- | ------------------------------------------------------------------------------ |
+| R2 storage      | Two builds of 10–12 GB: about 12 GB over the 10 GB included → about $0.03–0.21 |
+| R2 reads        | 10M included; an address costs about 5 queries × 4 partitions × 1–2 reads      |
+| Query container | `basic` while awake; 25 GiB-hours of memory included a month                   |
+| Build container | `standard-4` for about an hour a month, inside the included CPU minutes        |
 
 ## Owner flags
 
