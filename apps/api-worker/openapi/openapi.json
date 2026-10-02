@@ -23688,15 +23688,22 @@
           }
         }
       },
-      "CalendarCreatedResponse": {
+      "CalendarEventRecordedResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
+          },
+          "meetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "id"
+          "id",
+          "meetingId"
         ]
       },
       "CreateMatterEventRequest": {
@@ -23794,6 +23801,9 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         },
         "required": [
@@ -23848,7 +23858,33 @@
           "participantKind"
         ]
       },
-      "CalendarAckResponse": {
+      "CalendarEventMeetingInput": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ]
+          },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ],
+            "default": "off"
+          }
+        },
+        "required": [
+          "medium"
+        ]
+      },
+      "CalendarEventUpdatedResponse": {
         "type": "object",
         "properties": {
           "ok": {
@@ -23856,10 +23892,17 @@
             "enum": [
               true
             ]
+          },
+          "meetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "ok"
+          "ok",
+          "meetingId"
         ]
       },
       "UpdateMatterEventRequest": {
@@ -23957,8 +24000,25 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         }
+      },
+      "CalendarAckResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
       },
       "CancelEventRequest": {
         "type": "object",
@@ -23971,6 +24031,17 @@
             "maxLength": 2000
           }
         }
+      },
+      "CalendarCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
       },
       "CreateMatterDeadlineRequest": {
         "type": "object",
@@ -24438,6 +24509,9 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         },
         "required": [
@@ -24548,6 +24622,9 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         }
       },
@@ -26760,6 +26837,14 @@
               "audio"
             ],
             "default": "video"
+          },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ],
+            "default": "off"
           }
         },
         "required": [
@@ -26862,6 +26947,16 @@
             "type": "integer",
             "minimum": 0
           },
+          "locked": {
+            "type": "boolean"
+          },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ]
+          },
           "configured": {
             "type": "boolean"
           }
@@ -26881,6 +26976,8 @@
           "endedAt",
           "medium",
           "liveCount",
+          "locked",
+          "lobby",
           "configured"
         ]
       },
@@ -26893,6 +26990,9 @@
           "displayName": {
             "type": "string"
           },
+          "waiting": {
+            "type": "boolean"
+          },
           "iceServers": {
             "type": "array",
             "items": {
@@ -26903,6 +27003,7 @@
         "required": [
           "participantId",
           "displayName",
+          "waiting",
           "iceServers"
         ]
       },
@@ -26974,8 +27075,33 @@
           "id": {
             "type": "string"
           },
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest"
+            ]
+          },
           "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
             "type": "string"
+          },
+          "entityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "invitedName": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "joinedAt": {
             "type": "string"
@@ -26985,13 +27111,1280 @@
               "string",
               "null"
             ]
+          },
+          "waitingFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "admittedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endedReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "left",
+              "socket-lost",
+              "removed",
+              "denied",
+              null
+            ]
           }
         },
         "required": [
           "id",
+          "participantKind",
           "userId",
+          "displayName",
+          "entityId",
+          "invitedName",
           "joinedAt",
-          "leftAt"
+          "leftAt",
+          "waitingFrom",
+          "admittedAt",
+          "endedReason"
+        ]
+      },
+      "MeetingMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "meetingId": {
+            "type": "string"
+          },
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentAt": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "redactedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redactedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "meetingId",
+          "participantKind",
+          "participantId",
+          "userId",
+          "sentAt",
+          "body",
+          "redactedAt",
+          "redactedByUserId"
+        ]
+      },
+      "SendMeetingMessageRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4064
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "MeetingMessagePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingMessage"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redacted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RedactedMeetingMessage"
+            }
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor",
+          "redacted"
+        ]
+      },
+      "RedactedMeetingMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "redactedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "redactedAt"
+        ]
+      },
+      "MeetingPoll": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "meetingId": {
+            "type": "string"
+          },
+          "askedByUserId": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "anonymous": {
+            "type": "boolean"
+          },
+          "maxChoices": {
+            "type": "integer"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingPollOption"
+            }
+          },
+          "respondents": {
+            "type": "integer"
+          },
+          "answeredByCaller": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "meetingId",
+          "askedByUserId",
+          "question",
+          "anonymous",
+          "maxChoices",
+          "openedAt",
+          "closedAt",
+          "closedByUserId",
+          "options",
+          "respondents",
+          "answeredByCaller"
+        ]
+      },
+      "MeetingPollOption": {
+        "type": "object",
+        "properties": {
+          "optionId": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "optionId",
+          "position",
+          "label",
+          "count"
+        ]
+      },
+      "OpenMeetingPollRequest": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 564
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 264
+            },
+            "maxItems": 20
+          },
+          "anonymous": {
+            "type": "boolean"
+          },
+          "maxChoices": {
+            "type": "integer",
+            "default": 1
+          }
+        },
+        "required": [
+          "question",
+          "options",
+          "anonymous"
+        ]
+      },
+      "MeetingPollPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingPoll"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "AnswerMeetingPollRequest": {
+        "type": "object",
+        "properties": {
+          "optionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "optionIds"
+        ]
+      },
+      "MeetingPollAnswerPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingPollAnswer"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MeetingPollAnswer": {
+        "type": "object",
+        "properties": {
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest",
+              "attendee"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "optionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "answeredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participantKind",
+          "participantId",
+          "userId",
+          "optionIds",
+          "answeredAt"
+        ]
+      },
+      "MeetingQuestion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "meetingId": {
+            "type": "string"
+          },
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest",
+              "attendee"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "askedAt": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "answeredByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redactedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redactedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "upvotes": {
+            "type": "integer"
+          },
+          "upvotedByCaller": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "meetingId",
+          "participantKind",
+          "participantId",
+          "userId",
+          "body",
+          "askedAt",
+          "answeredAt",
+          "answeredByUserId",
+          "redactedAt",
+          "redactedByUserId",
+          "upvotes",
+          "upvotedByCaller"
+        ]
+      },
+      "AskMeetingQuestionRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1064
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "MeetingQuestionPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingQuestion"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "SetMeetingQuestionAnsweredRequest": {
+        "type": "object",
+        "properties": {
+          "answered": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "answered"
+        ]
+      },
+      "MeetingHostGrants": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingHostGrant"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MeetingHostGrant": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "host",
+              "co-host"
+            ]
+          },
+          "grantedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "role",
+          "grantedAt"
+        ]
+      },
+      "GrantMeetingHostingRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "host",
+              "co-host"
+            ]
+          }
+        },
+        "required": [
+          "userId",
+          "role"
+        ]
+      },
+      "MeetingHostingAcknowledged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "SetMeetingLockedRequest": {
+        "type": "object",
+        "properties": {
+          "locked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locked"
+        ]
+      },
+      "MeetingLobbyAcknowledged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "SetMeetingLobbyRequest": {
+        "type": "object",
+        "properties": {
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ]
+          }
+        },
+        "required": [
+          "lobby"
+        ]
+      },
+      "MeetingLobby": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingLobbyEntry"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MeetingLobbyEntry": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest"
+            ]
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "invitedName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "waitingFrom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participantId",
+          "kind",
+          "userId",
+          "displayName",
+          "invitedName",
+          "waitingFrom"
+        ]
+      },
+      "MeetingLobbyDecisions": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "admitted",
+                    "not-waiting",
+                    "room-full",
+                    "denied"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "outcome"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MeetingLobbyDecisionRequest": {
+        "type": "object",
+        "properties": {
+          "participantIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "(?:^meetingAttendance_[A-Za-z0-9_-]{21}$)|(?:^meetingGuestStay_[A-Za-z0-9_-]{21}$)"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "participantIds"
+        ]
+      },
+      "MeetingGuestInvitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "invitedName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "revokedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "arrivalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastArrivalAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "entityKind",
+          "entityId",
+          "invitedName",
+          "expiresAt",
+          "revokedAt",
+          "arrivalCount",
+          "lastArrivalAt"
+        ]
+      },
+      "InviteMeetingGuestRequest": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "directoryEmailId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "entityId"
+        ]
+      },
+      "MeetingGuestInvitationPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingGuestInvitation"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "GuestMeetingSummary": {
+        "type": "object",
+        "properties": {
+          "firmName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "startsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "live",
+              "ended"
+            ]
+          },
+          "invitedName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmName",
+          "title",
+          "startsOn",
+          "startsAtTime",
+          "endsAtTime",
+          "timeZone",
+          "medium",
+          "status",
+          "invitedName"
+        ]
+      },
+      "GuestArrival": {
+        "type": "object",
+        "properties": {
+          "waiting": {
+            "type": "boolean"
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "iceServers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingIceServer"
+            }
+          },
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ]
+          },
+          "guestGrant": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "waiting",
+          "participantId",
+          "displayName",
+          "iceServers",
+          "medium",
+          "guestGrant"
+        ]
+      },
+      "GuestArrivalRequest": {
+        "type": "object",
+        "properties": {
+          "confirmedName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "confirmedName"
+        ]
+      },
+      "GuestAcknowledged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "SendGuestMeetingMessageRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4064
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "MeetingRoomInspection": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "medium": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "lobby": {
+            "type": "string"
+          },
+          "spotlight": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "participantId": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "participantId",
+              "by",
+              "at"
+            ]
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roster": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRoomInspectedParticipant"
+            }
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRoomInspectedWaiting"
+            }
+          },
+          "sockets": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer"
+              },
+              "attendanceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unreadable": {
+                "type": "integer"
+              },
+              "welcomed": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "count",
+              "attendanceIds",
+              "unreadable",
+              "welcomed"
+            ]
+          },
+          "alarm": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pendingJobs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "participant-grace",
+                    "door-grace",
+                    "presence-flush",
+                    "reaction-flush",
+                    "ended-marker-retirement"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "at",
+              "pendingJobs"
+            ]
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "keyCount": {
+                "type": "integer"
+              },
+              "approximateBytes": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "keyCount",
+              "approximateBytes"
+            ]
+          },
+          "sfuSessionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "firmId",
+          "meetingId",
+          "medium",
+          "locked",
+          "lobby",
+          "spotlight",
+          "endedAt",
+          "roster",
+          "waiting",
+          "sockets",
+          "alarm",
+          "storage",
+          "sfuSessionIds"
+        ]
+      },
+      "MeetingRoomInspectedParticipant": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "hostRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "host",
+              "co-host",
+              null
+            ]
+          },
+          "speaking": {
+            "type": "boolean"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "presenceDirty": {
+            "type": "boolean"
+          },
+          "handRaisedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "socketLostAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sfuSessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackCount": {
+            "type": "integer"
+          },
+          "subscribedMidCount": {
+            "type": "integer"
+          },
+          "reportAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSample": {
+            "$ref": "#/components/schemas/MeetingRoomClientSample"
+          }
+        },
+        "required": [
+          "participantId",
+          "userId",
+          "hostRole",
+          "speaking",
+          "muted",
+          "presenceDirty",
+          "handRaisedAt",
+          "connected",
+          "socketLostAt",
+          "sfuSessionId",
+          "trackCount",
+          "subscribedMidCount",
+          "reportAt",
+          "lastSample"
+        ]
+      },
+      "MeetingRoomClientSample": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "quality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roundTripMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lossFraction": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "jitterMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outboundRid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outboundWidth": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outboundHeight": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outboundBitsPerSecond": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "inboundCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "quality",
+          "roundTripMilliseconds",
+          "lossFraction",
+          "jitterMilliseconds",
+          "outboundRid",
+          "outboundWidth",
+          "outboundHeight",
+          "outboundBitsPerSecond",
+          "inboundCount"
+        ]
+      },
+      "MeetingRoomInspectedWaiting": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "waitingFrom": {
+            "type": "string"
+          },
+          "socketLostAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "participantId",
+          "userId",
+          "waitingFrom",
+          "socketLostAt"
         ]
       },
       "CustodyLocation": {
@@ -78809,7 +80202,7 @@
         }
       },
       "post": {
-        "description": "Records something that happened or will happen in the case: a hearing, a filing, service, an order, a deposition, a client meeting. A date is a plain calendar date and a time is separate and optional, because an all-day event is a real and common answer; the time zone is required and is the one the event happens in, which for a hearing is the court's and not the firm's.",
+        "description": "Records something that happened or will happen in the case: a hearing, a filing, service, an order, a deposition, a client meeting. A date is a plain calendar date and a time is separate and optional, because an all-day event is a real and common answer; the time zone is required and is the one the event happens in, which for a hearing is the court's and not the firm's. Answering `meeting` schedules a video meeting or an audio call in the same act: the room is opened on the event, the colleagues listed on it are invited, and everyone sees Join from now rather than from the moment somebody presses Start. Only members are invited — a client or another party from the Directory has no way in yet. Opening a room needs the permission to host meetings as well as the one to manage the calendar; without it the event can still be recorded, and only the `meeting` field is refused.",
         "operationId": "calendar.createEvent",
         "tags": [
           "calendar"
@@ -78859,11 +80252,11 @@
         },
         "responses": {
           "201": {
-            "description": "The recorded event",
+            "description": "The recorded event, with its meeting where one was asked for",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarCreatedResponse"
+                  "$ref": "#/components/schemas/CalendarEventRecordedResponse"
                 }
               }
             }
@@ -79026,7 +80419,7 @@
         }
       },
       "patch": {
-        "description": "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a new date: the record moves and the audit trail carries the move, rather than leaving two hearings on the calendar for every reader to work out which one counts. Supplying participants replaces the whole list; omitting them leaves it alone.",
+        "description": "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a new date: the record moves and the audit trail carries the move, rather than leaving two hearings on the calendar for every reader to work out which one counts. Supplying participants replaces the whole list; omitting them leaves it alone. Moving an event keeps its meeting: a meeting carries no time of its own. Supplying `meeting` adds one to an event that has none, and needs the permission to host meetings as well as the one to manage the calendar; null or absent leaves the event's meeting exactly as it stands, because ending a gathering is an act of its own and never a side effect of a correction.",
         "operationId": "calendar.updateEvent",
         "tags": [
           "calendar"
@@ -79076,11 +80469,11 @@
         },
         "responses": {
           "200": {
-            "description": "The event was updated",
+            "description": "The event was updated, with its meeting where it has one",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarAckResponse"
+                  "$ref": "#/components/schemas/CalendarEventUpdatedResponse"
                 }
               }
             }
@@ -79876,7 +81269,7 @@
     },
     "/api/v1/events/{eventId}/cancel": {
       "post": {
-        "description": "Marks an event cancelled, with an optional reason the record keeps. The record stays: a hearing that was taken off is a fact about the case, and a firm that has to show it was vacated cannot do that from a row that is gone. A hearing the court moved is continued, not cancelled — the continue operation records both settings.",
+        "description": "Marks an event cancelled, with an optional reason the record keeps. The record stays: a hearing that was taken off is a fact about the case, and a firm that has to show it was vacated cannot do that from a row that is gone. A hearing the court moved is continued, not cancelled — the continue operation records both settings. A meeting scheduled on the event ends with it, in the same batch. A meeting that is LIVE refuses the cancel: taking a room away from the people in it is not a side effect a calendar edit may have, so the meeting is ended first and the event cancelled after.",
         "operationId": "calendar.cancelEvent",
         "tags": [
           "calendar"
@@ -81070,7 +82463,7 @@
         }
       },
       "post": {
-        "description": "Records something the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a reservation. An all-members audience puts it on everyone's calendar without keeping a list that goes stale with every hire; a participants audience puts it on the calendars of the people named.",
+        "description": "Records something the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a reservation. An all-members audience puts it on everyone's calendar without keeping a list that goes stale with every hire; a participants audience puts it on the calendars of the people named. Answering `meeting` schedules a video meeting or an audio call in the same act, exactly as it does on a matter's event — and needs the permission to host meetings as well as the one to manage the calendar.",
         "operationId": "calendar.createFirmEvent",
         "tags": [
           "calendar"
@@ -81111,11 +82504,11 @@
         },
         "responses": {
           "201": {
-            "description": "The recorded firm event",
+            "description": "The recorded firm event, with its meeting where one was asked for",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarCreatedResponse"
+                  "$ref": "#/components/schemas/CalendarEventRecordedResponse"
                 }
               }
             }
@@ -81278,7 +82671,7 @@
         }
       },
       "patch": {
-        "description": "Edits a firm event in place. A moved staff meeting is not procedural history — firm events keep simple edit semantics, and the audit trail carries the move. Supplying participants replaces the whole list; omitting them leaves it alone.",
+        "description": "Edits a firm event in place. A moved staff meeting is not procedural history — firm events keep simple edit semantics, and the audit trail carries the move. Supplying participants replaces the whole list; omitting them leaves it alone. A meeting on the event survives the edit; supplying `meeting` adds one where there is none, and needs the permission to host meetings as well as the one to manage the calendar.",
         "operationId": "calendar.updateFirmEvent",
         "tags": [
           "calendar"
@@ -81328,11 +82721,11 @@
         },
         "responses": {
           "200": {
-            "description": "The firm event was updated",
+            "description": "The firm event was updated, with its meeting where it has one",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarAckResponse"
+                  "$ref": "#/components/schemas/CalendarEventUpdatedResponse"
                 }
               }
             }
@@ -81412,7 +82805,7 @@
     },
     "/api/v1/firm-events/{firmEventId}/cancel": {
       "post": {
-        "description": "Marks a firm event cancelled, with an optional reason. The record stays, and any room or vehicle booked for it frees itself: a booking blocks a resource only while its event is live, so cancelling releases the bookings with nothing further to do.",
+        "description": "Marks a firm event cancelled, with an optional reason. The record stays, and any room or vehicle booked for it frees itself: a booking blocks a resource only while its event is live, so cancelling releases the bookings with nothing further to do. A meeting scheduled on the event ends with it; a meeting that is LIVE refuses the cancel until it has been ended.",
         "operationId": "calendar.cancelFirmEvent",
         "tags": [
           "calendar"
@@ -88616,6 +90009,4368 @@
           },
           "503": {
             "description": "This deployment cannot route a meeting's media",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/messages": {
+      "post": {
+        "description": "Says something in a meeting's chat, and keeps it on the record. Requires an open stay — being in the room is what makes a message sayable, so a member who has left is answered as one who is not in the meeting. The message is stored against that stay rather than against the member, so somebody who dropped off and dialled back in has each message attributed to the stay it was said from. A retried send is answered with the message's record — its handle, its stay and its instant — and an empty body: what was said is kept in the transcript, which is the one copy a taking-back can reach, and never in the retry record.",
+        "operationId": "meetings.sendMessage",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.sendMessage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMeetingMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The message is on the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no message in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message is empty, or longer than a message may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the beginning of the meeting rather than the end of it. A poller following a live meeting continues from `nextCursor`, which every page with rows carries whether or not more are waiting; here it is a position in the conversation rather than a has-more flag, so a reader resumes exactly where it stopped and a caller walking to the end sees one final empty page. Never continue from a timestamp alone: two messages can share an instant, and the second is lost to a reader that asks for what came strictly after it. `since` with `sinceId` is the same position spelled out for a caller that holds the pair rather than the cursor. A message that has been taken back is still returned, with an empty body beside the instant and the member that say it was removed. A caller that sends `since` also receives `redacted`: the messages taken back since that instant, which a forward walk cannot reach because a redaction moves no row's position in the ordering. Blank the body of each one you are holding; a repeat is harmless.",
+        "operationId": "meetings.listMessages",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listMessages",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "since",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "sinceId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's chat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessagePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no message in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/messages/{messageId}/redact": {
+      "post": {
+        "description": "Takes a message back: the body is blanked and the row is kept, so the transcript says a message was there and that somebody removed it. The author may do this to their own words and a member holding meetings:host may do it to anybody's; a message already taken back answers 200 unchanged rather than moving the instant already on the record. Still available after the meeting has ended — the words outlive the gathering.",
+        "operationId": "meetings.redactMessage",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.redactMessage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "messageId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message has been taken back",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no message in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message is empty, or longer than a message may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/polls": {
+      "post": {
+        "description": "Asks the room a closed question. A host act: the caller holds meetings:host and a live grant on this meeting. The poll is open from the instant it is written — there is no draft — and several may be open at once. `anonymous` keeps the answers without names: nothing this API returns, and no frame or audit row, can say who chose what, though who took part is never secret. A retried request is answered with the poll's record and its question and labels left empty; read the poll for its words.",
+        "operationId": "meetings.openPoll",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.openPoll",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenMeetingPollRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The poll is open and on the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPoll"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no poll in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the poll has closed or was already answered, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The poll, or the choices, are not ones this poll accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "A meeting's polls, newest first, each with its tally — every option in order with how many chose it, including the ones nobody did — how many took part, and whether the caller has answered it.",
+        "operationId": "meetings.listPolls",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listPolls",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's polls",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPollPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no poll in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/polls/{pollId}": {
+      "get": {
+        "description": "One poll, in the shape the list returns.",
+        "operationId": "meetings.readPoll",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.readPoll",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingPoll_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "pollId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The poll",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPoll"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no poll in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/polls/{pollId}/close": {
+      "post": {
+        "description": "Closes a poll, which cannot be undone: a closed poll refuses answers. A host act. A poll already closed answers 200 unchanged rather than moving the instant already on the record. Still available after the meeting has ended.",
+        "operationId": "meetings.closePoll",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.closePoll",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingPoll_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "pollId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The poll is closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPoll"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no poll in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the poll has closed or was already answered, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The poll, or the choices, are not ones this poll accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/polls/{pollId}/answers": {
+      "post": {
+        "description": "Answers a poll from the caller's open stay — being in the room is the whole of the permission, so a member who has left is answered as one who is not in the meeting. One participation per member per poll, however many options it chooses, and an answer cannot be changed: a second is 409 `meeting-poll-already-answered`, including from a later stay after leaving and rejoining.",
+        "operationId": "meetings.answerPoll",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.answerPoll",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingPoll_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "pollId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerMeetingPollRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The answer is on the record; the poll as the caller now sees it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPoll"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no poll in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the poll has closed or was already answered, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The poll, or the choices, are not ones this poll accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Who answered what, on a poll that shows names — a host read, one page of participations oldest first. Refused 409 `meeting-poll-answers-not-attributed` on a poll that does not show names, rather than answered with an empty page that would read as nobody having answered.",
+        "operationId": "meetings.listPollAnswers",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listPollAnswers",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingPoll_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "pollId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of who answered what",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPollAnswerPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no poll in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The poll does not show names with its answers",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/questions": {
+      "post": {
+        "description": "Puts a question to the room from the caller's open stay — being in the room is the whole of the permission. A meeting's queue holds 500 questions at most; the 501st is 409 `meeting-question-limit-reached`. A retried request is answered with the question's record and an empty body: the words are kept in the queue, which is the one copy a taking-back can reach.",
+        "operationId": "meetings.askQuestion",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.askQuestion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskMeetingQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The question is on the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingQuestion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, is not hosting this meeting, or may not take this question back",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no question in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The question is empty, or longer than a question may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "A meeting's question queue, oldest first and paged on (asked_at, id) — the record's own stable key. Sort by upvotes in the client over the page it holds: a cursor over a count that changes while the reader pages would repeat and skip rows. `since` with `sinceId` continues from the last question a panel holds, on the same key as the cursor. A question that has been taken back is still returned, with an empty body beside who removed it and when.",
+        "operationId": "meetings.listQuestions",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listQuestions",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "since",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "sinceId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's questions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingQuestionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, is not hosting this meeting, or may not take this question back",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no question in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes": {
+      "post": {
+        "description": "Upvotes a question from the caller's open stay. One per member, and idempotent: a member who has already upvoted it — from this stay or an earlier one — answers 200 unchanged.",
+        "operationId": "meetings.upvoteQuestion",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.upvoteQuestion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingQuestion_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "questionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The question as the caller now sees it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingQuestion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, is not hosting this meeting, or may not take this question back",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no question in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The question is empty, or longer than a question may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes/withdrawal": {
+      "post": {
+        "description": "Takes the caller's upvote back — an upvote that cannot be withdrawn is a vote, not a signal. A member with no upvote on it answers 200 unchanged.",
+        "operationId": "meetings.withdrawQuestionUpvote",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.withdrawQuestionUpvote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingQuestion_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "questionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The question as the caller now sees it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingQuestion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, is not hosting this meeting, or may not take this question back",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no question in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The question is empty, or longer than a question may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/questions/{questionId}/answered": {
+      "post": {
+        "description": "Marks a question answered, or unmarks it — a host works a queue fast and marks the wrong row, so the act takes a boolean rather than being one-way. A host act: meetings:host and a live grant on this meeting. A question already in the state asked for answers 200 unchanged.",
+        "operationId": "meetings.setQuestionAnswered",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.setQuestionAnswered",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingQuestion_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "questionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeetingQuestionAnsweredRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The question as the record now holds it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingQuestion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, is not hosting this meeting, or may not take this question back",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no question in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The question is empty, or longer than a question may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/questions/{questionId}/redact": {
+      "post": {
+        "description": "Takes a question back: the body is blanked and the row is kept. The author may do this to their own question and a host of this meeting to anybody's; a question already taken back answers 200 unchanged. Still available after the meeting has ended.",
+        "operationId": "meetings.redactQuestion",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.redactQuestion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingQuestion_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "questionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The question has been taken back",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingQuestion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, is not hosting this meeting, or may not take this question back",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no question in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The question is empty, or longer than a question may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/hosts": {
+      "get": {
+        "description": "Who is running this meeting right now: the host, and any co-hosts, with the instant each grant opened. Reachable by anybody who may join the meeting — everybody in the room needs to know who is running it. Closed grants are not returned; the record of who was hosting when something happened is the audit log's.",
+        "operationId": "meetings.hosts",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.hosts",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The live grants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingHostGrants"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Hands hosting over, names a co-host, or claims a room nobody is running. One route because they are one act with different arguments — writing or closing a grant — and the target must be in the room: a running meeting is not handed to somebody who is not in it. Naming yourself is the claim, and it is refused while anybody else holding a grant has an open stay; it is recorded as a claim rather than as a hand-over, because nobody gave it. Only the host may hand the room over or name a co-host.",
+        "operationId": "meetings.grantHosting",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.grantHosting",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantMeetingHostingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The grants now standing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingHostGrants"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/hosts/{userId}/revoke": {
+      "post": {
+        "description": "Withdraws a grant. Naming somebody else is the host's act and reaches only a co-host — a co-host withdrawing the host's would be taking the room, which is what a hand-over is for. Naming YOURSELF is a resignation and is anybody's to make, so a co-host can stop being one without asking; the one refusal is the sole grant-holder, because a host resigning out of a room where nobody else holds anything would leave a running meeting with nobody running it. A member who holds no grant answers 200 unchanged: what the caller asked for is already true.",
+        "operationId": "meetings.revokeHosting",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.revokeHosting",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The grants now standing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingHostGrants"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/participants/{participantId}/remove": {
+      "post": {
+        "description": "Puts somebody out of the room: their stay closes as removed, the room drops them from the roster, their media stops and their socket is refused and closed. They cannot rejoin while this meeting runs — it is the meeting they are barred from and not the event, so a new meeting on the same event admits them. A co-host may not remove the host, and nobody removes themselves through this control: leaving is how a person leaves.",
+        "operationId": "meetings.removeParticipant",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.removeParticipant",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "(?:^meetingAttendance_[A-Za-z0-9_-]{21}$)|(?:^meetingGuestStay_[A-Za-z0-9_-]{21}$)"
+            },
+            "required": true,
+            "name": "participantId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member is out of the meeting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingHostingAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lock": {
+      "post": {
+        "description": "Shuts the door, or opens it again. A locked meeting refuses arrivals at the join route with a sentence a late arrival can read, and touches nobody already in it; the meeting summary carries `locked`, so a Join control says so before the click rather than after it. A room already in the state asked for answers 200 unchanged rather than moving the instant and the actor already on the record.",
+        "operationId": "meetings.setLocked",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.setLocked",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeetingLockedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door is where the caller asked for it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingHostingAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lobby": {
+      "post": {
+        "description": "Opens or closes this meeting's lobby. While it is open, an arrival who is not hosting the meeting waits at the door until a host admits them; a host or co-host of this meeting never waits, and holding the permission key alone is not enough. Turning the lobby off does NOT admit the people already waiting — they stay in the list until a host decides about each of them, because a setting is not a decision about a named person. A meeting already in the state asked for answers 200 unchanged.",
+        "operationId": "meetings.setLobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.setLobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeetingLobbyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door is where the caller asked for it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobbyAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Who is waiting to be let into this meeting, oldest arrival first. Reachable only by a host or co-host of this meeting — it is a list of people nobody has decided about yet, and the people inside are not among those who need to see it. Returned whole: a lobby holds at most a hundred arrivals by construction, and a page boundary through it would let a host admit some of the people waiting while believing it was all of them.",
+        "operationId": "meetings.lobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.lobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Who is at the door",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobby"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lobby/admissions": {
+      "post": {
+        "description": "Lets the named arrivals into the meeting: each stay is marked admitted, the room moves them onto the roster, their socket is sent `admitted` and then the ordinary welcome, and everybody already inside sees them join. One outcome per identifier — `admitted`, `not-waiting` or `room-full` — so a batch that half-lands is legible: a host admitting five people into two free seats learns which three did not get in. There is deliberately no server-side 'admit everyone': Admit all sends the identifiers the panel was showing, because a server-side 'all' would admit whoever arrived in the millisecond after the host looked at the list.",
+        "operationId": "meetings.admitToLobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.admitToLobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingLobbyDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What became of each named arrival",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobbyDecisions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lobby/denials": {
+      "post": {
+        "description": "Turns the named arrivals away: each stay closes as denied, their socket is refused and closed, and they cannot rejoin while this meeting runs — a denial that did not bar would be a button that does nothing, since the member would press Join again and be back at the front of the queue. It is the meeting they are barred from and not the event. Nothing is announced to the people in the room: they never knew somebody was at the door.",
+        "operationId": "meetings.denyFromLobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.denyFromLobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingLobbyDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What became of each named arrival",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobbyDecisions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/guests": {
+      "post": {
+        "description": "Mints a signed, expiring link for one person or organization from the Directory who is on this meeting's event, and e-mails it to them. The link proves possession of a mailbox and nothing more: it brings its holder to the lobby, and a host admits them. A second invitation for the same entity REPLACES the first — a fresh secret, the old link stops working at once, a withdrawn link is reinstated, its arrivals counted afresh, and a guest sitting on the old link is put back outside — rather than standing beside it, and answers 200 rather than 201. The token is never returned, stored or shown; the invitation is.",
+        "operationId": "meetings.inviteGuest",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.inviteGuest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteMeetingGuestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An existing invitation was sent again with a fresh link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingGuestInvitation"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The invitation was created and sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingGuestInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, or no invitation on it, this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was withdrawn; invite the entity again to send a new one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The invitations on this meeting, withdrawn ones included, oldest first — never the token or the secret. A host act: who has been sent a way into a meeting is for whoever is running it.",
+        "operationId": "meetings.listGuests",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listGuests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's invitations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingGuestInvitationPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, or no invitation on it, this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/guests/{invitationId}/rotation": {
+      "post": {
+        "description": "Sends a fresh link in place of the old one — the answer to a link forwarded by mistake. Every copy of the old link stops working at once, a guest in the room on it is disconnected and must arrive again on the new one, and the new link's arrivals are counted afresh. A withdrawn link is not rotated; invite the entity again to reinstate it.",
+        "operationId": "meetings.rotateGuestLink",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.rotateGuestLink",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingGuestInvitation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invitationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The fresh link was sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingGuestInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, or no invitation on it, this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was withdrawn; invite the entity again to send a new one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/guests/{invitationId}": {
+      "delete": {
+        "description": "Withdraws a link. The invitation is KEPT, marked withdrawn — who was invited is part of what the record says happened — and a guest on it, in the room or at the door, is put out. Inviting the entity again brings them back. A link already withdrawn answers 200 unchanged.",
+        "operationId": "meetings.revokeGuestLink",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.revokeGuestLink",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "meetings.inviteGuest"
+        },
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingGuestInvitation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invitationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link no longer works",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingGuestInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, or no invitation on it, this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was withdrawn; invite the entity again to send a new one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/meeting": {
+      "get": {
+        "description": "The meeting a guest link opens onto: the firm's name, the event's title and time in its own zone, the medium, where the meeting stands, and the name the link was minted for. Nothing is written and nothing is spent, so a mail client that prefetches the link costs nothing. The link rides the x-meeting-guest header.",
+        "operationId": "guest.meetingSummary",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.meetingSummary",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "invitation",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else."
+            },
+            "required": false,
+            "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The meeting, as the link's holder may know it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestMeetingSummary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/arrivals": {
+      "post": {
+        "description": "Presses Join: spends the link, opens the guest's stay AT THE DOOR — a guest always waits for a host — and answers with what the browser needs to connect plus the grant every later guest request carries. An arrival while this link already holds an open stay answers with that stay and a fresh grant rather than opening a second — and puts that stay back at the door under the name just given, because whoever holds the link now is not known to be whoever a host let in; the host admits them again. A link spent too many times, a locked room, and a guest a host removed or turned away are each refused with a sentence. Answers 201 when a stay was opened and 200 when an open one was returned. Deliberately not replayed from an Idempotency-Key: the answer carries a credential, and a credential is never stored.",
+        "operationId": "guest.arrive",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.arrive",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "guest-arrival",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "invitation",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else."
+            },
+            "required": false,
+            "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestArrivalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The guest's open stay, with a fresh grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestArrival"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The guest is at the door",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestArrival"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The name given at the door is empty or too long",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "This deployment cannot route a meeting's media",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/meeting/socket": {
+      "get": {
+        "description": "Opens the meeting's signaling socket for a guest — in the lobby state until a host admits them, then in the room exactly as a member is, except that no roster or message frame carries a firm's user identifiers. A browser cannot set an ordinary header on a WebSocket, so the grant rides the Sec-WebSocket-Protocol header — the protocols `meeting-guest` and then the grant, answered with `meeting-guest` — or, from an older browser, the `guest` query parameter; this is the one route that accepts it anywhere but the x-meeting-guest header. Requires Upgrade: websocket; an upgrade carrying another site's Origin is refused.",
+        "operationId": "guest.meetingSocket",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.meetingSocket",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "grant",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The grant, from a browser built before the subprotocol form. Prefer the subprotocol: an address can be recorded by request logging a header is not."
+            },
+            "required": false,
+            "description": "The grant, from a browser built before the subprotocol form. Prefer the subprotocol: an address can be recorded by request logging a header is not.",
+            "name": "guest",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The signaling socket is open; frames follow"
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The request did not ask to upgrade to a WebSocket",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "This deployment cannot route a meeting's media",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/departures": {
+      "post": {
+        "description": "Closes the guest's own stay, the way a member's Leave does, and closes their socket. A stay already closed answers 200 unchanged: that instant is in somebody's record.",
+        "operationId": "guest.depart",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.depart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "grant",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else."
+            },
+            "required": false,
+            "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The guest has left",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestAcknowledged"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/meeting/messages": {
+      "get": {
+        "description": "The meeting's chat, for a guest who is IN THE ROOM — admitted, not merely at the door. The same transcript and the same paging as a member's read, with every firm user identifier taken out.",
+        "operationId": "guest.listMessages",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.listMessages",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "grant",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "since",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "sinceId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else."
+            },
+            "required": false,
+            "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's chat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessagePage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Says something in the meeting's chat from the guest's own stay, on the record like every other line. Only a guest who is in the room may speak. A retried send is answered with the message's record and an empty body, as a member's is.",
+        "operationId": "guest.sendMessage",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.sendMessage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "grant",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else."
+            },
+            "required": false,
+            "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendGuestMeetingMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The message is on the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message is empty, or longer than a message may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/inspect": {
+      "get": {
+        "description": "A platform operator reads what one meeting's signaling room is holding: the roster with each participant's hosting role, presence, track and subscription counts and last connection report; who is at the door; the open sockets and which stay each carries; the alarm and which of its deadlines are pending; the storage key count and approximate size; the routing sessions; and the ended marker. It carries no session description, no display name and no track name, and it changes nothing. Each participant is named by the stay and by the member handle behind it: the stay is what every frame, every event and the member's own screen correlate by, and the member handle is what joins a report of \"my tile went black\" — which arrives as a person, and often as the second of that person's two stays — to the room that was serving them. Both are minted identifiers; neither says who anybody is. A room that has never been addressed answers with empty lists rather than a refusal — that is itself the finding.",
+        "operationId": "meetings.inspect",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.inspect",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the room is holding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRoomInspection"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The meeting or firm handle is not a well-formed identifier",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -111053,6 +116808,9 @@
     },
     {
       "name": "folders"
+    },
+    {
+      "name": "guest"
     },
     {
       "name": "health"

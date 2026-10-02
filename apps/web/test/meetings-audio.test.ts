@@ -5,15 +5,22 @@
  *
  * Both are the same rule from two sides. A call is not a meeting with the cameras off — it is a room
  * whose people agreed to sound — so the surfaces do not render a dark video element, and they do not
- * render a camera control that would be refused if it were pressed. What a call DOES still do is be
- * heard, which is why the tile keeps a media element even where it draws initials: a room full of
- * faces and no sound would be the obvious way to get this wrong.
+ * render a camera control that would be refused if it were pressed.
+ *
+ * WHAT A CALL DOES STILL DO IS BE HEARD, and the element that carries the sound is not the tile's.
+ * A browser pulls more voices than it draws tiles, and ranks the two differently on purpose, so
+ * somebody answering a question from another page is heard while their tile is nowhere on screen.
+ * Every voice is played once, in one place, which is what the last case here asserts: a room full
+ * of faces and no sound is the obvious way to get this wrong, and so is a room that goes silent the
+ * moment somebody turns a page.
  */
 import { flushSync, mount, unmount, type ComponentProps } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import MeetingTile from "../src/lib/meetings/meeting-tile.svelte";
+import MeetingTile from "../src/lib/meetings/screen/meeting-tile.svelte";
+import MeetingAudio from "../src/lib/meetings/screen/meeting-audio.svelte";
+import MeetingAudioHarness from "./meeting-audio-harness.svelte";
 import MeetingControls from "./meeting-controls-harness.svelte";
-import { participantInitials } from "../src/lib/meetings/meeting-tiles.ts";
+import { participantInitials } from "../src/lib/meetings/screen/meeting-tiles.ts";
 
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
@@ -51,14 +58,14 @@ describe("the initials somebody is drawn as", () => {
 });
 
 describe("a tile in a call", () => {
-  it("draws the person rather than a dark rectangle, and still plays them", () => {
+  it("draws the person rather than a dark rectangle, and carries no media of its own", () => {
     const rendered = drawTile({ name: "Rosalind Chase", medium: "audio" });
 
     expect(rendered.querySelector("video")).toBeNull();
     expect(rendered.textContent).toContain("RC");
     expect(rendered.textContent).toContain("Rosalind Chase");
-    // The element that carries the sound is there even though there is nothing to look at.
-    expect(rendered.querySelector("audio")).not.toBeNull();
+    // Nothing is played here: the voices are played together, below.
+    expect(rendered.querySelector("audio")).toBeNull();
   });
 
   it("keeps the picture in a meeting", () => {
@@ -69,11 +76,58 @@ describe("a tile in a call", () => {
   });
 });
 
+describe("the sound of the room", () => {
+  it("plays one element per voice, whether or not that person has a tile on this page", () => {
+    const streams = new Map([
+      ["attendance_2", new MediaStream()],
+      ["attendance_40", new MediaStream()],
+    ]);
+
+    instance = mount(MeetingAudio, { target, props: { streams } });
+    flushSync();
+
+    // Two voices, two elements — and attendance_40 is on no page this browser is showing.
+    expect(target.querySelectorAll("audio")).toHaveLength(2);
+    for (const element of target.querySelectorAll("audio")) {
+      expect(element.autoplay).toBe(true);
+    }
+  });
+
+  it("plays a voice that arrived after the element was made", () => {
+    // A pull is answered one track at a time, so a participant's camera can land before their
+    // microphone — and both are gathered into the SAME stream object. An element pointed at that
+    // object once, while it held only a picture, plays nothing for the rest of the meeting, and the
+    // person whose voice arrived second is never heard.
+    const stream = new MediaStream([{ kind: "video" } as unknown as MediaStreamTrack]);
+    const harness = mount(MeetingAudioHarness, { target, props: {} });
+    instance = harness;
+    harness.hold("attendance_2", stream);
+    flushSync();
+
+    const element = target.querySelector("audio");
+    expect(element).not.toBeNull();
+    if (element === null) return;
+    // Nothing to play yet: a stream carrying only a picture has no voice in it.
+    expect(element.srcObject).toBeNull();
+
+    // Their microphone lands second, into the same stream, and the client replaces the map.
+    stream.addTrack({ kind: "audio" } as unknown as MediaStreamTrack);
+    harness.hold("attendance_2", stream);
+    flushSync();
+
+    // The same element, now pointed at the stream the voice landed in.
+    expect(target.querySelectorAll("audio")).toHaveLength(1);
+    expect(target.querySelector("audio")).toBe(element);
+    expect(element.srcObject).toBe(stream);
+  });
+});
+
 describe("the control bar in a call", () => {
   const handlers = {
     onToggleMicrophone: () => {},
     onToggleCamera: () => {},
     onToggleSharing: () => {},
+    onToggleHand: () => {},
     onLeave: () => {},
   };
 
@@ -100,12 +154,14 @@ describe("the control bar in a call", () => {
     expect(named.some((label) => label.includes("screen"))).toBe(false);
     // A call is ended as a call.
     expect(named).toContain("End Call");
+    // Speaker view is a way of arranging pictures, and a call has none.
+    expect(named.some((label) => label.includes("talking, large"))).toBe(false);
     expect(rendered.querySelector('[role="group"]')?.getAttribute("aria-label")).toBe(
       "Call controls",
     );
   });
 
-  it("holds all four in a meeting", () => {
+  it("holds all four in a meeting, and the way the room is arranged", () => {
     const rendered = drawControls({
       microphoneOn: true,
       cameraOn: true,
@@ -113,12 +169,33 @@ describe("the control bar in a call", () => {
       medium: "video",
       canEnd: true,
       onEnd: () => Promise.resolve("committed"),
+      onToggleSpeakerView: () => {},
       ...handlers,
     });
 
     const named = labels(rendered);
     expect(named).toContain("Turn your camera off");
     expect(named).toContain("Share your screen");
+    expect(named).toContain("Show whoever is talking, large");
     expect(named).toContain("End Meeting");
+  });
+
+  it("says which way the room is arranged through the control's own state", () => {
+    const rendered = drawControls({
+      microphoneOn: true,
+      cameraOn: true,
+      sharing: false,
+      speakerView: true,
+      medium: "video",
+      onToggleSpeakerView: () => {},
+      ...handlers,
+    });
+
+    const toggle = [...rendered.querySelectorAll("button")].find(
+      (control) => control.getAttribute("aria-label") === "Show everybody",
+    );
+    // The glyph is the same on both sides, so the pressed state is what a reader who cannot see the
+    // fill is told.
+    expect(toggle?.getAttribute("aria-pressed")).toBe("true");
   });
 });

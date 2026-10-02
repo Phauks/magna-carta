@@ -10,7 +10,7 @@ shape), ADR-0084 (TOTP seeds stay under Better Auth's own at-rest encryption), A
 access control), ADR-0003 (tenancy and control-plane/per-firm split), ADR-0036 (the client portal's
 unified grant model), ADR-0067 (route metadata enforced at the chokepoint),
 `ADR-joining-the-platform-registration-invitations-attempt-budget` (ADR-0280),
-`ADR-invitation-refusal-reports-only-the-caller-budget`, ADR-0157 (the support-access framework),
+`ADR-0281`, ADR-0157 (the support-access framework),
 ADR-0266 (the self-serve tier and entitlement mask), `ADR-community-identity-and-vote-eligibility`
 (ADR-0275)
 **Reads against:** [`2026-08-10-self-serve-firm-provisioning-and-entitlements.md`](2026-08-10-self-serve-firm-provisioning-and-entitlements.md),

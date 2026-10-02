@@ -124,6 +124,17 @@ Worker.
   Changing a route's responses or any `x-mc-*` meta changes the contract — re-emit the snapshot and the
   client in the same commit, and regenerate the domain's `operations.ts` when adding a route
   (`pnpm --filter @magna-carta/api-worker run emit-domain-operations`).
+- **A meeting guest is the one principal with no session, and it has a lane of its own.** A route
+  declaring `guestLane: "invitation" | "grant"` is admitted by a signed credential in the
+  `x-meeting-guest` header (or, on the socket upgrade alone, the `Sec-WebSocket-Protocol` pair
+  `meeting-guest, <grant>`, answered `meeting-guest` so the credential never returns in a header; the
+  `guest` query parameter is accepted there too, for a page still open from before) INSTEAD of
+  the session, member-active and permission steps; the handler is handed a firm and the credential's
+  names through `requireChokepointGuestGrant` and never a user id, so a member handler pointed at a
+  guest route throws. Registration refuses a guest route that names a permission, is authenticated,
+  or sits anywhere but `surface: "app"` / `resource: "firm"`, and a guest credential presented to any
+  other route is answered the reserved 404 before a session is looked for. The routes are
+  `src/http/routes/communications/meetings-guest.ts`; the credential format is `meetings/guest-token.ts`.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with

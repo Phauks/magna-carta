@@ -20,6 +20,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../bindings.ts";
 import { problemJson, type ProblemResponse } from "../contracts/problem.ts";
+import type { ChokepointGuestGrant } from "./chokepoint.ts";
 import type { AppVariables, FirmContext } from "./ports.ts";
 import type { SessionContext } from "../session-context.ts";
 
@@ -88,7 +89,7 @@ export function optionalChokepointFirmContext(c: AppContext): FirmContext | unde
 // every route reaching for this accessor does (it exists to require a SECOND capability beyond that
 // declared one). Use in place of a raw c.get("permissions").
 export function requireChokepointPermissions(c: AppContext): ReadonlySet<Permission> {
-  const permissions = c.get("permissions") as ReadonlySet<Permission> | undefined;
+  const permissions = c.get("permissions");
   if (permissions === undefined) throw chokepointContextError("permissions");
   return permissions;
 }
@@ -117,12 +118,22 @@ export function assertAlsoHasPermission(
   return null;
 }
 
+// The meeting guest credential the chokepoint's guest lane verified, or a throw if absent. Stashed
+// ONLY on a route declaring `guestLane`, and a guest route has no user id at all — so a guest handler
+// reads this where a member handler reads requireChokepointUserId, and each fails loudly if it was
+// pointed at the other kind of route. The grant carries no secret: the lane strips it before stashing.
+export function requireChokepointGuestGrant(c: AppContext): ChokepointGuestGrant {
+  const grant = c.get("chokepointGuestGrant");
+  if (grant === undefined) throw chokepointContextError("chokepointGuestGrant");
+  return grant;
+}
+
 // The idempotency context the chokepoint's idempotency gate stashed on a required-idempotency route,
 // or a throw if absent. A handler mounted on a required-idempotency route always runs after the gate
 // populated it; an absent value means the gate did not run (the route is misconfigured), so fail loud
 // (→ 500) rather than silently lose idempotency. Use in place of a raw c.get("idempotency").
 export function requireChokepointIdempotency(c: AppContext): IdempotencyContext {
-  const idempotency = c.get("idempotency") as IdempotencyContext | undefined;
+  const idempotency = c.get("idempotency");
   if (idempotency === undefined) {
     throw new Error(
       "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",

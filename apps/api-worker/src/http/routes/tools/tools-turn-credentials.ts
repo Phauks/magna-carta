@@ -5,8 +5,8 @@ import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
-import { recordRealtimeFailure } from "../../../realtime/realtime-failure.ts";
-import { credentialedServer, generateIceServers } from "../../../realtime/turn-credentials.ts";
+import { recordRealtimeFailure } from "../../../meetings/sfu/realtime-failure.ts";
+import { credentialedServer, generateIceServers } from "../../../meetings/sfu/turn-credentials.ts";
 
 // Minted per run and short-lived on purpose. A TURN credential is a relay authorization billed to
 // this account, so it is never long-lived and never handed to an unauthenticated caller.

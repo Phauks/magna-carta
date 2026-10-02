@@ -30,6 +30,7 @@ describe("BUCKETS", () => {
       auth: { limit: 20, windowSeconds: 60 },
       expensive: { limit: 10, windowSeconds: 60 },
       "incident-report": { limit: 5, windowSeconds: 300 },
+      "guest-arrival": { limit: 20, windowSeconds: 60 },
     });
   });
 

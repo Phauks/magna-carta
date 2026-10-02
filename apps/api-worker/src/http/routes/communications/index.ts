@@ -2,6 +2,14 @@ import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
 import { registerMeetingsRoutes } from "./meetings.ts";
+import { registerMeetingChatRoutes } from "./meeting-chat.ts";
+import { registerMeetingHostingRoutes } from "./meeting-hosting.ts";
+import { registerMeetingInspectRoutes } from "./meeting-inspect.ts";
+import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
+import { registerMeetingPollRoutes } from "./meeting-polls.ts";
+import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
+import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { emailAdapterForEnv } from "../../../auth-instance.ts";
 
 // The call and text log, and the shipping surface the carrier plugin mounts through this module's file.
 //
@@ -12,7 +20,7 @@ import { registerMeetingsRoutes } from "./meetings.ts";
 export function mountCommunications(
   app: AppRouter,
   chokepoint: Chokepoint,
-  _deps: DomainDeps = {},
+  deps: DomainDeps = {},
 ): void {
   const domain = createDomainApp();
   registerCommunicationsRoutes(domain, chokepoint);
@@ -22,5 +30,36 @@ export function mountCommunications(
   // routed between browsers and never reaches this platform; these routes are the record plus the
   // upgrade into the signaling room.
   registerMeetingsRoutes(domain, chokepoint);
+  // The meeting's chat, which is the subsystem's one piece of stored content: kept on the record
+  // like a filed message rather than discarded with the room, so what was said in a meeting on a
+  // matter is on the file. Registered beside the room because it is the same meeting read through
+  // the same gate.
+  registerMeetingChatRoutes(domain, chokepoint);
+  // A meeting's polls and its question queue — content the meeting produced, kept on the record on
+  // the chat's own terms: every act is a route with an audit row, and the room relays a copy after
+  // the commit.
+  registerMeetingPollRoutes(domain, chokepoint);
+  registerMeetingQuestionRoutes(domain, chokepoint);
+  // Who is running a meeting, and the acts that need somebody's name against them afterwards —
+  // removing a participant, shutting the door, handing the room over. A file of its own because
+  // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the
+  // acts that leave nothing behind (mute, spotlight) are frames on the signaling socket instead.
+  registerMeetingHostingRoutes(domain, chokepoint);
+  // The meeting's door — whether arrivals wait, who is at it, and a host's decision about each of
+  // them. One lobby per meeting and never one per firm: a firm holds several meetings at once, so a
+  // firm-level door would queue the people arriving at a deposition behind the people arriving at a
+  // staff briefing. Its own file because it is its own resource, and the one read in this family
+  // that the room may not see.
+  registerMeetingLobbyRoutes(domain, chokepoint);
+  // A meeting's GUESTS — somebody from outside the firm on a signed, expiring link for one Directory
+  // entity. The host's four routes mint, list, rotate and withdraw links on the ordinary member path;
+  // the guest's six ride the chokepoint's guest lane, which admits a signed credential rather than a
+  // session and never stashes a user id, so nothing a guest calls can reach a member handler. The
+  // mail goes through the same outbound port every other transactional message does.
+  registerMeetingGuestRoutes(domain, chokepoint, deps.meetingGuestMail ?? emailAdapterForEnv);
+  // The operator's read into one live room, behind the platform-operator guard rather than the
+  // firm door every other meeting route goes through: a meeting holds no rows and deletes its own
+  // state as it goes, so from outside it there is nothing to look at when one goes wrong.
+  registerMeetingInspectRoutes(domain, chokepoint);
   app.route("/", domain);
 }

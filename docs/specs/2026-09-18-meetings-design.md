@@ -227,6 +227,39 @@ Problem types: `meeting-not-found` (404, and the same for an event the member ma
   `MeetingSummary` carries it on every read including the list. The socket upgrade passes it inward
   off the meeting row, and a `publish` naming anything but an audio track in a call is `refused` with
   a new reason `track-kind-refused`, socket kept open and nothing asked of the routing service.
+- **The large-room frames** (§11), all additive and nothing renamed. Client → room: `presence`
+  `{ speaking, muted }`, sent on transitions only; `layer` `{ tracks: [{ sessionId, trackName, mid,
+preferredRid }] }`, 1–32 entries, which reaches `PUT tracks/update` on the ASKER's own session
+  carrying `simulcast: { preferredRid, priorityOrdering: "asciibetical", ridNotAvailable:
+"asciibetical" }`; and `sync`, which asks for the whole list back. `subscribe` tracks gain an
+  optional `preferredRid` forwarded as the same `simulcast` object, omitted entirely when absent.
+  Room → client: `roster-delta` `{ joined, left, updated }`, where `left` carries participant handles
+  alone; `presence` `{ participantId, speaking, muted, at }`; and `layered`
+  `{ tracks: [{ mid, preferredRid, errorCode? }] }`, one entry per requested track in request order.
+  `RosterParticipant` gains `speaking` and `muted` on `welcome`, `roster` and `roster-delta` alike.
+  A `layer` naming a pair this room is not carrying is `refused` with `unknown-track`, through the
+  same check a `subscribe` answers to.
+- **`sync` and `presence` are answered before the routing client is resolved.** Both are about the
+  roster alone, so both go on working in a deployment whose media credentials went away under an open
+  meeting — and a `sync` that needed the routing service would be unanswerable exactly when a client
+  most needs the list.
+- **A presence transition inside the throttle window is DROPPED, not deferred**, and the two booleans
+  are stored either way. A presence frame carries the whole of what it is about rather than a change
+  to it, so an unsent frame loses nothing a later one restates, and `welcome`, a `sync` answer and
+  every roster frame read the current record. Deferring would mean arming the room's one alarm at
+  sub-second range beside a minute-long grace and a day-long marker, which for three hundred people
+  costs about what relaying everything costs. A frame restating what the room already holds is not a
+  transition and is not relayed.
+- **The roster is read at most once per inbound frame.** `storedParticipants()` returns a `Map` and
+  every caller takes it — the roster check, the difference builder and the threshold count all read
+  the one result. In a room of three hundred that read is three hundred keys, so a second one doubles
+  the cost of the busiest thing the room does.
+- **The threshold is measured against the roster AFTER the change**, from that same read, so a room
+  crossing sixteen announces the crossing in the form its new size calls for. A client therefore
+  accepts both shapes at any size, which it must anyway: it cannot know how many people were in the
+  room at the instant the room decided.
+- **A rejoin is announced as `updated`, not `joined`** — everybody else already holds that tile and
+  is holding subscriptions against it, and what they need is the reset.
 
 ## 7b. Audio calls (owner direction, 2026-09-18)
 
@@ -288,3 +321,554 @@ origin.
 
 Cloudflare Realtime SFU and TURN: 1,000 GB free, then $0.05 per GB, recorded in
 [`docs/operating-costs.md`](../operating-costs.md).
+
+## 11. Large rooms — slice 3 (owner direction, 2026-09-20)
+
+The owner's target is the capacity Zoom sells on its Business tier: **300 participants** in one room.
+`MAX_MEETING_PARTICIPANTS` moves from 12 to 300, and everything below is what has to change for a
+room of that size to work rather than merely admit people. The SFU forwards whatever it is asked
+for; the problem is entirely on the two ends — what each browser asks for, and how the room tells
+300 browsers what changed.
+
+### The four rules
+
+1. **A browser never pulls every track.** It pulls video for the tiles it is showing and audio for
+   the people who are talking, and nothing else. What it shows is decided by a pure policy function
+   (`apps/web/src/lib/meetings/subscription-policy.ts`) over the roster, the presence facts, the
+   pins and the gallery page: at most `MAX_VIDEO_SUBSCRIPTIONS = 16` camera tracks, at most one
+   screen share, at most `MAX_AUDIO_SUBSCRIPTIONS = 24` audio tracks, ordered pinned first, then the
+   active screen share, then the most recent speakers, then roster order. Everybody else is a name
+   tile. The policy is a pure function so the 300-participant case is a unit test, not a rehearsal.
+2. **Cameras publish simulcast.** `sendEncodings` with rids `f` (full), `h` (half), `q` (quarter);
+   a subscriber names `simulcast.preferredRid` on `subscribe` and changes it with a new `layer`
+   frame (`tracks/update` upstream), choosing `f` for up to four visible tiles, `h` for up to nine,
+   `q` beyond. Screen share publishes one layer.
+3. **The roster is sent once, then only what changed.** `welcome` still carries the full roster.
+   Afterwards the room sends `roster-delta` frames — `{ joined: [...], left: [participantId...],
+updated: [...] }` — never the full list, because a full roster to 300 sockets on every one of 300
+   joins is ninety thousand frames of thirty kilobytes. A client that suspects a gap sends `sync`
+   and receives one full `roster` on its own socket. The `roster` frame stays in the vocabulary for
+   that reply and for rooms below `ROSTER_DELTA_THRESHOLD = 16` participants, where the full frame is
+   smaller than the bookkeeping.
+4. **Who is talking is a fact the room relays, not one every browser measures for itself.** A
+   participant's own browser measures its microphone (an `AudioContext` analyser on the local
+   track, a 300 ms hysteresis) and sends `presence` frames `{ speaking, muted }` on transitions
+   only; the room stores the two booleans on the participant record, throttles a participant's
+   presence broadcasts to at most one per second, and sends `presence` deltas
+   `{ participantId, speaking, muted, at }`. Speakers are what the policy function ranks by.
+
+### Room and protocol
+
+- `MAX_MEETING_PARTICIPANTS = 300` in `packages/meetings/src/types.ts`; the guarded insert holds.
+- Client frames: `presence`, `layer { sessionId, trackName, mid, preferredRid }`, `sync`;
+  `subscribe` tracks gain optional `preferredRid`.
+- Room frames: `roster-delta`, `presence`; `subscribed` unchanged.
+- `StoredParticipant` gains `speaking`, `muted`, `presenceAt`; the participant record stays small.
+- Every broadcast to a room above the threshold is a delta. `end` still sends one `ended` frame.
+- A room of 300 must not read 300 storage keys on every frame: `storedParticipants()` is read once
+  per frame at most, and the roster check on `subscribe` uses a `Map` built from that one read.
+
+### The screen
+
+- **Gallery** pages of up to 16 tiles with page controls, the active speaker outlined, a **Speaker
+  view** that shows the current speaker large with a strip of the last few, and **Pin** (local)
+  on any tile. A participant with no pulled video is a name tile with initials, and the tile says
+  "Not shown" rather than pretending to load.
+- The roster rail shows the count, a search box above 24 people, who is speaking, who is muted.
+- The control bar is unchanged.
+
+### Testing
+
+- `subscription-policy.test.ts`: the 300-participant case, pins win, screen share wins, speakers
+  displace roster order, the audio cap holds, the layer choice per tile count, audio calls yield an
+  audio-only policy.
+- Room: roster deltas above the threshold and full rosters below it, `sync` answers one socket,
+  presence throttling, `layer` reaches `tracks/update`, a 300-participant roster costs one storage
+  list per frame (asserted through the fake storage's call count if the harness allows, else through
+  a counter on the class under test).
+- Load profile: a 300-participant roster fixture the policy function is measured against.
+
+## 12. What Zoom sells that this does not have — measured 2026-09-20
+
+The owner asked for the enterprise feature set to be measured against Zoom's and the gaps put on
+the roadmap. Zoom Workplace's published plans (zoom.us/pricing, read 2026-09-20): 100 participants on
+Basic and Pro, 300 on Business, 500 or more on Enterprise with large-meeting licences to 1,000; and
+across the plans breakout rooms, waiting room, host controls, co-hosts, pin and spotlight, reactions
+and raise hand, polling, in-meeting chat, whiteboard, local and cloud recording, recording
+transcripts, captions and translated captions, AI meeting summaries and in-meeting questions,
+virtual backgrounds and filters, noise suppression, screen sharing with annotation and remote
+control, scheduling and booking pages, webinars and events, live streaming, phone, rooms and
+hardware, end-to-end encryption, single sign-on, managed domains, an admin portal with dashboards,
+archival and data-loss-prevention APIs, and information barriers. Each gap is a node in
+[`roadmap.d/meetings.md`](../../roadmap.d/meetings.md); the ones that are not gaps are the calendar
+(built), attendance on the record (built), phone (the communications layer's own port), single
+sign-on and managed domains (the platform's auth), and information barriers (the conflicts
+subsystem's walls, which every meeting already honours through the event).
+
+Two rulings taken on 2026-09-20 after the measurement: **in-meeting chat is kept on the record**,
+so a chat is the meeting's first stored content and carries a filed email's redaction, retention
+and personal-data treatment; and **a firm runs several meetings at once** — one meeting per event
+already allows it, and it means every per-meeting surface that follows (the waiting room first) is
+one per meeting, never one per firm.
+
+Two more on the same day: **scheduling is a high priority** — booking pages move directly behind
+host controls and the waiting room; and **recording's consent mechanism is the announcement and the
+indicator** — "Recording in progress" said to everyone when it starts and to every late arrival,
+audibly and on screen, with a recording mark on every screen for as long as it runs, the way every
+conferencing product does it. Recording and transcription therefore no longer wait on the
+jurisdiction-profile machinery.
+
+## 14. In-meeting chat
+
+The owner's ruling of 2026-09-20: **chat is kept on the record.** That makes it the meeting's first
+stored content — everything the subsystem holds until now is identifiers and instants, and the audio
+and video never reach this platform at all — so a chat message carries what a filed email carries:
+redaction, retention, and a personal-data classification.
+
+### The row
+
+```
+meeting_message
+  id                    text pk            -- meetingMessage_ handle
+  meeting_id            text not null -> meeting.id
+  participant_kind      text not null      -- 'member' | 'guest'  (CHECK)
+  participant_id        text not null      -- the stay, BY VALUE, no foreign key
+  sent_at               text not null      -- instant
+  body                  text not null      -- MAX_MEETING_MESSAGE_LENGTH = 4000
+  redacted_at           text null          -- instant
+  redacted_by_user_id   text null -> member.user_id
+  created_at            text not null
+  CHECK redacted_at and redacted_by_user_id are both set or both null
+  CHECK a redacted row's body is empty, and a live row's is not
+  INDEX (meeting_id, sent_at, id)
+```
+
+**It hangs from the STAY, not from the member.** `attendance_id` is who said it _at the time_: a
+message is tied to being in the room, which is the fact that made it sayable. The member is reached
+through the stay, so a colleague who dropped and dialled back in has their two stays' messages
+attributed to the stay each was actually said in — the same reason attendance is a row per stay
+rather than a flag per person. A `user_id` column beside it would be a second answer to who spoke.
+
+**Append-only, never edited.** A message is a thing somebody said in a meeting; a record that could
+be rewritten afterwards is not a record of the meeting. Deletion is likewise not a delete: it is a
+`redacted_at` + `redacted_by_user_id` pair that blanks the body, so the file keeps that a message
+existed, when, from which stay, and that somebody removed it. The pair moves together for the reason
+`meeting.ended_at`/`ended_by_user_id` does — a removal with no actor cannot be questioned.
+
+`sent_at` is the server's instant rather than the browser's: a transcript ordered by what each
+person's clock said is not one ordering. The index is `(meeting_id, sent_at, id)`, which is the read
+— one meeting's messages, oldest first — and the keyset the cursor walks.
+
+### Who may do what
+
+- **Post:** an OPEN MEMBER stay. `readOpenAttendance` is the whole of the check — the same row the socket
+  upgrade demands and the same row the room's ceiling is counted over. A member who left cannot post
+  into a meeting they are no longer in, and a member who never joined has nothing to post from.
+- **Read:** `meetings:join` plus the event's own visibility, composed through `readMeeting` /
+  `readMeetingSummary` rather than a new clause. A meeting has no visibility rule of its own, and a
+  second expression of the walled-matter question is a second place for it to be wrong.
+- **Redact:** `meetings:host`, or the author of the message — who is the member on the message's own
+  stay. A host moderates the room; a member takes back what they said. A guest's message has no firm
+  member behind it, so it is the host's to moderate and nobody else's, which falls out of the
+  comparison rather than needing a branch.
+
+### Routes (`apps/api-worker/src/http/routes/communications/meeting-chat.ts`)
+
+| method | path                                                       | permission      | does                                                     |
+| ------ | ---------------------------------------------------------- | --------------- | -------------------------------------------------------- |
+| POST   | `/api/v1/meetings/{meetingId}/messages`                    | `meetings:join` | body `{ body }`, idempotent; 201 with the stored message |
+| GET    | `/api/v1/meetings/{meetingId}/messages`                    | `meetings:join` | cursor-paged, ascending by `(sent_at, id)`, with `since` |
+| POST   | `/api/v1/meetings/{meetingId}/messages/{messageId}/redact` | `meetings:join` | 200; blanks the body, keeps the row                      |
+
+Problem types: `meeting-message-not-found` (404, and the same for a message in a meeting the member
+may not reach), `meeting-not-joined` (409, reused — posting without an open stay is the same answer
+the socket upgrade gives), `meeting-message-too-long` (422).
+
+`since` is an **instant** and is the caller's to send. It is what a poller holds after the previous
+page, so the transcript can be followed without re-reading it; the cursor is what walks a long
+transcript from its beginning. Both are on the same `(sent_at, id)` key, so a poll and a walk cannot
+disagree about where they are.
+
+### The record and the relay
+
+**The route is the record either way.** The room relays a `message` frame, so a message reaches the
+other browsers in the room as it is said rather than on the poller's next tick — but the frame is a
+copy of a row that is already committed, and a browser that misses one is caught up by the read. The
+write never goes through the socket: a record that existed only where a Durable Object's transient
+storage holds it would be a record that empties when the room does.
+
+**As built (2026-09-21).** Two additive room frames and two RPCs the routes call after their own
+writes commit, on the `participantLeft` / `end` precedent:
+
+| frame              | fields                                              | called by                             |
+| ------------------ | --------------------------------------------------- | ------------------------------------- |
+| `message`          | `message` — the whole record the list route returns | `MeetingRoom.messageSent(message)`    |
+| `message-redacted` | `messageId`, `redactedAt`                           | `MeetingRoom.messageRedacted(id, at)` |
+
+The whole record travels rather than a projection of it, so the frame and the read answer with the
+same object and a screen has one shape to draw. Both reach every WELCOMED socket and never the
+lobby, which is structural rather than filtered: a waiting socket is never welcomed, and the
+broadcast skips everything that is not. **The room stores nothing about a message** — no key, no
+count — and a room nobody holds a socket on is a no-op. One event, `meetings.room.messageRelayed`,
+carrying the socket count and which of the two acts it was, and no field for the handle or the body.
+
+**The read converges what the relay cannot.** A poller walks forward on `(sent_at, id)` and a
+REDACTION moves no row's position in that ordering, so a message already handed to a browser could
+be taken back somewhere the poll would never look again — the frame covers a browser with a socket
+open, and nothing covered the one that reconnected or missed it. The list therefore carries a second
+array beside the page: **`redacted: [{ id, redactedAt }]`**, the messages taken back since the
+caller's own `since` instant, bounded like any other read. It is populated only for a caller that
+says where it read to, because a first page already carries whatever the record holds, and it may
+repeat a redaction on a later poll — blanking a body that is already blank is the same act twice.
+
+### Personal data and the audit log
+
+`meeting_message.participant_id` and `meeting_message.body` are `retain-under-matter` on the call and
+text log's line — what was said on a matter is part of what the matter record says happened — and
+the body is **content-level residue** for the residue report, exactly as a message body and a call
+summary are on `communication`. `redacted_by_user_id` is `pseudonymize-keep`: who removed something
+is attribution on an append-only row.
+
+**The audit rows carry identifiers and instants and nothing else** — never the body, not on the post
+and not on the redaction. What was said is the content this record exists to hold; the audit log is
+a compliance record with its own retention and its own readers, which is the line
+`@magna-carta/communications` already holds for a message body.
+
+### Testing
+
+Domain, over `node:sqlite`: a post needs an open stay, a member who left cannot post, a redaction
+blanks the body and keeps the row, the ordering and the cursor walk, and a host and an author may
+redact where a third member may not. Routes, on the meetings-routes precedent: a walled matter's
+meeting is 404 through every one of the three, a message too long is 422, and the page walks.
+
+## 13. Scheduling (owner direction, 2026-09-20)
+
+**Scheduling a meeting IS recording a calendar event with a medium on it.** There is no second
+record, no second form and no second act. A member picks the people, the day and the hour in the
+event form they already use, answers one more question — Meeting: None, Video meeting, or Audio
+call — and the save writes the event and, when the answer is not None, the meeting row that hangs
+off it. The entry window then shows **Join** from the moment the event exists rather than from the
+moment somebody presses Start.
+
+That is the whole of the design, and it is what keeps the two records from drifting: a meeting has
+never carried a title, a time or a participant list of its own (§3), so a scheduling feature that
+minted its own invitation record would be minting a second answer to when the meeting is and who is
+at it. Booking pages for clients are the child node (`meetings.scheduling.booking-pages`) and are
+not designed here.
+
+### 13.1 The question, and where it sits
+
+`meeting: { medium: "video" | "audio" } | null` on the event create request — matter event and firm
+event alike, the same field on both, because the form is one form and the answer is the same answer
+whichever record it writes.
+
+On the form it is a `ChoicePicker` on the **Where** tab, directly above the Conference link field:
+both fields answer "where is this joined", and a member who has picked Video meeting can see at a
+glance that they do not also need to paste a link. The helper text under it states the limit of the
+slice in the words a member needs:
+
+> Everyone at the firm on this event is invited. A client or another party from the Directory is not
+> sent a way in yet.
+
+### 13.2 When the meeting row is written, and why it is not in the event's batch
+
+**Right after the event commits, never inside its effect batch.** `createMeeting` reads the event
+through the visibility predicate before it writes anything (§5) — an event that does not exist and
+one the member may not see raise the same `meeting-unknown-event` — so a meeting composed into the
+batch that is still inserting the event it hangs on would be refused by its own gate. The ordering
+is forced, not chosen.
+
+What makes a second write safe here is the property the create path already has: **`createMeeting`
+is idempotent per event**, held by a partial unique index per event column rather than by anything
+the caller passes. So the meeting step needs no idempotency key of its own, and a retried save — the
+attempt key is minted per attempt, so a retry repeats the same request — finds the room the first
+attempt opened and writes nothing. The create response therefore carries the same `meetingId` on a
+replay as it did on the first commit, which is what lets the handler compose the response after the
+gate rather than storing it.
+
+The event is never unwound when the meeting step fails. The event is a real record a member asked
+for, and the failure is reported as its own half — the same posture the room booking takes when a
+setting is held in one of the firm's own rooms (`docs/conventions/design-corrections.md`, and
+`apps/web/src/lib/calendar/CLAUDE.md` on `reconcileRoomBooking`).
+
+### 13.3 Editing, and cancelling
+
+- **An edit keeps the meeting.** Moving an event's day or hour changes the event row and touches
+  nothing on the meeting: the meeting carries no time of its own to move. A `meeting` field supplied
+  on a `PATCH` **adds** a meeting to an event that has none; `null` or absent leaves the event's
+  meeting exactly as it stands. A meeting is never taken off an event by an edit — ending one is an
+  act with its own route and its own audit row, and an edit that silently ended a gathering would be
+  the one calendar correction that reached into a room.
+- **Cancelling an event ends a SCHEDULED meeting, in the same batch as the cancel.** A room nobody
+  has walked into, on a setting that is no longer happening, must not stay openable; ending it with
+  the cancel means the two facts cannot disagree.
+- **Cancelling an event whose meeting is LIVE is refused**, `409` with a new problem type
+  `meeting-in-progress`, whose `detail` names the remedy: end the meeting, then cancel the event.
+  This is the honest arm of the two on offer. Ending a live meeting as a side effect of a calendar
+  edit would take a room away from the people in it on somebody else's click — the same reasoning
+  that makes a meeting's medium unchangeable once chosen (§7b) — and cancelling the event while
+  leaving the room live would leave the record saying the setting is off and the product saying it
+  is happening. A refusal keeps the destructive act deliberate and costs one extra gesture, in the
+  rare case where a member is cancelling something that is running.
+
+### 13.4 Who is told
+
+The **member participants named on the event** are notified, through the notifications subsystem and
+through nothing else: no mail is composed here, no recipient is resolved on the write path, and the
+emission is an outbox row in the same atomic batch as the meeting it announces, exactly as the three
+matter-event topics already are.
+
+- **Topic:** `calendar.event.meetingScheduled`, declared in `packages/calendar/src/notifications.ts`
+  beside the event-recording emission points it rides with. The meeting ROW belongs to
+  `@magna-carta/meetings`; the announcement belongs to the act of recording an event with a medium
+  on it, which is that module's subject.
+- **Payload:** identifiers and one closed label — the event, the matter, the meeting, the medium,
+  and the member handles invited. No title, no description, no location, no participant name. A
+  message that crosses a queue and lands in a notification row outlives the access check that
+  justified writing it.
+- **Audience:** a new one, `named-members` — several members named by the topic's own payload, on
+  the reasoning `named-recipient` already states for one. The people to tell are the people named on
+  the event **at the write**; re-reading the participant rows when the queue drains would invite
+  whoever happens to be on the event by then.
+- **Facts:** the medium, and nothing else. Not the title (privileged on a matter) and not the date,
+  for the reason `calendar.event.scheduled` gives for omitting it: a setting moves, and a card
+  stating a date the record no longer agrees with is worse than a card stating none. The sentence a
+  member reads — _"You are invited to a video meeting: Deposition of R. Chase, Tuesday 22 September
+  at 9:00 AM PDT"_ — is composed by the surface from the live event behind the deep link, which is
+  where the title and the hour are re-read under the access check that still applies.
+- **Deep link:** the event. Pressing it opens the entry window, which already carries Join.
+- **Directory-entity participants get nothing.** External guests are `meetings.guests` (§2), and
+  until a signed one-time join link exists there is nothing to send them. The form says so rather
+  than leaving a member to discover it from a client who never arrived.
+
+**Firm events do not raise the invitation yet, and the reason is a table rebuild.**
+`notification_event.subject_kind` is a SQLite `CHECK` with no `firmEvent` value in it, and widening a
+`CHECK` is a rebuild of a table `notification_recipient` points at — which cannot complete against a
+firm database that holds data (`packages/database/src/reviewed-rebuilds.ts`). A firm meeting is
+therefore scheduled, created, joinable and on everybody's calendar; it is the notification alone that
+waits, on one migration that has to be sequenced like every other rebuild. Recorded here rather than
+left to be rediscovered as a defect.
+
+### 13.5 Availability, which is a read and never a refusal
+
+When the form lists member participants, each one's own calendar is read for the day being booked —
+the member filter the server already resolves in SQL, the same read the rail's member calendars make
+— and what it finds at the chosen hour is stated beside their name: **"Busy: Hearing, Client
+meeting"**, or nothing at all when they are free.
+
+- **It states and never refuses.** Two things at once is routinely correct — a partner signs an
+  order at nine while an associate takes a deposition — and a scheduling form that would not let a
+  member book over a colleague is a form people stop using. This is the posture the resource booking
+  already takes and the sentence `schedule-conflicts.ts` already writes.
+- **What it prints is what the grid paints, which is NOT a title.** The federated read declares
+  non-privileged labels by contract: a matter event reads as its type ("Hearing"), a firm event
+  carries its own title because a firm event has no matter to be privileged about. Printing a matter
+  event's title on somebody else's availability line would put one matter's content on another
+  matter's form, for a reader who may hold neither — so the busy line is the entry's own painted
+  word and never more than that.
+- **It costs one read per member participant**, for the one day, issued only while the form is open.
+
+### 13.6 The Meetings page schedules
+
+The Meetings list gains the product's one create control, which reads **New Meeting** and opens the
+same event form with the meeting choice preset to Video meeting. It does not read "Schedule": every
+screen that makes a record draws `CreateControl` and nothing else, and the control's label is "New"
+plus a noun by the design system's own rule. The verb lives in its tooltip — _"Schedule a meeting or
+a call. It is recorded on the calendar as an event."_ — which is also the one sentence that tells a
+reader arriving from the Meetings page that a meeting is an event here.
+
+The page needs no read of its own for it: it takes the same `calendarContext` the calendar screen
+takes — the session, the roster, the type catalog, the firm's offices, its bookable rooms and its
+matters — because a second assembly of that context is a second answer to what the form is offering.
+
+### 13.7 Permissions
+
+Scheduling reaches two subsystems through one form, so it answers to two keys and the split is by
+**act**, not by route.
+
+- **Opening a room needs `meetings:host`**, on top of the `calendar:manage` the four event mutations
+  already ride. A `meeting` field on the event form convenes a gathering, which is the same act the
+  meetings surface demands that key for — and a member who may keep the diary would otherwise open
+  rooms on the firm's behalf through the other door. The check is made in the handler rather than on
+  the route (the chat's moderation key is the precedent), so the refusal is a 403
+  `permission-denied` about the `meeting` field alone: the event itself still records without it.
+- **Ending a never-opened, still-scheduled meeting with its cancelled event rides `calendar:manage`
+  alone.** What a cancellation closes is a room nobody walked into — the closing statement carries
+  `status = 'scheduled'` and "no open stay" in its own WHERE, so a meeting that went live between
+  the cancel's read and its commit refuses the batch and the cancel answers 409 `meeting-in-progress`
+  rather than ending a gathering under the people in it. Taking a sitting off the diary is a diary
+  act; requiring the meetings key for it would leave a firm unable to cancel a hearing because the
+  room somebody opened on it is not theirs to close.
+
+### 13.8 Ledger
+
+`meetings.scheduling` moves to `in-build`, `surface: screen`. `meetings.scheduling.booking-pages`
+stays `not-started`: a booking page is a client picking a time on a member's published availability,
+which needs the portal's grant model and a public surface, and neither is started.
+
+## 15. Structure for growth (owner direction, 2026-09-20)
+
+The owner asked how the system and its files should be arranged so the feature can keep growing,
+stay modular, and be diagnosed. The shape that fits three slices will not fit fifteen; this is the
+shape the next wave builds to, taken as its own slice immediately after large rooms land and before
+host controls and the lobby, because those are the first slices that would otherwise deepen the
+room into an object that knows everything.
+
+- **`@magna-carta/meeting-protocol`, a shared package.** The frame schemas, builders, refusal
+  vocabulary and version, pure TypeScript, imported by the worker and the web app alike. Today the
+  browser re-declares the frames by hand because a browser bundle cannot import from a worker; every
+  slice has added frames on both sides by prose agreement, which is the drift surface. A fitness
+  function holds that every frame type has a handler on both sides.
+- **The room split by concern** under `apps/api-worker/src/meetings/room/`: state access, roster
+  and deltas, presence, media release, lifecycle (alarms, the grace sweep, end), and frame
+  dispatch, each a module taking the object's context explicitly, the Durable Object class reduced
+  to an orchestrator. Each module is testable without the runtime.
+- **One route file per resource**: `meetings`, `meeting-chat`, `meeting-hosting`, `meeting-lobby`,
+  `meeting-recording`. A slice adds a file rather than growing one.
+- **The domain package by concern**: `packages/meetings` keeps a types, statements and service trio
+  per concern — meeting and attendance, chat, hosting, lobby, recording.
+- **The client split the same way** under `apps/web/src/lib/meetings/client/`: signaling,
+  negotiation, subscriptions with the policy, capture with an effects stage, presence; the screen
+  pieces under `screen/`, the list page under `list/`.
+- **Diagnosability, a slice of its own.** A per-meeting structured event stream through the
+  standard telemetry pipeline correlated by meeting and attendance ids (join, publish, subscribe,
+  renegotiate, refused, socket lost, swept, superseded); browser-side `getStats` sampled and
+  summarized into a connection-quality mark per tile and a periodic report to the room, kept
+  short-term and never on the record; a room `inspect` call for the developer console behind the
+  platform-operator guard (roster, sockets, alarm, storage size); and a room load harness that
+  drives a few hundred fake clients against the object in the test pool so fan-out cost is a
+  number.
+- **Per-firm flags** for the sub-features through the settings registry, so chat, recording and
+  guests land dark and are turned on per firm.
+- **Area notes** for the room and the client directories, which the package-level rule does not
+  reach.
+
+### Amendments taken during the build
+
+The structural slice landed 2026-09-20 with the tests' assertions unchanged. What differs from the
+sketch above:
+
+- **The module map, as built.** The room is `apps/api-worker/src/meetings/meeting-room.ts` (the
+  Durable Object, reduced to wiring, plus the socket door `routes/meetings.ts` knocks on) over
+  `room/room-state.ts` (storage AND the per-socket attachment — the two places a fact may live in a
+  hibernating room — plus `RoomContext` and the failure recorder every module uses),
+  `room/room-roster.ts`, `room/room-presence.ts`, `room/room-media.ts`, `room/room-lifecycle.ts` and
+  `room/room-frames.ts`. The browser is `apps/web/src/lib/meetings/client/meeting-client.svelte.ts`
+  over `signaling.ts`, `negotiation.ts`, `subscriptions.ts`, `subscription-policy.ts`, `capture.ts`,
+  `media-effects.ts`, `presence.ts` and `audio-level-meter.ts`; the screen pieces are under
+  `screen/`.
+- **The SFU client and the relay credentials moved under the room**, to
+  `apps/api-worker/src/meetings/sfu/` (`sfu-client.ts`, `turn-credentials.ts`,
+  `realtime-failure.ts`). The `src/realtime/` directory is gone — both services are Cloudflare
+  Realtime and both are reached only from a meeting or from the connection tool, so a second
+  top-level directory for them named a boundary that was not there.
+- **The effects stage is `client/media-effects.ts`, not `meetings/media-effects.ts`.** It belongs to
+  the state machine, not beside the list page. Only the identity `passThroughEffects()` and the seam
+  are built: `applyEffects`, `setSourceEnabled` and `close`. `AppliedEffects` and `update` are NOT —
+  they are answers about processing, and nothing processes yet.
+- **The wire types are declared in the protocol package**, not re-exported from
+  `@magna-carta/meetings`. That package reaches a database and a browser bundle cannot take one, so
+  `MeetingMedium` is two identical string unions that meet at the seam carrying them; the protocol's
+  is the browser's, the domain's is the record's.
+- **The list page was left where it was.** `meeting-list.ts`, `meeting-list-section.svelte`,
+  `meetings-screen.svelte`, `meetings-api.ts` and `meeting-entry-action.svelte` stayed at the top of
+  `lib/meetings/`; the `list/` directory the sketch names is worth its churn when the page grows, and
+  a scheduling slice was open in those files. `meeting-client.svelte.ts` at the old path is a
+  re-export, so the two modules outside the room keep taking `MeetingMedium` from where they always
+  did.
+- **The fitness function found a real gap on its first run.** `renegotiated` — the room's
+  acknowledgement of a browser's answer — had no handler in the browser at all; it fell through the
+  receive switch's `default`. It is now wired explicitly and does nothing, which is a different
+  statement from not being wired.
+
+## 16. Diagnosability, as built (2026-09-20)
+
+The diagnosability bullet of section 15 named four things: a per-meeting structured event stream, a
+browser-side connection sample reported to the room, an operator's `inspect` call, and a load
+harness. All four are built. What differs from the sketch, and what the build settled that the sketch
+did not:
+
+- **The event family is `meetings.room.*` in the telemetry catalog**, one allowlist builder per act,
+  correlated by `firmId`, `meetingId` and — where the act is about a person — `attendanceId`:
+  `joined`, `welcomed`, `published`, `subscribed`, `layerChanged`, `presenceRelayed`, `refused`,
+  `socketLost`, `swept`, `superseded`, `admitted`, `denied`, `muted`, `removed`, `locked`, `ended`,
+  `alarmRan`, `storageReadBudget`, `clientReport`. The redaction is structural rather than a rule at
+  the call sites: there is no declared field for a display name, a track name, a session description
+  or a chat line, so a future edit cannot add one without adding it to the catalog first.
+- **Two of them are deliberately not per occurrence**, because they are the frames a large room sends
+  most. Presence is recorded once per coalesced flush with the count it covered, never per
+  transition. What a frame spends in storage is SAMPLED, one frame in twenty, and is approximate
+  under concurrency — the counters belong to the room, so two frames in flight share their spend. It
+  is a budget, never a ledger, and the note in the catalog says so.
+- **The room's emitter is a concern module** (`room/room-diagnostics.ts`) that nothing may throw out
+  of, and every other module reaches it with one call per event. A refusal is SENT and RECORDED in
+  one call, because a refusal recorded and not sent — or sent and not recorded — is the drift the
+  Error ID exists to close: the member holds a handle the record does not know.
+- **The browser's report is a `diagnostic-report` client frame**, additive, every field optional and
+  bounded field by field in the protocol package: quality, round trip, loss fraction, jitter, the
+  outbound layer (rid, width, height, bitrate) and the count of inbound streams. Bounded because it
+  is the one frame whose whole content is an unverifiable claim about the sender, and telemetry
+  aggregates these. The room accepts one per participant per five seconds and DROPS the rest in
+  silence, on the sync throttle's reasoning; it keeps the last sample on the participant record for
+  the inspect call, and that record dies with the room. Nothing is acknowledged back.
+- **`inspect()` is an RPC on the room behind the platform-operator guard**, at
+  `GET /api/v1/meetings/{meetingId}/inspect` in `routes/meeting-inspect.ts`. It is the ONE meeting
+  route that names the firm in the query rather than addressing the room by the session firm, and the
+  reason is structural: the caller belongs to no firm, so there is no session firm to read and the
+  guard rather than the address is what decides. A firm-scoped permission was rejected — a member who
+  could read the room's internals could read a colleague's connection quality and their place in the
+  meeting. It answers with the roster (role, presence, track and subscription counts, last sample),
+  the door, the open sockets and which stay each carries, the alarm with which of its deadlines are
+  pending, the storage key count and approximate size, the routing session ids and the ended marker,
+  and carries no session description, display name or track name. A room nobody has ever addressed
+  answers with empty lists rather than a refusal, because that is itself the finding.
+- **The load harness is an api-worker test rather than a `tooling/` command**, because it has to
+  drive real socket pairs against the real Durable Object and that is only possible inside the test
+  pool. The driver is `test/support/meeting-room-load.ts`; the fast variant (forty clients) runs in
+  the ordinary suite as an assertion on the two bounds, and the full variant (three hundred) is
+  `MEETING_ROOM_LOAD_PARTICIPANTS=300` on the same file. The counts are the result; the wall time is
+  a fact about the machine.
+
+### What the harness found
+
+It was built to make a claim measurable and it immediately falsified one. Every deferred presence
+transition armed the alarm through the full reconciliation, which reads the whole roster AND the
+whole door to find the nearest deadline — two list reads, on the frame a room of three hundred sends
+most, measured at 1.2 storage lists per frame against a design that claims one. The deadline is
+already known where the transition is deferred, so `relayPresence` now answers WITH it and the
+caller arms for that instant (`armAlarmFor`), which is safe on exactly the grounds the full
+reconciliation was: an alarm is never pushed later, and every wake ends by reconciling the whole room
+again. The same pass fell to 0.4 lists per frame.
+
+It found a second thing, which is a correctness bug rather than a cost: the room's DIRECT replies to
+one socket called `send` unguarded, and `send` on a closed socket throws. A throw out of
+`webSocketMessage` does not fail one frame — the runtime resets the object and every socket in the
+meeting drops — so a supersede, a leave or the end of a meeting racing a queued frame would end the
+meeting for everybody in it. The room-wide broadcast had swallowed that since it was written; the
+direct replies now go through the same `trySend`.
+
+## 17. Amendment — what one socket may send (security review, 2026-09-21)
+
+The throttles this design specifies each bound one frame against one cost: a sync against the roster
+read, a layer change against the routing call it makes, a hand and a reaction against the act that
+cannot be restated. Nothing bounded the rest, and the rest is not free — a publish, a subscribe, a
+renegotiation and a close are each a billed call to the routing service, and a presence frame writes
+the participant record.
+
+So every frame now spends from a per-socket token bucket, `FRAME_BUDGET_PER_SECOND` (twenty) with
+`FRAME_BUDGET_BURST` (forty), declared in `@magna-carta/meeting-protocol` beside the signal window
+and for the same reason: a client that paced itself differently would be refused for behaving
+correctly. The bucket rides the socket's own attachment rather than the participant record — it is a
+fact about one connection, and keeping it off storage is what stops the bound costing what it
+bounds — and it is spent BEFORE the frame is parsed, so a flood does not buy a parse of up to the
+frame ceiling apiece. A frame with nothing left is answered `rate-limited` with the socket kept open.
+
+Underneath it, the four acts that reach the routing service carry their own per-participant windows
+on the `syncAt`/`layerAt` pattern (`publishAt`, `subscribeAt`, `renegotiateAt`, `closeAt`), refused
+rather than dropped because the browser is waiting on an answer to each of them, and reset on a
+rejoin like the two beside them. The refusal telemetry is sampled on the terms the storage budget is:
+an event per refused frame would make the record of a flood cost more than the flood.
+
+The load harness sends six frames per socket across a whole pass, so its pace is unchanged and its
+counts are unchanged: `framesPerJoinPerSocket=1.000`, one storage list per publish and per sync, zero
+per presence and per reaction.

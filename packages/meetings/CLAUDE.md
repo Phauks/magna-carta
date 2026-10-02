@@ -74,7 +74,14 @@ Somebody whose connection drops and who dials back in was in the room twice; a f
 say they were present through a gap they were absent for. So who is in the room right now is "the
 rows whose `left_at` is null" — counted on every read rather than kept as a column, because a stored
 count is a second answer the rows already give, and the two disagree the first time a socket closes
-without a leave. `MAX_MEETING_PARTICIPANTS` is measured against exactly that count.
+without a leave. `MAX_MEETING_PARTICIPANTS` — **300** — is measured against exactly that count.
+
+The number is a product decision rather than a limit of the routing layer, and it moved from twelve
+to three hundred once the two ends could carry a room that size: each browser pulls video only for
+the tiles it shows and audio only for the people talking, cameras publish three simulcast layers, and
+the signaling room sends what changed rather than the whole roster. None of that is this package's —
+it is the Worker's room and the browser's client — but the ceiling this package holds is what those
+three make honest, so a change to it belongs with a change to them.
 
 A join by somebody who already has an **open** stay returns that stay rather than opening a second
 one, so a reconnecting browser occupies one seat and a leave has one row to close.
@@ -83,7 +90,7 @@ one, so a reconnecting browser occupies one seat and a leave has one row to clos
 Both rules that a read-then-write cannot span are in the schema, and both are partial on the open
 stay because the closed ones are the record: a unique index on `(meeting_id, user_id) WHERE left_at
 IS NULL`, and the ceiling as the attendance insert's own `WHERE`, marked `guarded()` so a batch past
-it rolls back whole rather than seating a thirteenth person. The service's own count still runs, and
+it rolls back whole rather than seating somebody past the ceiling. The service's own count still runs, and
 still produces the REASON a member reads — it just no longer produces the limit. The route maps the
 guard label (`JOIN_CAPACITY_GUARD`) and the two constraint predicates
 (`isOpenStayConflict`, `isMeetingPerEventConflict`) onto the answers the member wanted, which is the
@@ -121,7 +128,222 @@ package enforces, which is why nothing here has a redaction step.
   routing service are the Worker's (`apps/api-worker/src/meetings/`). Nothing in this package knows
   whether meetings are configured at all — that is a fact about bindings, so the route carries it
   beside a summary rather than inside one.
-- **External guests.** A participant is a firm member with a session. A signed one-time join link for
-  a client or opposing counsel is the rung after this one.
 - **Recording.** Server-side media processing and a consent gate on the jurisdiction profile, neither
   of which is basic. Nothing here is shaped around it.
+
+## Authority over a meeting is a grant on the meeting, not a capability of a seat
+
+`hosting-types.ts` / `hosting-statements.ts` / `hosting-service.ts` are the hosting concern's trio.
+`meetings:host` is what a firm hands the people who may convene meetings; it cannot answer "is this
+member running THIS room", because that changes during the meeting — hosting is handed over,
+co-hosts are named and withdrawn, and the member who opened the room may have been called away an
+hour ago. So `meeting_host` holds the answer, and `requireHostGrant` is **the one authority
+chokepoint**: every host act composes it ahead of itself and reads back the caller's role, so a
+sixth act cannot be added without it.
+
+Four rules travel with it.
+
+**A grant is a row with an interval, closed and never deleted.** A `host_user_id` column would
+answer the live question and only the live question: co-hosts are several, and a column overwritten
+on hand-over erases who was running the room before it. `meeting.created_by_user_id` stays what it
+is — who opened the room — and is deliberately not read as the host; the two are the same person
+only until the first hand-over.
+
+**The invariants are in the database.** Every path here is a read-then-write and is blind to the
+instant it does not span, so the two partial unique indexes (one live host per meeting, one live
+grant per member) are what settle two hand-overs racing. The loser's whole batch rolls back — the
+one-meeting-per-event precedent — and the route answers with the conflict rather than an Error ID.
+
+**Hosting never passes by itself.** A host whose tunnel drops has not stopped hosting, and a room
+reassigned on a socket loss would hand a client meeting to whoever was next in the roster. What
+replaces it is `claimHosting`, refused while any OTHER grant-holder has an open stay, refused
+(`meeting-not-joined`) to a claimer who holds no open stay of their own, and audited as a claim,
+because nobody gave it. That second refusal is what keeps the claim an act of the MEETING rather
+than of the permission key: nobody hands this grant over, so being in the room — or at its door — is
+the whole of what makes taking it legitimate, and without it any key-holder who could see the event
+could take a live meeting a minute after the host's tunnel dropped. **Ending a meeting is a host act for the same reason** — on the key
+alone, any key-holder could close any meeting they could see the event for, without being in it.
+
+**What is written here and what is a frame.** Removing somebody, shutting the door and changing who
+is hosting are written through this package, because somebody could later ask who did them. Muting,
+asking somebody to unmute and spotlighting are frames the room handles
+(`apps/api-worker/src/meetings/room/room-hosting.ts`) and reach nothing in this package: they are
+about this moment, and an audit row for each would fill a matter's log with the mechanics of a
+conversation. A removal writes TWO audit rows — the same `meetings.meeting.left` every departure
+writes, labelled `removed`, and `meetings.meeting.removed` beside it carrying the host who acted,
+because the departure row's actor is the member whose presence it records.
+
+## The door is a per-meeting fact, and it split "in the room" from "has an open stay"
+
+`lobby-types.ts` / `lobby-statements.ts` / `lobby-service.ts` are the waiting room's trio. `meeting.lobby`
+is `'off' | 'on'`, chosen at Start beside the medium and — unlike the medium — changeable by a host,
+because a medium is what the people already in the room agreed to and a lobby is a standing decision
+about who may come in. One lobby per MEETING and never one per firm: a firm holds several at once.
+
+**A waiting arrival is a stay from the moment it reaches the door.** `meeting_attendance.waiting_from`
+and `admitted_at` are columns on the existing row rather than a second table, for three reasons: the
+socket upgrade's ticket is an open stay and a waiter needs a socket, the signaling room's storage is
+transient and is deleted when the last socket closes, and the record has to be able to say who waited
+and was never let in. `joined_at` therefore means "when this stay began", at the door or in the room.
+
+Four rules travel with it.
+
+**One predicate, one home.** `IN_THE_ROOM_PREDICATE` and `WAITING_PREDICATE` in
+`meeting-statements.ts` are single exported SQL fragments, composed by the live count, the capacity
+guard, the roster and the lobby list — so the four cannot drift into disagreeing about who is present.
+They live there rather than in the lobby trio because the lobby did not invent them; it only made them
+two different sentences.
+
+**The capacity guard moved to ADMISSION.** `MAX_MEETING_PARTICIPANTS` counts stays that are in the
+room, so the door insert cannot be what holds it. `admitAttendanceUnderCapStatement` carries the count
+in its own `WHERE` and is `guarded()`; the door has its own much smaller ceiling, `MAX_MEETING_LOBBY`,
+refused as `meeting-lobby-full`. A batch that half-lands is decided the way the join path is decided:
+the service's own count produces the REASON per person (`room-full`, seats spent down the list in the
+order the host sent it) and the guard produces the limit.
+
+**Whoever may run this room does not wait, and a grant admits.** The join path asks for a live GRANT
+rather than the permission key — a key-holder walking past the door of a confidential matter
+discussion is what a host turns the lobby on to prevent. And a grant written for a member whose stay
+is waiting admits that stay in the same batch (`admitWaitingStay` in `hosting-service.ts`), which is
+what dissolves the lobby's one deadlock: a lobby-on meeting whose host has gone. That one admission
+deliberately carries no capacity count, because refusing the claimer for a full room would restore the
+deadlock the claim exists to end.
+
+**The door is enforced in the STATEMENT, and an admission deliberately ignores it.** Two rules that
+look like one and are not. The join path reads the lock and the lobby a round trip before it writes,
+which settles the ordinary case and produces the reason a member is shown; it cannot settle the case
+it was not there for, so both conditions are predicates on the insert itself
+(`DOOR_ADMITS_DIRECTLY_PREDICATE` and, inverted, `DOOR_QUEUES_PREDICATE` in `meeting-statements.ts`)
+and the guarded write rolls the whole batch back. That window is exactly the moment the control is
+being used — a host shuts a door because of who is about to arrive.
+
+**A LOCKED ROOM DOES NOT REFUSE AN ADMISSION**, and that is decided rather than missed. The lock is
+what the room answers an ARRIVAL with; an admission is a host looking at a named person and deciding
+that this one comes in. Refusing it would mean a host who shut the door could no longer let in the
+colleague they shut it for, and the remedy would be unlocking the room for everybody standing outside
+in order to admit one of them. The capacity ceiling still binds, because that is a fact about the room
+rather than a decision about a person.
+
+**A hand-over leaves the outgoing host a co-host**, written in the same batch as the revocation, so
+there is no instant in which they hold nothing. Handing the room over is not leaving it. Its twin:
+**a grant is resignable by the person holding it** — `revokeHosting` naming the caller is a
+resignation with its own audit event, refused only for the sole grant-holder, because a host
+resigning out of a room where nobody else holds anything leaves a running meeting with nobody running
+it. And **only a live HOST grant whose holder is in the room refuses a claim**
+(`countOtherHostsPresent`): counting co-hosts meant two of them in an abandoned room each saw the
+other and neither could take it.
+
+**Barred entry is one rule with two labels.** `readBarredStay` finds a stay closed `removed` or
+`denied`; both bar the member for the life of the meeting, and only the sentence differs. A denial
+that did not bar would be a button that does nothing.
+
+## The chat is the one thing here that stores content — and it changes the paragraph above
+
+`chat-types.ts` / `chat-validation.ts` / `chat-statements.ts` / `chat-service.ts` hold in-meeting
+chat, kept on the record by the owner's ruling of 2026-09-20. The section on what the audit log
+carries still stands word for word — identifiers and instants, never the body, on either the sending
+or the removal — but "the meeting stores nothing anybody said" is now true of the media and not of
+`meeting_message`: a chat message carries a filed message's retention, its personal-data
+classification, and a redaction step this package did not have.
+
+Three rules travel with it. A message hangs from the **stay**, so being in the room is the whole of
+the permission to post (`readOpenAttendance`, the same row the socket upgrade demands) and the member
+is resolved through the stay rather than copied beside it. The stay is named **by value** —
+`participant_kind` plus `participant_id`, no foreign key — because a member's stay is a
+`meeting_attendance` row and a guest's is a `meeting_guest_stay` row; `postMeetingMessage` writes
+the literal `'member'` and `postGuestMeetingMessage` the literal `'guest'`, each from its own open,
+in-the-room stay. A guest's line has no member behind it, so only a host may take it back — that
+falls out of the author comparison rather than needing a branch, and there is deliberately no guest
+redaction act. And **removal is a redaction, never a delete**:
+the body is blanked and the row stays, guarded so the batch rolls back whole, and a second removal
+produces no statements rather than moving an instant somebody's record already carries.
+
+## Polls and the question queue are content on chat's terms, and a poll's anonymity is two tables
+
+`poll-types.ts` / `poll-validation.ts` / `poll-statements.ts` / `poll-service.ts` and the same four
+for `question-*` hold the meeting's second and third stored content. Everything the chat section says
+about the audit log, the stay-by-value and the redaction holds for a question word for word; what is
+new travels in four rules.
+
+**Anonymity is held by the rows, not by a read filter.** `meeting_poll_answer` holds WHAT was chosen
+and, on a poll that shows no names, a participant pair of literal NULLs written by
+`insertAnonymousAnswerStatement`, which has no argument that could carry a stay.
+`meeting_poll_respondent` holds THAT a stay answered, and is the one home of WHEN — the answer row has
+no instant, because one would re-link it to the respondent row written beside it. The tally counts
+answers; the guard is the respondent row. No audit row carries the question, a label or which option
+was chosen, on either kind of poll.
+
+**One participation per MEMBER.** The unique indexes hold one per stay; the respondent and upvote
+inserts also carry, in their own guarded `WHERE`, that none of this member's stays in the meeting has
+already answered or upvoted — otherwise leaving and rejoining is a second vote.
+
+**An answer names its option as a pair.** `(poll_id, option_id)` references the option table's own
+unique `(poll_id, id)`, so an answer to another poll's option fails at the foreign key whoever writes
+it; `assertAnswerChoices` gives the member the reason first.
+
+**Every host act asks the grant.** Opening, closing, reading who answered what, marking a question
+answered — and the host half of taking a question back — go through `requireHostGrant` or
+`readLiveHostGrant`, never the permission key. Answering, asking and upvoting need an open stay
+(`readOpenAttendance`), as posting a message does. The participant CHECKs on all four participant
+tables accept `attendee` beside `member` and `guest` (`MEETING_CONTRIBUTOR_KINDS`), and polls and
+questions carry a nullable `breakout_id`; nothing here writes either yet.
+
+## A guest is a second kind of stay, and every read of who was present sees both
+
+`guest-types.ts` / `guest-statements.ts` / `guest-service.ts` are the guest concern's trio, and
+`guest-removal.ts` holds the two pieces the member-side host acts reach (`isGuestStayHandle` and
+`removalOfGuestStatements`) so that `hosting-service.ts`, `lobby-service.ts` and `meeting-service.ts`
+never import the guest service, which itself composes `requireHostGrant`. A guest is somebody from
+outside the firm on a signed link: a `meeting_guest_invitation` row per Directory entity per meeting
+(the link, holding only the SHA-256 of its secret), and a `meeting_guest_stay` row per stay.
+
+Four rules travel with it.
+
+**Presence is unioned, and the union has one home.** `MEETING_STAY_TABLES` in
+`meeting-statements.ts` names both stay tables, and `inTheRoomCount` / `waitingCount` compose the
+in-the-room and waiting predicates over both. The live count, the room's ceiling, the door's ceiling,
+the roster read, the lobby list and ending a meeting all go through them, so a guest counts against
+`MAX_MEETING_PARTICIPANTS` and `MAX_MEETING_LOBBY` exactly as a member does. A fitness test in
+`test/guests.test.ts` enumerates every table carrying the stay columns and fails when one is not in
+the list — a third kind of stay would otherwise be invisible to every count.
+
+**The link proves possession of a mailbox and nothing more.** A guest always waits at the door, the
+lobby setting notwithstanding; what the host reads there is the name typed at the door beside the
+Directory name the link was minted for, which is what catches a forwarded link. The secret, the token
+and the address are never written anywhere this package reaches — the audit rows carry identifiers
+and instants, with a null actor for the guest's own acts.
+
+**The row is the authority for a link.** `guestCredentialRefusal` decides a signed credential against
+the invitation and the meeting — withdrawn, a stale secret version, a secret that does not hash to
+the row's, expired, or the meeting ended — and `recordGuestArrivalStatement` carries every condition
+that makes a link spendable in its own `WHERE`, guarded, so a withdrawal or a rotation racing an
+arrival rolls the arrival back rather than seating somebody on a dead link.
+
+**Minting again replaces; it never adds.** The unique index on `(meeting_id, entity_id)` holds one
+invitation per person per meeting, and a second mint rotates that row's secret (reinstating it when
+it was withdrawn). Rotation refuses a withdrawn link, so reinstating is always the deliberate act of
+inviting again. A removal or a denial bars the link for the life of the meeting, as it bars a member.
+A reissue — rotation or mint — starts `arrival_count` again, because the count bounds a LINK and the
+old one stops working in the same statement; carried forward, a guest whose connection failed twenty
+times would be sent a fresh link that arrived already used up.
+
+**An act on the LINK never closes a stay `removed`.** `removed` and `denied` are the two departure
+labels that bar re-entry, and each is a decision about a person. Withdrawing a link, and replacing
+it, close any stay open on it `left` in the same batch, with `cause` (`link-withdrawn`,
+`link-replaced`) on the `meetings.guest.left` row and the stay's handle on the host's own row — so
+inviting the entity again brings them back instead of telling them they were removed.
+
+**An admission is never inherited.** An arrival on a stay that is already open returns THAT stay —
+the partial unique index holds one per link — but puts it back at the door under the name just
+typed (`returnGuestStayToTheDoorStatement`), because whoever pressed Join this time is not known to
+be whoever a host let in. A stay that was already waiting keeps its place; one that had been
+admitted starts a new wait and counts against the door's ceiling. The name the stay carried before,
+and who admitted it, are on the arrival's audit row, which is the one place the old name survives.
+The Worker tells the room after the commit (`guestCredentialReplaced`), which drops the old roster
+or door entry and supersedes the old socket.
+
+**The entity must still be on the event.** A link whose entity has been taken off the meeting's
+event is refused as withdrawn at the summary read and at the arrival — the host who took them off
+may never have opened the Guests panel — and the refused arrival carries its own audit row
+(`meetings.guest.arrivalRefused`) on `GuestNoLongerOnTheEventError`, which the route commits before
+answering. The summary writes nothing, because opening the link is a read.

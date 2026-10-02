@@ -3,6 +3,7 @@ import type { SealPort } from "@magna-carta/signing/port";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { authForEnv } from "../auth-instance.ts";
 import type { Bindings } from "../bindings.ts";
+import type { SendEmail } from "../email-port.ts";
 import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import type { HumanVerificationGateOptions } from "./human-verification/human-verification-gate.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
@@ -54,6 +55,10 @@ export interface CreateAppOptions {
   // environment inside the handler; no secret is set anywhere, so the default everywhere is the
   // not-configured verifier.
   humanVerification?: HumanVerificationGateOptions;
+  // Overrides the sender of a meeting guest's invitation letter for tests, which read the link
+  // out of the captured message because the server hands it to nobody else. Production sends
+  // through the environment's email adapter.
+  meetingGuestMail?: (env: Bindings) => SendEmail;
 }
 
 // The chokepoint over the REAL ports: session resolution, firm-context resolution (control-plane
@@ -165,6 +170,7 @@ export function createApp(options: CreateAppOptions = {}) {
     safeBrowseDeps: options.safeBrowseDeps,
     sealPort: options.sealPort,
     humanVerification: options.humanVerification,
+    meetingGuestMail: options.meetingGuestMail,
   };
   for (const module of DOMAIN_MODULES) module.mount(app, chokepoint, domainDeps);
 

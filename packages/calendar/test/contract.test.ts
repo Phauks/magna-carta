@@ -28,17 +28,20 @@ describe("the calendar contract", () => {
   });
 
   it("accepts a well-formed event and refuses a date that is not a civil date", () => {
+    // The event fields are a field set (the route adds the meeting the meetings package describes),
+    // so the rules are held here over the fields alone.
+    const event = z.object(contract.matterEventRequestFields);
     const body = {
       title: "Motion hearing",
       startsOn: "2026-10-02",
       startsAtTime: "09:30",
       timeZone: "America/Denver",
     };
-    expect(contract.CreateEventRequest.safeParse(body).success).toBe(true);
-    expect(contract.CreateEventRequest.safeParse({ ...body, startsOn: "October 2" }).success).toBe(
+    expect(event.safeParse(body).success).toBe(true);
+    expect(event.safeParse({ ...body, startsOn: "October 2" }).success).toBe(
       false,
     );
-    expect(contract.CreateEventRequest.safeParse({ ...body, startsAtTime: "9:30" }).success).toBe(
+    expect(event.safeParse({ ...body, startsAtTime: "9:30" }).success).toBe(
       false,
     );
   });

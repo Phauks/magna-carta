@@ -88,6 +88,25 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "Presents the emailed confirmation token, which is itself the only credential the caller can hold at this point — a session would require the account this confirms into existence. Unknown, spent and expired tokens answer one identical refusal.",
   "invitations.redeem":
     "Redeemed by someone who has no account yet, which is the point of an invitation. The code plus the invitee's surname and date of birth are the credential; every unsuccessful combination answers one identical refusal, and the invitation spends its own attempt budget beside the IP-keyed one.",
+  // A MEETING GUEST'S SIX. A guest is somebody from outside the firm holding a signed, expiring
+  // link minted for one Directory entity on one meeting — no session, no cookie, no member row. Each
+  // route rides the chokepoint's guest lane (x-mc-guestLane): the signature is verified before
+  // anything is read, and a credential that is not one answers the reserved 404; the firm and the
+  // meeting are facts of the verified credential, never of the path; the invitation row is read and
+  // must be live on every request; and the lane stashes no user id, so no member handler is
+  // reachable. What each route serves is bounded to the one meeting the link was minted for.
+  "guest.meetingSummary":
+    "The reduced summary of the one meeting a signed guest link names — the firm's name, the event's title and time, the medium, its status and the name the link was minted for; never a matter or event identifier. Admitted by the guest lane's verified invitation credential against a live invitation row; writes nothing.",
+  "guest.arrive":
+    "Spends a signed guest link at the door: opens the guest's stay in the lobby of the one meeting the link names, where a host must admit them. Admitted by the guest lane's verified invitation credential against a live row; bounded per link by an arrival ceiling and a rate-limit bucket keyed by the invitation.",
+  "guest.meetingSocket":
+    "The signaling socket for one guest's own open stay, in the lobby state until a host admits them; every roster and message frame to it carries no firm user identifier. Admitted by the guest lane's verified grant, accepted in the query string on the upgrade alone.",
+  "guest.depart":
+    "Closes the guest's own stay and nothing else — the stay named on the verified grant the guest lane admitted.",
+  "guest.listMessages":
+    "The chat of the one meeting the verified grant names, for a guest who has been admitted into the room, with every firm user identifier removed.",
+  "guest.sendMessage":
+    "A chat line said from the guest's own admitted stay, on the record like every other; the stay is the one the verified grant names.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
@@ -521,7 +540,17 @@ function surfaceConsistencyViolations(document: ReturnType<typeof buildOpenAPIDo
       );
       continue;
     }
-    if (surface === "app" && operation["x-mc-authenticated"] !== true) {
+    // THE ONE EXCEPTION, and it is structural rather than a waiver: a meeting guest's lane. Its routes
+    // are on the app surface — the guest page is served from the firm's own origin, where the
+    // meeting's media permissions and the socket's same-origin check live — and they carry no
+    // session because a guest holds none; what admits them is a signed credential the chokepoint
+    // verifies against a live row, declared as x-mc-guestLane, and registration refuses the lane on
+    // any route that is not exactly this shape.
+    if (
+      surface === "app" &&
+      operation["x-mc-authenticated"] !== true &&
+      operation["x-mc-guestLane"] === undefined
+    ) {
       violations.push(`${label}: an app-surface (cookie-session) route is never anonymous`);
     }
   }

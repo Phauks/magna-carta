@@ -12,7 +12,7 @@ import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
-import { platformOperatorGuard } from "./platform-operator-guard.ts";
+import { platformOperatorGuard } from "../shared/platform-operator-guard.ts";
 import { mutateAuthored } from "../../../status/authored-store.ts";
 
 const DeclareBody = z

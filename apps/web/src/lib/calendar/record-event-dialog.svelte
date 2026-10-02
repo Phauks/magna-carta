@@ -54,6 +54,7 @@
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import Switch from "@magna-carta/design-system/switch";
   import Textarea from "@magna-carta/design-system/textarea";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
@@ -82,12 +83,19 @@
     EVENT_OWNER_OPTIONS,
     eventDraftStarted,
     isEventOwner,
+    isMeetingChoice,
+    MEETING_CHOICE_OPTIONS,
+    MEETING_LOBBY_LABEL,
+    meetingGuestsSentence,
     withMemberListed,
     type EventDraft,
     type EventFormTab,
     type EventOwner,
+    type MeetingChoice,
     type ParticipantDraft,
   } from "./event-draft.ts";
+  import MemberAvailability from "./member-availability.svelte";
+  import { calendarContext } from "./calendar-context.svelte.ts";
   import ParticipantPicker from "./participant-picker.svelte";
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
@@ -114,6 +122,7 @@
     initialTitle = "",
     initialParticipants = [],
     initialTime = null,
+    initialMeeting = "none",
     onRecorded,
   }: {
     open?: boolean;
@@ -143,7 +152,17 @@
     initialTitle?: string;
     /** People the surface already knows are attending: the client, the responsible attorney. Editable. */
     initialParticipants?: readonly ParticipantDraft[];
-    onRecorded: (recorded: { id: string; matterId: string | null }) => void;
+    /**
+     * The meeting the form opens on, for a surface that already knows the answer — the Meetings
+     * page opens it on a video meeting, because that is what somebody arriving from there came to
+     * do. Still editable: a preset is an opening answer, never a decision taken for the reader.
+     */
+    initialMeeting?: MeetingChoice;
+    onRecorded: (recorded: {
+      id: string;
+      matterId: string | null;
+      meetingId: string | null;
+    }) => void;
   } = $props();
 
   const idPrefix = $props.id();
@@ -256,7 +275,7 @@
     // The seeds are the draft's starting point and the baseline alike, so a window opened with a
     // title and two people and closed untouched does not ask about unsaved work.
     const seeded = (): EventDraft => ({
-      ...emptyEventDraft(timeZone, initialDate),
+      ...emptyEventDraft(timeZone, initialDate, initialMeeting),
       // The hour a day grid was double-clicked on, where it was; a day alone opens as all day.
       startsAtTime: initialTime ?? "",
       title: initialTitle,
@@ -299,10 +318,12 @@
       locationText: draft.locationText,
       conferenceUrl: draft.conferenceUrl,
       recurrence: draft.recurrence,
+      meetingLobby: draft.meetingLobby,
       participants:
         member === null
           ? draft.participants
           : withMemberListed(draft.participants, member.userId, member.displayName),
+      meeting: draft.meeting,
     };
     return firmEventDraftRequest(asFirm);
   }
@@ -356,7 +377,11 @@
       });
       // The event landed either way, so the grid is told either way; only the dialog's own
       // disposition differs.
-      onRecorded({ id: outcome.value.id, matterId: target });
+      onRecorded({
+        id: outcome.value.id,
+        matterId: target,
+        meetingId: outcome.value.meetingId,
+      });
       return held ? "committed" : "refused";
     }
     // A refusal is an answer, so the attempt is over; silence is not, so the key is kept for the
@@ -573,6 +598,49 @@
           {/if}
         </div>
 
+        <!-- SCHEDULING A MEETING IS RECORDING AN EVENT WITH A MEDIUM ON IT. One more answer on the
+             form somebody was filling in anyway, and the entry window offers Join from the moment
+             the event exists rather than from the moment somebody presses Start. It sits above the
+             conference link because both answer where the setting is JOINED — and a reader who has
+             chosen one can see they do not also need to paste the other. -->
+        <div class="flex flex-col gap-8">
+          <Label for="{idPrefix}-meeting">Meeting</Label>
+          <ChoicePicker
+            inputId="{idPrefix}-meeting"
+            label="Meeting"
+            options={MEETING_CHOICE_OPTIONS}
+            value={draft.meeting}
+            disabled={busy}
+            onchange={(next) => {
+              if (isMeetingChoice(next)) draft.meeting = next;
+            }}
+          />
+          {#if draft.meeting !== "none"}
+            <!-- THE ONE THING DECIDED BEFORE THE ROOM OPENS RATHER THAN INSIDE IT, and it sits
+                 beside the choice it belongs to rather than on a line of its own: a door is a
+                 property of the meeting being scheduled, and it means nothing without one. A host
+                 changes it from inside the room afterwards, because who may come in has no bearing
+                 on what the people already in the room agreed to. -->
+            <div class="flex items-center gap-8">
+              <Switch
+                aria-labelledby="{idPrefix}-meeting-lobby-label"
+                disabled={busy}
+                bind:checked={
+                  () => draft.meetingLobby === "on",
+                  (held) => (draft.meetingLobby = held ? "on" : "off")
+                }
+              />
+              <Label id="{idPrefix}-meeting-lobby-label">{MEETING_LOBBY_LABEL}</Label>
+            </div>
+            <!-- Said here rather than discovered later from a client who never arrived: only
+                 colleagues are invited, because an external guest has no way in yet. It is the
+                 record's own sentence, because a firm event tells NOBODY yet — a form promising a
+                 message nothing sends would stop a member doing the one thing that gets their
+                 colleagues into the room. -->
+            <p class="text-sm text-text-muted">{meetingGuestsSentence(owner)}</p>
+          {/if}
+        </div>
+
         <!-- Where it is JOINED, where it is online. Its own field, because a deposition can be in a
              conference room and on a call at once and a firm that typed the link where the room
              goes has lost the room. -->
@@ -611,6 +679,14 @@
               bind:participants={draft.participants}
             />
           </div>
+          <!-- A read, never a refusal: the platform does not referee whether two things at once are
+               wrong, and it does not decide who a member may book over. -->
+          <MemberAvailability
+            {open}
+            participants={draft.participants}
+            timing={draft}
+            context={calendarContext.entryContext}
+          />
         {:else}
           <!-- An all-members firm event lists nobody: it is on every calendar by construction, so a
                list here would be a list the record ignores. -->

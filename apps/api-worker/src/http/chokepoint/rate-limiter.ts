@@ -26,6 +26,11 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
   expensive: { limit: 10, windowSeconds: 60 },
   // Incident reports accept user-authored content; a tight bucket bounds abuse.
   "incident-report": { limit: 5, windowSeconds: 300 },
+  // A meeting guest pressing Join. Keyed by the INVITATION once the credential verifies and by the
+  // client address before it, so junk traffic and a real guest's retries are bounded separately — and
+  // one shared link is one bucket however many people hold it. Twenty a minute is far more than a
+  // bad connection's retries and far fewer than a link forwarded to a crowd would spend.
+  "guest-arrival": { limit: 20, windowSeconds: 60 },
 };
 
 // Definition-time guard: the deny branch reads the oldest in-window timestamp assuming a full

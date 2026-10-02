@@ -5,13 +5,16 @@ import { deliverEmail } from "./email-delivery.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { defaultLoggerForEnv } from "./worker-logger.ts";
 
-// The per-env Better Auth instance and the outbound-email port it sends through. Held apart from
-// app.ts because the provisioning consumer needs the auth instance without the HTTP app: a consumer
-// that imported the composition root to reach it would tie the background side to every route.
+// THE ONE BETTER AUTH INSTANCE PER ENVIRONMENT, and the outbound-email port under it.
+//
+// It lived in the composition root, and that is exactly why it could not stay there. Two kinds of
+// caller need it without the HTTP app: a route-specific guard that resolves a session for itself
+// (the platform-operator lane, which the per-firm chokepoint cannot serve because its caller belongs
+// to no firm), and the provisioning consumer on the background side. Either one importing the app
+// module closes a cycle through every route, so both import this instead.
+
 // One Better Auth instance per worker env: the env object is stable across requests within an
 // isolate, so a WeakMap-keyed cache builds the auth context once instead of on every request.
-// The dev logging email adapter is wired here for now; slice 0·6 swaps in real transactional
-// email behind the same SendEmail port.
 const authInstanceByEnv = new WeakMap<Bindings, ReturnType<typeof createAuth>>();
 
 // The outbound-email adapter for an env: the real Cloudflare Email Service when its binding AND

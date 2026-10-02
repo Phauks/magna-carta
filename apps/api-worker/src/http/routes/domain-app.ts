@@ -5,6 +5,7 @@ import type { HumanVerificationGateOptions } from "../human-verification/human-v
 import type { SafeBrowseRouteDeps } from "./tools/safe-browse.ts";
 import type { WhoisRouteDeps } from "./tools/whois.ts";
 import type { Bindings } from "../../bindings.ts";
+import type { SendEmail } from "../../email-port.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { defaultHook } from "../contracts/problem.ts";
 
@@ -34,6 +35,7 @@ export interface DomainDeps {
   readonly safeBrowseDeps?: SafeBrowseRouteDeps;
   readonly sealPort?: SealPort;
   readonly humanVerification?: HumanVerificationGateOptions;
+  readonly meetingGuestMail?: (env: Bindings) => SendEmail;
 }
 
 // One entry of the manifest (src/http/routes/manifest.ts).

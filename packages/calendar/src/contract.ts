@@ -42,44 +42,43 @@ export const ParticipantRequest = z
   })
   .meta({ id: "MatterEventParticipantInput" });
 
-export const CreateEventRequest = z
-  .object({
-    eventTypeId: identifierField("matterEventType").nullable().optional(),
-    title: z.string().min(1).max(300),
-    description: z.string().max(4000).nullable().optional(),
-    status: z.enum(MATTER_EVENT_STATUSES).optional(),
-    startsOn: z.string().regex(CIVIL_DATE),
-    // Null or omitted means all day, which is what a filing is.
-    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
-    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
-    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
-    // An IANA identifier — the zone the COURT sits in, which is frequently not the firm's own.
-    timeZone: z.string().min(1).max(120),
-    locationText: z.string().max(300).nullable().optional(),
-    // Where an online setting is JOINED, whoever hosts it. Held as a URL rather than a provider and
-    // a room number, because every conferencing service a firm might use expresses a meeting as a
-    // link, and a schema naming providers would be a list this platform maintained on somebody
-    // else's release schedule. A different fact from where it is HELD: a deposition can be in a
-    // conference room AND on a call.
-    conferenceUrl: z.string().url().max(2000).nullable().optional(),
-    courtReference: z.string().max(120).nullable().optional(),
-    /**
-     * The RFC 5545 rule a repeating setting runs on — "FREQ=WEEKLY;BYDAY=TU;COUNT=12". Null or
-     * absent for a setting that happens once. ONE record carries the whole series: a reader asking
-     * for a window gets an entry per occurrence in it, rather than the platform writing a row per
-     * date. The standard is stored rather than a private shape because it is what every calendar
-     * product reads and writes, and a firm exporting its calendar should not find a dialect in it.
-     * Only the rules the record form can present are accepted, so a rule that saves is one that can
-     * be edited again.
-     */
-    recurrenceRule: z.string().max(400).nullable().optional(),
-    participants: z.array(ParticipantRequest).max(50).optional(),
-  })
-  .meta({ id: "CreateMatterEventRequest" });
-
-export const UpdateEventRequest = CreateEventRequest.partial().meta({
-  id: "UpdateMatterEventRequest",
-});
+// What a matter event is recorded with. A FIELD SET rather than a named shape because the two event
+// writes carry one more field this package cannot describe: the meeting a member may open on the
+// event, whose vocabularies belong to @magna-carta/meetings, which already depends on this package.
+// The route composes the request at the one place both packages are in scope, so every field the
+// calendar owns is still defined here and nowhere else.
+export const matterEventRequestFields = {
+  eventTypeId: identifierField("matterEventType").nullable().optional(),
+  title: z.string().min(1).max(300),
+  description: z.string().max(4000).nullable().optional(),
+  status: z.enum(MATTER_EVENT_STATUSES).optional(),
+  startsOn: z.string().regex(CIVIL_DATE),
+  // Null or omitted means all day, which is what a filing is.
+  startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+  endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+  endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+  // An IANA identifier — the zone the COURT sits in, which is frequently not the firm's own.
+  timeZone: z.string().min(1).max(120),
+  locationText: z.string().max(300).nullable().optional(),
+  // Where an online setting is JOINED, whoever hosts it. Held as a URL rather than a provider and
+  // a room number, because every conferencing service a firm might use expresses a meeting as a
+  // link, and a schema naming providers would be a list this platform maintained on somebody
+  // else's release schedule. A different fact from where it is HELD: a deposition can be in a
+  // conference room AND on a call.
+  conferenceUrl: z.string().url().max(2000).nullable().optional(),
+  courtReference: z.string().max(120).nullable().optional(),
+  /**
+   * The RFC 5545 rule a repeating setting runs on — "FREQ=WEEKLY;BYDAY=TU;COUNT=12". Null or
+   * absent for a setting that happens once. ONE record carries the whole series: a reader asking
+   * for a window gets an entry per occurrence in it, rather than the platform writing a row per
+   * date. The standard is stored rather than a private shape because it is what every calendar
+   * product reads and writes, and a firm exporting its calendar should not find a dialect in it.
+   * Only the rules the record form can present are accepted, so a rule that saves is one that can
+   * be edited again.
+   */
+  recurrenceRule: z.string().max(400).nullable().optional(),
+  participants: z.array(ParticipantRequest).max(50).optional(),
+};
 
 export const EventDetail = z
   .object({
@@ -271,40 +270,47 @@ export const AcknowledgedResponse = z
   .object({ ok: z.literal(true) })
   .meta({ id: "CalendarAckResponse" });
 
-export const CreateFirmEventRequest = z
-  .object({
-    eventTypeId: identifierField("matterEventType").nullable().optional(),
-    title: z.string().min(1).max(300),
-    description: z.string().max(4000).nullable().optional(),
-    status: z.enum(MATTER_EVENT_STATUSES).optional(),
-    startsOn: z.string().regex(CIVIL_DATE),
-    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
-    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
-    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
-    timeZone: z.string().min(1).max(120),
-    // all_members puts the entry on every member's calendar without enumerating anybody; a
-    // participants event is on the calendars of the people listed. Defaults to participants.
-    audience: z.enum(FIRM_EVENT_AUDIENCES).optional(),
-    locationId: identifierField("location").nullable().optional(),
-    locationText: z.string().max(300).nullable().optional(),
-    // Where an online setting is JOINED, whoever hosts it. Held as a URL rather than a provider and
-    // a room number, because every conferencing service a firm might use expresses a meeting as a
-    // link, and a schema naming providers would be a list this platform maintained on somebody
-    // else's release schedule. A different fact from where it is HELD: a deposition can be in a
-    // conference room AND on a call.
-    conferenceUrl: z.string().url().max(2000).nullable().optional(),
-    /**
-     * The RFC 5545 rule a repeating event runs on, null or absent for one that happens once. One
-     * record carries the whole series; only the rules the record form can present are accepted.
-     */
-    recurrenceRule: z.string().max(400).nullable().optional(),
-    participants: z.array(ParticipantRequest).max(50).optional(),
-  })
-  .meta({ id: "CreateFirmEventRequest" });
+// The two event creates answer with the meeting as well, because the caller that asked for one has
+// to be able to open it without a second round trip to find out what it got. Null where the event
+// carries no meeting, which is almost every event — an absent field would make "no meeting" and "an
+// older server" the same answer.
+export const EventRecordedResponse = z
+  .object({ id: z.string(), meetingId: z.string().nullable() })
+  .meta({ id: "CalendarEventRecordedResponse" });
 
-export const UpdateFirmEventRequest = CreateFirmEventRequest.partial().meta({
-  id: "UpdateFirmEventRequest",
-});
+export const EventUpdatedResponse = z
+  .object({ ok: z.literal(true), meetingId: z.string().nullable() })
+  .meta({ id: "CalendarEventUpdatedResponse" });
+
+// What a firm event is recorded with — a field set for the reason the matter event's is.
+export const firmEventRequestFields = {
+  eventTypeId: identifierField("matterEventType").nullable().optional(),
+  title: z.string().min(1).max(300),
+  description: z.string().max(4000).nullable().optional(),
+  status: z.enum(MATTER_EVENT_STATUSES).optional(),
+  startsOn: z.string().regex(CIVIL_DATE),
+  startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+  endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+  endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+  timeZone: z.string().min(1).max(120),
+  // all_members puts the entry on every member's calendar without enumerating anybody; a
+  // participants event is on the calendars of the people listed. Defaults to participants.
+  audience: z.enum(FIRM_EVENT_AUDIENCES).optional(),
+  locationId: identifierField("location").nullable().optional(),
+  locationText: z.string().max(300).nullable().optional(),
+  // Where an online setting is JOINED, whoever hosts it. Held as a URL rather than a provider and
+  // a room number, because every conferencing service a firm might use expresses a meeting as a
+  // link, and a schema naming providers would be a list this platform maintained on somebody
+  // else's release schedule. A different fact from where it is HELD: a deposition can be in a
+  // conference room AND on a call.
+  conferenceUrl: z.string().url().max(2000).nullable().optional(),
+  /**
+   * The RFC 5545 rule a repeating event runs on, null or absent for one that happens once. One
+   * record carries the whole series; only the rules the record form can present are accepted.
+   */
+  recurrenceRule: z.string().max(400).nullable().optional(),
+  participants: z.array(ParticipantRequest).max(50).optional(),
+};
 
 export const CancelEventRequest = z
   .object({
