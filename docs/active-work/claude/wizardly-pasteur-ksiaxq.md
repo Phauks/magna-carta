@@ -13,5 +13,5 @@ ways out, replacing open/done/cancelled.
 **Touches the per-firm schema and the migration lineage**, so a concurrent stream adding a per-firm
 migration should sync before authoring one: `20260914T120000_task-rungs-and-archive` is journal entry 8. It is additive — `matter_task` is a parent table, and widening its `state` CHECK is the rebuild a
 durable object refuses at the commit. That finding is now
-ADR-a-vocabulary-on-a-parent-table-grows-by-adding-a-column and a rule in
+ADR-0461 and a rule in
 `packages/database/CLAUDE.md`, because it binds every table anything references, not just this one.
