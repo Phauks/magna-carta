@@ -196,6 +196,27 @@ Give the event a title, a date, and the time zone it happens in. Everything else
 - **A conference link** is its own field, for a setting held on a call: paste the Zoom, Teams or
   other meeting link. It is separate from Location on purpose, because a deposition can be in a
   conference room and on a call at the same time.
+- **Meeting** schedules one of your firm's own meetings on the event: **Video meeting**, **Audio
+  call**, or **None**. Choosing one creates the room as the event is saved, so everybody on the
+  event sees **Join** straight away rather than waiting for somebody to press Start — and each
+  colleague on it gets a notification with a link to the event. A client or another party from your
+  directory is not sent a way in yet, and the form says so under the choice.
+
+  You do not need a conference link as well: the meeting happens here. Use the link field for a
+  meeting somebody else is hosting.
+
+  **Moving the event keeps the meeting** — a meeting has no time of its own, it happens when its
+  event does. **Cancelling the event closes a room nobody has joined.** If people are actually in
+  the meeting, cancelling is refused until somebody ends it: a change to the calendar will not close
+  a room you are sitting in. Editing an event can add a meeting where there was none; it never takes
+  one away.
+
+  The **Meetings** page has a **New Meeting** button that opens this same form, already set to a
+  video meeting. See [Meetings](meetings.md).
+
+- **Who is already busy** is shown beside each colleague you add on the Who tab: what is on their
+  calendar at the time you have chosen, or nothing when they are free. It never stops you booking —
+  two things at once is often exactly right — it puts the answer where you are asking the question.
 - **That day's calendar stands beside the form** while you fill it in, so you can see who is already
   busy before you choose a time. It appears once you have chosen a date, and its **Calendars** menu
   turns colleagues and rooms on and off — each in its own column — so you can check one attorney's

@@ -16,9 +16,13 @@ import {
   createMeeting,
   endMeeting,
   JOIN_CAPACITY_GUARD,
+  JOIN_LOBBY_CAPACITY_GUARD,
   joinMeeting,
   leaveMeeting,
 } from "@magna-carta/meetings/meeting-service";
+import { isWaiting } from "@magna-carta/meetings/lobby-service";
+import { MAX_MEETING_LOBBY, MEETING_LOBBY_MODES } from "@magna-carta/meetings/lobby-types";
+import { readLiveHostGrant } from "@magna-carta/meetings/hosting-statements";
 import {
   isMeetingPerEventConflict,
   isOpenStayConflict,
@@ -32,12 +36,15 @@ import {
 } from "@magna-carta/meetings/meeting-statements";
 import {
   MAX_MEETING_PARTICIPANTS,
+  MEETING_DEPARTURE_REASONS,
   MEETING_EVENT_KINDS,
   MEETING_LIST_SCOPES,
   MEETING_MEDIA,
-  type MeetingEventKind,
+  MEETING_PARTICIPANT_KINDS,
 } from "@magna-carta/meetings/types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
+import type { MeetingParticipantHandle } from "@magna-carta/meetings/types";
+import { identifierPattern } from "@magna-carta/identifiers/validate";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -48,6 +55,7 @@ import {
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import { isSameOriginUpgrade } from "../chokepoint/same-origin-upgrade.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
@@ -56,9 +64,9 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { meetingSocketRequest } from "../meetings/meeting-room.ts";
-import { sfuClientForEnv } from "../meetings/sfu-client.ts";
-import { recordRealtimeFailure } from "../realtime/realtime-failure.ts";
-import { generateIceServers } from "../realtime/turn-credentials.ts";
+import { sfuClientForEnv } from "../meetings/sfu/sfu-client.ts";
+import { recordRealtimeFailure } from "../meetings/sfu/realtime-failure.ts";
+import { generateIceServers } from "../meetings/sfu/turn-credentials.ts";
 
 // The meeting's HTTP surface: start a room on a calendar event, arrive, leave, close it, read who
 // was in it, and upgrade into the room's signaling socket.
@@ -114,6 +122,12 @@ const StartMeetingRequest = z
     // the room: one meeting per event, so the first Start decides and a second one asking for the
     // other medium gets the room that exists rather than changing it under the people in it.
     medium: z.enum(MEETING_MEDIA).default("video"),
+    // Whether arrivals wait at a door. Read on the same terms as the medium beside it — only when
+    // this request opens the room — but UNLIKE the medium a host may change it afterwards: a medium
+    // is what the people in the room agreed to, and a lobby is a standing decision about who may
+    // come in. Off by default, because every participant today is a firm member arriving at an
+    // event they are on.
+    lobby: z.enum(MEETING_LOBBY_MODES).default("off"),
   })
   .openapi("StartMeetingRequest");
 
@@ -141,13 +155,24 @@ const MeetingSummaryResponse = z
     medium: z.enum(MEETING_MEDIA),
     // How many people are in the room right now, counted off the open stays on every read.
     liveCount: z.number().int().min(0),
+    // WHETHER THE DOOR IS SHUT. A locked room refuses arrivals and touches nobody already in it, so
+    // a Join control reads this and says so before the click rather than after it. There is
+    // deliberately no "are you the host" beside it: that would put a per-caller subquery on every
+    // row of a fifty-row list to answer a question only the room screen asks, and the room screen
+    // has the answer on the wire.
+    locked: z.boolean(),
+    // WHETHER ARRIVALS WAIT AT A DOOR. Carried as the setting rather than as a boolean, because it
+    // is a two-value vocabulary the write path also takes. Who is AT the door is a separate,
+    // host-only read: it is a list of people a host has not yet decided about, and a fifty-row list
+    // must not carry it.
+    lobby: z.enum(MEETING_LOBBY_MODES),
     // Whether this deployment can route a meeting's media at all. A fact about the deployment, not
     // about the meeting or the member — a surface reads it to decide whether to offer a way in.
     configured: z.boolean(),
   })
   .openapi("MeetingSummary");
 
-const IceServer = z
+export const IceServer = z
   .object({
     urls: z.union([z.string(), z.array(z.string())]),
     username: z.string().optional(),
@@ -161,6 +186,15 @@ const JoinedMeeting = z
     // frame. A member who rejoins after leaving gets a new one, because that is a new stay.
     participantId: z.string(),
     displayName: z.string(),
+    // WHETHER THE STAY IS AT THE DOOR. True means a host has not admitted them yet: their socket
+    // opens into the lobby state, receives `lobby` rather than `welcome`, and captures no media.
+    //
+    // The relay credentials below are minted either way, and deliberately. They last an hour, which
+    // covers any wait anybody will sit through, and minting one for somebody who is later denied
+    // costs nothing that matters — a mint is not the billed unit, relay traffic is, and a denied
+    // member relays nothing. Minting at admission instead would need a second round trip at the
+    // exact moment a member is being let into a meeting that has started without them.
+    waiting: z.boolean(),
     // What the browser hands its own connection so two participants behind different networks can
     // find each other. Empty where this deployment mints none, in which case the browser uses
     // whatever it is configured with.
@@ -170,12 +204,32 @@ const JoinedMeeting = z
 
 const MeetingAttendanceEntry = z
   .object({
+    // The STAY's own handle — a member's `meetingAttendance_` or a guest's `meetingGuestStay_`.
     id: z.string(),
-    userId: z.string(),
+    // WHICH KIND OF STAY, because there are two tables and one record: a firm member's attendance,
+    // or an external guest's stay on a signed link. Every reader says what it does with each.
+    participantKind: z.enum(MEETING_PARTICIPANT_KINDS),
+    // The firm member behind the stay, and NULL for a guest, who has none. Widened rather than a
+    // parallel guest list, so a reader cannot quietly under-report the meeting by reading one of two.
+    userId: z.string().nullable(),
+    // The member's name, or for a guest the name they gave at the door.
+    displayName: z.string(),
+    // A guest's only: the Directory entity the link was minted for, and its name at mint — so a
+    // reader sees at a glance when the person who attended is not the person who was invited. Null
+    // for a member.
+    entityId: z.string().nullable(),
+    invitedName: z.string().nullable(),
     joinedAt: z.string(),
     // Null while the person is still in the room. Ending the meeting closes every open stay at ONE
     // instant, so nobody's stay runs forever because they closed a laptop.
     leftAt: z.string().nullable(),
+    // The door, in two instants: when this stay reached it (null for somebody who never waited —
+    // a guest always waits), and when a host let them in (null while they were still outside).
+    waitingFrom: z.string().nullable(),
+    admittedAt: z.string().nullable(),
+    // How the stay ended — left, the connection went, removed, or denied at the door. Null while it
+    // is open, and on a stay the meeting's ending closed.
+    endedReason: z.enum(MEETING_DEPARTURE_REASONS).nullable(),
   })
   .openapi("MeetingAttendanceEntry");
 
@@ -204,6 +258,30 @@ const StartedMeeting = z
   .openapi("StartedMeeting");
 
 const Acknowledged = z.object({ ok: z.literal(true) }).openapi("MeetingAcknowledged");
+
+/**
+ * A STAY'S HANDLE, WHICHEVER KIND — the one validator for every route that names somebody in a
+ * meeting by their stay (the removal's path, the lobby's decisions).
+ *
+ * A member's stay is a `meetingAttendance_` handle and a guest's a `meetingGuestStay_` one, and the
+ * room has always treated the handle as opaque; the SERVICE resolves which table it names by the
+ * prefix. One helper named once, rather than a guest-shaped copy of every host route. As a path
+ * parameter when `name` is given, as a body field otherwise.
+ */
+export function meetingParticipantHandle(
+  name?: string,
+): z.ZodType<MeetingParticipantHandle, string> {
+  const pattern = new RegExp(
+    `(?:${identifierPattern("meetingAttendance").source})|(?:${identifierPattern("meetingGuestStay").source})`,
+  );
+  const field = z.string().regex(pattern);
+  return (name === undefined
+    ? field
+    : field.openapi({ param: { name, in: "path" } })) as unknown as z.ZodType<
+    MeetingParticipantHandle,
+    string
+  >;
+}
 
 const meetingIdParam = z.object({ meetingId: identifierPathParam("meeting", "meetingId") });
 const eventIdParam = z.object({ eventId: identifierPathParam("matterEvent", "eventId") });
@@ -284,8 +362,8 @@ function writeMeta(
     resource: "firm",
     audited: true,
     // Required. A retried join must not open a second stay for one person — the roster would count
-    // them twice against a room that holds twelve, and their record would say they were in the
-    // meeting twice over without ever having left.
+    // them twice against the room's ceiling, and their record would say they were in the meeting
+    // twice over without ever having left.
     idempotency: "required",
     idempotencyStore: "firm",
     rateLimit,
@@ -498,10 +576,18 @@ const socketRoute = defineOpenAPIRoute(readMeta("socket"), {
 
 // ---- refusals ----
 
-function meetingErrorResponse(
+/**
+ * The meeting family's refusal vocabulary, mapped once for every route that can raise it.
+ *
+ * Exported because there are three route files over one domain now — the room, its chat and its
+ * hosting — and a second copy of this switch is a second answer to what a member is told. The
+ * indistinguishability rules below are the reason it has to be one copy: they only hold if every
+ * door gives the same answer.
+ */
+export function meetingErrorResponse(
   c: Context,
   caught: MeetingValidationError,
-): ProblemResponse<404> | ProblemResponse<409> {
+): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<409> {
   switch (caught.code) {
     // The one refusal for every way a room is out of reach, kept indistinguishable on purpose.
     case "meeting-unknown-event":
@@ -536,10 +622,73 @@ function meetingErrorResponse(
         status: 409,
         detail: caught.message,
       });
+    // AN AUTHORITY ANSWER RATHER THAN A PERMISSION ONE. The member holds `meetings:host`; what they
+    // do not hold is a grant on this room, and the remedy is somebody handing it to them — or, in a
+    // room nobody is running, claiming it.
+    case "meeting-not-host":
+      return problemJson(c, {
+        type: "meeting-not-host",
+        title: "You are not hosting this meeting",
+        status: 403,
+        detail: caught.message,
+        // Not a request-access case: nothing an administrator can grant produces this.
+        requestAccess: false,
+      });
+    case "meeting-locked":
+      return problemJson(c, {
+        type: "meeting-locked",
+        title: "This meeting is locked",
+        status: 409,
+        detail: caught.message,
+      });
+    case "meeting-removed":
+      return problemJson(c, {
+        type: "meeting-removed",
+        title: "You were removed from this meeting",
+        status: 409,
+        detail: caught.message,
+      });
+    // The door's own two. `meeting-lobby-full` is deliberately NOT `meeting-room-full`: the two
+    // ceilings answer different questions and the remedies differ — a full room needs somebody to
+    // leave, a full lobby needs a host to look at the list.
+    case "meeting-lobby-full":
+      return problemJson(c, {
+        type: "meeting-lobby-full",
+        title: "This meeting's lobby is full",
+        status: 409,
+        detail: caught.message,
+      });
+    // The twin of `meeting-removed`, and its own type because a screen has to say the right thing:
+    // one is being put out of the room, the other is never having been let in.
+    case "meeting-not-admitted":
+      return problemJson(c, {
+        type: "meeting-not-admitted",
+        title: "A host did not admit you to this meeting",
+        status: 409,
+        detail: caught.message,
+      });
+    // THE GUEST LINK'S OWN CODES, which only the guest routes and the host's guest routes raise and
+    // which those routes answer through their own mapping (routes/meetings-guest.ts), with the 410s
+    // and 422s their contracts declare. No member route can raise one — none of them reaches the
+    // guest trio — so if one ever arrived here it is answered as the conflict it would be rather than
+    // as a fault with an Error ID.
+    case "guest-link-not-valid":
+    case "guest-link-expired":
+    case "guest-link-revoked":
+    case "guest-link-exhausted":
+    case "guest-not-invitable":
+    case "guest-name-not-valid":
+      return problemJson(c, {
+        type: "conflict",
+        title: "This cannot be done here",
+        status: 409,
+        detail: caught.message,
+      });
   }
 }
 
-function notConfigured(c: Context): ProblemResponse<503> {
+/** The 503 every meeting route answers where this deployment cannot route a meeting's media. */
+export function notConfigured(c: Context): ProblemResponse<503> {
   return problemJson(c, {
     type: "meetings-not-configured",
     status: 503,
@@ -575,7 +724,14 @@ function serviceOptions(userId: string) {
 
 type EffectOutcome<T> =
   | { ok: true; value: T; responseCode: number }
-  | { ok: false; problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> };
+  | {
+      ok: false;
+      problem:
+        | ProblemResponse<403>
+        | ProblemResponse<404>
+        | ProblemResponse<409>
+        | ProblemResponse<422>;
+    };
 
 /**
  * Runs one meeting write through the idempotency gate, mapping the subsystem's refusals on the way
@@ -619,6 +775,20 @@ async function commitEffect<T>(
         }),
       };
     }
+    // THE DOOR'S OWN CEILING, arrived at the same way and answered as a different thing. A hundred
+    // rows is what a queue may hold; the remedy is a host looking at the list rather than somebody
+    // leaving the room.
+    if (caught instanceof GuardedWriteRefusedError && caught.guard === JOIN_LOBBY_CAPACITY_GUARD) {
+      return {
+        ok: false,
+        problem: problemJson(c, {
+          type: "meeting-lobby-full",
+          title: "This meeting's lobby is full",
+          status: 409,
+          detail: `This meeting's lobby is full; it holds ${String(MAX_MEETING_LOBBY)} people.`,
+        }),
+      };
+    }
     throw caught;
   }
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
@@ -653,7 +823,7 @@ async function displayNameOf(database: SqlDatabase, userId: string): Promise<str
  * alone, never an empty list: a browser handed no servers at all gathers only its local addresses,
  * and one behind a home router would then never learn how it looks from outside.
  */
-async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServer>[]> {
+export async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServer>[]> {
   const mint = await generateIceServers(c.env, RELAY_CREDENTIAL_TTL_SECONDS);
   if (mint.kind === "minted") return [...mint.servers];
   if (mint.kind === "failed") {
@@ -672,41 +842,14 @@ async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServe
 }
 
 /**
- * Whether this upgrade was asked for by a page this deployment serves.
+ * The signaling room for one meeting, addressed by the SESSION firm id and never by a path value —
+ * a firm can no more signal into another firm's meeting than it can read one.
  *
- * A WEBSOCKET UPGRADE IS NOT SUBJECT TO THE SAME-ORIGIN POLICY. A browser will not let another
- * site's script read a `fetch` of this API, but it will happily let that script open a socket to it
- * and carry the member's cookie — so the session that protects every other route protects this one
- * only up to the point where somebody's page decides to open one. What that would buy an attacker is
- * the roster of a meeting the member is in and the ability to signal inside it, which is exactly the
- * thing the room exists to keep to the people who are in the room.
- *
- * `Origin` ABSENT IS ALLOWED, and that is not a hole: a non-browser client (a test, a tool) sends
- * none and is not the thing being defended against, while every browser attaches one to a
- * cross-origin upgrade without exception. Present, it must match — the request's own origin, which
- * is the per-request derivation the auth layer takes for the same question, or the deployment's
- * declared origin where one is configured and the two differ because a proxy re-addressed the
- * request.
+ * Exported because the hosting routes call the room back after their own writes commit, on the same
+ * `participantLeft` / `end` precedent, and a second way of addressing it would be a second answer to
+ * which object a firm reaches.
  */
-function isSameOriginUpgrade(c: MeetingContext): boolean {
-  const origin = c.req.header("origin");
-  if (origin === undefined || origin === "") return true;
-  const allowed = new Set([new URL(c.req.url).origin]);
-  const declared = c.env.APP_BASE_URL;
-  if (declared !== undefined && declared !== "") {
-    try {
-      allowed.add(new URL(declared).origin);
-    } catch {
-      // A misconfigured base URL narrows the check to the request's own origin rather than throwing
-      // a member out of a meeting over a deployment value they cannot see.
-    }
-  }
-  return allowed.has(origin);
-}
-
-function roomFor(env: Bindings, firmId: string, meetingId: string) {
-  // Addressed by the SESSION firm id, never a path value — a firm can no more signal into another
-  // firm's meeting than it can read one.
+export function meetingRoomFor(env: Bindings, firmId: string, meetingId: string) {
   return env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meetingId}`));
 }
 
@@ -724,7 +867,7 @@ export function registerMeetingsRoutes(
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
-      const { eventKind, eventId, medium } = c.req.valid("json");
+      const { eventKind, eventId, medium, lobby } = c.req.valid("json");
 
       let outcome;
       try {
@@ -735,7 +878,7 @@ export function registerMeetingsRoutes(
           async () => {
             const started = await createMeeting(
               firm.firmDatabase,
-              { eventKind: eventKind as MeetingEventKind, eventId, medium },
+              { eventKind: eventKind, eventId, medium, lobby },
               serviceOptions(userId),
             );
             return {
@@ -756,7 +899,7 @@ export function registerMeetingsRoutes(
         if (!isMeetingPerEventConflict(caught)) throw caught;
         const existing = await readMeetingForEvent(
           firm.firmDatabase,
-          eventKind as MeetingEventKind,
+          eventKind,
           eventId,
           visibleMatterPredicate(),
         );
@@ -878,7 +1021,7 @@ export function registerMeetingsRoutes(
 
       let outcome;
       try {
-        outcome = await commitEffect<{ participantId: string }>(
+        outcome = await commitEffect<{ participantId: string; waiting: boolean }>(
           c,
           firm.firmDatabase,
           idempotency,
@@ -889,7 +1032,7 @@ export function registerMeetingsRoutes(
               serviceOptions(userId),
             );
             return {
-              value: { participantId: joined.attendanceId },
+              value: { participantId: joined.attendanceId, waiting: joined.waiting },
               responseCode: 200,
               effect: joined.effect,
             };
@@ -902,13 +1045,16 @@ export function registerMeetingsRoutes(
         // over: the stay the other request opened is theirs, and handing it back is the same answer
         // the ordinary second join gives.
         if (!isOpenStayConflict(caught)) throw caught;
-        const open = await readOpenAttendance(
-          firm.firmDatabase,
-          meetingId as MeetingId,
-          userId as UserId,
-        );
+        const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
         if (open === undefined) throw caught;
-        outcome = { ok: true as const, value: { participantId: open.id }, responseCode: 200 };
+        outcome = {
+          ok: true as const,
+          // Whichever side of the door the stay the other request opened is on — read off the row
+          // rather than assumed, because the loser of this race cannot know which branch the winner
+          // took.
+          value: { participantId: open.id, waiting: isWaiting(open) },
+          responseCode: 200,
+        };
       }
       if (!outcome.ok) return outcome.problem;
 
@@ -919,7 +1065,15 @@ export function registerMeetingsRoutes(
         displayNameOf(firm.firmDatabase, userId),
         iceServersFor(c),
       ]);
-      return c.json({ participantId: outcome.value.participantId, displayName, iceServers }, 200);
+      return c.json(
+        {
+          participantId: outcome.value.participantId,
+          waiting: outcome.value.waiting,
+          displayName,
+          iceServers,
+        },
+        200,
+      );
     },
   );
 
@@ -935,11 +1089,7 @@ export function registerMeetingsRoutes(
 
       // The stay the write is about to close, read before it closes: the room's roster is keyed by
       // it, and after the commit there is nothing left to name.
-      const open = await readOpenAttendance(
-        firm.firmDatabase,
-        meetingId as MeetingId,
-        userId as UserId,
-      );
+      const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
 
       const outcome = await commitEffect<{ ok: true }>(
         c,
@@ -958,7 +1108,7 @@ export function registerMeetingsRoutes(
 
       // Told AFTER the record commits, so nobody is dropped from a room by a write that then failed.
       if (open !== undefined) {
-        await roomFor(c.env, firmId, meetingId).participantLeft(open.id);
+        await meetingRoomFor(c.env, firmId, meetingId).participantLeft(open.id);
       }
       return c.json({ ok: true } as const, 200);
     },
@@ -994,7 +1144,7 @@ export function registerMeetingsRoutes(
 
       // After the commit, for the same reason leaving is: a participant must never be told the
       // meeting ended by a write that did not land.
-      await roomFor(c.env, firmId, meetingId).end(outcome.value.endedAt);
+      await meetingRoomFor(c.env, firmId, meetingId).end(outcome.value.endedAt);
       return c.json({ ok: true } as const, 200);
     },
   );
@@ -1027,9 +1177,16 @@ export function registerMeetingsRoutes(
         {
           data: rows.map((row) => ({
             id: row.id,
+            participantKind: row.participant_kind,
             userId: row.user_id,
+            displayName: row.display_name,
+            entityId: row.entity_id,
+            invitedName: row.invited_name,
             joinedAt: row.joined_at,
             leftAt: row.left_at,
+            waitingFrom: row.waiting_from,
+            admittedAt: row.admitted_at,
+            endedReason: row.ended_reason,
           })),
           // Keyed on the same expression the list is ordered by, so the walk cannot skip or repeat.
           nextCursor: hasMore && last !== undefined ? encodeCursor(last.joined_at, last.id) : null,
@@ -1052,7 +1209,7 @@ export function registerMeetingsRoutes(
       // Asked before anything is read, because it is a question about the REQUEST rather than about
       // the meeting: an answer that varied with whether the meeting exists would tell a foreign page
       // that much by timing alone.
-      if (!isSameOriginUpgrade(c)) {
+      if (!isSameOriginUpgrade(c.req.raw, c.env.APP_BASE_URL)) {
         return problemJson(c, {
           type: "permission-denied",
           status: 403,
@@ -1079,11 +1236,7 @@ export function registerMeetingsRoutes(
       // THE OPEN STAY IS THE TICKET. Signaling on a meeting the caller has not joined would put them
       // on the roster without a record of their being there, and the cap is counted over stays — so
       // a socket that did not need one would be a way past it.
-      const open = await readOpenAttendance(
-        firm.firmDatabase,
-        meetingId as MeetingId,
-        userId as UserId,
-      );
+      const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
       if (open === undefined) {
         return problemJson(c, {
           type: "meeting-not-joined",
@@ -1104,7 +1257,15 @@ export function registerMeetingsRoutes(
 
       // Built from server-derived values only and never by re-wrapping the caller's request, so no
       // cookie and no caller-supplied header travels on to the room.
-      return await roomFor(c.env, firmId, meetingId).fetch(
+      const [displayName, grant] = await Promise.all([
+        displayNameOf(firm.firmDatabase, userId),
+        // The caller's live grant, read here so the room's stored record starts out right. It is a
+        // SEED and never the authority: the room re-reads its own record for every host frame,
+        // because a socket's attachment is frozen at upgrade and hosting is exactly the thing that
+        // changes during a meeting.
+        readLiveHostGrant(firm.firmDatabase, meetingId as MeetingId, userId),
+      ]);
+      return await meetingRoomFor(c.env, firmId, meetingId).fetch(
         meetingSocketRequest({
           // The room is told what kind of gathering it is, off the meeting row the caller was just
           // authorized against — so a browser cannot name its own medium and publish a camera into
@@ -1114,7 +1275,19 @@ export function registerMeetingsRoutes(
           meetingId,
           userId,
           attendanceId: open.id,
-          displayName: await displayNameOf(firm.firmDatabase, userId),
+          displayName,
+          hostRole: grant?.role ?? null,
+          // Off the same row, so the room can say what is true of itself on the welcome without
+          // asking the firm's database once per socket.
+          locked: meeting.locked_at !== null,
+          lobby: meeting.lobby,
+          // DERIVED FROM THE STAY THE UPGRADE WAS JUST AUTHORIZED AGAINST, never named by the
+          // browser: the row says whether this person is at the door or in the room, and it is what
+          // sends the socket into the lobby state rather than into the room.
+          waiting: isWaiting(open),
+          // The instant off the stay itself, so the room repeats the record rather than stamping a
+          // second answer of its own.
+          waitingFrom: open.waiting_from ?? "",
         }),
       );
     },

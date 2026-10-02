@@ -40,6 +40,8 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     endedAt: null,
     medium: "video",
     liveCount: 3,
+    locked: false,
+    lobby: "off",
     configured: true,
     ...overrides,
   };
@@ -106,7 +108,13 @@ describe("the Meetings screen", () => {
   it("draws what came back under the section it belongs to", async () => {
     answerWith({
       live: [meeting()],
-      upcoming: [meeting({ id: "meeting_2", title: "Partners meeting", status: "scheduled" })],
+      upcoming: [
+        meeting({
+          id: "meeting_2",
+          title: "Partners meeting",
+          status: "scheduled",
+        }),
+      ],
       recent: [
         meeting({
           id: "meeting_3",
@@ -130,7 +138,11 @@ describe("the Meetings screen", () => {
 
   it("says meetings are not turned on rather than listing three empty sections", async () => {
     // The flag rides on the summaries themselves, which is how the server states it.
-    answerWith({ live: [meeting({ configured: false })], upcoming: [], recent: [] });
+    answerWith({
+      live: [meeting({ configured: false })],
+      upcoming: [],
+      recent: [],
+    });
 
     const rendered = await draw();
 

@@ -197,6 +197,18 @@ export const NOTIFICATION_AUDIENCES = Object.freeze([
   // Deliberately NOT `designated`, which is the firm's trust-compliance designation and resolves to
   // nobody when unconfigured — a task assignment declared that way would deliver to no one, silently.
   "named-recipient",
+  // SEVERAL MEMBERS, named by the topic's own payload — the member participants a calendar event
+  // named when a meeting was scheduled on it.
+  //
+  // The plural of `named-recipient` and resolved on exactly its reasoning: from the PAYLOAD, never
+  // from the row. The people to invite are the people who were on the event when it was recorded;
+  // re-reading the participant rows when the queue drains would invite whoever happens to be on it
+  // by then, and would miss whoever was taken off between the two.
+  //
+  // Deliberately NOT `matter-team`, which is the people carrying the file. Those two lists overlap
+  // and are different questions: a hearing appearing on a case is the team's fact, and being asked
+  // to be in a room at nine on Tuesday is the fact of the people who were asked.
+  "named-members",
 ] as const);
 export type NotificationAudience = (typeof NOTIFICATION_AUDIENCES)[number];
 

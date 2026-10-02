@@ -19,6 +19,16 @@
 // as a control character — those bytes are continuation bytes of ordinary characters — so this scans
 // decoded CODE POINTS rather than bytes, and reports the code point it found.
 //
+// AND U+FFFD, THE REPLACEMENT CHARACTER, which is not a control character and is banned raw for its
+// own two reasons. It is what a decoder emits for bytes it could NOT read, so a literal one in source
+// is indistinguishable from a file that was itself mangled in transit — the reader cannot tell a
+// deliberate one from damage, which is the same legibility failure as an invisible byte arriving from
+// the other direction. And one inside a u-flagged regular expression that is actually used hangs the
+// linter outright: no error, no timeout, no file named. That cost this repository six days of an
+// unrunnable gate of record in September 2026, diagnosed five times as a slow machine, because a check
+// that never returns looks exactly like one that is merely slow. `\uFFFD` is the same character to
+// every consumer and none of that is true of it.
+//
 // Escape hatch: a `control-characters:allow` comment ON THE SAME LINE, with a reason. Reach for it only
 // where writing the escape would change what the line proves; converting is otherwise always available,
 // including in a test whose whole subject is the control byte.
@@ -74,14 +84,26 @@ const NAMED_ESCAPES = new Map([
   [0x0b, "\\v"],
   [0x0c, "\\f"],
   [0x1b, "\\u001b"],
+  // Upper case, because this one is read by people rather than only matched: \uFFFD is legible as the
+  // replacement character at a glance, and \ufffd reads as an arbitrary code point.
+  [0xfffd, "\\uFFFD"],
 ]);
 
 export function escapeFor(codePoint) {
   return NAMED_ESCAPES.get(codePoint) ?? `\\u${codePoint.toString(16).padStart(4, "0")}`;
 }
 
-// Every offending code point in one file's text, as { line, column, codePoint }. Pure over the text so
-// the fixture test drives it directly rather than through the filesystem.
+/** The replacement character: what a decoder emits for bytes it could not read. Never written raw. */
+export const REPLACEMENT_CHARACTER = 0xfffd;
+
+/**
+ * Every offending code point in one file's text, as { line, column, codePoint, kind }. Pure over the
+ * text so the fixture test drives it directly rather than through the filesystem.
+ *
+ * `kind` is "control" or "replacement" — they are reported together because the remedy is identical
+ * (write the escape) but explained separately, because the reasons are not the same and a reader who
+ * is told the wrong one will argue with it.
+ */
 export function controlCharactersIn(text) {
   const found = [];
   let line = 1;
@@ -95,7 +117,9 @@ export function controlCharactersIn(text) {
     }
     // Tab and carriage return are the other two a source file legitimately holds raw.
     if (codePoint !== 0x09 && codePoint !== 0x0d && (codePoint < 0x20 || codePoint === 0x7f)) {
-      found.push({ line, column, codePoint });
+      found.push({ line, column, codePoint, kind: "control" });
+    } else if (codePoint === REPLACEMENT_CHARACTER) {
+      found.push({ line, column, codePoint, kind: "replacement" });
     }
     column += 1;
   }
@@ -114,6 +138,19 @@ const SELF_TEST = [
   { name: "tab, newline and carriage return stay legal", text: "a\tb\r\nc", expect: [] },
   { name: "the escape form is not a finding", text: 'join("\\0")', expect: [] },
   { name: "ordinary multi-byte text is not a finding", text: "café — naïve ☂", expect: [] },
+  {
+    name: "a raw replacement character",
+    text: `replace(/${String.fromCodePoint(0xfffd)}$/u, "")`,
+    expect: [0xfffd],
+  },
+  { name: "its escape form is not a finding", text: 'replace(/\\uFFFD$/u, "")', expect: [] },
+  {
+    // The neighbours on either side, so a botched comparison that swallowed the whole range would be
+    // caught rather than passing as a tightened rule.
+    name: "the code points either side of it are ordinary text",
+    text: `${String.fromCodePoint(0xfffc)}${String.fromCodePoint(0xfffe)}`,
+    expect: [],
+  },
 ];
 
 function runSelfTest() {
@@ -176,11 +213,13 @@ function main() {
         }
         continue;
       }
-      offenders.push(
-        `  ${relativePath}:${finding.line}:${finding.column}` +
+      offenders.push({
+        kind: finding.kind,
+        line:
+          `  ${relativePath}:${finding.line}:${finding.column}` +
           `  U+${finding.codePoint.toString(16).toUpperCase().padStart(4, "0")}` +
           `  write it as "${escapeFor(finding.codePoint)}"`,
-      );
+      });
     }
   }
 
@@ -191,16 +230,33 @@ function main() {
     );
     console.error(emptyAllowances.join("\n"));
   }
-  if (offenders.length > 0) {
+  // Reported apart because the remedy is shared and the reasoning is not, and a reader handed the
+  // wrong reason for their finding will argue with the rule instead of fixing the line.
+  const control = offenders.filter((finding) => finding.kind === "control");
+  const replacement = offenders.filter((finding) => finding.kind === "replacement");
+
+  if (control.length > 0) {
     console.error("\nRaw control characters in source — invisible in reads, diffs, and reviews.\n");
     console.error(
       "Write the escape instead: it is the same value at runtime and says what the byte is.\n",
     );
-    console.error(offenders.join("\n"));
-    console.error(`\n${offenders.length} raw control character(s) found in code.`);
+    console.error(control.map((finding) => finding.line).join("\n"));
+    console.error(`\n${control.length} raw control character(s) found in code.`);
+  }
+  if (replacement.length > 0) {
+    console.error(
+      "\nA raw U+FFFD in source — the character a decoder emits for bytes it could NOT read.\n",
+    );
+    console.error(
+      "Write it as \\uFFFD. Raw, a reader cannot tell a deliberate one from a mangled file, and one\n" +
+        "inside a u-flagged regular expression that is used hangs the linter with no error and no file\n" +
+        "named — which took six days to find the last time it happened.\n",
+    );
+    console.error(replacement.map((finding) => finding.line).join("\n"));
+    console.error(`\n${replacement.length} raw replacement character(s) found in code.`);
   }
   if (offenders.length > 0 || emptyAllowances.length > 0) process.exit(1);
-  console.log("No raw control characters in code.");
+  console.log("No raw control or replacement characters in code.");
 }
 
 if (process.argv[1] === SELF) main();

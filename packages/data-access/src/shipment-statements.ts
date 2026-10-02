@@ -244,3 +244,35 @@ export function listTrackingEventsStatement(
     )
     .bind(shipmentRef);
 }
+
+// The firm's shipments, newest first, for the register. Keyset pagination on (created_at, id) rather
+// than an offset: a register is read while shipments are being created, and an offset would skip or
+// repeat rows as the page moves under the reader. The id breaks ties so two shipments created in the
+// same millisecond cannot straddle a page boundary and lose one.
+//
+// The projection is what a register row shows plus what its window opens with — deliberately not
+// SELECT *, so the addresses and the options blob (the largest columns, and the ones holding a
+// recipient's details) are read only when one shipment is actually opened.
+export function listShipmentsStatement(
+  database: SqlDatabase,
+  options: { readonly limit: number; readonly cursor: ShipmentListCursor | null },
+): SqlStatement {
+  const projection = `id, matter_ref, status, to_address, carrier, service, tracking_code, postage_cost_minor, service_fee_minor, currency, created_at`;
+  if (options.cursor === null) {
+    return database
+      .prepare(
+        `SELECT ${projection} FROM ${SHIPMENT_TABLE} ORDER BY created_at DESC, id DESC LIMIT ?1`,
+      )
+      .bind(options.limit);
+  }
+  return database
+    .prepare(
+      `SELECT ${projection} FROM ${SHIPMENT_TABLE} WHERE (created_at < ?1) OR (created_at = ?1 AND id < ?2) ORDER BY created_at DESC, id DESC LIMIT ?3`,
+    )
+    .bind(options.cursor.createdAt, options.cursor.id, options.limit);
+}
+
+export interface ShipmentListCursor {
+  readonly createdAt: string;
+  readonly id: string;
+}

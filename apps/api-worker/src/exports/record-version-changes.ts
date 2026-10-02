@@ -34,6 +34,8 @@ async function participantNames(
   database: SqlDatabase,
   versionId: FileVersionId,
 ): Promise<ReadonlyMap<string, UserId>> {
+  // The participant table, not file_version: the version's status was gated by the read that
+  // handed this its id (readVersionForExportCopy). fitness:allow-no-status
   const { results } = await database
     .prepare(
       `SELECT p.member_user_id, m.display_name FROM ${FILE_VERSION_PARTICIPANT_TABLE} p ` +

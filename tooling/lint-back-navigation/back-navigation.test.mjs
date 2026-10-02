@@ -433,6 +433,7 @@ describe("declining", () => {
   it("carries every standing exemption, each with a reason", () => {
     expect([...STANDING_EXEMPTIONS.keys()]).toEqual([
       "/directory/[id]",
+      "/shipping/[id]",
       "/documents/[id]/edit",
       "/documents/[id]/view",
       "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",

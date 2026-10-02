@@ -38,6 +38,37 @@ export interface CalendarEventTopicPayload {
   readonly matterId: string;
 }
 
+// A meeting or a call was scheduled on a matter event — the event was recorded with a medium on it,
+// and the people named on it are being invited to something they now have to be at.
+//
+// The meeting ROW belongs to @magna-carta/meetings; the announcement belongs to the act of recording
+// an event with a medium, which is this module's subject, and putting the name here is what lets the
+// producer and the subscriber import one spelling of it. Two spellings would not throw — an
+// unrecognized topic on the per-firm bus is acked and ignored by design — they would just stop
+// delivering.
+export const CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC = "calendar.event.meetingScheduled";
+
+// What the invitation carries: identifiers, one closed label, and the member handles invited.
+//
+// `invitedMemberUserIds` is the MEMBER participants named on the event at the write, and nothing
+// else. The people to tell are the people who were on it when it was recorded — re-reading the
+// participant rows when the queue drains would invite whoever happens to be on the event by then.
+// Directory entities are deliberately absent: an external guest has no way in yet, so there is
+// nobody to name.
+//
+// No title, no description, no location and no participant NAME, on the same reasoning the three
+// topics above carry none: a message that crosses a queue and lands in a notification row outlives
+// the access check that justified writing it.
+export interface CalendarEventMeetingScheduledPayload {
+  readonly matterEventId: string;
+  readonly matterId: string;
+  readonly meetingId: string;
+  // `video` or `audio`, from the meeting vocabulary. Carried as the closed label it is rather than
+  // as a boolean, because "a call" and "a meeting" are the two things a member reads differently.
+  readonly medium: string;
+  readonly invitedMemberUserIds: readonly string[];
+}
+
 // An open deadline is due today, in its OWN zone. Not a topic and never will be: no write in this
 // package or anywhere else makes a deadline become due, so there is no batch to ride. It is a
 // comparison a sweep performs, and the name exists so the sweep and this package agree on one
@@ -57,6 +88,7 @@ export const CALENDAR_NOTIFICATION_EMISSION_POINTS = Object.freeze([
   CALENDAR_EVENT_SCHEDULED_TOPIC,
   CALENDAR_EVENT_RESCHEDULED_TOPIC,
   CALENDAR_EVENT_CANCELLED_TOPIC,
+  CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
   // The firm-event write paths, same discipline: declared here, wired to nothing. A firm event has
   // no matter to anchor a notification's visibility to, so it needs the firm-scoped audience
   // question answered before it can be raised.
@@ -74,6 +106,11 @@ export const CALENDAR_OUTBOX_TOPICS = Object.freeze([
   CALENDAR_EVENT_SCHEDULED_TOPIC,
   CALENDAR_EVENT_RESCHEDULED_TOPIC,
   CALENDAR_EVENT_CANCELLED_TOPIC,
+  // Raised by the route that records an event with a medium on it, rather than by a service in this
+  // package: the row it announces is a meeting, which this package does not know about and must not
+  // start depending on. The name lives here so the producer and the subscriber cannot spell it two
+  // ways, which is the only failure this indirection exists to refuse.
+  CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
 ] as const);
 
 export type CalendarOutboxTopic = (typeof CALENDAR_OUTBOX_TOPICS)[number];

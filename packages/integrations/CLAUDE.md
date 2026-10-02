@@ -11,7 +11,11 @@ The ports-and-adapters foundation every integration plugs into. Pure package —
 - Canonical records carry `remoteId` + opt-in `raw`; build the schema with `canonicalRecordSchema`,
   which validates the boundary (external data is untrusted).
 - `resolve()` returns a typed `Dispatch` — `not-connected` / `capability-unsupported` /
-  `credential-store-not-implemented` / `adapter-error`, never a throw. Adapters map vendor errors into
+  `credential-store-not-implemented` / `credential-forbidden` / `adapter-error`, never a throw. A
+  `CredentialStore` may raise exactly one error, `CredentialAccessForbiddenError`, which the registry
+  catches and returns as `credential-forbidden`; that is what lets the promise hold while a store
+  enforces a permission. Never fold it into `not-connected` — the account IS connected, and the
+  remedy is a grant rather than a reconnect. Adapters map vendor errors into
   `IntegrationProblem` (the `category` drives retry + the connection health state machine).
 - **A deployment with no per-firm credential read is a first-class outcome, not a throw.** Hand the
   registry `unbuiltCredentialStore` and every credentialed resolution answers

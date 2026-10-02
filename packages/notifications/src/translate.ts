@@ -129,6 +129,10 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
       // The member a `named-recipient` type names. Read from the payload rather than from the
       // subject's row, so the person told is whoever was named at the write.
       namedRecipientUserId: readNamedRecipient(type, payload),
+      // The members a `named-members` type names, from the same declared payload field. Read here
+      // for the same reason the single handle is: the invitation is addressed to whoever was on the
+      // event at the write.
+      namedMemberUserIds: readNamedMembers(type, payload),
       now: options.now,
       policy,
     });
@@ -252,6 +256,22 @@ function readNamedRecipient(
   if (key === undefined) return null;
   const named = payload[key];
   return typeof named === "string" && named.length > 0 ? (named as UserId) : null;
+}
+
+// The members a `named-members` type is for, from the payload field the TYPE declares. The same
+// indirection the single handle takes, and the same tolerance: a field that is not an array of
+// non-empty strings yields an empty list rather than a throw, because the audience that wants it is
+// the only one that will miss it, and a producer that changed shape is reported by the empty-audience
+// counter rather than by dead-lettering a message an owning handler read perfectly well.
+function readNamedMembers(
+  type: NotificationType,
+  payload: Readonly<Record<string, unknown>>,
+): readonly UserId[] {
+  const key = type.audiencePayloadKey;
+  if (key === undefined) return [];
+  const named = payload[key];
+  if (!Array.isArray(named)) return [];
+  return named.filter((value): value is UserId => typeof value === "string" && value.length > 0);
 }
 
 async function resolveMatterId(

@@ -32,6 +32,14 @@ export type LiveSessionPlan =
  */
 export const LIVE_SESSION_MAXIMUM_AGE_MILLISECONDS = 15 * 60 * 1000;
 
+/*
+ * How long a live stream survives with no input from the member. Every pointer move counts, so a
+ * member reading and scrolling keeps it; one who walked away stops paying for it. The service's own
+ * keep-alive tops out at ten minutes and is the ceiling this sits under, not a target. Shared with
+ * the page, whose copy states the number rather than a hard-coded one that could drift from it.
+ */
+export const LIVE_SESSION_IDLE_MILLISECONDS = 3 * 60 * 1000;
+
 /**
  * What to do about the member's browser before this navigation.
  *

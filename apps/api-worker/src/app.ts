@@ -2,11 +2,8 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
 import type { SealPort } from "@magna-carta/signing/port";
 import type { Logger } from "@magna-carta/telemetry/logger";
-import {
-  createWorkersLogger,
-  type AnalyticsEngineDataset,
-} from "@magna-carta/telemetry/workers-logger";
-import { createAuth } from "./auth.ts";
+import type { AnalyticsEngineDataset } from "@magna-carta/telemetry/workers-logger";
+import { authForEnv, defaultLoggerForEnv, emailAdapterForEnv } from "./auth-instance.ts";
 import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import type { HumanVerificationGateOptions } from "./human-verification/human-verification-gate.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
@@ -15,9 +12,8 @@ import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
 import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
-import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
-import { deliverEmail } from "./email-delivery.ts";
-import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import type { CloudflareEmailBinding } from "./email-cloudflare.ts";
+import type { SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
@@ -50,6 +46,13 @@ import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerMatterSearchRoutes } from "./routes/matter-search.ts";
 import { registerCommunicationsRoutes } from "./routes/communications.ts";
 import { registerMeetingsRoutes } from "./routes/meetings.ts";
+import { registerMeetingChatRoutes } from "./routes/meeting-chat.ts";
+import { registerMeetingPollRoutes } from "./routes/meeting-polls.ts";
+import { registerMeetingQuestionRoutes } from "./routes/meeting-questions.ts";
+import { registerMeetingHostingRoutes } from "./routes/meeting-hosting.ts";
+import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
+import { registerMeetingGuestRoutes } from "./routes/meetings-guest.ts";
+import { registerMeetingInspectRoutes } from "./routes/meeting-inspect.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
@@ -81,7 +84,7 @@ import { registerLocationsRoutes } from "./routes/locations.ts";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
 import { workerPlugins } from "./plugins/registry.ts";
 import type { PluginRuntime } from "./plugins/runtime.ts";
-import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
+import { integrationCredentialStoreForFirm } from "./plugins/credential-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
@@ -100,10 +103,7 @@ import {
 } from "./routes/safe-browse.ts";
 import { registerSafeBrowseSessionProbeRoute } from "./routes/safe-browse-session-probe.ts";
 import { registerSafeBrowseLocationProbeRoute } from "./routes/safe-browse-location-probe.ts";
-import {
-  registerSafeBrowseLiveRoutes,
-  type SafeBrowseLiveRouteDeps,
-} from "./routes/safe-browse-live.ts";
+import { registerSafeBrowseLiveRoutes } from "./routes/safe-browse-live.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -476,74 +476,6 @@ export type Bindings = {
   MEETING_ROOM: DurableObjectNamespace<import("./meetings/meeting-room.ts").MeetingRoom>;
 };
 
-// One Better Auth instance per worker env: the env object is stable across requests within an
-// isolate, so a WeakMap-keyed cache builds the auth context once instead of on every request.
-// The dev logging email adapter is wired here for now; slice 0·6 swaps in real transactional
-// email behind the same SendEmail port.
-const authInstanceByEnv = new WeakMap<Bindings, ReturnType<typeof createAuth>>();
-
-// The outbound-email adapter for an env: the real Cloudflare Email Service when its binding AND
-// EMAIL_FROM are both present (production), otherwise the dev logging adapter. EMAIL_FROM is the
-// selection key — unset in dev/test (.dev.vars omits it), so tests never touch the real binding and
-// no domain onboarding is required to run locally. The Cloudflare adapter logs through the per-env
-// Workers logger (email.sent — class + outcome, never body).
-function emailAdapterForEnv(env: Bindings): SendEmail {
-  if (env.SEND_EMAIL !== undefined && env.EMAIL_FROM !== undefined && env.EMAIL_FROM !== "") {
-    return createCloudflareEmailAdapter(env.SEND_EMAIL, env.EMAIL_FROM, defaultLoggerForEnv(env));
-  }
-  return createLoggingEmailAdapter();
-}
-
-export function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
-  let auth = authInstanceByEnv.get(env);
-  if (auth === undefined) {
-    // THE PORT IS GUARDED BEFORE IT REACHES BETTER AUTH, and it has to be guarded HERE rather than
-    // around the calls, because the library will not let a caller see a send fail. Its
-    // `runInBackgroundOrAwait` awaits the send and then swallows whatever it throws into its own
-    // logger (verified against the installed 1.6.22, context/create-context.mjs), so
-    // `api.requestPasswordReset` resolves successfully whether or not a mail went out and a
-    // try/catch at the call site is dead code. Wrapping the port is the only place the failure is
-    // observable at all — so this is where it becomes a counted, correlated fact instead of a line
-    // in a third-party logger that nothing aggregates.
-    auth = createAuth(env, countingEmailPort(emailAdapterForEnv(env), env));
-    authInstanceByEnv.set(env, auth);
-  }
-  return auth;
-}
-
-/**
- * Wrap a send so a failure is counted and correlated on its way past, then rethrown unchanged. The
- * rethrow matters: Better Auth catches it (see above), while a direct caller that awaits the port
- * still sees the throw and can answer for it.
- */
-function countingEmailPort(send: SendEmail, env: Bindings): SendEmail {
-  return async (message) => {
-    const delivery = await deliverEmail({
-      attempt: () => send(message),
-      messageClass: message.messageClass ?? "unspecified",
-      // Not a route: this guard sits under every Better Auth-originated send, and which endpoint
-      // asked is not knowable from here. The message class is what distinguishes them.
-      surface: "better-auth",
-      logger: defaultLoggerForEnv(env),
-    });
-    if (!delivery.delivered) {
-      throw new Error(`email send failed (${message.messageClass ?? "unspecified"})`);
-    }
-  };
-}
-
-// One Workers logger per env (the env object is stable within an isolate), built over the optional
-// TELEMETRY Analytics Engine binding. The single production wiring of createWorkersLogger.
-const loggerInstanceByEnv = new WeakMap<Bindings, Logger>();
-function defaultLoggerForEnv(env: Bindings): Logger {
-  let logger = loggerInstanceByEnv.get(env);
-  if (logger === undefined) {
-    logger = createWorkersLogger(env.TELEMETRY);
-    loggerInstanceByEnv.set(env, logger);
-  }
-  return logger;
-}
-
 // createApp options exist for tests (the seam is ours): a memory logger to assert emitted events, an
 // injectable clock for deterministic durations, and the telemetry probe routes that exercise the
 // error boundary and the route-template behavior. Production (index.ts) calls createApp() with no
@@ -562,9 +494,6 @@ export interface CreateAppOptions {
   // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
   // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
   safeBrowseDeps?: SafeBrowseRouteDeps;
-  // The live route's navigator, on the same terms: the test pool has no browser, so tests supply
-  // one and the Browser Rendering binding is only ever read in a deployment.
-  safeBrowseLiveDeps?: SafeBrowseLiveRouteDeps;
   // Overrides the seal port for tests (a fake SealPort). Production resolves it from the SIGN_SERVICE
   // binding inside the route; while that binding is unset, the route returns 503 (deferred activation).
   sealPort?: SealPort;
@@ -573,6 +502,10 @@ export interface CreateAppOptions {
   // environment inside the handler; no secret is set anywhere, so the default everywhere is the
   // not-configured verifier.
   humanVerification?: HumanVerificationGateOptions;
+  // Overrides the sender of a meeting guest's invitation letter for tests, which read the link
+  // out of the captured message because the server hands it to nobody else. Production sends
+  // through the environment's email adapter.
+  meetingGuestMail?: (env: Bindings) => SendEmail;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -728,7 +661,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseSessionProbeRoute(app, chokepoint);
   registerSafeBrowseLocationProbeRoute(app, chokepoint);
-  registerSafeBrowseLiveRoutes(app, chokepoint, options.safeBrowseLiveDeps ?? {});
+  registerSafeBrowseLiveRoutes(app, chokepoint);
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted
@@ -847,6 +780,37 @@ export function createApp(options: CreateAppOptions = {}) {
   // routed between browsers and never reaches this platform; these routes are the record plus the
   // upgrade into the signaling room.
   registerMeetingsRoutes(app, chokepoint);
+  // The meeting's chat, which is the subsystem's one piece of stored content: kept on the record
+  // like a filed message rather than discarded with the room, so what was said in a meeting on a
+  // matter is on the file. Registered beside the room because it is the same meeting read through
+  // the same gate.
+  registerMeetingChatRoutes(app, chokepoint);
+  // A meeting's polls and its question queue — content the meeting produced, kept on the record on
+  // the chat's own terms: every act is a route with an audit row, and the room relays a copy after
+  // the commit.
+  registerMeetingPollRoutes(app, chokepoint);
+  registerMeetingQuestionRoutes(app, chokepoint);
+  // Who is running a meeting, and the acts that need somebody's name against them afterwards —
+  // removing a participant, shutting the door, handing the room over. A file of its own because
+  // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the
+  // acts that leave nothing behind (mute, spotlight) are frames on the signaling socket instead.
+  registerMeetingHostingRoutes(app, chokepoint);
+  // The meeting's door — whether arrivals wait, who is at it, and a host's decision about each of
+  // them. One lobby per meeting and never one per firm: a firm holds several meetings at once, so a
+  // firm-level door would queue the people arriving at a deposition behind the people arriving at a
+  // staff briefing. Its own file because it is its own resource, and the one read in this family
+  // that the room may not see.
+  registerMeetingLobbyRoutes(app, chokepoint);
+  // A meeting's GUESTS — somebody from outside the firm on a signed, expiring link for one Directory
+  // entity. The host's four routes mint, list, rotate and withdraw links on the ordinary member path;
+  // the guest's six ride the chokepoint's guest lane, which admits a signed credential rather than a
+  // session and never stashes a user id, so nothing a guest calls can reach a member handler. The
+  // mail goes through the same outbound port every other transactional message does.
+  registerMeetingGuestRoutes(app, chokepoint, options.meetingGuestMail ?? emailAdapterForEnv);
+  // The operator's read into one live room, behind the platform-operator guard rather than the
+  // firm door every other meeting route goes through: a meeting holds no rows and deletes its own
+  // state as it goes, so from outside it there is nothing to look at when one goes wrong.
+  registerMeetingInspectRoutes(app, chokepoint);
   registerMatterSearchRoutes(app, chokepoint);
   registerTasksRoutes(app, chokepoint);
   registerMatterPlanRoutes(app, chokepoint);
@@ -950,7 +914,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // in tests.
   const pluginRuntime: PluginRuntime = {
     httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
-    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+    credentialStoreForFirm:
+      options.pluginRuntime?.credentialStoreForFirm ?? integrationCredentialStoreForFirm,
   };
   // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
   for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);
