@@ -32,6 +32,7 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import FileVolume from "@lucide/svelte/icons/file-volume";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { failureOf } from "$lib/api/api-client.ts";
   import { paged } from "$lib/api/screen-data.ts";
   import {
@@ -160,8 +161,7 @@
       variant="ghost"
       size="sm"
       href={address}
-      target="_blank"
-      rel="noopener noreferrer"
+      {...opensBeside("file")}
       aria-label={`Open the recording started ${formatInstant(row.startedAt)}`}
       onclick={(event: MouseEvent) => event.stopPropagation()}
       ondblclick={(event: MouseEvent) => event.stopPropagation()}
