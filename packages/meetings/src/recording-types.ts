@@ -8,6 +8,7 @@ import type {
   MeetingRecordingTrackId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { PCM_SAMPLE_RATE } from "./pcm-frame.ts";
 import type { MeetingContributorKind } from "./types.ts";
 
 // A MEETING'S RECORDING: the vocabularies, the stored rows, and what a surface is given.
@@ -109,6 +110,9 @@ export interface MeetingRecordingRow {
   readonly compose_parts: string | null;
   readonly compose_attempts: number;
   readonly compose_progress_at: string | null;
+  // When the consumer composing the current window claimed it; null when nobody holds it. A lease, so
+  // two deliveries of one message never compose one window at once.
+  readonly compose_claimed_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -134,6 +138,9 @@ export interface MeetingRecordingTrackRow {
   readonly staging_key: string | null;
   readonly first_frame_at: string | null;
   readonly last_frame_at: string | null;
+  // JSON of `MeetingRecordingTrackSegment[]`; null for a track that never carried a frame, or one
+  // staged before segments were recorded (read as one stretch from `first_frame_at`).
+  readonly segments: string | null;
   readonly frames_received: number;
   readonly frames_dropped: number;
   readonly state: MeetingRecordingTrackState;
@@ -227,3 +234,125 @@ export interface MeetingRecordingNoticeEntry {
  * never been recorded, otherwise the state of its most recent recording.
  */
 export type MeetingRecordingStateOfRoom = "none" | MeetingRecordingState;
+
+// ---------------------------------------------------------------------------------------------
+// Where a staged track's audio belongs in time.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * ONE STRETCH OF A STAGED TRACK: the staged sample it begins at, the instant that sample was heard,
+ * and — for a stretch its participant left at — the staged sample its audio ends at.
+ *
+ * WHY A TRACK HAS STRETCHES. A staged track is one object, and an object is one run of samples. Most
+ * of a track is exactly that: every frame lands right after the last one, with silence written for the
+ * frames that never arrived. Two things break the run. A participant who leaves has their buffer
+ * closed with silence up to a part boundary (a multipart upload takes only one short part, and it has
+ * to be the last), so when they come back, the object has run on by up to a part — about fifty-five
+ * seconds — that they were not away for. And a gap too long to be worth staging as silence (a
+ * participant away for an hour is an hour of zeros uploaded for nothing) is not staged at all. In both
+ * cases the next frame begins a new stretch, at the end of the object as it stands, and carries the
+ * instant it was heard; the compose places every stretch at its own instant, so neither the padding nor
+ * the gap moves anything said afterwards.
+ */
+export interface MeetingRecordingTrackSegment {
+  readonly stagedFromSample: number;
+  readonly at: string;
+  // Where this stretch's audio ends in the staged object when something that is not audio follows it
+  // (the padding a departure closes it with); null when it runs to the next stretch or the object's end.
+  readonly stagedToSample: number | null;
+}
+
+/**
+ * THE MOST STRETCHES ONE TRACK RECORDS. A stretch is one departure and return, or one gap longer than
+ * the recorder stages as silence, so even a participant on a connection that drops every few minutes
+ * for a twelve-hour day stays far below it. The bound exists because the stretches ride the track's
+ * metadata in the recorder's own storage, beside its part list, and that record has a size ceiling;
+ * past it, a return is placed on the track's own timeline instead (late by the padding, never lost).
+ */
+export const MAXIMUM_TRACK_SEGMENTS = 256;
+
+/** The stretches a stored row carries, or null when they are not a list of stretches. */
+export function parseTrackSegments(text: string | null): MeetingRecordingTrackSegment[] | null {
+  if (text === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const segments: MeetingRecordingTrackSegment[] = [];
+  for (const entry of parsed as unknown[]) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const { stagedFromSample, at, stagedToSample } = entry as Record<string, unknown>;
+    if (
+      typeof stagedFromSample !== "number" ||
+      !Number.isInteger(stagedFromSample) ||
+      stagedFromSample < 0 ||
+      typeof at !== "string" ||
+      Number.isNaN(Date.parse(at)) ||
+      !(
+        stagedToSample === null ||
+        stagedToSample === undefined ||
+        (typeof stagedToSample === "number" &&
+          Number.isInteger(stagedToSample) &&
+          stagedToSample >= stagedFromSample)
+      )
+    ) {
+      return null;
+    }
+    segments.push({ stagedFromSample, at, stagedToSample: stagedToSample ?? null });
+  }
+  return segments;
+}
+
+/** One run of a staged object as it lands on the composite. */
+export interface PlacedTrackSpan {
+  // The staged sample the run begins at.
+  readonly stagedFromSample: number;
+  // The composite sample it lands on.
+  readonly offset: number;
+  readonly samples: number;
+}
+
+/**
+ * WHERE A STAGED TRACK LANDS ON THE COMPOSITE: each stretch at the sample its instant is from the
+ * recording's start, running to whichever comes first of its own audio's end, the next stretch's
+ * beginning, and the samples the object actually holds.
+ *
+ * A stretch whose instant would put it over the one before it is placed right after that one instead:
+ * one person's audio never sums with itself, and a wall clock that ran a little behind the samples
+ * costs a moment of lateness rather than an echo. `segments` null is a row staged before stretches
+ * were recorded — one run from `firstFrameAt`, which is exactly what that row meant.
+ */
+export function placeTrackSegments(input: {
+  readonly startedAt: string;
+  readonly firstFrameAt: string;
+  readonly segments: readonly MeetingRecordingTrackSegment[] | null;
+  readonly objectSamples: number;
+}): PlacedTrackSpan[] {
+  const startedAt = Date.parse(input.startedAt);
+  const segments =
+    input.segments === null || input.segments.length === 0
+      ? [{ stagedFromSample: 0, at: input.firstFrameAt, stagedToSample: null }]
+      : input.segments;
+  const spans: PlacedTrackSpan[] = [];
+  let previousEnd = 0;
+  for (const [index, segment] of segments.entries()) {
+    const next = segments[index + 1];
+    const end = Math.min(
+      segment.stagedToSample ?? Number.POSITIVE_INFINITY,
+      next?.stagedFromSample ?? Number.POSITIVE_INFINITY,
+      input.objectSamples,
+    );
+    const samples = end - segment.stagedFromSample;
+    if (samples <= 0) continue;
+    const instantOffset = Math.round(
+      ((Date.parse(segment.at) - startedAt) / 1000) * PCM_SAMPLE_RATE,
+    );
+    const offset = Math.max(0, instantOffset, previousEnd);
+    spans.push({ stagedFromSample: segment.stagedFromSample, offset, samples });
+    previousEnd = offset + samples;
+  }
+  return spans;
+}

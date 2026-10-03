@@ -27,6 +27,8 @@ import {
   recordingDocumentText,
   recordingErrorId,
   recordingStateWord,
+  recordingIncompleteNote,
+  recordingStopText,
   recordingStopWord,
 } from "../src/lib/meetings/screen/recording-list.ts";
 import type {
@@ -83,6 +85,26 @@ describe("what a recording's state is called", () => {
     for (const word of Object.values(RECORDING_STATE_WORDS)) {
       expect(word.toLowerCase()).not.toContain("filed");
     }
+  });
+});
+
+describe("a filed recording missing somebody's audio", () => {
+  it("says so beside how it stopped, with the Error ID", () => {
+    const incomplete = onTheMatter("available", { failureErrorId: "err_track" });
+    expect(recordingIncompleteNote(incomplete)).toBe(
+      "Somebody's audio could not be included. Error ID: err_track",
+    );
+    expect(recordingStopText(incomplete)).toBe(
+      "Stopped by Rosalind Chase. Somebody's audio could not be included. Error ID: err_track",
+    );
+    // The document still opens: everybody else's audio is in it.
+    expect(recordingDocumentText(incomplete)).toBe("Open");
+  });
+
+  it("says nothing more for a whole recording, or one not yet filed", () => {
+    expect(recordingIncompleteNote(onTheMatter("available"))).toBeNull();
+    expect(recordingIncompleteNote(recording({ failureErrorId: "err_retry" }))).toBeNull();
+    expect(recordingStopText(onTheMatter("available"))).toBe("Stopped by Rosalind Chase");
   });
 });
 

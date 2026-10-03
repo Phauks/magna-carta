@@ -9,6 +9,12 @@ import {
 } from "../src/meeting-service.ts";
 import {
   admitTrackStatements,
+  claimComposeWindowEffect,
+  COMPOSE_CLAIM_GUARD,
+  COMPOSE_PROGRESS_GUARD,
+  composeProgressEffect,
+  FAIL_COMPOSE_GUARD,
+  failComposeEffect,
   recordingFailedAuditStatement,
   recordingNoticeEffect,
   startMeetingRecording,
@@ -21,7 +27,9 @@ import {
 } from "../src/recording-service.ts";
 import {
   failRecordingStatement,
+  hasRecordingsToTend,
   isRunningRecordingConflict,
+  listStalledComposingRecordings,
   listRecordingNotices,
   listRecordingTracks,
   readRecordingStatesOfRooms,
@@ -29,6 +37,7 @@ import {
   readRunningRecording,
   readSinkTrackById,
   recordRecorderUnreachableStatement,
+  releaseComposeClaimStatement,
   settleTrackStatement,
 } from "../src/recording-statements.ts";
 import type { MeetingRecordingCandidateTrack } from "../src/recording-types.ts";
@@ -860,5 +869,160 @@ describe("a cancelled event's meeting", () => {
       options,
     );
     expect(closing.stoppedRecordingId).toBeNull();
+  });
+});
+
+/** The label of the guarded write that refused, or a failure when none was refused. */
+async function guardOf(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (caught) {
+    if (caught instanceof GuardedWriteRefusedError) return caught.guard;
+    throw caught;
+  }
+  throw new Error("expected a guarded write to be refused");
+}
+
+describe("the compose cursor, its claim and its failure", () => {
+  /** A recording stopped and handed on to be composed, with nothing composed yet. */
+  async function composing(database: Database) {
+    const meetingId = await startedMeeting(database);
+    const started = await record(database, meetingId, [track(0)]);
+    const stopped = await stopMeetingRecording(
+      database.database,
+      meetingId,
+      { mayRecord: true },
+      options,
+    );
+    await commit(database.database, stopped.effect);
+    return started.recording.id;
+  }
+
+  const claimAt = (recordingId: MeetingRecordingId, partsDone: number, at: string) =>
+    claimComposeWindowEffect(database0(), {
+      recordingId,
+      partsDone,
+      claimedAt: at,
+      leaseMilliseconds: 15 * 60 * 1000,
+    });
+  let current: Database | null = null;
+  const database0 = () => current!.database;
+
+  it("lets one consumer hold a window, another take it once the lease runs out, and progress let it go", async () => {
+    current = fresh();
+    const recordingId = await composing(current);
+    await commit(database0(), claimAt(recordingId, 0, "2026-09-18T12:00:00.000Z"));
+    // A second delivery inside the lease is refused at the claim.
+    expect(
+      await guardOf(commit(database0(), claimAt(recordingId, 0, "2026-09-18T12:05:00.000Z"))),
+    ).toBe(COMPOSE_CLAIM_GUARD);
+    // A claim on a cursor that is not where the row is, is refused too.
+    expect(
+      await guardOf(commit(database0(), claimAt(recordingId, 3, "2026-09-18T12:30:00.000Z"))),
+    ).toBe(COMPOSE_CLAIM_GUARD);
+    // Past the lease the holder is gone, and the window is somebody else's.
+    await commit(database0(), claimAt(recordingId, 0, "2026-09-18T12:20:00.000Z"));
+    // Letting go is addressed by the instant it was taken at: the earlier holder releases nothing.
+    await releaseComposeClaimStatement(database0(), {
+      id: recordingId,
+      claimedAt: "2026-09-18T12:00:00.000Z",
+    }).run();
+    expect((await readRecordingById(database0(), recordingId))?.compose_claimed_at).toBe(
+      "2026-09-18T12:20:00.000Z",
+    );
+    // Progress that hands the next window on lets the claim go, and starts the attempts again.
+    current.raw.exec(`UPDATE meeting_recording SET compose_attempts = 2`);
+    await commit(
+      database0(),
+      composeProgressEffect(
+        database0(),
+        {
+          recordingId,
+          fromPartsDone: 0,
+          parts: [{ partNumber: 1, etag: "etag-one" }],
+          releaseClaim: true,
+        },
+        { clock },
+      ),
+    );
+    const progressed = await readRecordingById(database0(), recordingId);
+    expect(progressed).toMatchObject({
+      compose_parts_done: 1,
+      compose_attempts: 0,
+      compose_claimed_at: null,
+    });
+    // TWO DELIVERIES OF ONE WINDOW never both advance the cursor.
+    expect(
+      await guardOf(
+        commit(
+          database0(),
+          composeProgressEffect(
+            database0(),
+            {
+              recordingId,
+              fromPartsDone: 0,
+              parts: [{ partNumber: 1, etag: "etag-again" }],
+              releaseClaim: true,
+            },
+            { clock },
+          ),
+        ),
+      ),
+    ).toBe(COMPOSE_PROGRESS_GUARD);
+  });
+
+  it("measures a stall from the latest of the stop, the claim and the progress", async () => {
+    current = fresh();
+    const recordingId = await composing(current);
+    // Stopped long ago, but a window was claimed a minute before the sweep looks: not a stall.
+    current.raw.exec(
+      `UPDATE meeting_recording SET stopped_at = '2026-09-18T10:00:00.000Z', ` +
+        `compose_progress_at = '2026-09-18T10:05:00.000Z', compose_claimed_at = '2026-09-18T11:59:00.000Z'`,
+    );
+    expect(
+      (await listStalledComposingRecordings(database0(), "2026-09-18T11:30:00.000Z")).map(
+        (row) => row.id,
+      ),
+    ).toEqual([]);
+    current.raw.exec(`UPDATE meeting_recording SET compose_claimed_at = NULL`);
+    expect(
+      (await listStalledComposingRecordings(database0(), "2026-09-18T11:30:00.000Z")).map(
+        (row) => row.id,
+      ),
+    ).toEqual([recordingId]);
+  });
+
+  it("fails a compose only while it is still composing — a failure that lost the race rolls back whole", async () => {
+    current = fresh();
+    const recordingId = await composing(current);
+    const recording = (await readRecordingById(database0(), recordingId))!;
+    current.raw.exec(
+      `UPDATE meeting_recording SET state = 'failed', failure_error_id = 'error_first'`,
+    );
+    expect(
+      await guardOf(
+        commit(
+          database0(),
+          failComposeEffect(database0(), { recording, failureErrorId: "error_second" }, { clock }),
+        ),
+      ),
+    ).toBe(FAIL_COMPOSE_GUARD);
+    expect((await readRecordingById(database0(), recordingId))?.failure_error_id).toBe(
+      "error_first",
+    );
+  });
+
+  it("says a firm has recordings to tend only while one runs, composes, or still names staged audio", async () => {
+    current = fresh();
+    expect(await hasRecordingsToTend(database0())).toBe(false);
+    const recordingId = await composing(current);
+    expect(await hasRecordingsToTend(database0())).toBe(true);
+    current.raw.exec(
+      `UPDATE meeting_recording SET state = 'filed' WHERE id = '${recordingId}'; ` +
+        `UPDATE meeting_recording_track SET staging_key = 'meeting-recordings/staged.pcm'`,
+    );
+    expect(await hasRecordingsToTend(database0())).toBe(true);
+    current.raw.exec(`UPDATE meeting_recording_track SET staging_key = NULL`);
+    expect(await hasRecordingsToTend(database0())).toBe(false);
   });
 });

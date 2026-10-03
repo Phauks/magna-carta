@@ -378,7 +378,10 @@
       {
         "queue": "magna-carta-production-meeting-recording-compose",
         "max_batch_size": 1,
-        "max_concurrency": 2,
+        // A claim on the recording's row keeps each recording's windows one at a time, so concurrency
+        // only spreads different recordings across consumers; ten keeps one firm's long recording from
+        // holding every other firm's behind it.
+        "max_concurrency": 10,
         "dead_letter_queue": "magna-carta-production-meeting-recording-compose-deadletter",
       },
     ],

@@ -96,6 +96,33 @@ export function recordingStopWord(
 }
 
 /**
+ * A FILED recording that carries an Error ID was filed without somebody's audio: a participant's
+ * staged sound was missing when the recording was put together, so the document plays everybody
+ * else. The row says so beside how it stopped, with the Error ID support needs to find out whose,
+ * because "Open" alone would let a reader take the file for the whole meeting.
+ */
+export function recordingIncompleteNote(
+  recording: Pick<MeetingRecordingView, "state" | "failureErrorId">,
+): string | null {
+  if (recording.state !== "filed") return null;
+  const errorId = recording.failureErrorId ?? null;
+  if (errorId === null || errorId === "") return null;
+  return `Somebody's audio could not be included. Error ID: ${errorId}`;
+}
+
+/**
+ * How it stopped, followed by the incomplete note where a filed recording is missing somebody.
+ */
+export function recordingStopText(
+  recording: Pick<MeetingRecordingView, "state" | "stopReason" | "stoppedBy" | "failureErrorId">,
+): string {
+  const stopped = recordingStopWord(recording);
+  const incomplete = recordingIncompleteNote(recording);
+  if (incomplete === null) return stopped;
+  return stopped === "" ? incomplete : `${stopped}. ${incomplete}`;
+}
+
+/**
  * The Error ID a failed recording was recorded under, or null where it carries none. Only a FAILED
  * one: a recording still being put together may carry the Error ID of an attempt that will be tried
  * again, and stating it beside "Being Put Together" would read as a failure that has not happened.

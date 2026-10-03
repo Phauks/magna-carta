@@ -94,25 +94,48 @@ describe("mixing a window", () => {
     expect(() => new PcmMixAccumulator(4, new Int32Array(2))).toThrow(RangeError);
   });
 
-  it("mixes ten minutes of five tracks a part at a time, in one part's worth of memory", () => {
-    // The compose step's shape: one-minute parts, each track's span read and added, then let go of.
+  it("mixes one invocation's window — ten one-minute parts of eleven tracks, bytes in and bytes out — in a third of a consumer's CPU budget", () => {
+    // THE COMPOSE STEP'S WHOLE SHAPE, not only the sums: for each one-minute part, every track's span is
+    // read as little-endian bytes and converted to samples, added, and let go of; the clamped mix is
+    // converted back to bytes in the part. Eleven tracks is the recorder's ceiling, so this is the most
+    // work one invocation can be handed, and the byte conversions on either side cost as much as the
+    // sums themselves.
+    const tracks = 11;
+    const parts = 10;
     const partSamples = 60 * PCM_SAMPLE_RATE;
     const sums = new Int32Array(partSamples);
     const mixed = new Int16Array(partSamples);
-    const track = new Int16Array(partSamples).fill(1_000);
+    const partBytes = new Uint8Array(partSamples * 2);
+    // One span's bytes per track, varying so nothing about the data lets the work be skipped.
+    const spans = Array.from({ length: tracks }, (_unused, track) => {
+      const bytes = new Uint8Array(partSamples * 2);
+      const view = new DataView(bytes.buffer);
+      for (let index = 0; index < partSamples; index += 1) {
+        view.setInt16(index * 2, ((index * (track + 3)) % 4_001) - 2_000, true);
+      }
+      return bytes;
+    });
     const started = performance.now();
     let checksum = 0;
-    for (let part = 0; part < 10; part += 1) {
+    for (let part = 0; part < parts; part += 1) {
       const window = new PcmMixAccumulator(partSamples, sums);
-      for (let index = 0; index < 5; index += 1) window.add({ samples: track, offset: 0 });
-      checksum += window.finish(mixed)[partSamples - 1] ?? 0;
+      for (const span of spans) window.add({ samples: samplesFromPcmBytes(span), offset: 0 });
+      writePcmBytes(window.finish(mixed), partBytes, 0);
+      checksum += new DataView(partBytes.buffer).getInt16((partSamples - 1) * 2, true);
     }
     const seconds = (performance.now() - started) / 1000;
-    expect(checksum).toBe(10 * 5_000);
-    // Measured rather than merely asserted correct: ten minutes of five tracks is the work one compose
-    // invocation does, and it must be a small fraction of a consumer's budget. The bound is generous
-    // because a shared test machine is not the deployment.
-    expect(seconds).toBeLessThan(30);
+    let expectedLast = 0;
+    for (let track = 0; track < tracks; track += 1) {
+      expectedLast += (((partSamples - 1) * (track + 3)) % 4_001) - 2_000;
+    }
+    expectedLast = Math.max(-32_768, Math.min(32_767, expectedLast));
+    expect(checksum).toBe(parts * expectedLast);
+    // MEASURED AGAINST THE BUDGET IT HAS TO FIT: a queue consumer's default CPU limit is thirty
+    // seconds, and this window is the whole of one invocation's mixing. A third of it leaves the
+    // reads, the uploads and a slower machine their share; a regression that made the mix even a few
+    // times slower than it is fails here rather than in a consumer that overruns in production.
+    const CONSUMER_CPU_BUDGET_SECONDS = 30;
+    expect(seconds).toBeLessThan(CONSUMER_CPU_BUDGET_SECONDS / 3);
   });
 });
 

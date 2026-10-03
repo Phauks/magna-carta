@@ -246,6 +246,13 @@
       "when": 1790980639158,
       "tag": "20261002T223719_meeting-recording-compose-cursor",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1790984798000,
+      "tag": "20261002T234638_meeting-recording-segments-and-compose-claim",
+      "breakpoints": true
     }
   ]
 }

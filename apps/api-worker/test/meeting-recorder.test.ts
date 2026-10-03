@@ -1,6 +1,8 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FirmId } from "@magna-carta/identifiers/types";
+import type { FirmId, MeetingRecordingId } from "@magna-carta/identifiers/types";
+import { parseTrackSegments, placeTrackSegments } from "@magna-carta/meetings/recording-types";
+import { readWavHeader } from "@magna-carta/meetings/wav";
 import {
   RECORDED_TRACK_CEILING_MAXIMUM,
   RECORDER_ISOLATE_MEMORY_BYTES,
@@ -9,6 +11,7 @@ import {
   RECORDING_TRACK_BUFFER_BYTES,
 } from "@magna-carta/meetings/settings";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Bindings } from "../src/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   EMPTY_ROOM_ABANDON_MILLISECONDS,
@@ -18,8 +21,10 @@ import {
   setRecordingComposeQueueForTests,
   STORAGE_PUT_BATCH_KEYS,
   TRACK_LOSS_GRACE_MILLISECONDS,
+  type MeetingRecordingComposeMessage,
   type RecorderStartInput,
 } from "../src/meetings/meeting-recorder.ts";
+import { composeWindow } from "../src/meetings/recording-compose-consumer.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import {
   MEETING_SINK_PATH_PREFIX,
@@ -928,5 +933,146 @@ describe("a track the recorder cannot hear", () => {
     expect(lateRow?.state).toBe("lost");
     expect(lateRow?.frames_received).toBe(0);
     await stub.stop("member");
+  });
+});
+
+describe("a participant who leaves and comes back", () => {
+  it("is placed at the instant they came back, not after the silence that closed their stretch", async () => {
+    const { meeting, recordingId, tracks, stub } = await startRecorder(2);
+    const staying = await dial(stub, tracks[0]!.trackName);
+    staying.send(pcmEnvelope(1, 960));
+    const leaving = await dial(stub, tracks[1]!.trackName);
+    for (let sequence = 1; sequence <= 5; sequence += 1) leaving.send(pcmEnvelope(sequence, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[1]?.framesReceived === 5);
+
+    // They leave: their buffer is closed with silence to a part boundary — about fifty-five seconds of
+    // staged object — and released, the upload kept open in case they come back.
+    await removeFromRoom(meeting, [tracks[1]!.participantId]);
+    await runDurableObjectAlarm(stub);
+    expect((await stub.inspect()).tracks[1]?.timelineSamples).toBe(RECORDING_PART_BYTES / 2);
+
+    // A few moments later they are back, on a new adapter whose counter starts again.
+    await seedRoomRoster(meeting, tracks);
+    await runDurableObjectAlarm(stub);
+    const returned = await dial(stub, tracks[1]!.trackName);
+    for (let sequence = 1; sequence <= 5; sequence += 1) returned.send(pcmEnvelope(sequence, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[1]?.framesReceived === 10);
+    // The route commits the stop, then tells the recorder.
+    await stopInRecordOnly(recordingId);
+    await stub.stop("member");
+
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const row = await database
+      .prepare(
+        `SELECT meeting_recording_track.segments AS segments, ` +
+          `meeting_recording_track.first_frame_at AS first_frame_at, ` +
+          `meeting_recording_track.staging_key AS staging_key, ` +
+          `meeting_recording.started_at AS started_at ` +
+          `FROM meeting_recording_track JOIN meeting_recording ` +
+          `ON meeting_recording.id = meeting_recording_track.recording_id ` +
+          `WHERE meeting_recording_track.recording_id = ?1 AND meeting_recording_track.track_name = ?2`,
+      )
+      .bind(recordingId, tracks[1]!.trackName)
+      .first<{
+        segments: string | null;
+        first_frame_at: string;
+        staging_key: string;
+        started_at: string;
+      }>();
+    // TWO STRETCHES: the first ends where their audio did, before the padding; the second begins at
+    // the part boundary, carrying the instant they came back.
+    const segments = parseTrackSegments(row?.segments ?? null);
+    expect(segments).toHaveLength(2);
+    expect(segments?.[0]?.stagedToSample).toBe(5 * 960);
+    expect(segments?.[1]?.stagedFromSample).toBe(RECORDING_PART_BYTES / 2);
+    const object = await env.R2.head(row!.staging_key);
+    const spans = placeTrackSegments({
+      startedAt: row!.started_at,
+      firstFrameAt: row!.first_frame_at,
+      segments,
+      objectSamples: object!.size / 2,
+    });
+    expect(spans.map((span) => span.samples)).toEqual([5 * 960, 5 * 960]);
+    // Placed a moment after they left — not fifty-five seconds after it, which is where the padding
+    // would have put everything they said for the rest of the meeting.
+    const away = spans[1]!.offset - (spans[0]!.offset + spans[0]!.samples);
+    expect(away).toBeGreaterThanOrEqual(0);
+    expect(away).toBeLessThan(10 * 48_000);
+    expect((await recordingRow(recordingId))?.captured_seconds).toBeLessThan(10);
+
+    // AND THE COMPOSITE AGREES: composed from the recorder's own staged objects, it runs seconds,
+    // not the minute the padding would have made of it.
+    const ingested: unknown[] = [];
+    const composing = {
+      ...env,
+      MEETING_RECORDING_COMPOSE: { send: async () => {} },
+      FILES_INGEST: {
+        send: async (message: unknown) => {
+          ingested.push(message);
+        },
+      },
+    } as unknown as Bindings;
+    const message: MeetingRecordingComposeMessage = {
+      kind: "meeting-recording-compose",
+      firmId,
+      meetingId: meeting.meetingId,
+      recordingId: recordingId as MeetingRecordingId,
+    };
+    expect(await composeWindow(composing, message)).toBe("filed");
+    const filed = await database
+      .prepare(
+        `SELECT file_version.r2_key AS r2_key FROM meeting_recording JOIN file_version ` +
+          `ON file_version.id = meeting_recording.file_version_id WHERE meeting_recording.id = ?1`,
+      )
+      .bind(recordingId)
+      .first<{ r2_key: string }>();
+    const header = await env.R2.get(filed!.r2_key, { range: { offset: 0, length: 44 } });
+    const reading = readWavHeader(new Uint8Array(await header!.arrayBuffer()));
+    expect((reading?.dataBytes ?? 0) / 2 / 48_000).toBeLessThan(10);
+    expect(ingested).toHaveLength(1);
+  });
+});
+
+describe("abandoning", () => {
+  it("keeps what each track captured — its upload completed, not aborted — writes it down, and composes nothing", async () => {
+    const { recordingId, tracks, stub } = await startRecorder(2);
+    const socket = await dial(stub, tracks[0]!.trackName);
+    for (let sequence = 1; sequence <= 10; sequence += 1) socket.send(pcmEnvelope(sequence, 960));
+    await waitUntil(async () => (await stub.inspect()).tracks[0]?.framesReceived === 10);
+
+    // THE SWEEP'S RECORD FIRST, as the sweep commits it: abandoned, every open track lost.
+    const now = new Date().toISOString();
+    await firmDatabaseFor(env.FIRM_DATABASE, firmId).batch([
+      firmDatabaseFor(env.FIRM_DATABASE, firmId)
+        .prepare(
+          `UPDATE meeting_recording SET state = 'abandoned', stopped_at = ?2, stop_reason = 'abandoned' WHERE id = ?1`,
+        )
+        .bind(recordingId, now),
+      firmDatabaseFor(env.FIRM_DATABASE, firmId)
+        .prepare(
+          `UPDATE meeting_recording_track SET state = 'lost' WHERE recording_id = ?1 AND state = 'open'`,
+        )
+        .bind(recordingId),
+    ]);
+    const handedOnBefore = composeMessages.length;
+
+    expect(await stub.abandon()).toEqual({ completedUploads: 1, abortedUploads: 1 });
+
+    const rows = await trackRows(recordingId);
+    const heard = rows.find((row) => row.track_name === tracks[0]!.trackName);
+    const silent = rows.find((row) => row.track_name === tracks[1]!.trackName);
+    // The audio is an object now, kept for the sweep's retention window — the only copy there is.
+    expect(heard).toMatchObject({ state: "lost", frames_received: 10 });
+    expect((await env.R2.head(heard?.staging_key ?? ""))?.size).toBe(10 * 960 * 2);
+    // A track that staged nothing has no object to keep, and its row stops naming one.
+    expect(silent?.staging_key).toBeNull();
+    // Nothing is handed on: an abandoned recording is not composed.
+    expect(composeMessages.slice(handedOnBefore)).toEqual([]);
+    expect((await recordingRow(recordingId))?.state).toBe("abandoned");
+    const inspected = await stub.inspect();
+    expect(inspected.state).toBe("stopped");
+    expect(inspected.memory.trackBuffers).toBe(0);
+    // A second word from the sweep finds nothing running.
+    expect(await stub.abandon()).toEqual({ completedUploads: 0, abortedUploads: 0 });
   });
 });

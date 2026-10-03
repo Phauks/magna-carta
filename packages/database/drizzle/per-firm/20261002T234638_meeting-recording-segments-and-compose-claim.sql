@@ -1,0 +1,21 @@
+-- A STAGED TRACK IS PLACED STRETCH BY STRETCH, AND A COMPOSE WINDOW IS HELD BY ONE CONSUMER AT A TIME.
+--
+-- Two columns, both added rather than rebuilt (meeting_recording is a parent table, and
+-- meeting_recording_track is held to the same rule), both handles, counts and instants — no audio and
+-- no name:
+--
+--   meeting_recording_track.segments    where each stretch of the staged object belongs in time, as
+--                                       JSON: the staged sample it begins at, the instant that sample
+--                                       was heard, and for a stretch the participant left at, the
+--                                       staged sample its audio ends at. A participant who leaves and
+--                                       comes back continues in the same object after the silence that
+--                                       closed it; the compose places each stretch at its own instant,
+--                                       so that silence never pushes what they said afterwards late.
+--                                       Null reads as one stretch from first_frame_at, which is what
+--                                       every row written before this column was.
+--   meeting_recording.compose_claimed_at when the consumer composing the current window claimed it — a
+--                                       lease released when the window's progress is recorded, so two
+--                                       deliveries of one message never compose one window at once,
+--                                       and a window being composed is never mistaken for a stall.
+ALTER TABLE `meeting_recording_track` ADD `segments` text;--> statement-breakpoint
+ALTER TABLE `meeting_recording` ADD `compose_claimed_at` text;

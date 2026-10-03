@@ -419,7 +419,24 @@ compose cursor is five columns on `meeting_recording` (`compose_*`): the begin i
 session yet and commits with the session, the advance on the cursor it started from (two deliveries of
 one message never both advance it), the filing on `composing`, and the sweep's abandonment on
 `recording` — each with its own exported guard label so a caller tells "somebody got there first" from a
-fault. `abandoned` is the sweep's state for a recording whose recorder is gone: open tracks are `lost`,
+fault. A sixth column, `compose_claimed_at`, is the window's CLAIM (`claimComposeWindowEffect`,
+`COMPOSE_CLAIM_GUARD`): a lease stamped on the cursor it read, released by the window's own progress, so
+two consumers never compose one window; progress also resets `compose_attempts`, and a stall is measured
+from the latest of the stop, the claim and the progress. `failComposeEffect` is guarded too
+(`FAIL_COMPOSE_GUARD`), because the Worker commits the upload session's abort beside it and a failure that
+lost the race to a filing must not abandon a filed document's version. `filed` brings `captured_seconds`
+down to the composite's own length, never up. Staging keys are cleared in statements of at most
+`STAGING_KEYS_PER_STATEMENT` handles, because a Durable Object's SQLite binds at most a hundred.
+
+**A staged track lands stretch by stretch.** `meeting_recording_track.segments` (JSON of
+`MeetingRecordingTrackSegment[]`) names, for each stretch of the staged object, the staged sample it
+begins at, the instant it was heard, and — for a stretch a departure closed with padding — where its
+audio ends; `placeTrackSegments` in `recording-types.ts` is the one placement both the recorder (what was
+captured) and the compose (where it lands) use. A null column is one stretch from `first_frame_at`.
+
+**The WAV-length policy is decided** (`WAV_SIGNED_READER_MAXIMUM_DATA_BYTES` in `wav.ts`): a recording
+past the signed 32-bit boundary (about 6.2 hours) is still ONE canonical WAV, whole, never capped or
+split; only past the unsigned limit is a composite refused. `abandoned` is the sweep's state for a recording whose recorder is gone: open tracks are `lost`,
 nothing is composed. The filed, abandoned and failed audit rows carry handles and counts only — never the
 document's name, which is the event's title. The ceiling at the start counts STAYS, as the recorder does.
 

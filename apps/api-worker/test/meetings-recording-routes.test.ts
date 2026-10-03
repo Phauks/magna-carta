@@ -773,7 +773,8 @@ describe("after the commit — the recorder and the room", () => {
     const { environment: withStandIn, calls } = withRecorder({});
     // The stop, the end or the calendar cancel reached the room first: it lit nothing and says so.
     const environment = withRoom(
-      async () => await Promise.resolve({ recipientCount: 0, noticeCount: 0, stopped: true as const }),
+      async () =>
+        await Promise.resolve({ recipientCount: 0, noticeCount: 0, stopped: true as const }),
       withStandIn,
     );
     const response = await request(

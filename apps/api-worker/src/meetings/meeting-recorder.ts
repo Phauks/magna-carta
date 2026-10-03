@@ -32,6 +32,8 @@ import {
   settleTrackStatement,
 } from "@magna-carta/meetings/recording-statements";
 import {
+  MAXIMUM_TRACK_SEGMENTS,
+  placeTrackSegments,
   recordingStagingKey,
   type MeetingRecordingCandidateTrack,
   type MeetingRecordingStopReason,
@@ -87,7 +89,13 @@ import {
 // WHAT IT DOES. Every audio track the room carries gets an adapter that dials this object back and a
 // multipart upload in the firm's own bucket. Each frame is decoded by the hand-written envelope
 // reader, folded to mono, and written into the track's buffer with silence counted for every frame
-// the sequence numbers — or, across a new socket, the wall clock — say never arrived; each whole part
+// the sequence numbers — or, across a new socket, the wall clock — say never arrived. Where the wall
+// clock says the frame belongs BEHIND the end of the object (a participant who left had their buffer
+// closed with silence to a part boundary, and came back sooner than that silence lasts) or so far
+// ahead that staging the silence would be uploading zeros for nothing, the frame begins a new STRETCH
+// of the track instead, which carries the instant it was heard; the compose places every stretch at
+// its own instant, so nothing a participant says after a return is shifted by the silence that closed
+// their last stretch (`MeetingRecordingTrackSegment` in `@magna-carta/meetings`). Each whole part
 // uploads as it fills, one at a time per track and a bounded number across the recorder. Every few
 // seconds the alarm reads the firm's record (a recording stopped there is settled here, whether or not
 // the stop reached this object), stops a recording that reached its maximum length or whose room has
@@ -121,12 +129,24 @@ export const RECORDER_RECONCILE_INTERVAL_MILLISECONDS = 5_000;
 export const TRACK_LOSS_GRACE_MILLISECONDS = 15_000;
 
 /**
- * THE LONGEST SILENCE ONE GAP MAY WRITE. Silence keeps a staged track on a real timeline, which is the
- * point of writing it; a gap longer than this is not a run of dropped frames but a counter that
- * jumped, and the wall clock places the frame instead. Silence is a count, so this bounds the parts of
- * zeros one wrong sequence number can cost, not memory.
+ * THE LONGEST GAP STAGED AS SILENCE. Silence keeps a staged track on a real timeline, which is the
+ * point of writing it, and below this it is the cheapest way to: a handful of parts of zeros uploaded
+ * from the one shared part. A gap past it is placed differently, according to what says it is there:
+ * a sequence-number gap past it is not a run of dropped frames but a counter that jumped, so the wall
+ * clock places the frame; and a wall-clock gap past it — a participant away for an hour — begins a new
+ * stretch at the frame's own instant rather than uploading an hour of zeros. Neither is ever CLAMPED:
+ * a gap shortened to fit would put everything after it early.
  */
 export const MAXIMUM_GAP_SILENCE_SECONDS = 300;
+
+/**
+ * HOW FAR BEHIND THE END OF THE STAGED TRACK THE WALL CLOCK MAY PUT A FRAME and still have it placed at
+ * the end. Frames arrive a little ahead of or behind real time as the network bunches them, and half a
+ * second either way is that and nothing more; a frame further behind than this is a participant
+ * returning before the silence that closed their last stretch had run out, and it begins a new stretch
+ * at its own instant rather than landing late by the rest of that silence.
+ */
+export const WALL_CLOCK_BEHIND_TOLERANCE_MILLISECONDS = 500;
 
 /**
  * HOW LONG A RECORDING MAY RUN WITH NOBODY IN IT before it stops itself as abandoned: no track open
@@ -154,6 +174,8 @@ const SETTLED_RETENTION_MILLISECONDS = 60_000;
 const DEFAULT_FRAME_SAMPLES = PCM_SAMPLE_RATE / 50;
 
 const MAXIMUM_GAP_SILENCE_SAMPLES = MAXIMUM_GAP_SILENCE_SECONDS * PCM_SAMPLE_RATE;
+const WALL_CLOCK_BEHIND_TOLERANCE_SAMPLES =
+  (WALL_CLOCK_BEHIND_TOLERANCE_MILLISECONDS / 1000) * PCM_SAMPLE_RATE;
 
 const RECORDING_KEY = "recording";
 const TRACK_PREFIX = "track:";
@@ -234,6 +256,16 @@ export function setRecordingComposeQueueForTests(queue: ComposeQueue | null): vo
   composeQueueForTests = queue;
 }
 
+/**
+ * One stretch of a track as the recorder writes it down — the stored shape the compose reads
+ * (`MeetingRecordingTrackSegment`), held mutable here because the recorder closes and reopens it.
+ */
+interface RecorderSegment {
+  stagedFromSample: number;
+  at: string;
+  stagedToSample: number | null;
+}
+
 /** One track as the recorder holds it. Metadata only — the audio is in memory, never here. */
 interface RecorderTrack {
   readonly trackId: MeetingRecordingTrackId;
@@ -283,6 +315,9 @@ interface RecorderTrack {
   // True when the participant LEFT and came back: the silence before their next frame is their
   // absence, not frames that were lost, so it is not counted as dropped.
   resumeIsReturn: boolean;
+  // Where each stretch of the staged object belongs in time — begun by the first frame, and again by a
+  // frame the wall clock places behind the end of the object or too far past it to stage as silence.
+  segments: RecorderSegment[];
 }
 
 /** One track's working set, in memory only and never written anywhere. */
@@ -341,6 +376,14 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       const stored = await ctx.storage.list<RecorderTrack>({ prefix: TRACK_PREFIX });
       const now = Date.now();
       for (const [, track] of stored) {
+        // A track written down before stretches were recorded is one stretch from its first frame,
+        // which is exactly what its staged object was.
+        if ((track as { segments?: RecorderSegment[] }).segments === undefined) {
+          track.segments =
+            track.firstFrameAt === null
+              ? []
+              : [{ stagedFromSample: 0, at: track.firstFrameAt, stagedToSample: null }];
+        }
         this.tracks.set(track.trackId, track);
         if (this.recording?.state === "recording" && track.state === "open") {
           this.accountForRestart(track, now);
@@ -435,15 +478,24 @@ export class MeetingRecorder extends DurableObject<Bindings> {
 
   /**
    * THE SWEEP GAVE UP ON THIS RECORDING — the record already says `abandoned` — so the recorder lets go
-   * of it WITHOUT handing anything on: every adapter closed, every socket hung up, every staged upload
-   * ABORTED rather than completed, because a recorder that stopped reconciling is exactly the one whose
-   * account of its parts cannot be trusted to line a composite up, and an abandoned recording files
-   * nothing. Answers how many uploads it aborted; a recorder holding no running recording does nothing.
+   * of it WITHOUT handing anything on: every adapter closed and every socket hung up, then every track's
+   * audio KEPT — what each buffer still holds uploaded as its final part and every upload COMPLETED, so
+   * the staged objects exist for the seven days the sweep retains an abandoned recording's staging and
+   * somebody can ask for what was captured. Nothing is composed: a recorder that stopped reconciling is
+   * exactly the one whose account of its parts cannot be trusted to line a composite up, and the record
+   * already says nothing was filed. A track that never staged a part has no object to keep, so its
+   * upload is aborted and its row stops naming one. What each track carried is written down, as a stop
+   * writes it.
+   *
+   * Answers how many uploads it completed and how many it aborted; a recorder holding no running
+   * recording does nothing.
    */
-  async abandon(): Promise<{ readonly abortedUploads: number }> {
+  async abandon(): Promise<{ readonly completedUploads: number; readonly abortedUploads: number }> {
     return await this.exclusive(async () => {
       const recording = this.recording;
-      if (recording === null || recording.state !== "recording") return { abortedUploads: 0 };
+      if (recording === null || recording.state !== "recording") {
+        return { completedUploads: 0, abortedUploads: 0 };
+      }
       const purgeAt = Date.now() + SETTLED_RETENTION_MILLISECONDS;
       this.recording = { ...recording, state: "stopped", purgeAt };
       await this.ctx.storage.put(RECORDING_KEY, this.recording);
@@ -454,26 +506,26 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       );
       for (const trackId of this.sockets.keys()) this.hangUp(trackId, "recording abandoned");
       await Promise.all([...this.runtimes.values()].map((runtime) => runtime.upload));
+      let completedUploads = 0;
       let abortedUploads = 0;
+      const statements: EffectStatement[] = [];
       for (const track of this.tracks.values()) {
         track.adapterId = null;
         track.adapterNonce = null;
+        // Nothing could hear an open track from the moment its recorder stopped working; the record
+        // already says so, and a lost track stays lost.
         if (track.state === "open") track.state = "lost";
-        this.releaseStager(this.runtimeOf(track.trackId));
-        if (track.uploadId === null) continue;
-        try {
-          const bucket = await this.firmBucket(recording.firmId);
-          await bucket.resumeMultipartUpload(track.stagingKey, track.uploadId).abort();
-          abortedUploads += 1;
-        } catch (caught) {
-          this.recordFailure("abort-upload", caught);
-        }
-        track.uploadId = null;
+        const hadUpload = track.uploadId !== null;
+        const discarded = await this.finishUpload(recording, track);
+        if (hadUpload && discarded) abortedUploads += 1;
+        else if (hadUpload) completedUploads += 1;
         this.dirty.add(track.trackId);
+        statements.push(this.settleStatement(recording, track, track.state, discarded));
       }
+      await this.commit(recording, statements);
       await this.persistTracks();
       await this.ctx.storage.setAlarm(purgeAt);
-      return { abortedUploads };
+      return { completedUploads, abortedUploads };
     });
   }
 
@@ -684,15 +736,18 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       return;
     }
     const nowMilliseconds = Date.now();
+    const now = new Date(nowMilliseconds).toISOString();
     const mono = downmixToMono(frame.payload);
     const frameSamples = track.lastFrameSamples > 0 ? track.lastFrameSamples : mono.length;
 
     // SILENCE FOR WHAT NEVER ARRIVED, so the staged track stays on a real timeline and a composite of
     // several never drifts. Counted from the sequence numbers while one counter feeds the track, and
-    // from the wall clock on a new socket, after a restart, and when the counter starts again.
+    // from the wall clock on a new socket, after a restart, and when the counter starts again. The
+    // track's first frame begins its first stretch, with nothing before it.
     let silenceSamples = 0;
-    let placeByWallClock = track.resumeFromWallClock;
-    if (!placeByWallClock) {
+    let beginsStretch = track.segments.length === 0;
+    let placeByWallClock = !beginsStretch && track.resumeFromWallClock;
+    if (!beginsStretch && !placeByWallClock) {
       const step = sequenceStep(track.lastSequence, frame.sequenceNumber);
       if (step.kind === "behind") {
         // A repeat, or a frame reordered behind a later one: its place is already taken — by itself,
@@ -712,14 +767,36 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       }
     }
     if (placeByWallClock) {
-      silenceSamples = this.wallClockSilence(track, nowMilliseconds);
-      if (!track.resumeIsReturn && frameSamples > 0) {
-        track.framesDropped += Math.round(silenceSamples / frameSamples);
+      const gap = this.wallClockGap(track, nowMilliseconds);
+      if (!track.resumeIsReturn && gap > 0 && frameSamples > 0) {
+        track.framesDropped += Math.round(gap / frameSamples);
+      }
+      // BEHIND THE END OF THE OBJECT — the participant came back before the silence that closed their
+      // last stretch ran out — or FAR PAST IT: a new stretch at this frame's own instant. Anything
+      // else is silence of the gap's own length, never shortened. A track at its stretch ceiling is
+      // placed at the end of its object instead, late by at most the padding of one departure.
+      const behind = gap < -WALL_CLOCK_BEHIND_TOLERANCE_SAMPLES;
+      const farAhead = gap > MAXIMUM_GAP_SILENCE_SAMPLES;
+      if ((behind || farAhead) && track.segments.length < MAXIMUM_TRACK_SEGMENTS) {
+        beginsStretch = true;
+      } else {
+        silenceSamples = Math.max(0, gap);
       }
       track.resumeFromWallClock = false;
       track.resumeIsReturn = false;
     }
-    silenceSamples = Math.min(Math.max(0, silenceSamples), MAXIMUM_GAP_SILENCE_SAMPLES);
+    if (beginsStretch) {
+      track.segments.push({
+        stagedFromSample: track.timelineSamples,
+        at: now,
+        stagedToSample: null,
+      });
+    } else {
+      // The stretch carries on: if its participant left and this is their return placed on the
+      // timeline, the silence that closed it is now the time they were away, and part of it.
+      const current = track.segments.at(-1);
+      if (current !== undefined && current.stagedToSample !== null) current.stagedToSample = null;
+    }
     stager.writeSilence(silenceSamples);
     track.timelineSamples += silenceSamples;
 
@@ -727,7 +804,6 @@ export class MeetingRecorder extends DurableObject<Bindings> {
     // becomes silence: memory never grows past the buffer, and the timeline keeps its place.
     const placed = stager.writeAudio(mono);
     track.timelineSamples += mono.length;
-    const now = new Date(nowMilliseconds).toISOString();
     if (placed) {
       track.framesReceived += 1;
       track.firstFrameAt ??= now;
@@ -742,13 +818,17 @@ export class MeetingRecorder extends DurableObject<Bindings> {
     this.pump(trackId);
   }
 
-  /** The silence that puts a frame arriving now at its own instant after the last one taken. */
-  private wallClockSilence(track: RecorderTrack, nowMilliseconds: number): number {
+  /**
+   * HOW FAR PAST THE END OF THE TRACK'S TIMELINE A FRAME ARRIVING NOW BELONGS, by the wall clock since
+   * the last one taken — negative when the timeline has already run past that instant, which is what
+   * the silence closing a departed participant's stretch does.
+   */
+  private wallClockGap(track: RecorderTrack, nowMilliseconds: number): number {
     if (track.lastFrameAt === null) return 0;
     const lastFrameMilliseconds = (track.lastFrameSamples / PCM_SAMPLE_RATE) * 1000;
     const elapsed = nowMilliseconds - Date.parse(track.lastFrameAt) - lastFrameMilliseconds;
     const target = track.lastFrameEndSample + Math.round((elapsed / 1000) * PCM_SAMPLE_RATE);
-    return Math.max(0, target - track.timelineSamples);
+    return target - track.timelineSamples;
   }
 
   /**
@@ -935,7 +1015,13 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       const stager = runtime.stager;
       if (stager === null || track.uploadId === null || track.finalPartUploaded) return;
       track.timelineSamples -= stager.discardPendingSilence();
-      if (mode.pad) track.timelineSamples += stager.padToPartBoundary();
+      if (mode.pad) {
+        // The stretch's audio ends HERE: what the padding adds is not the participant, and the
+        // compose must neither place it nor let it push their return late.
+        const current = track.segments.at(-1);
+        if (current !== undefined) current.stagedToSample = track.timelineSamples;
+        track.timelineSamples += stager.padToPartBoundary();
+      }
       let failures = 0;
       for (;;) {
         const part = stager.nextPart();
@@ -1031,6 +1117,7 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       socketLostAt: null,
       resumeFromWallClock: false,
       resumeIsReturn: false,
+      segments: [],
     };
   }
 
@@ -1449,7 +1536,6 @@ export class MeetingRecorder extends DurableObject<Bindings> {
     const statements: EffectStatement[] = [];
     let capturedSamples = 0;
     let lostTrackCount = 0;
-    const startedAt = Date.parse(recording.startedAt);
     for (const track of this.tracks.values()) {
       track.adapterId = null;
       track.adapterNonce = null;
@@ -1459,17 +1545,20 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       track.state = finalState;
       this.dirty.add(track.trackId);
       statements.push(this.settleStatement(recording, track, finalState, discarded));
-      // WHAT A COMPOSITE OF THESE TRACKS COULD CONTAIN: each track lands at the offset its first
-      // frame arrived at, and runs to the end of the last audio it still has — never past what
-      // uploaded, never over the silence a closed track was padded with, and never over silence that
-      // stands in for audio a restart lost. Never the wall-clock length.
+      // WHAT A COMPOSITE OF THESE TRACKS COULD CONTAIN: each stretch lands where the compose will put
+      // it, and the track runs to the end of the last audio it still has — never past what uploaded,
+      // never over the silence a closed stretch was padded with, and never over silence that stands
+      // in for audio a restart lost. Never the wall-clock length.
       const heard = Math.min(track.capturedEndSample, track.stagedSamples);
       if (track.firstFrameAt !== null && heard > 0 && !discarded) {
-        const offsetSamples = Math.max(
-          0,
-          Math.round(((Date.parse(track.firstFrameAt) - startedAt) / 1000) * PCM_SAMPLE_RATE),
-        );
-        capturedSamples = Math.max(capturedSamples, offsetSamples + heard);
+        for (const span of placeTrackSegments({
+          startedAt: recording.startedAt,
+          firstFrameAt: track.firstFrameAt,
+          segments: track.segments,
+          objectSamples: heard,
+        })) {
+          capturedSamples = Math.max(capturedSamples, span.offset + span.samples);
+        }
       }
     }
     const capturedSeconds = Math.floor(capturedSamples / PCM_SAMPLE_RATE);
@@ -1487,6 +1576,11 @@ export class MeetingRecorder extends DurableObject<Bindings> {
         new Error("the recording stopped with no audio captured on any track"),
       );
       statements.push(
+        // A zero here means the recording already left `composing` — a sweep abandoned it, or a
+        // failed start recorded its own failure first — and that state is the truer record. Guarding
+        // it would roll back the whole settle and lose what every track carried; the audit row beside
+        // it is written only when this failure is the one the row kept.
+        // fitness:unguarded-write — a later state is the truer record, and the settle must still land
         failRecordingStatement(database, {
           id: recording.recordingId,
           failureErrorId,
@@ -1597,6 +1691,7 @@ export class MeetingRecorder extends DurableObject<Bindings> {
       lastFrameAt: track.lastFrameAt,
       state,
       stagingDiscarded,
+      segments: track.segments.length === 0 ? null : JSON.stringify(track.segments),
       now: new Date().toISOString(),
     });
   }

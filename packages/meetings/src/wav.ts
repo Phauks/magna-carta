@@ -30,6 +30,24 @@ export const WAV_CHANNELS = 1;
 export const WAV_MAXIMUM_DATA_BYTES = 0xffff_ffff - 36;
 
 /**
+ * THE LONGEST DATA CHUNK EVERY READER OPENS: the same arithmetic as above with the lengths read as
+ * SIGNED 32-bit, which some players and libraries do although the format defines them as unsigned.
+ * About six hours and twelve minutes of mono 48 kHz 16-bit audio.
+ *
+ * THE POLICY PAST IT, decided rather than left to fall out: a recording longer than this is still
+ * filed as ONE canonical WAV, whole, with its lengths written as the format defines them. Not capped —
+ * a seven-hour deposition is an ordinary day, and a recording that stops itself at six hours loses the
+ * end of it. Not split into several documents — one recording is one document on the matter, and a
+ * record that arrived in pieces would have to be reassembled by whoever relies on it. A reader that
+ * misreads the lengths as signed fails on that one file, which is a fault in that reader that every
+ * conforming player and every audio tool handles; the format that removes the boundary altogether
+ * (FLAC, or the 64-bit RF64 container) is the follow-up the size work already names. Only past
+ * `WAV_MAXIMUM_DATA_BYTES`, which no recording reaches inside the recorder's own maximum length, is a
+ * composite refused.
+ */
+export const WAV_SIGNED_READER_MAXIMUM_DATA_BYTES = 0x7fff_ffff - 36;
+
+/**
  * The 44-byte header for `dataBytes` bytes of mono 48 kHz 16-bit little-endian PCM. Refuses a length
  * that is not a whole number of samples or that the format cannot describe, rather than writing a
  * header whose lengths do not match the data after it.

@@ -60,6 +60,7 @@ const RECORDING_COLUMNS = [
   "compose_parts",
   "compose_attempts",
   "compose_progress_at",
+  "compose_claimed_at",
   "created_at",
   "updated_at",
 ]
@@ -77,6 +78,7 @@ const TRACK_COLUMNS = [
   "staging_key",
   "first_frame_at",
   "last_frame_at",
+  "segments",
   "frames_received",
   "frames_dropped",
   "state",
@@ -542,13 +544,16 @@ export function settleTrackStatement(
     // True when the staged object was abandoned because nothing was captured into it, so the row
     // stops pointing at an object that does not exist.
     readonly stagingDiscarded?: boolean;
+    // Where each stretch of the staged object belongs in time (JSON of
+    // `MeetingRecordingTrackSegment[]`); absent or null leaves what the row already says.
+    readonly segments?: string | null;
     readonly now: string;
   },
 ): SqlStatement {
   return database
     .prepare(
       `UPDATE ${MEETING_RECORDING_TRACK_TABLE} SET frames_received = ?, frames_dropped = ?, ` +
-        `first_frame_at = ?, last_frame_at = ?, ` +
+        `first_frame_at = ?, last_frame_at = ?, segments = COALESCE(?, segments), ` +
         // A track already LOST stays lost: a later close is not evidence it was heard after all.
         `state = CASE WHEN ? IS NULL OR state = 'lost' THEN state ELSE ? END, ` +
         `staging_key = CASE WHEN ? = 1 THEN NULL ELSE staging_key END, updated_at = ? ` +
@@ -559,6 +564,7 @@ export function settleTrackStatement(
       input.framesDropped,
       input.firstFrameAt,
       input.lastFrameAt,
+      input.segments ?? null,
       input.state,
       input.state,
       input.stagingDiscarded === true ? 1 : 0,
@@ -652,6 +658,26 @@ export function recordRecorderUnreachableStatement(
     readonly now: string;
   },
 ): SqlStatement {
+  return recordFaultOnTheWayStatement(database, input);
+}
+
+/**
+ * A FAULT ON THE WAY TO FILING, written onto a `composing` row that carries none yet: the Error ID of
+ * something that went wrong and did not decide the outcome — the recorder that could not be reached at
+ * the stop, or a staged track that was not in the bucket when the compose began and was composed
+ * without. The state is not moved; the row says a fault happened, and whatever settles the recording
+ * says how it ended.
+ */
+// fitness:unguarded-write — a zero means the recording had already moved past `composing`, or already
+// carries an Error ID, by the time this was written; either of those is the truer record.
+export function recordFaultOnTheWayStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingRecordingId;
+    readonly failureErrorId: string;
+    readonly now: string;
+  },
+): SqlStatement {
   return database
     .prepare(
       `UPDATE ${MEETING_RECORDING_TABLE} SET failure_error_id = ?, updated_at = ? ` +
@@ -725,9 +751,18 @@ export async function readRecordingFilingFacts(
 
 /**
  * WHERE THE COMPOSITE IS BEING WRITTEN: the upload session the compose began, its pending version and
- * file, the key the pipeline minted, and the multipart upload at that key. Read through the session
- * rather than copied onto the recording, so the file pipeline's own rows stay the one answer to where
- * the document's bytes go. The compose step's own read.
+ * file, the key the pipeline minted, the multipart upload at that key, the session's status and the
+ * size it was declared at. Read through the session rather than copied onto the recording, so the file
+ * pipeline's own rows stay the one answer to where the document's bytes go. The compose step's own
+ * read.
+ *
+ * IT READS THE FILE MANAGER'S OWN TABLES, deliberately. `loadUploadSession` in the file manager answers
+ * the same session, but not the declared size or the file the version belongs to, and both are what the
+ * compose checks: the declared size is the composite's length as the compose first laid it out, so a
+ * later window that lays the tracks out to a different length is refused rather than writing a header
+ * whose lengths disagree with the data; and the status says whether the session is still open to be
+ * written into at all. The read is addressed by the session handle the recording itself recorded, in
+ * the firm's own database, so it can reach nothing another firm or another upload holds.
  */
 export async function readComposeTarget(
   database: SqlDatabase,
@@ -739,6 +774,8 @@ export async function readComposeTarget(
       readonly fileId: FileId;
       readonly r2Key: string;
       readonly r2UploadId: string | null;
+      readonly status: string;
+      readonly declaredSize: number | null;
     }
   | undefined
 > {
@@ -746,7 +783,8 @@ export async function readComposeTarget(
     .prepare(
       `SELECT upload_session.id AS session_id, file_version.id AS file_version_id, ` +
         `file_version.file_id AS file_id, file_version.r2_key AS r2_key, ` +
-        `upload_session.r2_upload_id AS r2_upload_id ` +
+        `upload_session.r2_upload_id AS r2_upload_id, upload_session.status AS status, ` +
+        `upload_session.declared_size AS declared_size ` +
         `FROM upload_session JOIN file_version ON file_version.id = upload_session.file_version_id ` +
         `WHERE upload_session.id = ?`,
     )
@@ -757,6 +795,8 @@ export async function readComposeTarget(
       file_id: FileId;
       r2_key: string;
       r2_upload_id: string | null;
+      status: string;
+      declared_size: number | null;
     }>();
   const row = results[0];
   return row === undefined
@@ -767,11 +807,32 @@ export async function readComposeTarget(
         fileId: row.file_id,
         r2Key: row.r2_key,
         r2UploadId: row.r2_upload_id,
+        status: row.status,
+        declaredSize: row.declared_size,
       };
 }
 
 /** The most recordings one sweep reads in one state for one firm in one pass. */
 export const RECORDING_SWEEP_BATCH = 50;
+
+/**
+ * WHETHER A FIRM HAS ANYTHING THE SWEEP TENDS: a recording still running or composing, or a staged
+ * object a row still names. One read that answers "no" for every firm that has never recorded — most
+ * of them — so the sweep does not spend three on each. Deliberately not the `meetings.recordingEnabled`
+ * switch: a firm that turned recording off with a recording mid-compose still needs that recording
+ * filed, and its staging still needs releasing. The sweep's own read.
+ */
+export async function hasRecordingsToTend(database: SqlDatabase): Promise<boolean> {
+  const { results } = await database
+    .prepare(
+      `SELECT EXISTS (SELECT 1 FROM ${MEETING_RECORDING_TABLE} ` +
+        `WHERE state IN ('recording', 'composing')) ` +
+        `OR EXISTS (SELECT 1 FROM ${MEETING_RECORDING_TRACK_TABLE} WHERE staging_key IS NOT NULL) ` +
+        `AS tend`,
+    )
+    .all<{ tend: number }>();
+  return (results[0]?.tend ?? 0) === 1;
+}
 
 /**
  * Recordings still `recording` that STARTED before an instant — the sweep's candidates for a recorder
@@ -792,9 +853,18 @@ export async function listRunningRecordingsStartedBefore(
   return results;
 }
 
+// When anything last touched a compose: its stop, its last window's claim, its last progress or hand-on.
+// Text instants in one format compare as instants, and `MAX` over them is the latest; the stop is
+// never null on a `composing` row, so neither is the answer.
+const COMPOSE_LAST_TOUCHED = `MAX(stopped_at, COALESCE(compose_progress_at, ''), COALESCE(compose_claimed_at, ''))`;
+
 /**
- * Recordings `composing` that have made NO PROGRESS since an instant: no part uploaded since then, and
- * — for one that never began — stopped before it. Oldest first, a bounded batch. The sweep's own read.
+ * Recordings `composing` that nothing has touched since an instant: no window CLAIMED since then (a
+ * window being composed is work, however long the mix takes), no progress recorded and no hand-on, and
+ * — for one that never began — stopped before it. The latest of the three is the measure, so a message
+ * that waited in the queue is measured from when it was sent, and a window still being mixed from when
+ * it was picked up. The least recently touched first — so a batch the sweep has just handed on goes
+ * to the back rather than taking the whole of every later pass — a bounded batch. The sweep's own read.
  */
 export async function listStalledComposingRecordings(
   database: SqlDatabase,
@@ -803,8 +873,8 @@ export async function listStalledComposingRecordings(
   const { results } = await database
     .prepare(
       `SELECT ${RECORDING_COLUMNS} FROM ${MEETING_RECORDING_TABLE} ` +
-        `WHERE state = 'composing' AND COALESCE(compose_progress_at, stopped_at) < ? ` +
-        `ORDER BY stopped_at ASC, id ASC LIMIT ?`,
+        `WHERE state = 'composing' AND ${COMPOSE_LAST_TOUCHED} < ? ` +
+        `ORDER BY ${COMPOSE_LAST_TOUCHED} ASC, id ASC LIMIT ?`,
     )
     .bind(stalledSince, RECORDING_SWEEP_BATCH)
     .all<MeetingRecordingRow>();
@@ -883,6 +953,13 @@ export function beginComposeStatement(
  * PARTS UPLOADED: the cursor moved from where this invocation found it to where it left it, with every
  * part's tag. Guarded by the caller on the cursor it started from, so two deliveries of one message
  * never both advance it — the second is refused and stops.
+ *
+ * PROGRESS RESETS THE ATTEMPTS. `compose_attempts` counts hand-ons of a compose that was going nowhere;
+ * a compose that moved has proved it is going somewhere, so a long recording that was nudged once early
+ * on does not carry that against it for the rest of its seventy-odd windows. And when `releaseClaim`,
+ * the window's claim is let go in the same write — the invocation is handing the next window to the
+ * queue, and whoever picks it up claims it afresh; otherwise the claim is kept, because the same
+ * invocation goes on to file the composite.
  */
 export function recordComposeProgressStatement(
   database: SqlDatabase,
@@ -891,21 +968,80 @@ export function recordComposeProgressStatement(
     readonly fromPartsDone: number;
     readonly partsDone: number;
     readonly parts: string;
+    readonly releaseClaim: boolean;
     readonly now: string;
   },
 ): SqlStatement {
   return database
     .prepare(
       `UPDATE ${MEETING_RECORDING_TABLE} SET compose_parts_done = ?, compose_parts = ?, ` +
-        `compose_progress_at = ?, updated_at = ? ` +
+        `compose_progress_at = ?, compose_attempts = 0, ` +
+        `compose_claimed_at = CASE WHEN ? = 1 THEN NULL ELSE compose_claimed_at END, updated_at = ? ` +
         `WHERE id = ? AND state = 'composing' AND compose_parts_done = ?`,
     )
-    .bind(input.partsDone, input.parts, input.now, input.now, input.id, input.fromPartsDone);
+    .bind(
+      input.partsDone,
+      input.parts,
+      input.now,
+      input.releaseClaim ? 1 : 0,
+      input.now,
+      input.id,
+      input.fromPartsDone,
+    );
+}
+
+/**
+ * ONE CONSUMER TAKES THE NEXT WINDOW: the claim is stamped on a recording still `composing` whose
+ * cursor is where this consumer read it, and that nobody else holds — or whose holder's lease has run
+ * out, because a consumer cannot run longer than its platform's limit and one that has is gone. Guarded
+ * by the caller: a second delivery of the same message, or a sweep's hand-on racing the queue's own,
+ * is refused here and stops before it reads a byte, so two consumers never write the same part of the
+ * composite at once.
+ */
+export function claimComposeWindowStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingRecordingId;
+    readonly partsDone: number;
+    readonly now: string;
+    readonly leaseExpiredBefore: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET compose_claimed_at = ?, updated_at = ? ` +
+        `WHERE id = ? AND state = 'composing' AND compose_parts_done = ? ` +
+        `AND (compose_claimed_at IS NULL OR compose_claimed_at < ?)`,
+    )
+    .bind(input.now, input.now, input.id, input.partsDone, input.leaseExpiredBefore);
+}
+
+/**
+ * A CLAIM LET GO by the consumer that took it — after a failure it will retry, or a window it stopped
+ * short of — addressed by the instant it was taken at, so it can never release a claim somebody else
+ * has taken since.
+ */
+// fitness:unguarded-write — a zero means the claim was already released by the window's own progress,
+// or taken over after its lease ran out; either way it is not this consumer's to let go of.
+export function releaseComposeClaimStatement(
+  database: SqlDatabase,
+  input: { readonly id: MeetingRecordingId; readonly claimedAt: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_RECORDING_TABLE} SET compose_claimed_at = NULL ` +
+        `WHERE id = ? AND compose_claimed_at = ?`,
+    )
+    .bind(input.id, input.claimedAt);
 }
 
 /**
  * A COMPOSED RECORDING ON THE MATTER: `filed`, naming the document and the version its audio is.
  * Guarded by the caller on `composing`, so a recording a sweep failed in the meantime is not filed over.
+ *
+ * THE CAPTURED LENGTH NEVER CLAIMS MORE THAN WAS FILED. The recorder counted what its tracks spanned;
+ * a track whose staged object was not there to compose leaves the document shorter than that count, so
+ * the row is brought down to the composite's own length — and never raised above the recorder's.
  */
 export function fileRecordingStatement(
   database: SqlDatabase,
@@ -913,15 +1049,26 @@ export function fileRecordingStatement(
     readonly id: MeetingRecordingId;
     readonly fileId: string;
     readonly fileVersionId: string;
+    readonly composedSeconds: number;
     readonly now: string;
   },
 ): SqlStatement {
   return database
     .prepare(
       `UPDATE ${MEETING_RECORDING_TABLE} SET state = 'filed', file_id = ?, file_version_id = ?, ` +
-        `compose_progress_at = ?, updated_at = ? WHERE id = ? AND state = 'composing'`,
+        `captured_seconds = MIN(COALESCE(captured_seconds, ?), ?), ` +
+        `compose_progress_at = ?, compose_claimed_at = NULL, updated_at = ? ` +
+        `WHERE id = ? AND state = 'composing'`,
     )
-    .bind(input.fileId, input.fileVersionId, input.now, input.now, input.id);
+    .bind(
+      input.fileId,
+      input.fileVersionId,
+      input.composedSeconds,
+      input.composedSeconds,
+      input.now,
+      input.now,
+      input.id,
+    );
 }
 
 /**
@@ -980,18 +1127,32 @@ export function loseOpenTracksStatement(
 }
 
 /**
- * Staged objects deleted: the rows stop naming them. One statement for a page of tracks, the handles
- * bound and only the count of `?` spliced.
+ * THE MOST TRACK HANDLES ONE CLEARING STATEMENT BINDS. A Durable Object's SQLite refuses a statement
+ * with more than a hundred bound variables, and the instant takes one of them — so the sweep's page of
+ * two hundred staged objects is cleared in several statements of one batch, never one that fails.
  */
-export function clearStagingKeysStatement(
+export const STAGING_KEYS_PER_STATEMENT = 90;
+
+/**
+ * Staged objects deleted: the rows stop naming them. One statement per `STAGING_KEYS_PER_STATEMENT`
+ * tracks, the handles bound and only the count of `?` spliced; committed together in one batch.
+ */
+export function clearStagingKeysStatements(
   database: SqlDatabase,
   trackIds: readonly MeetingRecordingTrackId[],
   now: string,
-): SqlStatement {
-  return database
-    .prepare(
-      `UPDATE ${MEETING_RECORDING_TRACK_TABLE} SET staging_key = NULL, updated_at = ? ` +
-        `WHERE id IN (${placeholders(trackIds.length)})`,
-    )
-    .bind(now, ...trackIds);
+): SqlStatement[] {
+  const statements: SqlStatement[] = [];
+  for (let start = 0; start < trackIds.length; start += STAGING_KEYS_PER_STATEMENT) {
+    const page = trackIds.slice(start, start + STAGING_KEYS_PER_STATEMENT);
+    statements.push(
+      database
+        .prepare(
+          `UPDATE ${MEETING_RECORDING_TRACK_TABLE} SET staging_key = NULL, updated_at = ? ` +
+            `WHERE id IN (${placeholders(page.length)})`,
+        )
+        .bind(now, ...page),
+    );
+  }
+  return statements;
 }

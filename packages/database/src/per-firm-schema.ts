@@ -11362,6 +11362,10 @@ export const meetingRecording = sqliteTable(
     composeParts: text("compose_parts"),
     composeAttempts: integer("compose_attempts").notNull().default(0),
     composeProgressAt: text("compose_progress_at"), // ISO-8601 instant
+    // When the consumer working on the current window CLAIMED it — a lease, released when the window's
+    // progress is recorded, so two deliveries of one message never compose one window at once, and a
+    // window being composed is never counted as a stall. Null when nobody holds the window.
+    composeClaimedAt: text("compose_claimed_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -11432,6 +11436,14 @@ export const meetingRecordingTrack = sqliteTable(
     stagingKey: text("staging_key"),
     firstFrameAt: text("first_frame_at"), // ISO-8601 instant
     lastFrameAt: text("last_frame_at"), // ISO-8601 instant
+    // WHERE EACH STRETCH OF THE STAGED OBJECT BELONGS IN TIME, as JSON: one entry per stretch, naming the
+    // staged sample it begins at, the instant that sample was heard, and — for a stretch the participant
+    // left at — the staged sample its audio ends at. A participant who leaves and comes back continues in
+    // the same object after the silence that closed it, and that silence is not their absence; the
+    // compose places each stretch at its own instant rather than reading the object as one run. Null
+    // for a track that never carried a frame, and read as one stretch from `first_frame_at` for a row
+    // staged before this column existed.
+    segments: text("segments"),
     framesReceived: integer("frames_received").notNull().default(0),
     // Frames the sequence numbers say never arrived, each of which became silence of its own length.
     framesDropped: integer("frames_dropped").notNull().default(0),

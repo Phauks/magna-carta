@@ -39,7 +39,7 @@
     recordingDocumentAddress,
     recordingDocumentText,
     recordingStateWord,
-    recordingStopWord,
+    recordingStopText,
   } from "./recording-list.ts";
   import type { MeetingRecordingListView, MeetingRecordingView } from "../meetings-api.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -138,7 +138,7 @@
         id: "howItStopped",
         label: "How It Stopped",
         type: "text",
-        value: (row) => recordingStopWord(row),
+        value: (row) => recordingStopText(row),
       },
     ],
     rows: () => rows,

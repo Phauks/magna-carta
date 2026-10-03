@@ -17,6 +17,7 @@ import { readMeeting, readMeetingSummary } from "./meeting-statements.ts";
 import {
   abandonRecordingStatement,
   beginComposeStatement,
+  claimComposeWindowStatement,
   closeOpenTracksStatement,
   failRecordingStatement,
   fileRecordingStatement,
@@ -211,6 +212,7 @@ export async function startMeetingRecording(
     compose_parts: null,
     compose_attempts: 0,
     compose_progress_at: null,
+    compose_claimed_at: null,
     created_at: now,
     updated_at: now,
   };
@@ -631,8 +633,42 @@ export async function reachRecordedMeeting(
 /** The labels the compose step's guarded writes carry, exported because a caller matches on them. */
 export const COMPOSE_BEGIN_GUARD = "meeting.recording.compose.begin";
 export const COMPOSE_PROGRESS_GUARD = "meeting.recording.compose.progress";
+export const COMPOSE_CLAIM_GUARD = "meeting.recording.compose.claim";
 export const FILE_RECORDING_GUARD = "meeting.recording.file";
+export const FAIL_COMPOSE_GUARD = "meeting.recording.compose.fail";
 export const ABANDON_RECORDING_GUARD = "meeting.recording.abandon";
+
+/**
+ * ONE CONSUMER TAKES THE NEXT WINDOW, or is refused because another holds it (or the cursor moved, or
+ * the recording settled) — see `claimComposeWindowStatement`. `leaseMilliseconds` is how long a claim
+ * holds against another delivery: a queue consumer's own longest run, past which its holder is gone.
+ */
+export function claimComposeWindowEffect(
+  database: SqlDatabase,
+  input: {
+    readonly recordingId: MeetingRecordingId;
+    readonly partsDone: number;
+    readonly claimedAt: string;
+    readonly leaseMilliseconds: number;
+  },
+): EffectWrite {
+  return {
+    statements: [
+      guarded(
+        claimComposeWindowStatement(database, {
+          id: input.recordingId,
+          partsDone: input.partsDone,
+          now: input.claimedAt,
+          leaseExpiredBefore: new Date(
+            Date.parse(input.claimedAt) - input.leaseMilliseconds,
+          ).toISOString(),
+        }),
+        COMPOSE_CLAIM_GUARD,
+      ),
+    ],
+    outboxMessages: [],
+  };
+}
 
 /**
  * THE COMPOSE BEGINS: the upload session the composite is written through, recorded on a recording
@@ -666,6 +702,8 @@ export function composeProgressEffect(
     readonly recordingId: MeetingRecordingId;
     readonly fromPartsDone: number;
     readonly parts: readonly MeetingRecordingComposePart[];
+    // True when the invocation hands the next window to the queue; false when it goes on to file.
+    readonly releaseClaim: boolean;
   },
   options: MeetingRecordingSystemOptions,
 ): EffectWrite {
@@ -677,6 +715,7 @@ export function composeProgressEffect(
           fromPartsDone: input.fromPartsDone,
           partsDone: input.parts.length,
           parts: canonicalJsonStringify(input.parts),
+          releaseClaim: input.releaseClaim,
           now: options.clock.now(),
         }),
         COMPOSE_PROGRESS_GUARD,
@@ -697,6 +736,8 @@ export function fileRecordingStatements(
     readonly recording: MeetingRecordingRow;
     readonly fileId: string;
     readonly fileVersionId: string;
+    // The composite's own length, which the captured length is brought down to when it is shorter.
+    readonly composedSeconds: number;
   },
   options: MeetingRecordingSystemOptions,
 ): EffectStatement[] {
@@ -707,6 +748,7 @@ export function fileRecordingStatements(
         id: input.recording.id,
         fileId: input.fileId,
         fileVersionId: input.fileVersionId,
+        composedSeconds: input.composedSeconds,
         now,
       }),
       FILE_RECORDING_GUARD,
@@ -732,6 +774,11 @@ export function fileRecordingStatements(
  * row, written only when this failure is the one the record kept (`recordingFailedAuditStatement`). The
  * staged tracks are left where they are: they are the only copy of what was captured, and the sweep
  * deletes them after a retention window rather than now.
+ *
+ * GUARDED on `composing`, unlike the recorder's own failure: the caller commits the composite's upload
+ * session ABORTED in the same batch, and a compose that filed the recording in the meantime has
+ * completed that session — so a failure that lost the race must roll back whole rather than abandon
+ * the version of a document that is already on the matter.
  */
 export function failComposeEffect(
   database: SqlDatabase,
@@ -740,11 +787,14 @@ export function failComposeEffect(
 ): EffectWrite {
   return {
     statements: [
-      failRecordingStatement(database, {
-        id: input.recording.id,
-        failureErrorId: input.failureErrorId,
-        now: options.clock.now(),
-      }),
+      guarded(
+        failRecordingStatement(database, {
+          id: input.recording.id,
+          failureErrorId: input.failureErrorId,
+          now: options.clock.now(),
+        }),
+        FAIL_COMPOSE_GUARD,
+      ),
       recordingFailedAuditStatement(
         database,
         {

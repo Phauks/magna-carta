@@ -75,8 +75,11 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `room/room-recording.ts` — the recording's announcement and its record: the `recording` frame to
   every welcomed socket, the running recording a welcome carries, the notice rows for every stay told
   (one batch per fan-out), and the audio tracks the recorder asks the room for. A recording is announced
-  ONCE however many requests carry its start out (the room holding it is the proof), and a guest's copy
-  carries `recordingId: null` beside `by.userId: null` — the handle names a firm record.
+  ONCE however many requests carry its start out (the room holding it is the proof), a start that
+  reaches the room after its own stop (or after the meeting ended) is ignored — the room keeps a
+  bounded list of the recordings it was told stopped, because the stop deletes the very key the
+  announce-once guard reads — and a guest's copy carries `recordingId: null` beside `by.userId: null`
+  — the handle names a firm record.
 - `meeting-recorder.ts` — `MeetingRecorder`, one per RECORDING (`firmId:recordingId`) and NOT
   hibernating: the one object in this directory the media does cross. The routing service's WebSocket
   adapter streams each audio track to it as PCM; it folds to mono, writes silence for missing frames,
@@ -87,19 +90,36 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   its storage. The track ceiling is derived from the isolate's memory in
   `packages/meetings/src/settings.ts` (eleven), and one stay holds at most one recorded track — so the
   start route's ceiling counts stays too.
+  A track's staged object is written down as STRETCHES (`MeetingRecordingTrackSegment`): a frame the
+  wall clock places behind the end of the object (a participant back before the silence that closed
+  their last stretch at a part boundary ran out) or more than five minutes past it begins a new
+  stretch carrying the instant it was heard, and a departure marks where its stretch's audio ends —
+  so the compose places a return at its own instant and never the padding. Gaps are never clamped.
   The sweep asks it `heartbeat()` (each pass stamps when it last reconciled) and, for a recording the
-  sweep has abandoned, `abandon()` closes its adapters and ABORTS its uploads rather than completing
-  them. A test that drives the compose step installs a queue with `setRecordingComposeQueueForTests`,
+  sweep has abandoned, `abandon()` closes its adapters and COMPLETES its uploads (aborting only one
+  that staged nothing), so what was captured is kept for the sweep's seven-day retention; nothing is
+  composed. A test that drives the compose step installs a queue with `setRecordingComposeQueueForTests`,
   because the recorder is constructed with the deployment's environment.
 - `recording-compose-consumer.ts` — the consumer on the `meeting-recording-compose` queue: one bounded
   window per message (ten one-minute parts), mixed with `@magna-carta/meetings/pcm-mix`, the WAV header
   at the head of the first part, the cursor on the recording's row, and the next window re-enqueued; then
   filed through `initiateUpload` → the composite at the minted key → `completeUploadSession` → the ingest
   queue, on the email attachment's precedent, and the staged tracks deleted. About 40 MB per invocation
-  whatever the length or track count — the arithmetic is in its header.
+  whatever the length or track count — the arithmetic is in its header. Each window is CLAIMED on the
+  row first (a fifteen-minute lease, released with the window's progress), so two deliveries never
+  compose one window; the record is read again just before the upload is completed; a layout whose
+  length differs from the session's declared size is refused; a staged object missing at the begin is
+  composed without (an Error ID on the row, the captured length brought down at filing), one that
+  vanishes later fails the recording. `failRecordingCompose` — the consumer's refusals and the sweep's
+  — fails the row, aborts the upload session and abandons its version in ONE guarded batch, then
+  aborts the multipart upload and deletes anything at the key. The file name's title is stripped of
+  controls, bidirectional and invisible characters and path separators, and cut at 120 characters.
 - `recording-sweep.ts` — on the ten-minute cron beside the status snapshot: abandons a recording whose
-  recorder stopped reconciling (and clears the room's mark), hands a compose with no progress on and fails
-  it with an Error ID after three attempts, and releases staged tracks nothing needs.
+  recorder stopped reconciling (and clears the room's mark), hands on a compose nothing has claimed,
+  moved or handed on for thirty minutes and fails it (through `failRecordingCompose`) after three
+  hand-ons with no progress between them, and releases staged tracks nothing needs. A firm with nothing
+  to tend costs one read (`hasRecordingsToTend`); the three duties fail independently, so a queue that
+  refuses a hand-on never skips the staging clean-up.
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
   `routes/meeting-sink.ts`, outside the chokepoint.

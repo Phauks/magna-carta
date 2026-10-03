@@ -1113,3 +1113,76 @@ to build.
 The screen shows a failed recording's Error ID for support. `stoppedBy` is declared as a union with null
 rather than `.nullable()` on the component, which the contract emitted as an intersection the generated
 client read as always present; it is now `anyOf: [MeetingRecordingActor, null]`.
+
+### Amendments from the adversarial review of slice R2 — the recorder, the compose and the sweep
+
+Recorded 2026-10-03. Migration `20261002T234638_meeting-recording-segments-and-compose-claim` adds the two
+columns these need, both added rather than rebuilt.
+
+**A27 — A staged track is placed stretch by stretch (§6.2, §9).** A participant who left had their buffer
+closed with silence to a part boundary (up to a part, about 55 s) and, on returning, was placed after that
+silence: everything they said afterwards landed up to 55 s late for the rest of the meeting. And the
+wall-clock silence was clamped at 300 s, so a return after a long absence landed early by the excess.
+Now `meeting_recording_track.segments` records each STRETCH of the staged object — the staged sample it
+begins at, the instant it was heard, and for a stretch a departure closed, the staged sample its audio
+ends at. The recorder begins a new stretch when the wall clock places a frame more than half a second
+behind the end of the object (a return before the padding ran out) or more than 300 s past it (a gap not
+worth uploading as zeros); any other wall-clock gap is staged as silence of its full length, never
+clamped. The compose places every stretch at its own instant (`placeTrackSegments`, shared with the
+recorder's captured-length arithmetic), never places the padding, and never lays a stretch over the one
+before it. A row with no stretches reads as one from `first_frame_at`, which is what it always meant. A
+track records at most 256 stretches, because they ride its metadata in the recorder's storage; past that
+a return is placed on the timeline, late by at most one departure's padding.
+
+**A28 — A compose window is claimed, and a stall is measured from the claim (§9, §14).**
+`meeting_recording.compose_claimed_at` is a lease: a consumer claims the window at the cursor it read
+(guarded, `COMPOSE_CLAIM_GUARD`) before reading a byte, the window's progress releases it, and a holder
+past fifteen minutes — a consumer's longest run — is gone. Two deliveries of one message, or a sweep's
+hand-on racing the queue's own, therefore never upload the same part numbers at once, whatever R2 derives
+an entity tag from. A consumer that throws releases its own claim, so the queue's retry is not locked out.
+Progress resets `compose_attempts`, so a long recording nudged once is not one strike down for good. The
+sweep hands on a compose untouched — no claim, progress or hand-on — for thirty minutes, least recently
+touched first, and fails it only after three hand-ons with nothing between. The compose reads the record
+again immediately before it completes the composite, and stops if the recording is no longer composing
+or the claim is no longer its own. Queue concurrency is a deployment setting outside this change.
+
+**A29 — A failed compose leaves nothing behind (§14).** `failRecordingCompose` — the compose's own
+refusals and the sweep's failure alike — commits the recording `failed` (now guarded,
+`FAIL_COMPOSE_GUARD`) in one batch with the file manager's own `abortUploadSession` (session aborted,
+pending version abandoned), then aborts the multipart upload and deletes anything a completion left at
+the key. A failure that lost the race to a filing rolls back whole and lets go of nothing. The upload
+session is opened with a two-day expiry as the stale-upload sweep's backstop.
+
+**A30 — The layout is checked, and a missing track is said (§9).** Each window lays the tracks out again,
+and a layout whose length differs from the upload session's declared size — the length the header
+already written says — is refused rather than written. A staged object missing when the compose BEGINS is
+composed without: the row carries the Error ID of that fault (a fault on the way, not the outcome), the
+track's row stops naming the object, and filing brings `captured_seconds` down to the composite's own
+length. One that vanishes after the compose began fails the recording, because the windows already
+written placed it. `readComposeTarget` deliberately reads the file manager's `upload_session` and
+`file_version` rows rather than calling `loadUploadSession`: it needs the declared size and the file the
+version belongs to, which that function does not return, and it now checks the session's status. It is
+addressed by the session handle the recording itself recorded, in the firm's own database.
+
+**A31 — The WAV-length policy (§9).** A composite past the signed 32-bit boundary (about 6.2 hours) is
+still filed as ONE canonical WAV, whole, with lengths written as the format defines them (unsigned). Not
+capped — a seven-hour deposition is an ordinary day — and not split, because one recording is one document
+on the matter. A reader that misreads the lengths as signed fails on that file; FLAC or the RF64 container
+removes the boundary and is the size follow-up §9 already names. Only past the unsigned limit, which the
+recorder's twelve-hour maximum never reaches, is a composite refused (before anything is opened).
+`WAV_SIGNED_READER_MAXIMUM_DATA_BYTES` in `packages/meetings/src/wav.ts` states it.
+
+**A32 — An abandoned recording keeps what it captured (§14, amends A20).** `MeetingRecorder.abandon()`
+now uploads each buffer's remainder and COMPLETES every upload, aborting only one that staged nothing,
+and writes what each track carried; nothing is composed. The sweep's seven-day retention of an abandoned
+recording's staging therefore keeps real audio, which an aborted upload never did.
+
+**A33 — Smaller fixes (§9, §14, §15).** The filed name's title has controls, bidirectional and invisible
+characters removed, path separators replaced, runs of space collapsed, and is cut at 120 characters with
+an ellipsis; an empty result is "Untitled meeting". The sweep costs a firm with nothing to tend one read,
+not three — it is deliberately not skipped on `meetings.recordingEnabled`, because a firm that switched
+recording off mid-compose still needs that recording filed — and its three duties fail independently,
+so a queue that refuses a hand-on no longer skips the staging clean-up. Staging keys are cleared in
+statements of at most ninety handles: a Durable Object's SQLite binds at most a hundred variables, and
+the sweep's page of two hundred failed every time. The mixer's CPU test now covers one invocation at the
+eleven-track ceiling with both byte conversions, bounded at a third of a consumer's thirty-second budget.
