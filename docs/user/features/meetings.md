@@ -579,18 +579,24 @@ What each recording's state means:
 - **Recording** — it is running now.
 - **Being Put Together** — it has stopped and is being made into one audio file. Nothing is lost
   while it waits; it moves on by itself.
-- **Added to the Matter** — it is in the matter's Files. **Open** in its row opens that file in a
-  new tab, where your browser plays it; it is the matter's own document, not a copy, so it is also
-  found, downloaded and shared from the Files section like any other document.
+- **Added to the Matter** — it is in the matter's Files. Once the safety check has finished,
+  **Open** in its row opens that file in a new tab, where your browser plays it; it is the matter's
+  own document, not a copy, so it is also found, downloaded and shared from the Files section like
+  any other document. Where it cannot be opened, the row says why instead: **Being Checked** while
+  the check runs, **Held** when the check held it, **Replaced by a Later Version** when somebody has
+  since added a newer version of that file, **Removed from the Matter** when the file is in the
+  trash, and **Not Available** when it cannot be reached from here.
 - **Failed** — it could not be put together, or nothing at all was captured, so no document was
   added. The row shows an **Error ID**; quote it to your administrator or to support.
-- **Interrupted** — the recording stopped without anybody stopping it and was gathered up
-  afterwards.
+- **Interrupted** — the recording was cut off partway through, without anybody stopping it, and
+  nothing from it was added to the matter. Its row says so in its own words.
 
 How a recording stopped is said in its own words: who pressed **Stop Recording**; "The meeting
 ended"; "The sound was lost", when every voice it was hearing dropped and did not come back; "It
-reached the longest a recording may run"; "It ended on its own", when nobody was speaking for a long
-while or the recording was cut off; and "It could not start", when the recording was stopped before
+reached the longest a recording may run"; "It stopped when nobody had been heard for a while", when
+nobody in the room was speaking for a long while, in which case the recording is still put together
+and added to the matter; "It was interrupted, and nothing was added to the matter", for an
+**Interrupted** recording; and "It could not start", when the recording was stopped before
 anybody's voice was captured because it could not be begun properly. A recording that could not
 start captured nothing.
 
@@ -642,9 +648,9 @@ room.
   in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
   shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
   them in the Directory and put that record on the event in their place.
-- **Playing a recording, a transcript, captions and a summary.** A meeting's sound can be recorded,
-  and everybody is told when it is, but a recording cannot be played or downloaded yet, and nothing
-  turns it into text. Video is never recorded.
+- **A transcript, captions and a summary.** A meeting's sound can be recorded, everybody is told
+  when it is, and the recording is added to the matter's Files, but nothing turns it into text yet.
+  Video is never recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
   want an unscheduled meeting, record the event first and start the meeting on it.

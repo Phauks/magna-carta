@@ -54,6 +54,7 @@ import {
   type MeetingPoll,
   type MeetingPollAnswer,
   type MeetingQuestion,
+  type MeetingRecordingListEntry,
   type MeetingRecordingNoticeEntry,
   type MeetingRecordingSummary,
   type MeetingSummary,
@@ -745,6 +746,19 @@ export type MeetingRecordingStateView = MeetingRecordingSummary["state"];
  * failure with no Error ID.
  */
 export type MeetingRecordingView = MeetingRecordingSummary;
+
+/**
+ * One row of a meeting's recordings, as the list reads it: the recording, and the document it put on
+ * the matter. Only the list carries the document; the start and stop answers are the recording alone.
+ */
+export type MeetingRecordingListView = MeetingRecordingListEntry;
+
+/**
+ * The document a recording put on the matter: the version it added, and where that version stands —
+ * still being scanned, ready to open, held by the scan, replaced by a later version, in the trash, or
+ * out of reach. Null until the recording is on the matter.
+ */
+export type MeetingRecordingDocumentView = NonNullable<MeetingRecordingListEntry["document"]>;
 
 /** Why somebody was told: the start, an arrival while it ran, or the stop. */
 export type MeetingRecordingNoticeReasonView = MeetingRecordingNoticeEntry["reason"];

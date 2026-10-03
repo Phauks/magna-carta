@@ -2508,7 +2508,7 @@ export const meetingsStopRecording = <ThrowOnError extends boolean = false>(opti
 export const meetingsStartRecording = <ThrowOnError extends boolean = false>(options: Options<MeetingsStartRecordingData, ThrowOnError>): RequestResult<MeetingsStartRecordingResponses, MeetingsStartRecordingErrors, ThrowOnError> => (options.client ?? client).post<MeetingsStartRecordingResponses, MeetingsStartRecordingErrors, ThrowOnError>({ url: '/api/v1/meetings/{meetingId}/recording', ...options });
 
 /**
- * This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access.
+ * This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access; each filed recording names the version it filed and whether that version is still being scanned, can be opened, is held, was replaced, or is gone.
  */
 export const meetingsListRecordings = <ThrowOnError extends boolean = false>(options: Options<MeetingsListRecordingsData, ThrowOnError>): RequestResult<MeetingsListRecordingsResponses, MeetingsListRecordingsErrors, ThrowOnError> => (options.client ?? client).get<MeetingsListRecordingsResponses, MeetingsListRecordingsErrors, ThrowOnError>({ url: '/api/v1/meetings/{meetingId}/recordings', ...options });
 

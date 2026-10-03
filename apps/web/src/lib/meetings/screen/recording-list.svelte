@@ -7,10 +7,11 @@
    * read a week later on the Meetings page are one record, and two lists would be two spellings of
    * what happened to it. The words live in `recording-list.ts`; this draws them.
    *
-   * WHAT A RECORDING BECAME IS THE DOCUMENT ITSELF. Once it is added to the matter, the row opens the
-   * document through the file's own route, beside the reader's work, and the browser plays it. There
-   * is no player here: the file on the matter is the record, and it is scanned and listed like any
-   * upload. A recording that failed says its Error ID in the same place.
+   * WHAT A RECORDING BECAME IS THE DOCUMENT ITSELF. Once it is added to the matter and the scan has
+   * let it through, the row opens the document through the file's own route, beside the reader's
+   * work, and the browser plays it. There is no player here: the file on the matter is the record,
+   * and it is scanned and listed like any upload. A document still being checked, or held, says so
+   * in the same place and offers nothing to open; a recording that failed says its Error ID there.
    *
    * IT READS WHEN IT OPENS, and pages on from there. In the room it is also handed what the room last
    * announced about its recording, and reads again when that changes while it is open: the list is a
@@ -40,7 +41,7 @@
     recordingStateWord,
     recordingStopWord,
   } from "./recording-list.ts";
-  import type { MeetingRecordingView } from "../meetings-api.ts";
+  import type { MeetingRecordingListView, MeetingRecordingView } from "../meetings-api.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
 
   let {
@@ -91,11 +92,11 @@
     });
   });
 
-  const rows = $derived<MeetingRecordingView[]>(
+  const rows = $derived<MeetingRecordingListView[]>(
     (recordingsRead.data?.pages ?? []).flatMap((page) => page.data),
   );
 
-  const grid = DataTable.createDataTableGrid<MeetingRecordingView>({
+  const grid = DataTable.createDataTableGrid<MeetingRecordingListView>({
     columns: () => [
       {
         id: "state",
@@ -149,7 +150,7 @@
   });
 </script>
 
-{#snippet cell({ row, column, text }: DataTable.GridCellContext<MeetingRecordingView>)}
+{#snippet cell({ row, column, text }: DataTable.GridCellContext<MeetingRecordingListView>)}
   {@const address = column.id === "document" ? recordingDocumentAddress(row) : null}
   {#if address !== null}
     <!-- The document on the matter, through the file's own route and beside the reader's work: the

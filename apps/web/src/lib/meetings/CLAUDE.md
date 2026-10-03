@@ -101,10 +101,14 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   every press that leads into a room unlocks `pageRecordingSounds` before it awaits or navigates —
   the entry action's Join and Start, the Meetings page's Join, the room's own Join and Rejoin
   (through `unlockRecordingSounds()`) and any press in the room — and the browser seams hand the
-  room's client that same instance, so its first chime lands on the device the press woke. A chime
-  on a context that is not running schedules nothing rather than a tone that plays late. A test that
-  mounts a screen releases `pageRecordingSounds` after each case, because the device outlives a
-  screen by design.
+  room's client a HOLD on that same device (`pageRecordingSounds.hold()`), so its first chime lands
+  on the device the press woke. A ROOM GIVES BACK ITS HOLD, NEVER THE DEVICE: a room's teardown runs
+  after the press that leads out of it, so a client that closed the device on `clear()` closed the
+  one the press into the next room had just woken. The device closes when no hold is left and no
+  press is waiting for a room to take it over; only the page's own `release()` closes it outright,
+  and no room can reach that. A chime on a context that is not running schedules nothing rather than
+  a tone that plays late. A test that mounts a screen releases `pageRecordingSounds` after each
+  case, because the device outlives a screen by design.
 - `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
   rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`). NO READ ON A TIMER WHILE
   THE SOCKET IS HEALTHY: a full read on arrival and on reconnect, a read when a panel opens (forward
@@ -123,8 +127,13 @@ summary's `recordingState`), `recording-notice.svelte` (the one dismissible bann
 from the recording concern), `recording-list.svelte` with `recording-list.ts` (the one Recordings
 reading panel, opened from the room's header and from an ended meeting's row on the Meetings page: a
 recording on the matter is opened as THE DOCUMENT, through the file's own download route in a new
-tab, never through a player of ours; every state and every stop reason has its own words there, a
-failed recording states its Error ID, and the server's `filed` is never the word on screen), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+tab, never through a player of ours, and ONLY when the row's `document.state` is `available` — the
+version the recording added is clean and still the file's current one, because that route serves the
+current version and there is no download address for one version; a version still being checked,
+held, replaced or gone says so in the Document column instead; every state and every stop reason has
+its own words there, an `abandoned` recording says it was interrupted and that nothing reached the
+matter, a failed recording states its Error ID, and the server's `filed` is never the word on
+screen), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who

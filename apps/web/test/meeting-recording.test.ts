@@ -252,6 +252,30 @@ function wired(): {
   return { client: meeting, socket, sounds, join };
 }
 
+/** A client in a room, chiming on the sounds given rather than on counted fakes. */
+function wiredOn(sounds: MeetingRecordingSounds): { client: MeetingClient; socket: WireSocket } {
+  const socket = new WireSocket();
+  const seams = {
+    createPeerConnection: () => new QuietPeerConnection(),
+    openSocket: () => socket,
+    getUserMedia: () => Promise.reject(new Error("NotAllowedError")),
+    getDisplayMedia: () => Promise.reject(new Error("NotAllowedError")),
+    createMediaStream: () => ({ getTracks: () => [] }),
+    createAudioLevelMeter: () => ({ start: () => {}, stop: () => {} }),
+    createRecordingSounds: () => sounds,
+  } as unknown as MeetingClientSeams;
+  const meeting = new MeetingClient(seams);
+  opened.push(meeting);
+  meeting.join({
+    meetingId: MEETING_ID,
+    participantId: "attendance_1",
+    iceServers: [],
+    socketUrl: "wss://example.test/api/v1/meetings/meeting_1/socket",
+  });
+  socket.accept();
+  return { client: meeting, socket };
+}
+
 function welcome(socket: WireSocket, recording?: Record<string, unknown>): void {
   socket.deliver({
     v: 1,
@@ -594,6 +618,96 @@ describe("the sounds a browser makes", () => {
     expect(FakeAudioContext.made).toHaveLength(2);
     sounds.chime("started");
     expect(FakeAudioContext.made[1]?.notes).toBe(2);
+  });
+
+  it("survive the teardown of the room being left, once a press into the next one has woken them", () => {
+    installAudio();
+    FakeAudioContext.honoursResume = true;
+    const device = browserRecordingSounds();
+    const leaving = device.hold();
+    leaving.unlock();
+    expect(FakeAudioContext.made).toHaveLength(1);
+
+    // The press into the next room — a calendar entry's Join — wakes the device, and only then is the
+    // room being left torn down.
+    device.unlock();
+    leaving.release();
+    expect(FakeAudioContext.made[0]?.state).toBe("running");
+
+    // The next room takes the same device over and chimes on it.
+    const arriving = device.hold();
+    arriving.unlock();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    arriving.chime("started");
+    expect(FakeAudioContext.made[0]?.notes).toBe(2);
+
+    // Its own teardown, with nothing else holding the device, is what closes it.
+    arriving.release();
+    expect(FakeAudioContext.made[0]?.state).toBe("closed");
+  });
+
+  it("stay open while any room holds them, and a hold given back twice gives back only itself", () => {
+    installAudio();
+    FakeAudioContext.honoursResume = true;
+    const device = browserRecordingSounds();
+    const first = device.hold();
+    const second = device.hold();
+    first.unlock();
+    second.unlock();
+    expect(FakeAudioContext.made).toHaveLength(1);
+
+    first.release();
+    first.release();
+    expect(FakeAudioContext.made[0]?.state).toBe("running");
+    second.chime("stopped");
+    expect(FakeAudioContext.made[0]?.notes).toBe(1);
+
+    second.release();
+    expect(FakeAudioContext.made[0]?.state).toBe("closed");
+
+    // A hold given back is taken again by its next press, as a Rejoin does, on a fresh device.
+    first.unlock();
+    expect(FakeAudioContext.made).toHaveLength(2);
+    first.release();
+    expect(FakeAudioContext.made[1]?.state).toBe("closed");
+  });
+
+  it("close outright only when the page itself lets go, which no room can reach", () => {
+    installAudio();
+    const device = browserRecordingSounds();
+    const room = device.hold();
+    room.unlock();
+    device.release();
+    expect(FakeAudioContext.made[0]?.state).toBe("closed");
+    // The room's hold went with the page's release: giving it back now opens nothing and closes
+    // nothing, and its next press opens a fresh device.
+    room.release();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    room.unlock();
+    expect(FakeAudioContext.made).toHaveLength(2);
+  });
+
+  it("are not silenced by one room's client going away after a press woke them for another", async () => {
+    installAudio();
+    FakeAudioContext.honoursResume = true;
+    const device = browserRecordingSounds();
+    const leaving = wiredOn(device.hold());
+    leaving.client.unlockRecordingSounds();
+    welcome(leaving.socket);
+
+    device.unlock();
+    leaving.client.dispose();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(FakeAudioContext.made[0]?.state).toBe("running");
+
+    const arriving = wiredOn(device.hold());
+    arriving.client.unlockRecordingSounds();
+    welcome(arriving.socket, started());
+    await rewritten();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(FakeAudioContext.made[0]?.notes).toBe(2);
+    arriving.client.leave();
+    expect(FakeAudioContext.made[0]?.state).toBe("closed");
   });
 
   it("wake the voice on the first press, once, and then say the sentence", () => {

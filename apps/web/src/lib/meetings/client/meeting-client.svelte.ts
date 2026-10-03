@@ -362,10 +362,12 @@ export function browserMeetingSeams(): MeetingClientSeams {
     // name `voiceIsolation` at all. Asked here because this is the one function in the client that
     // may touch `navigator`.
     createMediaEffects: () => passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
-    // The page's one device rather than one of the room's own: the press that unlocks it is often
-    // on the screen before this one — the calendar entry's Join — and a device made here, after
-    // that press is over, is one Safari keeps silent for the whole meeting.
-    createRecordingSounds: () => pageRecordingSounds,
+    // A hold on the page's one device rather than one of the room's own: the press that unlocks it
+    // is often on the screen before this one — the calendar entry's Join — and a device made here,
+    // after that press is over, is one Safari keeps silent for the whole meeting. A hold rather than
+    // the device itself, so this room's teardown gives back its own hold and never closes the device
+    // a press into the next room has just woken.
+    createRecordingSounds: () => pageRecordingSounds.hold(),
   };
 }
 

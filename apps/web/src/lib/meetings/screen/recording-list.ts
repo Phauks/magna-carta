@@ -9,6 +9,16 @@
  * there is the DOCUMENT, through the file's own route, rather than a player of this screen's own: the
  * file on the matter is the record, and a second way to play it would be a second copy to keep right.
  *
+ * OPEN ONLY WHAT THE SCAN HAS LET THROUGH, AND ONLY THE VERSION THAT WAS RECORDED. Reaching the matter
+ * is not the same as being openable: the version is scanned first, and the scan may hold it. The list
+ * row carries where that version stands (`document.state`), read from the file pipeline rather than
+ * from the recording, so a version still being checked says so, a held one is shown as held rather
+ * than as something to play, and "Open" is offered only for an available one. There is no download
+ * address for one version of a file — the file's own route serves its CURRENT clean version — so
+ * `available` means exactly that the current version is the one this recording added; once a later
+ * version replaces it, the row says so rather than opening somebody else's document under this
+ * recording's name.
+ *
  * NEVER "FILED" ON SCREEN. The server calls the state `filed`; to a lawyer filing means filing with a
  * court, and this platform files nothing with a court. The wire word stays; the reader's word is
  * "Added to the Matter".
@@ -17,7 +27,11 @@
  * together is a thing somebody will ask support about, and the Error ID is what they quote.
  */
 import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
-import type { MeetingRecordingView } from "../meetings-api.ts";
+import type {
+  MeetingRecordingDocumentView,
+  MeetingRecordingListView,
+  MeetingRecordingView,
+} from "../meetings-api.ts";
 
 /** What each state of a recording is called, in the order a recording passes through them. */
 export const RECORDING_STATE_WORDS: Readonly<Record<MeetingRecordingView["state"], string>> =
@@ -44,12 +58,20 @@ const UNWORDED_STOP = "It stopped";
  * EVERY REASON HAS ITS OWN WORDS. A start that could not be carried out read as "Interrupted", which
  * is what a recording cut off halfway through is called — and a recording that never began is a
  * different fault with a different remedy, so it says so. `ceiling` is the longest a recording may
- * run, and `abandoned` is a recording nobody stopped that ended on its own: the room went quiet for
- * long enough, or the recorder went away and what it had kept was gathered up.
+ * run.
+ *
+ * `abandoned` IS TWO STORIES, AND THE STATE TELLS THEM APART. A recording whose room had been silent
+ * for long enough is stopped by its own recorder with that reason and then put together like any
+ * other, so it reaches the matter. A recording whose recorder went away mid-meeting is closed by the
+ * platform in the `abandoned` STATE: it was cut off, and nothing from it is added to the matter. The
+ * second must never read as something that finished, nor as something that was saved.
  */
 export function recordingStopWord(
-  recording: Pick<MeetingRecordingView, "stopReason" | "stoppedBy">,
+  recording: Pick<MeetingRecordingView, "state" | "stopReason" | "stoppedBy">,
 ): string {
+  if (recording.state === "abandoned") {
+    return "It was interrupted, and nothing was added to the matter";
+  }
   switch (recording.stopReason) {
     case null:
       return "";
@@ -65,7 +87,7 @@ export function recordingStopWord(
     case "ceiling":
       return "It reached the longest a recording may run";
     case "abandoned":
-      return "It ended on its own";
+      return "It stopped when nobody had been heard for a while";
     case "start-failed":
       return "It could not start";
     default:
@@ -86,23 +108,42 @@ export function recordingErrorId(
   return errorId === null || errorId === "" ? null : errorId;
 }
 
+/** What the Document column says for each place a recording's document can stand, other than open. */
+export const RECORDING_DOCUMENT_WORDS: Readonly<
+  Record<Exclude<MeetingRecordingDocumentView["state"], "available">, string>
+> = Object.freeze({
+  pending: "Being Checked",
+  held: "Held",
+  replaced: "Replaced by a Later Version",
+  removed: "Removed from the Matter",
+  unavailable: "Not Available",
+});
+
 /**
  * Where the document a recording became is opened: the file's own route, which hands the browser the
- * bytes and lets it play them. Null until the recording has been added to the matter.
+ * bytes and lets it play them. Null unless the version the recording added is the file's current,
+ * clean one — still being checked, held, replaced or gone, there is nothing of this recording's to
+ * open.
  */
 export function recordingDocumentAddress(
-  recording: Pick<MeetingRecordingView, "state" | "fileId">,
+  recording: Pick<MeetingRecordingListView, "state" | "fileId" | "document">,
 ): string | null {
   if (recording.state !== "filed" || recording.fileId === null) return null;
+  if (recording.document?.state !== "available") return null;
   return fileDownloadUrl(recording.fileId);
 }
 
 /**
- * What the Document column says in words: "Open" where there is a document, the Error ID where it
- * could not be made, and nothing while it is still on its way.
+ * What the Document column says in words: "Open" where there is a document to open, where the
+ * document stands where it cannot be opened, the Error ID where it could not be made, and nothing
+ * while it is still on its way.
  */
-export function recordingDocumentText(recording: MeetingRecordingView): string {
+export function recordingDocumentText(recording: MeetingRecordingListView): string {
   if (recordingDocumentAddress(recording) !== null) return "Open";
+  const document = recording.state === "filed" ? recording.document : null;
+  if (document !== null && document.state !== "available") {
+    return RECORDING_DOCUMENT_WORDS[document.state];
+  }
   const errorId = recordingErrorId(recording);
   return errorId === null ? "" : `Error ID: ${errorId}`;
 }

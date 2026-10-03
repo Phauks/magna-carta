@@ -3928,8 +3928,17 @@ export type MeetingRecordingActor = {
 };
 
 export type MeetingRecordingPage = {
-    data: Array<MeetingRecordingSummary>;
+    data: Array<MeetingRecordingListEntry>;
     nextCursor: string | null;
+};
+
+export type MeetingRecordingListEntry = MeetingRecordingSummary & {
+    document: MeetingRecordingDocument | null;
+};
+
+export type MeetingRecordingDocument = {
+    versionId: string;
+    state: 'pending' | 'available' | 'held' | 'replaced' | 'removed' | 'unavailable';
 };
 
 export type MeetingRecordingNoticePage = {

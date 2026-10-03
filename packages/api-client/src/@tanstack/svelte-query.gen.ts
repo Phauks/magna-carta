@@ -6018,7 +6018,7 @@ export const meetingsStartRecordingMutation = (options?: Partial<Options<Meeting
 export const meetingsListRecordingsQueryKey = (options: Options<MeetingsListRecordingsData>) => createQueryKey('meetingsListRecordings', options);
 
 /**
- * This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access.
+ * This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access; each filed recording names the version it filed and whether that version is still being scanned, can be opened, is held, was replaced, or is gone.
  */
 export const meetingsListRecordingsOptions = (options: Options<MeetingsListRecordingsData>) => queryOptions<MeetingsListRecordingsResponse, MeetingsListRecordingsError, MeetingsListRecordingsResponse, ReturnType<typeof meetingsListRecordingsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -6036,7 +6036,7 @@ export const meetingsListRecordingsOptions = (options: Options<MeetingsListRecor
 export const meetingsListRecordingsInfiniteQueryKey = (options: Options<MeetingsListRecordingsData>): QueryKey<Options<MeetingsListRecordingsData>> => createQueryKey('meetingsListRecordings', options, true);
 
 /**
- * This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access.
+ * This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access; each filed recording names the version it filed and whether that version is still being scanned, can be opened, is held, was replaced, or is gone.
  */
 export const meetingsListRecordingsInfiniteOptions = (options: Options<MeetingsListRecordingsData>) => infiniteQueryOptions<MeetingsListRecordingsResponse, MeetingsListRecordingsError, InfiniteData<MeetingsListRecordingsResponse>, QueryKey<Options<MeetingsListRecordingsData>>, string | Pick<QueryKey<Options<MeetingsListRecordingsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

@@ -16536,7 +16536,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MeetingRecordingSummary"
+              "$ref": "#/components/schemas/MeetingRecordingListEntry"
             }
           },
           "nextCursor": {
@@ -16549,6 +16549,54 @@
         "required": [
           "data",
           "nextCursor"
+        ]
+      },
+      "MeetingRecordingListEntry": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MeetingRecordingSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "document": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MeetingRecordingDocument"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "document"
+            ]
+          }
+        ]
+      },
+      "MeetingRecordingDocument": {
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "available",
+              "held",
+              "replaced",
+              "removed",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "versionId",
+          "state"
         ]
       },
       "MeetingRecordingNoticePage": {
@@ -71372,7 +71420,7 @@
     },
     "/api/v1/meetings/{meetingId}/recordings": {
       "get": {
-        "description": "This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access.",
+        "description": "This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access; each filed recording names the version it filed and whether that version is still being scanned, can be opened, is held, was replaced, or is gone.",
         "operationId": "meetings.listRecordings",
         "tags": [
           "meetings"

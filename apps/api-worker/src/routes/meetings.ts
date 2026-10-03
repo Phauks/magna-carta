@@ -50,6 +50,10 @@ import { assertPermission } from "@magna-carta/access-control/registry";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import type { FirmId, MatterId, MeetingRecordingId } from "@magna-carta/identifiers/types";
 import {
+  RECORDING_DOCUMENT_STATES,
+  readRecordingDocuments,
+} from "@magna-carta/meetings/recording-document-state";
+import {
   recordingFailedAuditStatement,
   STOP_RECORDING_GUARD,
   startMeetingRecording,
@@ -681,7 +685,30 @@ const MeetingRecordingSummarySchema = z
   })
   .openapi("MeetingRecordingSummary");
 
-const MeetingRecordingPage = paginated(MeetingRecordingSummarySchema).openapi(
+// THE DOCUMENT A RECORDING FILED, AS THE LIST READS IT. Once a recording is `filed` its audio is a
+// version in the file pipeline, and whether anybody can open it is that version's answer, not the
+// recording's: the scan may still be running, may have held it, or a later version may have replaced
+// it on the file. `versionId` names the version the recording filed; `state` is where it stands —
+// `pending` until the scan answers, `available` when it is clean and still the file's current version
+// (so the file's own download serves exactly it), `held` when the scan quarantined or flagged it,
+// `replaced` when a later version is the file's current one, `removed` when the file is in the trash,
+// and `unavailable` when the upload never completed or the file is on a matter the caller cannot see.
+const MeetingRecordingDocumentSchema = z
+  .object({
+    versionId: z.string(),
+    state: z.enum(RECORDING_DOCUMENT_STATES),
+  })
+  .openapi("MeetingRecordingDocument");
+
+// One row of the list: the summary the start and stop routes answer with, and the document it filed.
+// Only the list carries the document — a start has filed nothing, and a stop hands the recording on to
+// be composed — so the write routes' answer stays the summary alone. Null until the recording is
+// `filed`. A union with null for the reason `stoppedBy` is one.
+const MeetingRecordingListEntrySchema = MeetingRecordingSummarySchema.extend({
+  document: z.union([MeetingRecordingDocumentSchema, z.null()]),
+}).openapi("MeetingRecordingListEntry");
+
+const MeetingRecordingPage = paginated(MeetingRecordingListEntrySchema).openapi(
   "MeetingRecordingPage",
 );
 
@@ -803,7 +830,8 @@ const listRecordingsRoute = defineOpenAPIRoute(readMeta("listRecordings"), {
   description:
     "This meeting's recordings, newest first: who started and stopped each, what it captured, and " +
     "where it stands. The audio itself is a document on the matter once filed, reached through the " +
-    "File Manager's own access.",
+    "File Manager's own access; each filed recording names the version it filed and whether that " +
+    "version is still being scanned, can be opened, is held, was replaced, or is gone.",
   request: { params: meetingIdParam, query: cursorQuery },
   responses: {
     200: {
@@ -2203,13 +2231,23 @@ export function registerMeetingsRoutes(
       const hasMore = found.length > MAX_RECORDING_PAGE_SIZE;
       const rows = hasMore ? found.slice(0, MAX_RECORDING_PAGE_SIZE) : found;
       const last = rows.at(-1);
+      // One read for the page's filed versions, gated on each file's own matter.
+      const documents = await readRecordingDocuments(
+        firm.firmDatabase,
+        rows,
+        visibleMatterPredicate(),
+      );
       return c.json(
         {
+          // The summary is built fresh for each row, so the document is added to it in place.
           data: rows.map((row) =>
-            toRecordingSummary(row, {
-              startedBy: row.started_by_display_name,
-              stoppedBy: row.stopped_by_display_name,
-            }),
+            Object.assign(
+              toRecordingSummary(row, {
+                startedBy: row.started_by_display_name,
+                stoppedBy: row.stopped_by_display_name,
+              }),
+              { document: documents.get(row) ?? null },
+            ),
           ),
           nextCursor: hasMore && last !== undefined ? encodeCursor(last.started_at, last.id) : null,
         },

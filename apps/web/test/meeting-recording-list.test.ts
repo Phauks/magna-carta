@@ -4,9 +4,13 @@
  * is called, and what a recording that reached the matter offers.
  *
  * WHAT IS PINNED. Every stop reason reads as itself — a start that could not be carried out is not a
- * recording that was interrupted halfway, and it used to say so. A recording on the matter is opened
- * as the DOCUMENT, through the file's own route, rather than through a player of the list's own; one
- * being put together says so; one that failed states its Error ID. And the list keeps the house's
+ * recording that was interrupted halfway, and it used to say so — and a recording whose recorder went
+ * away says it was interrupted and that nothing was added to the matter, never that it ended on its
+ * own. A recording on the matter is opened as the DOCUMENT, through the file's own route, rather than
+ * through a player of the list's own, and only once the scan has let the version it added through and
+ * that version is still the file's current one: a version being checked, held, replaced or gone says
+ * so instead. One being put together says so; one that failed states its Error ID. And the list keeps
+ * the house's
  * structured emptiness: the table stands while it loads and while it holds nothing, saying "No
  * Results" inside its own frame, and only a failed read replaces it.
  *
@@ -17,19 +21,25 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { client } from "@magna-carta/api-client/client";
 import { queryClient } from "../src/lib/api/screen-data.ts";
 import {
+  RECORDING_DOCUMENT_WORDS,
   RECORDING_STATE_WORDS,
   recordingDocumentAddress,
+  recordingDocumentText,
   recordingErrorId,
   recordingStateWord,
   recordingStopWord,
 } from "../src/lib/meetings/screen/recording-list.ts";
-import type { MeetingRecordingView } from "../src/lib/meetings/meetings-api.ts";
+import type {
+  MeetingRecordingDocumentView,
+  MeetingRecordingListView,
+  MeetingRecordingView,
+} from "../src/lib/meetings/meetings-api.ts";
 import Harness from "./meeting-recording-list-harness.svelte";
 
 const ORIGIN = "https://app.example";
 const MEETING_ID = "meeting_1";
 
-function recording(overrides: Partial<MeetingRecordingView> = {}): MeetingRecordingView {
+function recording(overrides: Partial<MeetingRecordingListView> = {}): MeetingRecordingListView {
   return {
     id: "meetingRecording_1",
     meetingId: MEETING_ID,
@@ -45,8 +55,22 @@ function recording(overrides: Partial<MeetingRecordingView> = {}): MeetingRecord
     transcriptId: null,
     summaryState: null,
     failureErrorId: null,
+    document: null,
     ...overrides,
   };
+}
+
+/** A recording on the matter whose document stands where it is said to. */
+function onTheMatter(
+  state: MeetingRecordingDocumentView["state"],
+  overrides: Partial<MeetingRecordingListView> = {},
+): MeetingRecordingListView {
+  return recording({
+    state: "filed",
+    fileId: "file_9",
+    document: { versionId: "fileVersion_9", state },
+    ...overrides,
+  });
 }
 
 describe("what a recording's state is called", () => {
@@ -64,16 +88,18 @@ describe("what a recording's state is called", () => {
 
 describe("how a recording stopped", () => {
   it("gives every reason its own words", () => {
-    const nobody = { stoppedBy: null };
+    const nobody = { state: "composing" as const, stoppedBy: null };
     expect(recordingStopWord({ ...nobody, stopReason: null })).toBe("");
     expect(
       recordingStopWord({
+        state: "composing",
         stopReason: "member",
         stoppedBy: { userId: "usr_2", displayName: "Rosalind Chase" },
       }),
     ).toBe("Stopped by Rosalind Chase");
     expect(
       recordingStopWord({
+        state: "composing",
         stopReason: "host",
         stoppedBy: { userId: "usr_3", displayName: "Omar Haddad" },
       }),
@@ -83,32 +109,70 @@ describe("how a recording stopped", () => {
     expect(recordingStopWord({ ...nobody, stopReason: "ceiling" })).toBe(
       "It reached the longest a recording may run",
     );
-    expect(recordingStopWord({ ...nobody, stopReason: "abandoned" })).toBe("It ended on its own");
+    // The recorder stopped a silent room itself, and the recording went on to the matter.
+    expect(recordingStopWord({ ...nobody, stopReason: "abandoned" })).toBe(
+      "It stopped when nobody had been heard for a while",
+    );
     expect(recordingStopWord({ ...nobody, stopReason: "start-failed" })).toBe("It could not start");
   });
 
   it("no longer calls a start that failed an interruption, nor reads two machine reasons alike", () => {
     const words = new Set(
       (["meeting-ended", "sink-lost", "ceiling", "abandoned", "start-failed"] as const).map(
-        (stopReason) => recordingStopWord({ stopReason, stoppedBy: null }),
+        (stopReason) => recordingStopWord({ state: "composing", stopReason, stoppedBy: null }),
       ),
     );
     // Five reasons nobody pressed, five sentences.
     expect(words.size).toBe(5);
     expect(words.has("Interrupted")).toBe(false);
     // A person's stop names the person; one the record names nobody for still says somebody did it.
-    expect(recordingStopWord({ stopReason: "member", stoppedBy: null })).toBe(
+    expect(recordingStopWord({ state: "composing", stopReason: "member", stoppedBy: null })).toBe(
       "Stopped from the meeting",
+    );
+  });
+
+  it("says a recording whose recorder went away was interrupted and nothing reached the matter", () => {
+    const word = recordingStopWord({
+      state: "abandoned",
+      stopReason: "abandoned",
+      stoppedBy: null,
+    });
+    expect(word).toBe("It was interrupted, and nothing was added to the matter");
+    // Never that it finished by itself, nor that anything of it was saved somewhere.
+    expect(word.toLowerCase()).not.toContain("on its own");
+    expect(word.toLowerCase()).not.toContain("gathered");
+    expect(word.toLowerCase()).not.toContain("filed");
+    expect(recordingDocumentText(recording({ state: "abandoned", stopReason: "abandoned" }))).toBe(
+      "",
     );
   });
 });
 
 describe("what a recording became", () => {
-  it("is the document on the matter, opened through the file's own route", () => {
-    expect(recordingDocumentAddress(recording({ state: "filed", fileId: "file_9" }))).toBe(
+  it("is the document on the matter, opened through the file's own route once it is available", () => {
+    expect(recordingDocumentAddress(onTheMatter("available"))).toBe(
       "/api/v1/files/file_9/download",
     );
+    expect(recordingDocumentText(onTheMatter("available"))).toBe("Open");
     expect(recordingDocumentAddress(recording({ state: "composing" }))).toBeNull();
+    // The recording says it reached the matter, but nothing says where its document stands.
+    expect(recordingDocumentAddress(recording({ state: "filed", fileId: "file_9" }))).toBeNull();
+  });
+
+  it("offers nothing to open while the version is checked, held, replaced or gone, and says which", () => {
+    expect(recordingDocumentAddress(onTheMatter("pending"))).toBeNull();
+    expect(recordingDocumentText(onTheMatter("pending"))).toBe("Being Checked");
+    expect(recordingDocumentAddress(onTheMatter("held"))).toBeNull();
+    expect(recordingDocumentText(onTheMatter("held"))).toBe("Held");
+    // A later version is what the file's route would serve, which is not this recording.
+    expect(recordingDocumentAddress(onTheMatter("replaced"))).toBeNull();
+    expect(recordingDocumentText(onTheMatter("replaced"))).toBe("Replaced by a Later Version");
+    expect(recordingDocumentText(onTheMatter("removed"))).toBe("Removed from the Matter");
+    expect(recordingDocumentText(onTheMatter("unavailable"))).toBe("Not Available");
+    for (const word of Object.values(RECORDING_DOCUMENT_WORDS)) {
+      expect(word.toLowerCase()).not.toContain("filed");
+      expect(word).not.toBe("Open");
+    }
   });
 
   it("states a failed recording's Error ID, and no other recording's", () => {
@@ -195,10 +259,8 @@ afterEach(() => {
 describe("the recordings panel", () => {
   it("opens a recording on the matter as the document, says the rest plainly, and offers no player", async () => {
     serve([
-      recording({
+      onTheMatter("available", {
         id: "meetingRecording_4",
-        state: "filed",
-        fileId: "file_9",
         startedAt: "2026-09-20T18:00:00.000Z",
       }),
       recording({ id: "meetingRecording_3", state: "composing" }),
@@ -239,6 +301,20 @@ describe("the recordings panel", () => {
     // The placeholder that stood here until a recording could be opened is gone.
     expect(text).not.toContain("Play");
     expect(text).not.toContain("Soon");
+  });
+
+  it("shows a version still being checked, and a held one, without anything to open", async () => {
+    serve([
+      onTheMatter("pending", { id: "meetingRecording_2", fileId: "file_8" }),
+      onTheMatter("held", { id: "meetingRecording_1", fileId: "file_7" }),
+    ]);
+    await draw();
+    const shown = panel();
+    const text = shown?.textContent ?? "";
+    expect(text).toContain("Being Checked");
+    expect(text).toContain("Held");
+    expect(shown?.querySelector('a[href*="/api/v1/files/"]')).toBeNull();
+    expect(text).not.toContain("Open");
   });
 
   it("says a meeting with nothing recorded has no results, inside the table", async () => {

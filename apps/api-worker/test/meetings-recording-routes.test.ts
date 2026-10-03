@@ -469,6 +469,78 @@ describe("reading recordings and who was told", () => {
     await request("DELETE", `/api/v1/meetings/${meetingId}/recording`, ownerCookie);
   });
 
+  it("names the version a filed recording added and where it stands, read from the file pipeline", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const started = await readJson<RecordingSummary>(
+      await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie),
+    );
+    await request("DELETE", `/api/v1/meetings/${meetingId}/recording`, ownerCookie);
+
+    // The compose step's filing, written as it leaves the row: a file on the matter holding one
+    // version the scan has not answered yet.
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const now = new Date().toISOString();
+    await firmDatabase
+      .prepare(
+        `INSERT INTO file (id, matter_id, name, edit_state, created_at, updated_at) ` +
+          `VALUES (?1, ?2, 'Meeting recording.wav', 'idle', ?3, ?3)`,
+      )
+      .bind(fileId, MATTER, now)
+      .run();
+    await firmDatabase
+      .prepare(
+        `INSERT INTO file_version (id, file_id, version_number, r2_key, status, created_at) ` +
+          `VALUES (?1, ?2, 1, ?3, 'pending', ?4)`,
+      )
+      .bind(versionId, fileId, `files/${versionId}`, now)
+      .run();
+    await firmDatabase
+      .prepare(
+        `UPDATE meeting_recording SET state = 'filed', file_id = ?2, file_version_id = ?3 WHERE id = ?1`,
+      )
+      .bind(started.id, fileId, versionId)
+      .run();
+
+    const documentNow = async () => {
+      const page = await readJson<{
+        data: (RecordingSummary & { document: { versionId: string; state: string } | null })[];
+      }>(await request("GET", `/api/v1/meetings/${meetingId}/recordings`, billingCookie));
+      return page.data.find((one) => one.id === started.id)?.document;
+    };
+
+    expect(await documentNow()).toEqual({ versionId, state: "pending" });
+
+    await firmDatabase
+      .prepare(`UPDATE file_version SET status = 'clean', scan_verdict = 'clean' WHERE id = ?1`)
+      .bind(versionId)
+      .run();
+    await firmDatabase
+      .prepare(`UPDATE file SET current_version_id = ?2 WHERE id = ?1`)
+      .bind(fileId, versionId)
+      .run();
+    expect(await documentNow()).toEqual({ versionId, state: "available" });
+
+    await firmDatabase
+      .prepare(
+        `UPDATE file_version SET status = 'quarantined', scan_verdict = 'flagged' WHERE id = ?1`,
+      )
+      .bind(versionId)
+      .run();
+    expect(await documentNow()).toEqual({ versionId, state: "held" });
+
+    // A recording that added nothing names no document.
+    const second = await readJson<RecordingSummary>(
+      await request("POST", `/api/v1/meetings/${meetingId}/recording`, ownerCookie),
+    );
+    const page = await readJson<{
+      data: (RecordingSummary & { document: unknown })[];
+    }>(await request("GET", `/api/v1/meetings/${meetingId}/recordings`, ownerCookie));
+    expect(page.data.find((one) => one.id === second.id)?.document).toBeNull();
+    await request("DELETE", `/api/v1/meetings/${meetingId}/recording`, ownerCookie);
+  });
+
   it("reads the consent record for a host — a guest's notice by its stay — and refuses a member who may only attend", async () => {
     await setRecordingEnabled(true);
     const meetingId = await startMeeting(ownerCookie);

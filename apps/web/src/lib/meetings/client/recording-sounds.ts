@@ -14,7 +14,15 @@
  * press and stay silent for the whole meeting. So the device is held here, once per page, and any
  * press that leads into a room — the entry's Join and Start, the Meetings page's Join, the room's own
  * Join and Rejoin — unlocks `pageRecordingSounds` before it navigates or awaits anything. The room's
- * client is given this same instance, so its first chime lands on the device that press woke.
+ * client is given a HOLD on this same device, so its first chime lands on the device that press woke.
+ *
+ * A ROOM LETS GO OF ITS OWN HOLD, NEVER OF THE DEVICE. A room's teardown runs after the press that
+ * leads out of it: moving from one meeting to another on the same screen, the next room's Join has
+ * already woken the device when the last room's client is disposed. A teardown that closed the device
+ * outright closed the one that press had just woken, and the next room stayed silent until somebody
+ * pressed something again. So every client takes a hold (`hold()`), a press with no room behind it yet
+ * stands as a claim of its own until a room takes the device over, and the device closes only when no
+ * hold and no such claim is left.
  */
 
 /** The tone and the voice, as the recording concern reaches them. */
@@ -32,8 +40,27 @@ export interface MeetingRecordingSounds {
   chime: (occasion: "started" | "stopped") => void;
   /** Say the sentence aloud, where the platform can. */
   speak: (sentence: string) => void;
-  /** Let go of the audio device, for a meeting that is over. The next press opens it again. */
+  /**
+   * Let go of the audio device, for a meeting that is over. It closes only when nothing else holds
+   * it, and the next press opens it again.
+   */
   release: () => void;
+}
+
+/**
+ * The page's one device, as the presses and the rooms reach it. Its own `unlock` is a press with no
+ * room behind it yet — the calendar entry's Join, the Meetings page's Join. Its own `release` is the
+ * PAGE letting go: the device closes whatever holds it, and every hold is given back with it. No room
+ * reaches either of those two — a room takes a hold and gives back only that — so the one release
+ * that closes the device outright is out of every room's reach; a test resets the page with it.
+ */
+export interface SharedRecordingSounds extends MeetingRecordingSounds {
+  /**
+   * A room's hold on the device. The hold is taken by the room's first `unlock` and given back by its
+   * `release`; giving it back closes the device only when no other hold, and no press waiting for a
+   * room, is left. A hold given back is taken again by its next `unlock`, as a Rejoin does.
+   */
+  hold: () => MeetingRecordingSounds;
 }
 
 /** Sounds that make none, for a client built without a browser behind it. */
@@ -92,12 +119,23 @@ function speechPlatform(): {
  * that may have stopped since. A chime that cannot sound now does not sound; the banner and the live
  * region, which always work, carry the announcement alone.
  *
+ * HELD, NOT OWNED. Every room's client takes a hold and gives it back when its meeting is over; the
+ * device closes when the last hold is given back and no press is waiting for a room to take it over.
+ *
  * A factory, so a test can hold a device of its own; the page holds one, `pageRecordingSounds`.
  */
-export function browserRecordingSounds(): MeetingRecordingSounds {
+export function browserRecordingSounds(): SharedRecordingSounds {
   let context: AudioContext | null = null;
   /** Whether the voice has been woken from inside a press. Once is enough for the document. */
   let voiceWoken = false;
+  /** The rooms holding the device: each hold that has unlocked it and not let go since. */
+  const holders = new Set<object>();
+  /**
+   * Whether a press with no room behind it yet has woken the device. It stands until a room takes the
+   * device over by unlocking its hold, so the teardown of the room being left cannot close the device
+   * the press into the next one woke.
+   */
+  let pressAwaitingRoom = false;
 
   function wakeVoice(): void {
     if (voiceWoken) return;
@@ -111,63 +149,99 @@ export function browserRecordingSounds(): MeetingRecordingSounds {
     }
   }
 
+  function wake(): void {
+    wakeVoice();
+    if (context === null) {
+      const Context: unknown = Reflect.get(globalThis, "AudioContext");
+      if (typeof Context !== "function") return;
+      try {
+        context = new (Context as typeof AudioContext)();
+      } catch {
+        return;
+      }
+    }
+    // Asked every time, not only after creating it: a phone suspends a running context when a call
+    // comes in or the page goes to the background, and the next press is what brings it back.
+    if (context.state !== "running") void context.resume().catch(() => {});
+  }
+
+  /** Close the device, but only once nothing holds it and no press is waiting for a room. */
+  function closeWhenUnheld(): void {
+    if (holders.size > 0 || pressAwaitingRoom) return;
+    const held = context;
+    context = null;
+    if (held !== null) void held.close().catch(() => {});
+  }
+
+  function chime(occasion: "started" | "stopped"): void {
+    const output = context;
+    if (output?.state !== "running") return;
+    try {
+      let at = output.currentTime;
+      for (const hertz of occasion === "started" ? STARTED_NOTES_HERTZ : STOPPED_NOTES_HERTZ) {
+        const oscillator = output.createOscillator();
+        const gain = output.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.value = hertz;
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(NOTE_PEAK_GAIN, at + NOTE_ATTACK_SECONDS);
+        gain.gain.exponentialRampToValueAtTime(NOTE_FLOOR_GAIN, at + NOTE_SECONDS);
+        oscillator.connect(gain).connect(output.destination);
+        oscillator.start(at);
+        oscillator.stop(at + NOTE_SECONDS);
+        at += NOTE_SECONDS + NOTE_GAP_SECONDS;
+      }
+    } catch {
+      // A device that refuses a note is a browser that will not chime; the words still arrive.
+    }
+  }
+
+  function speak(sentence: string): void {
+    const voice = speechPlatform();
+    if (voice === null) return;
+    try {
+      voice.synthesis.speak(new voice.Utterance(sentence));
+    } catch {
+      // Best effort by construction: a browser with no voice changes nothing else.
+    }
+  }
+
   return {
     unlock() {
-      wakeVoice();
-      if (context === null) {
-        const Context: unknown = Reflect.get(globalThis, "AudioContext");
-        if (typeof Context !== "function") return;
-        try {
-          context = new (Context as typeof AudioContext)();
-        } catch {
-          return;
-        }
-      }
-      // Asked every time, not only after creating it: a phone suspends a running context when a call
-      // comes in or the page goes to the background, and the next press is what brings it back.
-      if (context.state !== "running") void context.resume().catch(() => {});
+      pressAwaitingRoom = true;
+      wake();
     },
-    chime(occasion) {
-      const output = context;
-      if (output?.state !== "running") return;
-      try {
-        let at = output.currentTime;
-        for (const hertz of occasion === "started" ? STARTED_NOTES_HERTZ : STOPPED_NOTES_HERTZ) {
-          const oscillator = output.createOscillator();
-          const gain = output.createGain();
-          oscillator.type = "sine";
-          oscillator.frequency.value = hertz;
-          gain.gain.setValueAtTime(0, at);
-          gain.gain.linearRampToValueAtTime(NOTE_PEAK_GAIN, at + NOTE_ATTACK_SECONDS);
-          gain.gain.exponentialRampToValueAtTime(NOTE_FLOOR_GAIN, at + NOTE_SECONDS);
-          oscillator.connect(gain).connect(output.destination);
-          oscillator.start(at);
-          oscillator.stop(at + NOTE_SECONDS);
-          at += NOTE_SECONDS + NOTE_GAP_SECONDS;
-        }
-      } catch {
-        // A device that refuses a note is a browser that will not chime; the words still arrive.
-      }
-    },
-    speak(sentence) {
-      const voice = speechPlatform();
-      if (voice === null) return;
-      try {
-        voice.synthesis.speak(new voice.Utterance(sentence));
-      } catch {
-        // Best effort by construction: a browser with no voice changes nothing else.
-      }
-    },
+    chime,
+    speak,
     release() {
-      const held = context;
-      context = null;
-      if (held !== null) void held.close().catch(() => {});
+      pressAwaitingRoom = false;
+      holders.clear();
+      closeWhenUnheld();
+    },
+    hold() {
+      const holder = {};
+      return {
+        unlock() {
+          holders.add(holder);
+          // The room this press was waiting for has taken the device over.
+          pressAwaitingRoom = false;
+          wake();
+        },
+        chime,
+        speak,
+        release() {
+          // A hold given back twice gives back nothing the second time, and never another room's.
+          if (!holders.delete(holder)) return;
+          closeWhenUnheld();
+        },
+      };
     },
   };
 }
 
 /**
- * The page's one recording tone: what every press leading into a room unlocks, and what the room's
- * client chimes on. Nothing is opened by importing it; the device is made by the first `unlock`.
+ * The page's one recording tone: what every press leading into a room unlocks, and what each room's
+ * client holds and chimes on. Nothing is opened by importing it; the device is made by the first
+ * `unlock`.
  */
-export const pageRecordingSounds: MeetingRecordingSounds = browserRecordingSounds();
+export const pageRecordingSounds: SharedRecordingSounds = browserRecordingSounds();

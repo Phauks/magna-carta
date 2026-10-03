@@ -30,6 +30,7 @@
     "./question-statements": "./src/question-statements.ts",
     "./question-types": "./src/question-types.ts",
     "./question-validation": "./src/question-validation.ts",
+    "./recording-document-state": "./src/recording-document-state.ts",
     "./recording-service": "./src/recording-service.ts",
     "./recording-statements": "./src/recording-statements.ts",
     "./recording-types": "./src/recording-types.ts",

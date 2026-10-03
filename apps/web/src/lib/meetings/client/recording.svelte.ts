@@ -382,7 +382,11 @@ export class MeetingRecording {
     this.notice = null;
   }
 
-  /** The meeting is over for this browser: everything goes, the audio device included. */
+  /**
+   * The meeting is over for this browser: everything goes, and this room gives back its hold on the
+   * audio device. The device itself closes only when nothing else holds it, so a press that has
+   * already woken it for the next room keeps it.
+   */
   clear(): void {
     this.running = null;
     this.notice = null;
