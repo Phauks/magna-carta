@@ -8,6 +8,8 @@ import type {
   GenerateResult,
   InferencePort,
   StreamResult,
+  TranscribeInput,
+  TranscriptionResult,
 } from "@magna-carta/inference/port";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import {
@@ -59,6 +61,10 @@ function recordingPort(calls: GenerateInput[]): InferencePort {
     embed: async (input: EmbedInput): Promise<Dispatch<EmbeddingResult>> => {
       calls.push(input as unknown as GenerateInput);
       throw new Error("embed must not be reached when the gate is off");
+    },
+    transcribe: async (input: TranscribeInput): Promise<Dispatch<TranscriptionResult>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("transcribe must not be reached when the gate is off");
     },
   };
 }

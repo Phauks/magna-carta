@@ -4,12 +4,14 @@ The single credential-less chokepoint every AI feature reaches a model through. 
 Hono, no `env` in the contract surface; the implementation receives the authenticated `AI` binding and
 the firm-scoped read result as injected parameters.
 
-- `InferencePort` (`src/port.ts`) names three operation families: text generation (buffered / streaming /
-  durable Workflow-invocable), buffered generation over a multi-turn CONVERSATION, and the
-  platform-FIXED embedding op. The reasoning model id is an explicit
-  per-call parameter (read per call site through the firm-scoped data-access layer), never on a
-  connection or context. The embedding op takes NO firm-selectable model argument — per-firm embedding
-  variation is unrepresentable in the signature (a swap would invalidate the Vectorize index).
+- `InferencePort` (`src/port.ts`) names four operation families: text generation (buffered / streaming /
+  durable Workflow-invocable), buffered generation over a multi-turn CONVERSATION, the
+  platform-FIXED embedding op, and the platform-FIXED speech-to-text op (`transcribe`). The reasoning
+  model id is an explicit per-call parameter (read per call site through the firm-scoped data-access
+  layer), never on a connection or context. The embedding and transcription ops take NO
+  firm-selectable model argument — per-firm variation is unrepresentable in the signature (an
+  embedding swap would invalidate the Vectorize index; a transcript's fidelity is a property of the
+  record, not a firm preference).
 - The catalog (`src/catalog.ts`) is the curated source of truth: every entry carries `zdrEligible` /
   `noTrainingEligible` / `verifiedOn` and a pinned `snapshotId`. Validated at module load — a malformed
   entry, or a non-ZDR reasoning entry, fails loud at import. `claude-fable-5` is excluded (it mandates
@@ -100,6 +102,21 @@ the firm-scoped read result as injected parameters.
   all apply with no second shape. The adapter's only new code is the provider request-body
   translation; the ZDR guard, `gatewayOptions()`, `extractUsage`, `responseText`, and `gatewayFailure`
   are the shipped ones, unchanged. An empty message array is refused before dispatch.
+- `transcribe` (`src/port.ts`, implemented in `src/gateway.ts`) closes over the catalog's single
+  `transcription` entry (`PLATFORM_TRANSCRIPTION_MODEL_ID`, `@cf/openai/whisper-large-v3-turbo` on
+  Workers AI; module-load validation requires exactly one, as for embedding). It takes a complete WAV
+  (mono, 16-bit PCM, 16 kHz), a firm id, an optional BCP-47 language hint, and an optional
+  `initialPrompt` (the previous chunk's tail), and returns text, the reported language, segment
+  timings in seconds within THAT audio, `audioSeconds` (what transcription is metered on), and the
+  model id. The request and response field names are Cloudflare's published schemas, cited by URL in
+  `gateway.ts` beside the adapter — re-read them there, not from memory. Three pins with reasons:
+  `task: "transcribe"` (never `translate`; a record says what was said in the language it was said),
+  `vad_filter: false` (the caller sends speech spans, and segment offsets must be offsets into the
+  audio sent), and only the BCP-47 primary subtag is sent as `language` (the model takes bare codes).
+  It sends the same `gatewayOptions()` with `slot: "transcription"`, maps a thrown binding error to the
+  same retryable `upstream` problem, and refuses empty audio before dispatch as `validation`. Missing
+  segment timings yield an empty list, never an invented span; `audioSeconds` falls back from the
+  provider's `transcription_info.duration` to the WAV header (`src/wav-duration.ts`).
 - `createStubInferencePort()` (`src/stub.ts`) is a COMPLETE, deterministic implementation of the port
   that reaches no provider: no network, no binding, no randomness, no clock, fixed snapshot id
   `"stub"`, deterministic non-zero usage. It is not a test double for one feature — every AI feature
@@ -108,7 +125,9 @@ the firm-scoped read result as injected parameters.
   `resolveFlagEvaluator` shape). A misconfigured environment therefore produces obviously-fake
   answers, never real spend on a path nobody intended. The ZDR guard is deliberately NOT applied in
   the stub: it reaches no provider, so refusing there would test nothing and would hide a real failure
-  of the gateway port's own fail-closed check.
+  of the gateway port's own fail-closed check. Its `transcribe` returns one segment spanning the
+  WAV's playing time, text `[stub inference] <n> bytes of audio`, the language hint echoed (or null),
+  and model id `"stub"`, so a consumer test can predict the transcript from the bytes it sent.
 
 **Gateway Guardrails must never be enabled on this gateway.** They intercept and evaluate both
 prompts and responses and produce logs of user prompts and model responses — a retention surface

@@ -83,6 +83,44 @@ export interface ConversationInput {
   readonly messages: readonly ConversationMessage[];
 }
 
+// Speech to text, platform-fixed like embedding: there is deliberately NO modelId field. A firm does
+// not choose its speech model, because a transcript's fidelity is a property of the record rather
+// than a preference, and two firms' transcripts of the same audio should differ only in the audio.
+export interface TranscribeInput {
+  // A complete WAV file: mono, 16-bit PCM, 16 kHz. The whole file, header included, because the
+  // provider decodes the container itself and a bare PCM body carries no rate to decode it at.
+  readonly audio: Uint8Array;
+  readonly firmId: FirmId;
+  // A BCP-47 hint (e.g. "en", "en-GB"). Omitted lets the model detect the language itself.
+  readonly language?: string;
+  // The tail of the previous chunk's text, so the model keeps context across a cut it did not choose.
+  readonly initialPrompt?: string;
+}
+
+export interface TranscriptionSegment {
+  // Offsets within THIS audio, in seconds. Placing a segment on a meeting's timeline is the caller's
+  // job: only the caller knows where in the meeting this audio was cut from.
+  readonly startSeconds: number;
+  readonly endSeconds: number;
+  readonly text: string;
+}
+
+export interface TranscriptionResult {
+  // The platform-fixed transcription model that produced the text — recorded per transcript for the
+  // same reason a generation records its snapshot: a transcript is discoverable work product, and
+  // which model heard the audio is part of what it says.
+  readonly modelId: InferenceModelId;
+  readonly text: string;
+  // The language the model reports having transcribed, or null when it reports none.
+  readonly language: string | null;
+  // Chronological, possibly empty: a provider response with no segment timings yields an empty list
+  // rather than a timing invented to fill it.
+  readonly segments: readonly TranscriptionSegment[];
+  // The duration of the audio, which is what transcription is metered on (per audio minute) where
+  // generation is metered on tokens.
+  readonly audioSeconds: number;
+}
+
 export interface InferencePort {
   // Buffered text generation (one value).
   generate(input: GenerateInput): Promise<Dispatch<GenerateResult>>;
@@ -97,4 +135,6 @@ export interface InferencePort {
   generateDurable(input: GenerateInput): Promise<Dispatch<GenerateResult>>;
   // The platform-fixed embedding operation (no firm-selectable model).
   embed(input: EmbedInput): Promise<Dispatch<EmbeddingResult>>;
+  // The platform-fixed speech-to-text operation (no firm-selectable model).
+  transcribe(input: TranscribeInput): Promise<Dispatch<TranscriptionResult>>;
 }

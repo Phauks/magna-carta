@@ -15,7 +15,9 @@ import type { InferenceModelId } from "./port.ts";
 // runs is a decision, and the freshness pass exists to put that decision in front of someone rather than
 // to make it for them.
 
-export type ModelSlot = "reasoning" | "utility" | "embedding";
+// "transcription" is platform-fixed for the same structural reason as "embedding": the operation that
+// uses it takes no model argument, so no firm can select a different one.
+export type ModelSlot = "reasoning" | "utility" | "embedding" | "transcription";
 
 // The platform-maintained, evergreen name a reasoning selection resolves through. The tier is what other
 // code and configuration refer to; WHICH curated model occupies it is data in this file. Tracking model
@@ -140,7 +142,7 @@ function isDatedSnapshotOf(snapshotId: string, referenceId: string): boolean {
 // harmless extra.
 export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .object({
-    slot: z.enum(["reasoning", "utility", "embedding"]),
+    slot: z.enum(["reasoning", "utility", "embedding", "transcription"]),
     modelId: z.string().min(1),
     snapshotId: z.string().min(1),
     snapshotForm: z.enum(["provider-dated", "provider-dateless", "platform-composed"]),
@@ -206,8 +208,8 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 3;
-export const CATALOG_EFFECTIVE_DATE = "2026-08-14";
+export const CATALOG_VERSION = 4;
+export const CATALOG_EFFECTIVE_DATE = "2026-10-03";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
 // constant does not change when the platform moves to a newer model.
@@ -220,8 +222,15 @@ export const PLATFORM_DEFAULT_REASONING_TIER: ReasoningTier = "most-capable";
 // ZDR-verified by the reasoning-reference process.
 export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 
+// The platform-fixed speech-to-text model. Like the embedding id it is the one place this model is
+// named: the transcription operation closes over the catalog entry below, and no caller passes a model.
+// Unlike the embedding pin it binds no stored index, so moving it costs a re-verification of the entry
+// and nothing else — transcripts already written keep the model id they recorded.
+export const PLATFORM_TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo";
+
 // The launch catalog. Reasoning models first, each on the tier it currently occupies; the small utility
-// model; the platform-fixed embedding model pinned to the index generation. claude-fable-5 is
+// model; the platform-fixed embedding model pinned to the index generation; the platform-fixed
+// speech-to-text model. claude-fable-5 is
 // intentionally absent — it mandates a retention window and returns a hard error under ZDR, so it is not
 // ZDR-eligible and never enters the reasoning slot.
 const RAW_CATALOG: readonly CatalogEntry[] = [
@@ -295,18 +304,42 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     pinState: "open",
     indexVersion: "vectorize-index-v1",
   },
+  {
+    // Workers AI on-Cloudflare speech-to-text model, the platform-fixed transcription slot. The
+    // confidentiality facts rest on Cloudflare's Workers AI data terms, read 2026-10-03 at
+    // https://developers.cloudflare.com/workers-ai/platform/data-usage/ — Customer Content (the audio
+    // in, the transcript out) is not used to train any model and is not made available to another
+    // customer, and it is stored only where we ourselves store it. The model is Cloudflare-hosted, so
+    // the audio does not leave the platform for a third-party provider.
+    //
+    // Cloudflare publishes no dated form of its Workers AI model ids and no retirement date for this
+    // one (model page read 2026-10-03:
+    // https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/), so the published id
+    // is itself the pin and the entry carries no retirement date.
+    slot: "transcription",
+    modelId: PLATFORM_TRANSCRIPTION_MODEL_ID,
+    snapshotId: PLATFORM_TRANSCRIPTION_MODEL_ID,
+    snapshotForm: "provider-dateless",
+    referenceId: PLATFORM_TRANSCRIPTION_MODEL_ID,
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-10-03",
+    availabilityVerifiedOn: "2026-10-03",
+  },
 ];
 
 // Module-load validation: every entry parses (all fields present, every reasoning entry ZDR-eligible),
-// exactly one embedding entry exists, and every reasoning tier has exactly one occupant so the platform
-// default always resolves. A malformed table aborts the import.
+// exactly one entry fills each platform-fixed slot (embedding, transcription), and every reasoning tier
+// has exactly one occupant so the platform default always resolves. A malformed table aborts the import.
 function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntry[] {
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
-  const embeddings = validated.filter((entry) => entry.slot === "embedding");
-  if (embeddings.length !== 1) {
-    throw new Error(
-      `the catalog must declare exactly one embedding entry (found ${embeddings.length})`,
-    );
+  for (const slot of ["embedding", "transcription"] as const) {
+    const occupants = validated.filter((entry) => entry.slot === slot);
+    if (occupants.length !== 1) {
+      throw new Error(
+        `the catalog must declare exactly one ${slot} entry (found ${occupants.length})`,
+      );
+    }
   }
   for (const tier of REASONING_TIERS) {
     const occupants = validated.filter((entry) => entry.tier === tier);
@@ -334,6 +367,14 @@ const ZDR_IDS: ReadonlySet<string> = new Set(
 const EMBEDDING_ENTRY: CatalogEntry = (() => {
   const entry = CATALOG.find((e) => e.slot === "embedding");
   if (entry === undefined) throw new Error("no embedding entry in the catalog");
+  return entry;
+})();
+
+// Precomputed at module init for the same reason: validateCatalog guarantees exactly one transcription
+// entry.
+const TRANSCRIPTION_ENTRY: CatalogEntry = (() => {
+  const entry = CATALOG.find((e) => e.slot === "transcription");
+  if (entry === undefined) throw new Error("no transcription entry in the catalog");
   return entry;
 })();
 
@@ -370,6 +411,11 @@ export function reasoningModelForTier(tier: ReasoningTier): CatalogEntry {
 // The single platform-fixed embedding entry the embedding operation closes over.
 export function embeddingEntry(): CatalogEntry {
   return EMBEDDING_ENTRY;
+}
+
+// The single platform-fixed transcription entry the transcription operation closes over.
+export function transcriptionEntry(): CatalogEntry {
+  return TRANSCRIPTION_ENTRY;
 }
 
 export function isZdrEligible(modelId: string): boolean {

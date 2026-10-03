@@ -7,7 +7,10 @@ import type {
   GenerateResult,
   InferencePort,
   StreamResult,
+  TranscribeInput,
+  TranscriptionResult,
 } from "./port.ts";
+import { wavAudioSeconds } from "./wav-duration.ts";
 
 // A complete, deterministic InferencePort that reaches NO provider.
 //
@@ -105,6 +108,23 @@ export function createStubInferencePort(): InferencePort {
         vector,
         usage: stubUsage(input.text, ""),
         snapshotId: STUB_SNAPSHOT_ID,
+      });
+    },
+
+    // One segment spanning the whole audio, its text naming the audio's size, so a consumer test can
+    // predict the transcript from the bytes it sent: `[stub inference] <n> bytes of audio`, over
+    // [0, playing time read from the WAV header]. The language echoes the hint, or null without one.
+    // The model id is "stub", like every other stub result's provenance: a transcript recorded in an
+    // environment that resolved to this port must never read as one a real model heard.
+    async transcribe(input: TranscribeInput): Promise<Dispatch<TranscriptionResult>> {
+      const audioSeconds = wavAudioSeconds(input.audio);
+      const text = `${STUB_RESPONSE_MARKER} ${input.audio.byteLength} bytes of audio`;
+      return ok({
+        modelId: STUB_SNAPSHOT_ID,
+        text,
+        language: input.language ?? null,
+        segments: [{ startSeconds: 0, endSeconds: audioSeconds, text }],
+        audioSeconds,
       });
     },
   };

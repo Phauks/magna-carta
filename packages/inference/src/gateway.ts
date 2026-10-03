@@ -1,7 +1,13 @@
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
-import { catalogEntryFor, embeddingEntry, isZdrEligible, type CatalogEntry } from "./catalog.ts";
+import {
+  catalogEntryFor,
+  embeddingEntry,
+  isZdrEligible,
+  transcriptionEntry,
+  type CatalogEntry,
+} from "./catalog.ts";
 import type {
   ConversationInput,
   EmbedInput,
@@ -11,7 +17,11 @@ import type {
   InferencePort,
   StreamResult,
   TokenUsage,
+  TranscribeInput,
+  TranscriptionResult,
+  TranscriptionSegment,
 } from "./port.ts";
+import { wavAudioSeconds } from "./wav-duration.ts";
 
 // All firms share one gateway per environment. The control plane below is pinned on EVERY request via
 // the AI binding's documented `gateway` options object (id/skipCache/collectLog/metadata) — NOT via
@@ -162,6 +172,103 @@ function responseVector(response: unknown): readonly number[] {
   return data?.[0] ?? [];
 }
 
+// The speech-to-text request and response shapes below follow Cloudflare's published schemas for the
+// transcription model, read 2026-10-03:
+//   model page:  https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/
+//   input:       https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-input.json
+//   output:      https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/schema-output.json
+// Input fields used: `audio` (documented as "Base64 encoded value of the audio data", or a
+// { body, contentType } object), `task` ("transcribe" | "translate", default "transcribe"), `language`,
+// `vad_filter` (boolean, default false), `initial_prompt`. Output fields read: `text` (the only required
+// one), `transcription_info.language`, `transcription_info.duration` (seconds of the original audio),
+// and `segments[].start` / `.end` / `.text` (seconds within the audio). The output also documents
+// `segments[].words[]` ({ word, start, end }), `word_count`, `vtt`, and per-segment confidence figures;
+// none is read, because the transcript of record is built from segments and the port carries no more.
+
+// Base64 for the documented `audio` string form. btoa takes a binary string, built in slices so a
+// multi-megabyte chunk never spreads into one call's argument list (which overflows the stack).
+function base64OfBytes(bytes: Uint8Array): string {
+  const sliceLength = 0x8000;
+  let binary = "";
+  for (let start = 0; start < bytes.length; start += sliceLength) {
+    binary += String.fromCharCode(...bytes.subarray(start, start + sliceLength));
+  }
+  return btoa(binary);
+}
+
+// The model takes a bare language code ("en" in Cloudflare's own example) where the port takes a BCP-47
+// tag, so a region or script subtag ("en-GB", "zh-Hant") is dropped and the primary subtag is sent. A
+// hint that is not a well-formed primary subtag is not sent at all: detection is the documented
+// behaviour when the field is absent, and a malformed hint would be a worse guess than none.
+function transcriptionLanguage(language: string | undefined): string | undefined {
+  if (language === undefined) return undefined;
+  const primary = language.trim().split(/[-_]/)[0]?.toLowerCase() ?? "";
+  return /^[a-z]{2,3}$/.test(primary) ? primary : undefined;
+}
+
+function transcriptionRequestBody(input: TranscribeInput): Record<string, unknown> {
+  const language = transcriptionLanguage(input.language);
+  const initialPrompt = input.initialPrompt?.trim() ?? "";
+  return {
+    audio: base64OfBytes(input.audio),
+    // Pinned rather than left to the default: "translate" would return English text for non-English
+    // speech, and a transcript of record has to say what was said, in the language it was said in.
+    task: "transcribe",
+    // Pinned off. The caller sends spans it already knows to be speech, and segment offsets must be
+    // offsets into the audio that was sent; the schema's separate duration_after_vad figure says voice
+    // activity filtering changes what the model measures, so it stays out of the record's timings.
+    vad_filter: false,
+    ...(language === undefined ? {} : { language }),
+    ...(initialPrompt === "" ? {} : { initial_prompt: initialPrompt }),
+  };
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+// Segment timings as the provider reports them, in its order. A segment missing a timing or its text
+// is dropped rather than repaired: a timing invented here would be read later as a fact about when
+// somebody spoke. Every access is guarded; the response is unknown and this never throws.
+function responseSegments(response: Record<string, unknown>): readonly TranscriptionSegment[] {
+  const segments = response["segments"];
+  if (!Array.isArray(segments)) return [];
+  return segments.flatMap((candidate: unknown): TranscriptionSegment[] => {
+    if (candidate === null || typeof candidate !== "object") return [];
+    const segment = candidate as Record<string, unknown>;
+    const startSeconds = finiteNumber(segment["start"]);
+    const endSeconds = finiteNumber(segment["end"]);
+    const text = segment["text"];
+    if (startSeconds === null || endSeconds === null || typeof text !== "string") return [];
+    return [{ startSeconds, endSeconds, text: text.trim() }];
+  });
+}
+
+function transcriptionResult(
+  response: unknown,
+  audio: Uint8Array,
+  modelId: string,
+): TranscriptionResult {
+  const body =
+    response !== null && typeof response === "object" ? (response as Record<string, unknown>) : {};
+  const informationValue = body["transcription_info"];
+  const information =
+    informationValue !== null && typeof informationValue === "object"
+      ? (informationValue as Record<string, unknown>)
+      : {};
+  const language = information["language"];
+  const text = body["text"];
+  return {
+    modelId,
+    text: typeof text === "string" ? text.trim() : "",
+    language: typeof language === "string" && language !== "" ? language : null,
+    segments: responseSegments(body),
+    // The provider's own measure of what it heard, which is what it meters; the WAV header's playing
+    // time when the response omits it, so a missing optional field never meters audio as zero seconds.
+    audioSeconds: finiteNumber(information["duration"]) ?? wavAudioSeconds(audio),
+  };
+}
+
 // Caller-safe failure mapping: a thrown gateway/model/network error becomes an adapter-error carrying a
 // normalized problem. The detail is a fixed caller-safe string — the raw error (which can echo tokens or
 // auth headers) is never spliced into it (it is reported through the standard redacting pipeline upstream).
@@ -302,6 +409,29 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
         });
       } catch {
         return gatewayFailure<EmbeddingResult>();
+      }
+    },
+
+    async transcribe(input: TranscribeInput): Promise<Dispatch<TranscriptionResult>> {
+      // No audio is a caller bug, not an upstream condition: refused before the binding, with the
+      // non-retryable category the other local refusals use, so it is never billed or retried.
+      if (input.audio.byteLength === 0) {
+        return adapterError<TranscriptionResult>(
+          integrationProblem("validation", 400, "Transcription request has no audio", {
+            detail: "A transcription request must carry audio.",
+          }),
+        );
+      }
+      // Platform-fixed: the entry is the catalog's, never the caller's, so there is no model to guard.
+      // The gateway options are the same ones every other operation sends — caching off, logging off,
+      // derived firm metadata — so neither the audio nor the transcript is retained by the gateway.
+      const entry = transcriptionEntry();
+      const gateway = gatewayOptions(input.firmId, entry.slot, env);
+      try {
+        const response = await ai.run(entry.modelId, transcriptionRequestBody(input), { gateway });
+        return ok(transcriptionResult(response, input.audio, entry.modelId));
+      } catch {
+        return gatewayFailure<TranscriptionResult>();
       }
     },
   };
