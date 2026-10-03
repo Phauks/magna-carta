@@ -1835,6 +1835,7 @@
       {meetingId}
       subject={endSubject}
       announced={client.recording.running}
+      insideRoom
       onWhoWasTold={canHost ? openNotices : undefined}
     />
 

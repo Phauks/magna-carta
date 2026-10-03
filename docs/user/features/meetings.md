@@ -6,7 +6,8 @@ part of Magna Carta, so your firm needs no separate conferencing account and the
 sits on the event it belongs to. People at your firm join from the event; a client, opposing counsel or
 anybody else on the event can be sent a link that brings them to the meeting's door, where a host lets
 them in. A meeting on a matter can be recorded, with everybody in it told, and a recording on the matter
-gets a written transcript that names who said what. There is no telephone number to dial in on._
+gets a written transcript that names who said what, and a summary with its action items. There is no
+telephone number to dial in on._
 
 ## What it does
 
@@ -636,6 +637,47 @@ reached from here, the transcript says **Transcript Withheld** and why: **Remove
 
 What a transcript says is part of the matter's record and is treated as privileged, like the
 recording itself.
+
+### Reading a recording's summary
+
+Once a transcript is ready, a summary of it is written: a short account of what the meeting covered,
+and a numbered list of the action items people agreed to. The summary is written by the platform from
+the transcript, so it is a characterization of the conversation and not a record of it; the panel
+says so above the text. When you need to know exactly what somebody said, read the transcript.
+
+The **Summary** column of the Recordings list says where each recording's summary stands:
+
+- **Being Written**: it is still being written. You can open it to watch; the panel turns into the
+  summary by itself when it is ready, and the list catches up at the same moment.
+- **Read**: it is ready. Pressing it opens the summary over the list.
+- **Could Not Be Written**: the summary failed. Open it to see the **Error ID**, and quote that to
+  your administrator or to support. The recording and the transcript are not affected.
+- **Not Written**: no summary was written, and the panel says why. Either meeting summaries are
+  switched off for your firm, or AI processing is not switched on for your firm (an administrator
+  switches it on in **Settings**, under **AI and the Assistant**), or nothing was said in the
+  recording.
+
+Each action item shows who it belongs to and when it is due. An owner is named only when the meeting
+named a member of the firm exactly; otherwise the item says **No owner**. A due date is shown only
+when somebody in the meeting stated the day, so "next Friday" is not turned into a date.
+
+**Making a task of an action item.** Press **Create Task** on an item. Nothing is made yet: a
+confirmation opens showing the task and who it will be assigned to, the item's owner or nobody. If you
+do not want the task in the owner's name, untick **Assign to** before pressing **Create Task** there.
+Putting a task in another member's name needs the permission to assign tasks (`tasks:assign`); without it, the box is
+unavailable and the task is made with nobody's name on it. The task is made on the meeting's matter
+like any other task, due on the item's date, and the item then offers **Open Task**, which takes you
+to it in the matter's **Tasks** section. An item can be made into a task once: if somebody else got
+there first, the item says so and links to their task.
+
+**Writing it again.** Somebody who can host meetings sees **Re-run** at the top of the summary. It
+asks first, because writing the summary again replaces its text and its action items; tasks already
+made from the old items are kept. Re-run is also how a summary that seems stuck at **Being Written**
+is started again.
+
+If the transcript's captions file has been moved to the trash, is held by the safety check, or cannot
+be reached from here, the summary says **Summary Withheld** and why, in the transcript's own words.
+The summary is treated as privileged, like the transcript it was written from.
 
 ### If you are a guest
 

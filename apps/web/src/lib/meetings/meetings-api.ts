@@ -16,6 +16,7 @@ import {
   meetingsAnswerPoll,
   meetingsAskQuestion,
   meetingsClosePoll,
+  meetingsCreateSummaryActionItemTask,
   meetingsDenyFromLobby,
   meetingsEnd,
   meetingsGrantHosting,
@@ -32,6 +33,7 @@ import {
   meetingsRedactMessage,
   meetingsRedactQuestion,
   meetingsRemoveParticipant,
+  meetingsRerunSummary,
   meetingsRevokeHosting,
   meetingsSendMessage,
   meetingsSetLobby,
@@ -42,6 +44,7 @@ import {
   meetingsStopRecording,
   meetingsUpvoteQuestion,
   meetingsWithdrawQuestionUpvote,
+  type CreatedMeetingActionItemTask,
   type JoinedMeeting,
   type MeetingAcknowledged,
   type MeetingHostGrant,
@@ -58,6 +61,10 @@ import {
   type MeetingRecordingNoticeEntry,
   type MeetingRecordingSummary,
   type MeetingSummary,
+  type MeetingSummaryActionItem,
+  type MeetingSummaryHeader,
+  type MeetingSummaryMark,
+  type MeetingSummaryView,
   type MeetingTranscriptMark,
   type MeetingTranscriptPage,
   type MeetingTranscriptSegment,
@@ -882,6 +889,96 @@ export function readMeetingRecordingNotices(
   });
 }
 
+/*
+ * THE SUMMARY OF A RECORDING: what the platform wrote from a ready transcript, and the action items
+ * it read out of it.
+ *
+ * Read through the generated query options into the one cache by `screen/summary-panel.svelte`;
+ * the two acts are here. The summary's words and every item's words are privileged content: they
+ * travel in a response body and are drawn on the screen, and nothing here puts them in an address,
+ * a log or a failure report. A failure is the response's problem record, which carries none of them.
+ */
+
+/** One summary as the read answers it: the header always, the words only where they may be shown. */
+export type MeetingSummaryReadView = MeetingSummaryView;
+
+/**
+ * Where a summary stands: its handle, its state, why it was refused, the Error ID of a failure and
+ * the model that wrote it. Answered on every read, with or without the words.
+ */
+export type MeetingSummaryHeaderView = MeetingSummaryHeader;
+
+/** Where a summary stands, in the server's own vocabulary. */
+export type MeetingSummaryStateView = MeetingSummaryHeader["state"];
+
+/**
+ * Why a summary was not written: the firm has summaries switched off (`disabled`), the model the
+ * firm chose may not receive its content (`not-eligible`), or nothing was said (`transcript-empty`).
+ */
+export type MeetingSummaryRefusalView = NonNullable<MeetingSummaryHeader["refusalReason"]>;
+
+/**
+ * Why a ready summary's words are withheld: the transcript's document it was written from was
+ * `removed` from the matter, is `held` by the scan, or is otherwise `unavailable`. The words are the
+ * same conversation, so they are served only while that document can be read.
+ */
+export type MeetingSummaryWithheldView = MeetingSummaryView["withheld"];
+
+/**
+ * One action item: the thing to do, its owner where the transcript named a member exactly, the day
+ * it is due where the transcript stated one, and the task it became once somebody made one.
+ */
+export type MeetingSummaryActionItemView = MeetingSummaryActionItem;
+
+/** Where a recording's summary stands, as the recordings list reads it. Null until there is one. */
+export type MeetingSummaryMarkView = MeetingSummaryMark;
+
+/** A task made of an action item: the task's handle, and the item now naming it. */
+export type MeetingActionItemTaskView = CreatedMeetingActionItemTask;
+
+/**
+ * Ask for a recording's summary to be written again. Answers with the summary, now being written;
+ * the text and the action items it replaces are gone, and a task already made of one is kept.
+ *
+ * Refused `meeting-transcript-not-ready` where the transcript it would be written from is not ready.
+ */
+export function rerunMeetingSummary(
+  meetingId: string,
+  recordingId: string,
+): Promise<MeetingWrite<MeetingSummaryReadView>> {
+  return write(() =>
+    meetingsRerunSummary({
+      path: { meetingId, recordingId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Make a task of one action item, through the task subsystem's own path, on the recording's matter.
+ * `assignToOwner` puts it in the owner's name where the item has one; putting it in ANOTHER member's
+ * name needs the key to assign, so a member without it makes the task with nobody's name on it.
+ *
+ * Refused `meeting-summary-action-item-tasked` where somebody already made one of this item, and
+ * `meeting-summary-not-ready` where the summary is being written again or its words are withheld.
+ */
+export function createMeetingActionItemTask(
+  meetingId: string,
+  recordingId: string,
+  actionItemId: string,
+  assignToOwner: boolean,
+): Promise<MeetingWrite<MeetingActionItemTaskView>> {
+  return write(() =>
+    meetingsCreateSummaryActionItemTask({
+      path: { meetingId, recordingId, actionItemId },
+      headers: { "idempotency-key": newWriteKey() },
+      body: { assignToOwner },
+      throwOnError: true,
+    }),
+  );
+}
+
 /** Start ticking, and answer with the way to stop. The one timer the two records share. */
 function every(milliseconds: number, tick: () => void): () => void {
   const ticking = setInterval(tick, milliseconds);
@@ -954,4 +1051,15 @@ export function eventAddress(
     return `/matters/${encodeURIComponent(matterId)}/calendar?${entry}`;
   }
   return `/calendar?${entry}`;
+}
+
+/**
+ * Where a task made of an action item is read: the matter's Tasks section with the task named, the
+ * address the task's own assignment notice links to, or the member's own task list where the matter
+ * is not known.
+ */
+export function taskAddress(matterId: string | null, taskId: string): string {
+  const entry = `entry=${encodeURIComponent(taskId)}`;
+  if (matterId !== null) return `/matters/${encodeURIComponent(matterId)}/tasks?${entry}`;
+  return `/tasks?${entry}`;
 }

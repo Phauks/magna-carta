@@ -23,6 +23,11 @@
    * transcript is read there, one still being made is watched there until it settles (and this list
    * is read again the moment it does), and a failed one states its Error ID there.
    *
+   * A READY TRANSCRIPT HAS A SUMMARY, and its column says where that stands on the same terms: pressing
+   * it opens the summary panel over this one. Whether the reader may write it again, and whose name a
+   * task made of an action item may carry, are read from the shared session here rather than handed
+   * down, because this panel is opened from two screens and the answer is the session's, not theirs.
+   *
    * THE TABLE STANDS BEFORE THE ROWS DO. Loading draws the grid's own placeholder rows, and a meeting
    * with nothing recorded says "No Results" inside the frame it would have filled; only a read that
    * failed replaces the table, because an empty frame over a failure says nothing was recorded when
@@ -37,7 +42,9 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import FileVolume from "@lucide/svelte/icons/file-volume";
   import ScrollText from "@lucide/svelte/icons/scroll-text";
+  import NotebookText from "@lucide/svelte/icons/notebook-text";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { failureOf } from "$lib/api/api-client.ts";
   import { paged } from "$lib/api/screen-data.ts";
@@ -47,9 +54,12 @@
     recordingDocumentText,
     recordingStateWord,
     recordingStopText,
+    recordingSummaryOpens,
+    recordingSummaryText,
     recordingTranscriptOpens,
     recordingTranscriptText,
   } from "./recording-list.ts";
+  import SummaryPanel from "./summary-panel.svelte";
   import TranscriptPanel from "./transcript-panel.svelte";
   import type { MeetingRecordingListView, MeetingRecordingView } from "../meetings-api.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -59,9 +69,12 @@
     meetingId,
     subject,
     announced,
+    insideRoom = false,
     onWhoWasTold,
   }: {
     open?: boolean;
+    /** Whether the list is drawn inside a meeting room, where leaving the page hangs up the call. */
+    insideRoom?: boolean;
     /** The meeting whose recordings these are. */
     meetingId: string;
     /** Which meeting this is about, named once. */
@@ -102,6 +115,15 @@
     });
   });
 
+  // The session answers who may write a summary again and whose name a task may carry. Read once
+  // the panel opens, and shared with every other surface that asks.
+  $effect(() => {
+    if (open) void sessionPermissions.load(fetch);
+  });
+  const canHost = $derived(sessionPermissions.holds("meetings:host"));
+  const canAssign = $derived(sessionPermissions.holds("tasks:assign"));
+  const viewerUserId = $derived(sessionPermissions.session?.user.id ?? null);
+
   /** The recording whose transcript is open over this panel, if any. */
   let transcriptOf = $state<MeetingRecordingListView | null>(null);
   let transcriptOpen = $state(false);
@@ -111,12 +133,24 @@
     transcriptOpen = true;
   }
 
-  /** The recording a transcript panel is about: this panel's subject, and when it started. */
-  const transcriptSubject = $derived<RecordSubject>(
-    transcriptOf === null
+  /** The recording whose summary is open over this panel, if any. */
+  let summaryOf = $state<MeetingRecordingListView | null>(null);
+  let summaryOpen = $state(false);
+
+  function openSummary(recording: MeetingRecordingListView): void {
+    summaryOf = recording;
+    summaryOpen = true;
+  }
+
+  /** The recording a panel over this one is about: this panel's subject, and when it started. */
+  function recordingSubject(recording: MeetingRecordingListView | null): RecordSubject {
+    return recording === null
       ? subject
-      : { ...subject, facts: [...(subject.facts ?? []), formatInstant(transcriptOf.startedAt)] },
-  );
+      : { ...subject, facts: [...(subject.facts ?? []), formatInstant(recording.startedAt)] };
+  }
+
+  const transcriptSubject = $derived<RecordSubject>(recordingSubject(transcriptOf));
+  const summarySubject = $derived<RecordSubject>(recordingSubject(summaryOf));
 
   const rows = $derived<MeetingRecordingListView[]>(
     (recordingsRead.data?.pages ?? []).flatMap((page) => page.data),
@@ -146,6 +180,13 @@
         type: "text",
         filter: "none",
         value: (row) => recordingTranscriptText(row),
+      },
+      {
+        id: "summary",
+        label: "Summary",
+        type: "text",
+        filter: "none",
+        value: (row) => recordingSummaryText(row),
       },
       {
         id: "started",
@@ -199,6 +240,22 @@
       ondblclick={(event: MouseEvent) => event.stopPropagation()}
     >
       <ScrollText class="size-16" aria-hidden="true" />
+      {text}
+    </Button>
+  {:else if column.id === "summary" && recordingSummaryOpens(row)}
+    <!-- The summary, in a panel over this one, on the transcript's terms: the press is the summary's
+         and never reaches the row's own gesture. -->
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={`${text}: the summary of the recording started ${formatInstant(row.startedAt)}`}
+      onclick={(event: MouseEvent) => {
+        event.stopPropagation();
+        openSummary(row);
+      }}
+      ondblclick={(event: MouseEvent) => event.stopPropagation()}
+    >
+      <NotebookText class="size-16" aria-hidden="true" />
       {text}
     </Button>
   {:else if address !== null}
@@ -262,4 +319,16 @@
   recordingId={transcriptOf?.id ?? ""}
   subject={transcriptSubject}
   onSettled={() => void recordingsRead.refetch()}
+/>
+
+<SummaryPanel
+  bind:open={summaryOpen}
+  {meetingId}
+  recordingId={summaryOf?.id ?? ""}
+  subject={summarySubject}
+  {canHost}
+  {canAssign}
+  {viewerUserId}
+  {insideRoom}
+  onChanged={() => void recordingsRead.refetch()}
 />

@@ -11,9 +11,10 @@
  * that version is still the file's current one: a version being checked, held, replaced or gone says
  * so instead. One being put together says so; one that failed states its Error ID. A recording on
  * the matter says where its transcript stands in a column of its own, and pressing it opens the
- * transcript over the list without reaching the row's own gesture. And the list keeps
- * the house's
- * structured emptiness: the table stands while it loads and while it holds nothing, saying "No
+ * transcript over the list without reaching the row's own gesture. Where the transcript has a
+ * summary, a Summary column says where it stands on the same terms and opens the summary panel over
+ * the list, offering Re-run there only to a member who holds the key to host. And the list keeps the
+ * house's structured emptiness: the table stands while it loads and while it holds nothing, saying "No
  * Results" inside its own frame, and only a failed read replaces it.
  *
  * The first half is the pure wording; the second mounts the panel over a canned server.
@@ -22,6 +23,7 @@ import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { client } from "@magna-carta/api-client/client";
 import { queryClient } from "../src/lib/api/screen-data.ts";
+import { sessionPermissions } from "../src/lib/access/session-permissions.svelte.ts";
 import {
   RECORDING_DOCUMENT_WORDS,
   RECORDING_STATE_WORDS,
@@ -32,6 +34,8 @@ import {
   recordingIncompleteNote,
   recordingStopText,
   recordingStopWord,
+  recordingSummaryOpens,
+  recordingSummaryText,
   recordingTranscriptOpens,
   recordingTranscriptText,
 } from "../src/lib/meetings/screen/recording-list.ts";
@@ -250,6 +254,29 @@ describe("where a recording's transcript stands", () => {
   });
 });
 
+describe("where a recording's summary stands", () => {
+  it("says nothing before the transcript has a summary, and offers nothing to open", () => {
+    expect(recordingSummaryText(recording())).toBe("");
+    expect(recordingSummaryOpens(recording())).toBe(false);
+  });
+
+  it("names each state in the column, and offers the summary wherever there is one", () => {
+    const states = [
+      { state: "pending", refusalReason: null, word: "Being Written" },
+      { state: "ready", refusalReason: null, word: "Read" },
+      { state: "failed", refusalReason: null, word: "Could Not Be Written" },
+      { state: "refused", refusalReason: "not-eligible", word: "Not Written" },
+    ] as const;
+    for (const { state, refusalReason, word } of states) {
+      const row = onTheMatter("available", {
+        summary: { id: "meetingSummary_1", state, refusalReason },
+      });
+      expect(recordingSummaryText(row)).toBe(word);
+      expect(recordingSummaryOpens(row)).toBe(true);
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------------------------
 // The panel, over a canned server.
 // ---------------------------------------------------------------------------------------------
@@ -258,6 +285,34 @@ let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 let reads = 0;
 let transcriptReads = 0;
+let summaryReads = 0;
+
+/** What the summary read answers in these cases: a ready summary with one action item. */
+const SUMMARY_ANSWER = {
+  summary: {
+    id: "meetingSummary_1",
+    transcriptId: "meetingTranscript_1",
+    recordingId: "meetingRecording_1",
+    state: "ready",
+    refusalReason: null,
+    failureErrorId: null,
+    modelId: "@cf/openai/gpt-oss-120b",
+    createdAt: "2026-09-20T15:41:00.000Z",
+    updatedAt: "2026-09-20T15:43:00.000Z",
+  },
+  text: "The team agreed who sends the exhibits.",
+  actionItems: [
+    {
+      id: "meetingSummaryActionItem_1",
+      ordinal: 0,
+      text: "Send the exhibits.",
+      owner: { userId: "usr_2", displayName: "Rosalind Chase" },
+      dueOn: null,
+      taskId: null,
+    },
+  ],
+  withheld: null,
+};
 
 /** What the transcript read answers in these cases: a ready transcript of one line. */
 const TRANSCRIPT_ANSWER = {
@@ -296,6 +351,23 @@ const TRANSCRIPT_ANSWER = {
 function serve(answer: "never" | number | readonly MeetingRecordingView[]): void {
   const stub = ((request: Request) => {
     const path = new URL(request.url).pathname;
+    if (path.endsWith("/summary")) {
+      summaryReads += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify(SUMMARY_ANSWER), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
+    if (path === `/api/v1/meetings/${MEETING_ID}`) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ id: MEETING_ID, matterId: "matter_7" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
     if (path.endsWith("/transcript")) {
       transcriptReads += 1;
       return Promise.resolve(
@@ -353,13 +425,35 @@ beforeEach(() => {
   document.body.append(target);
   reads = 0;
   transcriptReads = 0;
+  summaryReads = 0;
   queryClient.clear();
+  holdPermissions([]);
 });
 
-afterEach(() => {
-  if (instance !== undefined) void unmount(instance);
+/** The session the list reads who may host from, holding exactly these permissions. */
+function holdPermissions(permissions: readonly string[]): void {
+  sessionPermissions.session = {
+    user: { id: "usr_2", name: "Rosalind Chase", email: "rosalind@example.com" },
+    firm: { id: "firm_1", name: "Chase and Partners" },
+    permissions,
+    channel: "stable",
+    flags: {},
+  };
+  sessionPermissions.settled = true;
+}
+
+// The dialog's scroll lock is released on a 24 ms timer after the dialog closes. Waiting past it here
+// lets that timer run while the document still exists; left pending, it fires after the file's
+// environment is torn down and reports an error against whichever file runs last.
+const SCROLL_LOCK_RELEASE_MILLISECONDS = 50;
+
+afterEach(async () => {
+  if (instance !== undefined) await unmount(instance);
   instance = undefined;
+  await new Promise((resolve) => setTimeout(resolve, SCROLL_LOCK_RELEASE_MILLISECONDS));
   target.remove();
+  sessionPermissions.session = null;
+  sessionPermissions.settled = false;
   client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
 });
 
@@ -516,5 +610,74 @@ describe("the recordings panel", () => {
     expect(transcript?.textContent).toContain("Transcript");
     expect(transcript?.textContent).toContain("Rosalind Chase");
     expect(transcript?.textContent).toContain("We will file the reply by Friday.");
+  });
+
+  it("says where each summary stands, and opens a ready one over the list without the row's gesture", async () => {
+    serve([
+      onTheMatter("available", {
+        id: "meetingRecording_1",
+        transcript: { id: "meetingTranscript_1", state: "ready", fileId: "file_vtt" },
+        summary: { id: "meetingSummary_1", state: "ready", refusalReason: null },
+      }),
+      onTheMatter("available", {
+        id: "meetingRecording_2",
+        startedAt: "2026-09-20T17:00:00.000Z",
+        transcript: { id: "meetingTranscript_2", state: "ready", fileId: "file_vtt_2" },
+        summary: { id: "meetingSummary_2", state: "refused", refusalReason: "disabled" },
+      }),
+    ]);
+    const whoWasTold: string[] = [];
+    await draw((row) => whoWasTold.push(row.id));
+    const controls = [...(panel()?.querySelectorAll("button") ?? [])];
+    const named = (name: string) =>
+      controls.find((control) => control.textContent?.trim() === name);
+    expect(named("Not Written")).toBeDefined();
+    const read = controls.find((control) =>
+      control.getAttribute("aria-label")?.startsWith("Read: the summary"),
+    );
+    expect(read).toBeDefined();
+    expect(summaryReads).toBe(0);
+
+    read?.click();
+    read?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await settle();
+    expect(summaryReads).toBeGreaterThan(0);
+    // The press is the summary's, never the row's.
+    expect(whoWasTold).toEqual([]);
+    const summary = [...document.body.querySelectorAll('[role="dialog"]')].find((candidate) =>
+      candidate.textContent?.includes("Action Items"),
+    );
+    expect(summary?.textContent).toContain("The team agreed who sends the exhibits.");
+    expect(summary?.textContent).toContain("Send the exhibits.");
+    // A member who does not hold the key to host is not offered a second run.
+    expect(
+      [...(summary?.querySelectorAll("button") ?? [])].some(
+        (control) => control.textContent?.trim() === "Re-run",
+      ),
+    ).toBe(false);
+  });
+
+  it("offers a second run of the summary to a member who holds the key to host", async () => {
+    holdPermissions(["meetings:join", "meetings:host"]);
+    serve([
+      onTheMatter("available", {
+        transcript: { id: "meetingTranscript_1", state: "ready", fileId: "file_vtt" },
+        summary: { id: "meetingSummary_1", state: "ready", refusalReason: null },
+      }),
+    ]);
+    await draw();
+    const read = [...(panel()?.querySelectorAll("button") ?? [])].find((control) =>
+      control.getAttribute("aria-label")?.startsWith("Read: the summary"),
+    );
+    read?.click();
+    await settle();
+    const summary = [...document.body.querySelectorAll('[role="dialog"]')].find((candidate) =>
+      candidate.textContent?.includes("Action Items"),
+    );
+    expect(
+      [...(summary?.querySelectorAll("button") ?? [])].some(
+        (control) => control.textContent?.trim() === "Re-run",
+      ),
+    ).toBe(true);
   });
 });

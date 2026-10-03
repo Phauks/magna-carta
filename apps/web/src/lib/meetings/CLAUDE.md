@@ -148,7 +148,31 @@ a transcript being made is read again every fifteen seconds while the panel is o
 list to read again the moment it settles; and the WebVTT document it became opens beside the reader
 through the file's own route and `opensBeside("file")`. THE WORDS OF A LINE ARE PRIVILEGED: they are
 drawn and never logged, put in an address or carried in a failure report, and the transcript region
-is not a live region, so a page arriving is not read aloud), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+is not a live region, so a page arriving is not read aloud), `summary-panel.svelte` with
+`summary-panel.ts` (a recording's summary: a reading `ActionDialog` opened from the list's Summary
+column over the list, on the transcript's terms; the text under ONE quiet line saying it is the
+platform's characterization of the conversation and not a record of it, then the action items as a
+numbered list, each with "Owner: <name>" or "No owner" and its due date through the design system's
+civil-date `formatDate`; a summary being written, one that could not be written (with its Error ID),
+one refused for each of its three reasons (summaries switched off, the firm's AI processing not
+switched on, naming "AI and the Assistant", and nothing said) and a ready one whose words are withheld
+(in `TRANSCRIPT_WITHHELD_WORDS`, the transcript's own) are the design system's `EmptyState`, ONE pure
+function (`summaryBody`) deciding which; a summary being written is read again on the transcript's
+interval and tells the list when it settles. CREATE TASK MAKES NOTHING ON THE ROW'S PRESS: a
+participant can dictate an action item for somebody else, so the press opens a `New Task` confirmation
+stating who the task will be assigned to (`taskAssigneeWords`) with a box to take the name off, refused
+with its reason where the reader holds neither the item nor `tasks:assign` (`mayAssignToOwner`); only
+its commit calls the task route, with a fresh idempotency key and `assignToOwner` from
+`assignsToOwner`, and a made task links through `taskAddress` in `meetings-api.ts` to
+`/matters/{matterId}/tasks?entry={taskId}`, the address the task's own assignment notice uses (the
+matter is read off the meeting under the room's own query key). A 409 saying the item is already a
+task is said on the row and the summary read again to link to it; any other refusal stands in the
+confirmation. RE-RUN IS A HOST'S AND ASKS FIRST: offered only where the session holds
+`meetings:host`, behind a destructive confirmation saying the text and items are replaced and tasks
+already made are kept. The list reads `meetings:host`, `tasks:assign` and the member's id off the
+shared `sessionPermissions` itself, because it is opened from two screens and the answer is the
+session's. THE SUMMARY'S TEXT AND EVERY ITEM'S TEXT ARE PRIVILEGED, on the transcript's rule: drawn,
+never logged, put in an address or carried in a failure report), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who

@@ -26,14 +26,17 @@
  *   editor — that the reader keeps open beside the list they launched it from.
  * - `unsaved-work`: the destination is a record opened from a surface that holds a draft, where
  *   navigating in place would discard what the reader has begun.
+ * - `live-meeting`: the destination is opened from inside a meeting room, where navigating in place
+ *   would hang up the reader's call.
  */
-export type OpenBesideReason = "external" | "file" | "session" | "unsaved-work";
+export type OpenBesideReason = "external" | "file" | "session" | "unsaved-work" | "live-meeting";
 
 export const OPEN_BESIDE_REASONS: readonly OpenBesideReason[] = [
   "external",
   "file",
   "session",
   "unsaved-work",
+  "live-meeting",
 ];
 
 /**

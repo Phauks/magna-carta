@@ -30,6 +30,10 @@
  * its own: being made, ready to read, or could not be made. The words are the transcript's
  * (`transcript-panel.ts`), so the list and the panel that reads it cannot disagree about what a
  * transcript is called.
+ *
+ * A READY TRANSCRIPT ALSO GETS A SUMMARY, and the list says where that stands in a column of its own
+ * too: being written, ready to read, could not be written, or not written. The words are the
+ * summary's (`summary-panel.ts`), on the same terms.
  */
 import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
 import type {
@@ -38,6 +42,7 @@ import type {
   MeetingRecordingView,
   MeetingTranscriptMarkView,
 } from "../meetings-api.ts";
+import { summaryMarkText } from "./summary-panel.ts";
 import { transcriptErrorId, transcriptStateWord } from "./transcript-panel.ts";
 
 /** What each state of a recording is called, in the order a recording passes through them. */
@@ -208,4 +213,24 @@ export function recordingTranscriptOpens(
   recording: Pick<MeetingRecordingListView, "transcript">,
 ): boolean {
   return recording.transcript !== null;
+}
+
+/**
+ * What the Summary column says: nothing before the recording's transcript has a summary, and where
+ * the summary stands once it does. Why one was not written, and a failure's Error ID, are said in the
+ * summary panel, because the list's mark carries neither.
+ */
+export function recordingSummaryText(recording: Pick<MeetingRecordingListView, "summary">): string {
+  return summaryMarkText(recording.summary);
+}
+
+/**
+ * Whether the row offers the summary panel: wherever there is a summary at all. A ready one is read
+ * there; one being written is watched there until it settles; one that failed or was not written says
+ * why there.
+ */
+export function recordingSummaryOpens(
+  recording: Pick<MeetingRecordingListView, "summary">,
+): boolean {
+  return recording.summary !== null;
 }
