@@ -226,10 +226,21 @@ async function recordNotices(
  * The room keeps who started it so every later welcome can say so, broadcasts the announcement to
  * every welcomed socket, and writes a `start` notice for each stay it reached.
  */
+/**
+ * What the room says to a start. `stopped` is set only when the recording is already over by the time
+ * its start reaches the room, so the caller knows not to hand it to a recorder either: a recorder
+ * started then would capture until its own pass read the record, with no mark lit to say so.
+ */
+export interface RecordingStartReply {
+  readonly recipientCount: number;
+  readonly noticeCount: number;
+  readonly stopped?: true;
+}
+
 export async function recordingStarted(
   room: RoomContext,
   transition: RecordingTransition,
-): Promise<{ readonly recipientCount: number; readonly noticeCount: number }> {
+): Promise<RecordingStartReply> {
   // ONE ANNOUNCEMENT PER RECORDING, whoever asks. The start route and a replay of it can both carry a
   // start out — a replay arriving while the first request is still on its way here finds the room not
   // yet holding the recording and announces it, and the first request then arrives too. The room
@@ -244,14 +255,13 @@ export async function recordingStarted(
   // A START THAT ARRIVES AFTER ITS OWN STOP — or after the meeting ended, which wipes the room's keys,
   // this list among them, and closes every socket — tells nobody and stores nothing. The recording is
   // over: lighting the mark now would tell the room it is being recorded when it is not, and nothing
-  // would come along afterwards to clear it. It answers as a repeat does — nobody told, nothing left
-  // unrecorded — and the recorder's own pass, which reads the record every interval, settles a
-  // recording the record already says has stopped.
+  // would come along afterwards to clear it. It answers that nobody was told and nothing was left
+  // unrecorded, and that the recording is over, so the caller starts no recorder for it.
   if (
     (await stoppedRecordingIds(room)).includes(transition.recordingId) ||
     (await readEndedAt(room)) !== undefined
   ) {
-    return { recipientCount: 0, noticeCount: 0 };
+    return { recipientCount: 0, noticeCount: 0, stopped: true };
   }
   if (transition.by !== null) {
     await room.ctx.storage.put<StoredRoomRecording>(RECORDING_KEY, {

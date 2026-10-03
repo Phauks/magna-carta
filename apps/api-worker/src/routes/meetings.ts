@@ -1552,6 +1552,10 @@ async function carryOutRecordingStart(
             `${String(told.noticeCount)} of them`,
         );
       }
+      // The recording was stopped, or the meeting ended, before its start reached the room. The stop
+      // already settled the record, so there is nothing to fail and nothing for a recorder to capture:
+      // starting one would record a room whose mark says it is not being recorded.
+      if (told.stopped === true) return;
     }
     const recorder = meetingRecorderFor(c.env, start.firmId, start.recordingId);
     if (recorder === null) throw new Error("no recorder is bound");

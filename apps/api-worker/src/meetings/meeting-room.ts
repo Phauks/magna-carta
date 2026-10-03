@@ -53,6 +53,7 @@ import {
   recordingStarted,
   recordingStopped,
   runningRecordingOf,
+  type RecordingStartReply,
   type RecordingTransition,
 } from "./room/room-recording.ts";
 import type { MeetingRecordingCandidateTrack } from "@magna-carta/meetings/recording-types";
@@ -412,9 +413,7 @@ export class MeetingRoom extends DurableObject<Bindings> {
   // recording started by a write that then failed.
 
   /** A recording started: keep who started it, tell every welcomed socket, write who was told. */
-  async recordingStarted(
-    transition: RecordingTransition,
-  ): Promise<{ readonly recipientCount: number; readonly noticeCount: number }> {
+  async recordingStarted(transition: RecordingTransition): Promise<RecordingStartReply> {
     return await recordingStarted(this.room, transition);
   }
 

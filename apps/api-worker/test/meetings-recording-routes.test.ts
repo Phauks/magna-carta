@@ -122,7 +122,7 @@ function withRoom(
   recordingStarted: (
     real: ReturnType<typeof roomOf>,
     transition: Parameters<ReturnType<typeof roomOf>["recordingStarted"]>[0],
-  ) => Promise<{ recipientCount: number; noticeCount: number }>,
+  ) => Promise<{ recipientCount: number; noticeCount: number; stopped?: true }>,
   around: typeof ROUTED_ENVIRONMENT = ROUTED_ENVIRONMENT,
 ): typeof ROUTED_ENVIRONMENT {
   const namespace = {
@@ -765,6 +765,30 @@ describe("after the commit — the recorder and the room", () => {
     expect(calls.starts).toEqual([]);
     expect(await roomOf(meetingId).runningRecording()).toBeNull();
     expect(await failedAuditCount(recording.id)).toBe(1);
+  });
+
+  it("starts no recorder when the room says the recording was already over by the time its start arrived", async () => {
+    await setRecordingEnabled(true);
+    const meetingId = await startMeeting(ownerCookie);
+    const { environment: withStandIn, calls } = withRecorder({});
+    // The stop, the end or the calendar cancel reached the room first: it lit nothing and says so.
+    const environment = withRoom(
+      async () => await Promise.resolve({ recipientCount: 0, noticeCount: 0, stopped: true as const }),
+      withStandIn,
+    );
+    const response = await request(
+      "POST",
+      `/api/v1/meetings/${meetingId}/recording`,
+      ownerCookie,
+      undefined,
+      { environment },
+    );
+    expect(response.status).toBe(201);
+    const recording = await readJson<RecordingSummary>(response);
+    // Not failed: whatever stopped it settled the record, and the start route has nothing to add.
+    expect(recording.state).not.toBe("failed");
+    expect(calls.starts).toEqual([]);
+    expect(await failedAuditCount(recording.id)).toBe(0);
   });
 
   it("writes ONE failed audit row when the start fails after the recorder had already taken the recording", async () => {

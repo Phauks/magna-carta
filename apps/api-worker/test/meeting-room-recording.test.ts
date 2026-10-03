@@ -442,7 +442,7 @@ describe("a start that reaches the room after its stop", () => {
     await waitUntil(() => recordingFrames(room.member).length === 1);
 
     const late = await roomOf(room.meeting).recordingStarted(transition);
-    expect(late).toEqual({ recipientCount: 0, noticeCount: 0 });
+    expect(late).toEqual({ recipientCount: 0, noticeCount: 0, stopped: true });
 
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(recordingFrames(room.member).map((frame) => frame["state"])).toEqual(["stopped"]);
@@ -458,7 +458,7 @@ describe("a start that reaches the room after its stop", () => {
     await waitUntil(() => recordingFrames(room.member).length === 2);
 
     const replay = await roomOf(room.meeting).recordingStarted(transition);
-    expect(replay).toEqual({ recipientCount: 0, noticeCount: 0 });
+    expect(replay).toEqual({ recipientCount: 0, noticeCount: 0, stopped: true });
 
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(recordingFrames(room.member).map((frame) => frame["state"])).toEqual([
