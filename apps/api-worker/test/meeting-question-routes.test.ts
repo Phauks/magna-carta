@@ -488,5 +488,8 @@ describe("the upvote's rate limit", () => {
     // budget still answers the looper's next read.
     expect((await post(path, ownerCookie)).status).toBe(200);
     expect((await get(`/api/v1/meetings/${meetingId}/questions`, billingCookie)).status).toBe(200);
-  });
+    // Thirty-three requests one after another, each a full pass through the Worker: alone this takes
+    // about a second, but under the whole suite's load it outran the default five seconds, which
+    // says nothing about the limit being tested.
+  }, 30_000);
 });
