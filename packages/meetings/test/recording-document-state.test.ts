@@ -7,6 +7,7 @@ import {
   recordingDocumentStateOf,
   type RecordingDocumentFacts,
 } from "../src/recording-document-state.ts";
+import { transcriptLinesWithheldBy } from "../src/transcript-types.ts";
 import { HOLDING_MATTER, MATTER, migratedDatabase, seedFirm, visibility } from "./support.ts";
 
 // Where the document a recording filed stands, read from the file pipeline's own record. WHAT IS
@@ -203,5 +204,19 @@ describe("the read", () => {
     const recording = { state: "filed", file_version_id: walled } as const;
     const documents = await readRecordingDocuments(database.database, [recording], visibility);
     expect(documents.get(recording)).toEqual({ versionId: walled, state: "unavailable" });
+  });
+});
+
+describe("whether a transcript's lines follow its filed document", () => {
+  it("serves them while the version exists, and withholds them once it is trashed, held or gone", () => {
+    // Still being scanned, clean, or replaced by a later upload: the version is there and is the
+    // transcript's own, so its words may be read.
+    expect(transcriptLinesWithheldBy("pending")).toBeNull();
+    expect(transcriptLinesWithheldBy("available")).toBeNull();
+    expect(transcriptLinesWithheldBy("replaced")).toBeNull();
+    // In the trash, quarantined or flagged, purged or behind a wall: the lines go with the document.
+    expect(transcriptLinesWithheldBy("removed")).toBe("removed");
+    expect(transcriptLinesWithheldBy("held")).toBe("held");
+    expect(transcriptLinesWithheldBy("unavailable")).toBe("unavailable");
   });
 });

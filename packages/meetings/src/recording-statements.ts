@@ -899,11 +899,19 @@ export const STAGING_SWEEP_BATCH = 200;
  * STAGED OBJECTS WHOSE RECORDING NO LONGER NEEDS THEM: a recording that `failed` or was `abandoned`
  * and has not changed since `unsettledBefore` (its staging is the only copy of what was captured, so
  * it is kept for a retention window in case of a retry), and a recording `filed` before `filedBefore`
- * whose transcript has SETTLED (or that has none) — the transcript reads each track's staged audio, so
- * a filed recording's staging is kept for exactly as long as its transcript is pending, and released by
- * the transcript itself when it settles; this is the backstop for a settle that could not let go, a
- * grace after the transcript last moved. A transcript stuck pending is failed by the sweep, which
- * releases the staging with it. The sweep's own read, a bounded batch.
+ * whose transcript is no longer reading it:
+ *
+ *   - a transcript `pending` keeps it, always — the transcript reads each track's staged audio;
+ *   - a transcript `ready` releases it a grace (`filedBefore`) after it settled — the settle releases it
+ *     itself, and this is the backstop for a settle that could not let go;
+ *   - a transcript `failed` keeps it for the SAME retention a failed recording's staging has
+ *     (`unsettledBefore`): a transcript failed by something a later attempt could get past — a speech
+ *     model that stayed unavailable, or the sweep finding it stalled — leaves the per-speaker audio, the
+ *     only copy of it, where a retry can still read it. A failure no retry can change released the
+ *     staging at once, so it has nothing here;
+ *   - a recording with no transcript releases it after the grace.
+ *
+ * The sweep's own read, a bounded batch.
  */
 export async function listExpiredStagingTracks(
   database: SqlDatabase,
@@ -922,10 +930,18 @@ export async function listExpiredStagingTracks(
         `(${MEETING_RECORDING_TABLE}.state = 'filed' AND ${MEETING_RECORDING_TABLE}.updated_at < ? ` +
         `AND NOT EXISTS (SELECT 1 FROM ${MEETING_TRANSCRIPT_TABLE_NAME} AS transcript ` +
         `WHERE transcript.recording_id = ${MEETING_RECORDING_TABLE}.id ` +
-        `AND (transcript.state = 'pending' OR transcript.updated_at >= ?)))) ` +
+        `AND (transcript.state = 'pending' ` +
+        `OR (transcript.state = 'ready' AND transcript.updated_at >= ?) ` +
+        `OR (transcript.state = 'failed' AND transcript.updated_at >= ?))))) ` +
         `LIMIT ?`,
     )
-    .bind(input.unsettledBefore, input.filedBefore, input.filedBefore, STAGING_SWEEP_BATCH)
+    .bind(
+      input.unsettledBefore,
+      input.filedBefore,
+      input.filedBefore,
+      input.unsettledBefore,
+      STAGING_SWEEP_BATCH,
+    )
     .all<{
       track_id: MeetingRecordingTrackId;
       recording_id: MeetingRecordingId;

@@ -8,6 +8,7 @@ import type {
   MeetingTranscriptSegmentId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { RecordingDocumentState } from "./recording-document-state.ts";
 import type { MeetingContributorKind } from "./types.ts";
 
 // A FILED RECORDING'S TRANSCRIPT: the vocabularies, the stored rows, and what a surface is given.
@@ -40,14 +41,17 @@ export interface MeetingTranscriptRow {
   readonly meeting_id: MeetingId;
   readonly recording_id: MeetingRecordingId;
   readonly state: MeetingTranscriptState;
-  // The language the model reported most often across the pieces, as it reported it; null until ready.
+  // The language the model reported for the first piece long enough to name one with confidence
+  // (`LANGUAGE_DETECTION_MINIMUM_MILLISECONDS`), as it reported it; null until then, and for good when no
+  // piece was that long.
   readonly language: string | null;
   // The model that produced it, as the model reported itself; null until the first piece is answered.
   readonly model_id: string | null;
   readonly segment_count: number | null;
   readonly word_count: number | null;
-  // The seconds of audio sent to the model, which is what it is billed by.
-  readonly transcribed_seconds: number;
+  // The milliseconds of audio sent to the model, which is what it is billed by — added up exactly, so a
+  // half-second "yes" is counted rather than rounded away.
+  readonly transcribed_milliseconds: number;
   readonly file_id: FileId | null;
   readonly file_version_id: FileVersionId | null;
   readonly failure_error_id: string | null;
@@ -58,7 +62,12 @@ export interface MeetingTranscriptRow {
   readonly segments_written: number;
   // The upload session the document is being filed through, once the filing has begun.
   readonly upload_session_id: string | null;
+  // How many times the sweep handed a stalled transcript on with no progress between.
   readonly attempts: number;
+  // How many windows in a row met a speech model that refused for now (busy, unreachable) with no
+  // progress between them. Progress resets it; past `TRANSCRIPT_MODEL_FAILURE_LIMIT` the transcript fails.
+  readonly model_failures: number;
+  // The last progress, sweep hand-on or scheduled retry — what a stall is measured from.
   readonly progress_at: string | null;
   // When the consumer working on the current window claimed it; null when nobody holds it.
   readonly claimed_at: string | null;
@@ -141,4 +150,35 @@ export function toTranscriptSummary(row: MeetingTranscriptRow): MeetingTranscrip
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// WHY A READY TRANSCRIPT'S LINES ARE NOT BEING SERVED. The lines are a second copy of what the filed
+// WebVTT document holds, so they are read only while that document could itself be opened: the version
+// the transcript filed still exists, is not in the trash, and is not held by the scan. Otherwise the
+// read answers the header with no lines and one of these, which the screen words:
+//
+//   - `removed` — the document was moved to the trash;
+//   - `held` — the scan quarantined or flagged it;
+//   - `unavailable` — the version is gone (purged, or never completed) or the file was moved onto a
+//     matter the reader may not see.
+export const MEETING_TRANSCRIPT_WITHHELD_REASONS = Object.freeze([
+  "removed",
+  "held",
+  "unavailable",
+] as const);
+export type MeetingTranscriptWithheldReason = (typeof MEETING_TRANSCRIPT_WITHHELD_REASONS)[number];
+
+/**
+ * Whether the lines may be read, from where the transcript's own filed version stands: null when they
+ * may, the reason when they may not. A version still being scanned, or one a later upload replaced on
+ * the file, still exists and is still the transcript's — so it does not withhold the lines.
+ */
+export function transcriptLinesWithheldBy(
+  documentState: RecordingDocumentState,
+): MeetingTranscriptWithheldReason | null {
+  return documentState === "pending" ||
+    documentState === "available" ||
+    documentState === "replaced"
+    ? null
+    : documentState;
 }

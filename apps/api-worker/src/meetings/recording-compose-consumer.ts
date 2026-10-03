@@ -56,6 +56,7 @@ import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { beginTranscriptStatements } from "@magna-carta/meetings/transcript-service";
+import { INVISIBLE_CHARACTER_CODES } from "@magna-carta/meetings/webvtt";
 import type {
   MeetingRecordingComposeMessage,
   MeetingTranscriptMessage,
@@ -671,19 +672,12 @@ async function beginComposite(
   return initiated.uploadSessionId;
 }
 
-// Characters an event's title may carry that have no place in a file name: the C0 and C1 controls
-// (a newline or a NUL in a name breaks every tool that lists it), the bidirectional controls (an
-// override can make "gpj.exe" read as "exe.jpg" on screen), and the invisible joiners and marks that
-// make two names look identical while differing.
-const INVISIBLE_IN_FILE_NAME = new Set([
-  0x061c, 0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066,
-  0x2067, 0x2068, 0x2069, 0xfeff,
-]);
-
 /**
  * AN EVENT'S TITLE AS A FILE NAME MAY CARRY IT. A title is whatever a member typed, and the file name
  * is read by every operating system, archive tool and court filing system the document travels to:
- * controls and line breaks become spaces, bidirectional controls and invisible characters are removed,
+ * controls and line breaks become spaces (a newline or a NUL in a name breaks every tool that lists
+ * it), bidirectional controls and invisible characters are removed (`INVISIBLE_CHARACTER_CODES`, the one
+ * set the transcript's document strips too: an override can make "gpj.exe" read as "exe.jpg"),
  * a path separator becomes a hyphen (a name with a "/" in it is a folder to half the tools that see it),
  * runs of space become one, and the result is cut at `RECORDING_TITLE_MAXIMUM_CHARACTERS` — by
  * character, never inside one — with an ellipsis saying it was. A title with nothing left is named as
@@ -695,7 +689,7 @@ export function recordingTitleForFileName(title: string): string {
     const code = character.codePointAt(0) ?? 0;
     if (code < 0x20 || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029) {
       cleaned += " ";
-    } else if (INVISIBLE_IN_FILE_NAME.has(code)) {
+    } else if (INVISIBLE_CHARACTER_CODES.has(code)) {
       continue;
     } else if (character === "/" || character === "\\") {
       cleaned += "-";
@@ -812,12 +806,20 @@ async function fileComposite(
 
   // Drive ingest: the bytes were written server-side, so the object-created event the ingest consumer
   // processes is sent here — sniff, scan, hash, then commit or quarantine. Idempotent at the consumer.
-  await enqueueDevIngestEvent(
-    env,
-    composite.bucketName,
-    composite.target.r2Key,
-    composite.totalBytes,
-  );
+  // BEST EFFORT, because the filing has committed: a redelivery reads `filed` and does nothing, so a
+  // throw here would drive ingest no better and would only keep the transcript's first message below
+  // from being sent, leaving it for the sweep half an hour later. A deployment's own object-created
+  // event drives ingest without this message; the failure is recorded.
+  try {
+    await enqueueDevIngestEvent(
+      env,
+      composite.bucketName,
+      composite.target.r2Key,
+      composite.totalBytes,
+    );
+  } catch (caught) {
+    recordRealtimeFailure(realtimeLoggerFor(env), "meetings.recording.ingest-hand-on", caught);
+  }
 
   // THE TRANSCRIPT'S FIRST WINDOW, on this same queue. A send that fails, or a deployment with no queue
   // bound, leaves the transcript pending and untouched, and the recording sweep hands it on — so the

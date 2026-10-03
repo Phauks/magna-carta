@@ -55,12 +55,15 @@ import {
   claimTranscriptWindowEffect,
   cursorOf,
   failTranscriptEffect,
+  LANGUAGE_DETECTION_MINIMUM_MILLISECONDS,
   readyTranscriptStatements,
   TRANSCRIPT_CLAIM_GUARD,
   TRANSCRIPT_FAIL_GUARD,
   TRANSCRIPT_FILING_GUARD,
+  TRANSCRIPT_MODEL_FAILURE_GUARD,
   TRANSCRIPT_PROGRESS_GUARD,
   TRANSCRIPT_READY_GUARD,
+  transcriptModelFailureEffect,
   transcriptProgressEffect,
   type TranscriptTrackSpeaker,
 } from "@magna-carta/meetings/transcript-service";
@@ -123,9 +126,17 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure
 // the gap lines (a lost track, one the ceiling refused, one whose audio was not there), every line
 // renumbered into reading order, and the upload session recorded on the row — so it happens once. The
 // document is rendered from the rows, written at the key the pipeline minted, and completed in one batch
-// with the transcript's `ready`; then ingest is driven exactly as for the audio. A transcript that
-// cannot be finished is `failed` with an Error ID. EITHER WAY THE STAGED TRACKS ARE THEN RELEASED: they
-// were kept past the filing only because the transcript reads them.
+// with the transcript's `ready`; then the staged tracks are RELEASED (they were kept past the filing only
+// because the transcript reads them) and ingest is driven exactly as for the audio.
+//
+// A SPEECH MODEL THAT REFUSES FOR NOW is outlasted, not given up on: each refusal is counted on the row
+// (`model_failures`, reset by any progress), the window is sent again after a delay that doubles from
+// thirty seconds to fifteen minutes, and only `TRANSCRIPT_MODEL_FAILURE_LIMIT` refusals in a row — over
+// an hour of an unavailable model — fail the transcript. A transcript that cannot be finished is `failed`
+// with an Error ID; what happens to the staged tracks then depends on WHY. A failure a later attempt
+// could get past (the model stayed unavailable, or the sweep found it stalled) KEEPS them under the
+// seven-day retention a failed compose's staging has, because they are the only per-speaker copy of the
+// audio. A refusal no retry can change releases them at once.
 //
 // THE WORDS ARE CONTENT. Nothing here logs a word, a speaker's name, the document's name or an object
 // key; every Error ID is recorded against a fixed sentence and a code.
@@ -143,11 +154,30 @@ export const TRANSCRIPT_REGIONS_PER_INVOCATION = 4;
 export const TRANSCRIPT_CLAIM_LEASE_MILLISECONDS = 15 * 60 * 1000;
 
 /**
- * How many deliveries of one window may meet a speech model that refuses for now (busy, unreachable)
- * before the transcript is failed with an Error ID. The queue's own redelivery is the retry; this is
- * where it stops, so a model that is down for good does not hold the recording's staging forever.
+ * HOW MANY TIMES IN A ROW A WINDOW MAY MEET A SPEECH MODEL THAT REFUSES FOR NOW (busy, unreachable)
+ * before the transcript is failed with an Error ID. Counted on the row and reset by any progress, so a
+ * transcript that moves between refusals is never failed by them. With the delays below, ten refusals
+ * span about an hour and a quarter — longer than any outage of tens of minutes — and a model that is
+ * down for good still ends in a record a person can read rather than a transcript pending forever.
  */
-export const TRANSCRIPT_MODEL_ATTEMPTS = 3;
+export const TRANSCRIPT_MODEL_FAILURE_LIMIT = 10;
+
+/** The delay before the first retry after the model refused: thirty seconds. */
+export const TRANSCRIPT_MODEL_RETRY_FIRST_SECONDS = 30;
+
+/**
+ * The longest delay between retries: fifteen minutes. Held under the sweep's stall window (thirty
+ * minutes), so a transcript waiting on a scheduled retry is never mistaken for one nothing is moving.
+ */
+export const TRANSCRIPT_MODEL_RETRY_LONGEST_SECONDS = 15 * 60;
+
+/** How long the window waits after its `failures`-th refusal in a row: doubling, up to the longest. */
+export function transcriptModelRetryDelaySeconds(failures: number): number {
+  return Math.min(
+    TRANSCRIPT_MODEL_RETRY_LONGEST_SECONDS,
+    TRANSCRIPT_MODEL_RETRY_FIRST_SECONDS * 2 ** Math.max(0, failures - 1),
+  );
+}
 
 /** How long the document's upload session lives before the stale-upload sweep may abort it. */
 export const TRANSCRIPT_UPLOAD_SESSION_LIFETIME_MILLISECONDS = 2 * 24 * 60 * 60 * 1000;
@@ -166,16 +196,37 @@ export interface TranscriptOptions {
   readonly port?: TranscriptionPort;
   readonly piecesPerInvocation?: number;
   readonly regionsPerInvocation?: number;
+  // How much of a track is measured at once, in staged samples — a whole number of twenty-millisecond
+  // frames. A test shortens it to cross a region's edge without minutes of audio.
+  readonly regionSamples?: number;
   readonly claimLeaseMilliseconds?: number;
 }
 
-export type TranscriptOutcome = "progressed" | "ready" | "failed" | "nothing-to-do";
+/**
+ * What one delivery did. `retrying` is a model that refused for now, with the window sent again after a
+ * delay; `claimed-elsewhere` is a window another consumer's live lease holds at the cursor this delivery
+ * read — one evicted mid-window by a deploy, most often — which the queue tries again once that lease
+ * has run out rather than leaving it to the sweep.
+ */
+export type TranscriptOutcome =
+  | "progressed"
+  | "ready"
+  | "failed"
+  | "retrying"
+  | "claimed-elsewhere"
+  | "nothing-to-do";
+
+/** An outcome, and how long the queue should wait before delivering the message again, if at all. */
+interface WindowResult {
+  readonly outcome: TranscriptOutcome;
+  readonly retryAfterSeconds?: number;
+}
 
 /** A refusal the transcript cannot retry its way past: it is failed with an Error ID. */
 class TranscriptRefusedError extends Error {}
 
-/** The speech model refused for now — busy or unreachable — so the window is worth another delivery. */
-export class TranscriptionUnavailableError extends Error {}
+/** The speech model refused for now — busy or unreachable — so the window is worth another attempt. */
+class TranscriptionUnavailableError extends Error {}
 
 /** The model port a deployment transcribes through: the platform's gateway, from the composition root. */
 function transcriptionPortFor(env: Bindings, options: TranscriptOptions): TranscriptionPort {
@@ -190,37 +241,13 @@ export async function meetingTranscriptQueue(
 ): Promise<void> {
   for (const message of batch.messages) {
     try {
-      await transcribeWindow(env, message.body, options);
-      message.ack();
-    } catch (caught) {
-      if (
-        caught instanceof TranscriptionUnavailableError &&
-        message.attempts >= TRANSCRIPT_MODEL_ATTEMPTS
-      ) {
-        // A MODEL THAT WILL NOT ANSWER, delivery after delivery: the transcript fails with an Error ID
-        // and lets go of the staging. The audio is filed and is not touched by it.
-        const failureErrorId = recordRealtimeFailure(
-          realtimeLoggerFor(env),
-          "meetings.transcript.model-unavailable",
-          new Error(
-            `the speech model did not answer after ${String(TRANSCRIPT_MODEL_ATTEMPTS)} deliveries (${caught.message})`,
-          ),
-        );
-        try {
-          await failMeetingTranscript(
-            env,
-            firmDatabaseFor(env.FIRM_DATABASE, message.body.firmId),
-            message.body.transcriptId,
-            failureErrorId,
-            async () => (await resolveFirmBucketForFirmId(env, message.body.firmId)).bucket,
-          );
-          message.ack();
-        } catch (failing) {
-          recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.fail", failing);
-          message.retry();
-        }
-        continue;
+      const result = await windowOf(env, message.body, options);
+      if (result.retryAfterSeconds === undefined) {
+        message.ack();
+      } else {
+        message.retry({ delaySeconds: result.retryAfterSeconds });
       }
+    } catch (caught) {
       // Recorded through the standard pipeline and retried; a transcript that keeps failing is
       // dead-lettered, and the sweep hands one with no progress on again or fails it.
       recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript", caught);
@@ -239,34 +266,52 @@ export async function transcribeWindow(
   message: MeetingTranscriptMessage,
   options: TranscriptOptions = {},
 ): Promise<TranscriptOutcome> {
+  return (await windowOf(env, message, options)).outcome;
+}
+
+async function windowOf(
+  env: Bindings,
+  message: MeetingTranscriptMessage,
+  options: TranscriptOptions,
+): Promise<WindowResult> {
   const database = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
   const transcript = await readTranscriptById(database, message.transcriptId);
   // Ready or failed already — by an earlier delivery, or the sweep — or not this firm's.
-  if (transcript === undefined || transcript.state !== "pending") return "nothing-to-do";
+  if (transcript === undefined || transcript.state !== "pending") {
+    return { outcome: "nothing-to-do" };
+  }
 
+  const leaseMilliseconds = options.claimLeaseMilliseconds ?? TRANSCRIPT_CLAIM_LEASE_MILLISECONDS;
   const claimedAt = new Date().toISOString();
   try {
     await commitEffectBatch(
       database,
-      claimTranscriptWindowEffect(database, {
-        transcript,
-        claimedAt,
-        leaseMilliseconds: options.claimLeaseMilliseconds ?? TRANSCRIPT_CLAIM_LEASE_MILLISECONDS,
-      }),
+      claimTranscriptWindowEffect(database, { transcript, claimedAt, leaseMilliseconds }),
       { now: () => claimedAt },
     );
   } catch (caught) {
-    // Another delivery holds this window, the cursor moved, or the transcript settled: it is theirs.
     if (caught instanceof GuardedWriteRefusedError && caught.guard === TRANSCRIPT_CLAIM_GUARD) {
-      return "nothing-to-do";
+      return await refusedClaim(database, transcript, leaseMilliseconds);
     }
     throw caught;
   }
   const bucketFor = async (): Promise<R2Bucket> =>
     (await resolveFirmBucketForFirmId(env, message.firmId)).bucket;
   try {
-    return await transcribeClaimedWindow(env, database, message, transcript, claimedAt, options);
+    return {
+      outcome: await transcribeClaimedWindow(
+        env,
+        database,
+        message,
+        transcript,
+        claimedAt,
+        options,
+      ),
+    };
   } catch (caught) {
+    if (caught instanceof TranscriptionUnavailableError) {
+      return await modelUnavailable(env, database, message, transcript, claimedAt, caught);
+    }
     if (
       !(caught instanceof TranscriptRefusedError) &&
       !(caught instanceof FileManagerValidationError)
@@ -274,7 +319,7 @@ export async function transcribeWindow(
       throw caught;
     }
     // A TRANSCRIPT THAT CAN NEVER BE FINISHED: failed with an Error ID recorded against a fixed sentence
-    // and a code — never a word, a name or a key.
+    // and a code — never a word, a name or a key. No retry changes a refusal, so the staging goes too.
     const failureErrorId = recordRealtimeFailure(
       realtimeLoggerFor(env),
       "meetings.transcript.refused",
@@ -284,12 +329,23 @@ export async function transcribeWindow(
           : caught.message,
       ),
     );
-    return (await failMeetingTranscript(env, database, transcript.id, failureErrorId, bucketFor))
-      ? "failed"
-      : "nothing-to-do";
+    return {
+      outcome: (await failMeetingTranscript(
+        env,
+        database,
+        transcript.id,
+        failureErrorId,
+        bucketFor,
+        {
+          releaseStaging: true,
+        },
+      ))
+        ? "failed"
+        : "nothing-to-do",
+    };
   } finally {
-    // Let go of the claim unless the window's hand-on or the settle already did, so a failure the queue
-    // retries is picked up by the retry at once rather than after the lease runs out.
+    // Let go of the claim unless the window's hand-on, the settle or a refusal already did, so a failure
+    // the queue retries is picked up by the retry at once rather than after the lease runs out.
     try {
       await commitEffectBatch(
         database,
@@ -303,6 +359,101 @@ export async function transcribeWindow(
       recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.release", caught);
     }
   }
+}
+
+/**
+ * WHY THE CLAIM WAS REFUSED, read back off the row. A window another consumer's LIVE lease holds at the
+ * very cursor this delivery read — its holder evicted mid-window by a deploy, most often — is tried again
+ * once the lease has run out, so the transcript waits at most the rest of a lease rather than the
+ * sweep's stall window and one of its hand-ons. A cursor or state that moved means another delivery is
+ * doing (or has done) the work, and this one has nothing to do.
+ */
+async function refusedClaim(
+  database: ProxyBatchDatabase,
+  read: MeetingTranscriptRow,
+  leaseMilliseconds: number,
+): Promise<WindowResult> {
+  const now = await readTranscriptById(database, read.id);
+  if (
+    now === undefined ||
+    now.state !== "pending" ||
+    now.claimed_at === null ||
+    now.cursor_track !== read.cursor_track ||
+    now.cursor_sample !== read.cursor_sample ||
+    now.segments_written !== read.segments_written
+  ) {
+    return { outcome: "nothing-to-do" };
+  }
+  const remaining = Date.parse(now.claimed_at) + leaseMilliseconds - Date.now();
+  return {
+    outcome: "claimed-elsewhere",
+    retryAfterSeconds: Math.max(1, Math.ceil(remaining / 1000)),
+  };
+}
+
+/**
+ * THE SPEECH MODEL REFUSED FOR NOW, with this consumer holding the window: the refusal is counted and the
+ * claim let go in one guarded write, and the window is sent again after a delay that doubles with each
+ * refusal in a row — on a NEW message, because the queue's own redelivery is bounded by its retry budget
+ * (three), which would end the chain long before an outage of tens of minutes does. Past
+ * `TRANSCRIPT_MODEL_FAILURE_LIMIT` the transcript is failed with an Error ID and its staged tracks are
+ * KEPT for the retention a failed compose's are: a model that comes back could still read them.
+ */
+async function modelUnavailable(
+  env: Bindings,
+  database: ProxyBatchDatabase,
+  message: MeetingTranscriptMessage,
+  transcript: MeetingTranscriptRow,
+  claimedAt: string,
+  caught: TranscriptionUnavailableError,
+): Promise<WindowResult> {
+  const now = () => new Date().toISOString();
+  try {
+    await commitEffectBatch(
+      database,
+      transcriptModelFailureEffect(
+        database,
+        { transcriptId: transcript.id, claimedAt },
+        { clock: { now }, randomSource: cryptoRandomSource },
+      ),
+      { now },
+    );
+  } catch (refused) {
+    // The lease ran out and another consumer took the window: the refusal is theirs to count.
+    if (
+      refused instanceof GuardedWriteRefusedError &&
+      refused.guard === TRANSCRIPT_MODEL_FAILURE_GUARD
+    ) {
+      return { outcome: "nothing-to-do" };
+    }
+    throw refused;
+  }
+  const failures = (await readTranscriptById(database, transcript.id))?.model_failures ?? 1;
+  const failureErrorId = recordRealtimeFailure(
+    realtimeLoggerFor(env),
+    "meetings.transcript.model-unavailable",
+    new Error(
+      `the speech model refused for now (${caught.message}), ${String(failures)} times in a row without progress`,
+    ),
+  );
+  if (failures >= TRANSCRIPT_MODEL_FAILURE_LIMIT) {
+    return {
+      outcome: (await failMeetingTranscript(
+        env,
+        database,
+        transcript.id,
+        failureErrorId,
+        async () => (await resolveFirmBucketForFirmId(env, message.firmId)).bucket,
+        { releaseStaging: false },
+      ))
+        ? "failed"
+        : "nothing-to-do",
+    };
+  }
+  const queue = env.MEETING_RECORDING_COMPOSE;
+  if (queue === undefined) throw new Error("no recording queue is bound to send the retry to");
+  await queue.send(message, { delaySeconds: transcriptModelRetryDelaySeconds(failures) });
+  return { outcome: "retrying" };
 }
 
 /** The staged object of one track as the transcript reads it: where it is and how it lands. */
@@ -441,9 +592,12 @@ async function transcribeClaimedWindow(
   const port = transcriptionPortFor(env, options);
   const piecesAllowed = options.piecesPerInvocation ?? TRANSCRIPT_PIECES_PER_INVOCATION;
   const regionsAllowed = options.regionsPerInvocation ?? TRANSCRIPT_REGIONS_PER_INVOCATION;
+  const regionSamples = options.regionSamples ?? TRANSCRIPT_REGION_SAMPLES;
   let pieces = 0;
   let regions = 0;
   let cursor: TranscriptCursor = cursorOf(claimed);
+  // The transcript's language once a piece long enough has named it, sent as every later piece's hint.
+  let language = claimed.language;
 
   /**
    * Moves the cursor in the record — with a piece's lines, or past audio with nothing to send — and
@@ -454,7 +608,7 @@ async function transcribeClaimedWindow(
     piece?: {
       readonly speaker: TranscriptTrackSpeaker;
       readonly lines: readonly PlacedLine[];
-      readonly seconds: number;
+      readonly milliseconds: number;
       readonly modelId: string;
       readonly language: string | null;
     },
@@ -468,7 +622,7 @@ async function transcribeClaimedWindow(
         to,
         speaker: piece?.speaker ?? null,
         lines: piece?.lines ?? [],
-        transcribedSeconds: piece?.seconds ?? 0,
+        transcribedMilliseconds: piece?.milliseconds ?? 0,
         modelId: piece?.modelId ?? null,
         language: piece?.language ?? null,
         releaseClaim: false,
@@ -514,6 +668,14 @@ async function transcribeClaimedWindow(
     if (regions >= regionsAllowed || pieces >= piecesAllowed) return await handOn();
     const track = tracks[cursor.track]!;
     const audio = await trackAudioOf(bucket, recording, track);
+    // A track part-way read whose object has gone is the fault `readStagedSamples` refuses, not a track
+    // with nothing more to hear: moving on would let the settle write a first-to-last-frame gap over
+    // lines already transcribed from it.
+    if (audio === null && cursor.sample > 0) {
+      throw new TranscriptRefusedError(
+        "a staged track vanished from the bucket during the transcript",
+      );
+    }
     const stretch = audio === null ? null : stretchAt(audio, cursor.sample);
     if (audio === null || stretch === null) {
       // Nothing (more) of this track to hear: on to the next.
@@ -524,7 +686,7 @@ async function transcribeClaimedWindow(
     }
     const stretchEnd = stretch.span.stagedFromSample + stretch.span.samples;
     const regionFrom = stretch.from;
-    const regionTo = Math.min(stretchEnd, regionFrom + TRANSCRIPT_REGION_SAMPLES);
+    const regionTo = Math.min(stretchEnd, regionFrom + regionSamples);
     const final = regionTo === stretchEnd;
     const levels = await measureRegion(bucket, audio.stagingKey, regionFrom, regionTo);
     regions += 1;
@@ -546,6 +708,7 @@ async function transcribeClaimedWindow(
       const answer = await port.transcribe({
         audio: pieceAsWav(samples),
         firmId: message.firmId,
+        ...(language === null ? {} : { language }),
         ...(prompt === null ? {} : { initialPrompt: prompt }),
       });
       pieces += 1;
@@ -565,18 +728,25 @@ async function transcribeClaimedWindow(
         text: answer.value.text,
         segments: answer.value.segments,
       });
+      const milliseconds = ((pieceTo - pieceFrom) * 1000) / PCM_SAMPLE_RATE;
+      // Only a piece long enough names the transcript's language; a short one's guess is not recorded.
+      const named =
+        language === null && milliseconds >= LANGUAGE_DETECTION_MINIMUM_MILLISECONDS
+          ? answer.value.language
+          : null;
       const moved = await advance(
         { track: cursor.track, sample: pieceTo },
         {
           speaker: speakerOf(track),
           lines,
-          seconds: (pieceTo - pieceFrom) / PCM_SAMPLE_RATE,
+          milliseconds,
           modelId: answer.value.modelId,
-          language: answer.value.language,
+          language: named,
         },
       );
       if (moved === null) return "nothing-to-do";
       cursor = moved;
+      language = language ?? named;
     }
 
     const resume = final ? stretchEnd : regionFrom + framesToSamples(plan.resumeFrame);
@@ -631,7 +801,9 @@ async function settleTranscript(
     // audio the transcript found no object for — and, when nothing at all was heard, the whole of it.
     const audioMissing = new Set<MeetingRecordingTrackId>();
     for (const track of input.tracks) {
-      if (track.state === "lost" || track.first_frame_at === null) continue;
+      // A LOST track is asked too: one whose audio is missing was not heard while it was captured, and
+      // a gap from its last frame alone would leave that span unsaid.
+      if (track.first_frame_at === null) continue;
       if (track.staging_key === null || (await bucket.head(track.staging_key)) === null) {
         audioMissing.add(track.id);
       }
@@ -706,11 +878,20 @@ async function settleTranscript(
     httpMetadata: { contentType: "text/vtt" },
   });
 
-  const completed = await completeUploadSession(database, target.sessionId, {
-    clock: { now },
-    actorUserId,
-    randomSource: cryptoRandomSource,
-  });
+  let completed: Awaited<ReturnType<typeof completeUploadSession>>;
+  try {
+    completed = await completeUploadSession(database, target.sessionId, {
+      clock: { now },
+      actorUserId,
+      randomSource: cryptoRandomSource,
+    });
+  } catch (caught) {
+    // A session the pipeline will no longer complete — expired by the stale-upload sweep in between —
+    // cannot be aborted by the failure either, so nothing would ever name the bytes just written: they
+    // are let go of here, before the refusal fails the transcript.
+    if (caught instanceof FileManagerValidationError) await bucket.delete(target.r2Key);
+    throw caught;
+  }
   try {
     await commitEffectBatch(
       database,
@@ -743,9 +924,17 @@ async function settleTranscript(
     throw caught;
   }
 
-  // Drive ingest exactly as for the audio: sniff, scan, hash, then commit or quarantine.
-  await enqueueDevIngestEvent(env, input.bucketName, target.r2Key, document.bytes.byteLength);
+  // SETTLED, SO RELEASED — before ingest is driven, because a retry of this message reads `ready` and does
+  // nothing, so anything after a throw here would wait for the sweep's day of grace.
   await releaseRecordingStaging(env, database, recording.id, bucket);
+  // Drive ingest exactly as for the audio: sniff, scan, hash, then commit or quarantine. Best effort:
+  // the document is filed, a redelivery could not drive it again, and a deployment's own object-created
+  // event drives ingest without this message; the failure is recorded.
+  try {
+    await enqueueDevIngestEvent(env, input.bucketName, target.r2Key, document.bytes.byteLength);
+  } catch (caught) {
+    recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.ingest-hand-on", caught);
+  }
   return "ready";
 }
 
@@ -823,14 +1012,27 @@ async function releaseRecordingStaging(
   }
 }
 
+/** How a failure ends: whether the staged tracks go with it, and, for the sweep, what it judged stalled. */
+export interface TranscriptFailureOptions {
+  // True for a refusal no retry can change; false for a failure a later attempt could get past (a model
+  // that stayed unavailable, a transcript the sweep found stalled), which keeps the per-speaker audio for
+  // the seven-day retention a failed compose's staging has.
+  readonly releaseStaging: boolean;
+  // The sweep's reading of a stalled transcript — its last progress and its claim — so a consumer that
+  // claimed or moved it since is not failed under.
+  readonly untouched?: { readonly progressAt: string | null; readonly claimedAt: string | null };
+  readonly clock?: { now(): string };
+}
+
 /**
- * FAILS A TRANSCRIPT AND LETS GO OF EVERYTHING IT HELD — the consumer's own refusals, a model that will
- * not answer, and the sweep's failure of a transcript that stopped moving, alike. In ONE batch: the
- * transcript `failed` with its Error ID (guarded on `pending`) and, when its filing had begun, the upload
- * session aborted and the pending version abandoned; then the object at the session's key deleted, and
- * the recording's staged tracks released — a failed transcript settles as surely as a ready one. A
- * failure that lost the race to a filing or another failure changes nothing and lets go of nothing.
- * Answers whether this call is the one that failed it. The filed audio is never touched.
+ * FAILS A TRANSCRIPT AND LETS GO OF WHAT IT MUST — the consumer's own refusals, a model that would not
+ * answer, and the sweep's failure of a transcript that stopped moving, alike. In ONE batch: the
+ * transcript `failed` with its Error ID (guarded on `pending`, on the upload session read here, and for
+ * the sweep on what it judged stalled) and, when its filing had begun, the upload session aborted and the
+ * pending version abandoned; then the object at the session's key deleted, and — only for a failure no
+ * retry can change — the recording's staged tracks released. A failure that lost the race to a filing, a
+ * consumer or another failure changes nothing and lets go of nothing. Answers whether this call is the
+ * one that failed it. The filed audio is never touched.
  */
 export async function failMeetingTranscript(
   env: Bindings,
@@ -838,13 +1040,29 @@ export async function failMeetingTranscript(
   transcriptId: MeetingTranscriptId,
   failureErrorId: string,
   bucketFor: () => Promise<R2Bucket>,
-  clock: { now(): string } = { now: () => new Date().toISOString() },
+  options: TranscriptFailureOptions,
 ): Promise<boolean> {
+  const clock = options.clock ?? { now: () => new Date().toISOString() };
   const transcript = await readTranscriptById(database, transcriptId);
   if (transcript === undefined || transcript.state !== "pending") return false;
+  if (
+    options.untouched !== undefined &&
+    (transcript.progress_at !== options.untouched.progressAt ||
+      transcript.claimed_at !== options.untouched.claimedAt)
+  ) {
+    return false;
+  }
   const system = { clock, randomSource: cryptoRandomSource };
   const statements: EffectStatement[] = [
-    ...failTranscriptEffect(database, { transcript, failureErrorId }, system).statements,
+    ...failTranscriptEffect(
+      database,
+      {
+        transcript,
+        failureErrorId,
+        ...(options.untouched === undefined ? {} : { untouched: options.untouched }),
+      },
+      system,
+    ).statements,
   ];
   let documentKey: string | null = null;
   if (transcript.upload_session_id !== null) {
@@ -880,7 +1098,7 @@ export async function failMeetingTranscript(
   } catch (caught) {
     recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.release", caught);
   }
-  if (bucket !== null) {
+  if (bucket !== null && options.releaseStaging) {
     await releaseRecordingStaging(env, database, transcript.recording_id, bucket);
   }
   return true;

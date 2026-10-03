@@ -6108,7 +6108,7 @@ export const meetingsRecordingNoticesInfiniteOptions = (options: Options<Meeting
 export const meetingsRecordingTranscriptQueryKey = (options: Options<MeetingsRecordingTranscriptData>) => createQueryKey('meetingsRecordingTranscript', options);
 
 /**
- * The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.
+ * The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. The lines are served only while the transcript's filed document exists, is not in the trash and is not held by the scan; otherwise the header is answered with no lines and linesWithheld says why. Every page of lines served is audited, naming identifiers and never the words. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.
  */
 export const meetingsRecordingTranscriptOptions = (options: Options<MeetingsRecordingTranscriptData>) => queryOptions<MeetingsRecordingTranscriptResponse, MeetingsRecordingTranscriptError, MeetingsRecordingTranscriptResponse, ReturnType<typeof meetingsRecordingTranscriptQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -6126,7 +6126,7 @@ export const meetingsRecordingTranscriptOptions = (options: Options<MeetingsReco
 export const meetingsRecordingTranscriptInfiniteQueryKey = (options: Options<MeetingsRecordingTranscriptData>): QueryKey<Options<MeetingsRecordingTranscriptData>> => createQueryKey('meetingsRecordingTranscript', options, true);
 
 /**
- * The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.
+ * The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. The lines are served only while the transcript's filed document exists, is not in the trash and is not held by the scan; otherwise the header is answered with no lines and linesWithheld says why. Every page of lines served is audited, naming identifiers and never the words. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.
  */
 export const meetingsRecordingTranscriptInfiniteOptions = (options: Options<MeetingsRecordingTranscriptData>) => infiniteQueryOptions<MeetingsRecordingTranscriptResponse, MeetingsRecordingTranscriptError, InfiniteData<MeetingsRecordingTranscriptResponse>, QueryKey<Options<MeetingsRecordingTranscriptData>>, string | Pick<QueryKey<Options<MeetingsRecordingTranscriptData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

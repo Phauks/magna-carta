@@ -116,11 +116,19 @@ export function frameLevels(samples: Int16Array): Float32Array {
   return levels;
 }
 
-/** A region's noise floor: the level its quietest tenth of frames sits at or below. */
+/**
+ * A region's noise floor: the level its quietest tenth of HEARD frames sits at or below.
+ *
+ * A frame of nothing but zeros is left out of the count. Those are the recorder's own writing — the
+ * silence it stages for a muted microphone or frames that never arrived — not the room the microphone
+ * sits in; counted, a region a tenth of which was muted has a floor of -100 dB, the threshold falls to
+ * its lowest bound, and ordinary room noise is sent to the model as speech, which costs money and invites
+ * it to hallucinate words. A region of nothing but zeros has the silent level as its floor.
+ */
 export function noiseFloor(levels: Float32Array): number {
-  if (levels.length === 0) return SILENT_FRAME_LEVEL;
-  const sorted = Float32Array.from(levels).sort();
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * NOISE_FLOOR_PERCENTILE))]!;
+  const heard = levels.filter((level) => level > SILENT_FRAME_LEVEL).toSorted();
+  if (heard.length === 0) return SILENT_FRAME_LEVEL;
+  return heard[Math.min(heard.length - 1, Math.floor(heard.length * NOISE_FLOOR_PERCENTILE))]!;
 }
 
 /** The level a frame of this region must reach to be voiced. */

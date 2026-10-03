@@ -4,6 +4,7 @@ import {
   escapeCueText,
   renderWebVtt,
   webVttTimestamp,
+  withoutInvisibleCharacters,
   type WebVttCue,
 } from "../src/webvtt.ts";
 
@@ -83,6 +84,21 @@ describe("the WebVTT document", () => {
     expect(escapeCueLabel("a\u0000b\u001bc ---> d")).toBe("abc -> d");
     expect(escapeCueLabel("---->")).not.toContain("-->");
     expect(escapeCueText("x\u0007y")).toBe("xy");
+  });
+
+  it("strips bidirectional and invisible characters, so a typed name cannot pass a line off as somebody else's", () => {
+    // A right-to-left override in a guest's name, an isolate in the title and a zero-width space in the
+    // words: each prints as nothing and changes what a plain-text reader sees.
+    const document = renderWebVtt({
+      title: "Settle\u2066ment\u2069",
+      cues: [speech({ speakerName: "Gail \u202Eaná", text: "Agre\u200Bed." })],
+    });
+    for (const hidden of ["\u202E", "\u2066", "\u2069", "\u200B"]) {
+      expect(document.includes(hidden)).toBe(false);
+    }
+    expect(document).toContain("NOTE Meeting transcript — Settlement");
+    expect(document).toContain("<v Gail aná>Agreed.");
+    expect(withoutInvisibleCharacters("a\u200Db\uFEFFc\u061C")).toBe("abc");
   });
 
   it("says a gap out loud, with whose audio it was or that nobody was heard", () => {

@@ -273,6 +273,17 @@ function transcriptionResult(
 // normalized problem. The detail is a fixed caller-safe string — the raw error (which can echo tokens or
 // auth headers) is never spliced into it (it is reported through the standard redacting pipeline upstream).
 // upstream/502 is retryable, so a transient gateway failure is re-attempted off the hot path.
+//
+// EVERY THROWN ERROR IS TREATED AS RETRYABLE, including the transcription operation's, because nothing
+// the binding throws reliably says otherwise. Read against the runtime's own source
+// (cloudflare/workerd, src/cloudflare/internal/ai-api.ts, 2026-10-03): the binding throws an
+// `InferenceUpstreamError` whose only content is a MESSAGE — "<code>: <description>" when the provider
+// answered with an internal code or an errors array, the raw body otherwise — with no status, code or
+// field of its own. A permanent input error (Workers AI's 5006, invalid input) is therefore readable only
+// by parsing the provider's prose, which is not a contract and changes shape by branch; misreading it
+// would fail a transcript of record that a retry would have finished. The cost of the conservative
+// reading is bounded by the caller: a speech model refusing the same piece is retried with a backing-off
+// delay until its consumer's own limit, and then fails with an Error ID.
 function gatewayFailure<T>(): Dispatch<T> {
   return adapterError<T>(
     integrationProblem("upstream", 502, "Inference request failed", {

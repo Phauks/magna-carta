@@ -51,12 +51,16 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure
 //   * A TRANSCRIPT still `pending` that NOTHING HAS TOUCHED for a window — its first message never
 //     sent, or every delivery dead-lettered. It is handed on again on the same terms as a compose, and
 //     after a bounded number of hand-ons with nothing moving in between it is `failed` with an Error ID
-//     — which releases the recording's staged tracks, because a transcript stuck forever would
-//     otherwise hold them forever.
+//     — guarded on the claim and progress the sweep read, so a consumer that picked it up in between is
+//     not failed under. A stall is something a later attempt could get past, so the recording's staged
+//     tracks are KEPT, under the same retention as a failed recording's, rather than released; a
+//     transcript stuck forever would otherwise hold them forever, and failing it is what starts that
+//     clock.
 //   * STAGED TRACKS nothing needs any more: a failed or abandoned recording's after a retention window
 //     (they are the only copy of what was captured, so they are kept long enough for somebody to ask
-//     about a retry), and a filed recording's once its transcript has settled and a grace has passed,
-//     if the settle itself did not get to release them.
+//     about a retry), a filed recording's whose transcript FAILED after the same window, for the same
+//     reason, and a filed recording's whose transcript is ready once a grace has passed, if the settle
+//     itself did not get to release them.
 //
 // IT RIDES THE TEN-MINUTE CRON, beside the status snapshot. Every window below is a multiple of that
 // cadence, so one late pass costs a few minutes, never a day — and it is not on the five-minute sweep,
@@ -91,9 +95,9 @@ export const COMPOSE_STALL_MILLISECONDS = 30 * 60 * 1000;
 export const MAXIMUM_COMPOSE_ATTEMPTS = 3;
 
 /**
- * HOW LONG A FAILED OR ABANDONED RECORDING'S STAGED TRACKS ARE KEPT: seven days, because they are the
- * only copy of what was captured and a retry is possible; after that the row keeps saying what
- * happened and the bytes go.
+ * HOW LONG A FAILED OR ABANDONED RECORDING'S STAGED TRACKS ARE KEPT — and a filed one's whose
+ * transcript failed: seven days, because they are the only copy of what was captured and a retry is
+ * possible; after that the row keeps saying what happened and the bytes go.
  */
 export const UNSETTLED_STAGING_RETENTION_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 
@@ -249,7 +253,9 @@ async function sweepFirm(
           resolveFirmBucket(env, firm.bucketName).bucket;
         if (
           await failMeetingTranscript(env, database, transcript.id, failureErrorId, bucketFor, {
-            now,
+            releaseStaging: false,
+            untouched: { progressAt: transcript.progress_at, claimedAt: transcript.claimed_at },
+            clock: { now },
           })
         ) {
           report.transcriptFailed += 1;

@@ -20,7 +20,9 @@ import type { MeetingTranscriptSegmentKind } from "./transcript-types.ts";
 //   - a voice span's name: as the words are, since a name is read up to the first `>`.
 //
 // Controls (a NUL, an escape) are dropped everywhere, because a reader that stops at one stops reading
-// the transcript.
+// the transcript. So are the bidirectional controls and the invisible joiners and marks: a right-to-left
+// override in a guest's typed name can make a plain-text view of the document show a line under somebody
+// else's name, and two names differing only by a zero-width character read as one person.
 //
 // Pure TypeScript with no binding and no clock.
 
@@ -39,9 +41,37 @@ export interface WebVttCue {
 const CONTROLS = /[\u0000-\u0008\u000B\u000E-\u001F\u007F-\u009F]/gu;
 const LINE_BREAKS = /[\r\n\u2028\u2029\u0085\u000C\t]+/gu;
 
-/** Text on one line with no controls: every line break is a space, runs of space are one. */
+/**
+ * THE CHARACTERS NO DOCUMENT A RECORDING FILES MAY CARRY, though they print as nothing: the bidirectional
+ * controls (an override can make "gpj.exe" read as "exe.jpg", or one speaker's line read as another's)
+ * and the invisible joiners and marks that make two names look identical while differing. One set, read
+ * by both documents — the filed audio's name (`recordingTitleForFileName` in the Worker's compose
+ * consumer) and every piece of text in the transcript — so the two never disagree about what is hidden.
+ */
+export const INVISIBLE_CHARACTER_CODES: ReadonlySet<number> = new Set([
+  0x061c, 0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066,
+  0x2067, 0x2068, 0x2069, 0xfeff,
+]);
+
+/** Text with every character in `INVISIBLE_CHARACTER_CODES` removed. */
+export function withoutInvisibleCharacters(text: string): string {
+  let kept = "";
+  for (const character of text) {
+    if (!INVISIBLE_CHARACTER_CODES.has(character.codePointAt(0) ?? 0)) kept += character;
+  }
+  return kept;
+}
+
+/**
+ * Text on one line with no controls and nothing invisible: every line break is a space, runs of space
+ * are one.
+ */
 function oneSafeLine(text: string): string {
-  return text.replace(LINE_BREAKS, " ").replace(CONTROLS, "").replace(/ {2,}/gu, " ").trim();
+  return withoutInvisibleCharacters(text)
+    .replace(LINE_BREAKS, " ")
+    .replace(CONTROLS, "")
+    .replace(/ {2,}/gu, " ")
+    .trim();
 }
 
 /** A run of `-->` (however many dashes lead it) loses its arrow, repeatedly until none is left. */

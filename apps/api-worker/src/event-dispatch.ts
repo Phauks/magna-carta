@@ -341,6 +341,20 @@ async function routeMeetingRecordingBatch(
   batch: MessageBatch<MeetingRecordingQueueMessage>,
   env: Bindings,
 ): Promise<void> {
+  const { compose, transcript } = splitMeetingRecordingBatch(batch);
+  if (compose !== null) await meetingRecordingComposeQueue(compose, env);
+  if (transcript !== null) await meetingTranscriptQueue(transcript, env);
+}
+
+/**
+ * The split itself, with no consumer behind it: the compose half and the transcript half as batches of
+ * their own (null when a kind has no message), every message of an unknown kind already retried.
+ * Exported so the routing is tested apart from the two consumers it hands to.
+ */
+export function splitMeetingRecordingBatch(batch: MessageBatch<MeetingRecordingQueueMessage>): {
+  readonly compose: MessageBatch<MeetingRecordingComposeMessage> | null;
+  readonly transcript: MessageBatch<MeetingTranscriptMessage> | null;
+} {
   const compose: Message<MeetingRecordingComposeMessage>[] = [];
   const transcript: Message<MeetingTranscriptMessage>[] = [];
   for (const message of batch.messages) {
@@ -353,12 +367,10 @@ async function routeMeetingRecordingBatch(
       message.retry();
     }
   }
-  if (compose.length > 0) {
-    await meetingRecordingComposeQueue(subBatch(batch, compose), env);
-  }
-  if (transcript.length > 0) {
-    await meetingTranscriptQueue(subBatch(batch, transcript), env);
-  }
+  return {
+    compose: compose.length > 0 ? subBatch(batch, compose) : null,
+    transcript: transcript.length > 0 ? subBatch(batch, transcript) : null,
+  };
 }
 
 /** Some of a batch's messages, as a batch of their own for a consumer that reads only `messages`. */

@@ -125,20 +125,34 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   floor, a hangover, thirty-second pieces cut at a pause), placed on the timeline stretch by stretch,
   downsampled behind an anti-alias filter (`resample`), wrapped as a 16 kHz WAV and sent through
   `InferencePort.transcribe` (`deploymentInferencePort` in `../inference/call-site.ts`, the composition root; a test hands its own port in) with the tail of
-  the track's previous line as its prompt. When every track is done: the gap lines, the renumbering into
-  reading order and the filing's upload session in ONE guarded batch; the WebVTT rendered from the rows
-  and written at the minted key; `completeUploadSession` with `ready` in one guarded batch; ingest; and
-  the staged tracks RELEASED. `failMeetingTranscript` — the consumer's refusals, a model still refusing
-  after three deliveries, and the sweep's — fails it guarded on `pending`, aborts a filing that had begun,
-  and releases the staging too: a transcript settles either way, and the staging goes when it does. No
-  word, speaker name, document name or key reaches a log line or an Error ID.
+  the track's previous line as its prompt (and, once a piece of eight seconds or more has named it, the
+  transcript's language as its hint). A track whose staging vanishes once its cursor is in it is refused,
+  never read as finished. When every track is done: the gap lines (a missing track's from its FIRST
+  frame, lost or not), the renumbering into reading order and the filing's upload session in ONE guarded
+  batch; the WebVTT rendered from the rows and written at the minted key (and deleted again if the
+  pipeline then refuses to complete the session); `completeUploadSession` with `ready` in one guarded
+  batch; the staged tracks RELEASED; then ingest, best effort. **A model that refuses for now is
+  outlasted, not given up on:** the refusal is counted on the row (`model_failures`, reset by any
+  progress) in the same guarded write that lets go of the claim, and the window is sent again on a NEW
+  message after `transcriptModelRetryDelaySeconds` — thirty seconds doubling to fifteen minutes, held
+  under the sweep's stall — because the queue's own redelivery budget (three) would end the chain inside
+  an ordinary outage; the tenth in a row fails it. A redelivery refused by a LIVE lease at the cursor it
+  read (a consumer evicted by a deploy) answers `claimed-elsewhere` and is retried when the lease runs
+  out. `failMeetingTranscript` — the consumer's refusals, the model's tenth refusal, and the sweep's —
+  fails it guarded on `pending` and on the upload session it read (and, for the sweep, on the claim and
+  progress it judged stalled), aborts a filing that had begun, and releases the staging ONLY for a
+  refusal no retry can change: a model that stayed down, or a stall, keeps the per-speaker audio for the
+  seven-day retention a failed compose's has. No word, speaker name, document name or key reaches a log
+  line or an Error ID — `packages/meetings/test/no-transcript-text-escape.test.ts` reads every module
+  that reaches the words for it.
 - `recording-sweep.ts` — on the ten-minute cron beside the status snapshot: abandons a recording whose
   recorder stopped reconciling (and clears the room's mark), hands on a compose nothing has claimed,
   moved or handed on for thirty minutes and fails it (through `failRecordingCompose`) after three
   hand-ons with no progress between them, does the same for a pending transcript (failing it through
-  `failMeetingTranscript`, which releases the staging), and releases staged tracks nothing needs — a filed
-  recording's only once its transcript has settled. A firm with nothing to tend costs one read
-  (`hasRecordingsToTend`); the four duties fail independently, so a queue that refuses a hand-on never
+  `failMeetingTranscript`, guarded on the claim and progress it read, and KEEPING the staging — a stall
+  is something a later attempt could get past), and releases staged tracks nothing needs — a filed
+  recording's a day after its transcript became ready, or seven days after it failed. A firm with
+  nothing to tend costs one read (`hasRecordingsToTend`); the four duties fail independently, so a queue that refuses a hand-on never
   skips the staging clean-up.
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is

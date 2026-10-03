@@ -48,10 +48,17 @@ import type { MeetingParticipantHandle } from "@magna-carta/meetings/types";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
-import type { FirmId, MatterId, MeetingRecordingId } from "@magna-carta/identifiers/types";
+import type {
+  FileVersionId,
+  FirmId,
+  MatterId,
+  MeetingRecordingId,
+} from "@magna-carta/identifiers/types";
 import {
   RECORDING_DOCUMENT_STATES,
+  readRecordingDocumentFacts,
   readRecordingDocuments,
+  recordingDocumentStateOf,
 } from "@magna-carta/meetings/recording-document-state";
 import {
   recordingFailedAuditStatement,
@@ -94,10 +101,14 @@ import {
   readTranscriptForRecording,
   readTranscriptMarks,
 } from "@magna-carta/meetings/transcript-statements";
+import { transcriptReadAuditStatement } from "@magna-carta/meetings/transcript-service";
 import {
   MEETING_TRANSCRIPT_SEGMENT_KINDS,
   MEETING_TRANSCRIPT_STATES,
+  MEETING_TRANSCRIPT_WITHHELD_REASONS,
   toTranscriptSummary,
+  transcriptLinesWithheldBy,
+  type MeetingTranscriptWithheldReason,
 } from "@magna-carta/meetings/transcript-types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -764,6 +775,11 @@ const MeetingRecordingNoticePage = paginated(MeetingRecordingNoticeEntry).openap
 // through its meeting, which is read through the visible-matter predicate — so a transcript of a
 // recording on a walled matter is as absent as the meeting. The lines are content and are read here
 // and nowhere else; the filed WebVTT document is the File Manager's, under its own matter access.
+//
+// THE LINES ARE A SECOND COPY OF THE FILED DOCUMENT, and they follow it: they are served only while the
+// version the transcript filed exists, is not in the trash and is not held by the scan, and every page
+// served writes an audit row as a download of the document does. A document taken off the matter takes
+// its lines off this route with it.
 
 const MeetingTranscriptSpeakerSchema = z
   .object({
@@ -816,9 +832,17 @@ const MeetingTranscriptSummarySchema = z
 
 // THE HEADER AND ONE PAGE OF LINES. The lines are read only once the transcript is ready — while it is
 // pending its lines have no settled order — so a pending or failed transcript answers its header with
-// an empty page, and the screen says where it stands rather than reading a 409.
+// an empty page, and the screen says where it stands rather than reading a 409. A ready transcript whose
+// filed document can no longer be opened answers its header with an empty page too, and `linesWithheld`
+// says why: `removed` (the document is in the trash), `held` (the scan quarantined or flagged it) or
+// `unavailable` (the version is gone, or the file was moved onto a matter the caller cannot see). It is
+// null whenever the lines are not withheld — including for a pending or failed transcript, whose state
+// already says why there are none.
 const MeetingTranscriptPage = paginated(MeetingTranscriptSegmentSchema)
-  .extend({ transcript: MeetingTranscriptSummarySchema })
+  .extend({
+    transcript: MeetingTranscriptSummarySchema,
+    linesWithheld: z.enum(MEETING_TRANSCRIPT_WITHHELD_REASONS).nullable(),
+  })
   .openapi("MeetingTranscriptPage");
 
 const recordingParams = z.object({
@@ -962,23 +986,30 @@ const recordingNoticesRoute = defineOpenAPIRoute(
   },
 );
 
-const recordingTranscriptRoute = defineOpenAPIRoute(readMeta("recordingTranscript"), {
-  method: "get",
-  path: "/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript",
-  description:
-    "The transcript of one filed recording: where it stands and, once it is ready, its lines in " +
-    "order — each attributed to the participant whose microphone it came from, with a gap line " +
-    "wherever somebody could not be heard. Paged by cursor. A recording with no transcript, a " +
-    "recording in another meeting, and a meeting the member cannot reach are all not found.",
-  request: { params: recordingParams, query: cursorQuery },
-  responses: {
-    200: {
-      description: "The transcript's header and one page of its lines",
-      content: { "application/json": { schema: MeetingTranscriptPage } },
+// AUDITED, as a download of the filed document is: the lines are the same words.
+const recordingTranscriptRoute = defineOpenAPIRoute(
+  { ...readMeta("recordingTranscript"), audited: true },
+  {
+    method: "get",
+    path: "/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript",
+    description:
+      "The transcript of one filed recording: where it stands and, once it is ready, its lines in " +
+      "order — each attributed to the participant whose microphone it came from, with a gap line " +
+      "wherever somebody could not be heard. Paged by cursor. The lines are served only while the " +
+      "transcript's filed document exists, is not in the trash and is not held by the scan; otherwise " +
+      "the header is answered with no lines and linesWithheld says why. Every page of lines served is " +
+      "audited, naming identifiers and never the words. A recording with no transcript, a recording " +
+      "in another meeting, and a meeting the member cannot reach are all not found.",
+    request: { params: recordingParams, query: cursorQuery },
+    responses: {
+      200: {
+        description: "The transcript's header and one page of its lines",
+        content: { "application/json": { schema: MeetingTranscriptPage } },
+      },
+      ...commonErrors,
     },
-    ...commonErrors,
   },
-});
+);
 
 // ---- refusals ----
 
@@ -2454,24 +2485,68 @@ export function registerMeetingsRoutes(
       if (transcript === undefined) return notFound(c);
       if (transcript.state !== "ready") {
         return c.json(
-          { transcript: toTranscriptSummary(transcript), data: [], nextCursor: null },
+          {
+            transcript: toTranscriptSummary(transcript),
+            data: [],
+            nextCursor: null,
+            linesWithheld: null,
+          },
+          200,
+        );
+      }
+      // THE FILED DOCUMENT DECIDES whether its words are read here: the version the transcript filed,
+      // read from the file pipeline's own record of it and gated on the file's own matter.
+      const withheld = await transcriptLinesWithheld(firm.firmDatabase, transcript.file_version_id);
+      if (withheld !== null) {
+        return c.json(
+          {
+            transcript: toTranscriptSummary(transcript),
+            data: [],
+            nextCursor: null,
+            linesWithheld: withheld,
+          },
           200,
         );
       }
       const { cursor } = c.req.valid("query");
       // The cursor is the last line's ordinal; one that is not a whole number is the first page.
       const decoded = decodeCursor(cursor);
-      const afterOrdinal = decoded === undefined ? -1 : Number(decoded.createdAt);
+      const decodedOrdinal = decoded === undefined ? -1 : Number(decoded.createdAt);
+      const afterOrdinal =
+        Number.isInteger(decodedOrdinal) && decodedOrdinal >= 0 ? decodedOrdinal : -1;
       const found = await listTranscriptSegments(firm.firmDatabase, transcript.id, {
-        afterOrdinal: Number.isInteger(afterOrdinal) && afterOrdinal >= 0 ? afterOrdinal : -1,
+        afterOrdinal,
         limit: MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE,
       });
       const hasMore = found.length > MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE;
       const rows = hasMore ? found.slice(0, MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE) : found;
       const last = rows.at(-1);
+      // The read is recorded before the words leave, as a download is: who, which transcript and
+      // document, where the page began and how many lines — never a word or a name.
+      const now = new Date().toISOString();
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            transcriptReadAuditStatement(
+              firm.firmDatabase,
+              {
+                transcript,
+                actorUserId: requireChokepointUserId(c),
+                afterOrdinal,
+                lineCount: rows.length,
+              },
+              { clock: { now: () => now }, randomSource: cryptoRandomSource },
+            ),
+          ],
+          outboxMessages: [],
+        },
+        { now: () => now },
+      );
       return c.json(
         {
           transcript: toTranscriptSummary(transcript),
+          linesWithheld: null,
           data: rows.map((row) => ({
             id: row.id,
             ordinal: row.ordinal,
@@ -2593,4 +2668,21 @@ export function registerMeetingsRoutes(
       );
     },
   );
+}
+
+/**
+ * Why a ready transcript's lines may not be read, from where the version it filed stands — or null when
+ * they may. A version this read cannot see (gone, or its file moved behind a wall) is `unavailable`.
+ */
+async function transcriptLinesWithheld(
+  database: Parameters<typeof readRecordingDocumentFacts>[0],
+  fileVersionId: FileVersionId | null,
+): Promise<MeetingTranscriptWithheldReason | null> {
+  if (fileVersionId === null) return "unavailable";
+  const facts = (
+    await readRecordingDocumentFacts(database, [fileVersionId], visibleMatterPredicate())
+  ).get(fileVersionId);
+  return facts === undefined
+    ? "unavailable"
+    : transcriptLinesWithheldBy(recordingDocumentStateOf(facts));
 }

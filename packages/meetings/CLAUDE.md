@@ -455,7 +455,7 @@ order, the prompt tail) and `webvtt.ts` (the filed document, with every piece of
 safe for where it goes). The Worker's `transcript-consumer.ts` drives them; the design and its amendments
 (A34 onward) are in the recording spec.
 
-Five rules travel with it.
+Seven rules travel with it.
 
 **The words are CONTENT, and the second store of it this package holds after chat.**
 `meeting_transcript_segment.text` is what was said in a privileged conversation, attributed. No statement
@@ -478,11 +478,36 @@ only ordinals from zero up.
 
 **Every act that can lose a race is guarded, with its own label**: the claim (on the cursor and an expired
 or absent lease), each piece's progress (on the claim and the cursor it moved from — two consumers never
-write one piece), the filing's begin (on no session yet and the claim), `ready` and `failed` (both on
-`pending`). The audit row beside `failed` is written only by the failure the record keeps, because the
+write one piece), a model's refusal counted (on the claim), the filing's begin (on no session yet and
+the claim), `ready` and `failed` (both on `pending`). The audit row beside `failed` is written only by the failure the record keeps, because the
 guarded write rolls the whole batch back.
 
-**The staging is the transcript's until it settles.** A filed recording keeps its staged tracks because
-the transcript reads them; `listExpiredStagingTracks` releases a filed recording's staging only once its
-transcript has settled, and `hasRecordingsToTend` counts a pending transcript, so the sweep sees one that
-stopped moving.
+**The staging is the transcript's until it settles — and a failure keeps it when a retry could still
+use it.** A filed recording keeps its staged tracks because the transcript reads them;
+`listExpiredStagingTracks` releases a filed recording's staging a grace after its transcript became
+`ready`, and only after the seven-day unsettled retention once it `failed` (a model that stayed down,
+or a stall, leaves the only per-speaker copy where a retry can read it; a refusal no retry can change
+released it at once). `hasRecordingsToTend` counts a pending transcript, so the sweep sees one that
+stopped moving. `failTranscriptStatement` is guarded on the upload session the failure READ, so a
+filing begun in between refuses the failure rather than being left open, and the sweep's on the claim
+and progress it judged stalled.
+
+**The read follows the filed document, and is audited.** The segment rows are a second copy of the
+WebVTT document's words. The route serves them only while the transcript's filed version exists, is not
+in the trash and is not held by the scan (`transcriptLinesWithheldBy` over `recording-document-state.ts`'s
+reading of that version, gated on the file's own matter); otherwise it answers the header with
+`linesWithheld` and no lines. Every page of lines served writes one `meetings.transcript.read` row
+(`transcriptReadAuditStatement`) — identifiers and counts, never a word. **Nothing deletes the segments
+yet when the document is purged**, and that is a known gap rather than an oversight: the file manager has
+no purge or deletion hook a subsystem can join — a delete is soft and destroys only the working copy, and
+`purgeableVersionObjects` is called by nothing until the retention-policy engine is built. Until then the
+gate above keeps a trashed or purged document's words off the read; the engine, when built, must delete a
+purged transcript version's segments in the same act. A row added that reads the words anywhere else
+is a second door past this gate.
+
+**No transcript text reaches a sink, and a scan holds it.** `test/no-transcript-text-escape.test.ts`
+(`@repo-wide-fitness`) finds every first-party module that reaches the words — by what it imports or
+names — and fails when one hands the words, a speaker's name, the model's prompt or the document's name
+to the failure pipeline, a logger, an audit builder, an Error or a problem body. It reads names, so a
+value laundered through a variable named for nothing stays a review question; a new sink belongs in its
+`SINKS` list.

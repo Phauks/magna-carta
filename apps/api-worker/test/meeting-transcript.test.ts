@@ -4,34 +4,44 @@ import type {
   FirmId,
   MeetingRecordingId,
   MeetingTranscriptId,
-  UserId,
 } from "@magna-carta/identifiers/types";
 import type { TranscribeInput } from "@magna-carta/inference/port";
 import { createStubInferencePort } from "@magna-carta/inference/stub";
 import { adapterError, capabilityUnsupported } from "@magna-carta/integrations/dispatch";
 import { integrationProblem } from "@magna-carta/integrations/problem";
-import { recordingStagingKey } from "@magna-carta/meetings/recording-types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp, type Bindings } from "../src/app.ts";
+import { createApp } from "../src/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import type {
-  MeetingRecordingComposeMessage,
-  MeetingRecordingQueueMessage,
-  MeetingTranscriptMessage,
-} from "../src/meetings/meeting-recorder.ts";
-import { composeWindow } from "../src/meetings/recording-compose-consumer.ts";
 import {
   runRecordingSweep,
   TRANSCRIPT_STALL_MILLISECONDS,
+  UNSETTLED_STAGING_RETENTION_MILLISECONDS,
 } from "../src/meetings/recording-sweep.ts";
 import {
+  failMeetingTranscript,
   meetingTranscriptQueue,
-  TRANSCRIPT_MODEL_ATTEMPTS,
+  TRANSCRIPT_MODEL_FAILURE_LIMIT,
   transcribeWindow,
+  transcriptModelRetryDelaySeconds,
   type TranscriptionPort,
 } from "../src/meetings/transcript-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedRecordedMeeting, type RecordedMeeting } from "./support/meeting-recording-fixture.ts";
+import {
+  collectingEnvironment,
+  composeToFiled,
+  countingStub,
+  deliveredAs,
+  drain,
+  filedRecordingAwaitingTranscript as filedRecordingIn,
+  objectsPresent,
+  seedGuestStay,
+  speech,
+  stagingStillNamed as stagingStillNamedIn,
+  stoppedRecording,
+  transcriptMessageIn,
+  transcriptRow as transcriptRowIn,
+} from "./support/meeting-transcript-fixture.ts";
 import {
   mirrorMemberWithOwnerRole,
   readJson,
@@ -52,7 +62,6 @@ import {
 // never; the document filed anywhere but beside the audio on the same matter, through the upload
 // pipeline; and a transcript of a walled matter's recording reachable through the read.
 
-const RATE = 48_000;
 const app = createApp();
 const base = "https://example.com";
 
@@ -74,313 +83,17 @@ function database(inFirm: FirmId = firmId) {
   return firmDatabaseFor(env.FIRM_DATABASE, inFirm);
 }
 
-/** Deterministic noise under a floor, with tone bursts standing above it where somebody speaks. */
-function speech(seconds: number, bursts: readonly (readonly [number, number])[]): Int16Array {
-  const samples = new Int16Array(Math.round(seconds * RATE));
-  let state = 11;
-  for (let index = 0; index < samples.length; index += 1) {
-    state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
-    samples[index] = Math.round(((state / 2_147_483_648) * 2 - 1) * 100);
-  }
-  for (const [from, to] of bursts) {
-    for (let index = Math.round(from * RATE); index < Math.round(to * RATE); index += 1) {
-      samples[index] =
-        (samples[index] ?? 0) + Math.round(8_000 * Math.sin((2 * Math.PI * 440 * index) / RATE));
-    }
-  }
-  return samples;
-}
-
-function pcmBytes(samples: Int16Array): Uint8Array {
-  const bytes = new Uint8Array(samples.length * 2);
-  const view = new DataView(bytes.buffer);
-  samples.forEach((value, index) => view.setInt16(index * 2, value, true));
-  return bytes;
-}
-
-/** One staged track as a test writes it. */
-interface StagedTrack {
-  readonly speaker:
-    | { readonly kind: "member"; readonly name: string }
-    | {
-        readonly kind: "guest";
-        readonly stayId: string;
-      };
-  readonly offsetSeconds: number;
-  readonly samples: Int16Array;
-  readonly state: "closed" | "lost";
-}
-
-/** A guest's stay in this meeting, under the name they typed at the door. */
-async function seedGuestStay(meeting: RecordedMeeting, typedName: string): Promise<string> {
-  const now = new Date().toISOString();
-  const invitationId = newIdentifier("meetingGuestInvitation");
-  const stayId = newIdentifier("meetingGuestStay");
-  await database(meeting.firmId).batch([
-    database(meeting.firmId)
-      .prepare(
-        `INSERT INTO meeting_guest_invitation (id, meeting_id, entity_kind, entity_id, invited_name, ` +
-          `token_secret_hash, issued_by_user_id, expires_at, created_at, updated_at) VALUES ` +
-          `(?1, ?2, 'person', ?3, ?4, ?5, ?6, '2099-01-01T00:00:00.000Z', ?7, ?7)`,
-      )
-      .bind(
-        invitationId,
-        meeting.meetingId,
-        newIdentifier("directoryPerson"),
-        typedName,
-        "0".repeat(64),
-        meeting.hostUserId,
-        now,
-      ),
-    database(meeting.firmId)
-      .prepare(
-        `INSERT INTO meeting_guest_stay (id, meeting_id, invitation_id, confirmed_name, joined_at, ` +
-          `waiting_from, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5, ?5)`,
-      )
-      .bind(stayId, meeting.meetingId, invitationId, typedName, now),
-  ]);
-  return stayId;
-}
-
-/**
- * A stopped recording whose recorder has let go: each track's staged object complete in the bucket, its
- * row naming it with its first and last frame, and the captured length written — what the compose step
- * is handed.
- */
-async function stoppedRecording(
-  meeting: RecordedMeeting,
-  startedAt: string,
-  tracks: readonly StagedTrack[],
-): Promise<{ recordingId: MeetingRecordingId; stagingKeys: string[] }> {
-  const firm = database(meeting.firmId);
-  const recordingId = newIdentifier("meetingRecording") as MeetingRecordingId;
-  const lengthSeconds = Math.max(
-    ...tracks.map((track) => track.offsetSeconds + track.samples.length / RATE),
-  );
-  const stoppedAt = new Date(Date.parse(startedAt) + lengthSeconds * 1000).toISOString();
-  await firm
-    .prepare(
-      `INSERT INTO meeting_recording (id, meeting_id, matter_id, breakout_id, state, started_by_user_id, ` +
-        `started_at, stopped_by_user_id, stopped_at, stop_reason, track_count, captured_seconds, ` +
-        `created_at, updated_at) VALUES (?1, ?2, ?3, NULL, 'composing', ?4, ?5, ?4, ?6, 'member', ?7, ` +
-        `?8, ?5, ?6)`,
-    )
-    .bind(
-      recordingId,
-      meeting.meetingId,
-      meeting.matterId,
-      meeting.hostUserId,
-      startedAt,
-      stoppedAt,
-      tracks.length,
-      Math.floor(lengthSeconds),
-    )
-    .run();
-  const stagingKeys: string[] = [];
-  for (const [index, track] of tracks.entries()) {
-    const trackId = newIdentifier("meetingRecordingTrack");
-    const key = recordingStagingKey(meeting.meetingId, recordingId, trackId);
-    stagingKeys.push(key);
-    await env.R2.put(key, pcmBytes(track.samples));
-    const firstFrameAt = new Date(Date.parse(startedAt) + track.offsetSeconds * 1000).toISOString();
-    const lastFrameAt = new Date(
-      Date.parse(firstFrameAt) + (track.samples.length / RATE) * 1000,
-    ).toISOString();
-    let participantKind: "member" | "guest";
-    let participantId: string;
-    let userId: UserId | null;
-    if (track.speaker.kind === "member") {
-      participantKind = "member";
-      participantId = newIdentifier("meetingAttendance");
-      userId = newIdentifier("user") as UserId;
-      await firm
-        .prepare(
-          `INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, 'active', ?3)`,
-        )
-        .bind(userId, track.speaker.name, startedAt)
-        .run();
-    } else {
-      participantKind = "guest";
-      participantId = track.speaker.stayId;
-      userId = null;
-    }
-    await firm
-      .prepare(
-        `INSERT INTO meeting_recording_track (id, recording_id, participant_kind, participant_id, ` +
-          `user_id, track_name, staging_key, first_frame_at, last_frame_at, frames_received, state, ` +
-          `created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11, ?11)`,
-      )
-      .bind(
-        trackId,
-        recordingId,
-        participantKind,
-        participantId,
-        userId,
-        `participant-${String(index)}:microphone`,
-        key,
-        firstFrameAt,
-        lastFrameAt,
-        track.state,
-        startedAt,
-      )
-      .run();
-  }
-  return { recordingId, stagingKeys };
-}
-
-/** The deployment with the recording queue and the ingest queue collected rather than delivered. */
-function collectingEnvironment(): {
-  environment: Bindings;
-  queued: MeetingRecordingQueueMessage[];
-  ingested: { object: { key: string; size: number } }[];
-} {
-  const queued: MeetingRecordingQueueMessage[] = [];
-  const ingested: { object: { key: string; size: number } }[] = [];
-  const environment = {
-    ...env,
-    MEETING_RECORDING_COMPOSE: {
-      send: async (message: MeetingRecordingQueueMessage) => {
-        queued.push(message);
-      },
-    },
-    FILES_INGEST: {
-      send: async (message: { object: { key: string; size: number } }) => {
-        ingested.push(message);
-      },
-    },
-  } as unknown as Bindings;
-  return { environment, queued, ingested };
-}
-
-/** The platform's stub speech model, with every call it was asked kept. */
-function countingStub(): { port: TranscriptionPort; calls: TranscribeInput[] } {
-  const stub = createStubInferencePort();
-  const calls: TranscribeInput[] = [];
-  return {
-    calls,
-    port: {
-      transcribe: async (input) => {
-        calls.push(input);
-        return await stub.transcribe(input);
-      },
-    },
-  };
-}
-
-/** Delivers a transcript's own hand-ons until it settles, as the queue would. */
-async function drain(
-  environment: Bindings,
-  message: MeetingTranscriptMessage,
-  port: TranscriptionPort,
-  piecesPerInvocation?: number,
-): Promise<string> {
-  for (let delivery = 0; delivery < 40; delivery += 1) {
-    const outcome = await transcribeWindow(environment, message, { port, piecesPerInvocation });
-    if (outcome !== "progressed") return outcome;
-  }
-  throw new Error("the transcript never settled");
-}
-
 async function transcriptRow(transcriptId: string, inFirm: FirmId = firmId) {
-  return await database(inFirm)
-    .prepare(
-      `SELECT state, file_id, file_version_id, failure_error_id, segment_count, word_count, ` +
-        `claimed_at, attempts, model_id FROM meeting_transcript WHERE id = ?1`,
-    )
-    .bind(transcriptId)
-    .first<{
-      state: string;
-      file_id: string | null;
-      file_version_id: string | null;
-      failure_error_id: string | null;
-      segment_count: number | null;
-      word_count: number | null;
-      claimed_at: string | null;
-      attempts: number;
-      model_id: string | null;
-    }>();
+  return await transcriptRowIn(transcriptId, inFirm);
 }
 
 async function stagingStillNamed(recordingId: string, inFirm: FirmId = firmId): Promise<number> {
-  const row = await database(inFirm)
-    .prepare(
-      `SELECT COUNT(*) AS count FROM meeting_recording_track WHERE recording_id = ?1 AND staging_key IS NOT NULL`,
-    )
-    .bind(recordingId)
-    .first<{ count: number }>();
-  return row?.count ?? 0;
-}
-
-async function objectsPresent(keys: readonly string[]): Promise<number> {
-  let present = 0;
-  for (const key of keys) if ((await env.R2.head(key)) !== null) present += 1;
-  return present;
-}
-
-/** Composes a stopped recording until it is filed, as the queue would. */
-async function composeToFiled(
-  environment: Bindings,
-  meeting: RecordedMeeting,
-  recordingId: MeetingRecordingId,
-): Promise<void> {
-  const message: MeetingRecordingComposeMessage = {
-    kind: "meeting-recording-compose",
-    firmId: meeting.firmId,
-    meetingId: meeting.meetingId,
-    recordingId,
-  };
-  for (let delivery = 0; delivery < 10; delivery += 1) {
-    const outcome = await composeWindow(environment, message);
-    if (outcome === "filed") return;
-    if (outcome !== "progressed") throw new Error(`the compose ended ${outcome}`);
-  }
-  throw new Error("the compose never filed");
-}
-
-/** The transcript message the compose handed on for a recording. */
-function transcriptMessageIn(
-  queued: readonly MeetingRecordingQueueMessage[],
-  recordingId: string,
-): MeetingTranscriptMessage {
-  const message = queued.find(
-    (one): one is MeetingTranscriptMessage =>
-      one.kind === "meeting-transcript" && one.recordingId === recordingId,
-  );
-  if (message === undefined) throw new Error("the compose handed no transcript on");
-  return message;
+  return await stagingStillNamedIn(recordingId, inFirm);
 }
 
 /** A filed recording of one member speaking twice, its transcript pending and its message in hand. */
-async function filedRecordingAwaitingTranscript(inFirm: FirmId = firmId): Promise<{
-  meeting: RecordedMeeting;
-  recordingId: MeetingRecordingId;
-  stagingKeys: string[];
-  message: MeetingTranscriptMessage;
-  environment: Bindings;
-  queued: MeetingRecordingQueueMessage[];
-}> {
-  const meeting = await seedRecordedMeeting(inFirm);
-  const { recordingId, stagingKeys } = await stoppedRecording(meeting, new Date().toISOString(), [
-    {
-      speaker: { kind: "member", name: "Solo Speaker" },
-      offsetSeconds: 0,
-      samples: speech(8, [
-        [1, 2],
-        [5, 6],
-      ]),
-      state: "closed",
-    },
-  ]);
-  const { environment, queued } = collectingEnvironment();
-  await composeToFiled(environment, meeting, recordingId);
-  return {
-    meeting,
-    recordingId,
-    stagingKeys,
-    message: transcriptMessageIn(queued, recordingId),
-    environment,
-    queued,
-  };
+async function filedRecordingAwaitingTranscript(inFirm: FirmId = firmId) {
+  return await filedRecordingIn(inFirm);
 }
 
 // Shared by the read's tests below: the meeting and recording the first test transcribes.
@@ -582,7 +295,13 @@ describe("a filed recording's transcript", () => {
       transcribeWindow(environment, message, { port: slow }),
       transcribeWindow(environment, message, { port: slow }),
     ]);
-    expect(outcomes.toSorted()).toEqual(["nothing-to-do", "ready"]);
+    // One delivery transcribes; the other finds the window claimed under a live lease at the cursor it
+    // read (`claimed-elsewhere`, which the queue retries once the lease runs out) or, if it read the row
+    // after the first had moved on, nothing to do. Never both sending audio.
+    expect(outcomes).toContain("ready");
+    expect(["claimed-elsewhere", "nothing-to-do"]).toContain(
+      outcomes.find((outcome) => outcome !== "ready"),
+    );
     // Two bursts, two pieces: each sent once.
     expect(calls).toHaveLength(2);
     expect((await transcriptRow(message.transcriptId))?.segment_count).toBe(2);
@@ -590,31 +309,9 @@ describe("a filed recording's transcript", () => {
   });
 });
 
-/** A batch of one transcript message, delivered for the given time, recording what was done to it. */
-function deliveredAs(message: MeetingTranscriptMessage, attempts: number) {
-  const done: string[] = [];
-  const batch = {
-    queue: "magna-carta-production-meeting-recording-compose",
-    metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
-    messages: [
-      {
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
-        body: message,
-        attempts,
-        ack: () => done.push("ack"),
-        retry: () => done.push("retry"),
-      },
-    ],
-    ackAll: () => done.push("ack"),
-    retryAll: () => done.push("retry"),
-  } as unknown as MessageBatch<MeetingTranscriptMessage>;
-  return { batch, done };
-}
-
 describe("a speech model that will not answer", () => {
-  it("is retried while deliveries remain, then fails the transcript with an Error ID and releases the staging", async () => {
-    const { message, environment, stagingKeys, recordingId } =
+  it("is outlasted: each refusal counted on the row and retried after a delay that doubles — and only a run of them fails the transcript, keeping the staging", async () => {
+    const { message, environment, sends, stagingKeys, recordingId } =
       await filedRecordingAwaitingTranscript();
     let asked = 0;
     const busy: TranscriptionPort = {
@@ -624,35 +321,101 @@ describe("a speech model that will not answer", () => {
       },
     };
 
-    const first = deliveredAs(message, 1);
-    await meetingTranscriptQueue(first.batch, environment, { port: busy });
-    expect(first.done).toEqual(["retry"]);
-    expect(asked).toBe(1);
-    // Still pending, its claim let go for the retry, and its staging kept.
-    expect(await transcriptRow(message.transcriptId)).toMatchObject({
-      state: "pending",
-      claimed_at: null,
-    });
+    const delays: (number | undefined)[] = [];
+    for (let refusal = 1; refusal < TRANSCRIPT_MODEL_FAILURE_LIMIT; refusal += 1) {
+      // The delivery count is not the measure: a message delivered for the fifth time is still retried.
+      const delivery = deliveredAs(message, 5);
+      const sent = sends.length;
+      await meetingTranscriptQueue(delivery.batch, environment, { port: busy });
+      // Acknowledged, and sent again on a NEW message with its delay — the queue's own redelivery is
+      // bounded at three, which an outage of tens of minutes would outlast.
+      expect(delivery.done).toEqual([{ act: "ack" }]);
+      expect(sends).toHaveLength(sent + 1);
+      delays.push(sends.at(-1)!.delaySeconds);
+      expect(await transcriptRow(message.transcriptId)).toMatchObject({
+        state: "pending",
+        model_failures: refusal,
+        claimed_at: null,
+      });
+    }
+    expect(asked).toBe(TRANSCRIPT_MODEL_FAILURE_LIMIT - 1);
+    expect(delays).toEqual([30, 60, 120, 240, 480, 900, 900, 900, 900]);
+    expect(delays.map((_, index) => transcriptModelRetryDelaySeconds(index + 1))).toEqual(delays);
+    // More than an hour of an unavailable model before the transcript gives up.
+    expect(delays.reduce<number>((sum, delay) => sum + (delay ?? 0), 0)).toBeGreaterThan(60 * 60);
+    // The staging stayed throughout.
     expect(await objectsPresent(stagingKeys)).toBe(1);
 
-    const last = deliveredAs(message, TRANSCRIPT_MODEL_ATTEMPTS);
+    const last = deliveredAs(message, 1);
     await meetingTranscriptQueue(last.batch, environment, { port: busy });
-    expect(last.done).toEqual(["ack"]);
+    expect(last.done).toEqual([{ act: "ack" }]);
     const row = await transcriptRow(message.transcriptId);
     expect(row?.state).toBe("failed");
     expect(row?.failure_error_id).toMatch(/\S/u);
-    // A failed transcript settles as surely as a ready one: the staging is released.
-    expect(await objectsPresent(stagingKeys)).toBe(0);
-    expect(await stagingStillNamed(recordingId)).toBe(0);
+    // A failure a returning model could get past KEEPS the per-speaker audio, under the retention a
+    // failed compose's staging has — not released at once.
+    expect(await objectsPresent(stagingKeys)).toBe(1);
+    expect(await stagingStillNamed(recordingId)).toBe(1);
     // The recording is filed and untouched.
     const recording = await database()
       .prepare(`SELECT state FROM meeting_recording WHERE id = ?1`)
       .bind(recordingId)
       .first<{ state: string }>();
     expect(recording?.state).toBe("filed");
+
+    // A day on, the filed grace has passed but not the retention: still kept.
+    await runRecordingSweep(environment, { now: () => Date.now() + 2 * 24 * 60 * 60 * 1000 });
+    expect(await objectsPresent(stagingKeys)).toBe(1);
+    // Past the retention, released.
+    await runRecordingSweep(environment, {
+      now: () => Date.now() + UNSETTLED_STAGING_RETENTION_MILLISECONDS + 60 * 60 * 1000,
+    });
+    expect(await objectsPresent(stagingKeys)).toBe(0);
+    expect(await stagingStillNamed(recordingId)).toBe(0);
   });
 
-  it("fails at once on a refusal no retry can change, with an Error ID", async () => {
+  it("is never failed by refusals that come between progress — each piece's progress resets the count", async () => {
+    // Four utterances, so four pieces; the model refuses every other call.
+    const { message, environment } = await filedRecordingIn(firmId, [
+      {
+        speaker: { kind: "member", name: "Patient Speaker" },
+        offsetSeconds: 0,
+        samples: speech(16, [
+          [1, 2],
+          [5, 6],
+          [9, 10],
+          [13, 14],
+        ]),
+        state: "closed",
+      },
+    ]);
+    const stub = createStubInferencePort();
+    let call = 0;
+    const flaky: TranscriptionPort = {
+      transcribe: async (input) => {
+        call += 1;
+        if (call % 2 === 0) {
+          return adapterError(integrationProblem("upstream", 503, "The speech model is busy"));
+        }
+        return await stub.transcribe(input);
+      },
+    };
+    // Every delivery is the third or later — the old rule failed the transcript on the first refusal
+    // of a third delivery, although each delivery had moved it on.
+    const failuresSeen: number[] = [];
+    for (let delivery = 0; delivery < 20; delivery += 1) {
+      const batch = deliveredAs(message, 3 + delivery);
+      await meetingTranscriptQueue(batch.batch, environment, { port: flaky });
+      const row = await transcriptRow(message.transcriptId);
+      failuresSeen.push(row?.model_failures ?? -1);
+      if (row?.state !== "pending") break;
+    }
+    expect((await transcriptRow(message.transcriptId))?.state).toBe("ready");
+    expect(Math.max(...failuresSeen)).toBe(1);
+    expect((await transcriptRow(message.transcriptId))?.segment_count).toBe(4);
+  });
+
+  it("fails at once on a refusal no retry can change, with an Error ID, and releases the staging", async () => {
     const { message, environment, stagingKeys } = await filedRecordingAwaitingTranscript();
     const refusing: TranscriptionPort = { transcribe: async () => capabilityUnsupported() };
     expect(await transcribeWindow(environment, message, { port: refusing })).toBe("failed");
@@ -662,7 +425,7 @@ describe("a speech model that will not answer", () => {
 });
 
 describe("the sweep and a transcript that stopped moving", () => {
-  it("keeps a filed recording's staging while its transcript is pending, hands it on, and fails it after its attempts — releasing the staging", async () => {
+  it("keeps a filed recording's staging while its transcript is pending, hands it on, and fails it after its attempts — keeping the staging for the retention", async () => {
     const sweepFirm = (await seedFirm({ name: "Transcript Sweep Firm" })).firmId;
     const { message, environment, queued, stagingKeys, recordingId } =
       await filedRecordingAwaitingTranscript(sweepFirm);
@@ -689,8 +452,54 @@ describe("the sweep and a transcript that stopped moving", () => {
     const row = await transcriptRow(message.transcriptId, sweepFirm);
     expect(row?.state).toBe("failed");
     expect(row?.failure_error_id).toMatch(/\S/u);
+    // A stall is something a later attempt could get past: the staging is KEPT, and goes only once the
+    // retention a failed recording's staging has is over.
+    expect(await objectsPresent(stagingKeys)).toBe(1);
+    expect(await stagingStillNamed(recordingId, sweepFirm)).toBe(1);
+    await runRecordingSweep(environment, {
+      now: () => twoDaysOn() + UNSETTLED_STAGING_RETENTION_MILLISECONDS + 24 * 60 * 60 * 1000,
+    });
     expect(await objectsPresent(stagingKeys)).toBe(0);
     expect(await stagingStillNamed(recordingId, sweepFirm)).toBe(0);
+  });
+
+  it("does not fail a transcript a consumer claimed after the sweep judged it stalled", async () => {
+    const sweepFirm = (await seedFirm({ name: "Transcript Sweep Race Firm" })).firmId;
+    const { message, environment } = await filedRecordingAwaitingTranscript(sweepFirm);
+    // Three hand-ons with nothing between: the next pass would fail it.
+    const twoDaysOn = () => Date.now() + 2 * 24 * 60 * 60 * 1000;
+    for (let pass = 0; pass < 3; pass += 1) {
+      await runRecordingSweep(environment, {
+        now: () => twoDaysOn() + pass * (TRANSCRIPT_STALL_MILLISECONDS + 60_000),
+      });
+    }
+    expect((await transcriptRow(message.transcriptId, sweepFirm))?.attempts).toBe(3);
+    // The next pass reads it stalled — and between that read and its failure a consumer claims it.
+    const asTheSweepReadIt = (await database(sweepFirm)
+      .prepare(`SELECT progress_at, claimed_at FROM meeting_transcript WHERE id = ?1`)
+      .bind(message.transcriptId)
+      .first<{ progress_at: string | null; claimed_at: string | null }>())!;
+    await database(sweepFirm)
+      .prepare(`UPDATE meeting_transcript SET claimed_at = ?1 WHERE id = ?2`)
+      .bind(new Date().toISOString(), message.transcriptId)
+      .run();
+    expect(
+      await failMeetingTranscript(
+        environment,
+        database(sweepFirm),
+        message.transcriptId,
+        "error-from-the-sweep",
+        async () => env.R2,
+        {
+          releaseStaging: false,
+          untouched: {
+            progressAt: asTheSweepReadIt.progress_at,
+            claimedAt: asTheSweepReadIt.claimed_at,
+          },
+        },
+      ),
+    ).toBe(false);
+    expect((await transcriptRow(message.transcriptId, sweepFirm))?.state).toBe("pending");
   });
 });
 
@@ -718,16 +527,25 @@ interface TranscriptPage {
   nextCursor: string | null;
 }
 
-/** A filed recording with a ready transcript of `count` lines, seeded straight onto the record. */
+/**
+ * A filed recording with a ready transcript of `count` lines, seeded straight onto the record — with the
+ * WebVTT document it filed as a clean, current version on the recording's matter.
+ */
 async function readyTranscriptOf(
   meeting: RecordedMeeting,
   count: number,
-): Promise<{ recordingId: string; transcriptId: MeetingTranscriptId }> {
+): Promise<{
+  recordingId: string;
+  transcriptId: MeetingTranscriptId;
+  fileId: string;
+  fileVersionId: string;
+}> {
   const firm = database(meeting.firmId);
   const now = new Date().toISOString();
   const recordingId = newIdentifier("meetingRecording");
   const transcriptId = newIdentifier("meetingTranscript") as MeetingTranscriptId;
   const fileId = newIdentifier("file");
+  const fileVersionId = newIdentifier("fileVersion");
   await firm.batch([
     firm
       .prepare(
@@ -743,10 +561,20 @@ async function readyTranscriptOf(
       .bind(fileId, meeting.matterId, now),
     firm
       .prepare(
-        `INSERT INTO meeting_transcript (id, meeting_id, recording_id, state, segment_count, ` +
-          `file_id, created_at, updated_at) VALUES (?1, ?2, ?3, 'ready', ?4, ?5, ?6, ?6)`,
+        `INSERT INTO file_version (id, file_id, version_number, r2_key, status, scan_verdict, ` +
+          `created_at) VALUES (?1, ?2, 1, ?3, 'clean', 'clean', ?4)`,
       )
-      .bind(transcriptId, meeting.meetingId, recordingId, count, fileId, now),
+      .bind(fileVersionId, fileId, `files/${fileVersionId}`, now),
+    firm
+      .prepare(`UPDATE file SET current_version_id = ?1 WHERE id = ?2`)
+      .bind(fileVersionId, fileId),
+    firm
+      .prepare(
+        `INSERT INTO meeting_transcript (id, meeting_id, recording_id, state, segment_count, ` +
+          `file_id, file_version_id, created_at, updated_at) VALUES (?1, ?2, ?3, 'ready', ?4, ?5, ?6, ` +
+          `?7, ?7)`,
+      )
+      .bind(transcriptId, meeting.meetingId, recordingId, count, fileId, fileVersionId, now),
     ...Array.from({ length: count }, (_, ordinal) =>
       firm
         .prepare(
@@ -766,7 +594,19 @@ async function readyTranscriptOf(
         ),
     ),
   ]);
-  return { recordingId, transcriptId };
+  return { recordingId, transcriptId, fileId, fileVersionId };
+}
+
+/** The audit rows of every read of one transcript, oldest first. */
+async function readAudits(transcriptId: string, inFirm: FirmId = firmId) {
+  const { results } = await database(inFirm)
+    .prepare(
+      `SELECT actor_user_id, metadata FROM audit_log WHERE event = 'meetings.transcript.read' ` +
+        `AND subject_id = ?1 ORDER BY created_at, id`,
+    )
+    .bind(transcriptId)
+    .all<{ actor_user_id: string | null; metadata: string }>();
+  return results;
 }
 
 describe("reading a transcript", () => {
@@ -864,6 +704,94 @@ describe("reading a transcript", () => {
       .run();
     expect(
       (await get(`/api/v1/meetings/${meeting.meetingId}/recordings/${recordingId}/transcript`))
+        .status,
+    ).toBe(404);
+  });
+
+  it("withholds the lines of a transcript whose document is in the trash or held by the scan, and says why", async () => {
+    const meeting = await seedRecordedMeeting(firmId);
+    const trashed = await readyTranscriptOf(meeting, 2);
+    const held = await readyTranscriptOf(meeting, 2);
+    const purged = await readyTranscriptOf(meeting, 2);
+    await database()
+      .prepare(`UPDATE file SET deleted_at = ?1 WHERE id = ?2`)
+      .bind(new Date().toISOString(), trashed.fileId)
+      .run();
+    await database()
+      .prepare(`UPDATE file_version SET status = 'quarantined' WHERE id = ?1`)
+      .bind(held.fileVersionId)
+      .run();
+    // A version that is no longer there at all — what a purge leaves — is unavailable.
+    await database()
+      .prepare(`UPDATE meeting_transcript SET file_version_id = NULL WHERE id = ?1`)
+      .bind(purged.transcriptId)
+      .run();
+    for (const [seeded, reason] of [
+      [trashed, "removed"],
+      [held, "held"],
+      [purged, "unavailable"],
+    ] as const) {
+      const page = await readJson<TranscriptPage & { linesWithheld: string | null }>(
+        await get(
+          `/api/v1/meetings/${meeting.meetingId}/recordings/${seeded.recordingId}/transcript`,
+        ),
+      );
+      expect(page).toMatchObject({
+        transcript: { state: "ready" },
+        data: [],
+        nextCursor: null,
+        linesWithheld: reason,
+      });
+      // Nothing was read, so nothing is audited.
+      expect(await readAudits(seeded.transcriptId)).toEqual([]);
+    }
+  });
+
+  it("writes one audit row per page of lines read, naming identifiers and never a word", async () => {
+    const meeting = await seedRecordedMeeting(firmId);
+    const { recordingId, transcriptId, fileId, fileVersionId } = await readyTranscriptOf(
+      meeting,
+      203,
+    );
+    const path = `/api/v1/meetings/${meeting.meetingId}/recordings/${recordingId}/transcript`;
+    const first = await readJson<TranscriptPage & { linesWithheld: string | null }>(
+      await get(path),
+    );
+    expect(first.linesWithheld).toBeNull();
+    await get(`${path}?cursor=${encodeURIComponent(first.nextCursor!)}`);
+    const audits = await readAudits(transcriptId);
+    expect(audits).toHaveLength(2);
+    expect(audits.every((audit) => audit.actor_user_id !== null)).toBe(true);
+    const metadata = audits
+      .map((audit) => JSON.parse(audit.metadata) as Record<string, number | string>)
+      .toSorted((left, right) => Number(left["afterOrdinal"]) - Number(right["afterOrdinal"]));
+    expect(metadata[0]).toEqual({
+      meetingId: meeting.meetingId,
+      recordingId,
+      fileId,
+      fileVersionId,
+      afterOrdinal: -1,
+      lineCount: 200,
+    });
+    expect(metadata[1]).toMatchObject({ afterOrdinal: 199, lineCount: 3 });
+    // No line's words are anywhere in the log.
+    for (const audit of audits) expect(audit.metadata).not.toContain("line ");
+    // A pending transcript's header is not a read of its words, and writes nothing.
+    const pending = await readyTranscriptOf(meeting, 1);
+    await database()
+      .prepare(`UPDATE meeting_transcript SET state = 'pending', file_id = NULL WHERE id = ?1`)
+      .bind(pending.transcriptId)
+      .run();
+    await get(`/api/v1/meetings/${meeting.meetingId}/recordings/${pending.recordingId}/transcript`);
+    expect(await readAudits(pending.transcriptId)).toEqual([]);
+  });
+
+  it("does not reach another firm's transcript", async () => {
+    const otherFirm = (await seedFirm({ name: "Another Transcript Firm" })).firmId;
+    const elsewhere = await seedRecordedMeeting(otherFirm);
+    const { recordingId } = await readyTranscriptOf(elsewhere, 2);
+    expect(
+      (await get(`/api/v1/meetings/${elsewhere.meetingId}/recordings/${recordingId}/transcript`))
         .status,
     ).toBe(404);
   });

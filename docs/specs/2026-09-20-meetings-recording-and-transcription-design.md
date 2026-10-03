@@ -1302,3 +1302,104 @@ them to the token-usage meter is not done.
 **A44 — Not built here.** The repository-wide fitness scan §15 names (no transcript, summary or caption text
 reaching a logger or an audit builder) is not added; the transcript panel is the web half; the load-profile
 fixture of A25 is still open; live captions (R4) and the summary (R5) are next.
+
+### Amendments from the adversarial review of slice R3 — the transcript
+
+Recorded 2026-10-03. Migration `20261003T015627_meeting-transcript-model-failures-and-milliseconds`
+adds two columns to `meeting_transcript`. Each names the amendment or section it changes.
+
+**A45 — A speech model that is down for a while is outlasted (amends A41).** Counting the queue's
+deliveries of one window failed a transcript after about thirty seconds of a Workers AI outage (two
+retries at ten and twenty seconds), and failed one that made progress on every delivery but met a refusal
+on a different piece each time. Now a retryable refusal is counted on the row (`model_failures`, reset by
+any progress, in the same guarded write as the claim's release), and the window is sent again on a NEW
+message after `min(900, 30 × 2^(n−1))` seconds — a new message because the queue's own redelivery is
+bounded by its retry budget of three, which an outage of tens of minutes outlasts. The tenth refusal in a
+row fails the transcript: thirty seconds to fifteen minutes, about an hour and a quarter in all. The
+longest delay is held under the sweep's thirty-minute stall, and the failure write stamps `progress_at`,
+so a transcript waiting on a scheduled retry is never judged stalled.
+
+**A46 — What a failure does with the staging depends on why (amends A34 and A41).** A failure a later
+attempt could get past — a model that stayed unavailable, or the sweep finding the transcript stalled —
+KEEPS the staged tracks, under the seven-day `UNSETTLED_STAGING_RETENTION_MILLISECONDS` a failed compose's
+staging has, because they are the only per-speaker copy of the audio (§14's own reason for the compose).
+`listExpiredStagingTracks` releases a filed recording's staging seven days after its transcript FAILED,
+and a day after it became ready. A refusal no retry can change (the model's non-retryable answer, a
+staged object that vanished, a recording not filed, the upload pipeline's refusal) still releases the
+staging at once. There is no re-run path yet; the retention is what keeps one possible.
+
+**A47 — Every failure is guarded on what it read (amends A41).** `failTranscriptStatement` is guarded on
+the upload session the failure read (`upload_session_id IS ?`) as well as on `pending`, so a filing that
+begins between a failure's read and its commit refuses the failure instead of being left open on the
+matter. The sweep's failure is further guarded on the `progress_at` and `claimed_at` it judged stalled, so
+a consumer that claimed the transcript in between is not failed under (and its staging is not taken while
+it reads). A document written at the session's key whose completion the pipeline then refuses (the
+session expired in between) is deleted before the refusal fails the transcript, so no bytes are left that
+nothing names.
+
+**A48 — A redelivery that meets a live lease is retried, not acknowledged (amends A37).** A claim refused
+because another consumer's lease is still live at the very cursor this delivery read — its holder evicted
+mid-window by a deploy, most often, and every merge to `main` deploys — answers `claimed-elsewhere`, and
+the queue retries the message once the lease has run out. A refusal because the cursor or the state moved
+is still nothing to do. The transcript waits at most the rest of a lease rather than the sweep's stall and
+one of its hand-ons.
+
+**A49 — A lost speaker whose audio is missing (amends A39).** A39 wrote a lost track's gap from its last
+frame, so a lost track whose staged object was not there to read had nothing said for the span it WAS
+captured. The settle now asks every track that carried audio whether its object is there, lost or not, and
+a missing one's gap begins at its first frame — running to its last frame for a track that closed, and to
+the stop for one that was lost.
+
+**A50 — A track whose staging vanishes part-way is refused (amends A41).** A track whose object is missing
+once its cursor has moved into it is the fault `readStagedSamples` already refuses, not a track with
+nothing more to hear: moving on would have let the settle write a first-to-last-frame gap over lines
+already transcribed from it.
+
+**A51 — The settle releases, then drives ingest, and both ingest hand-ons are best effort (amends A40 and
+§9).** A redelivery after `ready` (or after `filed`) does nothing, so an ingest enqueue that threw used to
+leave the transcript's staging for the sweep's backstop and, in the compose, kept the transcript's first
+message from being sent. The staging is released first, and a failed ingest enqueue is recorded and does
+not throw — the deployment's own object-created event drives ingest without it.
+
+**A52 — What the speech is measured against, and what is kept of the answer (amends A35 and A36).** The
+noise floor leaves the recorder's own digital silence out of its percentile (a mute or frames that never
+arrived), which otherwise put the floor at -100 dB and sent ordinary room noise to the model as speech. A
+segment the model reports as beginning at or past the end of the piece it was sent is dropped, not clamped
+to a zero-length line: it is words where no audio was (the hallucinated tail). The audio sent is counted in
+milliseconds (`transcribed_milliseconds`, backfilled from the seconds; `transcribed_seconds` is no longer
+written), because rounding each piece to whole seconds counted a half-second "yes" as nothing.
+
+**A53 — The language (amends A36 and A38).** The first piece of at least eight seconds
+(`LANGUAGE_DETECTION_MINIMUM_MILLISECONDS`) names the transcript's language, and every later piece is sent
+with it as the hint. A shorter piece's detection is not recorded: a misread "yes" used to fix the record's
+language and, with no hint, later short pieces could come back in the wrong language. The port carries no
+confidence figure (`language_probability` is not passed on), so length is the measure; a transcript with
+no piece that long has a null language.
+
+**A54 — The read follows the filed document, and is audited (amends A42).** The lines are a second copy of
+the WebVTT document's words, so the route serves them only while the transcript's filed version exists, is
+not in the trash and is not held by the scan — read from the file pipeline's own record of that version and
+gated on the file's own matter (`recording-document-state.ts`); a version still being scanned, or one a
+later upload replaced on the file, still serves. Otherwise the header is answered with no lines and
+`linesWithheld` — `removed`, `held` or `unavailable` — says why. The route is `audited`, as the document's
+download is: every page of lines served writes ONE `meetings.transcript.read` row naming the reader, the
+transcript, the meeting, the recording, the document and its version, where the page began and how many
+lines it held — never a word or a name. A header with no lines is not a read of the words and writes none.
+This is the conservative reading; the owner has not ruled on whether the route is instead a preview.
+
+**A55 — Purging the document does not yet delete the segments.** The file manager has no purge or
+deletion hook another subsystem can join: deletion is a soft delete that destroys only the working copy,
+and `purgeableVersionObjects` — the one door to destroying a version's bytes — is called by nothing yet,
+by design, until the retention-policy engine is built. So nothing deletes `meeting_transcript_segment` when
+the `.vtt` goes. Until that engine exists, A54's gate is what keeps a trashed or purged document's words off
+the read (a purged version reads as `unavailable`); when it is built, purging a transcript's version must
+delete its segments in the same act, and the retention engine is where that belongs.
+
+**A56 — What is still not built (replaces A44).** The repository-wide fitness scan §15 names is built for
+the transcript: `packages/meetings/test/no-transcript-text-escape.test.ts` finds every first-party module
+that reaches a transcript's words and fails when one passes the words, a speaker's name, the model's prompt
+or the document's name to the failure pipeline, a logger, an audit builder, an Error or a problem body. It
+reads names, so text laundered through a variable named for nothing is still a review question. Summary and
+caption text join it when R4 and R5 add them. The load-profile fixture of A25 is still open. A thrown Workers
+AI error carries only a message (no status or code), so a permanent input error is still retried as an
+unavailable model (`gateway.ts`, beside `gatewayFailure`).

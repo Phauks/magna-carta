@@ -75,6 +75,30 @@ describe("placing what the model heard", () => {
     ]);
   });
 
+  it("drops a segment that begins at or past the end of its piece — words reported where nothing was sent", () => {
+    expect(
+      placeHeardSegments({
+        piece: { startedMs: 10_000, endedMs: 12_000 },
+        text: "Yes. Thank you for watching.",
+        segments: [
+          { startSeconds: 0.1, endSeconds: 0.6, text: "Yes." },
+          // At the piece's very end, and past it: a hallucinated tail, not a zero-length line.
+          { startSeconds: 2, endSeconds: 4, text: "Thank you" },
+          { startSeconds: 5, endSeconds: 7, text: "for watching." },
+        ],
+      }),
+    ).toEqual([{ startedMs: 10_100, endedMs: 10_600, text: "Yes." }]);
+    // Every segment past the piece: nothing, and the untimed text is NOT used in their place, because
+    // the model did report timings and every one of them was somewhere it was sent nothing.
+    expect(
+      placeHeardSegments({
+        piece: { startedMs: 0, endedMs: 1_000 },
+        text: "Thank you.",
+        segments: [{ startSeconds: 1.5, endSeconds: 2, text: "Thank you." }],
+      }),
+    ).toEqual([]);
+  });
+
   it("makes one line over the piece when the model gave words and no timings", () => {
     expect(
       placeHeardSegments({ piece: { startedMs: 0, endedMs: 4_000 }, text: " Yes. ", segments: [] }),
@@ -179,6 +203,23 @@ describe("the gaps a recording's tracks leave", () => {
     ]);
     // The guest's gap names the guest's stay, with no member behind it.
     expect(gaps[1]!.speaker).toMatchObject({ participantKind: "guest", userId: null });
+  });
+
+  it("names a LOST track whose audio is missing from its first frame to the stop, not from its last frame", () => {
+    // Spoke from 12:00 to 12:04, then lost for good — and its staged object was never there to read.
+    const lostAndMissing = trackRow({
+      id: "meetingRecordingTrack_lostmissing00000000" as MeetingRecordingTrackId,
+      state: "lost",
+      staging_key: null,
+      first_frame_at: STARTED_AT,
+      last_frame_at: "2026-09-18T12:04:00.000Z",
+    });
+    expect(
+      gapsForTracks(filedRecording, [lostAndMissing], new Set([lostAndMissing.id])).map((gap) => [
+        gap.startedMs,
+        gap.endedMs,
+      ]),
+    ).toEqual([[0, 600_000]]);
   });
 
   it("is ONE gap over the whole of a recording in which nobody was heard", () => {
@@ -348,7 +389,8 @@ describe("a transcript on the record", () => {
             to: { track: index, sample: 48_000 },
             speaker: speakerOf(piece.track),
             lines: piece.lines,
-            transcribedSeconds: 4,
+            // A half-second reply: counted as what it was, not rounded to nothing.
+            transcribedMilliseconds: 460,
             modelId: "speech-model",
             language: index === 0 ? null : "en",
             releaseClaim: false,
@@ -379,7 +421,7 @@ describe("a transcript on the record", () => {
               to: { track: 3, sample: 0 },
               speaker: speakerOf(first),
               lines: [{ startedMs: 0, endedMs: 1, text: "Stray." }],
-              transcribedSeconds: 1,
+              transcribedMilliseconds: 1_000,
               modelId: null,
               language: null,
               releaseClaim: false,
@@ -393,7 +435,7 @@ describe("a transcript on the record", () => {
     transcript = (await readTranscriptById(database.database, transcript.id))!;
     expect(transcript).toMatchObject({
       segments_written: 4,
-      transcribed_seconds: 16,
+      transcribed_milliseconds: 1_840,
       model_id: "speech-model",
       // The first language the model named.
       language: "en",
@@ -446,7 +488,43 @@ describe("a transcript on the record", () => {
     });
     expect(page.map((line) => line.ordinal)).toEqual([2, 3, 4]);
 
-    // Settled once: a failure after the filing began is still possible, and lands once.
+    // A FAILURE THAT READ THE ROW BEFORE THE FILING BEGAN is refused: it knows nothing of the upload
+    // session the filing opened, and committing it would leave that session open on the matter.
+    expect(
+      await refusedGuard(
+        commit(
+          database.database,
+          failTranscriptEffect(
+            database.database,
+            { transcript, failureErrorId: "error-stale" },
+            system,
+          ),
+        ),
+      ),
+    ).toBe(TRANSCRIPT_FAIL_GUARD);
+    transcript = (await readTranscriptById(database.database, transcript.id))!;
+    expect(transcript.upload_session_id).toBe("uploadSession_transcriptTest0000");
+
+    // The sweep's failure is guarded on what it judged stalled: a transcript claimed since is not
+    // failed under the consumer now holding it.
+    expect(
+      await refusedGuard(
+        commit(
+          database.database,
+          failTranscriptEffect(
+            database.database,
+            {
+              transcript,
+              failureErrorId: "error-sweep",
+              untouched: { progressAt: "2026-09-18T11:00:00.000Z", claimedAt: null },
+            },
+            system,
+          ),
+        ),
+      ),
+    ).toBe(TRANSCRIPT_FAIL_GUARD);
+
+    // Settled once: a failure after the filing began — one that read the session — lands, and once.
     await commit(
       database.database,
       failTranscriptEffect(database.database, { transcript, failureErrorId: "error-one" }, system),

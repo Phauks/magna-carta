@@ -47,8 +47,11 @@ function oneLine(text: string): string {
 
 /**
  * THE LINES ONE PIECE PRODUCED, placed on the recording. Each segment the model reported lands at the
- * piece's offset plus its own, kept inside the piece; an empty one is dropped. A model that reported
- * words with no timings produces one line over the whole piece rather than a timing made up to fit.
+ * piece's offset plus its own, kept inside the piece; an empty one is dropped, and so is one that BEGINS
+ * at or past the piece's end — the model was sent nothing there, so words it reports there are words it
+ * made up (the hallucinated tail a speech model is known to add after the audio stops), and clamping
+ * them to a zero-length line at the end would keep them on the record. A model that reported words with
+ * no timings produces one line over the whole piece rather than a timing made up to fit.
  */
 export function placeHeardSegments(input: {
   readonly piece: { readonly startedMs: number; readonly endedMs: number };
@@ -58,9 +61,11 @@ export function placeHeardSegments(input: {
   const { startedMs, endedMs } = input.piece;
   const within = (milliseconds: number) => Math.min(endedMs, Math.max(startedMs, milliseconds));
   const lines: PlacedLine[] = [];
+  const pieceMs = endedMs - startedMs;
   for (const segment of input.segments) {
     const text = oneLine(segment.text);
     if (text === "") continue;
+    if (Math.round(Math.max(0, segment.startSeconds) * 1000) >= pieceMs) continue;
     const from = within(startedMs + Math.round(Math.max(0, segment.startSeconds) * 1000));
     const to = within(startedMs + Math.round(Math.max(0, segment.endSeconds) * 1000));
     lines.push({ startedMs: from, endedMs: Math.max(from, to), text });
@@ -110,8 +115,10 @@ function offsetOf(recording: MeetingRecordingRow, instant: string): number {
  * - a LOST track that carried audio: from its last frame to the end of the recording;
  * - a lost track that carried NONE (the ceiling refused it, or its socket never came back): from when
  *   it arrived to the end of the recording;
- * - a track whose staged audio was not there to read (`audioMissing` names them): the span it was
- *   captured, its first frame to its last.
+ * - a track whose staged audio was not there to read (`audioMissing` names them): from its first frame
+ *   — to its last for a track that closed, and to the end of the recording for one that was lost,
+ *   because a lost track whose audio is missing was not heard while it was captured AND was not heard
+ *   after it was lost, and a gap from its last frame alone would leave the captured span unsaid.
  *
  * The end of the recording is its stop. A gap that would be empty is not one.
  */
@@ -125,11 +132,13 @@ export function gapsForTracks(
   for (const track of tracks) {
     let from: number | null = null;
     let to = endMs;
-    if (track.state === "lost") {
-      from = offsetOf(recording, track.last_frame_at ?? track.created_at);
-    } else if (audioMissing.has(track.id) && track.first_frame_at !== null) {
+    if (audioMissing.has(track.id) && track.first_frame_at !== null) {
       from = offsetOf(recording, track.first_frame_at);
-      to = Math.min(endMs, offsetOf(recording, track.last_frame_at ?? track.first_frame_at));
+      if (track.state !== "lost") {
+        to = Math.min(endMs, offsetOf(recording, track.last_frame_at ?? track.first_frame_at));
+      }
+    } else if (track.state === "lost") {
+      from = offsetOf(recording, track.last_frame_at ?? track.created_at);
     }
     if (from === null || to <= from) continue;
     gaps.push({

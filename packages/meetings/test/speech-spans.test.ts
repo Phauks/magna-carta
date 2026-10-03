@@ -5,6 +5,7 @@ import {
   frameLevels,
   HANGOVER_FRAMES,
   MAXIMUM_PIECE_FRAMES,
+  noiseFloor,
   planSpeechPieces,
   PRE_ROLL_FRAMES,
   SPEECH_FRAME_SAMPLES,
@@ -84,6 +85,20 @@ describe("speech spans from a track's own energy", () => {
     const spans = detectSpeechSpans(levels, threshold);
     expect(spans).toHaveLength(1);
     expect(seconds(spans[0]!.fromFrame)).toBeCloseTo(3 - PRE_ROLL_FRAMES * FRAME_SECONDS, 1);
+  });
+
+  it("leaves the recorder's own silence out of the noise floor, so a muted stretch does not make room noise speech", () => {
+    // A room at about -35 dB with nobody talking, and the first third of the region muted: the recorder
+    // wrote zeros there. Counted, those zeros put the floor at -100 dB and the threshold at its lowest
+    // bound, under the room itself.
+    const track = noise(15, 600, 3);
+    track.fill(0, 0, 5 * RATE);
+    const levels = frameLevels(track);
+    expect(noiseFloor(levels)).toBeGreaterThan(-60);
+    expect(planSpeechPieces(levels, { final: true }).pieces).toEqual([]);
+    // And somebody who then speaks over that room is still heard.
+    addTone(track, 8, 10, 12_000);
+    expect(planSpeechPieces(frameLevels(track), { final: true }).pieces).toHaveLength(1);
   });
 
   it("hears nothing in digital silence or in noise alone", () => {

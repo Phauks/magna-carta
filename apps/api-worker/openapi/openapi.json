@@ -16723,12 +16723,25 @@
           },
           "transcript": {
             "$ref": "#/components/schemas/MeetingTranscriptSummary"
+          },
+          "linesWithheld": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "removed",
+              "held",
+              "unavailable",
+              null
+            ]
           }
         },
         "required": [
           "data",
           "nextCursor",
-          "transcript"
+          "transcript",
+          "linesWithheld"
         ]
       },
       "MeetingTranscriptSegment": {
@@ -71827,7 +71840,7 @@
     },
     "/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript": {
       "get": {
-        "description": "The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.",
+        "description": "The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. The lines are served only while the transcript's filed document exists, is not in the trash and is not held by the scan; otherwise the header is answered with no lines and linesWithheld says why. Every page of lines served is audited, naming identifiers and never the words. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.",
         "operationId": "meetings.recordingTranscript",
         "tags": [
           "meetings"
@@ -71837,7 +71850,7 @@
         "x-mc-authenticated": true,
         "x-mc-permission": "meetings:join",
         "x-mc-resource": "firm",
-        "x-mc-audited": false,
+        "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",

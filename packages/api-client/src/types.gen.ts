@@ -3967,6 +3967,7 @@ export type MeetingTranscriptPage = {
     data: Array<MeetingTranscriptSegment>;
     nextCursor: string | null;
     transcript: MeetingTranscriptSummary;
+    linesWithheld: 'removed' | 'held' | 'unavailable' | null;
 };
 
 export type MeetingTranscriptSegment = {

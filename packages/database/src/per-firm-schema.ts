@@ -11556,8 +11556,13 @@ export const meetingTranscript = sqliteTable(
     modelId: text("model_id"),
     segmentCount: integer("segment_count"),
     wordCount: integer("word_count"),
-    // Seconds of audio sent to the speech model, which is what the model is billed by.
+    // SUPERSEDED by `transcribed_milliseconds` and no longer written: each piece's seconds were rounded
+    // to a whole number before they were added, so every piece under half a second counted as none.
+    // Kept where it stands because the table is a parent and dropping a column is a rebuild.
     transcribedSeconds: integer("transcribed_seconds").notNull().default(0),
+    // Milliseconds of audio sent to the speech model, which is what the model is billed by, added up
+    // exactly piece by piece.
+    transcribedMilliseconds: integer("transcribed_milliseconds").notNull().default(0),
     // The filed WebVTT document, once the transcript is ready.
     fileId: text("file_id")
       .$type<FileId>()
@@ -11574,6 +11579,9 @@ export const meetingTranscript = sqliteTable(
     // the key), once the filing has begun.
     uploadSessionId: text("upload_session_id"),
     attempts: integer("attempts").notNull().default(0),
+    // How many windows in a row met a speech model that refused for now, with no progress between them:
+    // the count a transient outage is outlasted by (each retry backs off further), reset by progress.
+    modelFailures: integer("model_failures").notNull().default(0),
     progressAt: text("progress_at"), // ISO-8601 instant
     claimedAt: text("claimed_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
@@ -11596,6 +11604,13 @@ export const meetingTranscript = sqliteTable(
       "meeting_transcript_cursor_check",
       sql`${table.cursorTrack} >= 0 AND ${table.cursorSample} >= 0 AND ${table.segmentsWritten} >= 0
         AND ${table.transcribedSeconds} >= 0 AND ${table.attempts} >= 0`,
+    ),
+    // Carried by the two columns' own ADD in the migration that added them, which is the only way a
+    // CHECK lands on a parent table without a rebuild.
+    check("meeting_transcript_model_failures_check", sql`${table.modelFailures} >= 0`),
+    check(
+      "meeting_transcript_transcribed_milliseconds_check",
+      sql`${table.transcribedMilliseconds} >= 0`,
     ),
   ],
 );

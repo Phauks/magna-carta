@@ -41,7 +41,7 @@ const TRANSCRIPT_COLUMNS = [
   "model_id",
   "segment_count",
   "word_count",
-  "transcribed_seconds",
+  "transcribed_milliseconds",
   "file_id",
   "file_version_id",
   "failure_error_id",
@@ -50,6 +50,7 @@ const TRANSCRIPT_COLUMNS = [
   "segments_written",
   "upload_session_id",
   "attempts",
+  "model_failures",
   "progress_at",
   "claimed_at",
   "created_at",
@@ -346,11 +347,13 @@ export function insertTranscriptSegmentStatement(
 
 /**
  * THE CURSOR MOVED: from where this consumer claimed it to where it now stands, with the segments it
- * wrote counted, the seconds of audio the model was sent added, and the model and language recorded the
- * first time the model names them. Guarded by the caller on the cursor it moved FROM and on its own
- * claim, so a consumer whose lease ran out and was taken over writes nothing. Progress resets the
- * hand-on count. With `releaseClaim` the claim is let go in the same write — the consumer is handing
- * the next window to the queue.
+ * wrote counted, the milliseconds of audio the model was sent added, and the model and language recorded
+ * the first time they are named (a language only from a piece the caller judged long enough to name it).
+ * Guarded by the caller on the cursor it moved FROM and on its own claim, so a consumer whose lease ran
+ * out and was taken over writes nothing. Progress resets BOTH counts of trying without progress — the
+ * sweep's hand-ons and the model's refusals — so a long transcript that keeps moving is never one strike
+ * down for good. With `releaseClaim` the claim is let go in the same write — the consumer is handing the
+ * next window to the queue.
  */
 export function recordTranscriptProgressStatement(
   database: SqlDatabase,
@@ -359,7 +362,7 @@ export function recordTranscriptProgressStatement(
     readonly claimedAt: string;
     readonly from: TranscriptCursor;
     readonly to: TranscriptCursor;
-    readonly transcribedSeconds: number;
+    readonly transcribedMilliseconds: number;
     readonly modelId: string | null;
     readonly language: string | null;
     readonly releaseClaim: boolean;
@@ -369,9 +372,9 @@ export function recordTranscriptProgressStatement(
   return database
     .prepare(
       `UPDATE ${MEETING_TRANSCRIPT_TABLE} SET cursor_track = ?, cursor_sample = ?, ` +
-        `segments_written = ?, transcribed_seconds = transcribed_seconds + ?, ` +
+        `segments_written = ?, transcribed_milliseconds = transcribed_milliseconds + ?, ` +
         `model_id = COALESCE(model_id, ?), language = COALESCE(language, ?), ` +
-        `progress_at = ?, attempts = 0, ` +
+        `progress_at = ?, attempts = 0, model_failures = 0, ` +
         `claimed_at = CASE WHEN ? = 1 THEN NULL ELSE claimed_at END, updated_at = ? ` +
         `WHERE id = ? AND state = 'pending' AND claimed_at = ? AND cursor_track = ? ` +
         `AND cursor_sample = ? AND segments_written = ?`,
@@ -380,7 +383,7 @@ export function recordTranscriptProgressStatement(
       input.to.track,
       input.to.sample,
       input.to.segmentsWritten,
-      input.transcribedSeconds,
+      input.transcribedMilliseconds,
       input.modelId,
       input.language,
       input.now,
@@ -474,23 +477,61 @@ export function readyTranscriptStatement(
 
 /**
  * A TRANSCRIPT THAT CANNOT BE FINISHED: `failed`, with the Error ID the standard pipeline recorded and
- * never a message. Guarded by the caller on `pending`, so a failure that lost the race to a filing rolls
- * back whole rather than abandoning the version of a document already on the matter.
+ * never a message. Guarded by the caller, on three things:
+ *
+ *   - `pending`, so a failure that lost the race to a filing rolls back whole rather than abandoning the
+ *     version of a document already on the matter;
+ *   - the upload session the failure READ (none, or the one it is aborting), so a filing that began
+ *     between the read and this write — a session the failure knows nothing of and would leave open on
+ *     the matter — refuses it rather than being stranded;
+ *   - for the sweep, the claim and the last progress it read (`untouched`), so a transcript a consumer
+ *     claimed or moved after the sweep judged it stalled is not failed under the consumer reading it.
  */
 export function failTranscriptStatement(
   database: SqlDatabase,
   input: {
     readonly id: MeetingTranscriptId;
     readonly failureErrorId: string;
+    readonly uploadSessionId: string | null;
+    readonly untouched?: { readonly progressAt: string | null; readonly claimedAt: string | null };
     readonly now: string;
   },
 ): SqlStatement {
+  const untouched =
+    input.untouched === undefined ? "" : ` AND progress_at IS ? AND claimed_at IS ?`;
   return database
     .prepare(
       `UPDATE ${MEETING_TRANSCRIPT_TABLE} SET state = 'failed', failure_error_id = ?, ` +
-        `claimed_at = NULL, updated_at = ? WHERE id = ? AND state = 'pending'`,
+        `claimed_at = NULL, updated_at = ? WHERE id = ? AND state = 'pending' ` +
+        `AND upload_session_id IS ?${untouched}`,
     )
-    .bind(input.failureErrorId, input.now, input.id);
+    .bind(
+      input.failureErrorId,
+      input.now,
+      input.id,
+      input.uploadSessionId,
+      ...(input.untouched === undefined
+        ? []
+        : [input.untouched.progressAt, input.untouched.claimedAt]),
+    );
+}
+
+/**
+ * THE SPEECH MODEL REFUSED FOR NOW, and this consumer lets go of the window it held: one more refusal
+ * counted, the claim released so the retry can take it, and `progress_at` stamped — the retry is a
+ * hand-on, scheduled, and the sweep must not judge a transcript waiting on it stalled. Guarded by the
+ * caller on its own claim, so a consumer whose lease ran out and was taken over counts nothing.
+ */
+export function recordTranscriptModelFailureStatement(
+  database: SqlDatabase,
+  input: { readonly id: MeetingTranscriptId; readonly claimedAt: string; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_TRANSCRIPT_TABLE} SET model_failures = model_failures + 1, claimed_at = NULL, ` +
+        `progress_at = ?, updated_at = ? WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
+    )
+    .bind(input.now, input.now, input.id, input.claimedAt);
 }
 
 /** A stalled transcript handed on again: one more attempt counted, the stall measured from now. */
