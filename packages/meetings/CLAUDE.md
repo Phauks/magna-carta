@@ -367,7 +367,7 @@ answering. The summary writes nothing, because opening the link is a read.
 
 `recording-types.ts` / `recording-statements.ts` / `recording-service.ts` are the recording's trio,
 `settings.ts` holds its four firm switches (all default off — recording, captions, summaries — and the
-track ceiling), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
+track ceiling, written only by the Worker's `routes/meeting-settings.ts`), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
 envelope plus the mono fold, the silence and the sequence-gap arithmetic. `pcm-mix.ts` is the compose
 step's mixer — tracks at their own offsets, summed in 32 bits and clamped ONCE, a window at a time so
 memory never grows with the recording — and `wav.ts` the 44-byte canonical header for mono 48 kHz
@@ -568,3 +568,28 @@ recording and its meeting, and its words are served only while the transcript's 
 (`transcriptLinesWithheldBy`); nothing here deletes the rows when that document is purged, on the
 transcript's terms (A55). An action item becomes a task through the task subsystem's `createMatterTask`
 and no other path.
+
+## A live caption is the same words heard a moment earlier, and nothing here keeps one
+
+`caption-sessions.ts` is the whole of what this package holds for live captions: arithmetic and nothing
+else — no statement, no table, no row. The Worker's `meeting-captioner.ts` and `room/room-captions.ts`
+drive it; the design and its amendments (A81 onward) are in the recording spec.
+
+Three rules travel with it.
+
+**Every number is stated once, with its reason, here.** When a quiet speaker's session closes
+(`CAPTION_SILENCE_CLOSE_MILLISECONDS`, three seconds — the single largest cost decision in captions),
+when a session without its audio gives up, when a stalled stream is kept alive, how many sessions a
+meeting holds (`CAPTION_SESSION_CEILING`, a cost bound and not a memory one), how much audio waits while
+a stream opens, how often one speaker's interim may go out, and the room-wide budget every caption
+spends from (`CAPTION_FRAME_BUDGET_PER_SECOND`, half what a browser may itself send). The budget and the
+interim window are pure functions of the instants a caller hands in; nothing here reads a clock.
+
+**A final is never held back.** `spendCaptionFrameBudget` lets a final through whether or not a token is
+left, and an interim waits; nothing later restates a final, and an interim is restated by the next guess.
+
+**The words a caption carries are made safe for every screen** (`captionText`): one line, no control,
+bidirectional or invisible characters, cut at `CAPTION_TEXT_MAXIMUM_CHARACTERS` characters as a reader
+counts them, never inside one. The caption is never stored, so the repo-wide scan in
+`test/no-transcript-text-escape.test.ts` reads every module that imports this one or names a caption's
+shape, on the transcript's terms.

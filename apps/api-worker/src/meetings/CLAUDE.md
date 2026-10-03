@@ -53,7 +53,8 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   hosts receive, the two decisions the routes call back with, and the door's own share of the grace
   sweep.
 - `room/room-hosting.ts` — running the room from inside it: the four acts a host performs as a frame
-  (mute one, mute everybody else, ask to unmute, spotlight), and the three the hosting routes call
+  (mute one, mute everybody else, ask to unmute, spotlight — and lowering hands and switching captions,
+  each authorized here and carried out by its own module), and the three the hosting routes call
   back into the room after their own writes commit (`hostingChanged`, `participantRemoved`,
   `roomStateChanged`).
 - `room/room-diagnostics.ts` — the room's one emitter: the `meetings.room.*` event family through the
@@ -189,6 +190,31 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
   `routes/meeting-sink.ts`, outside the chokepoint.
+- `meeting-captioner.ts` — `MeetingCaptioner`, one per MEETING (`firmId:meetingId`), NOT hibernating
+  while a session is open: LIVE CAPTIONS. A sibling of the recorder rather than a part of it (the
+  recording spec's A81 has the arithmetic — captions are the meeting's and run with or without a
+  recording, the recorder's isolate is spent on its eleven buffers, and a caption must hear anybody in a
+  room of three hundred). The room tells it when somebody's `speaking` moves; a start opens a SESSION —
+  a routing-service adapter on their microphone dialling back through the sink route, and
+  `InferencePort.openCaptionStream` — and a stop closes it three seconds later on its alarm, the model
+  asked to finish so its last words still arrive. Interims are coalesced to one per speaker per half
+  second and every caption spends from a room-wide budget of ten a second; a final is never held. The
+  words go to the room (`captionHeard`) and are kept NOWHERE; its storage holds the meeting's identity,
+  the handles of adapters it holds open (closed again on a restart) and counts. At most eight sessions.
+  The firm's switch is read again at every open; off, it closes everything and tells the room
+  (`captionsWithdrawn`). A model that fails closes that speaker's session and nothing else. A test
+  installs the model port and the clock through `setCaptionInferencePortForTests` and
+  `setCaptionerClockForTests`; the arithmetic is `@magna-carta/meetings/caption-sessions`.
+- `caption-sink-token.ts` — a caption adapter's address: the recorder's path and secret, its own `typ`
+  (`meeting-caption-sink`), naming the firm, the meeting, the stay and the adapter's nonce. The sink route
+  asks the recorder's kind first, then this one, and forwards to the object the verified kind names.
+- `caption-binding.ts` — where the captioner is found (`captionerFor`), typed over the environment here
+  rather than on `Bindings`; optional, and its absence reads as captions not configured.
+- `room/room-captions.ts` — the room's half of captions: the host's `captions` frame (authorized in
+  `room-hosting.ts`, refused `captions-unavailable` where the firm or the deployment does not allow it),
+  the switch on the room state (absent while off, so an uncaptioned room's state is unchanged), the
+  captioner told about `speaking` in the background, and each caption relayed per kind of reader — a
+  guest's copy carries no firm identifier — and stored nowhere.
 - `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit (sessions,
   tracks, and the WebSocket adapter's open and close), and the test seam a meeting-room test installs a
   fake through.
@@ -199,6 +225,15 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 
 ## Local rules
 
+- **The firm's four meeting switches have one writer, and it is not in this directory.**
+  `meetings.recordingEnabled`, `captionsEnabled`, `summariesEnabled` and `recordedTrackCeiling`
+  (`packages/meetings/src/settings.ts`) are read here and by the start route, and written only by
+  `../routes/meeting-settings.ts` (`GET`/`PATCH /api/v1/firm/meetings/settings`, behind
+  `meetings:manageSettings`, Owner/Admin by seed, audited as `firm.meeting_settings_updated`). That
+  route also reports `recordingServiceConfigured` from `recordingDeploymentConfigured` in
+  `../routes/meetings.ts` — the same bindings check the start route's 503 reads — so a new binding the
+  recorder needs goes into that one function and both answers move together. Nothing here writes a
+  setting, and a reader added here reads through `readFirmSetting`, never a cached copy.
 - **The frames come from the protocol package, never from here.** Every schema, builder, refusal
   reason and constant on the wire is `@magna-carta/meeting-protocol/frames`, which the browser
   imports too. A frame shape declared in this directory is a second declaration of a contract that
@@ -331,15 +366,21 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   who has no user to name. A new frame carrying a user identifier goes through the same projection;
   a broadcast of one shared payload would hand a guest the firm's identifiers. The hosts' `waiting`
   list carries `kind` and, for a guest, `invitedName` beside the name typed at the door.
-- **The media crosses this directory in one place only: the recorder.** Audio, video and screen share
-  go directly between a browser and Realtime, and the room never holds a frame of any of them. The
-  one exception is `meeting-recorder.ts`, which receives each recorded participant's audio from the
-  routing service's WebSocket adapter while a recording runs and stages it to the firm's own bucket;
-  it holds one fixed buffer per open track in memory, writes no audio to its own storage, and no telemetry
-  field, refusal or log line it emits can carry a track name, a display name, a sink token or an
-  object key. Nothing else here has a redaction step because there is nothing else here to redact —
-  and an upstream body is never carried into a refusal, because it can name the application the whole
-  fleet's meetings run on.
+- **The media crosses this directory in two places only: the recorder and the captioner.** Audio,
+  video and screen share go directly between a browser and Realtime, and the room never holds a frame
+  of any of them. The exceptions are `meeting-recorder.ts`, which receives each recorded participant's
+  audio from the routing service's WebSocket adapter while a recording runs and stages it to the firm's
+  own bucket, and `meeting-captioner.ts`, which receives a speaker's audio the same way while they speak
+  and streams it to the caption model. The recorder holds one fixed buffer per open track in memory and
+  writes no audio to its own storage; the captioner holds at most two seconds a session and writes
+  neither audio nor words anywhere. No telemetry field, refusal or log line either emits can carry a
+  track name, a display name, a sink token, an object key or a word heard. Nothing else here has a
+  redaction step because there is nothing else here to redact — and an upstream body is never carried
+  into a refusal, because it can name the application the whole fleet's meetings run on.
+- **A caption is a display, never a record.** The room relays each caption the instant it arrives and
+  writes none — not even in the per-second coalescing bucket, which is a storage key; interims are
+  coalesced in the captioner's memory instead. The room holds the switch (that captions are on, and
+  which host's stay turned them on) and nothing else about them.
 - **A direct reply to one socket goes through `trySend`, never `socket.send`.** `send` on a closed
   socket THROWS, and a throw out of `webSocketMessage` does not fail one frame — the runtime resets
   the object, which drops every socket in the meeting. So one member's browser closing between the

@@ -1341,7 +1341,7 @@ async function commitEffect<T>(
  * sink address with, a recorder to hand the audio to, and an origin the routing service can dial
  * back. A fact about bindings, not about any firm or member.
  */
-function recordingDeploymentConfigured(env: Bindings): boolean {
+export function recordingDeploymentConfigured(env: Bindings): boolean {
   return (
     sfuClientForEnv(env) !== null &&
     sinkSigningKeyForEnv(env) !== null &&

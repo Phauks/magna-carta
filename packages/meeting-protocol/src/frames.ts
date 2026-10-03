@@ -3,6 +3,7 @@ import {
   MEETING_CONNECTION_QUALITIES,
   MEETING_REACTIONS,
   PREFERRED_RIDS,
+  type MeetingCaption,
   type MeetingChatMessage,
   type MeetingPollOptionCount,
   type MeetingPollSnapshot,
@@ -376,6 +377,22 @@ const lowerHandsFrame = z.object({
   participantId: participantHandle.nullable(),
 });
 
+/**
+ * LIVE CAPTIONS ON OR OFF, FOR THE WHOLE ROOM — a host's frame, on the spotlight's terms.
+ *
+ * A FRAME AND NOT A ROUTE, by the rule the frames above are: captions are about this moment and leave
+ * nothing behind — no caption is stored anywhere — so there is nothing anybody could later ask who did.
+ * What a firm decides is whether captions may run at all (`meetings.captionsEnabled`); what a host
+ * decides here is whether they run in this room now. The room answers with `room-state`, whose
+ * `captions` says what is true afterwards, or refuses `captions-unavailable` when the firm or the
+ * deployment does not allow them — and `not-host` to a socket holding no grant.
+ */
+const captionsFrame = z.object({
+  ...versioned,
+  type: z.literal("captions"),
+  enabled: z.boolean(),
+});
+
 /** One participant on every screen, or null to clear it. A room-level fact, not a per-browser one. */
 const spotlightFrame = z.object({
   ...versioned,
@@ -455,6 +472,7 @@ export const MeetingClientFrame = z.union([
   askToUnmuteFrame,
   lowerHandsFrame,
   spotlightFrame,
+  captionsFrame,
   diagnosticReportFrame,
   pingFrame,
 ]);
@@ -526,6 +544,11 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   // voice is being captured is told — and never to the lobby, where nobody is being recorded. Start
   // and stop are ROUTES: the browser sends nothing new on the socket to cause either.
   "recording",
+  // WORDS SOMEBODY IS SAYING, while captions run — interim and final, to every WELCOMED socket and
+  // never to the lobby, which is outside the conversation they are words of. Never stored by the room
+  // and never sent twice: a browser that misses one draws the next. Whether captions are on rides
+  // `room-state`, not a frame of its own.
+  "caption",
   "ended",
   "refused",
   "pong",
@@ -614,6 +637,11 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // Decided before the routing client is even resolved, so a waiter's frame never costs a session
   // at the routing service.
   "not-admitted",
+  // A HOST ASKED FOR CAPTIONS THE ROOM CANNOT RUN — the firm has not switched them on, or this
+  // deployment cannot route meeting audio to the caption model. NON-FATAL, socket open: nothing about
+  // the meeting changed, and the host's screen says why the control did nothing. Also why captions
+  // that were running are turned off by the room itself, which `room-state` then announces.
+  "captions-unavailable",
   // The meeting closed while this socket was open.
   "meeting-ended",
 ] as const);
@@ -724,6 +752,18 @@ export function welcomeFrame(
  */
 export function recordingFrame(announcement: MeetingRecordingAnnouncement): string {
   return frame({ type: "recording", ...announcement });
+}
+
+/**
+ * ONE CAPTION, to every welcomed socket — interim or final, see `MeetingCaption`.
+ *
+ * Built per kind of reader, like every frame that names a firm user: a guest's copy carries
+ * `userId: null` for everybody. Interim captions are COALESCED before they are sent, so a browser sees
+ * a bounded number a second however fast the model guesses; a final caption is never held back and
+ * never dropped, because nothing later restates it.
+ */
+export function captionFrame(caption: MeetingCaption): string {
+  return frame({ type: "caption", ...caption });
 }
 
 /** The answer to the browser's offer, and where each published track landed. */
@@ -1073,6 +1113,8 @@ export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): st
 }
 
 export type {
+  MeetingCaption,
+  MeetingCaptionsState,
   MeetingChatMessage,
   MeetingConnectionQuality,
   MeetingHostRole,

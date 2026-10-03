@@ -4,9 +4,10 @@ The single credential-less chokepoint every AI feature reaches a model through. 
 Hono, no `env` in the contract surface; the implementation receives the authenticated `AI` binding and
 the firm-scoped read result as injected parameters.
 
-- `InferencePort` (`src/port.ts`) names four operation families: text generation (buffered / streaming /
+- `InferencePort` (`src/port.ts`) names five operation families: text generation (buffered / streaming /
   durable Workflow-invocable), buffered generation over a multi-turn CONVERSATION, the
-  platform-FIXED embedding op, and the platform-FIXED speech-to-text op (`transcribe`). The reasoning
+  platform-FIXED embedding op, the platform-FIXED speech-to-text op (`transcribe`), and the
+  platform-FIXED live-caption STREAM (`openCaptionStream`). The reasoning
   model id is an explicit per-call parameter (read per call site through the firm-scoped data-access
   layer), never on a connection or context. The embedding and transcription ops take NO
   firm-selectable model argument — per-firm variation is unrepresentable in the signature (an
@@ -137,6 +138,22 @@ the firm-scoped read result as injected parameters.
   same retryable `upstream` problem, and refuses empty audio before dispatch as `validation`. Missing
   segment timings yield an empty list, never an invented span; `audioSeconds` falls back from the
   provider's `transcription_info.duration` to the WAV header (`src/wav-duration.ts`).
+- `openCaptionStream` (`src/port.ts`, implemented in `src/gateway.ts`) closes over the catalog's single
+  `captioning` entry (`PLATFORM_CAPTION_MODEL_ID`, `@cf/deepgram/nova-3`; module-load validation requires
+  exactly one, and it is never on the firm roster). A STREAM rather than a request: the caller pushes
+  audio in the port's fixed format (mono 16-bit little-endian PCM at 48 kHz, what a meeting's routing
+  service delivers once folded to one channel) and receives interim and final answers through
+  `onResult`, and one `onEnd` (`closed` or `failed`). The gateway opens it with
+  `env.AI.run(model, input, { gateway, websocket: true })` and accepts the socket on the Response's
+  `webSocket`; every input is a string, because the binding carries them in the socket's address. Four
+  pins with reasons: `linear16` at 48 kHz on one channel (nothing transcoded), `interim_results` on (a
+  caption is live), `diarize` off (the speaker is the caller's track, never a model's numbered guess)
+  and `mip_opt_out` on (the publisher's model-improvement programme refused). The same gateway options
+  ride the request, but **the binding's socket path posts to `/run`, not `/ai-gateway/run`** (read in the
+  workerd source, cited in `gateway.ts`), so the gateway is not on that path at all — nothing is cached
+  or logged there, and the caller meters the audio it sent (`audioMillisecondsSent`). A missing socket
+  or a thrown binding error is the same retryable `upstream` problem as everywhere else. The sources and
+  what is not yet confirmed against a live call are written beside the adapter — re-read them there.
 - `createStubInferencePort()` (`src/stub.ts`) is a COMPLETE, deterministic implementation of the port
   that reaches no provider: no network, no binding, no randomness, no clock, fixed snapshot id
   `"stub"`, deterministic non-zero usage. It is not a test double for one feature — every AI feature
@@ -147,7 +164,10 @@ the firm-scoped read result as injected parameters.
   the stub: it reaches no provider, so refusing there would test nothing and would hide a real failure
   of the gateway port's own fail-closed check. Its `transcribe` returns one segment spanning the
   WAV's playing time, text `[stub inference] <n> bytes of audio`, the language hint echoed (or null),
-  and model id `"stub"`, so a consumer test can predict the transcript from the bytes it sent.
+  and model id `"stub"`, so a consumer test can predict the transcript from the bytes it sent. Its
+  `openCaptionStream` answers every run of audio at once with an interim naming the bytes heard in the
+  stretch, and makes the stretch final each time it reaches one second of audio
+  (`STUB_CAPTION_FINAL_EVERY_BYTES`); a close answers what the stretch holds as final and ends `closed`.
 
 **Gateway Guardrails must never be enabled on this gateway.** They intercept and evaluate both
 prompts and responses and produce logs of user prompts and model responses — a retention surface

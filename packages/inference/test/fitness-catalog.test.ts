@@ -12,6 +12,10 @@ describe("catalog zdrEligible invariant (fitness)", () => {
     expect(CATALOG.filter((e) => e.slot === "embedding")).toHaveLength(1);
   });
 
+  it("exactly one captioning entry exists (the platform-fixed live-caption model)", () => {
+    expect(CATALOG.filter((e) => e.slot === "captioning")).toHaveLength(1);
+  });
+
   it("exactly one transcription entry exists (the platform-fixed speech-to-text model)", () => {
     expect(CATALOG.filter((e) => e.slot === "transcription")).toHaveLength(1);
   });
@@ -48,6 +52,8 @@ describe("recorded provenance is the provider's, not something that resembles it
       "@cf/baai/bge-large-en-v1.5": "bge-large-en-v1.5-vectorize-index-v1",
       // Published dateless: Cloudflare issues no dated form of its Workers AI model ids.
       "@cf/openai/whisper-large-v3-turbo": "@cf/openai/whisper-large-v3-turbo",
+      // Published dateless, for the same reason: the live-caption model.
+      "@cf/deepgram/nova-3": "@cf/deepgram/nova-3",
     });
   });
 });

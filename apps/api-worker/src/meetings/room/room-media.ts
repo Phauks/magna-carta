@@ -1,3 +1,4 @@
+import { captionParticipantGone } from "./room-captions.ts";
 import {
   closedFrame,
   layeredFrame,
@@ -653,6 +654,9 @@ export async function releaseParticipant(room: RoomContext, attendanceId: string
   // A spotlight on an empty chair would leave every browser drawing the large tile for somebody who
   // is not here and asking the routing service for their full layer.
   await clearSpotlightFor(room, [attendanceId]);
+  // And a caption session for somebody who has gone would go on billing the caption model for a
+  // microphone nobody is speaking into; it closes now rather than when its audio goes quiet.
+  await captionParticipantGone(room, attendanceId);
   if (participant !== undefined) {
     await releaseMedia(
       room,

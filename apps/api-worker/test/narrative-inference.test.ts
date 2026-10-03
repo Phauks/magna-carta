@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  CaptionStream,
+  CaptionStreamInput,
   ConversationInput,
   EmbedInput,
   EmbeddingResult,
@@ -65,6 +67,10 @@ function recordingPort(calls: GenerateInput[]): InferencePort {
     transcribe: async (input: TranscribeInput): Promise<Dispatch<TranscriptionResult>> => {
       calls.push(input as unknown as GenerateInput);
       throw new Error("transcribe must not be reached when the gate is off");
+    },
+    openCaptionStream: async (input: CaptionStreamInput): Promise<Dispatch<CaptionStream>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("openCaptionStream must not be reached when the gate is off");
     },
   };
 }

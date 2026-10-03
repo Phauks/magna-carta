@@ -37146,6 +37146,60 @@
           }
         }
       },
+      "FirmMeetingSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "recordingEnabled": {
+            "type": "boolean"
+          },
+          "captionsEnabled": {
+            "type": "boolean"
+          },
+          "summariesEnabled": {
+            "type": "boolean"
+          },
+          "recordedTrackCeiling": {
+            "type": "integer"
+          },
+          "recordedTrackCeilingMaximum": {
+            "type": "integer"
+          },
+          "recordingServiceConfigured": {
+            "type": "boolean"
+          },
+          "aiProcessingEligible": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "recordingEnabled",
+          "captionsEnabled",
+          "summariesEnabled",
+          "recordedTrackCeiling",
+          "recordedTrackCeilingMaximum",
+          "recordingServiceConfigured",
+          "aiProcessingEligible"
+        ]
+      },
+      "PatchFirmMeetingSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "recordingEnabled": {
+            "type": "boolean"
+          },
+          "captionsEnabled": {
+            "type": "boolean"
+          },
+          "summariesEnabled": {
+            "type": "boolean"
+          },
+          "recordedTrackCeiling": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 11
+          }
+        }
+      },
       "ConversionUploadResponse": {
         "type": "object",
         "properties": {
@@ -115080,6 +115134,203 @@
         }
       }
     },
+    "/api/v1/firm/meetings/settings": {
+      "get": {
+        "description": "Reads the firm's meeting settings: whether a meeting may be recorded, whether live captions may run, whether a recorded meeting is summarized, and the most people one recording hears at once, with the highest that ceiling may be set. Beside them, two facts this route never writes: whether this deployment's recording service is configured (a recording cannot start until it is), and whether the firm's third-party AI processing is on (a summary needs it as well). Every switch is off until a firm turns it on.",
+        "operationId": "firmMeetingSettings.get",
+        "tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-operationId": "firmMeetingSettings.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's meeting settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmMeetingSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks meetings:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's meeting settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. The recorded-track ceiling is a whole number from 1 to the maximum the read reports. Returns the settings after the write.",
+        "operationId": "firmMeetingSettings.update",
+        "tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-operationId": "firmMeetingSettings.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmMeetingSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's meeting settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmMeetingSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks meetings:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversions/upload": {
       "post": {
         "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
@@ -118477,6 +118728,9 @@
     },
     {
       "name": "firmAiSettings"
+    },
+    {
+      "name": "firmMeetingSettings"
     },
     {
       "name": "firmNotificationPolicy"

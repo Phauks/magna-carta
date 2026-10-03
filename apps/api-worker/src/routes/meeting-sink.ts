@@ -6,6 +6,8 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
+import { captionerFor } from "../meetings/caption-binding.ts";
+import { verifyCaptionSinkToken } from "../meetings/caption-sink-token.ts";
 import { realtimeLoggerFor } from "../meetings/sfu/realtime-failure.ts";
 import {
   MEETING_SINK_PATH_PREFIX,
@@ -41,6 +43,14 @@ import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 // the routing service learns nothing by asking. The token itself is never logged, counted or echoed;
 // the event records only which of the four kinds of refusal it was.
 //
+// THE SAME ADDRESS CARRIES A CAPTION SESSION'S AUDIO. A token signed as a caption sink token
+// (meetings/caption-sink-token.ts, its own `typ` under the same secret) names a meeting and a stay rather
+// than a recording and a track, and is forwarded to that meeting's captioner instead. There is no row to
+// read back for it — a caption session is not a record — so the captioner is the authority on whether
+// that stay's session is open and this is its adapter, and refuses anything else with the same bare 404.
+// One address for both, because the adapter is one mechanism and the zone route that reaches this path
+// is one operator step.
+//
 // A FIRM IS NAMED BY THE TOKEN AND ONLY BY THE TOKEN. The recorder is addressed `${firmId}:${recordingId}`
 // from the verified claims, so a token minted for one firm reaches that firm's recorder and nothing
 // else — the same scoping every Durable Object this Worker addresses keeps.
@@ -60,6 +70,21 @@ function refuse(env: Bindings, reason: "origin" | "upgrade" | "token" | "settled
   return new Response(null, { status });
 }
 
+/**
+ * The answer to the routing service, from the object that took (or refused) its socket. The object's
+ * own refusal — an earlier adapter's token, a second dial against a live socket, a session that is not
+ * open — is the same bare 404 as every other, recorded as a token that no longer opens anything. A
+ * client that offered subprotocols fails a handshake whose answer names none of them, so the answer
+ * names the bare protocol — never the token.
+ */
+function answerUpgrade(env: Bindings, upgraded: Response, offeredProtocolToken: string | null) {
+  if (upgraded.status !== 101) return refuse(env, "token", 404);
+  if (offeredProtocolToken === null) return upgraded;
+  const headers = new Headers(upgraded.headers);
+  headers.set("sec-websocket-protocol", MEETING_SINK_SOCKET_PROTOCOL);
+  return new Response(null, { status: 101, webSocket: upgraded.webSocket, headers });
+}
+
 export function registerMeetingSinkRoute(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
 ): void {
@@ -69,10 +94,9 @@ export function registerMeetingSinkRoute(
     if (!isWebSocketUpgrade(c.req.raw)) return refuse(c.env, "upgrade", 426);
 
     const key = sinkSigningKeyForEnv(c.env);
-    const recorders = c.env.MEETING_RECORDER;
-    // A deployment that cannot record has no recorder to hand a socket to, and says so the way every
-    // other refusal here does.
-    if (key === null || recorders === undefined) return refuse(c.env, "token", 404);
+    // A deployment that signs no addresses has nothing to admit, and says so the way every other
+    // refusal here does.
+    if (key === null) return refuse(c.env, "token", 404);
     const offeredProtocolToken = sinkTokenFromSocketProtocols(
       c.req.header("sec-websocket-protocol"),
     );
@@ -85,7 +109,25 @@ export function registerMeetingSinkRoute(
     }
     const token = pathToken !== "" ? pathToken : (offeredProtocolToken ?? "");
     const claims = await verifySinkToken(key, token, Date.now());
-    if (claims === null) return refuse(c.env, "token", 404);
+    if (claims === null) {
+      const captionClaims = await verifyCaptionSinkToken(key, token, Date.now());
+      if (captionClaims === null) return refuse(c.env, "token", 404);
+      const captioner = captionerFor(c.env, captionClaims.firmId, captionClaims.meetingId);
+      if (captioner === null) return refuse(c.env, "token", 404);
+      const inward = new URL("https://meeting-captioner.invalid/sink");
+      inward.searchParams.set("participant", captionClaims.participantId);
+      inward.searchParams.set("adapter", captionClaims.adapterNonce);
+      return answerUpgrade(
+        c.env,
+        await captioner.fetch(
+          new Request(inward.toString(), { headers: { Upgrade: "websocket" } }),
+        ),
+        offeredProtocolToken,
+      );
+    }
+    // A deployment that cannot record has no recorder to hand a recording's socket to.
+    const recorders = c.env.MEETING_RECORDER;
+    if (recorders === undefined) return refuse(c.env, "token", 404);
 
     // THE RECORD, AFTER THE SIGNATURE: still running, and this track ROW still open. The platform's
     // own read — the routing service is not a member and there is no visibility to compose.
@@ -105,15 +147,7 @@ export function registerMeetingSinkRoute(
     const upgraded = await recorder.fetch(
       new Request(inward.toString(), { headers: { Upgrade: "websocket" } }),
     );
-    // The recorder's own refusal — an earlier adapter's token, or a second dial against a live socket
-    // — is the same bare 404 as every other, recorded as a token that no longer opens anything.
-    if (upgraded.status !== 101) return refuse(c.env, "token", 404);
-    // A client that offered subprotocols fails a handshake whose answer names none of them, so the
-    // answer names the bare protocol — never the token.
-    if (offeredProtocolToken === null) return upgraded;
-    const headers = new Headers(upgraded.headers);
-    headers.set("sec-websocket-protocol", MEETING_SINK_SOCKET_PROTOCOL);
-    return new Response(null, { status: 101, webSocket: upgraded.webSocket, headers });
+    return answerUpgrade(c.env, upgraded, offeredProtocolToken);
   };
   // Registered as literal paths so the worker-first routing scan can match them against the
   // `/internal/*` family the Worker is routed.

@@ -4,7 +4,8 @@
 routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Slice R2's
 server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Slice R3's server half (the
 transcript of record) built 2026-10-03 (A34 to A44). Slice R5's server half (the summary) built
-2026-10-03 (A57 to A67), and corrected after its review (A68 to A80). Extends
+2026-10-03 (A57 to A67), and corrected after its review (A68 to A80). Slice R4's server half (live
+captions) built 2026-10-03 (A81 to A89). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -1660,3 +1661,163 @@ the reasoning the model does is counted inside `max_tokens` is not published, so
 for it; whether a JSON-mode request to this model honours `response_format` exactly as the schema says is
 not confirmed against a live call; Claude's one-million-token context through the AI binding may need a
 header the binding cannot send (unreachable for an English transcript within five parts).
+
+### Amendments from slice R4 — live captions
+
+Recorded 2026-10-03, as the server half of live captions was built. No migration: nothing about a
+caption is stored. Each names the section it amends and says what changed and why.
+
+**A81 — The caption feed is a sibling Durable Object, not a fork in the recorder (§6.2 step 5, §10, §16
+R4).** `MeetingCaptioner` (`apps/api-worker/src/meetings/meeting-captioner.ts`), one per MEETING, keyed
+`${firmId}:${meetingId}`, a new class with its own binding (`MEETING_CAPTIONER`) and migration tag
+(`v12-meeting-captioner`) in `wrangler.jsonc`. The recorder is unchanged. Four reasons, from the
+ownership and the memory arithmetic. **Ownership:** a recorder is one recording's and lives exactly as
+long as it, while captions are the meeting's, run with or without a recording (§10) and outlive a
+recording that stops while people talk on; captions in the recorder would have no object to live in when
+nothing is recorded and would be torn down by a stop nobody meant for them. **Memory:** the recorder's
+isolate is already spent by A13's arithmetic — eleven 6 MiB staging buffers against a 40 MiB reserve —
+and every byte a caption session added would come out of the reserve that arithmetic promises is
+untouched; the captioner holds at most eight sessions of under half a megabyte each. **Reach:** the
+recorder hears at most eleven stays, and a caption has to hear whoever speaks in a room of three
+hundred. **Isolation:** a caption model failing mid-meeting cannot reach the recording's buffers,
+uploads or alarm from another object. The cost is §12's captions-only egress line paid on top of the
+recording while both run — the speaker's audio leaves the routing service twice for the seconds they
+speak, about $0.045 a meeting-hour — which amends §12's "captions add no egress on top". The binding is
+typed in `caption-binding.ts` rather than on `Bindings`, so the change touched no file another stream
+was editing; folding it beside `MEETING_RECORDER` is a one-line move. The class is exported from
+`src/index.ts`. R4's file list therefore reads: `meeting-captioner.ts`, `caption-sink-token.ts`,
+`caption-binding.ts` and `room/room-captions.ts` (new), with wiring in `meeting-room.ts`,
+`room-frames.ts`, `room-hosting.ts`, `room-presence.ts`, `room-state.ts`, `room-lifecycle.ts`,
+`room-media.ts` and `routes/meeting-sink.ts`; `packages/meetings/src/caption-sessions.ts` (new) holds the
+arithmetic.
+
+**A82 — The model, through the chokepoint (§10).** `InferencePort.openCaptionStream` — one streaming
+operation, platform-fixed like `transcribe` (no model argument), audio fixed by the port at mono 16-bit
+little-endian PCM at 48 kHz so nothing is transcoded — implemented in `packages/inference/src/gateway.ts`
+and in the stub. The catalog (version 7) gains a `captioning` slot holding exactly one entry,
+`@cf/deepgram/nova-3`, off the roster a firm chooses from. The gateway opens it with
+`env.AI.run(model, input, { gateway, websocket: true })` and accepts the socket on the Response's
+`webSocket`; every input is a STRING, because the binding carries them in the socket's address:
+`encoding: "linear16"`, `sample_rate: "48000"`, `channels: "1"`, `interim_results: "true"`,
+`punctuate: "true"`, `diarize: "false"` (the speaker is the track), `mip_opt_out: "true"` (the
+publisher's model-improvement programme refused), and a well-formed BCP-47 `language` when given. Answers
+are Deepgram's `Results` messages — the words at `channel.alternatives[0].transcript`, final when
+`is_final` — and the control messages are `{"type":"KeepAlive"}` and `{"type":"CloseStream"}` as text
+frames; a close waits three seconds for the model to end the stream before closing it from this side.
+The sources, every one read 2026-10-03 and cited in `gateway.ts`: Cloudflare's Nova-3 model page and
+Workers AI changelog (WebSocket support for `@cf/deepgram/nova-3`, 2025-08-27); the Deepgram Flux
+changelog post (the binding's `websocket: true`); Cloudflare's own Agents SDK, which runs exactly this
+from inside a Durable Object (`packages/agents/src/voice/workers-ai.ts`, the `Nova3Session` class); the
+workerd source of the binding (`src/cloudflare/internal/ai-api.ts`); the AI Gateway realtime WebSocket
+page; and Deepgram's keepalive page. **The same confidentiality settings ride the request** — caching
+off, logging off, the derived firm metadata under `slot: "captioning"` — **but the binding's socket path
+posts to `/run` and never to `/ai-gateway/run`**, so the gateway is not on the path at all: nothing is
+cached or logged there because nothing passes through it, and the firm metadata is not a gateway spend
+dimension for captions. The confidentiality of the audio rests on the Workers AI data terms the catalog
+entry cites. **Not confirmed against a live call:** that the service accepts the gateway options beside
+`websocket: true` (the Agents SDK sends none), and that `channels` and `mip_opt_out` are honoured on the
+socket transport; a refusal answers `upstream`, which the captioner degrades to no captions. The stub
+answers every run of audio with an interim naming the bytes heard in the stretch and makes a stretch
+final at one second of audio (`STUB_CAPTION_FINAL_EVERY_BYTES`), with no clock.
+
+**A83 — When a session opens and closes (§10).** The room tells the captioner when somebody's
+`speaking` MOVES — `relayPresence` now answers that beside its deadline, read from the stored record, so
+the frame a room of three hundred sends most costs captions nothing unless it says something new and
+then one storage read while captions are off — and the captioner is told in the background, so a
+presence frame never waits on it. A host's mute and a departure (`releaseParticipant`) tell it too. A
+start opens a SESSION for that stay: a routing-service WebSocket adapter on their microphone, dialling the
+captioner back through the sink route on a signed caption token, and the model's stream, opened
+together; audio that arrives while the stream opens is held, at most two seconds, oldest dropped first. A
+stop starts the count: three seconds later the captioner's alarm closes the session — adapter closed,
+socket hung up, the model asked to finish so its last words still arrive as a final caption — and a start
+inside the three seconds cancels it. A session whose audio socket has been gone ten seconds (twice the
+routing service's redial window) closes for want of it; a stream with no audio for four seconds is sent a
+keepalive. At most eight sessions are open per meeting (`CAPTION_SESSION_CEILING`) — a cost bound, not a
+memory one; speakers past it are counted and not captioned. Each update carries the room's instant, and
+one older than the last the captioner acted on for that stay is ignored, so a stop overtaken by a later
+start on the way never closes a live session. Turning captions on opens a session for everybody already
+speaking. **The first words of a turn are the cost:** presence trails speech, and the adapter and the
+stream take a round trip each to open, so the opening fraction of a second of each turn may go uncaptioned;
+the three-second close keeps a session open across the pauses inside a turn. The transcript, which reads
+the staged audio, is unaffected.
+
+**A84 — The frames (§7).** Room → client `caption`: `participantId` (the stay), `userId` (the member;
+null on a guest's socket and for a guest speaker), `displayName` (the roster's name — a guest's is the
+name typed at the door), `segmentId`, `text`, `final`, `at`. `segmentId` replaces §7's `sequence`: it is
+opaque and unique per stretch of one person's speech — every interim of a stretch carries it, the final
+settles it — where a counter would restart with the captioner and collide with a line a browser had
+already settled. `displayName` is added so a caption is readable without a roster lookup. Client → room
+`captions { enabled }`: a HOST's frame, on the spotlight's terms — captions leave nothing anybody could
+later ask who did, so they are a frame and not an audited route — authorized from the stored participant
+record and refused `not-host` otherwise. Whether captions are on rides the ROOM STATE as `captions: { by,
+at }` (`by` the stay of the host who turned them on), ABSENT while they are off, so the room state of a
+room nobody captions is byte-for-byte what it was (A9's rule) and every welcome carries it; this replaces
+§7's `welcome.captions: boolean`. A new refusal, `captions-unavailable`, answers a host where the firm or
+the deployment does not allow captions, socket open. **The browser half is not built:** the
+frames-have-handlers fitness test lists `captions` and `caption` in an `AWAITING_THE_BROWSER` register
+that only shrinks — it fails the moment the browser names either, so the entry comes off in the change
+that wires the caption strip.
+
+**A85 — Nothing is stored, and what reaches a socket is bounded (§10).** A caption passes through the
+captioner's memory and the room's broadcast and is written nowhere: not in either object's storage, not
+in the firm's database, not in a log line, an Error ID or a telemetry field. The test reads both objects'
+storage after a caption for the words. Interims are COALESCED in the captioner — at most one per speaker
+per half second (`CAPTION_INTERIM_INTERVAL_MILLISECONDS`), the latest guess kept, the earlier never sent —
+and every caption spends from a room-wide budget of ten a second (`CAPTION_FRAME_BUDGET_PER_SECOND`, half
+the twenty a second a browser may itself send, so captions never ask a browser to read faster than it is
+allowed to write; every socket receives every caption, so a bound on the room is a bound on each socket).
+An interim that finds the budget spent waits; a FINAL is never held or dropped, because nothing later
+restates it. They are coalesced in the captioner rather than in the room's per-second bucket because that
+bucket is a storage key, and a caption is content the room never writes. Text is put on one line, cleaned
+of control, bidirectional and invisible characters, and cut at a thousand characters as a reader counts
+them (`captionText`). A caption arriving at the room after a host turned captions off is dropped. The
+interim's half-second window adds up to that much to §10's latency estimate.
+
+**A86 — The gate, and the AI-processing eligibility (§10, §11). An owner decision is assumed here.**
+Captions run where the firm has switched `meetings.captionsEnabled` on — read when a host turns captions
+on, and again at every session the captioner opens, so a firm that switches them off mid-meeting is
+honoured at the next person who speaks and every socket is told by the room state — and a host has turned
+them on for the room. A recording is not required. **The firm's `inference.aiProcessingEligibility` is
+NOT required**, the reading consistent with the transcript of record: the audio goes to a platform-fixed
+speech model hosted on Cloudflare, exactly as the transcript's does, and the transcript runs without that
+switch; the summary needs it (A68) because it sends a privileged conversation to a reasoning model to
+reason over, which a speech model does not do. If the owner rules that every model a meeting's content
+reaches needs the eligibility, the change is one more `readFirmSetting` beside each of the two reads above.
+
+**A87 — Failure (§14).** A model that will not open, an adapter the routing service will not open, or a
+stream that drops part-way: that speaker's session closes (only its own adapter is closed), the failure is
+recorded through the standard pipeline as `meetings.captioner.*` with an Error ID and no word, the room
+sends no frame and changes no state, and the speaker's next turn tries again. The recording is untouched
+— it is another object and does not go through this model. A captioner that restarts has lost its
+sessions; it stores the handles of the adapters it holds open (handles only) and closes them on waking,
+so a restart never leaves the routing service sending audio to nobody. The sink route takes a caption
+token on the recorder's address under the same secret, told apart by its `typ`
+(`meeting-caption-sink`); the captioner is the authority on whether that stay's session is open and the
+token its current adapter's, since no row exists for a caption session, and every refusal is the
+recorder's bare 404. Captions are therefore configured exactly when recording is: until A3's owner
+actions are done, `MEETING_SINK_SIGNING_KEY` is unset and a host's switch is answered
+`captions-unavailable`.
+
+**A88 — The meter.** There is no audio meter to write to: `token_usage_meter` counts tokens, and the
+transcript keeps its audio milliseconds on its own row (A43, A52), which a caption does not have. The
+captioner counts, in its own storage and as counts only, the milliseconds of audio it sent the model —
+what the model bills, $0.0092 an audio minute over a socket — the sessions it opened, the speakers it
+refused past the ceiling and the sessions that failed; its `inspect()` answers them. A firm-scoped usage
+record for audio (for captions and the transcript alike) is not built.
+
+**A89 — What is still not built.** The caption strip and the host's switch are the web half (the
+`caption` frame shape above is the contract). `MeetingSummary.captionsAvailable` (§7) is not added — the
+routes were not part of this change — so a host learns that captions are unavailable from the refusal. No
+`meetings.captioner.*` telemetry events beyond failures, because events are declared in the telemetry
+catalog, which this change did not touch. The load-profile measurement of caption latency (§15) and
+translated captions remain open. The repository-wide scan in
+`packages/meetings/test/no-transcript-text-escape.test.ts` now reads every module that opens the caption
+stream, reads its answers, imports the caption arithmetic or names a caption's shape (amends A56, A67).
+
+**A90 — A firm Owner switches meetings on (supersedes A79).** `GET` and `PATCH
+/api/v1/firm/meetings/settings` (`apps/api-worker/src/routes/meeting-settings.ts`) read and write
+`meetings.recordingEnabled`, `meetings.summariesEnabled`, `meetings.captionsEnabled` and
+`meetings.recordedTrackCeiling` under a new `meetings:manageSettings` permission seeded to Owner and
+Admin, with one audit row per change. The screen is Settings, Practice, Meetings. The answer also says
+whether the recording service is configured on this deployment and whether the firm's AI processing is
+on, so the screen can say why a switch that is on still does nothing.

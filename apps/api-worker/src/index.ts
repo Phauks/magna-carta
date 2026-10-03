@@ -63,6 +63,7 @@ export { MeetingRoom } from "./meetings/meeting-room.ts";
 // dial, which stages each track's audio in the firm's own bucket and holds none of it in storage.
 // Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
 export { MeetingRecorder } from "./meetings/meeting-recorder.ts";
+export { MeetingCaptioner } from "./meetings/meeting-captioner.ts";
 
 // The per-document editing session coordinator. Re-exported so wrangler can register the Durable
 // Object class named in wrangler.jsonc (durable_objects + the SQLite migration).

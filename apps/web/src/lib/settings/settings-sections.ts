@@ -104,6 +104,7 @@ export interface SettingsSection {
     | "integrations"
     | "calendar"
     | "reports"
+    | "meetings"
     | "ai";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
@@ -314,6 +315,23 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "draft",
     editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
+    // The firm's meeting settings: whether its meetings may be recorded, summarized and captioned,
+    // and how many people one recording hears at once. Under Practice beside Calendar, because a
+    // meeting hangs from a calendar event and these decide what happens to the conversation held in
+    // it. Server-backed over GET/PATCH /api/v1/firm/meetings/settings, the four switches the
+    // recording start route, the recorder and the summary consumer read. Draft mode, emphatically
+    // not instant: switching recording or summaries on is the firm deciding where its privileged
+    // conversations go, which is not a decision anybody should make by brushing a switch.
+    id: "meetings",
+    label: "Meetings",
+    href: "/settings/meetings",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "meetings",
     shipped: true,
   },
   {

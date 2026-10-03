@@ -543,7 +543,7 @@ a recording is kept on a matter; there the control is shown disabled with a line
 **Starting.** Press **Record**. A panel asks you to confirm, and says that everybody in the room,
 guests included, will be told. Press **Record** in the panel to start. If your firm has not switched
 recording on, **Record** is shown disabled with the line "Recording is not switched on for this firm
-yet." and nothing can be started. The panel says so if the meeting is already being recorded, or if
+yet." and nothing can be started (see [Your firm's meeting settings](#your-firms-meeting-settings)). The panel says so if the meeting is already being recorded, or if
 there are too many people speaking in the room for one recording to hold.
 
 **What everybody is told.** The moment a recording starts, everybody in the room hears a short tone,
@@ -653,7 +653,8 @@ The **Summary** column of the Recordings list says where each recording's summar
 - **Could Not Be Written**: the summary failed. Open it to see the **Error ID**, and quote that to
   your administrator or to support. The recording and the transcript are not affected.
 - **Not Written**: no summary was written, and the panel says why. Either meeting summaries are
-  switched off for your firm, or AI processing is not switched on for your firm (an administrator
+  switched off for your firm (an administrator switches them on in **Settings**, under **Meetings**),
+  or AI processing is not switched on for your firm (an administrator
   switches it on in **Settings**, under **AI and the Assistant**), or nothing was said in the
   recording.
 
@@ -687,6 +688,39 @@ recording. Your voice is in the recording while you are in the room, what you sa
 written transcript under the name you gave at the door, and both are kept by the firm with the
 matter's documents. If you do not want to be recorded, you can leave the meeting
 with **Leave** at any time, and tell the firm.
+
+## Your firm's meeting settings
+
+Whether your firm's meetings can be recorded, summarized and captioned is decided once, for the whole
+firm, in **Settings** under **Practice › Meetings**. Every switch there is off until somebody turns it
+on. The page belongs to the people who hold the permission to manage meeting settings, which a firm's
+owners and administrators hold; holding the permission to record a meeting is not enough to change
+it. Somebody without it who opens the page is told the settings could not be read.
+
+- **Record Meetings** lets a meeting on a matter be recorded. Everybody in the meeting is told when a
+  recording starts, and so is everybody who joins while it runs, and the audio is added to the
+  matter's documents. While it is off, **Record** in a meeting is shown disabled with the line
+  "Recording is not switched on for this firm yet."
+- **People Recorded at Once** is the most people one recording hears at the same time, from 1 to 11.
+  Eleven is the most because that is as many voices as the recorder can hold in memory at once, so it
+  cannot be set higher. A recording cannot be started in a meeting with more people in it than this,
+  and anybody who joins after the limit is reached is not heard on the recording; the transcript says
+  whose audio is missing.
+- **Summarize Recorded Meetings** writes a summary and its action items from each recorded meeting's
+  transcript. A summary also needs your firm's AI processing, which is set separately under **AI and
+  the Assistant**. Beneath this switch the page says whether that is on, with a link to it; while it
+  is off, no summary is written, whatever this switch says.
+- **Live Captions** lets what is being said be shown as text while a meeting is live. A meeting does
+  not have to be recorded to show captions, and captions themselves are not kept. Captions are still
+  not yet shown in the meeting (see [What is not built yet](#what-is-not-built-yet)), so this switch
+  changes nothing you can see until they are.
+
+**When recording still cannot start.** Recording also needs the platform's recording service to be
+set up for your firm. That is done by the platform, not by your firm. Until it is, the page says so
+beneath **Record Meetings**, and no meeting can start a recording even with the switch on.
+
+Changes are staged and saved together with **Save**, and every save is kept in the firm's audit log
+with who made it and when.
 
 ## Ending a meeting
 
@@ -729,10 +763,9 @@ room.
   in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
   shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
   them in the Directory and put that record on the event in their place.
-- **Captions, translation and a summary.** A recording gets a transcript once it is on the matter,
-  but there are no captions while the meeting runs, the transcript is in the language that was
-  spoken and is not translated, and nothing writes a summary of the meeting. Video is never
-  recorded.
+- **Captions on screen, and translation.** A recording gets a transcript and a summary once it is on
+  the matter, but captions are not yet shown while the meeting runs, and the transcript is in the
+  language that was spoken and is not translated. Video is never recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
   want an unscheduled meeting, record the event first and start the meeting on it.

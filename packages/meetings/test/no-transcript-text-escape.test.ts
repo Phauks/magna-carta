@@ -65,9 +65,16 @@ function sourceFiles(directory: string): string[] {
 /**
  * WHAT MAKES A MODULE ONE THAT REACHES THE WORDS: it imports the transcript's or the summary's
  * statements, types, service, assembly, prompt or parse, or the document's renderer; it calls the speech
- * model; or it names the transcript's or the summary's own shapes.
+ * model; or it names the transcript's or the summary's own shapes. A LIVE CAPTION is the same words
+ * heard a moment earlier and is held to the same rule, so a module that opens the caption stream,
+ * reads its answers, imports the caption arithmetic or names a caption's shape is read too.
  */
 const REACHES_TRANSCRIPT_TEXT = [
+  /@magna-carta\/meetings\/caption-/u,
+  /\.openCaptionStream\(/u,
+  /\bCaptionResult\b/u,
+  /\bMeetingCaption\b/u,
+  /\bcaptionFrame\(/u,
   /@magna-carta\/meetings\/transcript-/u,
   /@magna-carta\/meetings\/summary-/u,
   /@magna-carta\/meetings\/webvtt/u,

@@ -16,6 +16,8 @@ import type {
 import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
+import type { CaptionHeard } from "./meeting-captioner.ts";
+import { captionsWithdrawn, relayCaption } from "./room/room-captions.ts";
 import { relayMessage, relayMessageRedaction } from "./room/room-chat.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
 import {
@@ -435,6 +437,22 @@ export class MeetingRoom extends DurableObject<Bindings> {
     readonly startedAt: string;
   } | null> {
     return await runningRecordingOf(this.room);
+  }
+
+  // LIVE CAPTIONS — the two calls the captioner makes back into the room. The work is
+  // room/room-captions.ts, and so is the host's switch, which arrives as a frame.
+
+  /**
+   * One caption the captioner heard: to every welcomed socket, per kind of reader, and stored nowhere.
+   * Answers how many sockets it went to — none when captions were turned off since it was heard.
+   */
+  async captionHeard(heard: CaptionHeard): Promise<number> {
+    return await relayCaption(this.room, heard);
+  }
+
+  /** The firm switched captions off mid-meeting: the room turns them off and tells everybody. */
+  async captionsWithdrawn(): Promise<void> {
+    await captionsWithdrawn(this.room);
   }
 
   /**

@@ -216,6 +216,12 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
 
 ## Local rules
 
+- **The firm's meeting switches are set on Settings › Practice › Meetings, not from here.** The page
+  is `src/routes/(app)/settings/meetings/+page.svelte` over `$lib/settings/meeting-settings-draft.svelte.ts`
+  and `$lib/settings/meeting-settings-api.ts`, behind `meetings:manageSettings`. A screen here that has
+  to say why recording, a summary or captions are unavailable names that page by its title ("Meetings"
+  under Settings) rather than restating what the switches do; their words live on the settings rows,
+  once.
 - **A guest's page is structurally unable to reach the application.** It lives outside `(app)`, so
   it inherits no shell, no session bootstrap and no back-navigation registry; every guest call sends
   `credentials: "omit"`, so a member session the same browser holds never rides along; and nothing

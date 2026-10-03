@@ -2,6 +2,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
 import {
+  captioningEntry,
   catalogEntryFor,
   embeddingEntry,
   isOnCloudflareModel,
@@ -10,6 +11,9 @@ import {
   type CatalogEntry,
 } from "./catalog.ts";
 import type {
+  CaptionResult,
+  CaptionStream,
+  CaptionStreamInput,
   ConversationInput,
   EmbedInput,
   EmbeddingResult,
@@ -101,8 +105,17 @@ export function assertZdrEligible(modelId: string): IntegrationProblem | null {
 
 // AiBinding is a minimal structural type seam over the platform Ai binding so the pure package needs
 // no @cloudflare/workers-types dependency. The worker provides the real binding at the composition root.
+//
+// `websocket: true` is the binding's own switch for a model that streams over a socket (the caption
+// model): the binding then answers with the upgrade Response itself rather than with a parsed body, and
+// the socket rides its `webSocket` field. It is optional here because every other operation leaves it
+// out and the binding's documented default is off.
 export interface AiBinding {
-  run(model: string, input: unknown, options: { gateway: GatewayOptions }): Promise<unknown>;
+  run(
+    model: string,
+    input: unknown,
+    options: { gateway: GatewayOptions; websocket?: true },
+  ): Promise<unknown>;
 }
 
 export function zdrRejection<T>(modelId: string): Dispatch<T> {
@@ -340,6 +353,201 @@ function gatewayFailure<T>(): Dispatch<T> {
   );
 }
 
+// ---------------------------------------------------------------------------------------------
+// The live-caption stream
+//
+// WHAT IS KNOWN, AND WHERE FROM — every one of these read on 2026-10-03:
+//
+//   * The model page lists Nova-3's WebSocket transport, its inputs (`encoding` with `linear16` among
+//     its values, `channels`, `punctuate`, `interim_results`, `diarize`, `language`, `mip_opt_out`)
+//     and its price per audio minute over a socket:
+//     https://developers.cloudflare.com/workers-ai/models/nova-3/
+//   * The Workers AI changelog for 2025-08-27 announces "WebSocket support added for audio models like
+//     `@cf/deepgram/aura-1`, `@cf/deepgram/nova-3`":
+//     https://developers.cloudflare.com/workers-ai/changelog/
+//   * The binding opens the socket from a Worker or a Durable Object with `env.AI.run(model, input,
+//     { websocket: true })` and answers with the upgrade Response, the socket on its `webSocket` field
+//     (absent when the service refused): https://developers.cloudflare.com/changelog/post/2025-10-02-deepgram-flux/
+//     and Cloudflare's own Agents SDK, which runs exactly this from inside a Durable Object and sends
+//     every input as a STRING (`sample_rate: "16000"`, `interim_results: "true"`), because the binding
+//     carries the inputs into the socket's address rather than into a JSON body —
+//     https://github.com/cloudflare/agents/blob/main/packages/agents/src/voice/workers-ai.ts (commit
+//     2f3176b9, the `Nova3Session` class).
+//   * The binding's own source shows the socket path: it encodes `{ inputs, options }` into the
+//     address of `/run` with an `Upgrade: websocket` header and returns the raw Response —
+//     https://github.com/cloudflare/workerd/blob/main/src/cloudflare/internal/ai-api.ts
+//     (`#generateWebsocketFetch`, and `run`'s `if (this.#options.websocket) return res`).
+//   * The answers are Deepgram's streaming messages: a JSON TEXT frame whose `type` is `Results`, the
+//     words at `channel.alternatives[0].transcript`, and `is_final` true once the stretch will not be
+//     revised; the Agents SDK reads exactly those fields, and Cloudflare's own AI Gateway example
+//     distinguishes interim from final by `is_final` the same way:
+//     https://developers.cloudflare.com/ai-gateway/usage/websockets-api/realtime-api/
+//   * Keepalive and close are Deepgram's own control messages, sent as TEXT frames: `{"type":
+//     "KeepAlive"}` every three to five seconds while no audio flows (the stream is closed after ten
+//     seconds of neither), and `{"type": "CloseStream"}` to ask the model to answer what it holds and
+//     end: https://developers.deepgram.com/docs/audio-keep-alive
+//
+// THE SAME CONFIDENTIALITY SETTINGS GO WITH IT, and what they do on this path is stated rather than
+// assumed. The gateway options object rides the request exactly as it does on every other operation —
+// caching off, logging off, the derived firm metadata — but the binding's socket path posts to `/run`
+// and never to `/ai-gateway/run` (the source above), so the gateway is not on the path at all: nothing
+// is cached or logged there because nothing passes through it, and the firm metadata is therefore not a
+// gateway spend dimension for captions — the caller meters the audio it sent instead
+// (`audioMillisecondsSent`). The confidentiality of the audio rests on the Workers AI data terms the
+// catalog entry cites, and on the publisher's model-improvement opt-out, sent switched on below.
+//
+// NOT CONFIRMED AGAINST A LIVE CALL: that the service accepts the gateway options beside
+// `websocket: true` (the Agents SDK sends no options but `websocket`), and that `channels` and
+// `mip_opt_out` are honoured on the socket transport. If a live call refuses the combination, the fix
+// is this one request, and the stream answers `upstream` meanwhile, which a caller degrades to no
+// captions.
+
+// The fixed audio format the port promises: mono 16-bit little-endian at 48 kHz, 96,000 bytes a second.
+const CAPTION_SAMPLE_RATE = 48_000;
+const CAPTION_BYTES_PER_MILLISECOND = (CAPTION_SAMPLE_RATE * 2) / 1000;
+
+// How long a close waits for the model to answer what it holds and end the stream itself before the
+// socket is closed from this side. The model answers within a fraction of a second of `CloseStream` in
+// the ordinary case; three seconds is that with room, and short enough that a model that never answers
+// does not hold a socket open for nobody.
+export const CAPTION_STREAM_CLOSE_GRACE_MILLISECONDS = 3_000;
+
+const KEEP_ALIVE_MESSAGE = JSON.stringify({ type: "KeepAlive" });
+const CLOSE_STREAM_MESSAGE = JSON.stringify({ type: "CloseStream" });
+
+// The parts of a socket this adapter uses — structural, so the pure package needs no runtime types.
+interface CaptionSocket {
+  accept(): void;
+  send(message: string | ArrayBuffer | ArrayBufferView): void;
+  close(code?: number, reason?: string): void;
+  addEventListener(type: "message", handler: (event: { data: unknown }) => void): void;
+  addEventListener(type: "close" | "error", handler: () => void): void;
+}
+
+function captionSocketOf(response: unknown): CaptionSocket | null {
+  if (response === null || typeof response !== "object") return null;
+  const socket = (response as { webSocket?: unknown }).webSocket;
+  if (socket === null || socket === undefined || typeof socket !== "object") return null;
+  return socket as CaptionSocket;
+}
+
+// The model takes a BCP-47 tag with its region (`en-GB`, `pt-BR` are on Cloudflare's list), unlike the
+// transcription model, so a well-formed tag is sent whole; anything else is not sent, and the model's
+// own default applies.
+function captionLanguage(language: string | undefined): string | undefined {
+  if (language === undefined) return undefined;
+  const trimmed = language.trim();
+  return /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/u.test(trimmed) ? trimmed : undefined;
+}
+
+// The request, every value a string because the binding carries it in the socket's address. Each pin
+// has a reason: `linear16` at 48 kHz on one channel is exactly what the port promises, so nothing is
+// transcoded; `interim_results` is what makes a caption live rather than a sentence late; `punctuate`
+// because a caption is read; `diarize` OFF because the speaker is the TRACK the audio came from, which is
+// a fact, and a model's "speaker 0" is not a person anybody can name; `mip_opt_out` ON because a
+// privileged conversation is not material for the publisher's model improvement.
+function captionRequestBody(input: CaptionStreamInput): Record<string, string> {
+  const language = captionLanguage(input.language);
+  return {
+    encoding: "linear16",
+    sample_rate: String(CAPTION_SAMPLE_RATE),
+    channels: "1",
+    interim_results: "true",
+    punctuate: "true",
+    diarize: "false",
+    mip_opt_out: "true",
+    ...(language === undefined ? {} : { language }),
+  };
+}
+
+// One message off the model's socket, read into a caption answer or nothing. Only `Results` carry
+// words; the model's other messages (its metadata, speech-started and utterance-end notices) are not
+// captions. Every access is guarded: the message is untrusted text and this never throws.
+export function captionResultOf(data: unknown): CaptionResult | null {
+  if (typeof data !== "string") return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(data);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object") return null;
+  const message = parsed as Record<string, unknown>;
+  if (message["type"] !== "Results") return null;
+  const channel = message["channel"];
+  if (channel === null || typeof channel !== "object") return null;
+  const alternatives = (channel as Record<string, unknown>)["alternatives"];
+  if (!Array.isArray(alternatives) || alternatives.length === 0) return null;
+  const first = alternatives[0] as Record<string, unknown> | null;
+  const words = first === null || typeof first !== "object" ? undefined : first["transcript"];
+  if (typeof words !== "string") return null;
+  return { text: words.trim(), final: message["is_final"] === true };
+}
+
+function openedCaptionStream(socket: CaptionSocket, input: CaptionStreamInput): CaptionStream {
+  const entry = captioningEntry();
+  let bytesSent = 0;
+  let ended = false;
+  let closing = false;
+  let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const end = (outcome: "closed" | "failed") => {
+    if (ended) return;
+    ended = true;
+    if (closeTimer !== null) clearTimeout(closeTimer);
+    // A socket the model already closed throws on a second close, which is the outcome asked for.
+    try {
+      socket.close(1000, "caption stream ended");
+    } catch {
+      // Already closed.
+    }
+    input.onEnd(outcome);
+  };
+
+  socket.addEventListener("message", (event) => {
+    if (ended) return;
+    const result = captionResultOf(event.data);
+    if (result !== null) input.onResult(result);
+  });
+  // Closed by the model after this side asked it to finish is an ordinary ending; closed without being
+  // asked is a stream that failed under its caller.
+  socket.addEventListener("close", () => end(closing ? "closed" : "failed"));
+  socket.addEventListener("error", () => end(closing ? "closed" : "failed"));
+
+  return {
+    modelId: entry.modelId,
+    sendAudio(samples: Uint8Array): void {
+      if (ended || closing || samples.byteLength === 0) return;
+      try {
+        socket.send(samples);
+        bytesSent += samples.byteLength;
+      } catch {
+        end("failed");
+      }
+    },
+    keepAlive(): void {
+      if (ended || closing) return;
+      try {
+        socket.send(KEEP_ALIVE_MESSAGE);
+      } catch {
+        end("failed");
+      }
+    },
+    close(): void {
+      if (ended || closing) return;
+      closing = true;
+      try {
+        socket.send(CLOSE_STREAM_MESSAGE);
+      } catch {
+        end("closed");
+        return;
+      }
+      closeTimer = setTimeout(() => end("closed"), CAPTION_STREAM_CLOSE_GRACE_MILLISECONDS);
+    },
+    audioMillisecondsSent: () => Math.floor(bytesSent / CAPTION_BYTES_PER_MILLISECOND),
+  };
+}
+
 export function createGatewayInferencePort(options: GatewayPortOptions): InferencePort {
   const { ai, env } = options;
 
@@ -513,6 +721,34 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
       } catch {
         return gatewayFailure<TranscriptionResult>();
       }
+    },
+
+    async openCaptionStream(input: CaptionStreamInput): Promise<Dispatch<CaptionStream>> {
+      // Platform-fixed, like transcription: the entry is the catalog's, never the caller's. The same
+      // gateway options as every other operation, under the slot's own name — see the block above for
+      // what they do on the socket path.
+      const entry = captioningEntry();
+      const gateway = gatewayOptions(input.firmId, entry.slot, env);
+      let response: unknown;
+      try {
+        response = await ai.run(entry.modelId, captionRequestBody(input), {
+          gateway,
+          websocket: true,
+        });
+      } catch {
+        return gatewayFailure<CaptionStream>();
+      }
+      // A refusal comes back as an ordinary Response with no socket on it. Its body is the service's
+      // own words and is never read into the problem: it is answered as an upstream failure like any
+      // other, retryable, because nothing in it says reliably that a retry would fail too.
+      const socket = captionSocketOf(response);
+      if (socket === null) return gatewayFailure<CaptionStream>();
+      try {
+        socket.accept();
+      } catch {
+        return gatewayFailure<CaptionStream>();
+      }
+      return ok(openedCaptionStream(socket, input));
     },
   };
 }

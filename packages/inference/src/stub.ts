@@ -1,5 +1,7 @@
 import { ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import type {
+  CaptionStream,
+  CaptionStreamInput,
   ConversationInput,
   EmbedInput,
   EmbeddingResult,
@@ -38,6 +40,12 @@ export const STUB_SNAPSHOT_ID = "stub";
 // A marker every stub completion opens with, so a caller reading a transcript (or a test reading a
 // pushed frame) can tell at a glance that no model was involved.
 export const STUB_RESPONSE_MARKER = "[stub inference]";
+
+// THE STUB'S CAPTION RHYTHM: every run of audio it is sent is answered at once with an interim guess
+// naming how much audio it has heard in the current stretch, and a stretch becomes FINAL each time it
+// reaches one second of the port's format (96,000 bytes of mono 16-bit at 48 kHz) — so a consumer test
+// can predict exactly which answers a given run of audio produces, with no clock involved.
+export const STUB_CAPTION_FINAL_EVERY_BYTES = 96_000;
 
 // Deterministic, non-zero usage derived from the input length. Non-zero matters: a metering test over
 // a stub-backed run has to be able to fail. Derived rather than constant so two different requests do
@@ -108,6 +116,39 @@ export function createStubInferencePort(): InferencePort {
         vector,
         usage: stubUsage(input.text, ""),
         snapshotId: STUB_SNAPSHOT_ID,
+      });
+    },
+
+    // An open stream that answers from the audio alone — see STUB_CAPTION_FINAL_EVERY_BYTES. A close
+    // answers whatever the current stretch holds as final, as the real model does on its close message,
+    // and then ends the stream `closed`; a stream that has ended ignores everything.
+    async openCaptionStream(input: CaptionStreamInput): Promise<Dispatch<CaptionStream>> {
+      let stretchBytes = 0;
+      let totalBytes = 0;
+      let ended = false;
+      const words = (bytes: number) => `${STUB_RESPONSE_MARKER} ${bytes} bytes of speech`;
+      return ok({
+        modelId: STUB_SNAPSHOT_ID,
+        sendAudio(samples: Uint8Array): void {
+          if (ended || samples.byteLength === 0) return;
+          totalBytes += samples.byteLength;
+          stretchBytes += samples.byteLength;
+          if (stretchBytes >= STUB_CAPTION_FINAL_EVERY_BYTES) {
+            input.onResult({ text: words(stretchBytes), final: true });
+            stretchBytes = 0;
+          } else {
+            input.onResult({ text: words(stretchBytes), final: false });
+          }
+        },
+        keepAlive(): void {},
+        close(): void {
+          if (ended) return;
+          ended = true;
+          if (stretchBytes > 0) input.onResult({ text: words(stretchBytes), final: true });
+          stretchBytes = 0;
+          input.onEnd("closed");
+        },
+        audioMillisecondsSent: () => Math.floor(totalBytes / 96),
       });
     },
 

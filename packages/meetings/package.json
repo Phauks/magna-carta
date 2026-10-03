@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./caption-sessions": "./src/caption-sessions.ts",
     "./chat-service": "./src/chat-service.ts",
     "./chat-statements": "./src/chat-statements.ts",
     "./chat-types": "./src/chat-types.ts",

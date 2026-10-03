@@ -8495,6 +8495,23 @@ export type PatchFirmAiSettingsRequest = {
     };
 };
 
+export type FirmMeetingSettingsResponse = {
+    recordingEnabled: boolean;
+    captionsEnabled: boolean;
+    summariesEnabled: boolean;
+    recordedTrackCeiling: number;
+    recordedTrackCeilingMaximum: number;
+    recordingServiceConfigured: boolean;
+    aiProcessingEligible: boolean;
+};
+
+export type PatchFirmMeetingSettingsRequest = {
+    recordingEnabled?: boolean;
+    captionsEnabled?: boolean;
+    summariesEnabled?: boolean;
+    recordedTrackCeiling?: number;
+};
+
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
@@ -40768,6 +40785,95 @@ export type FirmAiSettingsUpdateResponses = {
 };
 
 export type FirmAiSettingsUpdateResponse = FirmAiSettingsUpdateResponses[keyof FirmAiSettingsUpdateResponses];
+
+export type FirmMeetingSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/meetings/settings';
+};
+
+export type FirmMeetingSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks meetings:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmMeetingSettingsGetError = FirmMeetingSettingsGetErrors[keyof FirmMeetingSettingsGetErrors];
+
+export type FirmMeetingSettingsGetResponses = {
+    /**
+     * The firm's meeting settings
+     */
+    200: FirmMeetingSettingsResponse;
+};
+
+export type FirmMeetingSettingsGetResponse = FirmMeetingSettingsGetResponses[keyof FirmMeetingSettingsGetResponses];
+
+export type FirmMeetingSettingsUpdateData = {
+    body: PatchFirmMeetingSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/meetings/settings';
+};
+
+export type FirmMeetingSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks meetings:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmMeetingSettingsUpdateError = FirmMeetingSettingsUpdateErrors[keyof FirmMeetingSettingsUpdateErrors];
+
+export type FirmMeetingSettingsUpdateResponses = {
+    /**
+     * The firm's meeting settings after the write
+     */
+    200: FirmMeetingSettingsResponse;
+};
+
+export type FirmMeetingSettingsUpdateResponse = FirmMeetingSettingsUpdateResponses[keyof FirmMeetingSettingsUpdateResponses];
 
 export type ConversionsUploadData = {
     body?: never;

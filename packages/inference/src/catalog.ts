@@ -18,6 +18,12 @@ import type { InferenceModelId } from "./port.ts";
 // "transcription" is platform-fixed for the same structural reason as "embedding": the operation that
 // uses it takes no model argument, so no firm can select a different one.
 //
+// "captioning" is platform-fixed on the same terms, and kept apart from "transcription" because the two
+// are different models doing different jobs: the transcript of record is heard afterwards, a piece at a
+// time, by a model that answers once; a live caption is heard as it is spoken, over a socket, by a model
+// that answers with guesses and then corrects them. One slot for both would let moving one move the
+// other.
+//
 // "platform-reasoning" is a reasoning model the PLATFORM fixes for a feature of its own and no firm
 // selects: it is kept apart from "reasoning" so it never appears on the roster a firm chooses its
 // assistant's model from. The one there is today is hosted on Cloudflare and answers 256 tokens unless a
@@ -28,7 +34,8 @@ export type ModelSlot =
   | "platform-reasoning"
   | "utility"
   | "embedding"
-  | "transcription";
+  | "transcription"
+  | "captioning";
 
 // The platform-maintained, evergreen name a reasoning selection resolves through. The tier is what other
 // code and configuration refer to; WHICH curated model occupies it is data in this file. Tracking model
@@ -169,7 +176,14 @@ function isDatedSnapshotOf(snapshotId: string, referenceId: string): boolean {
 // harmless extra.
 export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .object({
-    slot: z.enum(["reasoning", "platform-reasoning", "utility", "embedding", "transcription"]),
+    slot: z.enum([
+      "reasoning",
+      "platform-reasoning",
+      "utility",
+      "embedding",
+      "transcription",
+      "captioning",
+    ]),
     modelId: z.string().min(1),
     snapshotId: z.string().min(1),
     snapshotForm: z.enum(["provider-dated", "provider-dateless", "platform-composed"]),
@@ -237,7 +251,7 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 6;
+export const CATALOG_VERSION = 7;
 export const CATALOG_EFFECTIVE_DATE = "2026-10-03";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
@@ -257,6 +271,11 @@ export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 // and nothing else — transcripts already written keep the model id they recorded.
 export const PLATFORM_TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo";
 
+// The platform-fixed live-caption model. Named here and nowhere else, like the transcription model: the
+// caption stream closes over the catalog entry below, and no caller passes a model. It binds no stored
+// index and writes no record, so moving it costs a re-verification of the entry and nothing else.
+export const PLATFORM_CAPTION_MODEL_ID = "@cf/deepgram/nova-3";
+
 // THE REASONING MODEL HOSTED ON CLOUDFLARE ITSELF, in the platform-reasoning role: what a feature of the
 // platform's own runs on by default (the meeting summary), never offered to a firm as its assistant's
 // model. It holds no tier, so an unconfigured firm's default for the assistant is unchanged by it.
@@ -272,7 +291,8 @@ export function isOnCloudflareModel(modelId: string): boolean {
 
 // The launch catalog. Reasoning models first, each on the tier it currently occupies; the platform's own
 // reasoning model hosted on Cloudflare; the small utility model; the platform-fixed embedding model
-// pinned to the index generation; the platform-fixed speech-to-text model. claude-fable-5 is
+// pinned to the index generation; the platform-fixed speech-to-text model; the platform-fixed live
+// caption model. claude-fable-5 is
 // intentionally absent — it mandates a retention window and returns a hard error under ZDR, so it is not
 // ZDR-eligible and never enters the reasoning slot.
 const RAW_CATALOG: readonly CatalogEntry[] = [
@@ -429,16 +449,41 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     verifiedOn: "2026-10-03",
     availabilityVerifiedOn: "2026-10-03",
   },
+  {
+    // Workers AI on-Cloudflare streaming speech-to-text model, the platform-fixed captioning slot.
+    // Deepgram publishes it; Cloudflare hosts and runs it, so the audio does not leave the platform for
+    // a third-party provider. The confidentiality facts rest on the same Workers AI data terms the
+    // transcription entry cites, read 2026-10-03 at
+    // https://developers.cloudflare.com/workers-ai/platform/data-usage/ — Customer Content is not used
+    // to train any model and is not made available to another customer. The model page lists the
+    // provider's own model-improvement opt-out (`mip_opt_out`) among its inputs, and the stream sends it
+    // switched on (./gateway.ts), so the publisher's improvement programme is refused as well.
+    //
+    // Model page, read 2026-10-03: https://developers.cloudflare.com/workers-ai/models/nova-3/ — the
+    // WebSocket transport, `encoding` (`linear16` among its values), `channels`, `punctuate`,
+    // `interim_results`, priced per audio minute ($0.0092 over WebSocket). Cloudflare publishes no dated
+    // form of its Workers AI model ids and no retirement date for this one.
+    slot: "captioning",
+    modelId: PLATFORM_CAPTION_MODEL_ID,
+    snapshotId: PLATFORM_CAPTION_MODEL_ID,
+    snapshotForm: "provider-dateless",
+    referenceId: PLATFORM_CAPTION_MODEL_ID,
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-10-03",
+    availabilityVerifiedOn: "2026-10-03",
+  },
 ];
 
 // Module-load validation: every entry parses (all fields present, every reasoning entry ZDR-eligible),
-// exactly one entry fills each platform-fixed slot (embedding, transcription, platform-reasoning), every
+// exactly one entry fills each platform-fixed slot (embedding, transcription, captioning,
+// platform-reasoning), every
 // reasoning entry states its context window, the platform-reasoning entry is hosted on Cloudflare, and
 // every reasoning tier has exactly one occupant so the platform default always resolves. A malformed
 // table aborts the import.
 function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntry[] {
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
-  for (const slot of ["embedding", "transcription", "platform-reasoning"] as const) {
+  for (const slot of ["embedding", "transcription", "captioning", "platform-reasoning"] as const) {
     const occupants = validated.filter((entry) => entry.slot === slot);
     if (occupants.length !== 1) {
       throw new Error(
@@ -493,6 +538,14 @@ const TRANSCRIPTION_ENTRY: CatalogEntry = (() => {
   return entry;
 })();
 
+// Precomputed at module init for the same reason: validateCatalog guarantees exactly one captioning
+// entry.
+const CAPTIONING_ENTRY: CatalogEntry = (() => {
+  const entry = CATALOG.find((e) => e.slot === "captioning");
+  if (entry === undefined) throw new Error("no captioning entry in the catalog");
+  return entry;
+})();
+
 // Precomputed at module init — validateCatalog already guarantees exactly one occupant per tier.
 const TIER_OCCUPANTS: ReadonlyMap<ReasoningTier, CatalogEntry> = new Map(
   REASONING_TIERS.map((tier) => {
@@ -539,6 +592,12 @@ export function embeddingEntry(): CatalogEntry {
 // The single platform-fixed transcription entry the transcription operation closes over.
 export function transcriptionEntry(): CatalogEntry {
   return TRANSCRIPTION_ENTRY;
+}
+
+// The single platform-fixed live-caption entry the caption stream closes over. Never on the roster
+// reasoningEntries() answers: it is not a reasoning model and no firm selects it.
+export function captioningEntry(): CatalogEntry {
+  return CAPTIONING_ENTRY;
 }
 
 export function isZdrEligible(modelId: string): boolean {

@@ -27,6 +27,7 @@ import {
 } from "./room-media.ts";
 import { flushDeferredPresence, presenceFlushDeadlineOf } from "./room-presence.ts";
 import { flushReactions, reactionFlushDeadlineOf } from "./room-reactions.ts";
+import { captionsEndedWithMeeting } from "./room-captions.ts";
 import { recordingForWelcome } from "./room-recording.ts";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
@@ -394,6 +395,9 @@ export async function endMeeting(room: RoomContext, endedAt: string): Promise<vo
   // forwarding every track these sessions hold, and after the delete there is nothing left naming
   // them.
   const departing = await storedParticipants(room);
+  // And the captioner, for the same reason: whether captions were on is a key the delete takes, and
+  // the captioner's adapters are still pulling audio for a meeting that has ended.
+  await captionsEndedWithMeeting(room);
 
   // ONE GATE OVER BOTH WRITES. Between the delete and the put there is an instant where the room
   // holds neither a roster entry nor an ended marker, and a frame arriving in it is answered "the

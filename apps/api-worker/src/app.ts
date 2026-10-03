@@ -55,6 +55,7 @@ import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
 import { registerMeetingGuestRoutes } from "./routes/meetings-guest.ts";
 import { registerMeetingInspectRoutes } from "./routes/meeting-inspect.ts";
 import { registerMeetingSinkRoute } from "./routes/meeting-sink.ts";
+import { registerMeetingSettingsRoutes } from "./routes/meeting-settings.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
@@ -921,6 +922,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // plus the assistant's daily ceiling and the stated facts about the model in force. The only
   // writer of those gates — until this landed, a firm could not open either one.
   registerFirmAiSettingsRoutes(app, chokepoint);
+  // The firm's meeting settings: whether its meetings may be recorded, captioned and summarized,
+  // and how many people one recording hears at once. The only writer of those four switches, which
+  // the recording start route, the recorder and the summary consumer read.
+  registerMeetingSettingsRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);
