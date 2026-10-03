@@ -407,6 +407,92 @@ describe("a stop", () => {
   });
 });
 
+// The start route commits the recording and only then calls the room, so a stop (or an end, or a
+// calendar cancel) can commit and reach the room first, and a replayed start can arrive after the stop.
+// The stop deletes the key the announce-once guard reads, so without its own record of the stop the
+// late start would light the mark for good: nobody announces a second stop, and every later welcome
+// would tell an arrival they are being recorded when nobody is.
+describe("a start that reaches the room after its stop", () => {
+  async function stoppedRoom() {
+    const room = await roomWithMemberAndGuest();
+    const transition = {
+      firmId,
+      meetingId: room.meeting.meetingId,
+      recordingId: room.recordingId,
+      at: room.startedAt,
+      by: { userId: room.meeting.hostUserId, displayName: "A Host" },
+    };
+    const stop = { ...transition, at: new Date().toISOString() };
+    return { room, transition, stop };
+  }
+
+  async function expectNothingLit(room: Awaited<ReturnType<typeof roomWithMemberAndGuest>>) {
+    expect(await roomOf(room.meeting).runningRecording()).toBeNull();
+    const after = await connect(room.meeting, {
+      attendanceId: newIdentifier("meetingAttendance"),
+      userId: await seedMemberIn(firmId, "After"),
+      displayName: "After",
+    });
+    expect(after.frames[0]).not.toHaveProperty("recording");
+  }
+
+  it("is ignored when the stop arrived first: nobody is told, nothing is stored, no notice is written", async () => {
+    const { room, transition, stop } = await stoppedRoom();
+    await roomOf(room.meeting).recordingStopped(stop);
+    await waitUntil(() => recordingFrames(room.member).length === 1);
+
+    const late = await roomOf(room.meeting).recordingStarted(transition);
+    expect(late).toEqual({ recipientCount: 0, noticeCount: 0 });
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(recordingFrames(room.member).map((frame) => frame["state"])).toEqual(["stopped"]);
+    expect(recordingFrames(room.guest).map((frame) => frame["state"])).toEqual(["stopped"]);
+    expect((await notices(room.recordingId)).filter((row) => row.reason === "start")).toEqual([]);
+    await expectNothingLit(room);
+  });
+
+  it("is ignored when it is a replay arriving after a start and its stop", async () => {
+    const { room, transition, stop } = await stoppedRoom();
+    await roomOf(room.meeting).recordingStarted(transition);
+    await roomOf(room.meeting).recordingStopped(stop);
+    await waitUntil(() => recordingFrames(room.member).length === 2);
+
+    const replay = await roomOf(room.meeting).recordingStarted(transition);
+    expect(replay).toEqual({ recipientCount: 0, noticeCount: 0 });
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(recordingFrames(room.member).map((frame) => frame["state"])).toEqual([
+      "started",
+      "stopped",
+    ]);
+    expect((await notices(room.recordingId)).filter((row) => row.reason === "start")).toHaveLength(
+      2,
+    );
+    await expectNothingLit(room);
+  });
+
+  it("still lets the room's NEXT recording start after an earlier one stopped", async () => {
+    const { room, transition, stop } = await stoppedRoom();
+    await roomOf(room.meeting).recordingStarted(transition);
+    await roomOf(room.meeting).recordingStopped(stop);
+    // The first recording's row must leave `recording` before the room's next one can be seeded.
+    await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "UPDATE meeting_recording SET state = 'composing', stopped_at = ?2, stop_reason = 'member' WHERE id = ?1",
+      )
+      .bind(room.recordingId, stop.at)
+      .run();
+    const next = await seedRunningRecording(room.meeting, []);
+    const told = await roomOf(room.meeting).recordingStarted({
+      ...transition,
+      recordingId: next.recordingId,
+      at: next.startedAt,
+    });
+    expect(told).toEqual({ recipientCount: 2, noticeCount: 2 });
+    expect((await roomOf(room.meeting).runningRecording())?.recordingId).toBe(next.recordingId);
+  });
+});
+
 describe("what the room tells the recorder", () => {
   it("answers the audio tracks of the participants in the room, and nothing else", async () => {
     const meeting = await seedRecordedMeeting(firmId);

@@ -138,10 +138,12 @@ order the features need them.
 4. **The compose queues, before the merge.** Create `magna-carta-production-meeting-recording-compose` and
    `magna-carta-production-meeting-recording-compose-deadletter`; `wrangler.jsonc` binds both, and
    a deploy fails on a queue that does not exist.
-5. **An R2 lifecycle rule on every firm bucket** for the `meeting-recordings/` prefix that aborts
-   incomplete multipart uploads after two days. A recording runs at most twelve hours, and the sweep
-   aborts what it can find, but the upload identifiers live only in the recorder's own storage; if
-   that is lost, only a lifecycle rule reclaims the parts.
+5. **Re-apply the bucket lifecycle rules to every existing firm bucket.** The rules now live in
+   `apps/api-worker/src/firm-resource-provider.ts`: staged recording audio under `meeting-recordings/`
+   expires after eight days, and unfinished multipart uploads under `files/` are aborted after seven.
+   A firm provisioned after the merge gets them; a bucket provisioned before it keeps its old rule set
+   until it is re-provisioned. Nothing is added by hand, because provisioning replaces a bucket's whole
+   rule set and would delete a hand-added rule.
 6. **Per firm:** an Owner switches `meetings.recordingEnabled` on.
 
 ## Reconcile the production branch across the fleet — check before acting, and expect it to be done

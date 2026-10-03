@@ -2616,29 +2616,40 @@ async function cancelWithMeetingClosing(
     try {
       return await commitCalendarEffect(c, database, idempotency, 200, () => cancel(composed));
     } catch (caught) {
-      if (!(caught instanceof GuardedWriteRefusedError) || attempt >= CANCEL_ATTEMPTS) throw caught;
-      // A RECORDING RUNNING IN THE ROOM STOPPED IN THE SAME WINDOW — somebody pressed Stop, or the
-      // recorder stopped itself — so the stop this closing composed refused, and the whole batch rolled
-      // back with it. The recording is already stopped by a stop the record keeps; the closing is
-      // composed again from what is true now, which stops nothing.
+      if (!(caught instanceof GuardedWriteRefusedError)) throw caught;
+      // A batch with nothing to close carries neither guard below, so a refusal of one is a fault no
+      // re-read can explain — and composing it again would refuse again for ever.
+      if (composed.effect === NO_CLOSING) throw caught;
       if (caught.guard === STOP_RECORDING_GUARD) {
+        // A RECORDING RUNNING IN THE ROOM STOPPED IN THE SAME WINDOW — somebody pressed Stop, or the
+        // recorder stopped itself — so the stop this closing composed refused, and the whole batch
+        // rolled back with it. The recording is already stopped by a stop the record keeps; the closing
+        // is composed again from what is true now, which stops nothing — or, if the room has moved as
+        // well, ends in the refusal or the bare cancellation below.
         closing = await meetingClosingWithEvent(c, database, userId, event);
-        continue;
+      } else if (caught.guard === CANCEL_CLOSING_GUARD) {
+        const settled = await readMeetingForEvent(
+          database,
+          event.kind,
+          event.id,
+          visibleMatterPredicate(),
+        );
+        // Anything but ended means somebody is in there: a live room, or a stay opened against a room
+        // the status has not caught up with. Either way this is the pre-read's refusal, arrived at the
+        // other way round. Ended means there is nothing left to close.
+        closing =
+          settled !== undefined && settled.status !== "ended"
+            ? { ok: false, problem: meetingInProgress(c) }
+            : { ok: true, effect: NO_CLOSING };
+      } else {
+        throw caught;
       }
-      if (caught.guard !== CANCEL_CLOSING_GUARD) throw caught;
-      const settled = await readMeetingForEvent(
-        database,
-        event.kind,
-        event.id,
-        visibleMatterPredicate(),
-      );
-      // Anything but ended means somebody is in there: a live room, or a stay opened against a room
-      // the status has not caught up with. Either way this is the pre-read's refusal, arrived at the
-      // other way round.
-      if (settled !== undefined && settled.status !== "ended") {
-        return { ok: false, problem: meetingInProgress(c) };
-      }
-      closing = { ok: true, effect: NO_CLOSING };
+      // THE BOUND COUNTS ONLY WHAT CAN BE REFUSED AGAIN. A refusal answer, or a cancellation with
+      // nothing to close, cannot meet either guard, so it goes ahead whatever attempt this was: a race
+      // that settled on the last attempt is answered as it settled — the 409, or the cancellation
+      // standing on its own — and never as a server error. Only a closing composed AGAIN, which the
+      // room could move under once more, is held to the bound.
+      if (closing.ok && closing.effect !== NO_CLOSING && attempt >= CANCEL_ATTEMPTS) throw caught;
     }
   }
 }

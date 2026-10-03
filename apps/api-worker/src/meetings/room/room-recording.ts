@@ -20,6 +20,7 @@ import { firmDatabaseFor } from "../../firm-database/firm-database-proxy.ts";
 import { realtimeLoggerFor } from "../sfu/realtime-failure.ts";
 import {
   attachmentOf,
+  readEndedAt,
   recordRoomFailure,
   storedParticipants,
   trySend,
@@ -45,7 +46,8 @@ import {
 //
 // WHAT THE ROOM HOLDS: one key, the running recording's identity and who started it, so a welcome can
 // say so without asking the firm's database per arrival. Deleted on the stop, and with every other key
-// when the meeting ends. Nothing about the audio is here or anywhere in this object: the audio goes
+// when the meeting ends. Beside it, a short list of the recordings the room has been told STOPPED, so a
+// start that arrives after its own stop is recognised for what it is (see `recordingStarted`). Nothing about the audio is here or anywhere in this object: the audio goes
 // from the routing service to the recorder (../meeting-recorder.ts) and never crosses the room.
 //
 // THE ROOM KEEPS THE MEDIA PATH FREE OF RECORDING. It does not tell the recorder who published what;
@@ -53,6 +55,30 @@ import {
 // recorder and a recorder that is slow or gone never slows a meeting.
 
 const RECORDING_KEY = "recording";
+
+// THE RECORDINGS THIS ROOM HAS BEEN TOLD STOPPED, newest last. The start route commits the recording and
+// only then calls the room, so a stop, an end or a calendar cancel can commit and reach the room first —
+// and a replayed start can carry a start out after the stop too. Without a record of the stop, that late
+// start would store the recording and light the mark on every screen, and nothing would ever clear it:
+// the stop has already been announced, and every later welcome would tell an arrival they are being
+// recorded when nobody is. The list is bounded because the race it closes is seconds wide and concerns
+// the room's most recent recordings only; sixteen is far more stops than one meeting makes in that
+// window, and a list that grew with every recording of a long-lived room would be state kept for nothing.
+const STOPPED_RECORDINGS_KEY = "recording-stopped";
+const STOPPED_RECORDINGS_KEPT = 16;
+
+async function stoppedRecordingIds(room: RoomContext): Promise<readonly string[]> {
+  return (await room.ctx.storage.get<string[]>(STOPPED_RECORDINGS_KEY)) ?? [];
+}
+
+async function rememberStopped(room: RoomContext, recordingId: string): Promise<void> {
+  const stopped = await stoppedRecordingIds(room);
+  if (stopped.includes(recordingId)) return;
+  await room.ctx.storage.put(
+    STOPPED_RECORDINGS_KEY,
+    [...stopped, recordingId].slice(-STOPPED_RECORDINGS_KEPT),
+  );
+}
 
 /** The running recording, as the room holds it between frames. */
 interface StoredRoomRecording {
@@ -215,6 +241,18 @@ export async function recordingStarted(
   if (held !== undefined && held.recordingId === transition.recordingId) {
     return { recipientCount: 0, noticeCount: 0 };
   }
+  // A START THAT ARRIVES AFTER ITS OWN STOP — or after the meeting ended, which wipes the room's keys,
+  // this list among them, and closes every socket — tells nobody and stores nothing. The recording is
+  // over: lighting the mark now would tell the room it is being recorded when it is not, and nothing
+  // would come along afterwards to clear it. It answers as a repeat does — nobody told, nothing left
+  // unrecorded — and the recorder's own pass, which reads the record every interval, settles a
+  // recording the record already says has stopped.
+  if (
+    (await stoppedRecordingIds(room)).includes(transition.recordingId) ||
+    (await readEndedAt(room)) !== undefined
+  ) {
+    return { recipientCount: 0, noticeCount: 0 };
+  }
   if (transition.by !== null) {
     await room.ctx.storage.put<StoredRoomRecording>(RECORDING_KEY, {
       firmId: transition.firmId,
@@ -250,6 +288,9 @@ export async function recordingStopped(
   if (stored !== undefined && stored.recordingId === transition.recordingId) {
     await room.ctx.storage.delete(RECORDING_KEY);
   }
+  // Remembered whether or not the room held it: a stop that beats its start here is exactly the case
+  // the list exists for.
+  await rememberStopped(room, transition.recordingId);
   const recipients = announce(room, (viewer) =>
     recordingFrame({
       state: "stopped",

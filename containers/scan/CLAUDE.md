@@ -78,14 +78,17 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   materialized bytes (not the forgeable declared size) against `max_uncompressed_bytes` before recursing,
   and `MAX_NESTED_BYTES` is sized so `max_depth * MAX_NESTED_BYTES` fits the instance — the recursion holds
   every level's buffer live at once.
-- **clamd limits track the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
-  `MaxScanSize` / `MaxFileSize` to 2048M (= `fileManager.inspectableSizeCapBytes`, 2 GiB) so clamd scans
-  every file the pipeline feeds it; the two must stay aligned, and the deploy instance must be sized for a
+- **clamd limits sit above the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
+  `MaxScanSize` / `MaxFileSize` to 2048M so clamd scans every file the pipeline feeds it. The pipeline
+  now feeds at most 40 MiB: the Worker reads the body into its own 128 MB isolate before sending it, so
+  `IN_MEMORY_INSPECTION_CEILING_BYTES` in `packages/file-manager/src/upload-policy.ts` caps
+  `fileManager.inspectableSizeCapBytes` there, and a larger file commits unscanned as `oversize`. The
+  container's 2 GiB is headroom for a scan that streams, not a figure to lower; the deploy instance must be sized for a
   full-size scan (the service buffers the body, clamd its own copy, atop the resident clamd DB **and the
   resident `Arc<yara_x::Rules>` + yara-x per-scan working set**) — operations.md §11.
-- **The `/scan` body limit tracks the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body limit
-  — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
-  (`MAX_SCAN_BODY_BYTES` = `fileManager.inspectableSizeCapBytes`). Keep it aligned with the clamd limits.
+- **The `/scan` body limit sits above the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body
+  limit — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
+  (`MAX_SCAN_BODY_BYTES`). Keep it aligned with the clamd limits, and at or above the Worker's ceiling.
 - **`/identify` runs Magika with an embedded model — but on a C++ backend (golden rule 14 flag).** The
   identification model ships inside the `magika` crate, so there is **no runtime egress and no external
   model file** — the running container stays sealed. However, magika 1.1 has **no pure-Rust backend**: it
