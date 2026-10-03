@@ -10,10 +10,10 @@ task.** The server half; the summary card is the web half and is next.
   `meeting_summary_action_item`, migration `20261003T034941_meeting-summary`), written on the recording's
   own queue as a third kind of message by `apps/api-worker/src/meetings/summary-consumer.ts` — no new
   queue. It is `refused` with a reason when the firm has not switched `meetings.summariesEnabled` on
-  (`disabled`), when the firm chose a third-party reasoning model without allowing its content to reach
-  one (`not-eligible`), or when nobody was heard (`transcript-empty`). A firm that chose no model is
-  summarized by the catalog's new reasoning model hosted on Cloudflare
-  (`@cf/meta/llama-4-scout-17b-16e-instruct`), so the conversation does not leave the platform unbidden.
+  (`disabled`), when the firm has not allowed its content to reach a model at all (`not-eligible`), or
+  when nobody was heard (`transcript-empty`). A firm that chose no model is summarized by the platform's
+  own reasoning model hosted on Cloudflare (`@cf/openai/gpt-oss-120b`), so the conversation does not
+  leave the platform unless the firm chose a model that sends it elsewhere.
 - The transcript is sent through `InferencePort.generateConversation` — never as an assistant
   conversation — with a platform-authored instruction (`packages/meetings/src/summary-prompt.ts`) and one
   member message of `HH:MM:SS Name: text` lines. A transcript too long for the model's context window is

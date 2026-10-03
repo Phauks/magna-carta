@@ -149,26 +149,34 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `summary-consumer.ts` — the summary of a ready transcript, on the SAME queue as a third kind of
   message (`MeetingSummaryMessage`, routed by `kind` in `../event-dispatch.ts`). The transcript's settle
   writes the pending summary in the batch that makes it ready and sends the first message after the
-  commit, best effort. One run per message, claimed on the summary's row with a fifteen-minute lease.
-  The GATE is read when it runs (`resolveSummaryModel`): `meetings.summariesEnabled` off is `refused`
-  `disabled`; a firm that chose no reasoning model (`resolveChosenReasoningModel` in
-  `../inference/call-site.ts` reads the stored row, because the setting's total read answers the
-  platform tier's third-party model) runs on the catalog's model hosted on Cloudflare; a chosen
-  third-party model runs only where `inference.aiProcessingEligibility` allows and is otherwise
-  `refused` `not-eligible`, never swapped; no speech is `refused` `transcript-empty`. The lines go as
-  one member message of `HH:MM:SS Name: text` through `InferencePort.generateConversation` with the
-  instruction from `@magna-carta/meetings/summary-prompt` — NOT an assistant conversation, and nothing is
-  written to the assistant's history. A transcript past the chosen model's catalog context window is cut
-  into at most five parts, each summarized, then combined, all inside the one message's wall clock (the
-  arithmetic is in `summary-prompt.ts`). The answer is read strictly by `summary-parse.ts`; a malformed
-  one fails the summary with an Error ID. A model refusing for now is outlasted on the transcript's own
-  delays and limit (`transcriptModelRetryDelaySeconds`, `TRANSCRIPT_MODEL_FAILURE_LIMIT`). EVERY settle —
-  ready, failed, or a refusal for now — meters every call the run made into `token_usage_meter` in its
-  own guarded batch. Nothing here logs a line, a sentence of the answer, a name or the instruction; the
-  scan in `packages/meetings/test/no-transcript-text-escape.test.ts` reads this module too. Its routes
-  are `../routes/meeting-summary.ts`: the read (audited, withheld exactly when the transcript's lines
-  are), a host's re-run, and an action item made into a task through `createMatterTask`. A test hands
-  the consumer its own port — the stub's conversation answer cannot carry the summary's structure.
+  commit, best effort. One run per message, claimed on the summary's row with a fifteen-minute lease, and
+  never before its `retry_at`. The GATE is read when it runs (`resolveSummaryModel`) and again before
+  every call after the first: `meetings.summariesEnabled` off is `refused` `disabled`; the firm's
+  `inference.aiProcessingEligibility` off is `refused` `not-eligible` WHATEVER the model, because every
+  path sends a privileged conversation to a reasoning model; otherwise the firm's chosen third-party model
+  (`resolveChosenReasoningModel` in `../inference/call-site.ts` reads the stored row), or, where it chose
+  none, the catalog's `platform-reasoning` model hosted on Cloudflare — never on the firm's roster. A
+  mid-run change of model starts the run over; a transcript whose filed document is trashed, held or gone
+  (`transcriptWordsWithheld`, also used by the routes) fails with an Error ID before any model is asked;
+  no speech is `refused` `transcript-empty`. The lines go as one member message of `HH:MM:SS Name: text`
+  through `InferencePort.generateConversation` with the instruction from
+  `@magna-carta/meetings/summary-prompt` and `answerFormat: "json-object"` — NOT an assistant
+  conversation, and nothing is written to the assistant's history. A transcript past the chosen model's
+  context (reckoned by `estimatedTokens`, participant list included) is cut into at most five parts, each
+  summarized; only their prose is combined, and their action items are kept as given. THE WALL CLOCK IS
+  ENFORCED: a call starts only while `SUMMARY_CALL_ALLOWANCE_MILLISECONDS` is left of
+  `SUMMARY_RUN_BUDGET_MILLISECONDS`, else the run is let go as a refusal for now. EACH CALL IS METERED AS
+  IT COMPLETES, in a batch of its own (`SummaryRun.answered`), so a run that lost its claim, threw or was
+  cut off still counts what it spent; the settle batches carry no meter. A model refusing for now is
+  outlasted on the transcript's own delays and limit, with `retry_at` recorded so a host's re-run in
+  between sends nothing, and a run refused at the same call as the one before it — after every earlier
+  call answered — fails (`model_failure_call`). Nothing here logs a line, a sentence of the answer, a name
+  or the instruction; the scan in `packages/meetings/test/no-transcript-text-escape.test.ts` reads this
+  module too. Its routes are `../routes/meeting-summary.ts`: the read (audited, withheld exactly when the
+  transcript's lines are), a host's re-run (refused while the document is withheld), and an action item
+  made into a task through `createMatterTask`; both POSTs take a path fingerprint, so a retry with the same
+  key is answered by reading the record afresh. A test hands the consumer its own port (and, for the
+  budget, its own `elapsedClock`) — the stub's conversation answer cannot carry the summary's structure.
 - `recording-sweep.ts` — on the ten-minute cron beside the status snapshot: abandons a recording whose
   recorder stopped reconciling (and clears the room's mark), hands on a compose nothing has claimed,
   moved or handed on for thirty minutes and fails it (through `failRecordingCompose`) after three

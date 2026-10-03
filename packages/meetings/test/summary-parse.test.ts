@@ -3,19 +3,27 @@ import { describe, expect, it } from "vitest";
 import {
   exactOwner,
   parseSummaryAnswer,
+  readCombinedSummaryAnswer,
   readSummaryAnswer,
+  settlePartedSummary,
   statedDueOn,
+  type DueDateContext,
+  type SummaryAnswer,
   type SummaryParticipant,
 } from "../src/summary-parse.ts";
 import {
+  estimatedTokens,
   SUMMARY_ACTION_ITEMS_MAXIMUM,
+  SUMMARY_ANSWER_MAXIMUM_TOKENS,
+  SUMMARY_INSTRUCTION_RESERVE_TOKENS,
   SUMMARY_PARTS_MAXIMUM,
+  SUMMARY_RUN_ACTION_ITEMS_MAXIMUM,
   splitTranscriptIntoParts,
-  summaryPartByteBudget,
+  spokenWords,
+  summaryPartTokenBudget,
   summaryTranscriptMessage,
   transcriptClock,
   transcriptLine,
-  utf8ByteLength,
 } from "../src/summary-prompt.ts";
 
 const ALICE = "user_alice" as UserId;
@@ -25,10 +33,18 @@ const PARTICIPANTS: readonly SummaryParticipant[] = [
   { displayName: "Bob Bramble", userId: BOB },
   { displayName: "Gita Guest", userId: null },
 ];
-const TRANSCRIPT = [
-  "00:00:03 Alice Abernathy: We will file the response by 14 November 2026.",
-  "00:01:10 Bob Bramble: I will send the signed declaration next Friday.",
-].join("\n");
+// What each person said, as the model read it after each line's `HH:MM:SS Name:`.
+const SPEECH: readonly string[] = [
+  "We will file the response by 14 November 2026.",
+  "I will send the signed declaration next Friday.",
+  "Let us aim for the 14th.",
+  "Serve it on 3/12.",
+  "Serve the notice on 14/11.",
+  "Filing by 2026-11-14 at the latest.",
+  "We may file the reply by 14 June.",
+  "Call me at 10:14 tomorrow.",
+].map(spokenWords);
+const CONTEXT: DueDateContext = { speech: SPEECH, earliestYear: 2025, latestYear: 2027 };
 
 function answer(value: unknown): string {
   return JSON.stringify(value);
@@ -161,23 +177,58 @@ describe("an action item's owner is a member only on an exact match", () => {
   });
 });
 
-describe("a due date is kept only when the transcript states it", () => {
-  it("keeps a real date whose quoted words are in the transcript and carry its day", () => {
-    expect(statedDueOn("2026-11-14", "by 14 November 2026", TRANSCRIPT)).toBe("2026-11-14");
+describe("a due date is kept only when what somebody said states it", () => {
+  it("keeps a date whose quoted words, spoken on one line, name its day and month one way", () => {
+    expect(statedDueOn("2026-11-14", "by 14 November 2026", CONTEXT)).toBe("2026-11-14");
+    expect(statedDueOn("2026-11-14", "on 14/11", CONTEXT)).toBe("2026-11-14");
+    expect(statedDueOn("2026-11-14", "by 2026-11-14", CONTEXT)).toBe("2026-11-14");
+    // "may" the verb is not the month; "June" is.
+    expect(statedDueOn("2026-06-14", "We may file the reply by 14 June", CONTEXT)).toBe(
+      "2026-06-14",
+    );
   });
 
-  it("drops a date the transcript does not state", () => {
-    // A relative phrase carries no day of the month.
-    expect(statedDueOn("2026-10-09", "next Friday", TRANSCRIPT)).toBeNull();
-    // Words that are not in the transcript.
-    expect(statedDueOn("2026-11-14", "by the 14th of November", TRANSCRIPT)).toBeNull();
-    // Words that are, naming a different day.
-    expect(statedDueOn("2026-11-15", "by 14 November 2026", TRANSCRIPT)).toBeNull();
-    // No quote, an impossible date, a date in another shape.
-    expect(statedDueOn("2026-11-14", null, TRANSCRIPT)).toBeNull();
-    expect(statedDueOn("2026-02-30", "by 14 November 2026", TRANSCRIPT)).toBeNull();
-    expect(statedDueOn("14/11/2026", "by 14 November 2026", TRANSCRIPT)).toBeNull();
-    expect(statedDueOn(null, "by 14 November 2026", TRANSCRIPT)).toBeNull();
+  it("never reads a date out of a clock time — the line's own prefix, or a time somebody said", () => {
+    // The prefix is not speech: a quote of it is not found among what was said.
+    expect(statedDueOn("2026-11-03", "00:14:03", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-10-14", "00:00:03 Alice Abernathy: We will file", CONTEXT)).toBeNull();
+    // A time somebody said is found, and is still not a date.
+    expect(statedDueOn("2026-10-14", "at 10:14", CONTEXT)).toBeNull();
+  });
+
+  it("drops a quote that runs across two lines", () => {
+    expect(statedDueOn("2026-11-14", "14 November 2026.\nI will send", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-11-14", "November 2026. I will send", CONTEXT)).toBeNull();
+  });
+
+  it("drops a date whose month, or year, the words do not state", () => {
+    // No month at all.
+    expect(statedDueOn("2031-02-14", "the 14th", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-11-14", "the 14th", CONTEXT)).toBeNull();
+    // The wrong month by name.
+    expect(statedDueOn("2026-12-14", "by 14 November 2026", CONTEXT)).toBeNull();
+    // The wrong year, quoted.
+    expect(statedDueOn("2027-11-14", "by 14 November 2026", CONTEXT)).toBeNull();
+    // No year quoted, and a year the summary could not mean.
+    expect(statedDueOn("2031-06-14", "by 14 June", CONTEXT)).toBeNull();
+    // The wrong day.
+    expect(statedDueOn("2026-11-15", "by 14 November 2026", CONTEXT)).toBeNull();
+  });
+
+  it("drops a date in figures that reads two ways", () => {
+    // 3/12 is the 3rd of December or the 12th of March: neither reading is kept.
+    expect(statedDueOn("2026-12-03", "on 3/12", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-03-12", "on 3/12", CONTEXT)).toBeNull();
+  });
+
+  it("drops a relative phrase, a quote nobody said, and anything that is not a date", () => {
+    expect(statedDueOn("2026-10-09", "next Friday", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-11-14", "by the 14th of November", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-11-14", null, CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-11-14", "  ", CONTEXT)).toBeNull();
+    expect(statedDueOn("2026-02-30", "by 14 November 2026", CONTEXT)).toBeNull();
+    expect(statedDueOn("14/11/2026", "by 14 November 2026", CONTEXT)).toBeNull();
+    expect(statedDueOn(null, "by 14 November 2026", CONTEXT)).toBeNull();
   });
 
   it("reads a final answer into the summary to write, owners and dates held to the transcript", () => {
@@ -199,7 +250,7 @@ describe("a due date is kept only when the transcript states it", () => {
           }),
         ],
       }),
-      { participants: PARTICIPANTS, transcriptText: TRANSCRIPT },
+      { participants: PARTICIPANTS, ...CONTEXT },
     );
     expect(parsed).toEqual({
       ok: true,
@@ -211,6 +262,64 @@ describe("a due date is kept only when the transcript states it", () => {
         ],
       },
     });
+  });
+});
+
+describe("a long transcript's parts, combined", () => {
+  const part = (count: number, label: string): SummaryAnswer => ({
+    summary: `Part ${label}.`,
+    actionItems: Array.from({ length: count }, (_, index) => ({
+      text: `Item ${label}${String(index)}.`,
+      owner: index === 0 ? "Alice Abernathy" : null,
+      dueOn: index === 0 ? "2026-11-14" : null,
+      dueOnStated: index === 0 ? "by 14 November 2026" : null,
+    })),
+  });
+
+  it("reads the combining call's answer as the summary alone, strictly", () => {
+    expect(readCombinedSummaryAnswer(answer({ summary: " The whole meeting. " }))).toEqual({
+      ok: true,
+      summary: "The whole meeting.",
+    });
+    // The combining call never carries action items: a list there is the wrong shape.
+    expect(readCombinedSummaryAnswer(answer({ summary: "S.", actionItems: [] }))).toEqual({
+      ok: false,
+      refusal: "wrong-shape",
+    });
+    expect(readCombinedSummaryAnswer("The whole meeting.")).toEqual({
+      ok: false,
+      refusal: "not-json",
+    });
+  });
+
+  it("keeps every part's action items as the part gave them, in order, held to the transcript", () => {
+    const settled = settlePartedSummary(
+      "The whole meeting.",
+      Array.from({ length: SUMMARY_PARTS_MAXIMUM }, (_, index) =>
+        part(SUMMARY_ACTION_ITEMS_MAXIMUM, String(index)),
+      ),
+      { participants: PARTICIPANTS, ...CONTEXT },
+    );
+    expect(settled.ok).toBe(true);
+    if (!settled.ok) return;
+    expect(settled.summary.summaryText).toBe("The whole meeting.");
+    expect(settled.summary.actionItems).toHaveLength(SUMMARY_RUN_ACTION_ITEMS_MAXIMUM);
+    expect(settled.summary.actionItems[0]).toEqual({
+      text: "Item 00.",
+      ownerUserId: ALICE,
+      dueOn: "2026-11-14",
+    });
+    expect(settled.summary.actionItems[SUMMARY_ACTION_ITEMS_MAXIMUM]?.text).toBe("Item 10.");
+    // More than a run may hold is refused, never cut.
+    expect(
+      settlePartedSummary(
+        "S.",
+        Array.from({ length: SUMMARY_PARTS_MAXIMUM + 1 }, (_, index) =>
+          part(SUMMARY_ACTION_ITEMS_MAXIMUM, String(index)),
+        ),
+        { participants: PARTICIPANTS, ...CONTEXT },
+      ),
+    ).toEqual({ ok: false, refusal: "too-many-action-items" });
   });
 });
 
@@ -243,9 +352,23 @@ describe("what the model is sent", () => {
     );
   });
 
-  it("budgets a call from the catalog's context window at three bytes a token", () => {
-    expect(summaryPartByteBudget(131_000)).toBe((131_000 - 8_192 - 2_048) * 3);
-    expect(summaryPartByteBudget(1_000)).toBe(0);
+  it("reckons tokens so no script is undercounted: a non-ASCII byte is a whole token", () => {
+    // ASCII at a token per one and a half bytes.
+    expect(estimatedTokens("abc")).toBe(2);
+    expect(estimatedTokens("00:14:03 ")).toBe(6);
+    // Two-byte and three-byte characters at a token a byte — a byte-level tokenizer can make no more.
+    expect(estimatedTokens("é")).toBe(2);
+    const devanagari = "नमस्ते दुनिया";
+    expect(estimatedTokens(devanagari)).toBeGreaterThanOrEqual(
+      new TextEncoder().encode(devanagari).byteLength - 1,
+    );
+  });
+
+  it("budgets a call from the catalog's context window, the answer's room, the instruction and the participants", () => {
+    expect(summaryPartTokenBudget(128_000, 100)).toBe(
+      128_000 - SUMMARY_ANSWER_MAXIMUM_TOKENS - SUMMARY_INSTRUCTION_RESERVE_TOKENS - 100,
+    );
+    expect(summaryPartTokenBudget(1_000, 0)).toBe(0);
   });
 
   it("cuts a long transcript into parts at line boundaries, in order, inside the budget", () => {
@@ -253,19 +376,34 @@ describe("what the model is sent", () => {
       { length: 30 },
       (_, index) => `line ${String(index).padStart(2, "0")} ${"w".repeat(20)}`,
     );
-    const budget = 200;
+    const budget = 150;
     const parts = splitTranscriptIntoParts(lines, budget);
     expect(parts).not.toBeNull();
+    expect(parts!.length).toBeGreaterThan(1);
     expect(parts!.flat()).toEqual(lines);
     for (const part of parts!) {
-      expect(part.reduce((total, line) => total + utf8ByteLength(line) + 1, 0)).toBeLessThanOrEqual(
-        budget,
-      );
+      expect(estimatedTokens(`${part.join("\n")}\n`)).toBeLessThanOrEqual(budget);
     }
     // A line longer than the whole budget is cut at a character boundary, never dropped.
     const long = "é".repeat(150);
     const cut = splitTranscriptIntoParts([long], 101);
     expect(cut!.flat().join("")).toBe(long);
+  });
+
+  it("keeps a transcript in a non-Latin script inside the budget, counted in the model's own tokens", () => {
+    // Every token is at least one byte, so a part's bytes bound its tokens from above.
+    const lines = Array.from({ length: 8 }, (_, index) =>
+      transcriptLine(index * 1_000, "अनीता", "हम सोमवार तक जवाब दाखिल करेंगे और घोषणा भेजेंगे।"),
+    );
+    const budget = 500;
+    const parts = splitTranscriptIntoParts(lines, budget);
+    expect(parts).not.toBeNull();
+    expect(parts!.flat()).toEqual(lines);
+    for (const part of parts!) {
+      expect(new TextEncoder().encode(`${part.join("\n")}\n`).byteLength).toBeLessThanOrEqual(
+        budget,
+      );
+    }
   });
 
   it("refuses a transcript that would need more parts than one run may make", () => {

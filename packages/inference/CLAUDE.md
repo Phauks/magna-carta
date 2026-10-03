@@ -106,14 +106,22 @@ the firm-scoped read result as injected parameters.
   hosted on Cloudflare (`isOnCloudflareModel` — the `@cf/` prefix the binding itself routes on) takes it
   as the first message in the `system` role its chat schema defines, still written from the port's
   `systemPrompt` and never from a member message. An optional `maximumOutputTokens` is sent as
-  `max_tokens` on both, because Workers AI answers 256 tokens unless told otherwise.
+  `max_tokens` on both, because Workers AI answers 256 tokens unless told otherwise — and a model hosted
+  on Cloudflare is sent `ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS` when a caller names none, on
+  `generate`, `generateStream` and `generateConversation` alike, so no caller is cut off by forgetting.
+  An optional `answerFormat: "json-object"` is sent to a model hosted on Cloudflare as its JSON mode
+  (`response_format`), and to a third-party model not at all. `responseText` reads a JSON-mode `response`
+  object back as the JSON it was, and a Responses-style `output` answer from its `output_text` parts.
 - **Every reasoning entry states its context window** (`contextWindowTokens`, and `maximumOutputTokens`
   where the provider publishes one), read off the provider's own model page and cited beside the entry;
   module-load validation refuses a reasoning entry without one, because a caller that sends a whole
-  document (a meeting's transcript) has to know when to cut it. **Exactly one reasoning entry is hosted
-  on Cloudflare** (`onCloudflareReasoningEntry`, today `@cf/meta/llama-4-scout-17b-16e-instruct`), with
-  no tier: it is what a feature that must not send content to a third party unbidden runs on by default
-  (the meeting summary), and a firm may select it like any other entry.
+  document (a meeting's transcript) has to know when to cut it. **The platform's own reasoning model is in
+  a slot of its own, `platform-reasoning`** — exactly one, hosted on Cloudflare
+  (`onCloudflareReasoningEntry`, today `@cf/openai/gpt-oss-120b`, Apache-2.0 and text-only), held to the
+  reasoning entries' ZDR bar and never offered on the roster `reasoningEntries()` answers. A firm that
+  picked it for the assistant would have every answer cut at its 256-token default; a feature of the
+  platform's own (the meeting summary) asks for it by role. Its licence rests on the publisher's pages,
+  because Cloudflare's model page states none — the entry's comment says which.
 - `transcribe` (`src/port.ts`, implemented in `src/gateway.ts`) closes over the catalog's single
   `transcription` entry (`PLATFORM_TRANSCRIPTION_MODEL_ID`, `@cf/openai/whisper-large-v3-turbo` on
   Workers AI; module-load validation requires exactly one, as for embedding). It takes a complete WAV

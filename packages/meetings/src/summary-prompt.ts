@@ -19,10 +19,13 @@
 //         "owner": string | null,           the participant who undertook it, spelled EXACTLY as the
 //                                           participant list spells them, or null
 //         "dueOn": string | null,           YYYY-MM-DD, only when the transcript states a calendar date
-//         "dueOnStated": string | null      the transcript's own words stating that date, verbatim
+//         "dueOnStated": string | null      the words somebody said stating that date, verbatim, from
+//                                           one line
 //       }
 //     ]
 //   }
+//
+// The one call that combines a long transcript's parts answers `{ "summary": string }` alone; see below.
 //
 // NOTHING HERE READS A CLOCK, A BINDING OR A ROW, and nothing here logs: the words pass through these
 // functions on their way to the model and nowhere else.
@@ -30,7 +33,7 @@
 /** The most characters of prose a summary may hold. The instruction asks for far fewer. */
 export const SUMMARY_TEXT_MAXIMUM_CHARACTERS = 12_000;
 
-/** The most action items one summary may list. */
+/** The most action items one model ANSWER may list. The instruction asks for fewer. */
 export const SUMMARY_ACTION_ITEMS_MAXIMUM = 40;
 
 /** The most characters one action item's text may hold. */
@@ -39,67 +42,113 @@ export const SUMMARY_ACTION_ITEM_TEXT_MAXIMUM_CHARACTERS = 500;
 // ---------------------------------------------------------------------------------------------
 // HOW MUCH ONE CALL MAY CARRY, AND HOW MANY CALLS ONE RUN MAY MAKE.
 //
-// THE CONTEXT. A request holds the instruction, the transcript and the answer together, and the model's
-// context window — the catalog's `contextWindowTokens`, read off the provider's own page — is the whole
-// of what it may hold. So one call carries at most
+// THE CONTEXT. A request holds the instruction, the participant list, the transcript and the answer
+// together, and the model's context window — the catalog's `contextWindowTokens`, read off the provider's
+// own page — is the whole of what it may hold. So one call carries at most
 //
 //   context window − the answer's room (SUMMARY_ANSWER_MAXIMUM_TOKENS) − the instruction's room
-//   (SUMMARY_INSTRUCTION_RESERVE_TOKENS)
+//   (SUMMARY_INSTRUCTION_RESERVE_TOKENS) − the participant list, as reckoned below
 //
-// tokens of transcript. A token count cannot be known without the model's tokenizer, which the platform
-// does not have, so the transcript is MEASURED IN UTF-8 BYTES at three bytes a token. That over-counts:
-// English runs nearer four bytes a token, and a character outside Latin script is two to four bytes and
-// usually at least one token — so the estimate leaves room rather than overrunning it. On today's catalog
-// that is about 120,000 tokens (362 kB of transcript) a call on the model hosted on Cloudflare (131,000)
-// and about 990,000 on the third-party models (1,000,000); a transcript of an hour is about 12,000 tokens.
+// tokens of transcript.
+//
+// A TOKEN COUNT CANNOT BE KNOWN WITHOUT THE MODEL'S TOKENIZER, which the platform does not have, so text
+// is RECKONED from its UTF-8 bytes in a way that cannot undercount:
+//
+//   - a byte outside ASCII counts as a WHOLE token. A byte-level tokenizer never makes a token of less
+//     than one byte, so no script can need more — and Devanagari, Thai and the like, three bytes a
+//     character and often a token or more a character, come close to it;
+//   - an ASCII byte counts as two thirds of a token (a token per one and a half bytes). English prose runs
+//     nearer four bytes a token, but what this text is made of is not prose alone: every line opens with
+//     `HH:MM:SS `, nine bytes that are five or six tokens, and a meeting is full of "Yeah." and "Okay."
+//     at about two bytes a token. One and a half leaves room under the worst of those.
+//
+// On today's catalog that is about 110,000 tokens a call on the model hosted on Cloudflare (128,000),
+// about 165 kB of English transcript — four hours or more of meeting — and about 980,000 tokens on the
+// third-party models (1,000,000).
 //
 // A TRANSCRIPT TOO LONG FOR ONE CALL is cut into parts at line boundaries, each part summarized on its
-// own (with a smaller answer), and the parts' answers combined in one last call.
+// own, and the parts' accounts combined into one in a last call. The ACTION ITEMS are not combined by a
+// model: each part's items are kept as that part's answer gave them, in order, because a model merging
+// lists can drop or alter somebody's obligation, and a list is what this run must not get wrong. An
+// undertaking restated in two parts is therefore listed twice.
+//
+// THE ANSWER'S ROOM covers the model's reasoning as well as its answer: a reasoning model spends part of
+// its answer length thinking before it writes, and an answer cut short is one that cannot be read. The
+// documented structure at its fullest — thirty items of three hundred characters with their keys and
+// quotes, and six hundred words of summary — is about five thousand tokens, so the room is more than three
+// times that.
 //
 // THE PER-MESSAGE BUDGET. A whole run — every part and the combination — is one queue message, so it is
 // bounded by what one consumer invocation may spend: fifteen minutes of wall clock. The CPU spent here is
-// string work over at most a few megabytes, well under a second. The wall clock is the model's, and it is
-// dominated by how much it WRITES: at a conservative forty tokens a second, a part's answer
-// (SUMMARY_PART_ANSWER_MAXIMUM_TOKENS, 4,096) is at most about 100 seconds and the combined answer (8,192)
-// about 200, so SUMMARY_PARTS_MAXIMUM parts and the combination are at most
-//
-//   5 × 100 s + 200 s ≈ 700 s, inside the 900 s a consumer may run.
-//
-// Five parts is about 600,000 tokens of transcript on the smallest context in the catalog — a meeting
-// longer than the recorder's twelve-hour maximum spent talking without pause. A transcript that would need
-// more fails with an Error ID rather than being summarized in part.
+// string work over at most a few megabytes, well under a second; the wall clock is the model's, and how
+// long a model takes to read a hundred thousand tokens and write its answer is not something a constant
+// here can know. So the bound is not estimated, it is ENFORCED: the consumer
+// (`apps/api-worker/src/meetings/summary-consumer.ts`) starts a call only while the run has a call's
+// allowance of time left, and otherwise lets the run go to be tried again. SUMMARY_PARTS_MAXIMUM bounds
+// how much a run may try to read: five parts is about 550,000 tokens of transcript on the smallest context
+// in the catalog, past the recorder's twelve-hour maximum spent talking without pause. A transcript that
+// would need more fails with an Error ID rather than being summarized in part.
 // ---------------------------------------------------------------------------------------------
 
-/** The room asked for the answer of a call that reads the whole transcript, or combines the parts. */
-export const SUMMARY_ANSWER_MAXIMUM_TOKENS = 8_192;
+/**
+ * The room asked for the answer of every call — the whole transcript, one part of it, or the combination
+ * — the model's reasoning included.
+ */
+export const SUMMARY_ANSWER_MAXIMUM_TOKENS = 16_384;
 
-/** The room asked for the answer of a call that reads one part of a long transcript. */
-export const SUMMARY_PART_ANSWER_MAXIMUM_TOKENS = 4_096;
-
-/** The room kept for the instruction, the participant list and the framing around the transcript. */
+/** The room kept for the instruction and the framing around the transcript. */
 export const SUMMARY_INSTRUCTION_RESERVE_TOKENS = 2_048;
 
-/** The bytes of transcript one token is reckoned to hold — a deliberate over-count of tokens. */
-export const SUMMARY_BYTES_PER_TOKEN = 3;
-
-/** The most parts one run cuts a transcript into — the per-message wall-clock bound above. */
+/** The most parts one run cuts a transcript into — the bound on what one run may try to read. */
 export const SUMMARY_PARTS_MAXIMUM = 5;
 
 /**
- * How many bytes of transcript lines one call may carry for a model whose context window is
- * `contextWindowTokens` — never less than nothing.
+ * The most action items one summary may hold: each part's answer may list `SUMMARY_ACTION_ITEMS_MAXIMUM`,
+ * and a run reads at most `SUMMARY_PARTS_MAXIMUM` parts, whose lists are kept whole.
  */
-export function summaryPartByteBudget(contextWindowTokens: number): number {
-  const tokens =
-    contextWindowTokens - SUMMARY_ANSWER_MAXIMUM_TOKENS - SUMMARY_INSTRUCTION_RESERVE_TOKENS;
-  return Math.max(0, tokens) * SUMMARY_BYTES_PER_TOKEN;
+export const SUMMARY_RUN_ACTION_ITEMS_MAXIMUM =
+  SUMMARY_ACTION_ITEMS_MAXIMUM * SUMMARY_PARTS_MAXIMUM;
+
+// The reckoning above, in THIRDS of a token so it stays in whole numbers: an ASCII byte is two thirds, any
+// other byte three.
+const ASCII_BYTE_THIRDS = 2;
+const OTHER_BYTE_THIRDS = 3;
+
+// One character's reckoning, in thirds of a token.
+function characterThirds(character: string): number {
+  const codePoint = character.codePointAt(0) ?? 0;
+  if (codePoint < 0x80) return ASCII_BYTE_THIRDS;
+  const bytes = codePoint < 0x800 ? 2 : codePoint < 0x10000 ? 3 : 4;
+  return bytes * OTHER_BYTE_THIRDS;
 }
 
-const encoder = new TextEncoder();
+function textThirds(value: string): number {
+  let thirds = 0;
+  for (const character of value) thirds += characterThirds(character);
+  return thirds;
+}
 
-/** The UTF-8 length of a string — what the budget is measured in. */
-export function utf8ByteLength(value: string): number {
-  return encoder.encode(value).byteLength;
+/** How many tokens `value` is reckoned to be — never fewer than the model's tokenizer would make of it. */
+export function estimatedTokens(value: string): number {
+  return Math.ceil(textThirds(value) / 3);
+}
+
+/**
+ * How many tokens of transcript lines one call may carry for a model whose context window is
+ * `contextWindowTokens`, beside a participant list reckoned at `participantTokens` — never less than
+ * nothing.
+ */
+export function summaryPartTokenBudget(
+  contextWindowTokens: number,
+  participantTokens: number,
+): number {
+  return Math.max(
+    0,
+    contextWindowTokens -
+      SUMMARY_ANSWER_MAXIMUM_TOKENS -
+      SUMMARY_INSTRUCTION_RESERVE_TOKENS -
+      participantTokens,
+  );
 }
 
 /**
@@ -120,9 +169,14 @@ function oneLine(value: string): string {
   return value.replace(/[\s\p{Cc}]+/gu, " ").trim();
 }
 
+/** What somebody said, exactly as the model reads it inside a line — on one line. */
+export function spokenWords(words: string): string {
+  return oneLine(words);
+}
+
 /** One line of speech as the model reads it: `HH:MM:SS Name: text`. */
 export function transcriptLine(startedMs: number, speakerName: string, words: string): string {
-  return `${transcriptClock(startedMs)} ${oneLine(speakerName) || "Unnamed participant"}: ${oneLine(words)}`;
+  return `${transcriptClock(startedMs)} ${oneLine(speakerName) || "Unnamed participant"}: ${spokenWords(words)}`;
 }
 
 /** One participant as the model is told of them: a name, spelled exactly as the transcript spells it. */
@@ -131,51 +185,54 @@ export function participantName(displayName: string): string {
 }
 
 /**
- * THE LINES CUT INTO PARTS, in order, each no more than `budgetBytes` (counting a line break after each
- * line). A part never splits a line unless one line alone is over the budget, and then that line is cut at
- * a character boundary. Answers null when the transcript would need more than `SUMMARY_PARTS_MAXIMUM`
- * parts, or the budget cannot hold a single character.
+ * THE LINES CUT INTO PARTS, in order, each reckoned at no more than `budgetTokens` (counting a line break
+ * after each line). A part never splits a line unless one line alone is over the budget, and then that
+ * line is cut at a character boundary. Answers null when the transcript would need more than
+ * `SUMMARY_PARTS_MAXIMUM` parts, or the budget cannot hold a single character.
  */
 export function splitTranscriptIntoParts(
   lines: readonly string[],
-  budgetBytes: number,
+  budgetTokens: number,
 ): string[][] | null {
-  if (budgetBytes < 8) return null;
+  const budgetThirds = budgetTokens * 3;
+  // A line break is one ASCII byte; the budget must hold it and the widest character beside it.
+  const lineBreakThirds = ASCII_BYTE_THIRDS;
+  if (budgetThirds < lineBreakThirds + 4 * OTHER_BYTE_THIRDS) return null;
   const parts: string[][] = [];
   let current: string[] = [];
-  let currentBytes = 0;
+  let currentThirds = 0;
   const close = (): void => {
     if (current.length > 0) parts.push(current);
     current = [];
-    currentBytes = 0;
+    currentThirds = 0;
   };
   for (const line of lines) {
-    for (const piece of cutToBudget(line, budgetBytes - 1)) {
-      const bytes = utf8ByteLength(piece) + 1;
-      if (currentBytes + bytes > budgetBytes) close();
+    for (const piece of cutToBudget(line, budgetThirds - lineBreakThirds)) {
+      const thirds = textThirds(piece) + lineBreakThirds;
+      if (currentThirds + thirds > budgetThirds) close();
       current.push(piece);
-      currentBytes += bytes;
+      currentThirds += thirds;
     }
   }
   close();
   return parts.length > SUMMARY_PARTS_MAXIMUM ? null : parts;
 }
 
-// A line cut into pieces of at most `budgetBytes`, on character boundaries.
-function cutToBudget(line: string, budgetBytes: number): string[] {
-  if (utf8ByteLength(line) <= budgetBytes) return [line];
+// A line cut into pieces reckoned at most `budgetThirds`, on character boundaries.
+function cutToBudget(line: string, budgetThirds: number): string[] {
+  if (textThirds(line) <= budgetThirds) return [line];
   const pieces: string[] = [];
   let piece = "";
-  let pieceBytes = 0;
+  let pieceThirds = 0;
   for (const character of line) {
-    const bytes = utf8ByteLength(character);
-    if (pieceBytes + bytes > budgetBytes) {
+    const thirds = characterThirds(character);
+    if (pieceThirds + thirds > budgetThirds) {
       pieces.push(piece);
       piece = "";
-      pieceBytes = 0;
+      pieceThirds = 0;
     }
     piece += character;
-    pieceBytes += bytes;
+    pieceThirds += thirds;
   }
   if (piece !== "") pieces.push(piece);
   return pieces;
@@ -195,10 +252,11 @@ const ANSWER_STRUCTURE = [
   "    or null when the transcript does not make clear who it is. Never guess, never shorten or",
   "    complete a name, and never name anybody who is not in the participant list.",
   '  - "dueOn": the date it is due as "YYYY-MM-DD", ONLY when the transcript states a calendar date for',
-  '    it ("by the 14th of November", "on 3/12"); otherwise null. Never work a date out from a weekday',
-  '    or a relative phrase ("next Friday", "in two weeks") — those are null.',
-  '  - "dueOnStated": the exact words of the transcript that state that date, copied character for',
-  '    character, or null when "dueOn" is null.',
+  '    it, its month included ("by the 14th of November", "on 14 November 2026"); otherwise null. Never',
+  '    work a date out from a weekday or a relative phrase ("next Friday", "in two weeks"), and never',
+  "    take one from the times at the start of the lines — those are null.",
+  '  - "dueOnStated": the exact words someone SAID that state that date, copied character for character',
+  '    from one line (never the time or the name at its start), or null when "dueOn" is null.',
 ].join("\n");
 
 const CONTENT_IS_DATA = [
@@ -232,17 +290,21 @@ export const SUMMARY_PART_SYSTEM_PROMPT = [
   ANSWER_STRUCTURE,
 ].join("\n");
 
-/** The instruction for the call that combines the parts' answers into the meeting's one summary. */
+/**
+ * The instruction for the call that combines the parts' accounts into the meeting's one summary. Its
+ * answer is the summary alone: the parts' action items are kept as the parts gave them, and never pass
+ * through this call.
+ */
 export const SUMMARY_COMBINE_SYSTEM_PROMPT = [
-  "You combine the summaries of the consecutive parts of one recorded meeting's transcript into the",
-  "meeting's one summary. Each part's summary is a JSON object in the structure described below.",
+  "You combine the accounts of the consecutive parts of one recorded meeting into the meeting's one",
+  "summary. Each part's account was written from that part of the transcript alone.",
   "",
   CONTENT_IS_DATA,
   "",
-  "Keep every action item from every part, in order, merging two only when they are plainly the same",
-  'undertaking. Keep each item\'s "owner", "dueOn" and "dueOnStated" exactly as the part gave them.',
-  "",
-  ANSWER_STRUCTURE,
+  "Answer with ONE JSON object and nothing else: no prose before or after it, no code fence, no comment.",
+  'The object has exactly one key, "summary": a string. A plain-prose account of the whole meeting: what',
+  "was discussed, what was decided, and what was left open, in the order it happened. Neutral and",
+  "factual; no headings, no lists, no markup. At most 600 words.",
 ].join("\n");
 
 /** The participant list the model may name an owner from, one name per line. */
@@ -273,8 +335,8 @@ export function summaryTranscriptMessage(input: {
 }
 
 /**
- * THE ONE MEMBER MESSAGE for the call that combines the parts: who took part, then each part's answer as
- * the JSON it was given in, in order.
+ * THE ONE MEMBER MESSAGE for the call that combines the parts: who took part, then each part's account, in
+ * order.
  */
 export function summaryCombineMessage(input: {
   readonly participants: readonly string[];
@@ -283,7 +345,12 @@ export function summaryCombineMessage(input: {
   return [
     participantBlock(input.participants),
     "",
-    `The summaries of the ${String(input.parts.length)} parts, in order:`,
-    ...input.parts.map((part, index) => `Part ${String(index + 1)}:\n${part}`),
+    `The accounts of the ${String(input.parts.length)} parts, in order:`,
+    ...input.parts.map((part, index) => `Part ${String(index + 1)}:\n${oneLine(part)}`),
   ].join("\n");
+}
+
+/** The participant list as the model is told it — what its share of a call's context is reckoned from. */
+export function summaryParticipantBlock(participants: readonly string[]): string {
+  return participantBlock(participants);
 }

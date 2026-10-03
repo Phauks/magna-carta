@@ -11712,7 +11712,11 @@ export const meetingTranscriptSegment = sqliteTable(
 // call one run makes (a long transcript is summarized a part at a time and then combined), which is also
 // what the firm's token meter is written from. `claimed_at` is the lease one consumer holds while it
 // writes the summary, so two deliveries of one message never send the transcript to a model twice;
-// `model_failures` counts the runs in a row that met a model refusing for now.
+// `model_failures` counts the runs in a row that met a model refusing for now; `model_failure_call` is the
+// call of the last such run (counted from zero) at which it was refused, so a call that is refused again
+// after every call before it was answered — a model that is up, and an input it will never take — fails
+// the summary instead of being retried; and `retry_at` is when the run a refusal put off is due, so a
+// member asking for it in between does not start a second chain of attempts beside the scheduled one.
 export const meetingSummary = sqliteTable(
   "meeting_summary",
   {
@@ -11745,6 +11749,11 @@ export const meetingSummary = sqliteTable(
     // The standard pipeline's Error ID when the summary failed — never a message.
     failureErrorId: text("failure_error_id"),
     modelFailures: integer("model_failures").notNull().default(0),
+    // The call, counted from zero, at which the last run the model refused for now was refused; null
+    // while no refusal is counted.
+    modelFailureCall: integer("model_failure_call"),
+    // When the run a refusal put off is due (ISO-8601 instant); null while none is scheduled.
+    retryAt: text("retry_at"),
     claimedAt: text("claimed_at"), // ISO-8601 instant
     // The last claim released, retry scheduled or run settled — what a stalled run is measured from.
     progressAt: text("progress_at"), // ISO-8601 instant
@@ -11781,6 +11790,10 @@ export const meetingSummary = sqliteTable(
       "meeting_summary_counts_check",
       sql`${table.inputTokens} >= 0 AND ${table.outputTokens} >= 0 AND ${table.modelCalls} >= 0
         AND ${table.modelFailures} >= 0`,
+    ),
+    check(
+      "meeting_summary_model_failure_call_check",
+      sql`${table.modelFailureCall} IS NULL OR ${table.modelFailureCall} >= 0`,
     ),
   ],
 );

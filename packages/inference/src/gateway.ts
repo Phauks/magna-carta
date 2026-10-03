@@ -143,13 +143,25 @@ export function extractUsage(response: unknown): TokenUsage {
 }
 
 // Resolves the text content from the response across the shapes the gateway returns.
-// Precedence: Workers AI native (response.response string) → Anthropic Messages
-// (response.content[0].text) → OpenAI-compatible (response.choices[0].message.content) → "".
+// Precedence: Workers AI native (response.response, a string — or, in Workers AI's JSON mode, the
+// parsed object, which is serialized back to the JSON it was) → Anthropic Messages
+// (response.content[0].text) → OpenAI-compatible (response.choices[0].message.content) → the
+// Responses-API shape a Workers AI reasoning model can answer in (the output_text parts of every
+// `message` item in response.output, in order; its `reasoning` items are the model's working and are
+// never the answer) → "".
 // Every access is guarded; the response is unknown and this function never throws.
 function responseText(response: unknown): string {
+  if (response === null || typeof response !== "object") return "";
   const r = response as Record<string, unknown>;
   // Workers AI native shape
   if (typeof r["response"] === "string") return r["response"];
+  if (r["response"] !== null && typeof r["response"] === "object") {
+    try {
+      return JSON.stringify(r["response"]);
+    } catch {
+      return "";
+    }
+  }
   // Anthropic Messages shape
   const content = r["content"];
   if (Array.isArray(content) && content.length > 0) {
@@ -165,7 +177,42 @@ function responseText(response: unknown): string {
       if (typeof msgContent === "string") return msgContent;
     }
   }
+  // Responses-API shape
+  const output = r["output"];
+  if (Array.isArray(output)) {
+    const texts = output.flatMap((item: unknown): string[] => {
+      if (item === null || typeof item !== "object") return [];
+      const entry = item as Record<string, unknown>;
+      if (entry["type"] !== "message" || !Array.isArray(entry["content"])) return [];
+      return (entry["content"] as unknown[]).flatMap((part: unknown): string[] => {
+        if (part === null || typeof part !== "object") return [];
+        const piece = part as Record<string, unknown>;
+        return piece["type"] === "output_text" && typeof piece["text"] === "string"
+          ? [piece["text"]]
+          : [];
+      });
+    });
+    if (texts.length > 0) return texts.join("");
+  }
   return "";
+}
+
+// The answer length a model hosted on Cloudflare is sent when its caller names none. Workers AI answers
+// 256 tokens unless told otherwise — a paragraph — so a caller that forgot to ask would have every
+// answer cut off with nothing to say so; this is a guard, not a budget, and a caller that knows its
+// answer's size asks for it. A third-party model is sent no default: its provider's own applies.
+export const ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS = 4_096;
+
+// The answer-length field for a request, or nothing: what the caller asked for, else the guard above for
+// a model hosted on Cloudflare.
+function answerLength(
+  modelId: string,
+  maximumOutputTokens: number | undefined,
+): { readonly max_tokens?: number } {
+  if (maximumOutputTokens !== undefined) return { max_tokens: maximumOutputTokens };
+  return isOnCloudflareModel(modelId)
+    ? { max_tokens: ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS }
+    : {};
 }
 
 function responseVector(response: unknown): readonly number[] {
@@ -306,7 +353,11 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
     const entry = resolved.entry;
     const gateway = gatewayOptions(input.firmId, entry.slot, env);
     try {
-      const response = await ai.run(input.modelId, { prompt: input.prompt }, { gateway });
+      const response = await ai.run(
+        input.modelId,
+        { prompt: input.prompt, ...answerLength(input.modelId, undefined) },
+        { gateway },
+      );
       return ok({
         text: responseText(response),
         usage: extractUsage(response),
@@ -327,18 +378,24 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
   // separation holds all the way to the wire. A model hosted on Cloudflare takes it as the FIRST
   // message, in the `system` role its chat schema defines — still written here from the platform's
   // field and never from a member's message, so nothing a member typed can reach that role on either
-  // path. An answer length, when asked for, is the provider's `max_tokens` on both.
+  // path. An answer length, when asked for, is the provider's `max_tokens` on both, and a model hosted on
+  // Cloudflare is sent the guard's length when none is asked for. A JSON answer is asked of a model
+  // hosted on Cloudflare through its JSON mode (`response_format`, in the chat schema every Workers AI
+  // text model's page publishes); a third-party provider's messages API on this path has no such field,
+  // and sending one would be refused.
   function conversationRequestBody(input: ConversationInput): unknown {
     const messages = input.messages.map((message) => ({
       role: message.role === "member" ? "user" : "assistant",
       content: message.content,
     }));
-    const length =
-      input.maximumOutputTokens === undefined ? {} : { max_tokens: input.maximumOutputTokens };
+    const length = answerLength(input.modelId, input.maximumOutputTokens);
     if (isOnCloudflareModel(input.modelId)) {
       return {
         messages: [{ role: "system", content: input.systemPrompt }, ...messages],
         ...length,
+        ...(input.answerFormat === "json-object"
+          ? { response_format: { type: "json_object" } }
+          : {}),
       };
     }
     return { system: input.systemPrompt, messages, ...length };
@@ -386,7 +443,7 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
       try {
         const response = await ai.run(
           input.modelId,
-          { prompt: input.prompt, stream: true },
+          { prompt: input.prompt, stream: true, ...answerLength(input.modelId, undefined) },
           { gateway },
         );
         // The binding returns an async-iterable of text deltas under streaming; usage is read once the

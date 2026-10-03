@@ -74244,7 +74244,7 @@
         }
       },
       "post": {
-        "description": "Asks for the summary of a recording's ready transcript to be written again — or written for the first time, where the transcript has none. A summary already being written is left to finish, and asking again sends it on if it was stranded. The firm's settings are read when it is run: a firm that has not switched summaries on, or whose chosen model it has not allowed its content to reach, is answered with a refused summary rather than an error. Writing it again replaces the text and the action items; a task already made of an action item is kept.",
+        "description": "Asks for the summary of a recording's ready transcript to be written again — or written for the first time, where the transcript has none. A summary already being written is left to finish, and asking again sends it on if it was stranded. The firm's settings are read when it is run: a firm that has not switched summaries on, or whose chosen model it has not allowed its content to reach, is answered with a refused summary rather than an error. Writing it again replaces the text and the action items; a task already made of an action item is kept. A transcript whose filed document is in the trash, held by the scan or gone is not read again. A retry with the same Idempotency-Key is answered with the summary as it stands now.",
         "operationId": "meetings.rerunSummary",
         "tags": [
           "meetings"
@@ -74377,7 +74377,7 @@
     },
     "/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary/action-items/{actionItemId}/task": {
       "post": {
-        "description": "Makes a task of one action item of a ready summary, through the task subsystem's own create path: on the recording's matter, titled with the item, due on the date the transcript stated (read in the meeting's own time zone), and — unless assignToOwner is false — in the owner's name. Needs the task-write permission and the meeting-join permission; putting it in another member's name needs the task-assign permission too. An item is made a task once.",
+        "description": "Makes a task of one action item of a ready summary, through the task subsystem's own create path: on the recording's matter, titled with the item, due on the date the transcript stated (read in the meeting's own time zone), and — unless assignToOwner is false — in the owner's name. Needs the task-write permission and the meeting-join permission; putting it in another member's name needs the task-assign permission too. An item is made a task once; a retry with the same Idempotency-Key is answered with the task the first request made.",
         "operationId": "meetings.createSummaryActionItemTask",
         "tags": [
           "meetings"

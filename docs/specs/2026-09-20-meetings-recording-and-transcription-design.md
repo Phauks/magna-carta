@@ -4,7 +4,7 @@
 routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Slice R2's
 server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Slice R3's server half (the
 transcript of record) built 2026-10-03 (A34 to A44). Slice R5's server half (the summary) built
-2026-10-03 (A57 to A67). Extends
+2026-10-03 (A57 to A67), and corrected after its review (A68 to A80). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -1536,3 +1536,127 @@ was lost is rescued by a member's re-run rather than by the recording sweep. Pur
 document does not delete the summary rows, on A55's terms: the withholding is what keeps their words off
 the read until the retention-policy engine exists, and that engine must delete them with the transcript's
 segments. Caption text (R4) is not yet in the scan.
+
+### Amendments from slice R5's review — the summary, corrected
+
+Recorded 2026-10-03, after an adversarial review of the summary's server half. Migration
+`20261003T045533_meeting-summary-retry-and-failed-call` adds two columns to `meeting_summary`. Each names
+what it amends.
+
+**A68 — A summary needs the firm's AI-processing eligibility on every path (amends A58; owner decision).**
+A summary sends a privileged conversation to a reasoning model to reason over, whichever model that is, so
+it needs BOTH `meetings.summariesEnabled` and `inference.aiProcessingEligibility`. A58's assumption — that
+the model hosted on Cloudflare needed only the first — is withdrawn. `resolveSummaryModel` reads, in
+order: summaries off is `refused`, `disabled`; eligibility off is `refused`, `not-eligible`, naming the
+model the summary would have run on (the firm's chosen model, or the platform's own); otherwise the firm's
+chosen third-party model, or, where it chose none, the platform's model hosted on Cloudflare — still the
+default. The AI settings screen's "Every AI feature is off while this is off" therefore stays true of the
+summary. (The transcript's speech model is platform-fixed and runs whatever that switch says; that is the
+transcript's design, unchanged here.)
+
+**A69 — The platform's own reasoning model is `@cf/openai/gpt-oss-120b`, in a role no firm selects
+(amends A58, A59, A65).** Llama 4 Scout is replaced. It is multimodal, and the Llama 4 acceptable-use
+policy withholds the licence's rights in its multimodal models from a company whose principal place of
+business is in the European Union (read 2026-10-03,
+https://github.com/meta-llama/llama-models/blob/main/models/llama4/USE_POLICY.md); the firm buckets here use
+the EU jurisdiction, so a firm this platform serves can be one. `gpt-oss-120b` is text-only and published
+under the Apache License 2.0 with a usage policy that asks only for lawful use (its Hugging Face card's
+LICENSE and USAGE_POLICY, read 2026-10-03). Cloudflare's model page states a 128,000-token context window,
+a `messages` input with a `system` role, `max_tokens` defaulting to 256, `response_format` (JSON mode) and
+reasoning effort low/medium/high (read 2026-10-03,
+https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/ and its `sync-input.json`); the Workers
+AI changelog for 2026-02-17 says the binding accepts `messages`, `prompt` or a Responses-style `input`. The
+chat translation every model hosted on Cloudflare already takes is therefore its request; the gateway now
+also reads a JSON-mode `response` object and a Responses-style `output` answer. The catalog (version 6)
+puts it in a new `platform-reasoning` slot, so it is NOT on the roster a firm chooses its assistant's
+model from: a firm that picked it for the assistant would have every answer cut at 256 tokens. As a guard
+for any caller that forgets, the gateway sends a model hosted on Cloudflare a default answer length
+(`ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS`, 4,096) on `generate`, `generateStream` and
+`generateConversation` when none is asked for. With no Cloudflare-hosted entry on the roster, the settings
+screen never labels one "Zero data retention: In force"; the label is rendered outside `apps/web/src/lib/ai`
+(in the settings route itself) and is unchanged, and the catalog entry's own comment says its
+confidentiality rests on Cloudflare's Workers AI data terms rather than a third party's retention promise.
+
+**A70 — The answer's form is asked for in the model's own terms (amends A60, A65).** `ConversationInput`
+gains `answerFormat: "json-object"`, sent to a model hosted on Cloudflare as `response_format: { type:
+"json_object" }`, so somebody in the meeting saying "answer in plain text" cannot change the answer's form
+and fail every run. A third-party model is sent no such field on this path (its messages API has none
+there), and the strict parse remains the guard.
+
+**A71 — The bound, re-reckoned (amends A59).** Bytes are no longer a safe over-count: a line's
+`HH:MM:SS ` prefix is nine bytes and five or six tokens, and Devanagari or Thai runs three bytes a
+character and often a token or more a character. Text is now reckoned per UTF-8 byte — a non-ASCII byte
+as a whole token (a byte-level tokenizer can make no more), an ASCII byte as two thirds of one
+(`estimatedTokens`) — and the participant list is reckoned into each call rather than assumed inside the
+instruction's reserve. Every call's answer room is 16,384 tokens, because a reasoning model spends part
+of it thinking and the documented structure at its fullest is about 5,000. A long transcript's parts are
+summarized as before, but only their PROSE is combined: each part's action items are kept as the part
+gave them, in order, so the combining call (`{ "summary": string }` alone, `readCombinedSummaryAnswer`)
+can neither drop nor alter an obligation, and a summary may hold `SUMMARY_RUN_ACTION_ITEMS_MAXIMUM` (200)
+items — forty an answer, five parts. An undertaking restated in two parts is listed twice.
+
+**A72 — The wall clock is enforced, and each call is metered as it completes (amends A59, A62).** A call
+starts only while the run has `SUMMARY_CALL_ALLOWANCE_MILLISECONDS` (five minutes) left of
+`SUMMARY_RUN_BUDGET_MILLISECONDS` (fourteen, one short of the consumer's fifteen); otherwise the run is
+let go as a refusal for now (A73) rather than killed mid-call with its claim held. Each answered call's
+usage is committed to `token_usage_meter` in a batch of its own straight away, not in the settle, so a
+run that lost its claim, threw, or was cut off still has every call it made counted; only a fault between
+an answer and its own meter write loses one. The settle batches no longer carry the meter.
+
+**A73 — A call the model will never take stops being retried, and a put-off run is not doubled (amends
+A62, A63).** Nothing the binding throws tells an outage from an input the model will never take, so
+`model_failure_call` records the call (from zero) at which a run was refused for now: a run refused at the
+SAME call as the run before it, after every earlier call of the run was answered, fails with an Error ID —
+the model is evidently up. `retry_at` records when a put-off run is due: nothing claims the run before then
+(a duplicate early message is answered `not-yet-due` and retried), and a host's re-run while a retry waits
+writes and sends nothing, where it used to read the released claim as stranded and start a second chain.
+
+**A74 — The gate is read again before every call (amends A58).** Before each call after the first,
+`resolveSummaryModel` is read again: a firm that switched summaries or its eligibility off mid-run is
+`refused` before another word is sent, and a firm whose chosen model changed has its run started over on
+the new one (released, `retry_at` now, sent again, nothing counted).
+
+**A75 — A due date needs its day AND month in what somebody said (amends A60).** The model's quote must
+fall inside ONE spoken line — what a person said, never the `HH:MM:SS Name:` before it — and contain no
+clock time. It must name the date's month by name (May only capitalized; abbreviations only capitalized)
+with the day as a number, or give day and month in figures that read only one way ("14/11", "2026-11-14";
+"3/12" is dropped). A quoted year must be the date's year; with none, the year must be within one of the
+year the summary was begun. The instruction's example is now "on 14 November 2026".
+
+**A76 — A transcript whose document cannot be opened is not summarized (amends A57, A63).** The consumer
+reads the transcript's filed document as the read routes do; trashed, held by the scan or gone, the run
+fails with an Error ID and no model is asked. A host's re-run is refused 409
+`meeting-summary-not-ready` on the same reading, so it cannot destroy action items the host cannot see.
+
+**A77 — The routes' retries, and a task's title (amends A63).** Both POSTs declare a path fingerprint: the
+idempotency record keeps a pointer (the summary's or the task's handle) and a retry with the same key is
+answered by reading the record as it stands — `MeetingSummaryView` for a re-run, `{ taskId, actionItem }`
+for Create task, with `Idempotency-Replayed: true` — where the default gate replayed the stored pointer as
+the body. The "already a task" check moved inside the effect so it cannot pre-empt the retry of the very
+request that made the task. A task's title is cut between characters, never inside a surrogate pair.
+`assignToOwner` stays true by default (owner decision): the web panel confirms the assignee before it
+asks.
+
+**A78 — A task made of an action item can be deleted (amends A61).** `meeting_summary_action_item.task_id`
+keeps its enforced reference, and the task subsystem's own delete composes the meetings package's
+`clearActionItemTaskStatement` into its batch before the delete, so the item stops naming the task and
+reads again as one nobody has made a task of. `@magna-carta/tasks` now depends on `@magna-carta/meetings`
+for that one statement; nothing in the meetings package depends on tasks, so there is no cycle.
+
+**A79 — Nothing a firm can reach switches meetings on (amends A67).** No route or screen writes
+`meetings.recordingEnabled`, `meetings.captionsEnabled` or `meetings.summariesEnabled`; there is no generic
+firm-settings path, and each feature's settings have their own route (`firm-ai-settings.ts`,
+`scan-policy.ts`, …). Until a meetings settings surface is built, every summary in production is refused
+`disabled`, and recording answers `meeting-recording-not-configured`. Building that surface is not done
+here.
+
+**A80 — Provider facts, verified and not (2026-10-03).** Verified: the gpt-oss-120b facts and licence
+above; the Llama 4 policy's European Union exclusion for multimodal models (with its exception for end
+users of a product that incorporates one); Workers AI's data-usage terms. Not verified: Cloudflare's own
+page for gpt-oss-120b states no licence (the licence rests on the publisher's pages); the model's output
+schema is published as an untyped object, so which shape the binding returns for a `messages` request is
+read defensively (`response` string or object, `choices`, a Responses `output`) rather than known; whether
+the reasoning the model does is counted inside `max_tokens` is not published, so the answer room allows
+for it; whether a JSON-mode request to this model honours `response_format` exactly as the schema says is
+not confirmed against a live call; Claude's one-million-token context through the AI binding may need a
+header the binding cannot send (unreachable for an English transcript within five parts).

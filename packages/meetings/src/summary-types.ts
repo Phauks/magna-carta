@@ -61,6 +61,12 @@ export interface MeetingSummaryRow {
   readonly failure_error_id: string | null;
   // How many runs in a row met a model that refused for now; past the consumer's limit it fails.
   readonly model_failures: number;
+  // The call, counted from zero, at which the last of those runs was refused; null while none is counted.
+  // A run refused at the same call again, after every call before it was answered, fails.
+  readonly model_failure_call: number | null;
+  // When the run a refusal put off is due; null while none is scheduled. Nothing claims it before then,
+  // and a member asking for it in between sends nothing.
+  readonly retry_at: string | null;
   // When the consumer writing it claimed it; null when nobody holds it.
   readonly claimed_at: string | null;
   // The last claim released, retry scheduled or run settled.

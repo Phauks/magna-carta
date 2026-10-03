@@ -16,6 +16,7 @@ import {
   recordSummaryModelFailureStatement,
   refuseSummaryStatement,
   rerunSummaryStatement,
+  restartSummaryStatement,
   type SummaryRunUsage,
 } from "./summary-statements.ts";
 import type {
@@ -40,6 +41,7 @@ export const SUMMARY_READY_GUARD = "meeting.summary.ready";
 export const SUMMARY_REFUSE_GUARD = "meeting.summary.refuse";
 export const SUMMARY_FAIL_GUARD = "meeting.summary.fail";
 export const SUMMARY_MODEL_FAILURE_GUARD = "meeting.summary.model-failure";
+export const SUMMARY_RESTART_GUARD = "meeting.summary.restart";
 export const SUMMARY_RERUN_GUARD = "meeting.summary.rerun";
 export const SUMMARY_ACTION_ITEM_TASK_GUARD = "meeting.summary.action-item-task";
 
@@ -293,10 +295,18 @@ export function failSummaryEffect(
   };
 }
 
-/** THE MODEL REFUSED FOR NOW: one more refusal counted and the claim let go, guarded on that claim. */
+/**
+ * THE MODEL REFUSED FOR NOW: one more refusal counted, the call it came at and the instant the retry is
+ * due recorded, and the claim let go — guarded on that claim.
+ */
 export function summaryModelFailureEffect(
   database: SqlDatabase,
-  input: { readonly summaryId: MeetingSummaryId; readonly claimedAt: string },
+  input: {
+    readonly summaryId: MeetingSummaryId;
+    readonly claimedAt: string;
+    readonly failedCall: number;
+    readonly retryAt: string;
+  },
   options: MeetingSummaryOptions,
 ): EffectWrite {
   return {
@@ -305,9 +315,40 @@ export function summaryModelFailureEffect(
         recordSummaryModelFailureStatement(database, {
           id: input.summaryId,
           claimedAt: input.claimedAt,
+          failedCall: input.failedCall,
+          retryAt: input.retryAt,
           now: options.clock.now(),
         }),
         SUMMARY_MODEL_FAILURE_GUARD,
+      ),
+    ],
+    outboxMessages: [],
+  };
+}
+
+/**
+ * THE RUN STARTS OVER, counting nothing — the firm's choice of model changed while it ran — and is due
+ * again at `retryAt`; the claim is let go, guarded on that claim.
+ */
+export function restartSummaryEffect(
+  database: SqlDatabase,
+  input: {
+    readonly summaryId: MeetingSummaryId;
+    readonly claimedAt: string;
+    readonly retryAt: string;
+  },
+  options: MeetingSummaryOptions,
+): EffectWrite {
+  return {
+    statements: [
+      guarded(
+        restartSummaryStatement(database, {
+          id: input.summaryId,
+          claimedAt: input.claimedAt,
+          retryAt: input.retryAt,
+          now: options.clock.now(),
+        }),
+        SUMMARY_RESTART_GUARD,
       ),
     ],
     outboxMessages: [],

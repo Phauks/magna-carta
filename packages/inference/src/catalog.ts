@@ -17,7 +17,18 @@ import type { InferenceModelId } from "./port.ts";
 
 // "transcription" is platform-fixed for the same structural reason as "embedding": the operation that
 // uses it takes no model argument, so no firm can select a different one.
-export type ModelSlot = "reasoning" | "utility" | "embedding" | "transcription";
+//
+// "platform-reasoning" is a reasoning model the PLATFORM fixes for a feature of its own and no firm
+// selects: it is kept apart from "reasoning" so it never appears on the roster a firm chooses its
+// assistant's model from. The one there is today is hosted on Cloudflare and answers 256 tokens unless a
+// caller asks for more; a firm that picked it for the assistant would have every answer cut off with
+// nothing to say so, and a feature that needs it (the meeting summary) asks for it by this role instead.
+export type ModelSlot =
+  | "reasoning"
+  | "platform-reasoning"
+  | "utility"
+  | "embedding"
+  | "transcription";
 
 // The platform-maintained, evergreen name a reasoning selection resolves through. The tier is what other
 // code and configuration refer to; WHICH curated model occupies it is data in this file. Tracking model
@@ -113,12 +124,14 @@ export interface CatalogEntry {
   // field exists so the freshness pass can say "a successor exists, and nobody has decided about it".
   readonly supersededBy?: string;
   // Reasoning entries only: the tier this entry currently occupies, if any. A reasoning entry without a
-  // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to.
+  // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to. A
+  // platform-reasoning entry never holds one, because no firm selects it.
   readonly tier?: ReasoningTier;
   // How many tokens one request to this model may hold, prompt and answer together, as the provider
   // publishes it on the model's own page (read on availabilityVerifiedOn). Required of every reasoning
   // entry, because a caller that sends a whole document — a meeting's transcript — has to know when it
   // must cut the document into parts, and a guess at this figure is a request the provider refuses.
+  // Required of a platform-reasoning entry for the same reason.
   readonly contextWindowTokens?: number;
   // The most tokens one answer may hold, where the provider publishes a limit. Absent where it names
   // none; the caller then bounds the answer itself.
@@ -132,6 +145,12 @@ export interface CatalogEntry {
 }
 
 const isoDate = z.string().regex(CIVIL_DATE_PATTERN);
+
+// Both reasoning roles carry firm content to a model that writes prose about it, so both are held to
+// the same confidentiality bar and must state their context window.
+function isReasoningSlot(slot: ModelSlot): boolean {
+  return slot === "reasoning" || slot === "platform-reasoning";
+}
 
 // True when snapshotId is exactly referenceId plus a -YYYYMMDD suffix. Built from string operations
 // rather than a regex composed around referenceId, because a reference id legitimately contains regex
@@ -150,7 +169,7 @@ function isDatedSnapshotOf(snapshotId: string, referenceId: string): boolean {
 // harmless extra.
 export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .object({
-    slot: z.enum(["reasoning", "utility", "embedding", "transcription"]),
+    slot: z.enum(["reasoning", "platform-reasoning", "utility", "embedding", "transcription"]),
     modelId: z.string().min(1),
     snapshotId: z.string().min(1),
     snapshotForm: z.enum(["provider-dated", "provider-dateless", "platform-composed"]),
@@ -167,7 +186,7 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
     pinState: z.enum(["open", "frozen"]).optional(),
     indexVersion: z.string().min(1).optional(),
   })
-  .refine((entry) => entry.slot !== "reasoning" || entry.zdrEligible, {
+  .refine((entry) => !isReasoningSlot(entry.slot) || entry.zdrEligible, {
     message: "a reasoning model must be ZDR-eligible",
   })
   .refine((entry) => entry.tier === undefined || entry.slot === "reasoning", {
@@ -218,7 +237,7 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 5;
+export const CATALOG_VERSION = 6;
 export const CATALOG_EFFECTIVE_DATE = "2026-10-03";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
@@ -238,11 +257,10 @@ export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 // and nothing else — transcripts already written keep the model id they recorded.
 export const PLATFORM_TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo";
 
-// THE REASONING MODEL HOSTED ON CLOUDFLARE ITSELF, so a privileged conversation sent to it never leaves
-// the platform for a third-party provider. A firm may select it like any other reasoning entry; it holds
-// no tier, so an unconfigured firm's default is unchanged by it. It is what a feature that must not send
-// content to a third party without the firm's leave — a meeting's summary — runs on by default.
-export const PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID = "@cf/meta/llama-4-scout-17b-16e-instruct";
+// THE REASONING MODEL HOSTED ON CLOUDFLARE ITSELF, in the platform-reasoning role: what a feature of the
+// platform's own runs on by default (the meeting summary), never offered to a firm as its assistant's
+// model. It holds no tier, so an unconfigured firm's default for the assistant is unchanged by it.
+export const PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID = "@cf/openai/gpt-oss-120b";
 
 // Whether a model runs on Cloudflare's own infrastructure. Read off the id's `@cf/` prefix because that
 // prefix is exactly what the AI binding routes on — a `@cf/` id is run by Workers AI and anything else is
@@ -252,9 +270,9 @@ export function isOnCloudflareModel(modelId: string): boolean {
   return modelId.startsWith("@cf/");
 }
 
-// The launch catalog. Reasoning models first, each on the tier it currently occupies; the small utility
-// model; the platform-fixed embedding model pinned to the index generation; the platform-fixed
-// speech-to-text model. claude-fable-5 is
+// The launch catalog. Reasoning models first, each on the tier it currently occupies; the platform's own
+// reasoning model hosted on Cloudflare; the small utility model; the platform-fixed embedding model
+// pinned to the index generation; the platform-fixed speech-to-text model. claude-fable-5 is
 // intentionally absent — it mandates a retention window and returns a hard error under ZDR, so it is not
 // ZDR-eligible and never enters the reasoning slot.
 const RAW_CATALOG: readonly CatalogEntry[] = [
@@ -300,20 +318,44 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     maximumOutputTokens: 128_000,
   },
   {
-    // Workers AI on-Cloudflare reasoning model. The confidentiality facts rest on Cloudflare's Workers AI
-    // data terms, read 2026-10-03 at https://developers.cloudflare.com/workers-ai/platform/data-usage/ —
-    // Customer Content is not used to train any model, is not made available to another customer, and is
-    // stored only where we ourselves store it — and the model is Cloudflare-hosted, so the conversation
-    // does not leave the platform for a third-party provider (ZDR is a third-party provider's concept;
-    // the embedding entry below reasons the same way).
+    // Workers AI on-Cloudflare reasoning model, in the platform-reasoning role (see ModelSlot).
+    //
+    // WHY THIS MODEL. It is text-only and published under the Apache License 2.0, which grants its
+    // rights to everybody with no carve-out by place: the Hugging Face model card's own LICENSE file,
+    // read 2026-10-03 at https://huggingface.co/openai/gpt-oss-120b/blob/main/LICENSE ("Apache License,
+    // Version 2.0"), and its usage policy at
+    // https://huggingface.co/openai/gpt-oss-120b/blob/main/USAGE_POLICY, which asks only that the use
+    // comply with applicable law. The model it replaced, Llama 4 Scout, is multimodal, and the Llama 4
+    // acceptable-use policy withholds the licence's rights in its multimodal models from a company whose
+    // principal place of business is in the European Union
+    // (https://github.com/meta-llama/llama-models/blob/main/models/llama4/USE_POLICY.md, read
+    // 2026-10-03) — a firm this platform serves can be one. CLOUDFLARE'S OWN MODEL PAGE STATES NO
+    // LICENCE for this model (it carries no "Terms and License" row, as its page for Llama 4 Scout
+    // does), so the licence above rests on the publisher's pages, not Cloudflare's.
+    //
+    // The confidentiality facts rest on Cloudflare's Workers AI data terms, read 2026-10-03 at
+    // https://developers.cloudflare.com/workers-ai/platform/data-usage/ — Customer Content is not used
+    // to train any model, is not made available to another customer, and is stored only where we
+    // ourselves store it — and the model is Cloudflare-hosted, so the conversation does not leave the
+    // platform for a third-party provider. Zero data retention is a third-party provider's concept;
+    // zdrEligible records that these terms meet the same bar, as the embedding entry below reasons.
+    //
+    // THE REQUEST. Model page, read 2026-10-03:
+    // https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/ — "Context Window: 128,000
+    // tokens"; reasoning effort low, medium (the default) or high. Its input schema, read the same day at
+    // https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/sync-input.json, takes either a
+    // `prompt` or a `messages` array whose roles include `system`, with `max_tokens` (default 256, no
+    // published upper limit, so the entry records none and a caller asks for the length it needs) and
+    // `response_format` (`json_object` or `json_schema`). The Workers AI changelog for 2026-02-17,
+    // https://developers.cloudflare.com/workers-ai/changelog/, says the binding detects which of
+    // `messages`, `prompt` or a Responses-style `input` it was sent, so the chat translation every
+    // Cloudflare-hosted model takes in ./gateway.ts is the request this one takes. Its output schema is
+    // published as an untyped object, so ./gateway.ts reads the answer from each shape the binding is
+    // known to return. A reasoning model spends part of `max_tokens` thinking before it answers, which
+    // the caller's answer room has to allow for.
     //
     // Cloudflare publishes no dated form of its Workers AI model ids and no retirement date for this one.
-    // Model page read 2026-10-03:
-    // https://developers.cloudflare.com/workers-ai/models/llama-4-scout-17b-16e-instruct/ — "Context
-    // Window: 131,000 tokens"; `max_tokens` defaults to 256 and the page publishes no upper limit, so the
-    // entry records none and a caller asks for the answer length it needs. Chat input is a `messages`
-    // array whose instruction is a `system`-role message.
-    slot: "reasoning",
+    slot: "platform-reasoning",
     modelId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
     snapshotId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
     snapshotForm: "provider-dateless",
@@ -322,7 +364,7 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     noTrainingEligible: true,
     verifiedOn: "2026-10-03",
     availabilityVerifiedOn: "2026-10-03",
-    contextWindowTokens: 131_000,
+    contextWindowTokens: 128_000,
   },
   {
     slot: "utility",
@@ -390,12 +432,13 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
 ];
 
 // Module-load validation: every entry parses (all fields present, every reasoning entry ZDR-eligible),
-// exactly one entry fills each platform-fixed slot (embedding, transcription), every reasoning entry
-// states its context window, exactly one reasoning entry is hosted on Cloudflare, and every reasoning tier
-// has exactly one occupant so the platform default always resolves. A malformed table aborts the import.
+// exactly one entry fills each platform-fixed slot (embedding, transcription, platform-reasoning), every
+// reasoning entry states its context window, the platform-reasoning entry is hosted on Cloudflare, and
+// every reasoning tier has exactly one occupant so the platform default always resolves. A malformed
+// table aborts the import.
 function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntry[] {
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
-  for (const slot of ["embedding", "transcription"] as const) {
+  for (const slot of ["embedding", "transcription", "platform-reasoning"] as const) {
     const occupants = validated.filter((entry) => entry.slot === slot);
     if (occupants.length !== 1) {
       throw new Error(
@@ -404,17 +447,14 @@ function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntr
     }
   }
   for (const entry of validated) {
-    if (entry.slot === "reasoning" && entry.contextWindowTokens === undefined) {
+    if (isReasoningSlot(entry.slot) && entry.contextWindowTokens === undefined) {
       throw new Error(`reasoning entry ${entry.modelId} must declare its context window`);
     }
-  }
-  const onCloudflareReasoning = validated.filter(
-    (entry) => entry.slot === "reasoning" && isOnCloudflareModel(entry.modelId),
-  );
-  if (onCloudflareReasoning.length !== 1) {
-    throw new Error(
-      `the catalog must declare exactly one reasoning entry hosted on Cloudflare (found ${onCloudflareReasoning.length})`,
-    );
+    // The platform's own reasoning model exists so a privileged conversation can be reasoned over
+    // without leaving the platform; one run by a third party would defeat the reason it is kept.
+    if (entry.slot === "platform-reasoning" && !isOnCloudflareModel(entry.modelId)) {
+      throw new Error(`the platform-reasoning entry ${entry.modelId} must be hosted on Cloudflare`);
+    }
   }
   for (const tier of REASONING_TIERS) {
     const occupants = validated.filter((entry) => entry.tier === tier);
@@ -483,12 +523,11 @@ export function reasoningModelForTier(tier: ReasoningTier): CatalogEntry {
   return entry;
 }
 
-// The reasoning entry hosted on Cloudflare itself — exactly one, by module-load validation.
+// The platform's own reasoning model, hosted on Cloudflare — exactly one, by module-load validation. It is
+// never on the roster reasoningEntries() answers, so no firm can choose it for the assistant.
 export function onCloudflareReasoningEntry(): CatalogEntry {
-  const entry = CATALOG.find(
-    (candidate) => candidate.slot === "reasoning" && isOnCloudflareModel(candidate.modelId),
-  );
-  if (entry === undefined) throw new Error("no reasoning entry hosted on Cloudflare");
+  const entry = CATALOG.find((candidate) => candidate.slot === "platform-reasoning");
+  if (entry === undefined) throw new Error("no platform-reasoning entry in the catalog");
   return entry;
 }
 

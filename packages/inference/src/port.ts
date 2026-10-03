@@ -85,7 +85,14 @@ export interface ConversationInput {
   // when given: a caller whose answer has a known shape and size asks for room for it, because a
   // provider's default can be far shorter (Workers AI answers 256 tokens unless told otherwise) and an
   // answer cut short is an answer that cannot be read.
+  // Every model hosted on Cloudflare is sent a length even when this is absent (the gateway's default,
+  // ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS), so no caller is cut at 256 tokens by forgetting it.
   readonly maximumOutputTokens?: number;
+  // The answer must be one JSON object. A model hosted on Cloudflare is asked for it through its own
+  // JSON mode, so a line in the conversation telling it to answer in prose cannot change the answer's
+  // form; a third-party model is sent no such field on this path, and the caller's own strict reading
+  // of the answer remains the guard there. Absent: the answer is prose.
+  readonly answerFormat?: "json-object";
 }
 
 // Speech to text, platform-fixed like embedding: there is deliberately NO modelId field. A firm does

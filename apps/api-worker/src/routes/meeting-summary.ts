@@ -71,9 +71,12 @@ import { Problem, problemJson, type ProblemResponse } from "../contracts/problem
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import type { MeetingSummaryMessage } from "../meetings/meeting-recorder.ts";
-import { SUMMARY_CLAIM_LEASE_MILLISECONDS, sendSummaryRun } from "../meetings/summary-consumer.ts";
+import {
+  SUMMARY_CLAIM_LEASE_MILLISECONDS,
+  sendSummaryRun,
+  transcriptWordsWithheld,
+} from "../meetings/summary-consumer.ts";
 import { taskErrorResponse } from "./tasks.ts";
-import { transcriptLinesWithheld } from "./meetings.ts";
 
 // A RECORDED MEETING'S SUMMARY: read it with its action items, ask for it to be written again, and turn
 // an action item into a task.
@@ -245,6 +248,12 @@ function writeMeta(action: string, permission: typeof HOST | typeof TASKS_WRITE)
     // a second copy of one obligation on somebody's list.
     idempotency: "required",
     idempotencyStore: "firm",
+    // The record keeps a POINTER (the summary's or the task's handle), never the reply: the reply
+    // carries derived content — an action item's text — which has no place in the idempotency table,
+    // and is answered from the record as it stands now. A path fingerprint makes the handler's own
+    // `runIdempotentEffect` the replay decision, and the handler answers a replay by reading afresh,
+    // where the default gate would hand the retry the stored pointer verbatim as if it were the reply.
+    idempotencyFingerprint: "path",
     rateLimit: "default",
   };
 }
@@ -281,7 +290,9 @@ const rerunSummaryRoute = defineOpenAPIRoute(writeMeta("rerunSummary", HOST), {
     "and asking again sends it on if it was stranded. The firm's settings are read when it is run: a " +
     "firm that has not switched summaries on, or whose chosen model it has not allowed its content " +
     "to reach, is answered with a refused summary rather than an error. Writing it again replaces the " +
-    "text and the action items; a task already made of an action item is kept.",
+    "text and the action items; a task already made of an action item is kept. A transcript whose " +
+    "filed document is in the trash, held by the scan or gone is not read again. A retry with the " +
+    "same Idempotency-Key is answered with the summary as it stands now.",
   request: { params: recordingParams, headers: idempotencyKeyHeader },
   responses: {
     202: {
@@ -302,7 +313,8 @@ const createActionItemTaskRoute = defineOpenAPIRoute(
       "path: on the recording's matter, titled with the item, due on the date the transcript stated " +
       "(read in the meeting's own time zone), and — unless assignToOwner is false — in the owner's " +
       "name. Needs the task-write permission and the meeting-join permission; putting it in another " +
-      "member's name needs the task-assign permission too. An item is made a task once.",
+      "member's name needs the task-assign permission too. An item is made a task once; a retry with " +
+      "the same Idempotency-Key is answered with the task the first request made.",
     request: {
       params: actionItemParams,
       headers: idempotencyKeyHeader,
@@ -402,7 +414,21 @@ async function summaryWithheld(
   database: BatchDatabase,
   transcript: MeetingTranscriptRow,
 ): Promise<MeetingTranscriptWithheldReason | null> {
-  return await transcriptLinesWithheld(database, transcript.file_version_id);
+  return await transcriptWordsWithheld(database, transcript);
+}
+
+function transcriptWithheld(
+  c: Context,
+  reason: MeetingTranscriptWithheldReason,
+): ProblemResponse<409> {
+  return problemJson(c, {
+    type: "meeting-summary-not-ready",
+    title: "The transcript's document cannot be opened",
+    status: 409,
+    detail:
+      `A summary is written from a transcript whose filed document can be opened, and this one's is ` +
+      `${reason === "removed" ? "in the trash" : reason === "held" ? "held by the scan" : "no longer available"}.`,
+  });
 }
 
 /** The view of a summary without its words — what a write answers, and a summary with none yet. */
@@ -425,11 +451,27 @@ function summaryMessage(
   };
 }
 
-/** A task title from an action item: the item whole when it fits, otherwise cut with the whole as body. */
-function taskTitleAndBody(text: string): { readonly title: string; readonly body: string | null } {
+/**
+ * A task title from an action item: the item whole when it fits, otherwise cut with the whole as body.
+ * The cut is made between characters, never inside one: the task's limit is counted in UTF-16 units, and a
+ * cut at a unit count can split a character outside the basic plane in two, leaving half of it.
+ */
+export function taskTitleAndBody(text: string): {
+  readonly title: string;
+  readonly body: string | null;
+} {
   if (text.length <= MAX_TASK_TITLE_LENGTH) return { title: text, body: null };
-  return { title: `${text.slice(0, MAX_TASK_TITLE_LENGTH - 1).trimEnd()}…`, body: text };
+  const ellipsis = "…";
+  let title = "";
+  for (const character of text) {
+    if (title.length + character.length + ellipsis.length > MAX_TASK_TITLE_LENGTH) break;
+    title += character;
+  }
+  return { title: `${title.trimEnd()}${ellipsis}`, body: text };
 }
+
+/** The action item names a task already, found by the effect before it writes anything. */
+class ActionItemAlreadyTaskedError extends Error {}
 
 export function registerMeetingSummaryRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
@@ -495,6 +537,10 @@ export function registerMeetingSummaryRoutes(
       if (reached === undefined) return notFound(c);
       const transcript = reached.transcript;
       if (transcript?.state !== "ready") return transcriptNotReady(c);
+      // A host who cannot open the transcript's document cannot ask for its words to be read again —
+      // a re-run would destroy the action items they cannot see, and the run itself would refuse.
+      const withheld = await summaryWithheld(firm.firmDatabase, transcript);
+      if (withheld !== null) return transcriptWithheld(c, withheld);
 
       const now = () => new Date().toISOString();
       const options = { clock: { now }, randomSource: cryptoRandomSource };
@@ -523,12 +569,17 @@ export function registerMeetingSummaryRoutes(
               toSend = { id: begun.summaryId, transcript_id: transcript.id };
             } else if (current.state === "pending") {
               // IDEMPOTENT WHILE ONE IS BEING WRITTEN: nothing is written, and the run is sent on again
-              // only when nobody holds it — a run stranded by a lost message is the case this rescues.
+              // only when nobody holds it and no retry is waiting on it — a run stranded by a lost
+              // message is the case this rescues. A run put off after a model refused is not stranded:
+              // its own message is due at `retry_at`, and a second sent now would start a second chain
+              // of attempts beside it, each spending again.
               summaryId = current.id;
               const held =
                 current.claimed_at !== null &&
                 Date.parse(current.claimed_at) + SUMMARY_CLAIM_LEASE_MILLISECONDS > Date.now();
-              if (!held) toSend = current;
+              const waiting =
+                current.retry_at !== null && Date.parse(current.retry_at) > Date.now();
+              if (!held && !waiting) toSend = current;
             } else {
               write = rerunSummaryEffect(
                 firm.firmDatabase,
@@ -629,7 +680,6 @@ export function registerMeetingSummaryRoutes(
           status: 409,
           detail: "Somebody has already made a task of this action item.",
         });
-      if (actionItem.task_id !== null) return alreadyTasked();
 
       // The due date is a civil date read in the meeting's own time zone — the zone the people in the
       // meeting stated it in.
@@ -647,6 +697,10 @@ export function registerMeetingSummaryRoutes(
           fingerprint: idempotency.fingerprint,
           now,
           effect: async () => {
+            // Asked here, inside the effect, and not before it: a RETRY of the request that made the
+            // task finds the item tasked by that very request, and must be answered with the task —
+            // the replay is decided before this runs — rather than told somebody else got there.
+            if (actionItem.task_id !== null) throw new ActionItemAlreadyTaskedError();
             const created = await createMatterTask(
               firm.firmDatabase,
               {
@@ -683,6 +737,7 @@ export function registerMeetingSummaryRoutes(
         });
       } catch (caught) {
         if (caught instanceof TaskValidationError) return taskErrorResponse(c, caught);
+        if (caught instanceof ActionItemAlreadyTaskedError) return alreadyTasked();
         // Two presses racing: the other one's task is the item's, and this one's rolled back whole.
         if (
           caught instanceof GuardedWriteRefusedError &&

@@ -8,7 +8,7 @@ import type {
   MeetingTranscriptId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import { SUMMARY_ACTION_ITEMS_MAXIMUM } from "./summary-prompt.ts";
+import { SUMMARY_RUN_ACTION_ITEMS_MAXIMUM } from "./summary-prompt.ts";
 import type {
   MeetingSummaryActionItemRow,
   MeetingSummaryMark,
@@ -45,6 +45,8 @@ const SUMMARY_COLUMNS = [
   "refusal_reason",
   "failure_error_id",
   "model_failures",
+  "model_failure_call",
+  "retry_at",
   "claimed_at",
   "progress_at",
   "requested_by_user_id",
@@ -124,7 +126,7 @@ export interface MeetingSummaryActionItemListRow extends MeetingSummaryActionIte
 
 /**
  * A summary's action items in order, each with its owner's current display name. Bounded: a summary
- * holds at most `SUMMARY_ACTION_ITEMS_MAXIMUM`, which the parse enforces before any is written.
+ * holds at most `SUMMARY_RUN_ACTION_ITEMS_MAXIMUM`, which the parse enforces before any is written.
  */
 export async function listSummaryActionItems(
   database: SqlDatabase,
@@ -142,7 +144,7 @@ export async function listSummaryActionItems(
         `WHERE ${MEETING_SUMMARY_ACTION_ITEM_TABLE}.summary_id = ? ` +
         `ORDER BY ${MEETING_SUMMARY_ACTION_ITEM_TABLE}.ordinal ASC LIMIT ?`,
     )
-    .bind(summaryId, SUMMARY_ACTION_ITEMS_MAXIMUM)
+    .bind(summaryId, SUMMARY_RUN_ACTION_ITEMS_MAXIMUM)
     .all<MeetingSummaryActionItemListRow>();
   return results;
 }
@@ -199,8 +201,9 @@ export function insertSummaryStatement(
 
 /**
  * ONE CONSUMER TAKES THE RUN: the claim is stamped on a summary still `pending` that nobody holds — or
- * whose holder's lease ran out. Guarded by the caller: a second delivery of the same message stops here
- * before it sends a word to a model.
+ * whose holder's lease ran out — and whose put-off run, if any, is due. Guarded by the caller: a second
+ * delivery of the same message stops here before it sends a word to a model, and so does a duplicate of
+ * a retry that arrives before the retry was due.
  */
 export function claimSummaryStatement(
   database: SqlDatabase,
@@ -212,10 +215,11 @@ export function claimSummaryStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MEETING_SUMMARY_TABLE} SET claimed_at = ?, updated_at = ? ` +
-        `WHERE id = ? AND state = 'pending' AND (claimed_at IS NULL OR claimed_at < ?)`,
+      `UPDATE ${MEETING_SUMMARY_TABLE} SET claimed_at = ?, retry_at = NULL, updated_at = ? ` +
+        `WHERE id = ? AND state = 'pending' AND (claimed_at IS NULL OR claimed_at < ?) ` +
+        `AND (retry_at IS NULL OR retry_at <= ?)`,
     )
-    .bind(input.now, input.now, input.id, input.leaseExpiredBefore);
+    .bind(input.now, input.now, input.id, input.leaseExpiredBefore, input.now);
 }
 
 /** A claim let go by the consumer that took it, addressed by the instant it was taken at. */
@@ -259,7 +263,7 @@ export function readySummaryStatement(
     .prepare(
       `UPDATE ${MEETING_SUMMARY_TABLE} SET state = 'ready', summary_text = ?, model_id = ?, ` +
         `snapshot_id = ?, input_tokens = ?, output_tokens = ?, model_calls = ?, model_failures = 0, ` +
-        `claimed_at = NULL, progress_at = ?, updated_at = ? ` +
+        `model_failure_call = NULL, retry_at = NULL, claimed_at = NULL, progress_at = ?, updated_at = ? ` +
         `WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
     )
     .bind(
@@ -323,7 +327,7 @@ export function refuseSummaryStatement(
   return database
     .prepare(
       `UPDATE ${MEETING_SUMMARY_TABLE} SET state = 'refused', refusal_reason = ?, model_id = ?, ` +
-        `claimed_at = NULL, progress_at = ?, updated_at = ? ` +
+        `retry_at = NULL, claimed_at = NULL, progress_at = ?, updated_at = ? ` +
         `WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
     )
     .bind(input.reason, input.modelId, input.now, input.now, input.id, input.claimedAt);
@@ -348,8 +352,8 @@ export function failSummaryStatement(
     .prepare(
       `UPDATE ${MEETING_SUMMARY_TABLE} SET state = 'failed', failure_error_id = ?, ` +
         `model_id = COALESCE(?, model_id), snapshot_id = COALESCE(?, snapshot_id), ` +
-        `input_tokens = ?, output_tokens = ?, model_calls = ?, claimed_at = NULL, progress_at = ?, ` +
-        `updated_at = ? WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
+        `input_tokens = ?, output_tokens = ?, model_calls = ?, retry_at = NULL, claimed_at = NULL, ` +
+        `progress_at = ?, updated_at = ? WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
     )
     .bind(
       input.failureErrorId,
@@ -366,20 +370,48 @@ export function failSummaryStatement(
 }
 
 /**
- * THE MODEL REFUSED FOR NOW, and this consumer lets go of the run: one more refusal counted, the claim
- * released so the retry can take it, and `progress_at` stamped — the retry is scheduled. Guarded by the
- * caller on its own claim.
+ * THE MODEL REFUSED FOR NOW, and this consumer lets go of the run: one more refusal counted, the call it
+ * came at recorded, the claim released so the retry can take it, the instant the retry is due recorded,
+ * and `progress_at` stamped — the retry is scheduled. Guarded by the caller on its own claim.
  */
 export function recordSummaryModelFailureStatement(
   database: SqlDatabase,
-  input: { readonly id: MeetingSummaryId; readonly claimedAt: string; readonly now: string },
+  input: {
+    readonly id: MeetingSummaryId;
+    readonly claimedAt: string;
+    readonly failedCall: number;
+    readonly retryAt: string;
+    readonly now: string;
+  },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MEETING_SUMMARY_TABLE} SET model_failures = model_failures + 1, claimed_at = NULL, ` +
-        `progress_at = ?, updated_at = ? WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
+      `UPDATE ${MEETING_SUMMARY_TABLE} SET model_failures = model_failures + 1, ` +
+        `model_failure_call = ?, retry_at = ?, claimed_at = NULL, progress_at = ?, updated_at = ? ` +
+        `WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
     )
-    .bind(input.now, input.now, input.id, input.claimedAt);
+    .bind(input.failedCall, input.retryAt, input.now, input.now, input.id, input.claimedAt);
+}
+
+/**
+ * THE RUN STARTS OVER, counting nothing: the firm's choice of model changed while it ran, so what it had
+ * read is set aside and the run is due again at `retryAt`. Guarded by the caller on its own claim.
+ */
+export function restartSummaryStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingSummaryId;
+    readonly claimedAt: string;
+    readonly retryAt: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_SUMMARY_TABLE} SET retry_at = ?, claimed_at = NULL, progress_at = ?, ` +
+        `updated_at = ? WHERE id = ? AND state = 'pending' AND claimed_at = ?`,
+    )
+    .bind(input.retryAt, input.now, input.now, input.id, input.claimedAt);
 }
 
 /**
@@ -402,7 +434,8 @@ export function rerunSummaryStatement(
     .prepare(
       `UPDATE ${MEETING_SUMMARY_TABLE} SET state = 'pending', summary_text = NULL, model_id = NULL, ` +
         `snapshot_id = NULL, input_tokens = 0, output_tokens = 0, model_calls = 0, ` +
-        `refusal_reason = NULL, failure_error_id = NULL, model_failures = 0, claimed_at = NULL, ` +
+        `refusal_reason = NULL, failure_error_id = NULL, model_failures = 0, ` +
+        `model_failure_call = NULL, retry_at = NULL, claimed_at = NULL, ` +
         `requested_by_user_id = ?, progress_at = ?, updated_at = ? ` +
         `WHERE id = ? AND state = ? AND state <> 'pending' AND updated_at = ?`,
     )
@@ -448,6 +481,27 @@ export function recordActionItemTaskStatement(
         `WHERE id = ? AND summary_id = ? AND task_id IS NULL`,
     )
     .bind(input.taskId, input.now, input.id, input.summaryId);
+}
+
+/**
+ * A TASK MADE OF AN ACTION ITEM IS BEING DELETED: the item stops naming it, so the delete is not refused
+ * by the item's reference and the item reads as one nobody has made a task of — a member may make it
+ * one again. Composed by the task subsystem's own delete into the batch that removes the task, BEFORE the
+ * delete, because the reference is enforced and the task row must have nothing pointing at it when it
+ * goes.
+ */
+// fitness:unguarded-write — a zero is a task no action item was ever made into, which is nearly every
+// task; the delete it is composed with is guarded by the task subsystem on the task row itself.
+export function clearActionItemTaskStatement(
+  database: SqlDatabase,
+  input: { readonly taskId: MatterTaskId; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_SUMMARY_ACTION_ITEM_TABLE} SET task_id = NULL, updated_at = ? ` +
+        `WHERE task_id = ?`,
+    )
+    .bind(input.now, input.taskId);
 }
 
 /**

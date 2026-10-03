@@ -539,20 +539,29 @@ Both read the same limits from `summary-prompt.ts`, so the request and the readi
 **Two facts are never the model's word.** An action item's OWNER is a member only on an exact match to a
 participant's name as the transcript read gives it (`exactOwner`): a guest, a near match or a name two
 members share leaves it unowned. A DUE DATE is kept only when it is a real civil date and the model quoted
-words that appear verbatim in the transcript it was sent and carry the date's day of the month
-(`statedDueOn`): "next Friday" is never a date.
+words found inside ONE spoken line (what somebody said, never the `HH:MM:SS Name:` before it) with no clock
+time in them, naming the date's day and month one way only — the month by name, or both in figures that
+cannot be read the other way round — and its year, or a year within one of the summary's (`statedDueOn`):
+"next Friday", "the 14th" and "3/12" are never dates.
 
-**The bound is the model's context, measured in bytes.** `summaryPartByteBudget` takes the chosen model's
-`contextWindowTokens` from the inference catalog and reckons three bytes a token — an over-count — so a
-part never overruns it; `splitTranscriptIntoParts` cuts at line boundaries and refuses past
-`SUMMARY_PARTS_MAXIMUM`, the per-message wall-clock bound stated beside it.
+**The bound is the model's context, reckoned so it cannot undercount.** `estimatedTokens` counts a
+non-ASCII byte as a whole token (a byte-level tokenizer can make no more) and an ASCII byte as two thirds
+of one; `summaryPartTokenBudget` takes the chosen model's `contextWindowTokens`, less the answer's room
+(16,384, reasoning included), the instruction's reserve and the participant list; `splitTranscriptIntoParts`
+cuts at line boundaries and refuses past `SUMMARY_PARTS_MAXIMUM`. A long transcript's parts are combined
+in PROSE only (`readCombinedSummaryAnswer`, `settlePartedSummary`): each part's action items are kept as it
+gave them, so a summary holds at most `SUMMARY_RUN_ACTION_ITEMS_MAXIMUM`. The wall-clock bound is enforced
+by the Worker's consumer, not estimated here.
 
-**Every write that can lose a race is guarded, with its own label**: the claim (on `pending` and an expired
-or absent lease), `ready`, `refused`, `failed` and a model's refusal counted (each on the claim), a re-run
-(on the state and instant it read, so two requests start one run) and an action item's task (on its having
-none). One summary per transcript, held by a unique index (`isSummaryPerTranscriptConflict`); a re-run
-rewrites it in place and deletes its action items with the text they were read from — a task already
-made of one is the task subsystem's record and stays.
+**Every write that can lose a race is guarded, with its own label**: the claim (on `pending`, an expired
+or absent lease, and a `retry_at` that is due), `ready`, `refused`, `failed`, a model's refusal counted
+and a run restarted (each on the claim), a re-run (on the state and instant it read, so two requests start
+one run) and an action item's task (on its having none). One summary per transcript, held by a unique
+index (`isSummaryPerTranscriptConflict`); a re-run rewrites it in place and deletes its action items with
+the text they were read from — a task already made of one is the task subsystem's record and stays. The
+other way round, the task subsystem's delete composes `clearActionItemTaskStatement` into its own batch,
+so deleting a task made of an item leaves the item untasked rather than refusing on its enforced
+reference.
 
 **The read follows the transcript's filed document.** A summary is reached through its transcript, its
 recording and its meeting, and its words are served only while the transcript's lines would be
