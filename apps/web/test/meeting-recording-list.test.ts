@@ -9,7 +9,9 @@
  * own. A recording on the matter is opened as the DOCUMENT, through the file's own route, rather than
  * through a player of the list's own, and only once the scan has let the version it added through and
  * that version is still the file's current one: a version being checked, held, replaced or gone says
- * so instead. One being put together says so; one that failed states its Error ID. And the list keeps
+ * so instead. One being put together says so; one that failed states its Error ID. A recording on
+ * the matter says where its transcript stands in a column of its own, and pressing it opens the
+ * transcript over the list without reaching the row's own gesture. And the list keeps
  * the house's
  * structured emptiness: the table stands while it loads and while it holds nothing, saying "No
  * Results" inside its own frame, and only a failed read replaces it.
@@ -30,6 +32,8 @@ import {
   recordingIncompleteNote,
   recordingStopText,
   recordingStopWord,
+  recordingTranscriptOpens,
+  recordingTranscriptText,
 } from "../src/lib/meetings/screen/recording-list.ts";
 import type {
   MeetingRecordingDocumentView,
@@ -210,6 +214,41 @@ describe("what a recording became", () => {
   });
 });
 
+describe("where a recording's transcript stands", () => {
+  it("says nothing before the recording reaches the matter, and offers nothing to open", () => {
+    expect(recordingTranscriptText(recording())).toBe("");
+    expect(recordingTranscriptOpens(recording())).toBe(false);
+  });
+
+  it("names each state in the column, and offers the transcript wherever there is one", () => {
+    const being = onTheMatter("available", {
+      transcript: { id: "meetingTranscript_1", state: "pending", fileId: null },
+    });
+    const ready = onTheMatter("available", {
+      transcript: { id: "meetingTranscript_1", state: "ready", fileId: "file_vtt" },
+    });
+    const failed = onTheMatter("available", {
+      transcript: { id: "meetingTranscript_1", state: "failed", fileId: null },
+    });
+    expect(recordingTranscriptText(being)).toBe("Being Made");
+    expect(recordingTranscriptText(ready)).toBe("Read");
+    expect(recordingTranscriptText(failed)).toBe("Could Not Be Made");
+    for (const row of [being, ready, failed]) expect(recordingTranscriptOpens(row)).toBe(true);
+  });
+
+  it("states a failed transcript's Error ID wherever the row carries one", () => {
+    const failed = onTheMatter("available", {
+      transcript: {
+        id: "meetingTranscript_1",
+        state: "failed",
+        fileId: null,
+        failureErrorId: "err_T1",
+      } as MeetingRecordingListView["transcript"],
+    });
+    expect(recordingTranscriptText(failed)).toBe("Could Not Be Made. Error ID: err_T1");
+  });
+});
+
 // ---------------------------------------------------------------------------------------------
 // The panel, over a canned server.
 // ---------------------------------------------------------------------------------------------
@@ -217,11 +256,54 @@ describe("what a recording became", () => {
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 let reads = 0;
+let transcriptReads = 0;
 
-/** Answer the list with a page, a failure, or nothing at all. */
+/** What the transcript read answers in these cases: a ready transcript of one line. */
+const TRANSCRIPT_ANSWER = {
+  transcript: {
+    id: "meetingTranscript_1",
+    recordingId: "meetingRecording_1",
+    state: "ready",
+    language: "en",
+    segmentCount: 1,
+    wordCount: 6,
+    fileId: "file_vtt",
+    failureErrorId: null,
+    createdAt: "2026-09-20T15:31:00.000Z",
+    updatedAt: "2026-09-20T15:40:00.000Z",
+  },
+  data: [
+    {
+      id: "meetingTranscriptSegment_1",
+      ordinal: 0,
+      kind: "speech",
+      startedMs: 5_000,
+      endedMs: 9_000,
+      text: "We will file the reply by Friday.",
+      speaker: {
+        participantKind: "member",
+        participantId: "meetingAttendance_1",
+        userId: "usr_2",
+        displayName: "Rosalind Chase",
+      },
+    },
+  ],
+  nextCursor: null,
+};
+
+/** Answer the list with a page, a failure, or nothing at all; the transcript read with one line. */
 function serve(answer: "never" | number | readonly MeetingRecordingView[]): void {
   const stub = ((request: Request) => {
     const path = new URL(request.url).pathname;
+    if (path.endsWith("/transcript")) {
+      transcriptReads += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify(TRANSCRIPT_ANSWER), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
     if (path === `/api/v1/meetings/${MEETING_ID}/recordings`) reads += 1;
     if (answer === "never") return new Promise<Response>(() => {});
     if (typeof answer === "number") {
@@ -269,6 +351,7 @@ beforeEach(() => {
   target = document.createElement("div");
   document.body.append(target);
   reads = 0;
+  transcriptReads = 0;
   queryClient.clear();
 });
 
@@ -387,5 +470,50 @@ describe("the recordings panel", () => {
     row?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     flushSync();
     expect(asked).toEqual(["meetingRecording_1"]);
+  });
+
+  it("says where each transcript stands, and opens a ready one over the list without the row's gesture", async () => {
+    serve([
+      onTheMatter("available", {
+        id: "meetingRecording_1",
+        transcript: { id: "meetingTranscript_1", state: "ready", fileId: "file_vtt" },
+      }),
+      onTheMatter("available", {
+        id: "meetingRecording_2",
+        startedAt: "2026-09-20T17:00:00.000Z",
+        transcript: { id: "meetingTranscript_2", state: "pending", fileId: null },
+      }),
+      onTheMatter("available", {
+        id: "meetingRecording_3",
+        startedAt: "2026-09-20T16:00:00.000Z",
+        transcript: { id: "meetingTranscript_3", state: "failed", fileId: null },
+      }),
+    ]);
+    const whoWasTold: string[] = [];
+    await draw((row) => whoWasTold.push(row.id));
+    const shown = panel();
+    const controls = [...(shown?.querySelectorAll("button") ?? [])];
+    const named = (name: string) =>
+      controls.find((control) => control.textContent?.trim() === name);
+    expect(named("Being Made")).toBeDefined();
+    expect(named("Could Not Be Made")).toBeDefined();
+    const read = named("Read");
+    expect(read).toBeDefined();
+    expect(transcriptReads).toBe(0);
+
+    read?.click();
+    read?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await settle();
+    // Read, and for this recording. Not counted exactly: the cache's observer resubscribes when the
+    // panel's key and its opening change together, which aborts the first request and sends it again.
+    expect(transcriptReads).toBeGreaterThan(0);
+    // The press is the transcript's, never the row's.
+    expect(whoWasTold).toEqual([]);
+    const transcript = [...document.body.querySelectorAll('[role="dialog"]')].find((candidate) =>
+      candidate.querySelector('[role="log"]'),
+    );
+    expect(transcript?.textContent).toContain("Transcript");
+    expect(transcript?.textContent).toContain("Rosalind Chase");
+    expect(transcript?.textContent).toContain("We will file the reply by Friday.");
   });
 });

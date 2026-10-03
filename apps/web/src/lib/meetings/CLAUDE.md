@@ -133,7 +133,22 @@ current version and there is no download address for one version; a version stil
 held, replaced or gone says so in the Document column instead; every state and every stop reason has
 its own words there, an `abandoned` recording says it was interrupted and that nothing reached the
 matter, a failed recording states its Error ID, and the server's `filed` is never the word on
-screen), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+screen), `transcript-panel.svelte` with `transcript-panel.ts` (a recording's transcript: a reading
+`ActionDialog` opened from the list's Transcript column over the list, on the precedent of who was
+told; the lines as a `Conversation`, one speaker kind because everybody in a meeting is a person,
+each line's place in the recording as `mm:ss` or `h:mm:ss` and never a time of day, a guest marked
+as a guest, and a GAP as a `failed` turn whose warning note says whose audio is missing and for how
+long, or that nothing was heard where it names nobody; paged by the read's ordinal cursor through
+`DataTable.LoadMore`; a transcript being made, one that could not be made, and a ready one whose
+lines the read withholds (`linesWithheld`: its WebVTT document was removed, is held by the scan, or is
+out of reach) are the design system's `EmptyState` because they are facts about the recording rather
+than an absence of lines, ONE pure function (`transcriptBody`) deciding which, the failure carrying
+its Error ID, while a ready transcript with no lines says "No Results" inside its own frame;
+a transcript being made is read again every fifteen seconds while the panel is open and tells the
+list to read again the moment it settles; and the WebVTT document it became opens beside the reader
+through the file's own route and `opensBeside("file")`. THE WORDS OF A LINE ARE PRIVILEGED: they are
+drawn and never logged, put in an address or carried in a failure report, and the transcript region
+is not a live region, so a page arriving is not read aloud), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who

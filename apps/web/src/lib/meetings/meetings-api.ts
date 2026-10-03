@@ -58,6 +58,11 @@ import {
   type MeetingRecordingNoticeEntry,
   type MeetingRecordingSummary,
   type MeetingSummary,
+  type MeetingTranscriptMark,
+  type MeetingTranscriptPage,
+  type MeetingTranscriptSegment,
+  type MeetingTranscriptSpeaker,
+  type MeetingTranscriptSummary,
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
@@ -725,7 +730,8 @@ export function redactMeetingQuestion(
  * The calls are the generated operations and the view types are the contract's own, so a change to
  * a recording's shape on the server is a type error here rather than a screen that quietly reads a
  * field that is no longer sent. The list itself is read through the generated query options, into
- * the one cache, by `screen/recording-list.svelte`.
+ * the one cache, by `screen/recording-list.svelte`, and one recording's transcript the same way by
+ * `screen/transcript-panel.svelte`.
  */
 
 /** Somebody named on a recording: who started it, or who stopped it. */
@@ -759,6 +765,46 @@ export type MeetingRecordingListView = MeetingRecordingListEntry;
  * out of reach. Null until the recording is on the matter.
  */
 export type MeetingRecordingDocumentView = NonNullable<MeetingRecordingListEntry["document"]>;
+
+/**
+ * Where a recording's transcript stands, as the list reads it: its handle, `pending` while it is
+ * being made, `ready` once it is on the matter beside the audio (`fileId` is then that document),
+ * or `failed`. Null on a recording that has not reached the matter.
+ *
+ * `failureErrorId` is stated here rather than taken as generated, on the summary's precedent: the
+ * list's mark does not carry it today, so a failed transcript's Error ID is read from the transcript
+ * itself, and the column states it beside the state the day the mark does.
+ */
+export type MeetingTranscriptMarkView = MeetingTranscriptMark & {
+  readonly failureErrorId?: string | null;
+};
+
+/** Where a transcript stands, in the server's own vocabulary. */
+export type MeetingTranscriptStateView = MeetingTranscriptMark["state"];
+
+/**
+ * A transcript's header: where it stands, the language the model heard, how many lines and words it
+ * holds, the document it became on the matter, and the Error ID of a failure. The read answers it on
+ * every page, and with lines only once the transcript is ready.
+ */
+export type MeetingTranscriptHeaderView = MeetingTranscriptSummary;
+
+/**
+ * One line of a transcript: something somebody said (`speech`), or a span over which somebody could
+ * not be heard (`gap`), placed by milliseconds from the recording's start. The words are privileged
+ * content and are drawn on the screen and nowhere else.
+ */
+export type MeetingTranscriptLineView = MeetingTranscriptSegment;
+
+/**
+ * Why a ready transcript's lines are withheld: the WebVTT document it became was `removed` from the
+ * matter, is `held` by the scan, or is otherwise `unavailable`. Null while the lines are served. The
+ * lines are served only while that document can be read, because they are the same words.
+ */
+export type MeetingTranscriptWithheldView = MeetingTranscriptPage["linesWithheld"];
+
+/** Whose microphone a line came from, named as the stay was named at the moment of asking. */
+export type MeetingTranscriptSpeakerView = MeetingTranscriptSpeaker;
 
 /** Why somebody was told: the start, an arrival while it ran, or the stop. */
 export type MeetingRecordingNoticeReasonView = MeetingRecordingNoticeEntry["reason"];

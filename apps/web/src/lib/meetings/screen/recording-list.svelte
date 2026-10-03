@@ -18,6 +18,11 @@
    * record of exactly those transitions, so a panel that kept its first answer would show a recording
    * as still running after everybody heard it stop.
    *
+   * A RECORDING ON THE MATTER HAS A TRANSCRIPT, and its column says where it stands. Pressing it
+   * opens the transcript panel over this one, the way a row's own gesture opens who was told: a ready
+   * transcript is read there, one still being made is watched there until it settles (and this list
+   * is read again the moment it does), and a failed one states its Error ID there.
+   *
    * THE TABLE STANDS BEFORE THE ROWS DO. Loading draws the grid's own placeholder rows, and a meeting
    * with nothing recorded says "No Results" inside the frame it would have filled; only a read that
    * failed replaces the table, because an empty frame over a failure says nothing was recorded when
@@ -31,6 +36,7 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import FileVolume from "@lucide/svelte/icons/file-volume";
+  import ScrollText from "@lucide/svelte/icons/scroll-text";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { failureOf } from "$lib/api/api-client.ts";
@@ -41,7 +47,10 @@
     recordingDocumentText,
     recordingStateWord,
     recordingStopText,
+    recordingTranscriptOpens,
+    recordingTranscriptText,
   } from "./recording-list.ts";
+  import TranscriptPanel from "./transcript-panel.svelte";
   import type { MeetingRecordingListView, MeetingRecordingView } from "../meetings-api.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
 
@@ -93,6 +102,22 @@
     });
   });
 
+  /** The recording whose transcript is open over this panel, if any. */
+  let transcriptOf = $state<MeetingRecordingListView | null>(null);
+  let transcriptOpen = $state(false);
+
+  function openTranscript(recording: MeetingRecordingListView): void {
+    transcriptOf = recording;
+    transcriptOpen = true;
+  }
+
+  /** The recording a transcript panel is about: this panel's subject, and when it started. */
+  const transcriptSubject = $derived<RecordSubject>(
+    transcriptOf === null
+      ? subject
+      : { ...subject, facts: [...(subject.facts ?? []), formatInstant(transcriptOf.startedAt)] },
+  );
+
   const rows = $derived<MeetingRecordingListView[]>(
     (recordingsRead.data?.pages ?? []).flatMap((page) => page.data),
   );
@@ -114,6 +139,13 @@
         type: "text",
         filter: "none",
         value: (row) => recordingDocumentText(row),
+      },
+      {
+        id: "transcript",
+        label: "Transcript",
+        type: "text",
+        filter: "none",
+        value: (row) => recordingTranscriptText(row),
       },
       {
         id: "started",
@@ -153,7 +185,23 @@
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<MeetingRecordingListView>)}
   {@const address = column.id === "document" ? recordingDocumentAddress(row) : null}
-  {#if address !== null}
+  {#if column.id === "transcript" && recordingTranscriptOpens(row)}
+    <!-- The transcript, in a panel over this one. The row's own gesture opens who was told, so this
+         stops the press reaching it, as the document's control does. -->
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={`${text}: the transcript of the recording started ${formatInstant(row.startedAt)}`}
+      onclick={(event: MouseEvent) => {
+        event.stopPropagation();
+        openTranscript(row);
+      }}
+      ondblclick={(event: MouseEvent) => event.stopPropagation()}
+    >
+      <ScrollText class="size-16" aria-hidden="true" />
+      {text}
+    </Button>
+  {:else if address !== null}
     <!-- The document on the matter, through the file's own route and beside the reader's work: the
          browser plays it, and what it plays is the file the matter holds rather than a copy. The
          row's own gesture opens who was told, so this stops the press reaching it. -->
@@ -207,3 +255,11 @@
     {/if}
   {/snippet}
 </ActionDialog>
+
+<TranscriptPanel
+  bind:open={transcriptOpen}
+  {meetingId}
+  recordingId={transcriptOf?.id ?? ""}
+  subject={transcriptSubject}
+  onSettled={() => void recordingsRead.refetch()}
+/>

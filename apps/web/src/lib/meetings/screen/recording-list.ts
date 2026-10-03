@@ -25,13 +25,20 @@
  *
  * A FAILURE CARRIES ITS ERROR ID where the record has one, because a recording that could not be put
  * together is a thing somebody will ask support about, and the Error ID is what they quote.
+ *
+ * A RECORDING ON THE MATTER ALSO GETS A TRANSCRIPT, and the list says where it stands in a column of
+ * its own: being made, ready to read, or could not be made. The words are the transcript's
+ * (`transcript-panel.ts`), so the list and the panel that reads it cannot disagree about what a
+ * transcript is called.
  */
 import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
 import type {
   MeetingRecordingDocumentView,
   MeetingRecordingListView,
   MeetingRecordingView,
+  MeetingTranscriptMarkView,
 } from "../meetings-api.ts";
+import { transcriptErrorId, transcriptStateWord } from "./transcript-panel.ts";
 
 /** What each state of a recording is called, in the order a recording passes through them. */
 export const RECORDING_STATE_WORDS: Readonly<Record<MeetingRecordingView["state"], string>> =
@@ -173,4 +180,32 @@ export function recordingDocumentText(recording: MeetingRecordingListView): stri
   }
   const errorId = recordingErrorId(recording);
   return errorId === null ? "" : `Error ID: ${errorId}`;
+}
+
+/**
+ * What the Transcript column says: nothing for a recording that has not reached the matter, "Being
+ * Made" while the transcript is made, "Read" where there is one to read, and "Could Not Be Made"
+ * where it failed, with its Error ID wherever the row carries one.
+ */
+export function recordingTranscriptText(
+  recording: Pick<MeetingRecordingListView, "transcript">,
+): string {
+  // Typed as the view so a failure's Error ID is read wherever the mark states one.
+  const transcript: MeetingTranscriptMarkView | null = recording.transcript;
+  if (transcript === null) return "";
+  if (transcript.state === "ready") return "Read";
+  const word = transcriptStateWord(transcript);
+  const errorId = transcriptErrorId(transcript);
+  return errorId === null ? word : `${word}. Error ID: ${errorId}`;
+}
+
+/**
+ * Whether the row offers the transcript panel: wherever there is a transcript at all. A ready one is
+ * read there; one still being made is watched there until it settles; a failed one states its Error
+ * ID there, which is the only place it is stated while the row's mark does not carry it.
+ */
+export function recordingTranscriptOpens(
+  recording: Pick<MeetingRecordingListView, "transcript">,
+): boolean {
+  return recording.transcript !== null;
 }

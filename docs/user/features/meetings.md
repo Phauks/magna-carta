@@ -5,8 +5,8 @@ hear everybody in the room, share your screen, and read back afterwards who was 
 part of Magna Carta, so your firm needs no separate conferencing account and the record of the meeting
 sits on the event it belongs to. People at your firm join from the event; a client, opposing counsel or
 anybody else on the event can be sent a link that brings them to the meeting's door, where a host lets
-them in. A meeting on a matter can be recorded, with everybody in it told; there is no transcript
-yet, and no telephone number to dial in on._
+them in. A meeting on a matter can be recorded, with everybody in it told, and a recording on the matter
+gets a written transcript that names who said what. There is no telephone number to dial in on._
 
 ## What it does
 
@@ -600,12 +600,50 @@ and added to the matter; "It was interrupted, and nothing was added to the matte
 anybody's voice was captured because it could not be begun properly. A recording that could not
 start captured nothing.
 
+### Reading a recording's transcript
+
+Once a recording is added to the matter, a transcript of it is made: everything said while it ran,
+in the order it was said, with each line under the name of the person who said it. It is made from
+each person's own microphone, so a line is never put under the wrong name, and a guest's lines are
+marked as a guest's. Making a transcript takes a little while after the recording reaches the
+matter; a long meeting takes longer.
+
+The **Transcript** column of the Recordings list says where each recording's transcript stands:
+
+- **Being Made** — it is still being written. You can open it to watch; the panel turns into the
+  transcript by itself when it is ready, and the list catches up at the same moment.
+- **Read** — it is ready. Pressing it opens the transcript over the list.
+- **Could Not Be Made** — the transcript failed. Open it to see the **Error ID**, and quote that to
+  your administrator or to support. The recording itself is not affected.
+
+In the transcript, each line carries where it was said in the recording, as minutes and seconds
+from the start (with the hour in front once a recording runs past an hour), so you can find the same
+moment in the audio. Where somebody could not be heard, because their connection dropped, the room
+was too full for their sound to be kept, or what was captured could not be read back, the
+transcript says so in a highlighted line: whose audio is missing, and for how long. A recording in
+which nobody was heard at all says that nothing was heard. A long transcript arrives in parts;
+**Load more lines** at the end brings the next part.
+
+The transcript is also added to the matter's **Files**, beside the recording, as a captions file
+(it ends in `.vtt`) that most media players can show alongside the audio. **Open Document** at the
+top of the transcript opens that file in a new tab. It is the matter's own document, so it is also
+found, downloaded and shared from the Files section like any other.
+
+Because the transcript's lines are the same words as that file, they are shown only while the file
+can be opened. If the file has been moved to the trash, is held by the safety check, or cannot be
+reached from here, the transcript says **Transcript Withheld** and why: **Removed from the Matter**,
+**Held**, or **Not Available**.
+
+What a transcript says is part of the matter's record and is treated as privileged, like the
+recording itself.
+
 ### If you are a guest
 
 You are told about a recording exactly as everybody else is: the tone, the words, the banner and the
 **Recording** mark beside the meeting's title for as long as it runs. A guest cannot start or stop a
-recording. Your voice is in the recording while you are in the room, and the recording is kept by
-the firm with the matter's documents. If you do not want to be recorded, you can leave the meeting
+recording. Your voice is in the recording while you are in the room, what you say is in its
+written transcript under the name you gave at the door, and both are kept by the firm with the
+matter's documents. If you do not want to be recorded, you can leave the meeting
 with **Leave** at any time, and tell the firm.
 
 ## Ending a meeting
@@ -637,8 +675,9 @@ often the floor was cleared. Those are the mechanics of a conversation and they 
 Putting somebody out of a meeting, shutting the door and changing who is running the room are the
 three that stay, because each of them is a thing somebody may later need to ask about.
 
-That is the whole of it, apart from the chat, which is kept in full. There is no duration you can
-bill from directly and no note of what was said out loud — if the meeting is worth an entry on the
+That is the whole of it, apart from the chat, which is kept in full, and a recording's transcript
+where the meeting was recorded. There is no duration you can bill from directly, and a meeting that
+was not recorded keeps no note of what was said out loud — if the meeting is worth an entry on the
 file, record your time and write a matter note the way you would after a meeting in a conference
 room.
 
@@ -648,9 +687,10 @@ room.
   in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
   shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
   them in the Directory and put that record on the event in their place.
-- **A transcript, captions and a summary.** A meeting's sound can be recorded, everybody is told
-  when it is, and the recording is added to the matter's Files, but nothing turns it into text yet.
-  Video is never recorded.
+- **Captions, translation and a summary.** A recording gets a transcript once it is on the matter,
+  but there are no captions while the meeting runs, the transcript is in the language that was
+  spoken and is not translated, and nothing writes a summary of the meeting. Video is never
+  recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
   want an unscheduled meeting, record the event first and start the meeting on it.
