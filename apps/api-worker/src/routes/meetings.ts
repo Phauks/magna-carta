@@ -1479,6 +1479,9 @@ async function failStartedRecording(
     {
       statements: [
         ...stopped.effect.statements,
+        // The guarded stop above moves the row from `recording` to `composing` in this same batch, or
+        // rolls the batch back, so this write always finds the row it fails.
+        // fitness:unguarded-write — the stop in this batch is the guard.
         failRecordingStatement(database, {
           id: start.recordingId,
           failureErrorId: start.failureErrorId,
