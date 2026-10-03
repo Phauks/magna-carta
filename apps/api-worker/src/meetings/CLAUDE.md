@@ -104,7 +104,9 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   window per message (ten one-minute parts), mixed with `@magna-carta/meetings/pcm-mix`, the WAV header
   at the head of the first part, the cursor on the recording's row, and the next window re-enqueued; then
   filed through `initiateUpload` → the composite at the minted key → `completeUploadSession` → the ingest
-  queue, on the email attachment's precedent, and the staged tracks deleted. About 40 MB per invocation
+  queue, on the email attachment's precedent — and the transcript begun in the filing's own batch, its
+  first message sent on this same queue; the staged tracks are NOT deleted here, because the transcript
+  reads them. About 40 MB per invocation
   whatever the length or track count — the arithmetic is in its header. Each window is CLAIMED on the
   row first (a fifteen-minute lease, released with the window's progress), so two deliveries never
   compose one window; the record is read again just before the upload is completed; a layout whose
@@ -114,12 +116,30 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   — fails the row, aborts the upload session and abandons its version in ONE guarded batch, then
   aborts the multipart upload and deletes anything at the key. The file name's title is stripped of
   controls, bidirectional and invisible characters and path separators, and cut at 120 characters.
+- `transcript-consumer.ts` — the transcript of a filed recording, on the SAME queue as the compose as a
+  second kind of message (`MeetingTranscriptMessage`, routed by `kind` in `../event-dispatch.ts`), so a
+  deploy needs nothing new. One window per message — at most eight model calls and four five-minute
+  regions measured — claimed on the transcript's row with a fifteen-minute lease, every piece's lines
+  committed in one guarded batch with the cursor that moves past them. Each track's own staged audio is
+  measured a region at a time (`@magna-carta/meetings/speech-spans`: energy against the track's own noise
+  floor, a hangover, thirty-second pieces cut at a pause), placed on the timeline stretch by stretch,
+  downsampled behind an anti-alias filter (`resample`), wrapped as a 16 kHz WAV and sent through
+  `InferencePort.transcribe` (`deploymentInferencePort` in `../inference/call-site.ts`, the composition root; a test hands its own port in) with the tail of
+  the track's previous line as its prompt. When every track is done: the gap lines, the renumbering into
+  reading order and the filing's upload session in ONE guarded batch; the WebVTT rendered from the rows
+  and written at the minted key; `completeUploadSession` with `ready` in one guarded batch; ingest; and
+  the staged tracks RELEASED. `failMeetingTranscript` — the consumer's refusals, a model still refusing
+  after three deliveries, and the sweep's — fails it guarded on `pending`, aborts a filing that had begun,
+  and releases the staging too: a transcript settles either way, and the staging goes when it does. No
+  word, speaker name, document name or key reaches a log line or an Error ID.
 - `recording-sweep.ts` — on the ten-minute cron beside the status snapshot: abandons a recording whose
   recorder stopped reconciling (and clears the room's mark), hands on a compose nothing has claimed,
   moved or handed on for thirty minutes and fails it (through `failRecordingCompose`) after three
-  hand-ons with no progress between them, and releases staged tracks nothing needs. A firm with nothing
-  to tend costs one read (`hasRecordingsToTend`); the three duties fail independently, so a queue that
-  refuses a hand-on never skips the staging clean-up.
+  hand-ons with no progress between them, does the same for a pending transcript (failing it through
+  `failMeetingTranscript`, which releases the staging), and releases staged tracks nothing needs — a filed
+  recording's only once its transcript has settled. A firm with nothing to tend costs one read
+  (`hasRecordingsToTend`); the four duties fail independently, so a queue that refuses a hand-on never
+  skips the staging clean-up.
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
   `routes/meeting-sink.ts`, outside the chokepoint.

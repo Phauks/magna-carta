@@ -138,6 +138,8 @@ import type {
   MeetingRecordingId,
   MeetingRecordingNoticeId,
   MeetingRecordingTrackId,
+  MeetingTranscriptId,
+  MeetingTranscriptSegmentId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -11512,6 +11514,162 @@ export const meetingRecordingNotice = sqliteTable(
     check(
       "meeting_recording_notice_participant_kind_check",
       sql`${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+  ],
+);
+
+// THE TRANSCRIPT OF ONE FILED RECORDING: made per track from each track's staged audio — so every line
+// is attributed to the person whose microphone it came from, never to a speaker number a model made up —
+// and filed beside the audio as a WebVTT document on the same matter.
+//
+// THE ROW HOLDS NO CONTENT. The words are the segment rows' and the filed document's; this row is
+// handles, counts, instants, a state and the cursor of the work that makes it. A transcript is made a
+// bounded window at a time on the recording's own queue, so where it has got to has to outlive each
+// invocation: the track it is on (an index into the recording's tracks in their stored order), the
+// staged sample of that track the next region begins at, how many segments it has written (the source
+// of each one's provisional ordinal), the upload session its document is being filed through, how many
+// times a stalled transcript has been handed on again, when it last made progress, and when the
+// consumer working on it CLAIMED the window — a lease, so two deliveries of one message never send the
+// same audio to the model twice.
+//
+// A PARENT TABLE, so both vocabularies are whole now: `pending` while it is being made, and the two ways
+// it settles — `ready` (and then it names its document) or `failed` (and then it carries an Error ID).
+// One transcript per recording, held by the database.
+//
+// `model_id` and `language` are what the model REPORTED, and are null until it has answered: the speech
+// model is the platform's, chosen by the catalog, and a row written before the first answer would have
+// to name a model it had not yet heard from.
+export const meetingTranscript = sqliteTable(
+  "meeting_transcript",
+  {
+    id: text("id").primaryKey().$type<MeetingTranscriptId>(), // meetingTranscript_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    recordingId: text("recording_id")
+      .notNull()
+      .$type<MeetingRecordingId>()
+      .references(() => meetingRecording.id),
+    state: text("state", { enum: ["pending", "ready", "failed"] }).notNull(),
+    language: text("language"),
+    modelId: text("model_id"),
+    segmentCount: integer("segment_count"),
+    wordCount: integer("word_count"),
+    // Seconds of audio sent to the speech model, which is what the model is billed by.
+    transcribedSeconds: integer("transcribed_seconds").notNull().default(0),
+    // The filed WebVTT document, once the transcript is ready.
+    fileId: text("file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    fileVersionId: text("file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    // The standard pipeline's Error ID when the transcript failed — never a message.
+    failureErrorId: text("failure_error_id"),
+    cursorTrack: integer("cursor_track").notNull().default(0),
+    cursorSample: integer("cursor_sample").notNull().default(0),
+    segmentsWritten: integer("segments_written").notNull().default(0),
+    // The upload session the document is filed through (by value — the file pipeline's own row owns
+    // the key), once the filing has begun.
+    uploadSessionId: text("upload_session_id"),
+    attempts: integer("attempts").notNull().default(0),
+    progressAt: text("progress_at"), // ISO-8601 instant
+    claimedAt: text("claimed_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // ONE TRANSCRIPT PER RECORDING: the compose writes it in the batch that files the recording, and a
+    // second filing of one recording is refused by its own guard before it gets here.
+    uniqueIndex("meeting_transcript_recording_unique_index").on(table.recordingId),
+    index("meeting_transcript_meeting_index").on(table.meetingId),
+    index("meeting_transcript_state_index").on(table.state),
+    check("meeting_transcript_state_check", sql`${table.state} IN ('pending', 'ready', 'failed')`),
+    // A SETTLED TRANSCRIPT SAYS HOW: a ready one names its document, a failed one carries its Error ID.
+    check(
+      "meeting_transcript_settled_shape_check",
+      sql`(${table.state} <> 'ready' OR ${table.fileId} IS NOT NULL)
+        AND (${table.state} <> 'failed' OR ${table.failureErrorId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_transcript_cursor_check",
+      sql`${table.cursorTrack} >= 0 AND ${table.cursorSample} >= 0 AND ${table.segmentsWritten} >= 0
+        AND ${table.transcribedSeconds} >= 0 AND ${table.attempts} >= 0`,
+    ),
+  ],
+);
+
+// ONE LINE OF A TRANSCRIPT: a span of one track's speech with what the speech model heard in it, or a
+// GAP the transcript says it could not hear — a track that was lost, one the recording's ceiling refused
+// to hold, or one whose audio was not there to read. A gap names whose audio is missing when there is
+// somebody to name, and nobody when it covers a recording in which nobody could be heard at all.
+//
+// THE TEXT IS CONTENT: what somebody said in a meeting on a matter. It is never logged, never in an
+// audit row and never in an error payload, and it is registered as content in the personal-data
+// registry.
+//
+// THE STAY IS NAMED BY VALUE, as the track's is — a member's attendance or a guest's stay — beside the
+// track it came from and the member behind it, so a guest's words are attributed to the guest exactly as
+// a member's are to the member. The name is read off the stay when the transcript is read or filed,
+// never stored here.
+//
+// `ordinal` is the line's place in the transcript, chronological from zero once it is ready. While it is
+// pending, each line carries a NEGATIVE provisional ordinal in the order it was written — its place
+// among the other tracks' lines is not known until every track is done — and the settle renumbers them
+// in one statement. Negative and final ordinals can never collide, which is what lets one UPDATE move
+// every line to its place under the unique index.
+export const meetingTranscriptSegment = sqliteTable(
+  "meeting_transcript_segment",
+  {
+    id: text("id").primaryKey().$type<MeetingTranscriptSegmentId>(), // meetingTranscriptSegment_ handle
+    transcriptId: text("transcript_id")
+      .notNull()
+      .$type<MeetingTranscriptId>()
+      .references(() => meetingTranscript.id),
+    ordinal: integer("ordinal").notNull(),
+    kind: text("kind", { enum: ["speech", "gap"] }).notNull(),
+    trackId: text("track_id")
+      .$type<MeetingRecordingTrackId>()
+      .references(() => meetingRecordingTrack.id),
+    participantKind: text("participant_kind", { enum: ["member", "guest", "attendee"] }),
+    participantId: text("participant_id"),
+    userId: text("user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // Milliseconds from the recording's start, on the composite's own timeline.
+    startedMs: integer("started_ms").notNull(),
+    endedMs: integer("ended_ms").notNull(),
+    // What was said; empty on a gap.
+    text: text("text").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_transcript_segment_ordinal_unique_index").on(
+      table.transcriptId,
+      table.ordinal,
+    ),
+    index("meeting_transcript_segment_started_index").on(table.transcriptId, table.startedMs),
+    // THE LAST LINE A TRACK WROTE, which is what the next piece of that track is prompted with.
+    index("meeting_transcript_segment_track_index").on(table.trackId, table.ordinal),
+    check("meeting_transcript_segment_kind_check", sql`${table.kind} IN ('speech', 'gap')`),
+    check(
+      "meeting_transcript_segment_participant_kind_check",
+      sql`${table.participantKind} IS NULL OR ${table.participantKind} IN ('member', 'guest', 'attendee')`,
+    ),
+    // A STAY IS NAMED WHOLE OR NOT AT ALL, and speech always belongs to somebody.
+    check(
+      "meeting_transcript_segment_speaker_shape_check",
+      sql`(${table.participantKind} IS NULL) = (${table.participantId} IS NULL)
+        AND (${table.kind} <> 'speech' OR ${table.participantId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_transcript_segment_span_check",
+      sql`${table.startedMs} >= 0 AND ${table.endedMs} >= ${table.startedMs}`,
+    ),
+    check(
+      "meeting_transcript_segment_gap_text_check",
+      sql`${table.kind} <> 'gap' OR ${table.text} = ''`,
     ),
   ],
 );

@@ -14,6 +14,8 @@ import {
   listStalledComposingRecordings,
 } from "@magna-carta/meetings/recording-statements";
 import type { MeetingRecordingRow } from "@magna-carta/meetings/recording-types";
+import { transcriptRetryEffect } from "@magna-carta/meetings/transcript-service";
+import { listStalledPendingTranscripts } from "@magna-carta/meetings/transcript-statements";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
@@ -21,8 +23,12 @@ import type { Bindings } from "../app.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
-import type { MeetingRecordingComposeMessage } from "./meeting-recorder.ts";
+import type {
+  MeetingRecordingComposeMessage,
+  MeetingTranscriptMessage,
+} from "./meeting-recorder.ts";
 import { failRecordingCompose } from "./recording-compose-consumer.ts";
+import { failMeetingTranscript } from "./transcript-consumer.ts";
 import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure.ts";
 
 // THE RECORDING SWEEP: what tends a recording when the part of the platform that should have moved it
@@ -42,9 +48,15 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure
 //     these however long it takes. It is handed on again, and after a bounded number of hand-ons with
 //     nothing moving in between it is `failed` with an Error ID, its upload session aborted and its
 //     partial composite released (`failRecordingCompose`).
+//   * A TRANSCRIPT still `pending` that NOTHING HAS TOUCHED for a window — its first message never
+//     sent, or every delivery dead-lettered. It is handed on again on the same terms as a compose, and
+//     after a bounded number of hand-ons with nothing moving in between it is `failed` with an Error ID
+//     — which releases the recording's staged tracks, because a transcript stuck forever would
+//     otherwise hold them forever.
 //   * STAGED TRACKS nothing needs any more: a failed or abandoned recording's after a retention window
 //     (they are the only copy of what was captured, so they are kept long enough for somebody to ask
-//     about a retry), and a filed recording's whose own compose did not get to delete them.
+//     about a retry), and a filed recording's once its transcript has settled and a grace has passed,
+//     if the settle itself did not get to release them.
 //
 // IT RIDES THE TEN-MINUTE CRON, beside the status snapshot. Every window below is a multiple of that
 // cadence, so one late pass costs a few minutes, never a day — and it is not on the five-minute sweep,
@@ -85,7 +97,10 @@ export const MAXIMUM_COMPOSE_ATTEMPTS = 3;
  */
 export const UNSETTLED_STAGING_RETENTION_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 
-/** How long after filing a recording's leftover staged tracks are taken, if its compose did not. */
+/**
+ * How long after a filed recording's transcript settled its leftover staged tracks are taken, if the
+ * settle did not release them itself.
+ */
 export const FILED_STAGING_GRACE_MILLISECONDS = 24 * 60 * 60 * 1000;
 
 /** What one pass did, in counts. */
@@ -93,8 +108,21 @@ export interface RecordingSweepReport {
   readonly abandoned: number;
   readonly composeRetried: number;
   readonly composeFailed: number;
+  readonly transcriptRetried: number;
+  readonly transcriptFailed: number;
   readonly stagingDeleted: number;
 }
+
+/**
+ * HOW LONG A TRANSCRIPT MAY GO UNTOUCHED before it is handed on again — measured from the latest of its
+ * creation, its last window's claim, its last progress and its last hand-on. The compose's figure, for
+ * the compose's reason: twice the longest a consumer may run, so a window still being transcribed is
+ * never raced.
+ */
+export const TRANSCRIPT_STALL_MILLISECONDS = 30 * 60 * 1000;
+
+/** How many hand-ons in a row, with no progress between them, before a transcript is failed. */
+export const MAXIMUM_TRANSCRIPT_ATTEMPTS = 3;
 
 /** One pass over every active firm. A firm that fails is recorded and the pass goes on. */
 export async function runRecordingSweep(
@@ -104,7 +132,14 @@ export async function runRecordingSweep(
   const logger = createWorkersLogger(env.TELEMETRY);
   const correlationId = newCorrelationId();
   const nowMilliseconds = options.now ?? (() => Date.now());
-  const report = { abandoned: 0, composeRetried: 0, composeFailed: 0, stagingDeleted: 0 };
+  const report = {
+    abandoned: 0,
+    composeRetried: 0,
+    composeFailed: 0,
+    transcriptRetried: 0,
+    transcriptFailed: 0,
+    stagingDeleted: 0,
+  };
   for (const firm of await listReachableActiveFirms(env)) {
     try {
       await sweepFirm(env, firm, nowMilliseconds, report);
@@ -127,6 +162,8 @@ async function sweepFirm(
     abandoned: number;
     composeRetried: number;
     composeFailed: number;
+    transcriptRetried: number;
+    transcriptFailed: number;
     stagingDeleted: number;
   },
 ): Promise<void> {
@@ -194,6 +231,53 @@ async function sweepFirm(
     }
   } catch (caught) {
     recordRealtimeFailure(logger, "meetings.recording.sweep-compose", caught);
+  }
+
+  // A transcript nothing has touched.
+  try {
+    const stalledSince = new Date(nowMilliseconds() - TRANSCRIPT_STALL_MILLISECONDS).toISOString();
+    for (const transcript of await listStalledPendingTranscripts(database, stalledSince)) {
+      if (transcript.attempts >= MAXIMUM_TRANSCRIPT_ATTEMPTS) {
+        const failureErrorId = recordRealtimeFailure(
+          logger,
+          "meetings.transcript.stalled",
+          new Error(
+            `the transcript was not finished after ${String(MAXIMUM_TRANSCRIPT_ATTEMPTS)} attempts`,
+          ),
+        );
+        const bucketFor = async (): Promise<R2Bucket> =>
+          resolveFirmBucket(env, firm.bucketName).bucket;
+        if (
+          await failMeetingTranscript(env, database, transcript.id, failureErrorId, bucketFor, {
+            now,
+          })
+        ) {
+          report.transcriptFailed += 1;
+        }
+        continue;
+      }
+      // No queue bound, no hand-on: counting attempts there would fail every transcript it ever made.
+      const queue = env.MEETING_RECORDING_COMPOSE;
+      if (queue === undefined) continue;
+      try {
+        await commitEffectBatch(database, transcriptRetryEffect(database, transcript.id, system), {
+          now,
+        });
+        const message: MeetingTranscriptMessage = {
+          kind: "meeting-transcript",
+          firmId: firm.firmId as FirmId,
+          meetingId: transcript.meeting_id,
+          recordingId: transcript.recording_id,
+          transcriptId: transcript.id,
+        };
+        await queue.send(message);
+        report.transcriptRetried += 1;
+      } catch (caught) {
+        recordRealtimeFailure(logger, "meetings.transcript.sweep-hand-on", caught);
+      }
+    }
+  } catch (caught) {
+    recordRealtimeFailure(logger, "meetings.transcript.sweep", caught);
   }
 
   // Staged tracks nothing needs.

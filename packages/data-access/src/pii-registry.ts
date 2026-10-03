@@ -522,6 +522,32 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "the member behind a notice, beside the stay; null for a guest, who was told exactly as a member was",
   },
+  // The transcript of a filed recording — and here the meeting subsystem holds the most sensitive
+  // content the platform stores: what was said in a privileged conversation, word for word, attributed.
+  // Every line hangs from the STAY whose track it came from, carried by value as the track's is, beside
+  // the member behind it; a member resolves through meeting_attendance.user_id as well. The text is
+  // content, on the line a filed email body and meeting_message.body sit on: never logged, never in an
+  // audit row, never in an error payload, redacted by default everywhere — and content-level residue for
+  // the residue report rather than anything an automated rewrite can safely touch. The transcript row
+  // itself carries handles, counts and a state, and no personal column.
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay whose track a transcript line came from is who said it — the attribution the whole transcript rests on; null on a gap that is nobody's",
+  },
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a transcript line, beside the stay; null for a guest, whose words are attributed to their stay exactly as a member's are",
+  },
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "text",
+    action: "retain-under-matter",
+    note: "what was said in a meeting on a matter, word for word — content on the line meeting_message.body sits on, and content-level residue for the residue report",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and
@@ -1190,6 +1216,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // manifest, and source media type. Operational bookkeeping keyed to file_version, no personal
   // data of its own (the underlying document's retention is the file entry's, as above).
   "file_repair_provenance",
+  // A recording's transcript header — handles, counts, a state, the cursor of the work that makes it,
+  // and the model and language the model reported. It names nobody: the words and who said each are
+  // its segments' (registered in PII_TABLES), and the filed document takes the document's retention.
+  "meeting_transcript",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",

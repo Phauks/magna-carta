@@ -1297,6 +1297,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "meetings.openPoll",
       "meetings.readPoll",
       "meetings.recordingNotices",
+      "meetings.recordingTranscript",
       "meetings.redactMessage",
       "meetings.redactQuestion",
       "meetings.removeParticipant",

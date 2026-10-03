@@ -13,6 +13,13 @@ export function inferencePortFor(ai: AiBinding, env: string): InferencePort {
   return createGatewayInferencePort({ ai, env });
 }
 
+// The deployment's own port, for a consumer that is handed the Worker's environment rather than the
+// binding: the binding is named here, in the composition root, and nowhere in the consumer. The label
+// is the deployment's, as the inference consumer's is.
+export function deploymentInferencePort(environment: { readonly AI: AiBinding }): InferencePort {
+  return inferencePortFor(environment.AI, "production");
+}
+
 export function resolveReasoningModel(firmDatabase: SqlDatabase): Promise<string> {
   return readFirmSetting(firmDatabase, primaryReasoningModelDefinition);
 }

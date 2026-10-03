@@ -1,6 +1,7 @@
 import { PCM_BYTES_PER_SAMPLE, PCM_SAMPLE_RATE } from "./pcm-frame.ts";
 
-// THE COMPOSED RECORDING'S CONTAINER: a canonical 44-byte WAV header over mono 48 kHz 16-bit PCM.
+// THE COMPOSED RECORDING'S CONTAINER: a canonical 44-byte WAV header over mono 48 kHz 16-bit PCM —
+// and, at a lower rate, over each piece of one speaker's audio the transcript sends to the speech model.
 //
 // WAV because it is no encoder at all — the header says what the samples are and the samples follow
 // it — so there is no codec, no dependency and nothing to get wrong between the staged audio and the
@@ -48,11 +49,17 @@ export const WAV_MAXIMUM_DATA_BYTES = 0xffff_ffff - 36;
 export const WAV_SIGNED_READER_MAXIMUM_DATA_BYTES = 0x7fff_ffff - 36;
 
 /**
- * The 44-byte header for `dataBytes` bytes of mono 48 kHz 16-bit little-endian PCM. Refuses a length
- * that is not a whole number of samples or that the format cannot describe, rather than writing a
- * header whose lengths do not match the data after it.
+ * The 44-byte header for `dataBytes` bytes of mono 16-bit little-endian PCM at `sampleRate` — the
+ * recorder's 48 kHz unless the caller says otherwise (the transcript's speech pieces are 16 kHz, the
+ * rate the speech model works at). Refuses a length that is not a whole number of samples or that the
+ * format cannot describe, rather than writing a header whose lengths do not match the data after it.
  */
-export function wavHeader(dataBytes: number): Uint8Array {
+export function wavHeader(dataBytes: number, sampleRate: number = PCM_SAMPLE_RATE): Uint8Array {
+  if (!Number.isInteger(sampleRate) || sampleRate <= 0) {
+    throw new RangeError(
+      `a WAV sample rate is a whole number of samples a second, not ${String(sampleRate)}`,
+    );
+  }
   if (!Number.isInteger(dataBytes) || dataBytes < 0 || dataBytes % PCM_BYTES_PER_SAMPLE !== 0) {
     throw new RangeError(
       `a WAV data chunk is a whole number of samples, not ${String(dataBytes)} bytes`,
@@ -76,8 +83,8 @@ export function wavHeader(dataBytes: number): Uint8Array {
   view.setUint32(16, 16, true); // the `fmt ` chunk's own length, for plain PCM
   view.setUint16(20, 1, true); // format 1: linear PCM, no compression
   view.setUint16(22, WAV_CHANNELS, true);
-  view.setUint32(24, PCM_SAMPLE_RATE, true);
-  view.setUint32(28, PCM_SAMPLE_RATE * blockAlign, true); // bytes per second
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true); // bytes per second
   view.setUint16(32, blockAlign, true); // bytes per sample frame, every channel together
   view.setUint16(34, PCM_BYTES_PER_SAMPLE * 8, true); // bits per sample
   ascii(36, "data");

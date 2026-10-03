@@ -2,7 +2,8 @@
 
 **Status:** Design (brainstormed), 2026-09-20. Slice R1's server half built 2026-10-02 behind a fake
 routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Slice R2's
-server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Extends
+server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Slice R3's server half (the
+transcript of record) built 2026-10-03 (A34 to A44). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -1186,3 +1187,118 @@ so a queue that refuses a hand-on no longer skips the staging clean-up. Staging 
 statements of at most ninety handles: a Durable Object's SQLite binds at most a hundred variables, and
 the sweep's page of two hundred failed every time. The mixer's CPU test now covers one invocation at the
 eleven-track ceiling with both byte conversions, bounded at a third of a consumer's thirty-second budget.
+
+### Amendments from slice R3 — the transcript of record
+
+Recorded 2026-10-03, as the transcript's server half was built. Migration
+`20261003T003618_meeting-transcript` adds both tables. Each names the section it amends and says what
+changed and why.
+
+**A34 — The staging is the transcript's until it settles (§9, §10, §14; resolves A22).** The compose no
+longer deletes the staged tracks when it files the recording: the transcript reads each track's own staged
+PCM, and the staged tracks are deleted when the transcript SETTLES — `ready` or `failed` alike. The sweep's
+retention for a filed recording's staging waits for its transcript (a recording with a `pending` transcript
+is never released, and one whose transcript settled is released a day's grace after it last moved, as a
+backstop for a settle that could not let go), and the sweep fails a transcript stuck past its attempts so
+the staging is released even then. Reading spans out of the filed composite was the other way A22 named; it
+was not taken, because the composite is the sum of every track and a span read out of it is no longer one
+person's voice.
+
+**A35 — Speech spans come from each track's energy, not from presence (§10).** §10 said the recorder knows
+who was speaking from the room's relayed `speaking` presence; the recorder never recorded presence, and the
+room keeps none. So the spans are found in the staged audio itself (`packages/meetings/src/speech-spans.ts`):
+twenty-millisecond frames measured in dB below full scale; a noise floor at the tenth percentile of a
+region's frames; a frame is voiced at ten decibels above that floor, the threshold held between -55 dB (so
+hiss on a silent track is not speech) and -25 dB (so a stretch that is nearly all speech still hears it); a
+span begins 100 ms before its first voiced frame, runs through quiet of up to 300 ms and ends 300 ms after
+its last voiced frame (the hangover that keeps a word's end), and fewer than 60 ms of voiced frames is a
+click, not speech. A staged sample is mapped onto the recording's timeline through the track's stretches
+(`placeTrackSegments`, the compose's own placement, A27) and a piece never crosses from one stretch into the
+next. Attribution is the track: a member's stay and `user_id`, or a guest's stay, by value.
+
+**A36 — Pieces, the rate, and the prompt (§10).** A span longer than thirty seconds is cut at the quietest
+frame of the two seconds before the thirty when that frame is below the threshold, and at exactly thirty
+otherwise. Each piece is downsampled from 48 kHz to 16 kHz (`resample.ts`): a 127-tap Blackman-windowed
+sinc low-pass with its cutoff at 7 kHz, evaluated only at the kept samples, then one sample in three — so
+nothing above about 8 kHz folds back into the speech band. A piece is wrapped as a 16 kHz mono 16-bit WAV
+(`wavHeader` takes the rate) — thirty seconds is 960 kB, inside §10's 1 MB — and sent with the last 200
+characters of the same track's previous line, begun at a word, as `initialPrompt`. No language hint is sent;
+the model detects it.
+
+**A37 — No new queue; a window is a bounded number of model calls (§10, §16 R3).** The transcript is a
+second kind of message (`MeetingTranscriptMessage`, `kind: "meeting-transcript"`, identifiers only) on the
+existing `meeting-recording-compose` queue, routed by `kind` in `apps/api-worker/src/event-dispatch.ts` (a
+kind neither consumer knows is retried rather than lost), so the deploy needs nothing new. The pending row is
+written in the batch that files the recording — a recording is never filed without one, and a filing that
+lost its race takes it back — and the first message is sent once that batch has committed. One message is at
+most eight model calls and four five-minute regions measured (`transcript-consumer.ts`); the cursor (the
+track, the staged sample, the segments written) is on the row, each window is CLAIMED with a fifteen-minute
+lease on the compose's terms, every piece's lines commit in one guarded batch with the cursor that moves past
+them, and the claim is released before the next window is sent. A region still open at its end resumes at
+the start of its last piece, so no span is cut at a region's edge. Memory per invocation is about twenty
+megabytes.
+
+**A38 — The schema, adjusted to the built tables (§5).** `meeting_transcript.recording_id` is NOT NULL
+with a plain unique index — every transcript is a recording's. `model_id` and `language` are nullable and
+are what the model REPORTED (the first language it names), because a row written before the first answer
+cannot name a model it has not heard from. Added: `transcribed_seconds` (audio sent, what it is billed by),
+`file_version_id` beside `file_id`, the cursor (`cursor_track`, `cursor_sample`, `segments_written`), the
+filing's `upload_session_id`, `attempts`, `progress_at` and `claimed_at`; a CHECK that a `ready` transcript
+names its file and a `failed` one its Error ID. `meeting_transcript_segment` names the stay by value
+(`participant_kind`, `participant_id`, `user_id`) on A1's precedent, plus the `track_id` it came from, in
+place of `attendance_id`. While a transcript is pending its lines carry NEGATIVE provisional ordinals in the
+order written, because a line's place among the other tracks' is known only at the end; the settle renumbers
+them chronologically (start, end, handle) in one `UPDATE … FROM` over a window function, and a negative
+ordinal can never collide with a final one under the unique index. The PII registry classes the segment's
+`text`, `participant_id` and `user_id` as `retain-under-matter` content and identifiers, and
+`meeting_transcript` as holding no personal data.
+
+**A39 — Where the transcript could not hear (§8, §10, §14).** A gap line is attributed to the stay whose
+audio is missing — §14's "naming the member", over §5's "null on a gap" — and is: a lost track from its last
+frame to the recording's stop; a lost track that carried nothing (the ceiling refused it) from its arrival
+to the stop; a track that carried audio whose staged object was not there to read, over the span it was
+captured. A recording in which nothing at all was heard is `ready` with ONE unattributed gap over its whole
+length, beside any per-track gaps, as §14 says. The gaps are written in the same batch that renumbers the
+lines and begins the filing, guarded, so they are written once.
+
+**A40 — The filed document (§10).** WebVTT, named `Meeting transcript — <event title> — <YYYY-MM-DD
+HH:mm>.vtt` with the audio's own title cleaning and start stamp (`meetingDocumentFileName`), so the pair sit
+together on the matter and a second recording of one meeting is told apart by its time; declared
+`text/vtt`, filed through `initiateUpload` (single put) and `completeUploadSession` by the member who started
+the recording, then the ingest queue. The declared size is left null: the document is rendered from the rows,
+and a filing resumed after a crash renders it again, which a speaker renamed in between would make a
+different length. A NOTE carries the meeting's title; each cue's identifier is `<n> <speaker>` and its
+payload a voice span `<v speaker>`; a gap's cue says whose audio was not captured, or that no speech was.
+Every piece of text is made safe for where it goes: one line, no controls, no `-->` in a NOTE or an
+identifier, and `&`, `<`, `>` as character references in a payload. The audit rows (`meetings.transcript.ready`,
+`.failed`) carry handles and counts only.
+
+**A41 — Failure (§14).** A model that refuses for now (a retryable problem) is the queue's redelivery; after
+three deliveries of the window the transcript is `failed` with an Error ID. A refusal no retry can change, a
+staged object that vanished mid-transcript, or a recording that is not filed fails it at once. The recording
+sweep hands on a transcript nothing has claimed, moved or handed on for thirty minutes and fails it after
+three hand-ons with nothing between. Every failure — `failMeetingTranscript` — is guarded on `pending`,
+aborts a filing that had begun (its session and pending version), deletes anything at its key, and releases
+the staging. The filed audio is never touched. Every Error ID is recorded against a fixed sentence and a
+code; no word, name, document name or key reaches a log line, an audit row or an error.
+
+**A42 — The read (§7).** `GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript` on
+`meetings:join`, per RECORDING rather than §7's per meeting, because a meeting may hold several recordings.
+It reaches the meeting through the visible-matter predicate and then the recording within it, so a walled
+matter's transcript is not found. It answers `{ transcript, data, nextCursor }`: the header always, and the
+lines (two hundred a page, the cursor the last ordinal) only once the transcript is `ready` — a pending or
+failed one answers its header with an empty page rather than §7's `meeting-transcript-not-ready` 409, so a
+screen can say where it stands; no transcript is 404. Each line is `{ id, ordinal, kind, startedMs, endedMs,
+text, speaker }`, the speaker `{ participantKind, participantId, userId, displayName }` or null, the name
+read off the stay at the moment of asking. The recording list entry gains `transcript: { id, state, fileId }
+| null`, and `transcriptId` on the summary is filled from it.
+
+**A43 — The model port (§10).** The consumer reaches `InferencePort.transcribe` the way the inference
+consumer reaches the port — through the composition root, `deploymentInferencePort` in `apps/api-worker/src/inference/call-site.ts`, the gateway — with no deploy-time switch, because the
+speech model is hosted on Cloudflare and a transcript of stub text filed on a matter would be worse than
+none; a test hands its own port in. The audio seconds sent are on the row (`transcribed_seconds`); writing
+them to the token-usage meter is not done.
+
+**A44 — Not built here.** The repository-wide fitness scan §15 names (no transcript, summary or caption text
+reaching a logger or an audit builder) is not added; the transcript panel is the web half; the load-profile
+fixture of A25 is still open; live captions (R4) and the summary (R5) are next.

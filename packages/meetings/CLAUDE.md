@@ -443,3 +443,46 @@ document's name, which is the event's title. The ceiling at the start counts STA
 **Its refusals are a vocabulary of their own** (`MeetingRecordingRefusedError` in `validation.ts`), on
 the poll's precedent, so the room's one switch over `MeetingValidationCode` is not widened by codes only
 the recording routes raise. Reaching the meeting at all still raises `meeting-unknown-event`.
+
+## A transcript is content, made per track, and it settles the staging
+
+`transcript-types.ts` / `transcript-statements.ts` / `transcript-service.ts` are the transcript's trio, and
+four pure modules do its arithmetic: `speech-spans.ts` (where somebody is talking, from a track's own
+energy against its own noise floor, with a pre-roll and a hangover, cut into thirty-second pieces at a
+pause), `resample.ts` (48 kHz to the speech model's 16 kHz behind a windowed-sinc anti-alias filter),
+`transcript-assembly.ts` (a piece's lines placed on the recording's timeline, the gap lines, the reading
+order, the prompt tail) and `webvtt.ts` (the filed document, with every piece of somebody else's text made
+safe for where it goes). The Worker's `transcript-consumer.ts` drives them; the design and its amendments
+(A34 onward) are in the recording spec.
+
+Five rules travel with it.
+
+**The words are CONTENT, and the second store of it this package holds after chat.**
+`meeting_transcript_segment.text` is what was said in a privileged conversation, attributed. No statement
+here logs it, no audit row carries it (`meetings.transcript.ready` and `.failed` are handles and counts),
+and the header row `meeting_transcript` holds none — it is in `NO_PII_TABLES`, the segment's text and stay
+are in `PII_TABLES`.
+
+**The speaker is the TRACK, by value.** A line names the stay its track was (`participant_kind`,
+`participant_id`), the member behind it (`user_id`, null for a guest) and the track itself; the name is read
+off the stay when the transcript is read or filed (the member's display name, or the name a guest typed at
+the door), never stored. A diarizing model's "speaker 0" is not a person a record can name.
+
+**A pending transcript's lines are not in order, and nothing reads them.** Each line is written with a
+NEGATIVE provisional ordinal in the order it was written, because one track is transcribed before the next
+and a line's place among the others is known only at the end. `assembleTranscriptStatements` writes the gaps,
+renumbers every line chronologically (start, end, handle — `compareLines`) in ONE `UPDATE … FROM` over a
+window function, and records the filing's session, in one guarded batch; negative and final ordinals never
+collide, so the unique index never refuses a line on its way to its place. `listTranscriptSegments` reads
+only ordinals from zero up.
+
+**Every act that can lose a race is guarded, with its own label**: the claim (on the cursor and an expired
+or absent lease), each piece's progress (on the claim and the cursor it moved from — two consumers never
+write one piece), the filing's begin (on no session yet and the claim), `ready` and `failed` (both on
+`pending`). The audit row beside `failed` is written only by the failure the record keeps, because the
+guarded write rolls the whole batch back.
+
+**The staging is the transcript's until it settles.** A filed recording keeps its staged tracks because
+the transcript reads them; `listExpiredStagingTracks` releases a filed recording's staging only once its
+transcript has settled, and `hasRecordingsToTend` counts a pending transcript, so the sweep sees one that
+stopped moving.

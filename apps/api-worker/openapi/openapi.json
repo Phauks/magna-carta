@@ -16568,10 +16568,21 @@
                     "type": "null"
                   }
                 ]
+              },
+              "transcript": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MeetingTranscriptMark"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
-              "document"
+              "document",
+              "transcript"
             ]
           }
         ]
@@ -16597,6 +16608,33 @@
         "required": [
           "versionId",
           "state"
+        ]
+      },
+      "MeetingTranscriptMark": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ]
+          },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "fileId"
         ]
       },
       "MeetingRecordingNoticePage": {
@@ -16666,6 +16704,180 @@
           "displayName",
           "reason",
           "deliveredAt"
+        ]
+      },
+      "MeetingTranscriptPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingTranscriptSegment"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/MeetingTranscriptSummary"
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor",
+          "transcript"
+        ]
+      },
+      "MeetingTranscriptSegment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "gap"
+            ]
+          },
+          "startedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "endedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingTranscriptSpeaker"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "kind",
+          "startedMs",
+          "endedMs",
+          "text",
+          "speaker"
+        ]
+      },
+      "MeetingTranscriptSpeaker": {
+        "type": "object",
+        "properties": {
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest",
+              "attendee"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participantKind",
+          "participantId",
+          "userId",
+          "displayName"
+        ]
+      },
+      "MeetingTranscriptSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "recordingId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "segmentCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "wordCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failureErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "recordingId",
+          "state",
+          "language",
+          "segmentCount",
+          "wordCount",
+          "fileId",
+          "failureErrorId",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "MeetingMessage": {
@@ -71566,6 +71778,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MeetingRecordingNoticePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript": {
+      "get": {
+        "description": "The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.",
+        "operationId": "meetings.recordingTranscript",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.recordingTranscript",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The transcript's header and one page of its lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingTranscriptPage"
                 }
               }
             }

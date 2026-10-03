@@ -3934,11 +3934,18 @@ export type MeetingRecordingPage = {
 
 export type MeetingRecordingListEntry = MeetingRecordingSummary & {
     document: MeetingRecordingDocument | null;
+    transcript: MeetingTranscriptMark | null;
 };
 
 export type MeetingRecordingDocument = {
     versionId: string;
     state: 'pending' | 'available' | 'held' | 'replaced' | 'removed' | 'unavailable';
+};
+
+export type MeetingTranscriptMark = {
+    id: string;
+    state: 'pending' | 'ready' | 'failed';
+    fileId: string | null;
 };
 
 export type MeetingRecordingNoticePage = {
@@ -3954,6 +3961,42 @@ export type MeetingRecordingNoticeEntry = {
     displayName: string;
     reason: 'start' | 'arrival' | 'stop';
     deliveredAt: string;
+};
+
+export type MeetingTranscriptPage = {
+    data: Array<MeetingTranscriptSegment>;
+    nextCursor: string | null;
+    transcript: MeetingTranscriptSummary;
+};
+
+export type MeetingTranscriptSegment = {
+    id: string;
+    ordinal: number;
+    kind: 'speech' | 'gap';
+    startedMs: number;
+    endedMs: number;
+    text: string;
+    speaker: MeetingTranscriptSpeaker | null;
+};
+
+export type MeetingTranscriptSpeaker = {
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+};
+
+export type MeetingTranscriptSummary = {
+    id: string;
+    recordingId: string;
+    state: 'pending' | 'ready' | 'failed';
+    language: string | null;
+    segmentCount: number | null;
+    wordCount: number | null;
+    fileId: string | null;
+    failureErrorId: string | null;
+    createdAt: string;
+    updatedAt: string;
 };
 
 export type MeetingMessage = {
@@ -22813,6 +22856,48 @@ export type MeetingsRecordingNoticesResponses = {
 };
 
 export type MeetingsRecordingNoticesResponse = MeetingsRecordingNoticesResponses[keyof MeetingsRecordingNoticesResponses];
+
+export type MeetingsRecordingTranscriptData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript';
+};
+
+export type MeetingsRecordingTranscriptErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingTranscriptError = MeetingsRecordingTranscriptErrors[keyof MeetingsRecordingTranscriptErrors];
+
+export type MeetingsRecordingTranscriptResponses = {
+    /**
+     * The transcript's header and one page of its lines
+     */
+    200: MeetingTranscriptPage;
+};
+
+export type MeetingsRecordingTranscriptResponse = MeetingsRecordingTranscriptResponses[keyof MeetingsRecordingTranscriptResponses];
 
 export type MeetingsSocketData = {
     body?: never;

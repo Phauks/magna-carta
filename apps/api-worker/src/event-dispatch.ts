@@ -30,9 +30,14 @@ import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { magnusQueue } from "./magnus/magnus-consumer.ts";
-import type { MeetingRecordingComposeMessage } from "./meetings/meeting-recorder.ts";
+import type {
+  MeetingRecordingComposeMessage,
+  MeetingRecordingQueueMessage,
+  MeetingTranscriptMessage,
+} from "./meetings/meeting-recorder.ts";
 import { meetingRecordingComposeQueue } from "./meetings/recording-compose-consumer.ts";
 import { runRecordingSweep } from "./meetings/recording-sweep.ts";
+import { meetingTranscriptQueue } from "./meetings/transcript-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
@@ -312,9 +317,10 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
   if (batch.queue === DISCOVERY_PROCESS_QUEUE) {
     return discoveryProcessQueue(batch as MessageBatch<DiscoveryLaneMessage>, env);
   }
-  // The meeting-recording compose queue routes to the compose consumer (mix a window -> file).
+  // The meeting-recording queue carries two kinds of message, routed by `kind`: the compose (mix a
+  // window -> file) and the transcript the filing begins (transcribe a window -> assemble -> file).
   if (batch.queue === MEETING_RECORDING_COMPOSE_QUEUE) {
-    return meetingRecordingComposeQueue(batch as MessageBatch<MeetingRecordingComposeMessage>, env);
+    return routeMeetingRecordingBatch(batch as MessageBatch<MeetingRecordingQueueMessage>, env);
   }
   // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
   if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {
@@ -323,4 +329,52 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
   // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
   // same ingest handler — the lane separation is entirely in queue topology and concurrency.
   return ingestQueue(batch as MessageBatch<R2EventMessage>, env);
+}
+
+/**
+ * ONE QUEUE, TWO CONSUMERS: the recording queue's messages split by their `kind` and each half handed to
+ * its own consumer as a batch of its own. A message of a kind neither knows — a message sent by a later
+ * deploy and read by an earlier one during a rollout — is retried rather than acknowledged, so it is
+ * read again by the code that knows it instead of being lost.
+ */
+async function routeMeetingRecordingBatch(
+  batch: MessageBatch<MeetingRecordingQueueMessage>,
+  env: Bindings,
+): Promise<void> {
+  const compose: Message<MeetingRecordingComposeMessage>[] = [];
+  const transcript: Message<MeetingTranscriptMessage>[] = [];
+  for (const message of batch.messages) {
+    const body = message.body as { readonly kind?: unknown };
+    if (body.kind === "meeting-transcript") {
+      transcript.push(message as Message<MeetingTranscriptMessage>);
+    } else if (body.kind === "meeting-recording-compose") {
+      compose.push(message as Message<MeetingRecordingComposeMessage>);
+    } else {
+      message.retry();
+    }
+  }
+  if (compose.length > 0) {
+    await meetingRecordingComposeQueue(subBatch(batch, compose), env);
+  }
+  if (transcript.length > 0) {
+    await meetingTranscriptQueue(subBatch(batch, transcript), env);
+  }
+}
+
+/** Some of a batch's messages, as a batch of their own for a consumer that reads only `messages`. */
+function subBatch<Body>(
+  batch: MessageBatch,
+  messages: readonly Message<Body>[],
+): MessageBatch<Body> {
+  return {
+    queue: batch.queue,
+    metadata: batch.metadata,
+    messages,
+    ackAll: () => {
+      for (const message of messages) message.ack();
+    },
+    retryAll: (options?: QueueRetryOptions) => {
+      for (const message of messages) message.retry(options);
+    },
+  };
 }

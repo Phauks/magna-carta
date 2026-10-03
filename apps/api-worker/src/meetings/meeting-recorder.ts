@@ -7,6 +7,7 @@ import type {
   MeetingId,
   MeetingRecordingId,
   MeetingRecordingTrackId,
+  MeetingTranscriptId,
 } from "@magna-carta/identifiers/types";
 import {
   decodePcmFrame,
@@ -214,6 +215,25 @@ export interface MeetingRecordingComposeMessage {
   readonly meetingId: MeetingId;
   readonly recordingId: MeetingRecordingId;
 }
+
+/**
+ * THE MESSAGE THAT MOVES A FILED RECORDING'S TRANSCRIPT ON BY ONE WINDOW — the second kind of message
+ * on the same queue the compose rides, so a deployment needs nothing new to carry it. Identifiers only:
+ * the consumer reads the transcript's cursor off the firm's own record and the staged audio out of the
+ * firm's own bucket, and nothing anybody said ever travels on a queue.
+ */
+export interface MeetingTranscriptMessage {
+  readonly kind: "meeting-transcript";
+  readonly firmId: FirmId;
+  readonly meetingId: MeetingId;
+  readonly recordingId: MeetingRecordingId;
+  readonly transcriptId: MeetingTranscriptId;
+}
+
+/** Either message the recording queue carries; `kind` says which consumer it is for. */
+export type MeetingRecordingQueueMessage =
+  | MeetingRecordingComposeMessage
+  | MeetingTranscriptMessage;
 
 /** What a stop produced, for the route that asked and for the record. */
 export interface RecorderStopOutcome {

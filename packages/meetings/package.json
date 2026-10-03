@@ -34,10 +34,17 @@
     "./recording-service": "./src/recording-service.ts",
     "./recording-statements": "./src/recording-statements.ts",
     "./recording-types": "./src/recording-types.ts",
+    "./resample": "./src/resample.ts",
     "./settings": "./src/settings.ts",
+    "./speech-spans": "./src/speech-spans.ts",
+    "./transcript-assembly": "./src/transcript-assembly.ts",
+    "./transcript-service": "./src/transcript-service.ts",
+    "./transcript-statements": "./src/transcript-statements.ts",
+    "./transcript-types": "./src/transcript-types.ts",
     "./types": "./src/types.ts",
     "./validation": "./src/validation.ts",
-    "./wav": "./src/wav.ts"
+    "./wav": "./src/wav.ts",
+    "./webvtt": "./src/webvtt.ts"
   },
   "scripts": {
     "test": "vp test run"

@@ -30,6 +30,9 @@ import type {
 export const MEETING_RECORDING_TABLE = "meeting_recording";
 export const MEETING_RECORDING_TRACK_TABLE = "meeting_recording_track";
 export const MEETING_RECORDING_NOTICE_TABLE = "meeting_recording_notice";
+// The transcript's table, named here rather than imported: the transcript statements import this
+// module, and the sweep's two reads below are the only places this module asks about a transcript.
+const MEETING_TRANSCRIPT_TABLE_NAME = "meeting_transcript";
 
 // THE GATE IS THE MEETING'S, AND IT IS ASKED ONE LEVEL UP — the chat and poll statements' rule. Every
 // read here is addressed to a meeting the caller has ALREADY been resolved to through `readMeeting`,
@@ -816,8 +819,8 @@ export async function readComposeTarget(
 export const RECORDING_SWEEP_BATCH = 50;
 
 /**
- * WHETHER A FIRM HAS ANYTHING THE SWEEP TENDS: a recording still running or composing, or a staged
- * object a row still names. One read that answers "no" for every firm that has never recorded — most
+ * WHETHER A FIRM HAS ANYTHING THE SWEEP TENDS: a recording still running or composing, a staged
+ * object a row still names, or a transcript still being made. One read that answers "no" for every firm that has never recorded — most
  * of them — so the sweep does not spend three on each. Deliberately not the `meetings.recordingEnabled`
  * switch: a firm that turned recording off with a recording mid-compose still needs that recording
  * filed, and its staging still needs releasing. The sweep's own read.
@@ -828,6 +831,7 @@ export async function hasRecordingsToTend(database: SqlDatabase): Promise<boolea
       `SELECT EXISTS (SELECT 1 FROM ${MEETING_RECORDING_TABLE} ` +
         `WHERE state IN ('recording', 'composing')) ` +
         `OR EXISTS (SELECT 1 FROM ${MEETING_RECORDING_TRACK_TABLE} WHERE staging_key IS NOT NULL) ` +
+        `OR EXISTS (SELECT 1 FROM ${MEETING_TRANSCRIPT_TABLE_NAME} WHERE state = 'pending') ` +
         `AS tend`,
     )
     .all<{ tend: number }>();
@@ -895,7 +899,11 @@ export const STAGING_SWEEP_BATCH = 200;
  * STAGED OBJECTS WHOSE RECORDING NO LONGER NEEDS THEM: a recording that `failed` or was `abandoned`
  * and has not changed since `unsettledBefore` (its staging is the only copy of what was captured, so
  * it is kept for a retention window in case of a retry), and a recording `filed` before `filedBefore`
- * whose own compose did not get to delete them. The sweep's own read, a bounded batch.
+ * whose transcript has SETTLED (or that has none) — the transcript reads each track's staged audio, so
+ * a filed recording's staging is kept for exactly as long as its transcript is pending, and released by
+ * the transcript itself when it settles; this is the backstop for a settle that could not let go, a
+ * grace after the transcript last moved. A transcript stuck pending is failed by the sweep, which
+ * releases the staging with it. The sweep's own read, a bounded batch.
  */
 export async function listExpiredStagingTracks(
   database: SqlDatabase,
@@ -911,10 +919,13 @@ export async function listExpiredStagingTracks(
         `WHERE ${MEETING_RECORDING_TRACK_TABLE}.staging_key IS NOT NULL AND (` +
         `(${MEETING_RECORDING_TABLE}.state IN ('failed', 'abandoned') ` +
         `AND ${MEETING_RECORDING_TABLE}.updated_at < ?) OR ` +
-        `(${MEETING_RECORDING_TABLE}.state = 'filed' AND ${MEETING_RECORDING_TABLE}.updated_at < ?)) ` +
+        `(${MEETING_RECORDING_TABLE}.state = 'filed' AND ${MEETING_RECORDING_TABLE}.updated_at < ? ` +
+        `AND NOT EXISTS (SELECT 1 FROM ${MEETING_TRANSCRIPT_TABLE_NAME} AS transcript ` +
+        `WHERE transcript.recording_id = ${MEETING_RECORDING_TABLE}.id ` +
+        `AND (transcript.state = 'pending' OR transcript.updated_at >= ?)))) ` +
         `LIMIT ?`,
     )
-    .bind(input.unsettledBefore, input.filedBefore, STAGING_SWEEP_BATCH)
+    .bind(input.unsettledBefore, input.filedBefore, input.filedBefore, STAGING_SWEEP_BATCH)
     .all<{
       track_id: MeetingRecordingTrackId;
       recording_id: MeetingRecordingId;

@@ -88,6 +88,17 @@ import {
 } from "@magna-carta/meetings/settings";
 import { MEETING_CONTRIBUTOR_KINDS } from "@magna-carta/meetings/types";
 import { MeetingRecordingRefusedError } from "@magna-carta/meetings/validation";
+import {
+  listTranscriptSegments,
+  MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE,
+  readTranscriptForRecording,
+  readTranscriptMarks,
+} from "@magna-carta/meetings/transcript-statements";
+import {
+  MEETING_TRANSCRIPT_SEGMENT_KINDS,
+  MEETING_TRANSCRIPT_STATES,
+  toTranscriptSummary,
+} from "@magna-carta/meetings/transcript-types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import { trackBackgroundWork } from "../background.ts";
@@ -700,12 +711,25 @@ const MeetingRecordingDocumentSchema = z
   })
   .openapi("MeetingRecordingDocument");
 
-// One row of the list: the summary the start and stop routes answer with, and the document it filed.
-// Only the list carries the document — a start has filed nothing, and a stop hands the recording on to
-// be composed — so the write routes' answer stays the summary alone. Null until the recording is
-// `filed`. A union with null for the reason `stoppedBy` is one.
+// WHERE A FILED RECORDING'S TRANSCRIPT STANDS, as the list reads it: its handle, `pending` while its
+// tracks are being transcribed, `ready` once it is filed beside the audio (and then `fileId` is that
+// document), or `failed`. Every filed recording has one; a recording not yet filed has none.
+const MeetingTranscriptMarkSchema = z
+  .object({
+    id: z.string(),
+    state: z.enum(MEETING_TRANSCRIPT_STATES),
+    fileId: z.string().nullable(),
+  })
+  .openapi("MeetingTranscriptMark");
+
+// One row of the list: the summary the start and stop routes answer with, the document it filed, and
+// its transcript. Only the list carries the document and the transcript — a start has filed nothing,
+// and a stop hands the recording on to be composed — so the write routes' answer stays the summary
+// alone. Each is null until the recording is `filed`. A union with null for the reason `stoppedBy` is
+// one.
 const MeetingRecordingListEntrySchema = MeetingRecordingSummarySchema.extend({
   document: z.union([MeetingRecordingDocumentSchema, z.null()]),
+  transcript: z.union([MeetingTranscriptMarkSchema, z.null()]),
 }).openapi("MeetingRecordingListEntry");
 
 const MeetingRecordingPage = paginated(MeetingRecordingListEntrySchema).openapi(
@@ -732,6 +756,70 @@ const MeetingRecordingNoticeEntry = z
 const MeetingRecordingNoticePage = paginated(MeetingRecordingNoticeEntry).openapi(
   "MeetingRecordingNoticePage",
 );
+
+// ---- the transcript ----
+//
+// A FILED RECORDING'S TRANSCRIPT: its header, and its lines in reading order a page at a time. A
+// transcript has no visibility rule of its own — it is reached through its recording, which is reached
+// through its meeting, which is read through the visible-matter predicate — so a transcript of a
+// recording on a walled matter is as absent as the meeting. The lines are content and are read here
+// and nowhere else; the filed WebVTT document is the File Manager's, under its own matter access.
+
+const MeetingTranscriptSpeakerSchema = z
+  .object({
+    // Which kind of stay the line's track was — a member's or a guest's — and its handle.
+    participantKind: z.enum(MEETING_CONTRIBUTOR_KINDS),
+    participantId: z.string(),
+    // The member behind a member's stay; null for a guest.
+    userId: z.string().nullable(),
+    // The member's name, or the name a guest typed at the door — read at the moment of asking.
+    displayName: z.string(),
+  })
+  .openapi("MeetingTranscriptSpeaker");
+
+const MeetingTranscriptSegmentSchema = z
+  .object({
+    id: z.string(),
+    // The line's place in the transcript, from zero, in reading order.
+    ordinal: z.number().int().min(0),
+    // `speech` is something somebody said; `gap` is a span the transcript could not hear — a track that
+    // was lost, refused at the recording's ceiling, or whose audio was missing — and carries no text.
+    kind: z.enum(MEETING_TRANSCRIPT_SEGMENT_KINDS),
+    // Milliseconds from the recording's start.
+    startedMs: z.number().int().min(0),
+    endedMs: z.number().int().min(0),
+    text: z.string(),
+    // Whose track the line came from; null on a gap that is nobody's (nothing at all was heard).
+    speaker: z.union([MeetingTranscriptSpeakerSchema, z.null()]),
+  })
+  .openapi("MeetingTranscriptSegment");
+
+const MeetingTranscriptSummarySchema = z
+  .object({
+    id: z.string(),
+    recordingId: z.string(),
+    // `pending` while it is being made, `ready` once filed, `failed` when it could not be finished.
+    state: z.enum(MEETING_TRANSCRIPT_STATES),
+    // The language the model reported, as it reported it; null until it has heard speech.
+    language: z.string().nullable(),
+    // Counted when it is ready; null before.
+    segmentCount: z.number().int().min(0).nullable(),
+    wordCount: z.number().int().min(0).nullable(),
+    // The filed WebVTT document, once ready.
+    fileId: z.string().nullable(),
+    // The Error ID the standard pipeline recorded when it failed — a handle, never a message.
+    failureErrorId: z.string().nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .openapi("MeetingTranscriptSummary");
+
+// THE HEADER AND ONE PAGE OF LINES. The lines are read only once the transcript is ready — while it is
+// pending its lines have no settled order — so a pending or failed transcript answers its header with
+// an empty page, and the screen says where it stands rather than reading a 409.
+const MeetingTranscriptPage = paginated(MeetingTranscriptSegmentSchema)
+  .extend({ transcript: MeetingTranscriptSummarySchema })
+  .openapi("MeetingTranscriptPage");
 
 const recordingParams = z.object({
   meetingId: identifierPathParam("meeting", "meetingId"),
@@ -873,6 +961,24 @@ const recordingNoticesRoute = defineOpenAPIRoute(
     },
   },
 );
+
+const recordingTranscriptRoute = defineOpenAPIRoute(readMeta("recordingTranscript"), {
+  method: "get",
+  path: "/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript",
+  description:
+    "The transcript of one filed recording: where it stands and, once it is ready, its lines in " +
+    "order — each attributed to the participant whose microphone it came from, with a gap line " +
+    "wherever somebody could not be heard. Paged by cursor. A recording with no transcript, a " +
+    "recording in another meeting, and a meeting the member cannot reach are all not found.",
+  request: { params: recordingParams, query: cursorQuery },
+  responses: {
+    200: {
+      description: "The transcript's header and one page of its lines",
+      content: { "application/json": { schema: MeetingTranscriptPage } },
+    },
+    ...commonErrors,
+  },
+});
 
 // ---- refusals ----
 
@@ -2238,24 +2344,32 @@ export function registerMeetingsRoutes(
       const hasMore = found.length > MAX_RECORDING_PAGE_SIZE;
       const rows = hasMore ? found.slice(0, MAX_RECORDING_PAGE_SIZE) : found;
       const last = rows.at(-1);
-      // One read for the page's filed versions, gated on each file's own matter.
-      const documents = await readRecordingDocuments(
-        firm.firmDatabase,
-        rows,
-        visibleMatterPredicate(),
-      );
+      // One read for the page's filed versions, gated on each file's own matter, and one for the
+      // page's transcripts.
+      const [documents, transcripts] = await Promise.all([
+        readRecordingDocuments(firm.firmDatabase, rows, visibleMatterPredicate()),
+        readTranscriptMarks(
+          firm.firmDatabase,
+          rows.map((row) => row.id),
+        ),
+      ]);
       return c.json(
         {
-          // The summary is built fresh for each row, so the document is added to it in place.
-          data: rows.map((row) =>
-            Object.assign(
-              toRecordingSummary(row, {
-                startedBy: row.started_by_display_name,
-                stoppedBy: row.stopped_by_display_name,
-              }),
-              { document: documents.get(row) ?? null },
-            ),
-          ),
+          // The summary is built fresh for each row, so the document and transcript are added in place.
+          data: rows.map((row) => {
+            const transcript = transcripts.get(row.id) ?? null;
+            return Object.assign(
+              toRecordingSummary(
+                row,
+                {
+                  startedBy: row.started_by_display_name,
+                  stoppedBy: row.stopped_by_display_name,
+                },
+                transcript?.id ?? null,
+              ),
+              { document: documents.get(row) ?? null, transcript },
+            );
+          }),
           nextCursor: hasMore && last !== undefined ? encodeCursor(last.started_at, last.id) : null,
         },
         200,
@@ -2307,6 +2421,76 @@ export function registerMeetingsRoutes(
           })),
           nextCursor:
             hasMore && last !== undefined ? encodeCursor(last.delivered_at, last.id) : null,
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript
+  app.openapi(
+    {
+      ...recordingTranscriptRoute,
+      middleware: chokepointMiddleware(chokepoint, recordingTranscriptRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { meetingId, recordingId } = c.req.valid("param");
+      // Through the meeting first, then the recording within it: a transcript of a recording on a
+      // walled matter, or of a recording in another room, is as absent as one that names nothing.
+      const meeting = await readMeeting(
+        firm.firmDatabase,
+        meetingId as MeetingId,
+        visibleMatterPredicate(),
+      );
+      if (meeting === undefined) return notFound(c);
+      const recording = await readRecording(
+        firm.firmDatabase,
+        meetingId as MeetingId,
+        recordingId as MeetingRecordingId,
+      );
+      if (recording === undefined) return notFound(c);
+      const transcript = await readTranscriptForRecording(firm.firmDatabase, recording.id);
+      if (transcript === undefined) return notFound(c);
+      if (transcript.state !== "ready") {
+        return c.json(
+          { transcript: toTranscriptSummary(transcript), data: [], nextCursor: null },
+          200,
+        );
+      }
+      const { cursor } = c.req.valid("query");
+      // The cursor is the last line's ordinal; one that is not a whole number is the first page.
+      const decoded = decodeCursor(cursor);
+      const afterOrdinal = decoded === undefined ? -1 : Number(decoded.createdAt);
+      const found = await listTranscriptSegments(firm.firmDatabase, transcript.id, {
+        afterOrdinal: Number.isInteger(afterOrdinal) && afterOrdinal >= 0 ? afterOrdinal : -1,
+        limit: MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE,
+      });
+      const hasMore = found.length > MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE;
+      const rows = hasMore ? found.slice(0, MAX_TRANSCRIPT_SEGMENT_PAGE_SIZE) : found;
+      const last = rows.at(-1);
+      return c.json(
+        {
+          transcript: toTranscriptSummary(transcript),
+          data: rows.map((row) => ({
+            id: row.id,
+            ordinal: row.ordinal,
+            kind: row.kind,
+            startedMs: row.started_ms,
+            endedMs: row.ended_ms,
+            text: row.text,
+            speaker:
+              row.participant_kind === null || row.participant_id === null
+                ? null
+                : {
+                    participantKind: row.participant_kind,
+                    participantId: row.participant_id,
+                    userId: row.user_id,
+                    displayName: row.display_name ?? "",
+                  },
+          })),
+          nextCursor:
+            hasMore && last !== undefined ? encodeCursor(String(last.ordinal), last.id) : null,
         },
         200,
       );

@@ -253,6 +253,13 @@
       "when": 1790984798000,
       "tag": "20261002T234638_meeting-recording-segments-and-compose-claim",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1790987778395,
+      "tag": "20261003T003618_meeting-transcript",
+      "breakpoints": true
     }
   ]
 }

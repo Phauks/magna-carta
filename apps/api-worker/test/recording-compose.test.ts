@@ -39,7 +39,8 @@ import { seedFirmRow } from "./support/test-auth.ts";
 // track's missing span filled with anything but silence — across the boundary where one window's
 // invocation hands on to the next; the header's lengths do not match the data; the recording is filed
 // anywhere but through the upload pipeline, as a file on the recording's own matter, scanned like any
-// upload; or the staged tracks outlive the filing.
+// upload; or the filing deletes the staged tracks its transcript has still to read, or files the
+// recording without beginning that transcript.
 
 const RATE = 48_000;
 // One part holds the header and this many samples; anything past it is in the second part.
@@ -373,7 +374,14 @@ describe("composing a recording", () => {
 
     // The next window, as the queue would deliver the re-enqueued message.
     expect(await composeWindow(environment, message, { partsPerInvocation: 1 })).toBe("filed");
-    expect(composeMessages).toHaveLength(1);
+    // No further compose window — and the filing handed the recording's transcript on, on the same
+    // queue.
+    expect(composeMessages.filter((one) => one.kind === "meeting-recording-compose")).toHaveLength(
+      1,
+    );
+    expect(
+      composeMessages.filter((one) => (one.kind as string) === "meeting-transcript"),
+    ).toHaveLength(1);
 
     const row = await recordingRow(recordingId);
     expect(row).toMatchObject({ state: "filed", compose_parts_done: 2 });
@@ -437,13 +445,19 @@ describe("composing a recording", () => {
     expect(ingestMessages).toEqual([
       expect.objectContaining({ object: { key: file!.r2_key, size: composite.byteLength } }),
     ]);
-    // THE STAGED TRACKS ARE GONE, and the rows no longer name them.
-    for (const key of stagingKeys) expect(await env.R2.head(key)).toBeNull();
+    // THE STAGED TRACKS STAY: the transcript the filing began reads each track's own audio, and lets
+    // go of the staging when it settles. The transcript is pending from the filing's own batch.
+    for (const key of stagingKeys) expect(await env.R2.head(key)).not.toBeNull();
     const { results } = await database
       .prepare(`SELECT staging_key FROM meeting_recording_track WHERE recording_id = ?1`)
       .bind(recordingId)
       .all<{ staging_key: string | null }>();
-    expect(results.map((one) => one.staging_key)).toEqual([null, null, null]);
+    expect(results.map((one) => one.staging_key).toSorted()).toEqual(stagingKeys.toSorted());
+    const transcript = await database
+      .prepare(`SELECT state FROM meeting_transcript WHERE recording_id = ?1`)
+      .bind(recordingId)
+      .first<{ state: string }>();
+    expect(transcript?.state).toBe("pending");
     // ONE audit row for the filing, of handles only.
     const audit = await database
       .prepare(

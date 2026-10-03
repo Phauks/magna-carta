@@ -55,7 +55,11 @@ import type { Bindings } from "../app.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
-import type { MeetingRecordingComposeMessage } from "./meeting-recorder.ts";
+import { beginTranscriptStatements } from "@magna-carta/meetings/transcript-service";
+import type {
+  MeetingRecordingComposeMessage,
+  MeetingTranscriptMessage,
+} from "./meeting-recorder.ts";
 import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure.ts";
 
 // THE COMPOSE STEP: a stopped recording's staged tracks mixed into ONE mono WAV and filed into the
@@ -92,6 +96,11 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure
 // start in the event's own zone, `audio/wav`), the composite written at the key it minted,
 // `completeUploadSession`, then the ingest queue — so the recording is sniffed, scanned, hashed and
 // status-gated like every other document and nothing about the File Manager changes for it.
+//
+// THE FILING BEGINS THE TRANSCRIPT. Every filed recording has one: the pending transcript row is written
+// in the batch that files the recording, and its first message goes on this same queue once the filing
+// has committed (`transcript-consumer.ts`). The staged tracks are therefore NOT deleted here — the
+// transcript reads each track's own audio, and lets go of the staging when it settles.
 //
 // MEMORY PER INVOCATION IS BOUNDED, and does not grow with the recording's length or its track count.
 // Buffers are allocated once per invocation and reused for every part:
@@ -377,7 +386,7 @@ async function composeClaimedWindow(
         parts.map((part) => ({ partNumber: part.partNumber, etag: part.etag })),
       );
     }
-    return await fileComposite(env, database, recording, {
+    return await fileComposite(env, database, message, recording, {
       bucket,
       bucketName,
       target,
@@ -706,12 +715,16 @@ export function recordingTitleForFileName(title: string): string {
 }
 
 /**
- * THE FILED DOCUMENT'S NAME: `Meeting recording — <event title> — <YYYY-MM-DD HH:mm>.wav`, the start
- * read in the event's own zone — the wall clock the people in the meeting were looking at. A zone the
- * runtime cannot resolve is read in UTC and says so, rather than failing the filing over a label. The
- * title is made safe for a file name first (`recordingTitleForFileName`).
+ * A DOCUMENT A RECORDING FILES, NAMED: `<what it is> — <event title> — <YYYY-MM-DD HH:mm>.<extension>`,
+ * the recording's start read in the event's own zone — the wall clock the people in the meeting were
+ * looking at. A zone the runtime cannot resolve is read in UTC and says so, rather than failing the
+ * filing over a label. The title is made safe for a file name first (`recordingTitleForFileName`). The
+ * audio and its transcript carry the same title and the same stamp, so the two sit side by side on the
+ * matter and a second recording of the same meeting is told apart from the first by its time.
  */
-export function recordingFileName(
+export function meetingDocumentFileName(
+  what: "Meeting recording" | "Meeting transcript",
+  extension: "wav" | "vtt",
   facts: { readonly title: string; readonly timeZone: string },
   startedAt: string,
 ): string {
@@ -724,17 +737,27 @@ export function recordingFileName(
     reading = zonedReading(instant, "UTC");
     zoneNote = " UTC";
   }
-  return `Meeting recording — ${recordingTitleForFileName(facts.title)} — ${reading.civilDate} ${reading.wallClockTime}${zoneNote}.wav`;
+  return `${what} — ${recordingTitleForFileName(facts.title)} — ${reading.civilDate} ${reading.wallClockTime}${zoneNote}.${extension}`;
+}
+
+/** THE FILED AUDIO'S NAME: `Meeting recording — <event title> — <YYYY-MM-DD HH:mm>.wav`. */
+export function recordingFileName(
+  facts: { readonly title: string; readonly timeZone: string },
+  startedAt: string,
+): string {
+  return meetingDocumentFileName("Meeting recording", "wav", facts, startedAt);
 }
 
 /**
- * FILES THE COMPLETED COMPOSITE: the upload session completed and the recording `filed` — in ONE batch,
- * so the record never says filed over a document the pipeline does not have — then the ingest queue,
- * then the staged tracks deleted and the rows told so.
+ * FILES THE COMPLETED COMPOSITE: the upload session completed, the recording `filed` and its transcript
+ * begun — in ONE batch, so the record never says filed over a document the pipeline does not have, and
+ * never files a recording without a transcript — then the ingest queue, then the transcript's first
+ * message. The staged tracks stay: the transcript reads them, and releases them when it settles.
  */
 async function fileComposite(
   env: Bindings,
   database: ProxyBatchDatabase,
+  message: MeetingRecordingComposeMessage,
   recording: MeetingRecordingRow,
   composite: {
     readonly bucket: R2Bucket;
@@ -749,6 +772,10 @@ async function fileComposite(
   const completed = await completeUploadSession(database, composite.target.sessionId, {
     clock: { now },
     actorUserId,
+    randomSource: cryptoRandomSource,
+  });
+  const transcript = beginTranscriptStatements(database, recording, {
+    clock: { now },
     randomSource: cryptoRandomSource,
   });
   try {
@@ -767,6 +794,8 @@ async function fileComposite(
             },
             { clock: { now }, randomSource: cryptoRandomSource },
           ),
+          // After the guarded filing, so a filing that lost its race takes the transcript back with it.
+          ...transcript.statements,
         ],
         outboxMessages: completed.effect.outboxMessages,
       },
@@ -790,32 +819,20 @@ async function fileComposite(
     composite.totalBytes,
   );
 
-  // The transcript slice enqueues `meeting-transcript` here, once the recording is on the matter.
-
-  // THE STAGED TRACKS GO: the composite is the record now. A delete that fails leaves the row naming
-  // the object, and the sweep takes it on a later pass.
-  const tracks = await listRecordingTracks(database, recording.id);
-  const staged = tracks.flatMap((track) =>
-    track.staging_key === null ? [] : [{ id: track.id, key: track.staging_key }],
-  );
-  if (staged.length > 0) {
-    try {
-      await composite.bucket.delete(staged.map((track) => track.key));
-      await commitEffectBatch(
-        database,
-        {
-          statements: clearStagingKeysStatements(
-            database,
-            staged.map((track) => track.id),
-            now(),
-          ),
-          outboxMessages: [],
-        },
-        { now },
-      );
-    } catch (caught) {
-      recordRealtimeFailure(realtimeLoggerFor(env), "meetings.recording.delete-staging", caught);
-    }
+  // THE TRANSCRIPT'S FIRST WINDOW, on this same queue. A send that fails, or a deployment with no queue
+  // bound, leaves the transcript pending and untouched, and the recording sweep hands it on — so the
+  // filing, which has committed, is not failed over it.
+  const handOn: MeetingTranscriptMessage = {
+    kind: "meeting-transcript",
+    firmId: message.firmId,
+    meetingId: recording.meeting_id,
+    recordingId: recording.id,
+    transcriptId: transcript.transcriptId,
+  };
+  try {
+    await env.MEETING_RECORDING_COMPOSE?.send(handOn);
+  } catch (caught) {
+    recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.hand-on", caught);
   }
   return "filed";
 }

@@ -367,6 +367,11 @@ export const ENTITY_PREFIXES = {
   meetingRecording: "meetingRecording",
   meetingRecordingTrack: "meetingRecordingTrack",
   meetingRecordingNotice: "meetingRecordingNotice",
+  // A `meetingTranscript` is the transcript of one filed recording — made per track, so every line is
+  // the person whose microphone it came from — and a `meetingTranscriptSegment` is one line of it: a
+  // span of speech with its words, or a gap the transcript says it could not hear.
+  meetingTranscript: "meetingTranscript",
+  meetingTranscriptSegment: "meetingTranscriptSegment",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

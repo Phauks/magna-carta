@@ -591,6 +591,8 @@ export function recordingFailedAuditStatement(
 export function toRecordingSummary(
   row: MeetingRecordingRow,
   names: { readonly startedBy: string; readonly stoppedBy: string | null },
+  // The recording's transcript, when the caller read it; a recording not yet filed has none.
+  transcriptId: string | null = null,
 ): MeetingRecordingSummary {
   return {
     id: row.id,
@@ -607,8 +609,8 @@ export function toRecordingSummary(
     trackCount: row.track_count,
     capturedSeconds: row.captured_seconds,
     fileId: row.file_id,
-    // The transcript and summary slices write these; until then a recording has neither.
-    transcriptId: null,
+    transcriptId,
+    // The summary is written once summaries are built; until then a recording has none.
     summaryState: null,
     failureErrorId: row.failure_error_id,
   };
