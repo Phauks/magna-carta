@@ -313,9 +313,15 @@ beforeEach(() => {
   queryClient.clear();
 });
 
-afterEach(() => {
-  if (instance !== undefined) void unmount(instance);
+// The dialog's scroll lock is released on a 24 ms timer after the dialog closes. Waiting past it here
+// lets that timer run while the document still exists; left pending, it fires after the file's
+// environment is torn down and reports an error against whichever file runs last.
+const SCROLL_LOCK_RELEASE_MILLISECONDS = 50;
+
+afterEach(async () => {
+  if (instance !== undefined) await unmount(instance);
   instance = undefined;
+  await new Promise((resolve) => setTimeout(resolve, SCROLL_LOCK_RELEASE_MILLISECONDS));
   target.remove();
   client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
 });
