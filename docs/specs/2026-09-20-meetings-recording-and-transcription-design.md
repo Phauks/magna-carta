@@ -3,7 +3,8 @@
 **Status:** Design (brainstormed), 2026-09-20. Slice R1's server half built 2026-10-02 behind a fake
 routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Slice R2's
 server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Slice R3's server half (the
-transcript of record) built 2026-10-03 (A34 to A44). Extends
+transcript of record) built 2026-10-03 (A34 to A44). Slice R5's server half (the summary) built
+2026-10-03 (A57 to A67). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -1403,3 +1404,135 @@ reads names, so text laundered through a variable named for nothing is still a r
 caption text join it when R4 and R5 add them. The load-profile fixture of A25 is still open. A thrown Workers
 AI error carries only a message (no status or code), so a permanent input error is still retried as an
 unavailable model (`gateway.ts`, beside `gatewayFailure`).
+
+### Amendments from slice R5 — the summary
+
+Recorded 2026-10-03, as the summary's server half was built. Migration `20261003T034941_meeting-summary`
+adds both tables. Each names the section it amends and says what changed and why.
+
+**A57 — No new queue, and a ready transcript always has a summary (§11, §16 R5).** The summary is a third
+kind of message (`MeetingSummaryMessage`, `kind: "meeting-summary"`, identifiers only) on the existing
+`meeting-recording-compose` queue, routed by `kind` in `apps/api-worker/src/event-dispatch.ts` beside the
+compose and the transcript, so the deploy needs nothing new. The pending row is written in the batch that makes the transcript `ready` — a
+transcript is never ready without one, and a ready that lost its race takes it back — and the first
+message is sent, best effort, once that batch has committed. A send that fails leaves the summary pending,
+and a member's re-run (A63) sends it on. Whether the summary is then written is decided when it RUNS, not
+when it is begun, so a switch turned off in between is honoured.
+
+**A58 — Which model writes it, and when none does (§11). An owner decision is assumed here.** Read at run
+time through the firm-scoped data-access layer, in this order: `meetings.summariesEnabled` off is `refused`,
+`disabled`; a firm that has CHOSEN no reasoning model (no stored `inference.primaryReasoningModel` row —
+`resolveChosenReasoningModel` in `apps/api-worker/src/inference/call-site.ts`, because the setting's own
+read answers the platform tier's third-party model for a missing row) is summarized by the catalog's
+reasoning model HOSTED ON CLOUDFLARE; a firm that chose a model hosted on Cloudflare gets it; a firm that
+chose a third-party model gets it only where `inference.aiProcessingEligibility` allows, and is otherwise
+`refused`, `not-eligible`, with the chosen model named on the row — the firm's choice is never swapped for
+another model behind its back. The catalog had no reasoning model hosted on Cloudflare, so one is added
+(`@cf/meta/llama-4-scout-17b-16e-instruct`, catalog version 5): its facts were read 2026-10-03 off
+Cloudflare's model page (a 131,000-token context window; no published answer limit, the default being 256
+tokens) and its confidentiality facts off the Workers AI data-usage page the transcription entry already
+cites. It holds no tier, so an unconfigured firm's default for the assistant is unchanged, and a firm may
+select it on its AI settings screen like any other reasoning entry. **Assumed:** that a summary written on
+Cloudflare's own infrastructure needs `meetings.summariesEnabled` and not the AI-processing eligibility —
+the eligibility setting asks whether content may reach a third-party provider, and on this path it does
+not. ADR-0108's open consent question is the owner's; if the answer is that every reasoning model needs
+the eligibility, the change is one branch in `resolveSummaryModel`.
+
+**A59 — A transcript too long for one call, and the bound (§11).** The catalog now records each reasoning
+entry's `contextWindowTokens` (and `maximumOutputTokens` where the provider publishes one), read off the
+providers' own pages on 2026-10-03 — 1,000,000 for both third-party reasoning entries, 131,000 for the one
+on Cloudflare — and module-load validation requires it of every reasoning entry. One call carries at most
+`context − 8,192 (the answer) − 2,048 (the instruction and participant list)` tokens of transcript,
+measured as UTF-8 bytes at three bytes a token, a deliberate over-count (English runs nearer four): about
+362 kB on the model hosted on Cloudflare, an hour of meeting being about 36 kB. A longer transcript is cut
+into parts at line boundaries, each part summarized with a 4,096-token answer and the parts' answers
+combined in one last call. The bound is the per-message budget: a whole run is one message, whose CPU is
+string work over a few megabytes and whose wall clock is the model's writing — at a conservative forty
+tokens a second, five parts and the combination are about 700 seconds, inside the 900 a consumer may run —
+so `SUMMARY_PARTS_MAXIMUM` is five (about 600,000 tokens on the smallest context in the catalog, past the
+recorder's twelve-hour maximum spoken without pause). A transcript that would need more fails with an Error
+ID rather than being summarized in part. The arithmetic is stated once, in
+`packages/meetings/src/summary-prompt.ts`.
+
+**A60 — The answer is a strict structure, and two facts are never the model's word (§11).** The model is
+asked for one JSON object — `summary`, and `actionItems` of `text`, `owner`, `dueOn` and `dueOnStated` —
+documented in `summary-prompt.ts` and read by `summary-parse.ts`, which refuses anything else with a closed
+reason (`not-json`, `wrong-shape`, `summary-too-long`, …) and repairs nothing; the one envelope tolerated is
+a single code fence wrapping the whole answer. Each part's answer is held to the same structure before it
+is combined. A refused answer fails the summary with an Error ID — a model that answered badly is not a
+model that is down — and a member may run it again. An owner is linked only when the name the model gave
+is exactly the name of one participant the transcript knows and that participant is a member (a guest, a
+near match, or a name two members share leave it unowned). A due date is kept only when it is a real
+civil date, the model quoted the transcript's words stating it, those words appear verbatim in what it was
+sent, and they carry the date's day of the month as a number — so "next Friday" is never a date, and a
+quote naming a different day drops it. Gap lines are not sent; the participant list is the stays that
+spoke, by the names the transcript read gives them.
+
+**A61 — The schema, adjusted to the built tables (§5).** `meeting_summary` carries `recording_id` beside
+`meeting_id` and `transcript_id` (the read and the recording list are per recording, A42); `model_id` and
+`snapshot_id` are nullable — a pending row, a `disabled` refusal and a transcript with no speech name no
+model — and a `not-eligible` refusal names the model the firm chose; the token counts are NOT NULL from
+zero and summed across a run's calls, beside `model_calls`; added are `model_failures`, `claimed_at`,
+`progress_at` and `requested_by_user_id` (the member behind the run on the row, null for the platform's
+own); a CHECK that a `ready` summary carries its text, a `failed` one its Error ID, and that a refusal —
+and only a refusal — carries a reason. `meeting_summary_action_item.due_on` carries the shared civil-date
+guard, and `task_id` is indexed. The PII registry classes `summary_text` and the action item's `text` as
+`retain-under-matter` content and work product, and `requested_by_user_id` and `owner_user_id` as
+identifiers.
+
+**A62 — A model that will not answer, two deliveries, and the meter (§14).** A retryable refusal is
+outlasted exactly as the transcript's speech model is (A45): counted on the row in the guarded write that
+lets go of the claim, the run sent again on a NEW message after the transcript's doubling delay, and the
+transcript's limit of refusals in a row fails it with an Error ID. A run is claimed on the row with a
+fifteen-minute lease before a word is sent, so a second delivery meets the claim and is retried when the
+lease runs out. Every settle — ready, failed, or a model refusing for now — writes the provider's usage for
+every call the run made to `token_usage_meter` in its own guarded batch, so tokens spent on a run that did
+not finish are counted, and a run that lost its claim meters nothing. A retry re-runs every part, and the
+parts a failed run had already summarized are spent again; keeping part answers between messages would be
+a second store of derived content, and is not done.
+
+**A63 — The routes (§7).** Per RECORDING, as the transcript's read is (A42), all reached through the meeting
+read with the visible-matter predicate, then the recording within it, then its transcript:
+`GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/summary` on `meetings:join` answers
+`{ summary, text, actionItems, withheld }` — the header always; the text and the action items (each
+`{ id, ordinal, text, owner: { userId, displayName } | null, dueOn, taskId }`) only for a `ready` summary
+whose transcript's filed document can still be opened, otherwise `withheld` is `removed`, `held` or
+`unavailable` on A54's reading; no summary is 404. `POST` on the same path, on `meetings:host`, asks for it
+again: a summary being written is left alone (and sent on only when nobody holds it), a settled one is
+rewritten in place — its text, its spend and its action items cleared in one guarded batch, so two requests
+start one run — and a transcript with none gets one; a transcript not ready is 409
+`meeting-transcript-not-ready`. A task already made of a replaced action item is kept; the item that named it
+goes with the text it was read from. `POST …/summary/action-items/{actionItemId}/task` is on `tasks:write` at
+the chokepoint and asks `meetings:join` in the handler (the item is the meeting's), and `tasks:assign` to put
+it in another member's name; it composes `createMatterTask` — the task subsystem's own path, its
+validation, audit row and assignment notice — on the recording's matter, titled with the item (cut at the
+title limit with the whole as the body), due on the item's date read in the meeting's event zone, in the
+owner's name unless `assignToOwner` is false, in one batch with the item's `task_id` guarded on its having
+none (409 `meeting-summary-action-item-tasked`); a summary not ready or withheld is 409
+`meeting-summary-not-ready`. The recording list entry gains `summary: { id, state, refusalReason } | null`,
+and `summaryState` is filled from it. §7's `meeting-summary-not-eligible` 409 is not used: eligibility
+answers a refused summary, never an error.
+
+**A64 — The audit rows (§5).** `meetings.summary.ready` (models, calls, tokens and counts of items, owned
+items and dated items), `.refused` (the reason and the model), `.failed` (the Error ID), `.requested` (a
+member asking for a run), `.read` (one per read of the words, identifiers and the item count) and
+`.actionItemTasked` (the item and the task). Never a sentence of the summary, an item's text or a name.
+
+**A65 — The model port (§11).** `ConversationInput` gains an optional `maximumOutputTokens`, sent as the
+provider's `max_tokens`: Workers AI answers 256 tokens unless told otherwise, which would cut every summary
+mid-object. A model hosted on Cloudflare takes the platform's instruction as its first message in the
+`system` role its chat schema defines, still written from the port's own `systemPrompt` field and never from
+a member message; a third-party model keeps it on its own top-level field. The consumer reaches the port
+through `deploymentInferencePort`, as the transcript does, with no deploy-time switch to the stub: a summary
+of stub text on a matter would be worse than none.
+
+**A66 — No summary text reaches a sink (§15, amends A56).** `packages/meetings/test/no-transcript-text-escape.test.ts`
+now finds every module that reaches a summary — its statements, service, prompt, parse and types, the
+consumer, the routes — and fails when one hands the summary text, an item's text, the lines the model was
+sent or its answer to the failure pipeline, a logger, an audit builder, an Error or a problem body.
+
+**A67 — What is still not built.** The summary card is the web half. A pending summary whose first message
+was lost is rescued by a member's re-run rather than by the recording sweep. Purging the transcript's
+document does not delete the summary rows, on A55's terms: the withholding is what keeps their words off
+the read until the retention-policy engine exists, and that engine must delete them with the transcript's
+segments. Caption text (R4) is not yet in the scan.

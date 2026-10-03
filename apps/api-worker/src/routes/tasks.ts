@@ -312,7 +312,7 @@ const authErrors = {
 
 // ---- error mapping ----
 
-function taskErrorResponse(
+export function taskErrorResponse(
   c: Context,
   caught: TaskValidationError,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {

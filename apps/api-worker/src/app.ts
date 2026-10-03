@@ -48,6 +48,7 @@ import { registerCommunicationsRoutes } from "./routes/communications.ts";
 import { registerMeetingsRoutes } from "./routes/meetings.ts";
 import { registerMeetingChatRoutes } from "./routes/meeting-chat.ts";
 import { registerMeetingPollRoutes } from "./routes/meeting-polls.ts";
+import { registerMeetingSummaryRoutes } from "./routes/meeting-summary.ts";
 import { registerMeetingQuestionRoutes } from "./routes/meeting-questions.ts";
 import { registerMeetingHostingRoutes } from "./routes/meeting-hosting.ts";
 import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
@@ -817,6 +818,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // the commit.
   registerMeetingPollRoutes(app, chokepoint);
   registerMeetingQuestionRoutes(app, chokepoint);
+  // A recorded meeting's summary — a reasoning model's characterization of its transcript, kept as rows
+  // beside the record it summarizes — read, written again, and its action items made into tasks through
+  // the task subsystem's own create path. Its own file because it is its own resource, reached through
+  // the same meeting, recording and transcript the transcript's read is.
+  registerMeetingSummaryRoutes(app, chokepoint);
   // Who is running a meeting, and the acts that need somebody's name against them afterwards —
   // removing a participant, shutting the door, handing the room over. A file of its own because
   // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the

@@ -140,6 +140,8 @@ import type {
   MeetingRecordingTrackId,
   MeetingTranscriptId,
   MeetingTranscriptSegmentId,
+  MeetingSummaryId,
+  MeetingSummaryActionItemId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -11686,5 +11688,140 @@ export const meetingTranscriptSegment = sqliteTable(
       "meeting_transcript_segment_gap_text_check",
       sql`${table.kind} <> 'gap' OR ${table.text} = ''`,
     ),
+  ],
+);
+
+// THE SUMMARY OF ONE READY TRANSCRIPT: a reasoning model's account of what a recorded meeting covered,
+// and the things somebody undertook to do in it. It is the platform's CHARACTERIZATION of a privileged
+// conversation rather than the thing that happened, so it is kept as rows beside the record it summarizes
+// and is never filed into the matter's documents, where it would read as evidence.
+//
+// THE TEXT IS DERIVED CONTENT AND WORK PRODUCT: never logged, never in an audit row, never in an error
+// payload, and registered as content in the personal-data registry. Every other column is a handle, a
+// count, an instant, a closed label or the model that wrote it.
+//
+// A PARENT TABLE (its action items point at it), so both vocabularies are whole now: `pending` while it is
+// being written, `ready` (with its text), `failed` (with an Error ID) or `refused` — and then one of the
+// three reasons a summary is not written at all: the firm has summaries switched off (`disabled`), the
+// firm's model choice would send the conversation to a third-party model it has not allowed
+// (`not-eligible`), or the transcript holds no speech (`transcript-empty`). One summary per transcript,
+// held by the database; a member's re-run rewrites it in place.
+//
+// `model_id` and `snapshot_id` are the model the run was sent to and the snapshot it answered with, null
+// until a run reaches a model. The token counts are the provider's own usage, added up across every
+// call one run makes (a long transcript is summarized a part at a time and then combined), which is also
+// what the firm's token meter is written from. `claimed_at` is the lease one consumer holds while it
+// writes the summary, so two deliveries of one message never send the transcript to a model twice;
+// `model_failures` counts the runs in a row that met a model refusing for now.
+export const meetingSummary = sqliteTable(
+  "meeting_summary",
+  {
+    id: text("id").primaryKey().$type<MeetingSummaryId>(), // meetingSummary_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    recordingId: text("recording_id")
+      .notNull()
+      .$type<MeetingRecordingId>()
+      .references(() => meetingRecording.id),
+    transcriptId: text("transcript_id")
+      .notNull()
+      .$type<MeetingTranscriptId>()
+      .references(() => meetingTranscript.id),
+    state: text("state", { enum: ["pending", "ready", "failed", "refused"] }).notNull(),
+    modelId: text("model_id"),
+    snapshotId: text("snapshot_id"),
+    // What the model wrote, once ready. Derived content.
+    summaryText: text("summary_text"),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    // How many model calls the run made: one for a transcript that fits, more for one summarized a part
+    // at a time and combined.
+    modelCalls: integer("model_calls").notNull().default(0),
+    refusalReason: text("refusal_reason", {
+      enum: ["not-eligible", "disabled", "transcript-empty"],
+    }),
+    // The standard pipeline's Error ID when the summary failed — never a message.
+    failureErrorId: text("failure_error_id"),
+    modelFailures: integer("model_failures").notNull().default(0),
+    claimedAt: text("claimed_at"), // ISO-8601 instant
+    // The last claim released, retry scheduled or run settled — what a stalled run is measured from.
+    progressAt: text("progress_at"), // ISO-8601 instant
+    // The member who asked for the run now on the row; null for the run the platform began itself when
+    // the transcript became ready.
+    requestedByUserId: text("requested_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_summary_transcript_unique_index").on(table.transcriptId),
+    index("meeting_summary_meeting_index").on(table.meetingId),
+    index("meeting_summary_recording_index").on(table.recordingId),
+    index("meeting_summary_state_index").on(table.state),
+    check(
+      "meeting_summary_state_check",
+      sql`${table.state} IN ('pending', 'ready', 'failed', 'refused')`,
+    ),
+    check(
+      "meeting_summary_refusal_reason_check",
+      sql`${table.refusalReason} IS NULL OR ${table.refusalReason} IN ('not-eligible', 'disabled', 'transcript-empty')`,
+    ),
+    // A SETTLED SUMMARY SAYS HOW: a ready one carries its text, a failed one its Error ID, and a refusal
+    // — and only a refusal — its reason.
+    check(
+      "meeting_summary_settled_shape_check",
+      sql`(${table.state} <> 'ready' OR ${table.summaryText} IS NOT NULL)
+        AND (${table.state} <> 'failed' OR ${table.failureErrorId} IS NOT NULL)
+        AND ((${table.state} = 'refused') = (${table.refusalReason} IS NOT NULL))`,
+    ),
+    check(
+      "meeting_summary_counts_check",
+      sql`${table.inputTokens} >= 0 AND ${table.outputTokens} >= 0 AND ${table.modelCalls} >= 0
+        AND ${table.modelFailures} >= 0`,
+    ),
+  ],
+);
+
+// ONE THING A MEETING'S SUMMARY SAYS SOMEBODY UNDERTOOK TO DO, in the order the summary lists them.
+//
+// THE TEXT IS DERIVED CONTENT, as the summary's is. `owner_user_id` names a member ONLY when the model
+// named a participant by exactly the name the transcript knows them by — a summary guessing who owes what
+// is worse than one that leaves it open — and `due_on` is a civil date only when the transcript itself
+// stated one. `task_id` is the task a member made of it, through the task subsystem's own create path,
+// and is set exactly once.
+export const meetingSummaryActionItem = sqliteTable(
+  "meeting_summary_action_item",
+  {
+    id: text("id").primaryKey().$type<MeetingSummaryActionItemId>(), // meetingSummaryActionItem_ handle
+    summaryId: text("summary_id")
+      .notNull()
+      .$type<MeetingSummaryId>()
+      .references(() => meetingSummary.id),
+    ordinal: integer("ordinal").notNull(),
+    text: text("text").notNull(),
+    ownerUserId: text("owner_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    dueOn: text("due_on"), // civil date, only when the transcript stated one
+    taskId: text("task_id")
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_summary_action_item_ordinal_unique_index").on(
+      table.summaryId,
+      table.ordinal,
+    ),
+    index("meeting_summary_action_item_task_index").on(table.taskId),
+    check(
+      "meeting_summary_action_item_shape_check",
+      sql`${table.ordinal} >= 0 AND length(${table.text}) > 0`,
+    ),
+    check("meeting_summary_action_item_due_on_shape_check", civilDateShape(table.dueOn, true)),
   ],
 );

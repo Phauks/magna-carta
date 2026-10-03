@@ -43,6 +43,7 @@ import type {
   MeetingRecordingStopReason,
   MeetingRecordingSummary,
 } from "./recording-types.ts";
+import type { MeetingSummaryState } from "./summary-types.ts";
 import type { MeetingRow } from "./types.ts";
 import { refuse, refuseRecording } from "./validation.ts";
 
@@ -593,6 +594,8 @@ export function toRecordingSummary(
   names: { readonly startedBy: string; readonly stoppedBy: string | null },
   // The recording's transcript, when the caller read it; a recording not yet filed has none.
   transcriptId: string | null = null,
+  // Where the transcript's summary stands, when the caller read it; a transcript not yet ready has none.
+  summaryState: MeetingSummaryState | null = null,
 ): MeetingRecordingSummary {
   return {
     id: row.id,
@@ -610,8 +613,7 @@ export function toRecordingSummary(
     capturedSeconds: row.captured_seconds,
     fileId: row.file_id,
     transcriptId,
-    // The summary is written once summaries are built; until then a recording has none.
-    summaryState: null,
+    summaryState,
     failureErrorId: row.failure_error_id,
   };
 }

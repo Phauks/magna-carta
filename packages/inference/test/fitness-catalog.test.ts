@@ -40,6 +40,8 @@ describe("recorded provenance is the provider's, not something that resembles it
       // Published dateless: from the 4.6 generation on, the undated id is itself the pinned snapshot.
       "anthropic/claude-opus-4-8": "claude-opus-4-8",
       "anthropic/claude-sonnet-4-6": "claude-sonnet-4-6",
+      // Published dateless: Cloudflare issues no dated form of its Workers AI model ids.
+      "@cf/meta/llama-4-scout-17b-16e-instruct": "@cf/meta/llama-4-scout-17b-16e-instruct",
       // Predates that change, so the undated name is an alias and the dated id is the pin.
       "anthropic/claude-haiku-4-5": "claude-haiku-4-5-20251001",
       // Composed rather than published: the model paired with the index generation its vectors belong to.

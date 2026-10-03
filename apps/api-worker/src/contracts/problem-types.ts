@@ -719,6 +719,18 @@ export const PROBLEM_TYPES = {
   // lights, because a recording that started and then could not hold everybody would have told the
   // room something untrue; the remedy is a smaller room or a firm that raises its ceiling.
   "meeting-recording-too-many-tracks": "meeting-recording-too-many-tracks",
+  // A MEETING'S SUMMARY, refused at the door of an act on it. Each has its own remedy a screen offers.
+  //
+  // The recording's transcript is not ready (HTTP 409), so there is nothing yet to summarize; the
+  // remedy is waiting for the transcript, which the recording list says the state of.
+  "meeting-transcript-not-ready": "meeting-transcript-not-ready",
+  // The summary is not there to act on (HTTP 409): it is still being written, it was refused or failed,
+  // or its transcript's filed document has been put in the trash, held by the scan or is gone — in which
+  // case its words are withheld exactly as the transcript's are.
+  "meeting-summary-not-ready": "meeting-summary-not-ready",
+  // The action item has already been made into a task (HTTP 409) — by this member a moment ago or by a
+  // colleague — and a second press must not put a second copy of one obligation on somebody's list.
+  "meeting-summary-action-item-tasked": "meeting-summary-action-item-tasked",
   // A MEETING GUEST'S LINK THAT CANNOT BE USED, said to somebody holding a correctly SIGNED one — which
   // only somebody the firm sent it to can hold, so each is specific and actionable. A token whose
   // signature does not verify never reaches any of these: it gets the reserved `not-found`, one flat

@@ -548,6 +548,36 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "what was said in a meeting on a matter, word for word — content on the line meeting_message.body sits on, and content-level residue for the residue report",
   },
+  // The summary of a ready transcript — DERIVED content, and WORK PRODUCT: a reasoning model's
+  // characterization of a privileged conversation, kept as rows beside the record it summarizes and
+  // never filed as a document. It takes the transcript's treatment (never logged, never in an audit row,
+  // never in an error payload) and the work-product class the assistant's turns carry. Its structured
+  // subjects are the member who asked for a re-run and the member an action item names as its owner; the
+  // free text of either may name anybody, which is the residue class the report surfaces.
+  {
+    table: "meeting_summary",
+    subjectKey: "requested_by_user_id",
+    action: "retain-under-matter",
+    note: "who asked for a meeting's summary to be written again; null for the run the platform began itself",
+  },
+  {
+    table: "meeting_summary",
+    subjectKey: "summary_text",
+    action: "retain-under-matter",
+    note: "work product: the platform's characterization of what was said in a meeting on a matter — derived content on the line the transcript's text sits on, and content-level residue for the residue report",
+  },
+  {
+    table: "meeting_summary_action_item",
+    subjectKey: "owner_user_id",
+    action: "retain-under-matter",
+    note: "the member a meeting's summary says undertook something, named only on an exact match to how the transcript knows them",
+  },
+  {
+    table: "meeting_summary_action_item",
+    subjectKey: "text",
+    action: "retain-under-matter",
+    note: "work product: what a meeting's summary says somebody undertook to do — derived content, and content-level residue for the residue report",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and

@@ -372,6 +372,11 @@ export const ENTITY_PREFIXES = {
   // span of speech with its words, or a gap the transcript says it could not hear.
   meetingTranscript: "meetingTranscript",
   meetingTranscriptSegment: "meetingTranscriptSegment",
+  // A `meetingSummary` is the summary of one ready transcript — the platform's characterization of a
+  // privileged conversation, written by a reasoning model — and a `meetingSummaryActionItem` is one
+  // thing the summary says somebody undertook to do, which a member may turn into a task.
+  meetingSummary: "meetingSummary",
+  meetingSummaryActionItem: "meetingSummaryActionItem",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

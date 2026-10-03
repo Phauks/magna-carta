@@ -77,6 +77,7 @@ import {
   type TranscriptCursor,
 } from "@magna-carta/meetings/transcript-statements";
 import type { MeetingTranscriptRow } from "@magna-carta/meetings/transcript-types";
+import { beginSummaryStatements } from "@magna-carta/meetings/summary-service";
 import { WAV_HEADER_BYTES, wavHeader } from "@magna-carta/meetings/wav";
 import { renderWebVtt, type WebVttCue } from "@magna-carta/meetings/webvtt";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
@@ -85,7 +86,7 @@ import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { deploymentInferencePort } from "../inference/call-site.ts";
-import type { MeetingTranscriptMessage } from "./meeting-recorder.ts";
+import type { MeetingSummaryMessage, MeetingTranscriptMessage } from "./meeting-recorder.ts";
 import { meetingDocumentFileName } from "./recording-compose-consumer.ts";
 import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure.ts";
 
@@ -126,8 +127,11 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "./sfu/realtime-failure
 // the gap lines (a lost track, one the ceiling refused, one whose audio was not there), every line
 // renumbered into reading order, and the upload session recorded on the row — so it happens once. The
 // document is rendered from the rows, written at the key the pipeline minted, and completed in one batch
-// with the transcript's `ready`; then the staged tracks are RELEASED (they were kept past the filing only
-// because the transcript reads them) and ingest is driven exactly as for the audio.
+// with the transcript's `ready` — and the transcript's SUMMARY begun, pending, in that same batch, so a
+// ready transcript is never without one; then the staged tracks are RELEASED (they were kept past the
+// filing only because the transcript reads them), ingest is driven exactly as for the audio, and the
+// summary's first message is sent on this same queue (`summary-consumer.ts` decides whether it is written
+// at all).
 //
 // A SPEECH MODEL THAT REFUSES FOR NOW is outlasted, not given up on: each refusal is counted on the row
 // (`model_failures`, reset by any progress), the window is sent again after a delay that doubles from
@@ -758,6 +762,7 @@ async function transcribeClaimedWindow(
   }
 
   return await settleTranscript(env, database, {
+    firmId: message.firmId,
     transcriptId: claimed.id,
     recording,
     tracks,
@@ -776,6 +781,7 @@ async function settleTranscript(
   env: Bindings,
   database: ProxyBatchDatabase,
   input: {
+    readonly firmId: MeetingTranscriptMessage["firmId"];
     readonly transcriptId: MeetingTranscriptId;
     readonly recording: MeetingRecordingRow;
     readonly tracks: readonly MeetingRecordingTrackRow[];
@@ -878,6 +884,14 @@ async function settleTranscript(
     httpMetadata: { contentType: "text/vtt" },
   });
 
+  // THE SUMMARY IS BEGUN WITH THE READY, so a transcript is never ready without one: whether it is then
+  // written, and by which model, is the summary consumer's decision when it runs.
+  const summaryBegun = beginSummaryStatements(
+    database,
+    { transcript, requestedByUserId: null },
+    system,
+  );
+
   let completed: Awaited<ReturnType<typeof completeUploadSession>>;
   try {
     completed = await completeUploadSession(database, target.sessionId, {
@@ -909,6 +923,7 @@ async function settleTranscript(
             },
             system,
           ),
+          ...summaryBegun.statements,
         ],
         outboxMessages: completed.effect.outboxMessages,
       },
@@ -934,6 +949,24 @@ async function settleTranscript(
     await enqueueDevIngestEvent(env, input.bucketName, target.r2Key, document.bytes.byteLength);
   } catch (caught) {
     recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.ingest-hand-on", caught);
+  }
+  // The summary's first message, best effort for the same reason: a redelivery of this message reads
+  // `ready` and does nothing, so a send that throws is recorded and leaves the summary pending — where a
+  // member's request to run it again sends it on.
+  const summaryMessage: MeetingSummaryMessage = {
+    kind: "meeting-summary",
+    firmId: input.firmId,
+    meetingId: recording.meeting_id,
+    recordingId: recording.id,
+    transcriptId: transcript.id,
+    summaryId: summaryBegun.summaryId,
+  };
+  try {
+    const queue = env.MEETING_RECORDING_COMPOSE;
+    if (queue === undefined) throw new Error("no recording queue is bound to send the summary to");
+    await queue.send(summaryMessage);
+  } catch (caught) {
+    recordRealtimeFailure(realtimeLoggerFor(env), "meetings.transcript.summary-hand-on", caught);
   }
   return "ready";
 }

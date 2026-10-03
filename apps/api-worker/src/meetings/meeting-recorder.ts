@@ -7,6 +7,7 @@ import type {
   MeetingId,
   MeetingRecordingId,
   MeetingRecordingTrackId,
+  MeetingSummaryId,
   MeetingTranscriptId,
 } from "@magna-carta/identifiers/types";
 import {
@@ -230,10 +231,26 @@ export interface MeetingTranscriptMessage {
   readonly transcriptId: MeetingTranscriptId;
 }
 
-/** Either message the recording queue carries; `kind` says which consumer it is for. */
+/**
+ * THE MESSAGE THAT WRITES A READY TRANSCRIPT'S SUMMARY — the third kind of message on the same queue, so a
+ * deployment needs nothing new to carry it. Identifiers only: the consumer reads the transcript's lines
+ * off the firm's own record, and nothing anybody said, nor anything a model wrote about it, ever travels
+ * on a queue.
+ */
+export interface MeetingSummaryMessage {
+  readonly kind: "meeting-summary";
+  readonly firmId: FirmId;
+  readonly meetingId: MeetingId;
+  readonly recordingId: MeetingRecordingId;
+  readonly transcriptId: MeetingTranscriptId;
+  readonly summaryId: MeetingSummaryId;
+}
+
+/** Any message the recording queue carries; `kind` says which consumer it is for. */
 export type MeetingRecordingQueueMessage =
   | MeetingRecordingComposeMessage
-  | MeetingTranscriptMessage;
+  | MeetingTranscriptMessage
+  | MeetingSummaryMessage;
 
 /** What a stop produced, for the route that asked and for the record. */
 export interface RecorderStopOutcome {

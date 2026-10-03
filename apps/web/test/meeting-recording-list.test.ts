@@ -63,6 +63,7 @@ function recording(overrides: Partial<MeetingRecordingListView> = {}): MeetingRe
     failureErrorId: null,
     document: null,
     transcript: null,
+    summary: null,
     ...overrides,
   };
 }

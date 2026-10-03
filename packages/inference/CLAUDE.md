@@ -101,7 +101,19 @@ the firm-scoped read result as injected parameters.
   content. `GenerateResult` is unchanged, so metering, provenance, and the `Dispatch` error taxonomy
   all apply with no second shape. The adapter's only new code is the provider request-body
   translation; the ZDR guard, `gatewayOptions()`, `extractUsage`, `responseText`, and `gatewayFailure`
-  are the shipped ones, unchanged. An empty message array is refused before dispatch.
+  are the shipped ones, unchanged. An empty message array is refused before dispatch. The translation
+  knows two providers: a third-party model takes the instruction on its own top-level field, and a model
+  hosted on Cloudflare (`isOnCloudflareModel` — the `@cf/` prefix the binding itself routes on) takes it
+  as the first message in the `system` role its chat schema defines, still written from the port's
+  `systemPrompt` and never from a member message. An optional `maximumOutputTokens` is sent as
+  `max_tokens` on both, because Workers AI answers 256 tokens unless told otherwise.
+- **Every reasoning entry states its context window** (`contextWindowTokens`, and `maximumOutputTokens`
+  where the provider publishes one), read off the provider's own model page and cited beside the entry;
+  module-load validation refuses a reasoning entry without one, because a caller that sends a whole
+  document (a meeting's transcript) has to know when to cut it. **Exactly one reasoning entry is hosted
+  on Cloudflare** (`onCloudflareReasoningEntry`, today `@cf/meta/llama-4-scout-17b-16e-instruct`), with
+  no tier: it is what a feature that must not send content to a third party unbidden runs on by default
+  (the meeting summary), and a firm may select it like any other entry.
 - `transcribe` (`src/port.ts`, implemented in `src/gateway.ts`) closes over the catalog's single
   `transcription` entry (`PLATFORM_TRANSCRIPTION_MODEL_ID`, `@cf/openai/whisper-large-v3-turbo` on
   Workers AI; module-load validation requires exactly one, as for embedding). It takes a complete WAV

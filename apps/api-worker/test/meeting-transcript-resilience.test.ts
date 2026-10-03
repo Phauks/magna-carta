@@ -468,9 +468,14 @@ describe("the recording queue's two kinds of message", () => {
       metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
       messages: [
         messageOf("one", compose),
-        messageOf("two", { kind: "meeting-summary", firmId }),
+        messageOf("two", { kind: "meeting-caption", firmId }),
         messageOf("three", transcript),
         messageOf("four", compose),
+        messageOf("five", {
+          ...transcript,
+          kind: "meeting-summary",
+          summaryId: "meetingSummary_a",
+        }),
       ],
       ackAll: () => done.push("ack all"),
       retryAll: () => done.push("retry all"),
@@ -481,6 +486,7 @@ describe("the recording queue's two kinds of message", () => {
     expect(done).toEqual(["retry two"]);
     expect(split.compose?.messages.map((one) => one.id)).toEqual(["one", "four"]);
     expect(split.transcript?.messages.map((one) => one.id)).toEqual(["three"]);
+    expect(split.summary?.messages.map((one) => one.id)).toEqual(["five"]);
     // Each half acknowledges only its own.
     split.transcript?.ackAll();
     expect(done).toEqual(["retry two", "ack three"]);
@@ -488,9 +494,10 @@ describe("the recording queue's two kinds of message", () => {
     // A batch of one kind has no other half.
     const onlyCompose = splitMeetingRecordingBatch({
       ...batch,
-      messages: [messageOf("five", compose)],
+      messages: [messageOf("six", compose)],
     } as unknown as MessageBatch<MeetingRecordingQueueMessage>);
     expect(onlyCompose.transcript).toBeNull();
+    expect(onlyCompose.summary).toBeNull();
     expect(onlyCompose.compose?.messages).toHaveLength(1);
   });
 });

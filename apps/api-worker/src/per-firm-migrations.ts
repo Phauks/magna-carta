@@ -48,6 +48,7 @@ import meetingRecordingComposeCursorSql from "@magna-carta/database/drizzle/per-
 import meetingRecordingSegmentsAndComposeClaimSql from "@magna-carta/database/drizzle/per-firm/20261002T234638_meeting-recording-segments-and-compose-claim.sql";
 import meetingTranscriptSql from "@magna-carta/database/drizzle/per-firm/20261003T003618_meeting-transcript.sql";
 import meetingTranscriptModelFailuresAndMillisecondsSql from "@magna-carta/database/drizzle/per-firm/20261003T015627_meeting-transcript-model-failures-and-milliseconds.sql";
+import meetingSummarySql from "@magna-carta/database/drizzle/per-firm/20261003T034941_meeting-summary.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -95,6 +96,7 @@ export function perFirmMigrations(): Migration[] {
     "20261003T003618_meeting-transcript": meetingTranscriptSql,
     "20261003T015627_meeting-transcript-model-failures-and-milliseconds":
       meetingTranscriptModelFailuresAndMillisecondsSql,
+    "20261003T034941_meeting-summary": meetingSummarySql,
   });
 }
 

@@ -16489,6 +16489,13 @@
             "type": [
               "string",
               "null"
+            ],
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "refused",
+              null
             ]
           },
           "failureErrorId": {
@@ -16578,11 +16585,22 @@
                     "type": "null"
                   }
                 ]
+              },
+              "summary": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MeetingSummaryMark"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
               "document",
-              "transcript"
+              "transcript",
+              "summary"
             ]
           }
         ]
@@ -16635,6 +16653,40 @@
           "id",
           "state",
           "fileId"
+        ]
+      },
+      "MeetingSummaryMark": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "refused"
+            ]
+          },
+          "refusalReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "not-eligible",
+              "disabled",
+              "transcript-empty",
+              null
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "refusalReason"
         ]
       },
       "MeetingRecordingNoticePage": {
@@ -17341,6 +17393,192 @@
         "required": [
           "answered"
         ]
+      },
+      "MeetingSummaryView": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/MeetingSummaryHeader"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actionItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingSummaryActionItem"
+            }
+          },
+          "withheld": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "removed",
+              "held",
+              "unavailable",
+              null
+            ]
+          }
+        },
+        "required": [
+          "summary",
+          "text",
+          "actionItems",
+          "withheld"
+        ]
+      },
+      "MeetingSummaryHeader": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "transcriptId": {
+            "type": "string"
+          },
+          "recordingId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "refused"
+            ]
+          },
+          "refusalReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "not-eligible",
+              "disabled",
+              "transcript-empty",
+              null
+            ]
+          },
+          "failureErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modelId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "transcriptId",
+          "recordingId",
+          "state",
+          "refusalReason",
+          "failureErrorId",
+          "modelId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MeetingSummaryActionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingSummaryActionItemOwner"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "text",
+          "owner",
+          "dueOn",
+          "taskId"
+        ]
+      },
+      "MeetingSummaryActionItemOwner": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName"
+        ]
+      },
+      "CreatedMeetingActionItemTask": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "actionItem": {
+            "$ref": "#/components/schemas/MeetingSummaryActionItem"
+          }
+        },
+        "required": [
+          "taskId",
+          "actionItem"
+        ]
+      },
+      "CreateMeetingActionItemTaskRequest": {
+        "type": "object",
+        "properties": {
+          "assignToOwner": {
+            "type": "boolean",
+            "default": true
+          }
+        }
       },
       "MeetingHostGrants": {
         "type": "object",
@@ -73891,6 +74129,383 @@
           },
           "422": {
             "description": "The question is empty, or longer than a question may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary": {
+      "get": {
+        "description": "The summary of one recording's transcript: where it stands and, once it is ready, its text and its action items in order — each with the member who undertook it where the model named them exactly, the date it is due where the transcript stated one, and the task made of it. The words are served only while the transcript's filed document exists, is not in the trash and is not held by the scan; otherwise withheld says why. Every read of the words is audited, naming identifiers and never a sentence. A recording with no summary, a recording in another meeting, and a meeting the member cannot reach are all not found.",
+        "operationId": "meetings.recordingSummary",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.recordingSummary",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingSummaryView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, recording, transcript or summary this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Asks for the summary of a recording's ready transcript to be written again — or written for the first time, where the transcript has none. A summary already being written is left to finish, and asking again sends it on if it was stranded. The firm's settings are read when it is run: a firm that has not switched summaries on, or whose chosen model it has not allowed its content to reach, is answered with a refused summary rather than an error. Writing it again replaces the text and the action items; a task already made of an action item is kept.",
+        "operationId": "meetings.rerunSummary",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.rerunSummary",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The summary is being written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingSummaryView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, recording, transcript or summary this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The task the action item would become is not one the task subsystem accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary/action-items/{actionItemId}/task": {
+      "post": {
+        "description": "Makes a task of one action item of a ready summary, through the task subsystem's own create path: on the recording's matter, titled with the item, due on the date the transcript stated (read in the meeting's own time zone), and — unless assignToOwner is false — in the owner's name. Needs the task-write permission and the meeting-join permission; putting it in another member's name needs the task-assign permission too. An item is made a task once.",
+        "operationId": "meetings.createSummaryActionItemTask",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.createSummaryActionItemTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingSummaryActionItem_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "actionItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMeetingActionItemTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The task, and the action item now naming it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMeetingActionItemTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, recording, transcript or summary this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The task the action item would become is not one the task subsystem accepts",
             "content": {
               "application/problem+json": {
                 "schema": {

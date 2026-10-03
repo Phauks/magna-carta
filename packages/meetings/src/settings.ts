@@ -24,8 +24,9 @@ export const captionsEnabledDefinition: FirmSettingDefinition<boolean> = {
   defaultValue: false,
 };
 
-// Whether a recorded meeting's transcript is summarized. Read by the summary slice; declared now for
-// the same reason as the captions switch.
+// Whether a recorded meeting's transcript is summarized. Read when a summary RUNS (the Worker's
+// summary consumer), not when it is begun, so a firm that switches it off stops summaries already
+// queued: off, each is recorded as refused, `disabled`, and no model is asked anything.
 export const summariesEnabledDefinition: FirmSettingDefinition<boolean> = {
   key: "meetings.summariesEnabled",
   schema: z.boolean(),

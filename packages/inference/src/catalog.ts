@@ -115,6 +115,14 @@ export interface CatalogEntry {
   // Reasoning entries only: the tier this entry currently occupies, if any. A reasoning entry without a
   // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to.
   readonly tier?: ReasoningTier;
+  // How many tokens one request to this model may hold, prompt and answer together, as the provider
+  // publishes it on the model's own page (read on availabilityVerifiedOn). Required of every reasoning
+  // entry, because a caller that sends a whole document — a meeting's transcript — has to know when it
+  // must cut the document into parts, and a guess at this figure is a request the provider refuses.
+  readonly contextWindowTokens?: number;
+  // The most tokens one answer may hold, where the provider publishes a limit. Absent where it names
+  // none; the caller then bounds the answer itself.
+  readonly maximumOutputTokens?: number;
   // Embedding entry only: whether the pin may still move. See EmbeddingPinState.
   readonly pinState?: EmbeddingPinState;
   // Embedding entry only: the index generation these vectors belong to. Carried beside the model id so a
@@ -154,6 +162,8 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
     retirementNotBefore: isoDate.optional(),
     supersededBy: z.string().min(1).optional(),
     tier: z.enum(["most-capable", "balanced"]).optional(),
+    contextWindowTokens: z.number().int().positive().optional(),
+    maximumOutputTokens: z.number().int().positive().optional(),
     pinState: z.enum(["open", "frozen"]).optional(),
     indexVersion: z.string().min(1).optional(),
   })
@@ -208,7 +218,7 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 4;
+export const CATALOG_VERSION = 5;
 export const CATALOG_EFFECTIVE_DATE = "2026-10-03";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
@@ -227,6 +237,20 @@ export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 // Unlike the embedding pin it binds no stored index, so moving it costs a re-verification of the entry
 // and nothing else — transcripts already written keep the model id they recorded.
 export const PLATFORM_TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo";
+
+// THE REASONING MODEL HOSTED ON CLOUDFLARE ITSELF, so a privileged conversation sent to it never leaves
+// the platform for a third-party provider. A firm may select it like any other reasoning entry; it holds
+// no tier, so an unconfigured firm's default is unchanged by it. It is what a feature that must not send
+// content to a third party without the firm's leave — a meeting's summary — runs on by default.
+export const PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID = "@cf/meta/llama-4-scout-17b-16e-instruct";
+
+// Whether a model runs on Cloudflare's own infrastructure. Read off the id's `@cf/` prefix because that
+// prefix is exactly what the AI binding routes on — a `@cf/` id is run by Workers AI and anything else is
+// sent through the gateway to its provider — so a recorded field could only ever disagree with what
+// actually happens to the request.
+export function isOnCloudflareModel(modelId: string): boolean {
+  return modelId.startsWith("@cf/");
+}
 
 // The launch catalog. Reasoning models first, each on the tier it currently occupies; the small utility
 // model; the platform-fixed embedding model pinned to the index generation; the platform-fixed
@@ -250,6 +274,10 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     availabilityVerifiedOn: "2026-08-14",
     retirementNotBefore: "2027-05-28",
     supersededBy: "claude-opus-5",
+    // Read 2026-10-03 at https://platform.claude.com/docs/en/models/opus-4-8/overview: "Context window:
+    // 1M tokens · Max output: 128K tokens" (the synchronous Messages API limit).
+    contextWindowTokens: 1_000_000,
+    maximumOutputTokens: 128_000,
   },
   {
     slot: "reasoning",
@@ -266,6 +294,35 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     availabilityVerifiedOn: "2026-08-14",
     retirementNotBefore: "2027-02-17",
     supersededBy: "claude-sonnet-5",
+    // Read 2026-10-03 at https://platform.claude.com/docs/en/models/sonnet-4-6/overview: "Context
+    // window: 1M tokens · Max output: 128K tokens".
+    contextWindowTokens: 1_000_000,
+    maximumOutputTokens: 128_000,
+  },
+  {
+    // Workers AI on-Cloudflare reasoning model. The confidentiality facts rest on Cloudflare's Workers AI
+    // data terms, read 2026-10-03 at https://developers.cloudflare.com/workers-ai/platform/data-usage/ —
+    // Customer Content is not used to train any model, is not made available to another customer, and is
+    // stored only where we ourselves store it — and the model is Cloudflare-hosted, so the conversation
+    // does not leave the platform for a third-party provider (ZDR is a third-party provider's concept;
+    // the embedding entry below reasons the same way).
+    //
+    // Cloudflare publishes no dated form of its Workers AI model ids and no retirement date for this one.
+    // Model page read 2026-10-03:
+    // https://developers.cloudflare.com/workers-ai/models/llama-4-scout-17b-16e-instruct/ — "Context
+    // Window: 131,000 tokens"; `max_tokens` defaults to 256 and the page publishes no upper limit, so the
+    // entry records none and a caller asks for the answer length it needs. Chat input is a `messages`
+    // array whose instruction is a `system`-role message.
+    slot: "reasoning",
+    modelId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+    snapshotId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+    snapshotForm: "provider-dateless",
+    referenceId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-10-03",
+    availabilityVerifiedOn: "2026-10-03",
+    contextWindowTokens: 131_000,
   },
   {
     slot: "utility",
@@ -281,6 +338,10 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     verifiedOn: "2026-06-17",
     availabilityVerifiedOn: "2026-08-14",
     retirementNotBefore: "2026-10-15",
+    // Read 2026-10-03 at https://platform.claude.com/docs/en/about-claude/models/overview: "200K tokens"
+    // context, "64K tokens" max output.
+    contextWindowTokens: 200_000,
+    maximumOutputTokens: 64_000,
   },
   {
     // Workers AI on-Cloudflare embedding model. Confidentiality rests on Cloudflare's own data terms
@@ -329,7 +390,8 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
 ];
 
 // Module-load validation: every entry parses (all fields present, every reasoning entry ZDR-eligible),
-// exactly one entry fills each platform-fixed slot (embedding, transcription), and every reasoning tier
+// exactly one entry fills each platform-fixed slot (embedding, transcription), every reasoning entry
+// states its context window, exactly one reasoning entry is hosted on Cloudflare, and every reasoning tier
 // has exactly one occupant so the platform default always resolves. A malformed table aborts the import.
 function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntry[] {
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
@@ -340,6 +402,19 @@ function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntr
         `the catalog must declare exactly one ${slot} entry (found ${occupants.length})`,
       );
     }
+  }
+  for (const entry of validated) {
+    if (entry.slot === "reasoning" && entry.contextWindowTokens === undefined) {
+      throw new Error(`reasoning entry ${entry.modelId} must declare its context window`);
+    }
+  }
+  const onCloudflareReasoning = validated.filter(
+    (entry) => entry.slot === "reasoning" && isOnCloudflareModel(entry.modelId),
+  );
+  if (onCloudflareReasoning.length !== 1) {
+    throw new Error(
+      `the catalog must declare exactly one reasoning entry hosted on Cloudflare (found ${onCloudflareReasoning.length})`,
+    );
   }
   for (const tier of REASONING_TIERS) {
     const occupants = validated.filter((entry) => entry.tier === tier);
@@ -405,6 +480,15 @@ export function reasoningEntries(): readonly CatalogEntry[] {
 export function reasoningModelForTier(tier: ReasoningTier): CatalogEntry {
   const entry = TIER_OCCUPANTS.get(tier);
   if (entry === undefined) throw new Error(`no occupant for reasoning tier "${tier}"`);
+  return entry;
+}
+
+// The reasoning entry hosted on Cloudflare itself — exactly one, by module-load validation.
+export function onCloudflareReasoningEntry(): CatalogEntry {
+  const entry = CATALOG.find(
+    (candidate) => candidate.slot === "reasoning" && isOnCloudflareModel(candidate.modelId),
+  );
+  if (entry === undefined) throw new Error("no reasoning entry hosted on Cloudflare");
   return entry;
 }
 

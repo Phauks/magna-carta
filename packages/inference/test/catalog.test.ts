@@ -4,7 +4,10 @@ import {
   CATALOG_VERSION,
   catalogEntrySchema,
   embeddingEntry,
+  isOnCloudflareModel,
   isZdrEligible,
+  onCloudflareReasoningEntry,
+  PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
   reasoningModelIds,
 } from "../src/catalog.ts";
 
@@ -37,6 +40,20 @@ describe("the curated model catalog", () => {
     expect(embeddings).toHaveLength(1);
     expect(embeddingEntry().slot).toBe("embedding");
     expect(embeddingEntry().zdrEligible).toBe(true);
+  });
+
+  it("every reasoning entry states its context window, and exactly one is hosted on Cloudflare", () => {
+    for (const entry of CATALOG.filter((e) => e.slot === "reasoning")) {
+      expect(entry.contextWindowTokens, entry.modelId).toBeGreaterThan(0);
+    }
+    const onCloudflare = CATALOG.filter(
+      (e) => e.slot === "reasoning" && isOnCloudflareModel(e.modelId),
+    );
+    expect(onCloudflare).toEqual([onCloudflareReasoningEntry()]);
+    expect(onCloudflareReasoningEntry().modelId).toBe(PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID);
+    // It holds no tier, so an unconfigured firm's default is not moved by it.
+    expect(onCloudflareReasoningEntry().tier).toBeUndefined();
+    expect(isOnCloudflareModel("anthropic/claude-opus-4-8")).toBe(false);
   });
 
   it("isZdrEligible answers per model id", () => {

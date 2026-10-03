@@ -5,9 +5,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// NO TRANSCRIPT TEXT REACHES A LOGGER, AN AUDIT ROW OR AN ERROR.
+// NO TRANSCRIPT OR SUMMARY TEXT REACHES A LOGGER, AN AUDIT ROW OR AN ERROR.
 //
-// A transcript is what was said in a privileged conversation, attributed to the person who said it.
+// A transcript is what was said in a privileged conversation, attributed to the person who said it, and
+// its summary is a reasoning model's characterization of it — derived content and work product, held to
+// the same rule: the summary's text, its action items' text, the lines the model was sent and what the
+// model answered never reach a sink either.
 // The record holds it in two places — the segment rows and the filed document — and the read route
 // serves it; everything else that touches a transcript (the consumer driving the model, the sweep, the
 // statements, the route's audit) is supposed to carry handles, counts and fixed sentences only. That
@@ -60,18 +63,22 @@ function sourceFiles(directory: string): string[] {
 }
 
 /**
- * WHAT MAKES A MODULE ONE THAT REACHES THE WORDS: it imports the transcript's statements, types,
- * service or assembly, or the document's renderer; it calls the speech model; or it names the
- * transcript's own shapes.
+ * WHAT MAKES A MODULE ONE THAT REACHES THE WORDS: it imports the transcript's or the summary's
+ * statements, types, service, assembly, prompt or parse, or the document's renderer; it calls the speech
+ * model; or it names the transcript's or the summary's own shapes.
  */
 const REACHES_TRANSCRIPT_TEXT = [
   /@magna-carta\/meetings\/transcript-/u,
+  /@magna-carta\/meetings\/summary-/u,
   /@magna-carta\/meetings\/webvtt/u,
   /\.\/transcript-(?:statements|service|assembly|types)\.ts/u,
+  /\.\/summary-(?:statements|service|prompt|parse|types)\.ts/u,
   /\.\/webvtt\.ts/u,
   /\.transcribe\(/u,
   /\bTranscriptionResult\b/u,
   /\bMeetingTranscript(?:Segment|Page|Message)\b/u,
+  /\bMeetingSummary(?:Row|ActionItemRow|Message|View)\b/u,
+  /\bsummaryTranscriptMessage\b/u,
 ];
 
 /** The calls that carry a value somewhere a person other than the firm's reader may see it. */
@@ -88,7 +95,10 @@ const SINKS = [
   /\bproblemJson\(/gu,
 ];
 
-/** The names the code base uses for the words, who said them, and what the model was sent. */
+/**
+ * The names the code base uses for the words, who said them, what the models were sent, and what the
+ * reasoning model wrote about them.
+ */
 const FORBIDDEN_IN_A_SINK = [
   /\.text\b/u,
   /\btext\s*[,}]/u,
@@ -101,6 +111,20 @@ const FORBIDDEN_IN_A_SINK = [
   /\brenderWebVtt\b/u,
   /\bfacts\.title\b/u,
   /\bFileName\(/u,
+  /\bsummary_?[tT]ext\b/u,
+  /\bsummaryText\b/u,
+  /\bfinalAnswer\b/u,
+  /\bpartAnswers\b/u,
+  /\banswered\b/u,
+  /\btranscriptRendered\b/u,
+  /\btranscriptLine\(/u,
+  /\bsummaryTranscriptMessage\(/u,
+  /\bsummaryCombineMessage\(/u,
+  /\bparticipantNames\b/u,
+  /\bowner_display_name\b/u,
+  /\bdueOnStated\b/u,
+  /\.content\b/u,
+  /\banswer\.value\.text\b/u,
 ];
 
 /** Source with comments removed, so a comment describing the rule is not read as breaking it. */
@@ -149,7 +173,7 @@ function modulesReachingTranscriptText(): string[] {
     });
 }
 
-describe("no transcript text reaches a logger, an audit row or an error (fitness)", () => {
+describe("no transcript or summary text reaches a logger, an audit row or an error (fitness)", () => {
   const modules = modulesReachingTranscriptText().map((file) => ({
     file,
     name: relative(repositoryRoot, file).replaceAll("\\", "/"),
@@ -168,6 +192,12 @@ describe("no transcript text reaches a logger, an audit row or an error (fitness
       "packages/meetings/src/transcript-statements.ts",
       "packages/meetings/src/webvtt.ts",
       "packages/inference/src/gateway.ts",
+      "apps/api-worker/src/meetings/summary-consumer.ts",
+      "apps/api-worker/src/routes/meeting-summary.ts",
+      "packages/meetings/src/summary-service.ts",
+      "packages/meetings/src/summary-statements.ts",
+      "packages/meetings/src/summary-parse.ts",
+      "packages/meetings/src/summary-prompt.ts",
     ]) {
       expect(names).toContain(expected);
     }
@@ -178,11 +208,19 @@ describe("no transcript text reaches a logger, an audit row or an error (fitness
       textEscapes(
         `recordRealtimeFailure(logger, "x", new Error(\`refused: \${answer.value.text}\`));\n` +
           `domainAuditStatement(database, { metadata: { speaker: row.display_name } });\n` +
-          `logger.info({ prompt: input.initialPrompt });`,
+          `logger.info({ prompt: input.initialPrompt });\n` +
+          `domainAuditStatement(database, { metadata: { text: summary.summary_text } });\n` +
+          `recordRealtimeFailure(logger, "x", new Error(\`bad answer: \${finalAnswer}\`));`,
       ).map((escape) => escape.names),
       // A sink nested in another (an Error inside the failure pipeline's call) reports the name twice.
     ).toEqual(
-      expect.arrayContaining(["\\.text\\b", "\\bdisplay_?[nN]ame\\b", "\\binitialPrompt\\b"]),
+      expect.arrayContaining([
+        "\\.text\\b",
+        "\\bdisplay_?[nN]ame\\b",
+        "\\binitialPrompt\\b",
+        "\\bsummary_?[tT]ext\\b",
+        "\\bfinalAnswer\\b",
+      ]),
     );
     // A handle, a count, a category and a fixed sentence are what a sink may carry.
     expect(

@@ -267,6 +267,13 @@
       "when": 1790992587569,
       "tag": "20261003T015627_meeting-transcript-model-failures-and-milliseconds",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1790999381764,
+      "tag": "20261003T034941_meeting-summary",
+      "breakpoints": true
     }
   ]
 }

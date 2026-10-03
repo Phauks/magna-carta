@@ -511,3 +511,51 @@ names — and fails when one hands the words, a speaker's name, the model's prom
 to the failure pipeline, a logger, an audit builder, an Error or a problem body. It reads names, so a
 value laundered through a variable named for nothing stays a review question; a new sink belongs in its
 `SINKS` list.
+
+## A summary is the platform's characterization, kept as rows and held to the transcript's document
+
+`summary-types.ts` / `summary-statements.ts` / `summary-service.ts` are the summary's trio, and two pure
+modules hold what reaches and leaves the model: `summary-prompt.ts` (the platform-authored instructions,
+the `HH:MM:SS Name: text` line, the participant list, the cut into parts and the arithmetic that bounds
+it) and `summary-parse.ts` (the answer read into the summary and its action items, or refused). The
+Worker's `summary-consumer.ts` drives them; the design and its amendments (A57 onward) are in the
+recording spec.
+
+Six rules travel with it.
+
+**The text is DERIVED CONTENT and WORK PRODUCT.** `meeting_summary.summary_text` and
+`meeting_summary_action_item.text` are a reasoning model's account of a privileged conversation. No
+statement here logs them, no audit row carries them (`meetings.summary.*` rows are handles, counts,
+closed labels and model ids), and the PII registry classes both as content. The repo-wide scan in
+`test/no-transcript-text-escape.test.ts` reads every module that reaches them. It is never filed as a
+document: it is our characterization, not the thing that happened, and on the matter's document list it
+would read as evidence.
+
+**The answer is a strict structure, never interpreted.** `summary-prompt.ts` documents the one JSON object
+the model is asked for, and `summary-parse.ts` reads exactly that or refuses with a closed reason —
+nothing is repaired, because a summary whose shape was guessed is one whose obligations were guessed.
+Both read the same limits from `summary-prompt.ts`, so the request and the reading cannot drift.
+
+**Two facts are never the model's word.** An action item's OWNER is a member only on an exact match to a
+participant's name as the transcript read gives it (`exactOwner`): a guest, a near match or a name two
+members share leaves it unowned. A DUE DATE is kept only when it is a real civil date and the model quoted
+words that appear verbatim in the transcript it was sent and carry the date's day of the month
+(`statedDueOn`): "next Friday" is never a date.
+
+**The bound is the model's context, measured in bytes.** `summaryPartByteBudget` takes the chosen model's
+`contextWindowTokens` from the inference catalog and reckons three bytes a token — an over-count — so a
+part never overruns it; `splitTranscriptIntoParts` cuts at line boundaries and refuses past
+`SUMMARY_PARTS_MAXIMUM`, the per-message wall-clock bound stated beside it.
+
+**Every write that can lose a race is guarded, with its own label**: the claim (on `pending` and an expired
+or absent lease), `ready`, `refused`, `failed` and a model's refusal counted (each on the claim), a re-run
+(on the state and instant it read, so two requests start one run) and an action item's task (on its having
+none). One summary per transcript, held by a unique index (`isSummaryPerTranscriptConflict`); a re-run
+rewrites it in place and deletes its action items with the text they were read from — a task already
+made of one is the task subsystem's record and stays.
+
+**The read follows the transcript's filed document.** A summary is reached through its transcript, its
+recording and its meeting, and its words are served only while the transcript's lines would be
+(`transcriptLinesWithheldBy`); nothing here deletes the rows when that document is purged, on the
+transcript's terms (A55). An action item becomes a task through the task subsystem's `createMatterTask`
+and no other path.

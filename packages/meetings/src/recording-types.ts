@@ -9,6 +9,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { PCM_SAMPLE_RATE } from "./pcm-frame.ts";
+import type { MeetingSummaryState } from "./summary-types.ts";
 import type { MeetingContributorKind } from "./types.ts";
 
 // A MEETING'S RECORDING: the vocabularies, the stored rows, and what a surface is given.
@@ -192,9 +193,9 @@ export interface MeetingRecordingActor {
 
 /**
  * ONE RECORDING, AS A SURFACE PAINTS IT. Identifiers, instants, counts and a state — the audio is a
- * filed document reached through `fileId`, never anything this shape carries. `transcriptId` and
- * `summaryState` are null until the transcript and summary slices write them, and are here now so a
- * screen built against this shape does not change when they do.
+ * filed document reached through `fileId`, never anything this shape carries. `transcriptId` is null
+ * until the recording is filed and its transcript begun; `summaryState` is null until that transcript is
+ * ready and its summary begun.
  */
 export interface MeetingRecordingSummary {
   readonly id: MeetingRecordingId;
@@ -209,7 +210,7 @@ export interface MeetingRecordingSummary {
   readonly capturedSeconds: number | null;
   readonly fileId: FileId | null;
   readonly transcriptId: string | null;
-  readonly summaryState: string | null;
+  readonly summaryState: MeetingSummaryState | null;
   // The standard pipeline's Error ID when the recording failed, or when a fault on the way was
   // recorded against it — a handle support can look up, never a message. Null otherwise.
   readonly failureErrorId: string | null;

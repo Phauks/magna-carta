@@ -3918,7 +3918,7 @@ export type MeetingRecordingSummary = {
     capturedSeconds: number | null;
     fileId: string | null;
     transcriptId: string | null;
-    summaryState: string | null;
+    summaryState: 'pending' | 'ready' | 'failed' | 'refused' | null;
     failureErrorId: string | null;
 };
 
@@ -3935,6 +3935,7 @@ export type MeetingRecordingPage = {
 export type MeetingRecordingListEntry = MeetingRecordingSummary & {
     document: MeetingRecordingDocument | null;
     transcript: MeetingTranscriptMark | null;
+    summary: MeetingSummaryMark | null;
 };
 
 export type MeetingRecordingDocument = {
@@ -3946,6 +3947,12 @@ export type MeetingTranscriptMark = {
     id: string;
     state: 'pending' | 'ready' | 'failed';
     fileId: string | null;
+};
+
+export type MeetingSummaryMark = {
+    id: string;
+    state: 'pending' | 'ready' | 'failed' | 'refused';
+    refusalReason: 'not-eligible' | 'disabled' | 'transcript-empty' | null;
 };
 
 export type MeetingRecordingNoticePage = {
@@ -4105,6 +4112,48 @@ export type MeetingQuestionPage = {
 
 export type SetMeetingQuestionAnsweredRequest = {
     answered: boolean;
+};
+
+export type MeetingSummaryView = {
+    summary: MeetingSummaryHeader;
+    text: string | null;
+    actionItems: Array<MeetingSummaryActionItem>;
+    withheld: 'removed' | 'held' | 'unavailable' | null;
+};
+
+export type MeetingSummaryHeader = {
+    id: string;
+    transcriptId: string;
+    recordingId: string;
+    state: 'pending' | 'ready' | 'failed' | 'refused';
+    refusalReason: 'not-eligible' | 'disabled' | 'transcript-empty' | null;
+    failureErrorId: string | null;
+    modelId: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type MeetingSummaryActionItem = {
+    id: string;
+    ordinal: number;
+    text: string;
+    owner: MeetingSummaryActionItemOwner | null;
+    dueOn: string | null;
+    taskId: string | null;
+};
+
+export type MeetingSummaryActionItemOwner = {
+    userId: string;
+    displayName: string;
+};
+
+export type CreatedMeetingActionItemTask = {
+    taskId: string;
+    actionItem: MeetingSummaryActionItem;
+};
+
+export type CreateMeetingActionItemTaskRequest = {
+    assignToOwner?: boolean;
 };
 
 export type MeetingHostGrants = {
@@ -23701,6 +23750,157 @@ export type MeetingsRedactQuestionResponses = {
 };
 
 export type MeetingsRedactQuestionResponse = MeetingsRedactQuestionResponses[keyof MeetingsRedactQuestionResponses];
+
+export type MeetingsRecordingSummaryData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary';
+};
+
+export type MeetingsRecordingSummaryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingSummaryError = MeetingsRecordingSummaryErrors[keyof MeetingsRecordingSummaryErrors];
+
+export type MeetingsRecordingSummaryResponses = {
+    /**
+     * The summary
+     */
+    200: MeetingSummaryView;
+};
+
+export type MeetingsRecordingSummaryResponse = MeetingsRecordingSummaryResponses[keyof MeetingsRecordingSummaryResponses];
+
+export type MeetingsRerunSummaryData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary';
+};
+
+export type MeetingsRerunSummaryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The task the action item would become is not one the task subsystem accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRerunSummaryError = MeetingsRerunSummaryErrors[keyof MeetingsRerunSummaryErrors];
+
+export type MeetingsRerunSummaryResponses = {
+    /**
+     * The summary is being written
+     */
+    202: MeetingSummaryView;
+};
+
+export type MeetingsRerunSummaryResponse = MeetingsRerunSummaryResponses[keyof MeetingsRerunSummaryResponses];
+
+export type MeetingsCreateSummaryActionItemTaskData = {
+    body: CreateMeetingActionItemTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        recordingId: string;
+        actionItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary/action-items/{actionItemId}/task';
+};
+
+export type MeetingsCreateSummaryActionItemTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The task the action item would become is not one the task subsystem accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsCreateSummaryActionItemTaskError = MeetingsCreateSummaryActionItemTaskErrors[keyof MeetingsCreateSummaryActionItemTaskErrors];
+
+export type MeetingsCreateSummaryActionItemTaskResponses = {
+    /**
+     * The task, and the action item now naming it
+     */
+    201: CreatedMeetingActionItemTask;
+};
+
+export type MeetingsCreateSummaryActionItemTaskResponse = MeetingsCreateSummaryActionItemTaskResponses[keyof MeetingsCreateSummaryActionItemTaskResponses];
 
 export type MeetingsHostsData = {
     body?: never;

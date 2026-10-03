@@ -101,6 +101,11 @@ import {
   readTranscriptForRecording,
   readTranscriptMarks,
 } from "@magna-carta/meetings/transcript-statements";
+import { readSummaryMarks } from "@magna-carta/meetings/summary-statements";
+import {
+  MEETING_SUMMARY_REFUSAL_REASONS,
+  MEETING_SUMMARY_STATES,
+} from "@magna-carta/meetings/summary-types";
 import { transcriptReadAuditStatement } from "@magna-carta/meetings/transcript-service";
 import {
   MEETING_TRANSCRIPT_SEGMENT_KINDS,
@@ -697,9 +702,11 @@ const MeetingRecordingSummarySchema = z
     capturedSeconds: z.number().int().min(0).nullable(),
     // The filed audio document, once the compose step has filed it.
     fileId: z.string().nullable(),
-    // Written by the transcript and summary slices; null until they land.
+    // The recording's transcript, once the recording is filed and its transcript begun.
     transcriptId: z.string().nullable(),
-    summaryState: z.string().nullable(),
+    // Where the transcript's summary stands — `pending`, `ready`, `failed` or `refused` — once the
+    // transcript is ready and its summary begun; null before. The list entry's `summary` says more.
+    summaryState: z.enum(MEETING_SUMMARY_STATES).nullable(),
     // The Error ID the standard pipeline recorded when the recording failed — or a fault on the way
     // recorded against it while it was being composed — so a member can quote it to support. A handle,
     // never a message. Null unless the recording carries one.
@@ -733,14 +740,27 @@ const MeetingTranscriptMarkSchema = z
   })
   .openapi("MeetingTranscriptMark");
 
-// One row of the list: the summary the start and stop routes answer with, the document it filed, and
-// its transcript. Only the list carries the document and the transcript — a start has filed nothing,
-// and a stop hands the recording on to be composed — so the write routes' answer stays the summary
-// alone. Each is null until the recording is `filed`. A union with null for the reason `stoppedBy` is
-// one.
+// WHERE A READY TRANSCRIPT'S SUMMARY STANDS, as the list reads it: its handle, `pending` while a model is
+// writing it, `ready`, `failed` (a member may run it again), or `refused` — and then `refusalReason` says
+// why: `disabled` (the firm has not switched summaries on), `not-eligible` (the firm's chosen model is a
+// third-party one it has not allowed its content to reach) or `transcript-empty` (nobody was heard).
+const MeetingSummaryMarkSchema = z
+  .object({
+    id: z.string(),
+    state: z.enum(MEETING_SUMMARY_STATES),
+    refusalReason: z.enum(MEETING_SUMMARY_REFUSAL_REASONS).nullable(),
+  })
+  .openapi("MeetingSummaryMark");
+
+// One row of the list: the summary the start and stop routes answer with, the document it filed, its
+// transcript and that transcript's summary. Only the list carries the document, the transcript and the
+// summary — a start has filed nothing, and a stop hands the recording on to be composed — so the write
+// routes' answer stays the recording summary alone. Each is null until the recording reaches it. A union
+// with null for the reason `stoppedBy` is one.
 const MeetingRecordingListEntrySchema = MeetingRecordingSummarySchema.extend({
   document: z.union([MeetingRecordingDocumentSchema, z.null()]),
   transcript: z.union([MeetingTranscriptMarkSchema, z.null()]),
+  summary: z.union([MeetingSummaryMarkSchema, z.null()]),
 }).openapi("MeetingRecordingListEntry");
 
 const MeetingRecordingPage = paginated(MeetingRecordingListEntrySchema).openapi(
@@ -2375,20 +2395,26 @@ export function registerMeetingsRoutes(
       const hasMore = found.length > MAX_RECORDING_PAGE_SIZE;
       const rows = hasMore ? found.slice(0, MAX_RECORDING_PAGE_SIZE) : found;
       const last = rows.at(-1);
-      // One read for the page's filed versions, gated on each file's own matter, and one for the
-      // page's transcripts.
-      const [documents, transcripts] = await Promise.all([
+      // One read for the page's filed versions, gated on each file's own matter, one for the page's
+      // transcripts and one for their summaries.
+      const [documents, transcripts, summaries] = await Promise.all([
         readRecordingDocuments(firm.firmDatabase, rows, visibleMatterPredicate()),
         readTranscriptMarks(
+          firm.firmDatabase,
+          rows.map((row) => row.id),
+        ),
+        readSummaryMarks(
           firm.firmDatabase,
           rows.map((row) => row.id),
         ),
       ]);
       return c.json(
         {
-          // The summary is built fresh for each row, so the document and transcript are added in place.
+          // The recording summary is built fresh for each row, so the document, the transcript and the
+          // transcript's summary are added in place.
           data: rows.map((row) => {
             const transcript = transcripts.get(row.id) ?? null;
+            const summary = summaries.get(row.id) ?? null;
             return Object.assign(
               toRecordingSummary(
                 row,
@@ -2397,8 +2423,9 @@ export function registerMeetingsRoutes(
                   stoppedBy: row.stopped_by_display_name,
                 },
                 transcript?.id ?? null,
+                summary?.state ?? null,
               ),
-              { document: documents.get(row) ?? null, transcript },
+              { document: documents.get(row) ?? null, transcript, summary },
             );
           }),
           nextCursor: hasMore && last !== undefined ? encodeCursor(last.started_at, last.id) : null,
@@ -2673,8 +2700,9 @@ export function registerMeetingsRoutes(
 /**
  * Why a ready transcript's lines may not be read, from where the version it filed stands — or null when
  * they may. A version this read cannot see (gone, or its file moved behind a wall) is `unavailable`.
+ * Exported because the summary is held to the same document: its words are derived from the lines.
  */
-async function transcriptLinesWithheld(
+export async function transcriptLinesWithheld(
   database: Parameters<typeof readRecordingDocumentFacts>[0],
   fileVersionId: FileVersionId | null,
 ): Promise<MeetingTranscriptWithheldReason | null> {

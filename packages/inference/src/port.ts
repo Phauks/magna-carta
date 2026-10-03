@@ -81,6 +81,11 @@ export interface ConversationInput {
   // see at a glance which bytes are platform text and which are firm content.
   readonly systemPrompt: string;
   readonly messages: readonly ConversationMessage[];
+  // The most tokens the answer may hold. Optional, and sent as the provider's own answer-length field
+  // when given: a caller whose answer has a known shape and size asks for room for it, because a
+  // provider's default can be far shorter (Workers AI answers 256 tokens unless told otherwise) and an
+  // answer cut short is an answer that cannot be read.
+  readonly maximumOutputTokens?: number;
 }
 
 // Speech to text, platform-fixed like embedding: there is deliberately NO modelId field. A firm does

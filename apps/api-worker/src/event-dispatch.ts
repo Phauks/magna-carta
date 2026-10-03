@@ -33,10 +33,12 @@ import { magnusQueue } from "./magnus/magnus-consumer.ts";
 import type {
   MeetingRecordingComposeMessage,
   MeetingRecordingQueueMessage,
+  MeetingSummaryMessage,
   MeetingTranscriptMessage,
 } from "./meetings/meeting-recorder.ts";
 import { meetingRecordingComposeQueue } from "./meetings/recording-compose-consumer.ts";
 import { runRecordingSweep } from "./meetings/recording-sweep.ts";
+import { meetingSummaryQueue } from "./meetings/summary-consumer.ts";
 import { meetingTranscriptQueue } from "./meetings/transcript-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
@@ -332,8 +334,8 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
 }
 
 /**
- * ONE QUEUE, TWO CONSUMERS: the recording queue's messages split by their `kind` and each half handed to
- * its own consumer as a batch of its own. A message of a kind neither knows — a message sent by a later
+ * ONE QUEUE, THREE CONSUMERS: the recording queue's messages split by their `kind` — the compose, the
+ * transcript and the summary — and each share handed to its own consumer as a batch of its own. A message of a kind neither knows — a message sent by a later
  * deploy and read by an earlier one during a rollout — is retried rather than acknowledged, so it is
  * read again by the code that knows it instead of being lost.
  */
@@ -341,28 +343,33 @@ async function routeMeetingRecordingBatch(
   batch: MessageBatch<MeetingRecordingQueueMessage>,
   env: Bindings,
 ): Promise<void> {
-  const { compose, transcript } = splitMeetingRecordingBatch(batch);
+  const { compose, transcript, summary } = splitMeetingRecordingBatch(batch);
   if (compose !== null) await meetingRecordingComposeQueue(compose, env);
   if (transcript !== null) await meetingTranscriptQueue(transcript, env);
+  if (summary !== null) await meetingSummaryQueue(summary, env);
 }
 
 /**
- * The split itself, with no consumer behind it: the compose half and the transcript half as batches of
+ * The split itself, with no consumer behind it: the compose, transcript and summary shares as batches of
  * their own (null when a kind has no message), every message of an unknown kind already retried.
- * Exported so the routing is tested apart from the two consumers it hands to.
+ * Exported so the routing is tested apart from the consumers it hands to.
  */
 export function splitMeetingRecordingBatch(batch: MessageBatch<MeetingRecordingQueueMessage>): {
   readonly compose: MessageBatch<MeetingRecordingComposeMessage> | null;
   readonly transcript: MessageBatch<MeetingTranscriptMessage> | null;
+  readonly summary: MessageBatch<MeetingSummaryMessage> | null;
 } {
   const compose: Message<MeetingRecordingComposeMessage>[] = [];
   const transcript: Message<MeetingTranscriptMessage>[] = [];
+  const summary: Message<MeetingSummaryMessage>[] = [];
   for (const message of batch.messages) {
     const body = message.body as { readonly kind?: unknown };
     if (body.kind === "meeting-transcript") {
       transcript.push(message as Message<MeetingTranscriptMessage>);
     } else if (body.kind === "meeting-recording-compose") {
       compose.push(message as Message<MeetingRecordingComposeMessage>);
+    } else if (body.kind === "meeting-summary") {
+      summary.push(message as Message<MeetingSummaryMessage>);
     } else {
       message.retry();
     }
@@ -370,6 +377,7 @@ export function splitMeetingRecordingBatch(batch: MessageBatch<MeetingRecordingQ
   return {
     compose: compose.length > 0 ? subBatch(batch, compose) : null,
     transcript: transcript.length > 0 ? subBatch(batch, transcript) : null,
+    summary: summary.length > 0 ? subBatch(batch, summary) : null,
   };
 }
 

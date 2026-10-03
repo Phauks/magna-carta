@@ -4,6 +4,7 @@ import { integrationProblem, type IntegrationProblem } from "@magna-carta/integr
 import {
   catalogEntryFor,
   embeddingEntry,
+  isOnCloudflareModel,
   isZdrEligible,
   transcriptionEntry,
   type CatalogEntry,
@@ -318,18 +319,29 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
 
   // The provider-native request body for a conversation. This translation is the ONLY new code on
   // this operation: the ZDR guard, the gateway options, the usage extraction, the response-text
-  // reconciliation, and the caller-safe failure mapping are all the shipped ones, unchanged. The
-  // system instruction rides its own top-level field rather than a message, exactly as it arrives on
-  // ConversationInput, so the separation holds all the way to the wire; `member` maps to the
-  // provider's `user` role here and nowhere else in the codebase.
+  // reconciliation, and the caller-safe failure mapping are all the shipped ones, unchanged. `member`
+  // maps to the provider's `user` role here and nowhere else in the codebase.
+  //
+  // Two providers, two shapes for the instruction. A third-party provider's messages API takes it on
+  // its own top-level field, so it rides there exactly as it arrives on ConversationInput and the
+  // separation holds all the way to the wire. A model hosted on Cloudflare takes it as the FIRST
+  // message, in the `system` role its chat schema defines — still written here from the platform's
+  // field and never from a member's message, so nothing a member typed can reach that role on either
+  // path. An answer length, when asked for, is the provider's `max_tokens` on both.
   function conversationRequestBody(input: ConversationInput): unknown {
-    return {
-      system: input.systemPrompt,
-      messages: input.messages.map((message) => ({
-        role: message.role === "member" ? "user" : "assistant",
-        content: message.content,
-      })),
-    };
+    const messages = input.messages.map((message) => ({
+      role: message.role === "member" ? "user" : "assistant",
+      content: message.content,
+    }));
+    const length =
+      input.maximumOutputTokens === undefined ? {} : { max_tokens: input.maximumOutputTokens };
+    if (isOnCloudflareModel(input.modelId)) {
+      return {
+        messages: [{ role: "system", content: input.systemPrompt }, ...messages],
+        ...length,
+      };
+    }
+    return { system: input.systemPrompt, messages, ...length };
   }
 
   return {

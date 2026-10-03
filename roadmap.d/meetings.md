@@ -192,9 +192,10 @@
 - id: meetings.summary
   name: Meeting summary
   scope: A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses.
-  status: designed
+  status: partial
+  surface: awaiting-screen
   spec: docs/specs/2026-09-20-meetings-recording-and-transcription-design.md
-  evidence: No code; depends on meetings.transcription.
+  evidence: The server half is built — every ready transcript gets a summary, begun in the batch that makes the transcript ready (meeting_summary and meeting_summary_action_item in 20261003T034941_meeting-summary) and written on the recording's own queue as a third kind of message by apps/api-worker/src/meetings/summary-consumer.ts, gated on meetings.summariesEnabled and the firm's model choice and AI-processing eligibility, sent through InferencePort.generateConversation with the instruction in packages/meetings/src/summary-prompt.ts, a long transcript summarized a part at a time inside the model's catalog context window and combined, the answer read strictly by summary-parse.ts (an owner only on an exact name, a date only where the transcript stated one), every call metered; the routes are GET and POST /api/v1/meetings/{meetingId}/recordings/{recordingId}/summary and POST …/summary/action-items/{actionItemId}/task through the task subsystem's own create path (apps/api-worker/src/routes/meeting-summary.ts); tests in apps/api-worker/test/meeting-summary.test.ts and packages/meetings/test/summary-parse.test.ts. The web half — the summary card — is not built.
   notes: Written through InferencePort rather than as an assistant conversation, so a privileged transcript is never copied into a conversation history; it runs on the on-Cloudflare model path by default and reaches a frontier model only where the firm's AI-processing eligibility allows.
 
 - id: meetings.backgrounds-and-noise
