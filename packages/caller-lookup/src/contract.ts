@@ -67,13 +67,18 @@ export const KeptCallerIdentity = z
     carrierName: z.string().nullable(),
     lookedUpAt: z.iso.datetime(),
   })
-  .meta({ id: "CallerIdentity", description: "A caller ID the firm already paid for, or null." });
+  .meta({ id: "CallerIdentity", description: "A caller ID the firm already paid for." });
 
 export const CallerLookup = z
   .object({
     directoryMatches: z.array(CallerDirectoryMatch),
     areaCode: CallerAreaCode.nullable(),
-    callerIdentity: KeptCallerIdentity.nullable(),
+    // A union with null rather than .nullable(): .nullable() folds the null into the shared
+    // CallerIdentity component, so the same name would carry two shapes across the contract.
+    callerIdentity: z.union([KeptCallerIdentity, z.null()]).meta({
+      description:
+        "A caller ID the firm already paid for, or null when it has none for the number.",
+    }),
     paidLookup: z.enum(["available", "unavailable", "not-covered"]).meta({
       description:
         "Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; " +

@@ -83,6 +83,18 @@ Inside the firm, **the transcript is a firm record**, like any other work you do
 If a matter is subject to a legal hold or a retention rule, the conversations kept on it are covered
 by the same rule as the rest of that file.
 
+## Reading a Conversation
+
+Questions sit on the right, under the name of the person who asked them, with their initials beside
+them. Magnus answers on the left, beside the gold blackletter M. A conversation shows real names
+rather than "You", so it reads the same to a colleague who opens it as it does to you. Each message
+shows the time it was sent, and the copy button beneath it puts that message's words on your
+clipboard.
+
+The open conversation's name sits at the top with the matter it is kept on in small print beneath
+it, or "Not kept on a matter". Inside a matter's own Magnus section the matter is already named at
+the top of the page, so that line is left out.
+
 ## While You Wait
 
 Your question is recorded the moment you send it, and the answer arrives underneath when it is ready.

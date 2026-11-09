@@ -48,6 +48,7 @@
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import FolderInput from "@lucide/svelte/icons/folder-input";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Briefcase from "@lucide/svelte/icons/briefcase";
   import AttachFileDialog from "./attach-file-dialog.svelte";
   import ConversationDeleteDialog from "./conversation-delete-dialog.svelte";
   import ConversationName from "./conversation-name.svelte";
@@ -233,6 +234,13 @@
 
   $effect(() => {
     createRefusal = startRefusal;
+  });
+
+  /* The open conversation's matter is named under its title, so its citation is read even where the
+     rail itself cites none. The read is remembered, so reopening the same matter costs nothing. */
+  $effect(() => {
+    const keptOn = selected?.matterId ?? null;
+    if (matterId === null && keptOn !== null) void citations.resolve([keptOn]);
   });
 
   /*
@@ -509,12 +517,34 @@
   <!-- The conversation's name, edited where it is read, and the acts on the record beside it. The
        acts are named controls with the design system's hover, never native titles, and each one is
        refused with its reason while nothing is open rather than absent. -->
-  <div class="flex flex-wrap items-center justify-between gap-8 px-24 pt-8">
-    <ConversationName
-      conversation={selected}
-      disabled={session.sending}
-      onRenamed={conversationRenamed}
-    />
+  <div class="flex flex-wrap items-start justify-between gap-8 px-24 pt-8">
+    <!-- The name over the matter it is kept on, set small: the matter is where the conversation
+         lives, and a reader on the workspace (which spans every matter) needs it without it
+         competing with the name. Inside a matter's own section the masthead already says it. -->
+    <div class="flex min-w-0 flex-col gap-4">
+      <ConversationName
+        conversation={selected}
+        disabled={session.sending}
+        onRenamed={conversationRenamed}
+      />
+      {#if matterId === null && selected !== null}
+        {@const keptOn = selected.matterId}
+        <p class="flex min-w-0 items-center gap-4 text-xs text-text-muted">
+          <Briefcase class="size-12 shrink-0" aria-hidden="true" />
+          {#if keptOn === null}
+            <span>Not kept on a matter</span>
+          {:else}
+            {@const number = citations.numberFor(keptOn)}
+            {@const title = citations.titleFor(keptOn)}
+            <span class="truncate">
+              {#if number !== null}<span class="font-medium">{number}</span>{/if}
+              {#if number !== null && title !== null}<span aria-hidden="true"> · </span>{/if}
+              {title ?? (number === null ? "A matter" : "")}
+            </span>
+          {/if}
+        </p>
+      {/if}
+    </div>
     <div class="flex items-center gap-4">
       <Tooltip.Root>
         <Tooltip.Trigger>
