@@ -113,6 +113,9 @@ describe("schema conformance (fitness functions)", () => {
       // legitimately hold the same image, and keying on content would make one member's upload
       // silently become the other's row.
       member_photo: "member_user_id",
+      // One picture per directory record, and the record IS the row: the member_photo reasoning, for
+      // a person's photograph or an organization's logo.
+      directory_entity_photo: "entity_id",
       // One running tally per member of how many notifications aged out of their feed while still
       // unread. The MEMBER is the row: it is a count and two instants updated in place, never an
       // event anybody appends, and a handle would let two tallies exist for one person — which is

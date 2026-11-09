@@ -197,3 +197,14 @@ describe("the file a card is saved as", () => {
     expect(contactCardFilename(person({ displayName: "A/B: C?" }))).toBe("A B C.vcf");
   });
 });
+
+describe("a card with a picture", () => {
+  it("carries it as a data address, folded like every other line", () => {
+    const base64 = "A".repeat(200);
+    const card = contactCard(person(), null, { contentType: "image/jpeg", base64 });
+    expect(lines(card)).toContain(`PHOTO:data:image/jpeg;base64,${base64}`);
+    for (const line of card.split("\r\n")) {
+      expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75);
+    }
+  });
+});

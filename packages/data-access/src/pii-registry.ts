@@ -43,6 +43,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "directory_phone", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_address", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_entity_category", subjectKey: "entity_id", action: "hard-delete" },
+  // A person's photograph. As with member_photo, the row is the only thing that names the object
+  // holding the bytes: read object_key before the row goes, or the picture stays in the firm's
+  // bucket where nothing can find it to delete.
+  {
+    table: "directory_entity_photo",
+    subjectKey: "entity_id",
+    action: "hard-delete",
+    note: "the row names an R2 object; read object_key before deleting the row",
+  },
   // Edges reference a subject on both endpoints (mirrors the merge repoint set).
   { table: "directory_edge", subjectKey: "from_entity_id", action: "hard-delete" },
   { table: "directory_edge", subjectKey: "to_entity_id", action: "hard-delete" },

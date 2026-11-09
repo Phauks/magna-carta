@@ -1946,6 +1946,39 @@ export const directoryEntityCategory = sqliteTable(
   (table) => [primaryKey({ columns: [table.entityId, table.categoryId] })],
 );
 
+// A DIRECTORY RECORD'S PICTURE — a person's photograph or an organization's logo. The member_photo
+// shape, for the member_photo reasons: a separate table rather than columns on the node rows, so the
+// reads that never draw a face never carry one, and one row per entity at most, keyed by the entity
+// itself, so "no picture" is the absence of a row. entity_id names a person OR an organization (the
+// handle's prefix says which), which is why it carries no foreign key, the same as every other
+// entity-generic directory table.
+//
+// THE BYTES LIVE IN THE FIRM'S BUCKET and this row names them. Unlike member_photo the object key is
+// scoped to the entity as well as to the bytes' hash, so two records holding the same image (a
+// firm's own placeholder) never share an object that removing one of them would delete.
+export const directoryEntityPhoto = sqliteTable(
+  "directory_entity_photo",
+  {
+    entityId: text("entity_id").primaryKey(),
+    sha256: text("sha256").notNull(),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // The intrinsic size, so a surface can reserve the space before the bytes arrive.
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("directory_entity_photo_size_check", sql`${table.sizeBytes} > 0`),
+    check(
+      "directory_entity_photo_pixels_check",
+      sql`${table.widthPixels} > 0 AND ${table.heightPixels} > 0`,
+    ),
+  ],
+);
+
 // Email addresses for a directory entity. Temporal and type-labelled; is_primary is enforced in the
 // write path (at most one primary per entity). `address` is stored as entered (trimmed);
 // `normalized_address` is the lowercased match key an address -> entity reverse lookup queries, so a

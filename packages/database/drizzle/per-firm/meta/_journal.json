@@ -260,6 +260,13 @@
       "when": 1794252337493,
       "tag": "20261109T192537_attorney-sub-roles",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1794264067976,
+      "tag": "20261109T224108_a-directory-record-carries-a-picture",
+      "breakpoints": true
     }
   ]
 }
