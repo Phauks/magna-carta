@@ -1567,6 +1567,24 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
+
+The owner, reviewing in-app About pages and then About windows:
+
+- **Three page layouts that described the product, and a plainer rewrite of the best of them, were
+  all turned down: "so much of the stuff is weirdly written."** Somebody signed in already knows
+  what Magna Carta is, and a tagline and principles written to fill a page read as marketing. The
+  in-app About states facts about the copy in front of the reader and carries no product prose;
+  describing the product is the public site's job.
+- **It is a window, opened from Websites > About Magna Carta**, standing in for the public site
+  until that has an address, as the Changelog screen does for its own site.
+- **"Two columns with links on right and other stuff on left."** The owner chose the variant whose
+  left column is the chrome-register ink panel carrying the brand mark and the facts (version,
+  released, signed in as, firm, environment, browser) with Copy Version Details at its foot, and
+  whose right column groups the links under What's New, Help and Legal.
+- **"You can remove the up to date part."** The version row states the commit and nothing about
+  whether a newer build is live; the version chip already says that.
+
 ### 2026-11-09 — the numbering editor: preview beside current, parts that drag, and counts that need no padding
 
 The owner, reviewing client and matter numbering over a mockup of Settings, Numbering:
