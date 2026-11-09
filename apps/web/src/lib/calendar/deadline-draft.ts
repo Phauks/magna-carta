@@ -10,6 +10,12 @@
  * THREE ANSWERS ARE REQUIRED: a title, a date, and a zone. A time is optional and load-bearing: many
  * filing deadlines are five in the afternoon, and one whose hour nobody wrote down is due at the
  * end of its day, never at midnight.
+ *
+ * A HALF-TYPED TIME IS NOT AN EMPTY ONE. The field is the platform's time control, which can only
+ * hold a time of day, but a control holding "5:" reports the same empty value as one nobody touched.
+ * Read alone, that empty value would record a five-in-the-afternoon filing as due at the end of the
+ * day. So the form tells the draft when the control holds something it cannot read
+ * (`timeEntryUnfinished`), and that is a shortfall in its own words rather than a silent blank.
  */
 import type { CalendarDeadline, CreateDeadlineRequest, DeadlineSource } from "./calendar-api.ts";
 import { isCivilDate } from "./calendar-window.ts";
@@ -46,9 +52,13 @@ export function emptyDeadlineDraft(timeZone: string, dueOn: string | null = null
   };
 }
 
+/**
+ * Where a deadline came from, as its Source field reads: the short names the owner chose
+ * (2026-11-09). The stored values are unchanged; only the words a person reads are these.
+ */
 const SOURCE_LABELS: Record<DeadlineSource, string> = {
-  member: "Recorded by the firm",
-  court_order: "Set by a court order",
+  court_order: "Court Order",
+  member: "Firm",
 };
 
 export function deadlineSourceLabel(source: DeadlineSource): string {
@@ -64,8 +74,17 @@ export const DEADLINE_FIELDS = {
   priority: "priority",
 } as const;
 
+/** What the form knows about its controls that the typed values alone cannot say. */
+export interface DeadlineEntryState {
+  /** The time control holds a partial entry, so its empty value is not "no time". */
+  readonly timeEntryUnfinished?: boolean;
+}
+
 /** Every reason the deadline cannot be recorded yet. Empty means it can. */
-export function deadlineDraftShortfalls(draft: DeadlineDraft): Shortfall[] {
+export function deadlineDraftShortfalls(
+  draft: DeadlineDraft,
+  entry: DeadlineEntryState = {},
+): Shortfall[] {
   const shortfalls: Shortfall[] = [];
   if (draft.title.trim() === "") {
     shortfalls.push(shortfall(DEADLINE_FIELDS.title, "A title is needed."));
@@ -73,7 +92,15 @@ export function deadlineDraftShortfalls(draft: DeadlineDraft): Shortfall[] {
   if (draft.dueOn === null || !isCivilDate(draft.dueOn)) {
     shortfalls.push(shortfall(DEADLINE_FIELDS.dueOn, "A due date is needed."));
   }
-  if (draft.dueAtTime !== "" && !isWallClockTime(draft.dueAtTime)) {
+  const dueAtTime = draft.dueAtTime.trim();
+  if (dueAtTime === "" && entry.timeEntryUnfinished === true) {
+    shortfalls.push(
+      shortfall(
+        DEADLINE_FIELDS.dueAtTime,
+        "The time is not finished: give the hour and the minute, or clear it for the end of the day.",
+      ),
+    );
+  } else if (dueAtTime !== "" && !isWallClockTime(dueAtTime)) {
     shortfalls.push(
       shortfall(DEADLINE_FIELDS.dueAtTime, "The time does not read as a time of day."),
     );
@@ -104,8 +131,8 @@ export function deadlineDraftShortfalls(draft: DeadlineDraft): Shortfall[] {
   return shortfalls;
 }
 
-export function deadlineDraftReady(draft: DeadlineDraft): boolean {
-  return deadlineDraftShortfalls(draft).length === 0;
+export function deadlineDraftReady(draft: DeadlineDraft, entry: DeadlineEntryState = {}): boolean {
+  return deadlineDraftShortfalls(draft, entry).length === 0;
 }
 
 export function deadlineDraftStarted(draft: DeadlineDraft, since: DeadlineDraft): boolean {

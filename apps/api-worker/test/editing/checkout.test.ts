@@ -19,7 +19,7 @@ import {
 } from "../support/test-auth.ts";
 
 // The offline checkout route over the real chokepoint. Both members hold nothing but a seeded role:
-// documents:checkout reaches the three content-writing seats, so an Owner/Admin has it and a
+// documents:checkout reaches the three content-writing seats, so an Admin has it and a
 // Read-only seat does not, which is the RBAC denial. The presigned URL is the dev presigner's
 // deterministic output (no R2 S3 creds off-production).
 

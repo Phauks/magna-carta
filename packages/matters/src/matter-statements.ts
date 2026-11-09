@@ -145,11 +145,13 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter_type.name AS matter_type_name,
               location.name AS location_name,
               physical_file_location.name AS physical_file_location_name,
+              matter_file_retention.destroy_on AS file_destroy_on,
               member.display_name AS responsible_member_name
          FROM ${MATTER_TABLE} AS matter
          LEFT JOIN matter_type ON matter_type.id = matter.matter_type_id
          LEFT JOIN location ON location.id = matter.location_id
          LEFT JOIN location AS physical_file_location ON physical_file_location.id = matter.physical_file_location_id
+         LEFT JOIN matter_file_retention ON matter_file_retention.matter_id = matter.id
          LEFT JOIN member ON member.user_id = matter.responsible_member_id
         WHERE matter.id = ?1`,
     )

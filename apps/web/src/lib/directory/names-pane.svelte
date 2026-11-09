@@ -367,8 +367,8 @@
 {/snippet}
 
 <section class="flex flex-col gap-16">
-  <div class="flex items-center justify-between gap-16">
-    <h3 class="text-sm font-semibold">Names on the record</h3>
+  <!-- The section's heading is the record's own (record-sections.svelte); its acts stand here. -->
+  <div class="flex items-center justify-end gap-16">
     <div class="flex items-center gap-8">
       <Button
         variant="secondary"

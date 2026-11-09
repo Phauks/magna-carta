@@ -139,6 +139,10 @@ export type FirmRole = {
     id: string;
     name: string;
     /**
+     * The role this one is a sub-role of, or null for a top-level role. A sub-role adds to its parent and is only ever held together with it, so its permissions are the ones it adds.
+     */
+    parentRoleId: string | null;
+    /**
      * The permission keys this role carries, in registry form. Empty where the role carries none, which is a real state rather than a missing answer.
      */
     permissions: Array<string>;
@@ -3355,6 +3359,17 @@ export type MatterSummary = {
     createdAt: string;
 };
 
+export type MatterSettingsResponse = {
+    /**
+     * The firm's minimum retention for a closed matter's paper file, in whole years after the close. 0 means the firm states no minimum; the platform never picks a period.
+     */
+    fileRetentionMinimumYears: number;
+};
+
+export type PatchMatterSettingsRequest = {
+    fileRetentionMinimumYears?: number;
+};
+
 export type ConsultationListResponse = {
     data: Array<ConsultationItem>;
     nextCursor: string | null;
@@ -3393,6 +3408,7 @@ export type MatterDetail = {
     matterTypeName: string | null;
     locationName: string | null;
     physicalFileLocationName: string | null;
+    fileDestructionDate: string | null;
     responsibleMemberName: string | null;
 };
 
@@ -3460,6 +3476,13 @@ export type MatterCloseAck = {
         code: string;
         message: string;
     }>;
+};
+
+export type CloseMatterRequest = {
+    /**
+     * The date (YYYY-MM-DD) the matter's paper file may be destroyed after, stated by the person closing it — no earlier than the firm's minimum retention after the close (GET /api/v1/matters/settings) — or null for none. Absent records nothing. A reminder only: nothing is deleted when the date arrives.
+     */
+    fileDestroyOn?: string | null;
 };
 
 export type HoldMatterRequest = {
@@ -3578,6 +3601,20 @@ export type MatterCourtCaseFields = {
      * What this court's caption calls the other side — Defendant, Respondent.
      */
     opposingDesignation: string | null;
+};
+
+export type MatterFileDestructionDateResponse = {
+    matterId: string;
+    destroyOn: string | null;
+    recordedByUserId: string | null;
+    recordedAt: string | null;
+};
+
+export type MatterFileDestructionDateRequest = {
+    /**
+     * The civil date (YYYY-MM-DD) on or after which the firm may destroy its own paper file for this matter. The firm states it; the platform derives no date and deletes nothing when it arrives — it is a reminder on the matter and on the firm calendar. Null clears it.
+     */
+    destroyOn: string | null;
 };
 
 export type MatterEstateReadResponse = {
@@ -20245,6 +20282,95 @@ export type MattersCreateResponses = {
 
 export type MattersCreateResponse = MattersCreateResponses[keyof MattersCreateResponses];
 
+export type MattersGetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/matters/settings';
+};
+
+export type MattersGetSettingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGetSettingsError = MattersGetSettingsErrors[keyof MattersGetSettingsErrors];
+
+export type MattersGetSettingsResponses = {
+    /**
+     * The firm's matter settings
+     */
+    200: MatterSettingsResponse;
+};
+
+export type MattersGetSettingsResponse = MattersGetSettingsResponses[keyof MattersGetSettingsResponses];
+
+export type MattersUpdateSettingsData = {
+    body: PatchMatterSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/matters/settings';
+};
+
+export type MattersUpdateSettingsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersUpdateSettingsError = MattersUpdateSettingsErrors[keyof MattersUpdateSettingsErrors];
+
+export type MattersUpdateSettingsResponses = {
+    /**
+     * The firm's matter settings after the write
+     */
+    200: MatterSettingsResponse;
+};
+
+export type MattersUpdateSettingsResponse = MattersUpdateSettingsResponses[keyof MattersUpdateSettingsResponses];
+
 export type MattersListConsultationsData = {
     body?: never;
     path?: never;
@@ -20596,7 +20722,7 @@ export type MattersOpenResponses = {
 export type MattersOpenResponse = MattersOpenResponses[keyof MattersOpenResponses];
 
 export type MattersCloseData = {
-    body?: never;
+    body?: CloseMatterRequest;
     headers: {
         'idempotency-key': string;
     };
@@ -21099,6 +21225,60 @@ export type MattersSetCourtCaseResponses = {
 };
 
 export type MattersSetCourtCaseResponse = MattersSetCourtCaseResponses[keyof MattersSetCourtCaseResponses];
+
+export type MattersSetFileDestructionDateData = {
+    body: MatterFileDestructionDateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/file-destruction-date';
+};
+
+export type MattersSetFileDestructionDateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersSetFileDestructionDateError = MattersSetFileDestructionDateErrors[keyof MattersSetFileDestructionDateErrors];
+
+export type MattersSetFileDestructionDateResponses = {
+    /**
+     * The matter's file destruction date as it now stands
+     */
+    200: MatterFileDestructionDateResponse;
+};
+
+export type MattersSetFileDestructionDateResponse = MattersSetFileDestructionDateResponses[keyof MattersSetFileDestructionDateResponses];
 
 export type MattersEstateData = {
     body?: never;

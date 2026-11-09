@@ -109,7 +109,7 @@ export const UNSECTIONED_TIMELINE_SOURCES: Readonly<Record<string, string>> = {
 export const matterSections: readonly MatterSection[] = [
   {
     slug: "overview",
-    timelineSources: ["matterLifecycle"],
+    timelineSources: ["matterLifecycle", "matterFileDestruction"],
     label: "Overview",
     stage: "alpha",
     description: "The matter at a glance — its facts, status, and what has accrued against it.",

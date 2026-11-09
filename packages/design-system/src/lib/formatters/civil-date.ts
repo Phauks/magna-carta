@@ -69,6 +69,22 @@ export function formatDateRange(
   }).formatRange(asUtcDate(from), asUtcDate(to));
 }
 
+/** How wide a month's name is written: "Sep" or "September". */
+export type MonthNameWidth = "short" | "long";
+
+/**
+ * A month's name alone, with no day and no year — "Sep", "September" — for a control that lists the
+ * twelve months of a year it names separately. `month` counts from 1, as a civil date does.
+ */
+export function formatMonthName(
+  month: number,
+  options: CivilDateOptions & { width?: MonthNameWidth } = {},
+): string {
+  return civilFormatter(options.locale, { month: options.width ?? "long" }).format(
+    new Date(Date.UTC(2000, month - 1, 1)),
+  );
+}
+
 /** The month a day falls in, named in full with its year — "September 2026". */
 export function formatMonth(value: CivilDateInput, options: CivilDateOptions = {}): string {
   return civilFormatter(options.locale, { year: "numeric", month: "long" }).format(

@@ -385,6 +385,13 @@
           "name": {
             "type": "string"
           },
+          "parentRoleId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role this one is a sub-role of, or null for a top-level role. A sub-role adds to its parent and is only ever held together with it, so its permissions are the ones it adds."
+          },
           "permissions": {
             "type": "array",
             "items": {
@@ -400,6 +407,7 @@
         "required": [
           "id",
           "name",
+          "parentRoleId",
           "permissions",
           "memberCount"
         ]
@@ -14185,6 +14193,30 @@
           "createdAt"
         ]
       },
+      "MatterSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "fileRetentionMinimumYears": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The firm's minimum retention for a closed matter's paper file, in whole years after the close. 0 means the firm states no minimum; the platform never picks a period."
+          }
+        },
+        "required": [
+          "fileRetentionMinimumYears"
+        ]
+      },
+      "PatchMatterSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "fileRetentionMinimumYears": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
       "ConsultationListResponse": {
         "type": "object",
         "properties": {
@@ -14373,6 +14405,12 @@
               "null"
             ]
           },
+          "fileDestructionDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "responsibleMemberName": {
             "type": [
               "string",
@@ -14404,6 +14442,7 @@
           "matterTypeName",
           "locationName",
           "physicalFileLocationName",
+          "fileDestructionDate",
           "responsibleMemberName"
         ]
       },
@@ -14665,6 +14704,19 @@
           "matterId",
           "notices"
         ]
+      },
+      "CloseMatterRequest": {
+        "type": "object",
+        "properties": {
+          "fileDestroyOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The date (YYYY-MM-DD) the matter's paper file may be destroyed after, stated by the person closing it — no earlier than the firm's minimum retention after the close (GET /api/v1/matters/settings) — or null for none. Absent records nothing. A reminder only: nothing is deleted when the date arrives."
+          }
+        }
       },
       "HoldMatterRequest": {
         "type": "object",
@@ -15043,6 +15095,54 @@
           "filedOn",
           "clientDesignation",
           "opposingDesignation"
+        ]
+      },
+      "MatterFileDestructionDateResponse": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "destroyOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "matterId",
+          "destroyOn",
+          "recordedByUserId",
+          "recordedAt"
+        ]
+      },
+      "MatterFileDestructionDateRequest": {
+        "type": "object",
+        "properties": {
+          "destroyOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The civil date (YYYY-MM-DD) on or after which the firm may destroy its own paper file for this matter. The firm states it; the platform derives no date and deletes nothing when it arrives — it is a reminder on the matter and on the firm calendar. Null clears it."
+          }
+        },
+        "required": [
+          "destroyOn"
         ]
       },
       "MatterEstateReadResponse": {
@@ -39007,7 +39107,7 @@
     },
     "/api/v1/members/{userId}/roles": {
       "put": {
-        "description": "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, and refused when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.",
+        "description": "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, when the set names a sub-role without its parent role or two sub-roles of one parent, and when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.",
         "operationId": "members.setRoles",
         "tags": [
           "members"
@@ -40743,7 +40843,7 @@
     },
     "/api/v1/firms": {
       "post": {
-        "description": "Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.",
+        "description": "Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.",
         "operationId": "firms.provision",
         "tags": [
           "firms"
@@ -65506,6 +65606,203 @@
         }
       }
     },
+    "/api/v1/matters/settings": {
+      "get": {
+        "description": "The firm's matter settings: the minimum retention for a closed matter's paper file, in whole years after the close (0 for none). Read by everybody who closes a matter, since the close asks for a destruction date no earlier than it.",
+        "operationId": "matters.getSettings",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.getSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's matter settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's matter settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. A new minimum governs dates stated from now on; dates already recorded stand. Returns the settings after the write.",
+        "operationId": "matters.updateSettings",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.updateSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:manageRetention",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMatterSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's matter settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the matter is in the wrong state",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/consultations": {
       "get": {
         "description": "The Consultations view: the session attorney's unnumbered Consultation matters, each flagged stale once it has sat past the firm's stale-consultation age. Cursor-paginated.",
@@ -66302,7 +66599,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed. A consultation closes the same way: the firm decided against it. It keeps its tentative number and draws no matter number, and the same preconditions run, which a consultation with nothing on its ledgers passes.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed. A consultation closes the same way: the firm decided against it. It keeps its tentative number and draws no matter number, and the same preconditions run, which a consultation with nothing on its ledgers passes. The body states the paper file's destruction date, no earlier than the firm's minimum after the close, or none; a date under the minimum refuses the close.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -66340,6 +66637,16 @@
             "in": "header"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseMatterRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "The matter was closed, with any advisory notices",
@@ -67418,6 +67725,140 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MatterCourtCaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/file-destruction-date": {
+      "put": {
+        "description": "Records, changes or clears the date on or after which the firm may destroy its own paper file for the matter. A reminder, never a trigger: nothing is deleted when the date arrives. Every change is audited with the date it replaced.",
+        "operationId": "matters.setFileDestructionDate",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.setFileDestructionDate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:edit",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterFileDestructionDateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The matter's file destruction date as it now stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterFileDestructionDateResponse"
                 }
               }
             }

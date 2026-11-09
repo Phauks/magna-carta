@@ -23,6 +23,7 @@ import {
   type MatterFixture,
   type TimeEntryFixtureRow,
 } from "./fixtures.ts";
+import { queryClient, RECORD } from "$lib/api/screen-data.ts";
 
 /** Where the matter on screen came from — the firm's record, or an in-repo sample. */
 export type MatterRecordSource = "live" | "sample";
@@ -180,4 +181,46 @@ export async function resolveMatterRecord(
     return undefined;
   }
   return isMatterReadPayload(body) ? matterRecordFromRead(body) : undefined;
+}
+
+/** The key a matter record is held under. Not a contract operation's key: the record is assembled here. */
+function matterRecordKey(id: string): readonly unknown[] {
+  return ["matter-record", id];
+}
+
+/**
+ * The matter behind a `/matters/[id]` URL, through the one query cache: from the cache when it holds
+ * a current record (the record staleness, `RECORD` in src/lib/api/screen-data.ts) and `rereading` is
+ * false, and from the server otherwise, refreshing the cache with what it answered.
+ *
+ * An identifier nothing answers for is never cached: absence is asked again, so a matter created a
+ * moment after a miss is found on the next arrival.
+ */
+export async function readMatterRecord(
+  fetchImpl: typeof fetch,
+  id: string,
+  rereading: boolean,
+): Promise<MatterRecord | undefined> {
+  try {
+    return await queryClient.fetchQuery({
+      queryKey: matterRecordKey(id),
+      staleTime: rereading ? 0 : RECORD,
+      queryFn: async (): Promise<MatterRecord> => {
+        const matter = await resolveMatterRecord(fetchImpl, id);
+        if (matter === undefined) throw new Error("No matter answers to this identifier.");
+        return matter;
+      },
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Drop a matter's cached record, so the next arrival reads it from the server. For a write that
+ * changes the record without re-running the matter's loader — the next visit must not open on the
+ * answer from before it.
+ */
+export function forgetMatterRecord(id: string): void {
+  queryClient.removeQueries({ queryKey: matterRecordKey(id), exact: true });
 }

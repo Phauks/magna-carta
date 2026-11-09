@@ -71,7 +71,7 @@ Shipping has two permissions, and a member needs both to spend postage:
 Neither lets a member connect, replace or disconnect the firm's account — that takes
 `firm:manageSecrets`, an administrator's permission.
 
-By default both belong to the **Owner/Admin** role and to no other. If your firm gives a member
+By default both belong to the **Admin** role and to no other. If your firm gives a member
 `shipping:manage` without `integrations:useConnection`, they can prepare shipments but not buy them —
 someone who holds both buys the label. The refusal names the missing permission when that happens,
 rather than reporting a fault with the account.

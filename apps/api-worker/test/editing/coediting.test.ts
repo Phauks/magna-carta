@@ -14,7 +14,7 @@ import {
 } from "../support/test-auth.ts";
 
 // Co-editing join + the read-only viewer over the real chokepoint. Both members hold nothing but a
-// seeded role: an Owner/Admin editor (documents:edit reaches the content-writing seats) and a
+// seeded role: an Admin editor (documents:edit reaches the content-writing seats) and a
 // Read-only viewer with matter and file access but no edit capability drive the two launch routes;
 // the join is asserted by decoding both tokens and comparing their session ids.
 

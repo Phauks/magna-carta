@@ -100,7 +100,7 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   `min_balance_minor = 0` a matter leaf carries, which is how "a charge is never borne by client
   funds" becomes a database guarantee (a charge over the cushion aborts the batch, and the named
   pre-check in front of it is only a better sentence); `trust:firmFunds` is a capability of its own,
-  seeded to Owner/Admin alone; and opening the carve-out is refused on a pooled interest-bearing
+  seeded to Admin alone; and opening the carve-out is refused on a pooled interest-bearing
   account, which the corpus records as exempt from the charges it would pay. There is deliberately no
   movement in the category that pays a person, and none that withdraws surplus firm funds — the rule
   text authorizes the deposit and is silent on taking it back out.

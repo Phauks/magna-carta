@@ -60,6 +60,8 @@ export function memberRoleLine(member: FirmMemberSummary): string {
 export interface FirmRole {
   id: string;
   name: string;
+  /** The role this one is a sub-role of, or null for a top-level role. */
+  parentRoleId: string | null;
   /** The permission keys the role carries, in registry form. Empty where it carries none. */
   permissions: string[];
   /** How many ACTIVE members hold it — who a change to the role would reach. */

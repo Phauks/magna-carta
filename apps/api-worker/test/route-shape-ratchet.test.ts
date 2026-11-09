@@ -104,8 +104,10 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "matters/locations.ts": { lines: 1307, shapes: 15 },
   "matters/matter-assets.ts": { lines: 2330, shapes: 52 },
   "matters/matter-plans.ts": { lines: 1003, shapes: 14 },
-  "matters/matter-records.ts": { lines: 637, shapes: 10 },
-  "matters/matters.ts": { lines: 1676, shapes: 23 },
+  // Raised from 637 lines and 10 shapes, and matters.ts below from 1676 and 23, when the destruction-date
+  // work, written before this ledger existed, merged in. Its new shapes belong in a contract module.
+  "matters/matter-records.ts": { lines: 735, shapes: 12 },
+  "matters/matters.ts": { lines: 1915, shapes: 26 },
   "notes-and-tasks/notes.ts": { lines: 685, shapes: 7 },
   "notes-and-tasks/tasks.ts": { lines: 1511, shapes: 20 },
   "notifications/notification-preferences.ts": { lines: 541, shapes: 8 },
@@ -114,7 +116,8 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "platform/meta-versions.ts": { lines: 330, shapes: 5 },
   "platform/platform-status.ts": { lines: 407, shapes: 6 },
   "session/me.ts": { lines: 300, shapes: 6 },
-  "session/member-administration.ts": { lines: 605, shapes: 5 },
+  // Raised from 605 lines when the sub-role rules (a sub-role needs its parent, one per parent) landed.
+  "session/member-administration.ts": { lines: 659, shapes: 5 },
   "session/registrations.ts": { lines: 794, shapes: 4 },
   "support/support-grants.ts": { lines: 386, shapes: 6 },
   "timekeeping/fees.ts": { lines: 976, shapes: 5 },

@@ -15,7 +15,7 @@ let poolFirmId: FirmId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   // The FirmDatabase Durable Object self-migrates the full per-firm lineage (incl.
-  // 0030 — Owner/Admin gets firm:manageScanPolicy) on first access, so there is no
+  // 0030 — Admin gets firm:manageScanPolicy) on first access, so there is no
   // separate per-firm migration to apply here.
   poolFirmId = (
     await seedFirm({ name: "Scan Policy Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
