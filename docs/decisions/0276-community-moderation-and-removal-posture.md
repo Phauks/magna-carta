@@ -109,4 +109,4 @@ not gone away, and the citation is what makes the operational rule authoritative
 prevent). Extends **ADR-0044** (which named the moderation commitment without a mechanism); reuses
 Turnstile and the self-serve registration flow of 2026-08-10 as the write gate, and the control-plane KV
 pattern the shipped service-status work established for operator-authored, deploy-free state. Spec:
-[`docs/specs/2026-08-11-community-surfaces-design.md`](../../specs/2026-08-11-community-surfaces-design.md).
+[`docs/specs/2026-08-11-community-surfaces-design.md`](../specs/2026-08-11-community-surfaces-design.md).

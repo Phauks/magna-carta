@@ -20,7 +20,7 @@ ratified and stands: federation over projection, per-row zones, civil dates, the
 the window-cap refusal, and the refusal of deadline arithmetic.
 
 **Decision:** Per the summary. Spec:
-[`docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md`](../../specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md)
+[`docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md`](../specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md)
 (design and implementation plan, one document). Five tables (`firm_event`,
 `firm_event_participant`, `firm_resource`, `firm_resource_booking`, `calendar_event_link`), one
 additive column (`matter_event.status_reason`), one new timeline source (`firmEvent`), one contract
