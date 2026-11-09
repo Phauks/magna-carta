@@ -68,8 +68,9 @@ import {
 import { WAIVER_SHORTFALLS, waiverShortfalls } from "@magna-carta/conflicts/waiver";
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { readMemberDisplayName } from "@magna-carta/data-access/member-statements";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
+import type { ConflictsCheckId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { identifierPathParam, idempotencyKeyHeader } from "../../contracts/common.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
@@ -350,6 +351,20 @@ const RunProgress = z
   })
   .openapi("ConflictsRunProgress");
 
+// One party a check was asked about, named as the Directory holds it today. `party` is null where
+// the Directory no longer resolves the entity, which a reader is told rather than shown as a blank.
+const SubjectParty = z
+  .object({
+    entityId: z.string(),
+    party: z
+      .object({
+        kind: z.enum(["person", "organization"]),
+        displayName: z.string().nullable(),
+      })
+      .nullable(),
+  })
+  .openapi("ConflictsSubjectParty");
+
 // One run of a check: its place in the check's history, where it is, and what it came to.
 const RunSummary = z
   .object({
@@ -371,6 +386,9 @@ const RunSummary = z
     failure: z.string().nullable(),
     // How many candidates this run's record holds. Null while it has no record.
     hitCount: z.number().int().nullable(),
+    // Who this run searches, by name, readable from the moment it is queued: the run stores its
+    // own request, so a running search can say who it is about before it has a record.
+    subjectParties: z.array(SubjectParty),
   })
   .openapi("ConflictsRunSummary");
 
@@ -401,6 +419,8 @@ const CheckSummary = z
     strictness: z.enum(STRICTNESS_LEVELS).nullable(),
     floorRaised: z.boolean().nullable(),
     hitCount: z.number().int().nullable(),
+    // Who the latest run searches, by name: the log is read to find a check by who it was about.
+    subjectParties: z.array(SubjectParty),
   })
   .openapi("ConflictsCheckSummary");
 
@@ -1286,7 +1306,37 @@ function executeAfterResponse(
   );
 }
 
-function runSummary(run: CheckRunRow, hitCounts: ReadonlyMap<string, number>) {
+/** The run's subject entity ids, as its stored request names them; none where the request is unreadable. */
+function subjectEntityIdsOf(requestJson: string | null): readonly string[] {
+  if (requestJson === null) return [];
+  return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
+}
+
+/** The parties a run was asked about, named from one set-valued Directory read. */
+function subjectPartiesOf(
+  entityIds: readonly string[],
+  names: ReadonlyMap<
+    string,
+    { readonly kind: "person" | "organization"; readonly displayName: string | null }
+  >,
+) {
+  return entityIds.map((entityId) => {
+    const name = names.get(entityId);
+    return {
+      entityId,
+      party: name === undefined ? null : { kind: name.kind, displayName: name.displayName },
+    };
+  });
+}
+
+function runSummary(
+  run: CheckRunRow,
+  hitCounts: ReadonlyMap<string, number>,
+  names: ReadonlyMap<
+    string,
+    { readonly kind: "person" | "organization"; readonly displayName: string | null }
+  >,
+) {
   return {
     id: run.id,
     ordinal: run.ordinal,
@@ -1301,6 +1351,7 @@ function runSummary(run: CheckRunRow, hitCounts: ReadonlyMap<string, number>) {
     finishedAt: run.finished_at,
     failure: run.failure,
     hitCount: run.status === "completed" ? (hitCounts.get(run.id) ?? 0) : null,
+    subjectParties: subjectPartiesOf(subjectEntityIdsOf(run.request_json), names),
   };
 }
 
@@ -1405,6 +1456,10 @@ async function readRecord(database: SqlDatabase, runId: string) {
       createdAt: checkRow.created_at,
       trigger: checkRow.trigger,
       actorUserId: checkRow.actor_user_id,
+      actorDisplayName:
+        checkRow.actor_user_id === null
+          ? null
+          : await readMemberDisplayName(database, checkRow.actor_user_id as UserId),
       strictness: checkRow.strictness as "balanced" | "over_inclusive",
       depth: checkRow.depth,
       floorRaised: checkRow.floor_raised === 1,
@@ -1504,6 +1559,11 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       const hasMore = results.length > DEFAULT_PAGE_SIZE;
       const rows = hasMore ? results.slice(0, DEFAULT_PAGE_SIZE) : results;
       const last = rows.at(-1);
+      // One set-valued Directory read for the whole page, never one per row.
+      const names = await readEntityDisplayNames(
+        firm.firmDatabase,
+        rows.flatMap((row) => subjectEntityIdsOf(row.request_json)),
+      );
       return c.json(
         {
           data: rows.map((row) => ({
@@ -1522,6 +1582,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             strictness: row.strictness,
             floorRaised: row.floor_raised === null ? null : row.floor_raised === 1,
             hitCount: row.hit_count,
+            subjectParties: subjectPartiesOf(subjectEntityIdsOf(row.request_json), names),
           })),
           // Keyed on the same (created_at, id) pair the statement orders by, so the walk can
           // neither skip a check nor show one twice.
@@ -1735,11 +1796,15 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       );
       const record =
         selected.status === "completed" ? await readRecord(firm.firmDatabase, selected.id) : null;
+      const names = await readEntityDisplayNames(
+        firm.firmDatabase,
+        runs.flatMap((run) => subjectEntityIdsOf(run.request_json)),
+      );
       return c.json(
         {
           check: numberedCheckBody(numbered),
-          runs: runs.map((run) => runSummary(run, hitCounts)),
-          run: runSummary(selected, hitCounts),
+          runs: runs.map((run) => runSummary(run, hitCounts, names)),
+          run: runSummary(selected, hitCounts, names),
           record,
         } as unknown as z.infer<typeof GetCheckResponse>,
         200,

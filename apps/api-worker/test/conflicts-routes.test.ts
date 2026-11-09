@@ -154,6 +154,10 @@ interface RunSummary {
   readonly requestedByUserId: string | null;
   readonly failure: string | null;
   readonly hitCount: number | null;
+  readonly subjectParties: Array<{
+    readonly entityId: string;
+    readonly party: { readonly kind: string; readonly displayName: string | null } | null;
+  }>;
 }
 
 interface CheckRead {
@@ -253,6 +257,17 @@ describe("conflicts check routes", () => {
     // A settled run carries its record, and a walk to closure says so on it.
     expect(read.record?.check.id).toBe(opened.runId);
     expect(read.record?.check.traversal?.followedToClosure).toBe(true);
+    // Who was searched reads by name, on the run and on the firm's log.
+    expect(read.run.subjectParties).toEqual([
+      { entityId: personId, party: { kind: "person", displayName: "Solo Subject" } },
+    ]);
+    const log = await get("/api/v1/conflicts/checks");
+    const page = (await log.json()) as {
+      data: Array<{ id: string; subjectParties: RunSummary["subjectParties"] }>;
+    };
+    expect(page.data.find((row) => row.id === opened.id)?.subjectParties).toEqual(
+      read.run.subjectParties,
+    );
   });
 
   it("previews the number the next check would draw, before anything is saved", async () => {
@@ -904,7 +919,7 @@ describe("the reporting posture over the wire", () => {
     });
     expect(read.record?.hits).toEqual([]);
     const statement = read.record?.statement ?? [];
-    expect(statement[0]).toMatch(/^Searched on .* trigger comprehensive\.$/);
+    expect(statement[0]).toMatch(/^Searched on .*, as a comprehensive check\.$/);
     expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
     expect(statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
     expect(statement.at(-1)).toBe("Nothing surfaced.");

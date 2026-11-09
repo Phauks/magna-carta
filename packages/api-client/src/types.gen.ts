@@ -5359,6 +5359,15 @@ export type ConflictsCheckSummary = {
     strictness: 'balanced' | 'over_inclusive' | null;
     floorRaised: boolean | null;
     hitCount: number | null;
+    subjectParties: Array<ConflictsSubjectParty>;
+};
+
+export type ConflictsSubjectParty = {
+    entityId: string;
+    party: {
+        kind: 'person' | 'organization';
+        displayName: string | null;
+    } | null;
 };
 
 export type ConflictsPolicyResponse = {
@@ -5412,6 +5421,7 @@ export type ConflictsRunSummary = {
     finishedAt: string | null;
     failure: string | null;
     hitCount: number | null;
+    subjectParties: Array<ConflictsSubjectParty>;
 };
 
 export type ConflictsRunProgress = {
