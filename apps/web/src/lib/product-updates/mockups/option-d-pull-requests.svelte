@@ -7,9 +7,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import { formatDate } from "@magna-carta/design-system/formatters";
-  import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
-  import GitPullRequest from "@lucide/svelte/icons/git-pull-request";
-  import ExternalLink from "@lucide/svelte/icons/external-link";
   import X from "@lucide/svelte/icons/x";
   import { parseChangelogText } from "../changelog-text.ts";
   import ChangelogInline from "../changelog-inline.svelte";
@@ -166,30 +163,16 @@
           <ul class="flex flex-col divide-y divide-border-default ps-24">
             {#each onDate as record (record.number)}
               <li class="flex flex-col gap-8 py-16">
-                <div class="flex flex-wrap items-start gap-x-16 gap-y-4">
-                  <p class="min-w-0 flex-1 text-base font-semibold">{record.title}</p>
-                  <span class="flex shrink-0 items-center gap-12 text-sm">
-                    <a
-                      class="inline-flex items-center gap-4 text-text-link hover:underline"
-                      href={`${REPOSITORY}/pull/${record.number}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <GitPullRequest class="size-16" aria-hidden="true" />#{record.number}
-                    </a>
-                    <a
-                      class="inline-flex items-center gap-4 font-mono text-text-link hover:underline"
-                      href={`${REPOSITORY}/commit/${record.sha}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={record.sha}
-                    >
-                      <GitCommitHorizontal class="size-16" aria-hidden="true" />{record.sha.slice(0, 7)}
-                      <ExternalLink class="size-12" aria-hidden="true" />
-                    </a>
-                  </span>
-                </div>
+                <p class="text-base font-semibold">{record.title}</p>
                 <div class="flex flex-wrap items-center gap-4">
+                  <a
+                    href={`${REPOSITORY}/commit/${record.sha}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Commit ${record.sha}, pull request #${record.number}, on GitHub`}
+                  >
+                    <Badge variant="neutral" class="font-mono">{record.sha.slice(0, 7)}</Badge>
+                  </a>
                   <Badge variant={KIND_TONE[record.kind]}>{record.kind}</Badge>
                   {#if record.memberFacing}
                     <Badge variant="accent">Members see this</Badge>
