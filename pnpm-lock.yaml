@@ -151,8 +151,8 @@ catalogs:
       specifier: 2.1.0
       version: 2.1.0
     happy-dom:
-      specifier: 20.14.6
-      version: 20.14.6
+      specifier: 21.0.4
+      version: 21.0.4
     hono:
       specifier: 4.13.16
       version: 4.13.16
@@ -210,9 +210,6 @@ catalogs:
     wrangler:
       specifier: 4.158.0
       version: 4.158.0
-    zod:
-      specifier: 4.6.7
-      version: 4.6.7
 
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@0.1.24
@@ -228,6 +225,8 @@ overrides:
   lodash: 4.18.1
   devalue: 5.9.4
   joi@17: 17.13.9
+  tinypool@2: 2.1.2
+  zod: 4.6.7
   '@cloudflare/puppeteer>@puppeteer/browsers': '-'
 
 patchedDependencies:
@@ -250,10 +249,10 @@ importers:
         version: 6.0.3
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   apps/api-worker:
     dependencies:
@@ -454,7 +453,7 @@ importers:
         version: 1.0.20
       better-auth:
         specifier: 'catalog:'
-        version: 1.7.18(@sveltejs/kit@2.70.4(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.3)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(svelte@5.57.3)
+        version: 1.7.18(@sveltejs/kit@2.70.4(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.3)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(svelte@5.57.3)
       client-zip:
         specifier: 'catalog:'
         version: 2.5.1
@@ -465,12 +464,12 @@ importers:
         specifier: 'catalog:'
         version: 4.13.16
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -500,10 +499,10 @@ importers:
         version: 3.4.3
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -522,7 +521,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -531,10 +530,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -548,12 +547,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/build-identity
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -562,10 +561,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -581,7 +580,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -590,10 +589,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -612,7 +611,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -621,10 +620,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -649,10 +648,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -668,7 +667,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -677,10 +676,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -696,7 +695,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -705,10 +704,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -724,7 +723,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -733,10 +732,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -758,10 +757,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -783,10 +782,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -805,7 +804,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -820,10 +819,10 @@ importers:
         version: 3.4.3
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -842,7 +841,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
-        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -851,10 +850,10 @@ importers:
         version: link:../../packages/tsconfig
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -926,7 +925,7 @@ importers:
         version: 6.3.11(svelte@5.57.3)
       better-auth:
         specifier: 'catalog:'
-        version: 1.7.18(@sveltejs/kit@2.70.4(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.3)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(svelte@5.57.3)
+        version: 1.7.18(@sveltejs/kit@2.70.4(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.3)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(svelte@5.57.3)
       client-zip:
         specifier: 'catalog:'
         version: 2.5.1
@@ -957,7 +956,7 @@ importers:
         version: 26.6.6
       happy-dom:
         specifier: 'catalog:'
-        version: 20.14.6
+        version: 21.0.4
       svelte:
         specifier: 'catalog:'
         version: 5.57.3
@@ -975,7 +974,7 @@ importers:
         version: link:../web
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       wrangler:
         specifier: 'catalog:'
         version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
@@ -994,7 +993,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/address-formats:
     devDependencies:
@@ -1012,7 +1011,7 @@ importers:
         version: 4.23.15
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/address-lookup:
     devDependencies:
@@ -1024,7 +1023,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/ai-detection:
     dependencies:
@@ -1038,7 +1037,7 @@ importers:
         specifier: workspace:*
         version: link:../integrations
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1049,7 +1048,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/api-client:
     dependencies:
@@ -1094,7 +1093,7 @@ importers:
         specifier: workspace:*
         version: link:../trust
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/database':
@@ -1108,7 +1107,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/billing-core:
     dependencies:
@@ -1116,7 +1115,7 @@ importers:
         specifier: workspace:*
         version: link:../data-access
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1127,7 +1126,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/build-identity:
     devDependencies:
@@ -1139,7 +1138,7 @@ importers:
         version: link:../tsconfig
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/calendar:
     dependencies:
@@ -1162,7 +1161,7 @@ importers:
         specifier: workspace:*
         version: link:../money
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1176,7 +1175,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/civil-time:
     devDependencies:
@@ -1188,7 +1187,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/communications:
     dependencies:
@@ -1222,7 +1221,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/conflicts:
     dependencies:
@@ -1251,7 +1250,7 @@ importers:
         specifier: workspace:*
         version: link:../sequence-numbering
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/encryption':
@@ -1268,7 +1267,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/conversion:
     dependencies:
@@ -1284,7 +1283,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/costs:
     dependencies:
@@ -1301,7 +1300,7 @@ importers:
         specifier: workspace:*
         version: link:../money
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/database':
@@ -1315,7 +1314,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/custodian:
     dependencies:
@@ -1352,7 +1351,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/custom-fields:
     dependencies:
@@ -1369,7 +1368,7 @@ importers:
         specifier: workspace:*
         version: link:../money
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1383,7 +1382,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/data-access:
     dependencies:
@@ -1409,7 +1408,7 @@ importers:
         specifier: 'catalog:'
         version: 4.13.16
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
@@ -1426,7 +1425,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/database:
     dependencies:
@@ -1457,7 +1456,7 @@ importers:
         version: 0.31.11
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/decryption:
     devDependencies:
@@ -1469,10 +1468,10 @@ importers:
         version: 26.6.6
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/design-system:
     dependencies:
@@ -1530,7 +1529,7 @@ importers:
     devDependencies:
       '@chromatic-com/storybook':
         specifier: 'catalog:'
-        version: 5.6.0(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
+        version: 5.6.0(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
@@ -1539,19 +1538,19 @@ importers:
         version: 1.65.0
       '@storybook/addon-a11y':
         specifier: 'catalog:'
-        version: 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
+        version: 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
       '@storybook/addon-docs':
         specifier: 'catalog:'
-        version: 10.6.6(@types/react@19.2.17)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
+        version: 10.6.6(@types/react@19.2.17)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
       '@storybook/addon-svelte-csf':
         specifier: 'catalog:'
-        version: 5.1.6(@storybook/svelte@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3))(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 5.1.6(@storybook/svelte@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3))(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@storybook/addon-vitest':
         specifier: 'catalog:'
-        version: 10.6.6(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
+        version: 10.6.6(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
       '@storybook/svelte-vite':
         specifier: 'catalog:'
-        version: 10.6.6(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 10.6.6(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@sveltejs/vite-plugin-svelte':
         specifier: 'catalog:'
         version: 7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -1563,10 +1562,10 @@ importers:
         version: 26.6.6
       happy-dom:
         specifier: 'catalog:'
-        version: 20.14.6
+        version: 21.0.4
       storybook:
         specifier: 'catalog:'
-        version: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+        version: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       svelte:
         specifier: 'catalog:'
         version: 5.57.3
@@ -1581,9 +1580,9 @@ importers:
         version: 1.261.0
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
 
   packages/design-tokens:
@@ -1611,7 +1610,7 @@ importers:
         version: 4.0.2
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/directory:
     dependencies:
@@ -1648,7 +1647,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/discovery:
     dependencies:
@@ -1662,7 +1661,7 @@ importers:
         specifier: workspace:*
         version: link:../identifiers
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1676,7 +1675,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/document-assembly:
     dependencies:
@@ -1722,7 +1721,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/email:
     devDependencies:
@@ -1734,10 +1733,10 @@ importers:
         version: 26.6.6
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/email-filing:
     dependencies:
@@ -1756,10 +1755,10 @@ importers:
         version: 26.6.6
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/encryption:
     dependencies:
@@ -1775,12 +1774,12 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/export-document:
     dependencies:
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -1791,7 +1790,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/feature-flags:
     devDependencies:
@@ -1803,7 +1802,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/fees:
     dependencies:
@@ -1820,7 +1819,7 @@ importers:
         specifier: workspace:*
         version: link:../money
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/database':
@@ -1834,7 +1833,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/file-integrity:
     devDependencies:
@@ -1846,7 +1845,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/file-manager:
     dependencies:
@@ -1869,7 +1868,7 @@ importers:
         specifier: 'catalog:'
         version: 22.3.0
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
@@ -1889,7 +1888,7 @@ importers:
         version: 0.8.3
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/file-type:
     devDependencies:
@@ -1901,7 +1900,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/fixtures:
     dependencies:
@@ -1995,7 +1994,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/government-links:
     dependencies:
@@ -2014,12 +2013,12 @@ importers:
         version: 4.23.15
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/gpu-benchmark:
     dependencies:
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2030,7 +2029,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/identifiers:
     dependencies:
@@ -2046,7 +2045,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/inference:
     dependencies:
@@ -2063,7 +2062,7 @@ importers:
         specifier: workspace:*
         version: link:../integrations
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2074,7 +2073,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/intake:
     dependencies:
@@ -2123,12 +2122,12 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/integrations:
     dependencies:
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2139,7 +2138,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/ledger:
     dependencies:
@@ -2170,7 +2169,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/locations:
     dependencies:
@@ -2187,7 +2186,7 @@ importers:
         specifier: workspace:*
         version: link:../identifiers
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2201,7 +2200,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/magnus:
     dependencies:
@@ -2215,7 +2214,7 @@ importers:
         specifier: workspace:*
         version: link:../identifiers
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2226,7 +2225,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/matter-assets:
     dependencies:
@@ -2257,7 +2256,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/matter-search:
     dependencies:
@@ -2288,7 +2287,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/matters:
     dependencies:
@@ -2311,7 +2310,7 @@ importers:
         specifier: workspace:*
         version: link:../sequence-numbering
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2325,12 +2324,12 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/meeting-protocol:
     dependencies:
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2341,7 +2340,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/meetings:
     dependencies:
@@ -2369,7 +2368,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/merge-field-catalog-contract:
     devDependencies:
@@ -2384,7 +2383,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/metadata:
     dependencies:
@@ -2403,7 +2402,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/money:
     dependencies:
@@ -2422,7 +2421,7 @@ importers:
         version: 10.6.0
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/notes:
     dependencies:
@@ -2453,7 +2452,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/notifications:
     dependencies:
@@ -2506,7 +2505,7 @@ importers:
         specifier: workspace:*
         version: link:../tasks
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2520,7 +2519,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/object-dimensions:
     dependencies:
@@ -2536,7 +2535,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/pdf:
     devDependencies:
@@ -2557,10 +2556,10 @@ importers:
         version: 3.4.3
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/product-updates:
     dependencies:
@@ -2568,7 +2567,7 @@ importers:
         specifier: workspace:*
         version: link:../civil-time
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2579,7 +2578,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/property-links:
     dependencies:
@@ -2598,7 +2597,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/reporting:
     dependencies:
@@ -2635,7 +2634,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/safe-browse:
     dependencies:
@@ -2651,7 +2650,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/search:
     dependencies:
@@ -2668,7 +2667,7 @@ importers:
         specifier: workspace:*
         version: link:../object-dimensions
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/database':
@@ -2685,7 +2684,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/sequence-numbering:
     dependencies:
@@ -2696,7 +2695,7 @@ importers:
         specifier: workspace:*
         version: link:../identifiers
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/database':
@@ -2713,7 +2712,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/seven-zip:
     devDependencies:
@@ -2725,10 +2724,10 @@ importers:
         version: 26.6.6
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/shipping:
     dependencies:
@@ -2739,7 +2738,7 @@ importers:
         specifier: workspace:*
         version: link:../integrations
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2750,7 +2749,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/signing:
     dependencies:
@@ -2769,7 +2768,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/status:
     dependencies:
@@ -2777,7 +2776,7 @@ importers:
         specifier: workspace:*
         version: link:../civil-time
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
@@ -2788,7 +2787,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/tasks:
     dependencies:
@@ -2822,7 +2821,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/telemetry:
     dependencies:
@@ -2838,7 +2837,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/timekeeping:
     dependencies:
@@ -2858,7 +2857,7 @@ importers:
         specifier: workspace:*
         version: link:../sequence-numbering
       zod:
-        specifier: 'catalog:'
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@magna-carta/database':
@@ -2872,7 +2871,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/tools:
     dependencies:
@@ -2888,7 +2887,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/trust:
     dependencies:
@@ -2928,7 +2927,7 @@ importers:
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/trust-jurisdictions:
     dependencies:
@@ -2944,7 +2943,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/tsconfig: {}
 
@@ -2964,7 +2963,7 @@ importers:
         version: 4.23.15
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
   packages/whois:
     dependencies:
@@ -2980,7 +2979,7 @@ importers:
         version: 26.6.6
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
 packages:
 
@@ -2996,7 +2995,7 @@ packages:
   '@asteasolutions/zod-to-openapi@9.1.0':
     resolution: {integrity: sha512-pLMeRgRYS7/vZIgAAkOe2P6+XGTifR1MT9pqDoxZ11EmcJJ+DPmdPqLN8ZZF4U8R9KHCCQCS9c2wtuE8wSrfkw==}
     peerDependencies:
-      zod: ^4.0.0
+      zod: 4.6.7
 
   '@asyncapi/specs@6.11.1':
     resolution: {integrity: sha512-A3WBLqAKGoJ2+6FWFtpjBlCQ1oFCcs4GxF7zsIGvNqp/klGUHjlA3aAcZ9XMMpLGE8zPeYDz2x9FmO6DSuKraQ==}
@@ -3757,13 +3756,13 @@ packages:
     engines: {node: '>=16.0.0'}
     peerDependencies:
       hono: '>=4.10.0'
-      zod: ^4.0.0
+      zod: 4.6.7
 
   '@hono/zod-validator@0.9.1':
     resolution: {integrity: sha512-iiv6w0qrIc0arfvCtUqBWsvl4fXjzaTcQcCJTTtCnkawF9HHGE+KjEl0ox3gQJ6rKZEgE3mLExlQCF72M+mNuw==}
     peerDependencies:
       hono: '>=4.11.2'
-      zod: ^3.25.0 || ^4.0.0
+      zod: 4.6.7
 
   '@humanwhocodes/momoa@3.3.13':
     resolution: {integrity: sha512-AbKq3EW41+HY6pNMJgAOrz68iyiTTf0Nr1JRHHfuG5zwniJ9Dw8J3U7oa1I2ptpqYwmEf1sXKOGK6lbdZ9eqmg==}
@@ -5544,7 +5543,7 @@ packages:
   better-call@1.4.5:
     resolution: {integrity: sha512-GVOWfn3pjEfUXn6GrfGf2h7tPAqj1oMLFBWBEswJrSkDKcLk6TIcjV0zexibcZZ0c5N1mkLMsPFopXWzWj/gDQ==}
     peerDependencies:
-      zod: ^4.0.0
+      zod: 4.6.7
     peerDependenciesMeta:
       zod:
         optional: true
@@ -6209,8 +6208,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  happy-dom@20.14.6:
-    resolution: {integrity: sha512-5DDsf4QmEIlRL6NkCv/fxSjYHHkZceL/IaYQdJc2h3G7DRTEai++VTjbfL0LB9geW2VrA3+vrjF3Efx+OTtX0Q==}
+  happy-dom@21.0.4:
+    resolution: {integrity: sha512-tFm+GaLBgo6o0awHnvHaNoraVo27qJ+2tZEtZ+cIa08hXbeitrxAJajLI05hsUy/2/YTKcUjQYzHe5mCcraLBw==}
     engines: {node: '>=20.0.0'}
 
   has-bigints@1.1.0:
@@ -7233,8 +7232,8 @@ packages:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
 
-  tinypool@2.1.0:
-    resolution: {integrity: sha512-Pugqs6M0m7Lv1I7FtxN4aoyToKg1C4tu+/381vH35y8oENM/Ai7f7C4StcoK4/+BSw9ebcS8jRiVrORFKCALLw==}
+  tinypool@2.1.2:
+    resolution: {integrity: sha512-9YodfrxS9g9IbFr/KOjE5bAeJ0p61n3bW6mqvy0jtoeKd1kTW1Cxm0oulm6KX2lyM9Gl6WIe8nEbY7LWv5ZJww==}
     engines: {node: ^20.0.0 || >=22.0.0}
 
   tinyrainbow@2.0.0:
@@ -7623,10 +7622,7 @@ packages:
   zod-v3-to-json-schema@4.0.0:
     resolution: {integrity: sha512-KixLrhX/uPmRFnDgsZrzrk4x5SSJA+PmaE5adbfID9+3KPJcdxqRobaHU397EfWBqfQircrjKqvEqZ/mW5QH6w==}
     peerDependencies:
-      zod: ^3.25 || ^4.0.14
-
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+      zod: 4.6.7
 
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
@@ -7716,12 +7712,12 @@ snapshots:
 
   '@borewit/text-codec@0.2.3': {}
 
-  '@chromatic-com/storybook@5.6.0(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
+  '@chromatic-com/storybook@5.6.0(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
     dependencies:
       '@neoconfetti/react': 1.0.0
       chromatic: 18.14.2
       jsonfile: 6.2.1
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       strip-ansi: 7.2.0
     transitivePeerDependencies:
       - '@chromatic-com/cypress'
@@ -7768,16 +7764,16 @@ snapshots:
     optionalDependencies:
       workerd: 1.20261104.1
 
-  '@cloudflare/vitest-pool-workers@0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))':
+  '@cloudflare/vitest-pool-workers@0.23.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))':
     dependencies:
       '@vitest/runner': 4.1.8
       '@vitest/snapshot': 4.1.8
       cjs-module-lexer: 1.2.3
       esbuild: 0.28.2
       miniflare: 5.20260815.0-alpha(@types/node@26.6.6)
-      vitest: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+      vitest: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
       wrangler: 4.124.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
-      zod: 4.4.3
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
       - '@types/node'
@@ -9032,20 +9028,20 @@ snapshots:
       '@stoplight/yaml-ast-parser': 0.0.50
       tslib: 2.9.1
 
-  '@storybook/addon-a11y@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
+  '@storybook/addon-a11y@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
     dependencies:
       '@storybook/global': 5.0.0
       axe-core: 4.14.0
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
 
-  '@storybook/addon-docs@10.6.6(@types/react@19.2.17)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
+  '@storybook/addon-docs@10.6.6(@types/react@19.2.17)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
     dependencies:
       '@mdx-js/react': 3.1.1(@types/react@19.2.17)(react@19.3.1)
       '@storybook/icons': 2.2.0(react@19.3.1)
-      '@storybook/react-dom-shim': 10.6.6(@types/react@19.2.17)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
+      '@storybook/react-dom-shim': 10.6.6(@types/react@19.2.17)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       ts-dedent: 2.3.0
       unplugin: 2.3.11
     optionalDependencies:
@@ -9053,16 +9049,16 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react-dom'
 
-  '@storybook/addon-svelte-csf@5.1.6(@storybook/svelte@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3))(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/addon-svelte-csf@5.1.6(@storybook/svelte@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3))(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
       '@storybook/csf': 0.1.13
-      '@storybook/svelte': 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)
+      '@storybook/svelte': 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)
       '@sveltejs/vite-plugin-svelte': 7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       dedent: 1.7.2
       es-toolkit: 1.53.2
       esrap: 1.4.9
       magic-string: 0.30.21
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       svelte: 5.57.3
       svelte-ast-print: 0.4.2(svelte@5.57.3)
       vite: 8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
@@ -9070,19 +9066,19 @@ snapshots:
     transitivePeerDependencies:
       - babel-plugin-macros
 
-  '@storybook/addon-vitest@10.6.6(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
+  '@storybook/addon-vitest@10.6.6(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
     dependencies:
       '@storybook/global': 5.0.0
       '@storybook/icons': 2.2.0(react@19.3.1)
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
     optionalDependencies:
-      vitest: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+      vitest: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
     transitivePeerDependencies:
       - react
 
-  '@storybook/builder-vite@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/builder-vite@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       ts-dedent: 2.3.0
       vite: 8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
 
@@ -9096,29 +9092,29 @@ snapshots:
     dependencies:
       react: 19.3.1
 
-  '@storybook/react-dom-shim@10.6.6(@types/react@19.2.17)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
+  '@storybook/react-dom-shim@10.6.6(@types/react@19.2.17)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))':
     dependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
     optionalDependencies:
       '@types/react': 19.2.17
 
-  '@storybook/svelte-vite@10.6.6(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/svelte-vite@10.6.6(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
-      '@storybook/builder-vite': 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
-      '@storybook/svelte': 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)
+      '@storybook/builder-vite': 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      '@storybook/svelte': 10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)
       '@sveltejs/vite-plugin-svelte': 7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       magic-string: 1.4.5
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       svelte: 5.57.3
       svelte2tsx: 0.7.63(svelte@5.57.3)(typescript@5.9.3)
       typescript: 5.9.3
       vite: 8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
 
-  '@storybook/svelte@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)':
+  '@storybook/svelte@10.6.6(storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)))(svelte@5.57.3)':
     dependencies:
-      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      storybook: 10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       svelte: 5.57.3
       ts-dedent: 2.3.0
       type-fest: 5.10.0
@@ -9524,7 +9520,7 @@ snapshots:
   '@voidzero-dev/vite-plus-linux-x64-musl@0.1.24':
     optional: true
 
-  '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)':
+  '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/chai': 5.2.3
@@ -9542,7 +9538,7 @@ snapshots:
       ws: 8.22.1
     optionalDependencies:
       '@types/node': 26.6.6
-      happy-dom: 20.14.6
+      happy-dom: 21.0.4
     transitivePeerDependencies:
       - '@arethetypeswrong/core'
       - '@tsdown/css'
@@ -9683,7 +9679,7 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
-  better-auth@1.7.18(@sveltejs/kit@2.70.4(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.3)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(svelte@5.57.3):
+  better-auth@1.7.18(@sveltejs/kit@2.70.4(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.3)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(svelte@5.57.3):
     dependencies:
       '@better-auth/core': 1.7.18(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.5(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.5)
       '@better-auth/drizzle-adapter': 1.7.18(@better-auth/core@1.7.18(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.5(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8))
@@ -9709,7 +9705,7 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       svelte: 5.57.3
-      vitest: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+      vitest: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
@@ -10404,7 +10400,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  happy-dom@20.14.6:
+  happy-dom@21.0.4:
     dependencies:
       '@types/node': 26.6.6
       '@types/whatwg-mimetype': 3.0.2
@@ -10918,9 +10914,9 @@ snapshots:
       '@oxc-resolver/binding-win32-arm64-msvc': 11.21.2
       '@oxc-resolver/binding-win32-x64-msvc': 11.21.2
 
-  oxfmt@0.52.0(svelte@5.57.3)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)):
+  oxfmt@0.52.0(svelte@5.57.3)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)):
     dependencies:
-      tinypool: 2.1.0
+      tinypool: 2.1.2
     optionalDependencies:
       '@oxfmt/binding-android-arm-eabi': 0.52.0
       '@oxfmt/binding-android-arm64': 0.52.0
@@ -10942,7 +10938,7 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.52.0
       '@oxfmt/binding-win32-x64-msvc': 0.52.0
       svelte: 5.57.3
-      vite-plus: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+      vite-plus: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
 
   oxlint-tsgolint@0.23.0:
     optionalDependencies:
@@ -10953,7 +10949,7 @@ snapshots:
       '@oxlint-tsgolint/win32-arm64': 0.23.0
       '@oxlint-tsgolint/win32-x64': 0.23.0
 
-  oxlint@1.67.0(oxlint-tsgolint@0.23.0)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)):
+  oxlint@1.67.0(oxlint-tsgolint@0.23.0)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)):
     optionalDependencies:
       '@oxlint/binding-android-arm-eabi': 1.67.0
       '@oxlint/binding-android-arm64': 1.67.0
@@ -10975,7 +10971,7 @@ snapshots:
       '@oxlint/binding-win32-ia32-msvc': 1.67.0
       '@oxlint/binding-win32-x64-msvc': 1.67.0
       oxlint-tsgolint: 0.23.0
-      vite-plus: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+      vite-plus: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
 
   package-manager-detector@1.9.0: {}
 
@@ -11343,7 +11339,7 @@ snapshots:
       es-errors: 1.3.0
       internal-slot: 1.1.0
 
-  storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)):
+  storybook@10.6.6(@types/react@19.2.17)(react@19.3.1)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)):
     dependencies:
       '@storybook/global': 5.0.0
       '@storybook/icons': 2.2.0(react@19.3.1)
@@ -11364,7 +11360,7 @@ snapshots:
       ws: 8.22.1
     optionalDependencies:
       '@types/react': 19.2.17
-      vite-plus: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+      vite-plus: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
     transitivePeerDependencies:
       - bufferutil
       - react
@@ -11561,7 +11557,7 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
 
-  tinypool@2.1.0: {}
+  tinypool@2.1.2: {}
 
   tinyrainbow@2.0.0: {}
 
@@ -11732,14 +11728,14 @@ snapshots:
       - unrun
       - yaml
 
-  vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1):
+  vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1):
     dependencies:
       '@oxc-project/types': 0.133.0
       '@oxlint/plugins': 1.61.0
       '@voidzero-dev/vite-plus-core': 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
-      '@voidzero-dev/vite-plus-test': 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
-      oxfmt: 0.52.0(svelte@5.57.3)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
-      oxlint: 1.67.0(oxlint-tsgolint@0.23.0)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@20.14.6)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      '@voidzero-dev/vite-plus-test': 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+      oxfmt: 0.52.0(svelte@5.57.3)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
+      oxlint: 1.67.0(oxlint-tsgolint@0.23.0)(vite-plus@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1))
       oxlint-tsgolint: 0.23.0
     optionalDependencies:
       '@voidzero-dev/vite-plus-darwin-arm64': 0.1.24
@@ -11991,7 +11987,5 @@ snapshots:
     dependencies:
       zod: 4.6.7
     optional: true
-
-  zod@4.4.3: {}
 
   zod@4.6.7: {}

@@ -178,7 +178,7 @@ catalog:
   # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
   # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
   # pragma so everything else stays in the default node pool.
-  happy-dom: 20.14.6
+  happy-dom: 21.0.4
   # PAdES e-signature CMS (the platform seal). pkijs builds the detached CMS/PKCS#7 over WebCrypto —
   # the firm key stays a non-extractable CryptoKey in the Worker, never extractable, never client-side.
   # Pure JS (memory-safe, golden rule 14); the Rust pdf-core engine owns the PDF structure and takes
@@ -232,6 +232,14 @@ overrides:
   # pollution through a `__proto__` language key and `rename()` targets reaching the validated
   # object's prototype. Scoped to 17 so a future carrier on the 18 line is not dragged back.
   "joi@17": 17.13.9
+  # tinypool floor is 2.1.2: below it a prototype-pollution gadget in the worker and run() options
+  # reaches code execution (two CRITICAL records). It arrives through oxfmt inside vite-plus, which
+  # hard-pins 2.1.0; scoped to the 2 line so a carrier on a later major is not dragged back.
+  "tinypool@2": 2.1.2
+  # zod floor is 4.6.6, which stops a constrained collection exhausting memory during validation (CVSS
+  # 7.5). The catalog already carries the fixed line; this override reaches the copy that
+  # @cloudflare/vitest-pool-workers hard-pins at 4.4.3.
+  zod: 4.6.7
   # Removed rather than pinned: @puppeteer/browsers 2.2.4 is what brings extract-zip, and no
   # extract-zip release fixes its two symlink-traversal advisories (2.0.1 is the last, and affected).
   # @cloudflare/puppeteer hard-pins that 2.2.4 for its Node launcher, which downloads and starts a
