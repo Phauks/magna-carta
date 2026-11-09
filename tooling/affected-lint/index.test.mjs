@@ -174,7 +174,7 @@ describe("computeAffected", () => {
 
   it("never defers a sink the change itself touched", () => {
     const result = computeAffected({
-      changedFiles: ["apps/api-worker/src/app.ts"],
+      changedFiles: ["apps/api-worker/src/http/app.ts"],
       packages,
       sinks: new Set(["@magna-carta/api-worker"]),
     });
@@ -185,7 +185,7 @@ describe("computeAffected", () => {
   it("still defers the sink as a dependent when the same change also touches it", () => {
     // Both changed: the worker is linted because it changed, not despite being a sink.
     const result = computeAffected({
-      changedFiles: ["packages/money/src/dinero.ts", "apps/api-worker/src/app.ts"],
+      changedFiles: ["packages/money/src/dinero.ts", "apps/api-worker/src/http/app.ts"],
       packages,
       sinks: new Set(["@magna-carta/api-worker"]),
     });

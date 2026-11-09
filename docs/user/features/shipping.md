@@ -68,6 +68,9 @@ Shipping has two permissions, and a member needs both to spend postage:
 - `integrations:useConnection` lets Magna Carta use the firm's postage account on that member's
   behalf, which is what rating, buying, tracking and voiding do.
 
+Neither lets a member connect, replace or disconnect the firm's account — that takes
+`firm:manageSecrets`, an administrator's permission.
+
 By default both belong to the **Owner/Admin** role and to no other. If your firm gives a member
 `shipping:manage` without `integrations:useConnection`, they can prepare shipments but not buy them —
 someone who holds both buys the label. The refusal names the missing permission when that happens,

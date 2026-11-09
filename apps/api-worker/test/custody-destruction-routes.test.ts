@@ -12,7 +12,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The destruction surface and the will-deposit duty lookup, driven through the chokepoint over real
 // Miniflare bindings.

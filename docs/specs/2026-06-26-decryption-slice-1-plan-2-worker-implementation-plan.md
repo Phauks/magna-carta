@@ -16,7 +16,7 @@
 - **No process-doc references in source / OpenAPI descriptions** (golden rule 13): consumer-facing strings carry no "Plan/slice/ADR" — state the reasoning or point to a file.
 - **Redact by default** (golden rule 4): audit records carry who · file content hash · format · rung(=`strip`) · outcome · attestation — NEVER the password, the supplied bytes, or decrypted content.
 - **OpenAPI is code-as-contract:** after adding/altering routes, re-emit `apps/worker/openapi/openapi.json`, regenerate `@magna-carta/api-client`, and update the conformance committed-operations list — all in the same task.
-- **Mirror the precedents exactly** (read them first): routes → `apps/worker/src/routes/metadata.ts` (inspect/scrub shape) and `apps/worker/src/routes/file-integrity.ts` (the audited-route + audit-statement shape); wasm wrapper → `packages/pdf` (`package.json` `build:wasm`, `src/index.ts` `ensureReady`, `.gitignore` ignoring `src/pkg/`); permission → `packages/access-control/src/registry.ts`; migration → `packages/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql` + registration in `apps/worker/src/per-firm-migrations.ts`; catalog → `packages/tools/src/catalog.ts`.
+- **Mirror the precedents exactly** (read them first): routes → `apps/worker/src/routes/files/metadata.ts` (inspect/scrub shape) and `apps/worker/src/routes/files/file-integrity.ts` (the audited-route + audit-statement shape); wasm wrapper → `packages/pdf` (`package.json` `build:wasm`, `src/index.ts` `ensureReady`, `.gitignore` ignoring `src/pkg/`); permission → `packages/access-control/src/registry.ts`; migration → `packages/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql` + registration in `apps/worker/src/per-firm-migrations.ts`; catalog → `packages/tools/src/catalog.ts`.
 - **Gate per task:** Rust tasks → `cargo test/clippy -D warnings/fmt` for `decryption-core` + `wasm-pack build`. TS/Worker tasks → `pnpm check` (the full fmt+lint+typecheck+svelte-check gate) AND the relevant `vp test` suites (Vitest unit + the Miniflare worker integration). Commit only when green.
 - **Commit hygiene:** `git add` only the files a task changes — never `git add -A` (gitignored `.superpowers/` scratch must stay out).
 
@@ -133,7 +133,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/decryption.ts` (with `registerDecryptionRoutes(app, chokepoint)`; this task adds the inspect route, Task 6 adds unlock).
+- Create: `apps/worker/src/routes/files/decryption.ts` (with `registerDecryptionRoutes(app, chokepoint)`; this task adds the inspect route, Task 6 adds unlock).
 - Modify: `apps/worker/src/app.ts` (import + call `registerDecryptionRoutes`).
 
 **Interfaces:**
@@ -141,7 +141,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 - Request (zod): `{ fileBase64: string; attestation: { authorized: true } }`. Response: `{ format: "pdf"|"zip"|"ooxml"; hash: string; hashcatMode: number }`.
 - RouteMeta: `permission: "tools:decryption"`, `surface: "app"`, `authenticated: true`, `resource: "firm"`, `audited: true`, `idempotency: "optional"`, `rateLimit: "expensive"`, `operationId: "decryption.inspect"`.
 
-- [ ] **Step 1:** read `apps/worker/src/routes/metadata.ts` (route shape, base64 chunked decode helpers) and `file-integrity.ts` (audit-statement write).
+- [ ] **Step 1:** read `apps/worker/src/routes/files/metadata.ts` (route shape, base64 chunked decode helpers) and `file-integrity.ts` (audit-statement write).
 - [ ] **Step 2: write the failing route test** (`apps/worker/test/decryption-route.test.ts`, Miniflare): POST `/api/v1/decryption/inspect` with the PDF fixture base64 + `attestation.authorized=true` and a principal holding `tools:decryption` → 200 `{format:"pdf", hashcatMode:10500|..., hash:"$pdf$..."}`; without the permission → 403; missing/`false` attestation → 400 (a stable problem code).
 - [ ] **Step 3: run it, see it fail.**
 - [ ] **Step 4: implement** the route in `decryption.ts`: validate body, enforce a size cap (read the cap helper used by metadata/file-integrity, e.g. `readInspectableSizeCap`), decode base64 → bytes, call `@magna-carta/decryption` `ensureReady` + `extractHash`, map `ExtractError` codes → 400 problems (no content echoed), and on success write a redacted audit record (`event: "decryption.inspected"`, metadata: actor, `fileSha256` of the input, `format`, `outcome:"extracted"`, attestation) via `insertAuditLogStatement` + `commitEffectBatch`. Register `registerDecryptionRoutes` in `app.ts`.
@@ -152,7 +152,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 
 ### Task 6: Worker route `POST /api/v1/decryption/unlock`
 
-**Files:** Modify `apps/worker/src/routes/decryption.ts`, `apps/worker/test/decryption-route.test.ts`.
+**Files:** Modify `apps/worker/src/routes/files/decryption.ts`, `apps/worker/test/decryption-route.test.ts`.
 
 **Interfaces:**
 

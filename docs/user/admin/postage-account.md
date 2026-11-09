@@ -4,8 +4,11 @@ Magna Carta buys postage through your firm's own account with the carrier platfo
 connect it once, and from then on anyone allowed to post things can rate and buy labels from
 **Shipping & Postage** — see [Shipping & postage](../features/shipping.md).
 
-The page is **Settings › Postage Account**, under **Integrations**. By default only the
-**Owner/Admin** role can open it.
+The page is **Settings › Postage Account**, under **Integrations**. Connecting, replacing and
+disconnecting the account all need `firm:manageSecrets`, which by default only the **Owner/Admin**
+role holds. A member who can use Shipping & Postage can see whether an account is connected, but
+cannot change it: whoever controls the account receives every shipment's addresses, so which
+account that is stays an administrator's decision.
 
 ## Connecting
 

@@ -29,9 +29,9 @@
 - `packages/file-manager/src/file-service.ts` — `commitVersion` accepts a flagged commit (persists `scanVerdict: "flagged"`).
 - `apps/worker/src/files/ingest-consumer.ts` — resolve the firm policy + treatment before `runIngest` and before the rescan recompute.
 - `packages/database/drizzle/per-firm/00NN_scan_verdict_flagged.sql` (NEW) + `per-firm-schema.ts` + `apps/worker/src/per-firm-migrations.ts` — rename the `file_version.scan_verdict` enum value `infected` → `flagged` (pre-production, no rows).
-- `apps/worker/src/routes/files.ts` — the download + preview handlers resolve the firm treatment and gate a `flagged` version accordingly.
+- `apps/worker/src/routes/files/files.ts` — the download + preview handlers resolve the firm treatment and gate a `flagged` version accordingly.
 - `packages/file-manager/src/preview-policy.ts` — treat `scanVerdict: "flagged"` exactly as the old `infected`.
-- `apps/worker/src/routes/scan-policy.ts` (NEW) — `GET` + `PATCH /api/v1/firm/scan-policy` (read/write the three settings).
+- `apps/worker/src/routes/firm/scan-policy.ts` (NEW) — `GET` + `PATCH /api/v1/firm/scan-policy` (read/write the three settings).
 - `packages/access-control/src/registry.ts` + a seed migration — a `firm:manageScanPolicy` permission.
 - Docs: `changelog.d/`, `docs/decisions/pending/`, `STATUS.md`, `apps/worker`/`file-manager` area `CLAUDE.md`.
 
@@ -156,7 +156,7 @@ export function readStepUpReauthOnFlagged(database: SqlDatabase): Promise<boolea
 
 - Create: `packages/database/drizzle/per-firm/00NN_scan_verdict_flagged.sql` (NN = next free number — check `meta/_journal.json` head)
 - Modify: `packages/database/src/per-firm-schema.ts` (the `fileVersion.scanVerdict` enum), `apps/worker/src/per-firm-migrations.ts`
-- Modify any TS referencing the literal `"infected"` for a scan verdict: `packages/file-manager/src/queries.ts` (`CleanVersion`), `apps/worker/src/routes/files.ts`, `packages/file-manager/src/preview-policy.ts`, `apps/worker/src/files/ingest-consumer.ts` (rescan), `ingest-core.ts` (it already emits `scan-flagged` reason; check the committed verdict literal).
+- Modify any TS referencing the literal `"infected"` for a scan verdict: `packages/file-manager/src/queries.ts` (`CleanVersion`), `apps/worker/src/routes/files/files.ts`, `packages/file-manager/src/preview-policy.ts`, `apps/worker/src/files/ingest-consumer.ts` (rescan), `ingest-core.ts` (it already emits `scan-flagged` reason; check the committed verdict literal).
 
 **Interfaces:**
 
@@ -289,7 +289,7 @@ it("a deployed-engine fault throws (never commits) under any treatment", async (
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/files.ts` (download ~728-739, preview ~782-846)
+- Modify: `apps/worker/src/routes/files/files.ts` (download ~728-739, preview ~782-846)
 - Modify: `packages/file-manager/src/preview-policy.ts`
 - Test: `apps/worker/test/` download/preview tests (find the existing files-route test)
 
@@ -315,7 +315,7 @@ it("a deployed-engine fault throws (never commits) under any treatment", async (
 
 **Files:**
 
-- Create: `apps/worker/src/routes/scan-policy.ts`
+- Create: `apps/worker/src/routes/firm/scan-policy.ts`
 - Modify: the route registry (where routes mount in `apps/worker/src/app.ts`), `packages/access-control/src/registry.ts`
 - Create: `packages/database/drizzle/per-firm/00NN_seed-scan-policy-permission.sql` (seed `firm:manageScanPolicy` to Owner/Admin roles) + wire in `per-firm-migrations.ts`
 - Test: `apps/worker/test/scan-policy.test.ts`

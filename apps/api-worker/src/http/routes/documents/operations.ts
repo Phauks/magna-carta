@@ -1,0 +1,28 @@
+// The operations the documents module registers, as the conformance suite holds them (see
+// test/conformance.test.ts). Regenerate with `pnpm --filter @magna-carta/api-worker run
+// emit-domain-operations`; a hand edit here is a claim the suite will check against the module.
+export const OPERATIONS: readonly string[] = [
+  "assemblies.status",
+  "assemblies.submit",
+  "conversions.events",
+  "conversions.status",
+  "conversions.submit",
+  "conversions.upload",
+  "documents.checkin",
+  "documents.checkout",
+  "documents.editOpenProgress",
+  "documents.editSession",
+  "documents.forceRelease",
+  "documents.reconcile",
+  "documents.viewSession",
+  "esign.seal",
+  "templates.addVersion",
+  "templates.archive",
+  "templates.deleteFieldMapping",
+  "templates.fieldMappings",
+  "templates.fields",
+  "templates.list",
+  "templates.mergeFields",
+  "templates.register",
+  "templates.upload",
+];

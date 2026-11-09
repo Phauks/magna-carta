@@ -44,4 +44,4 @@ accident.
 procedure can name the client's forms and the payment; every picker over the directory can record
 into it under `directory:edit`, and the design system's picker states the refusal when the reader
 may not. Spec:
-[`docs/specs/2026-09-05-intake-desk-design.md`](../../specs/2026-09-05-intake-desk-design.md).
+[`docs/specs/2026-09-05-intake-desk-design.md`](../specs/2026-09-05-intake-desk-design.md).

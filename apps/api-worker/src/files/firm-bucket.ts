@@ -1,5 +1,5 @@
 import type { DataRegion } from "@magna-carta/database/data-region";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmBucketNotBound } from "./firm-bucket-fault.ts";
 import { firmBucketFactoryForEnv } from "./firm-bucket-wiring.ts";
 import { requireBucket } from "./require-bucket.ts";

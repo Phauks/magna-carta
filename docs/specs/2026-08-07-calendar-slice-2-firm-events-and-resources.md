@@ -473,7 +473,7 @@ constant was named for.
 
 ## 6. The API surface
 
-Route module `apps/worker/src/routes/calendar.ts` extended; the two shipped permissions cover
+Route module `apps/worker/src/routes/calendar/calendar.ts` extended; the two shipped permissions cover
 everything — `calendar:read` for every read below, `calendar:manage` for every write. No third
 permission: curating the resource list is calendar administration exactly as curating the event-type
 catalog is, and slice 1's two-not-four argument was ratified with the rest.

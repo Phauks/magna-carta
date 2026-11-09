@@ -33,7 +33,7 @@ outbox), ADR-0068 (trusted-insider access control).
 metadata-redaction chokepoint (`packages/data-access/src/audit-statements.ts`,
 `metadata-redaction.ts`); the PII/erasure registry (`packages/data-access/src/pii-registry.ts`); the
 AI-text-detection consent precedent (`packages/ai-detection/src/settings.ts`,
-`apps/worker/src/routes/ai-detection.ts`); the Cloudflare Agents assessment
+`apps/worker/src/routes/files/ai-detection.ts`); the Cloudflare Agents assessment
 ([`../research/2026-08-04-cloudflare-agents-assessment.md`](../research/2026-08-04-cloudflare-agents-assessment.md));
 and a fresh reading of the Cloudflare AI Gateway documentation on 2026-08-06 (section 4.4).
 
