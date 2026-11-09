@@ -71,6 +71,9 @@
       "path": "packages/calendar/tsconfig.test.json"
     },
     {
+      "path": "packages/citations/tsconfig.test.json"
+    },
+    {
       "path": "packages/civil-time/tsconfig.test.json"
     },
     {

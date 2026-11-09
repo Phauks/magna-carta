@@ -27,6 +27,7 @@
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";
 @import "../components/badge/badge.css";
+@import "../components/formatted-citation/formatted-citation.css";
 @import "../components/file-icon/file-icon.css";
 @import "../components/brand-mark/brand-mark.css";
 @import "../components/empty-state/empty-state.css";

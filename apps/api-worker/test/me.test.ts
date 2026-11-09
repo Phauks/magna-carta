@@ -300,6 +300,7 @@ describe("GET /api/v1/me", () => {
         "tools:fileTypeVerifier",
         "tools:fileWorkbench",
         "tools:firmUsage",
+        "tools:legalCitations",
         "tools:metadataScrubber",
         "tools:ocr",
         "tools:propertyListings",

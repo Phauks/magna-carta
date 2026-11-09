@@ -47,6 +47,7 @@ import communicationNumberScopePartsSql from "@magna-carta/database/drizzle/per-
 import versionChangesSql from "@magna-carta/database/drizzle/per-firm/20261002T192301_version-changes.sql";
 import aMatterFileCarriesItsDestructionDateSql from "@magna-carta/database/drizzle/per-firm/20261109T180511_a-matter-file-carries-its-destruction-date.sql";
 import attorneySubRolesSql from "@magna-carta/database/drizzle/per-firm/20261109T192537_attorney-sub-roles.sql";
+import legalCitationsToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261109T230020_legal-citations-tool-permission.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -92,6 +93,7 @@ export function perFirmMigrations(): Migration[] {
     "20261109T180511_a-matter-file-carries-its-destruction-date":
       aMatterFileCarriesItsDestructionDateSql,
     "20261109T192537_attorney-sub-roles": attorneySubRolesSql,
+    "20261109T230020_legal-citations-tool-permission": legalCitationsToolPermissionSql,
   });
 }
 

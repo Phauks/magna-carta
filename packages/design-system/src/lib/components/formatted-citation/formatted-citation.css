@@ -1,0 +1,23 @@
+@layer components {
+  /*
+   * FormattedCitation. The citation in the reading face at body size, Copy beside it at the line's
+   * end. An incomplete citation drops to the muted text register so it does not read as finished.
+   */
+  .mc-formatted-citation {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mc-space-8);
+  }
+  .mc-formatted-citation-text {
+    flex: 1 1 auto;
+    margin: 0;
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-md);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+    overflow-wrap: anywhere;
+  }
+  .mc-formatted-citation[data-incomplete] .mc-formatted-citation-text {
+    color: var(--mc-text-muted);
+  }
+}

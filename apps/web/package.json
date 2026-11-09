@@ -18,6 +18,7 @@
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/address-formats": "workspace:*",
     "@magna-carta/api-client": "workspace:*",
+    "@magna-carta/citations": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/conversion": "workspace:*",
     "@magna-carta/design-system": "workspace:*",
