@@ -33,7 +33,6 @@
   --radius-md: 7px;
   --radius-none: 0px;
   --radius-sm: 2px;
-  --font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -85,6 +84,13 @@
    * theme key), or two `max-w-*` classes would both survive the merge.
    */
   --container-record-window: var(--mc-size-record-window);
+  /*
+   * The reading face. Inline (a var() reference, not the resolved stack) because it is a user
+   * axis: the :root[data-typeface=…] overlays in tokens.css re-point --mc-font-sans, and every
+   * font-sans utility — and the document default Tailwind's base layer derives from --font-sans —
+   * has to follow that choice.
+   */
+  --font-sans: var(--mc-font-sans);
   /* Elevation: dark themes may later override --mc-elevation-* per mode; the wiring already permits it. */
   --shadow-elevation-0: var(--mc-elevation-0);
   --shadow-elevation-1: var(--mc-elevation-1);

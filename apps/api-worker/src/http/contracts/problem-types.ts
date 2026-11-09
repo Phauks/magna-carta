@@ -608,6 +608,11 @@ export const PROBLEM_TYPES = {
   // a malformed handle: this one is well-formed and simply names nothing, so the caller's list of
   // roles is stale rather than wrong in shape.
   "unknown-role": "unknown-role",
+  // A role set that breaks the sub-role rules (HTTP 422): a sub-role named without its parent, or
+  // two sub-roles of one parent. The parent's row is what carries its permissions to the member, so
+  // a Partner without Attorney would hold only what Partner adds; and Partner and Associate describe
+  // one position, so holding both is a set nobody meant.
+  "role-family": "role-family",
   // A meeting nothing can reach (HTTP 404): a handle naming no room, an event with no meeting on it,
   // an event that does not exist, and an event on a matter the member may not see. ONE type for all
   // four deliberately — a meeting is reachable only through its calendar event, so those are one

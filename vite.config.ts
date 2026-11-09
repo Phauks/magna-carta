@@ -137,6 +137,7 @@ export default defineConfig({
     projects: [
       "apps/web/vitest.config.ts",
       "apps/api-worker/vitest.config.ts",
+      "apps/address-worker/vitest.config.ts",
       "apps/status-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
@@ -193,6 +194,7 @@ export default defineConfig({
       "tooling/resolve-journal/vitest.config.ts",
       "tooling/retire-note/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
+      "tooling/preview-cleanup/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
       "tooling/branch-landing/vitest.config.ts",
       "tooling/affected-lint/vitest.config.ts",

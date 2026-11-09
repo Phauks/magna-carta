@@ -109,4 +109,4 @@ is active. A custody packet takes a carried-in number the same way, when it is l
 Every member sees the page: what is in force for each sequence, stated as a fact, with **Request a
 change** beside it (`matters:viewNumbering`, granted to every role). Changing a scheme needs the
 `matters:manageNumbering` permission, and setting a matter's number by hand needs
-`matters:renumber`; both are granted to the Owner/Admin role.
+`matters:renumber`; both are granted to the Admin role.

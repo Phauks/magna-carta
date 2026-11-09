@@ -104,7 +104,7 @@ async function postMembers(
   });
 }
 
-// Seeds a credentialed user on the resolvable pool firm, grants Owner/Admin (which carries
+// Seeds a credentialed user on the resolvable pool firm, grants Admin (which carries
 // firm:manageMembers), and signs in — the inviting principal for the happy paths.
 async function signInAsOwner(email: string): Promise<string> {
   const { userId } = await seedCredentialedUser(email, { firmId: poolFirmId });
@@ -168,7 +168,7 @@ describe("POST /api/v1/members", () => {
   });
 
   it("answers 404 when the inviter has been DEACTIVATED — absent at the chokepoint, never a 403 oracle", async () => {
-    // A full Owner/Admin whose member row was then deactivated. Under the chokepoint a DEACTIVATED
+    // A full Admin whose member row was then deactivated. Under the chokepoint a DEACTIVATED
     // member is structural ABSENCE: the firm-context gate (step 3a) returns null → 404, BEFORE the
     // permission gate runs — so a deactivated insider is indistinguishable from no such firm/member,
     // never a 403 confirming the account exists but was turned off. (This is the unified semantics

@@ -85,17 +85,14 @@
 
   const mayManage = $derived(session?.permissions.includes(MANAGE_CUSTODY_PERMISSION) ?? false);
   /*
-   * The two honest refusals, in the order a person meets them. A member without the permission is
-   * refused server-side whatever this screen does; a firm with no open container has nowhere to put
-   * a packet, and a form that opened anyway would end at a location field with nothing in it.
+   * The one honest refusal: a member without the permission is refused server-side whatever this
+   * screen does. A firm with no open container is NOT refused, because the form can add the
+   * container the packet goes into.
    */
   const createRefusal = $derived.by((): string | undefined => {
     if (session === null) return "Reading your session.";
     if (!mayManage) {
       return permissionRefusal("Logging a packet", "custody:manage");
-    }
-    if (locations.length > 0 && !locations.some((location) => location.status === "active")) {
-      return "A packet is logged into a container, and the firm has no open one to put it in.";
     }
     return undefined;
   });
@@ -237,7 +234,12 @@
   </div>
 </div>
 
-<NewPacketDialog bind:open={dialogOpen} {locations} onCreated={onLogged} />
+<NewPacketDialog
+  bind:open={dialogOpen}
+  {locations}
+  onCreated={onLogged}
+  onLocationsAdded={(added) => (locations = [...locations, ...added])}
+/>
 
 <PacketWindow
   bind:open={windowOpen}

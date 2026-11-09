@@ -288,7 +288,7 @@ is not enforced.
   asymmetry this subsystem is built on — by email the member's choice wins.
 - **A setting that binds anybody but the actor does not go on the member route.** The two preference
   surfaces split on that line: `notifications:read` (every default role, including Read-only) for a
-  member's own switches, `firm:manageNotificationPolicy` (Owner/Admin) for the floor, the retention
+  member's own switches, `firm:manageNotificationPolicy` (Admin) for the floor, the retention
   window and the digest hour. Adding a firm-tier setting to the member route would hand every seat in
   every firm a lever over its colleagues.
 - **Outbound mail is an UNPROVISIONED SEAM, and the digest resolves its own port rather than reusing

@@ -2,6 +2,7 @@ import { redirect } from "@sveltejs/kit";
 import { meGetOptions } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
 import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
+import { forgetSession } from "$lib/matters/matters-api.ts";
 import type { LayoutLoad } from "./$types";
 
 // The (app) session guard. Every signed-in surface renders inside this group, so the gate lives at
@@ -52,7 +53,14 @@ export const load: LayoutLoad = async ({ url }) => {
   const membership = bootstrap.membership?.state;
   const stillJoining =
     bootstrap.firm === null || membership === "provisioning" || membership === "stalled";
-  if (stillJoining) redirect(307, "/welcome");
+  if (stillJoining) {
+    // The answer that sent them away is the one thing that must not greet them on the way back. The
+    // joining screen reads the bootstrap fresh and sends them here once the workspace is ready; a
+    // guard that judged that return against the cached "no firm yet" would send them straight back,
+    // and keep doing so for as long as the cache believed it.
+    forgetSession();
+    redirect(307, "/welcome");
+  }
   return {};
 };
 

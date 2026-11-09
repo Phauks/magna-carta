@@ -1,0 +1,9 @@
+{
+  "$description": "Typeface axis — SERIF: the one home a serif gets as a reading face, an opt-in for people who read more easily in one. Literata, drawn for long-form reading on screens. Re-points font.sans ONLY — the variable keeps its name because every recipe reads the reading face through it.",
+  "font": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": ["Literata Variable", "Literata", "Georgia", "Times New Roman", "serif"]
+    }
+  }
+}

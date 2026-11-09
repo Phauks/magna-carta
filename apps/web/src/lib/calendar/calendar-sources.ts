@@ -37,8 +37,10 @@ import { CALENDAR_LAYERS, type CalendarLayer } from "./calendar-vocabulary.ts";
  * once (`calendar-reads.ts`) rather than each surface guessing from a key's shape.
  */
 export type CalendarSourceKind =
-  /** The firm's matters: their events and their deadlines. The calendar a firm opens on. */
-  | { readonly kind: "records" }
+  /** The firm's case settings: every matter's hearings, depositions and conferences. */
+  | { readonly kind: "caseSettings" }
+  /** The firm's deadlines, across every matter. */
+  | { readonly kind: "deadlines" }
   /** The firm's own events — meetings, closures, training, holidays. */
   | { readonly kind: "firmEvents" }
   /** One member's calendar: what they are a participant in, responsible for, or invited to. */
@@ -52,7 +54,7 @@ export type CalendarSourceKind =
 export interface CalendarSource {
   /** Stable across reads and across sessions: what a preference and an address remember. */
   readonly key: string;
-  /** What the row says: a person's name, a room's name, "Matters and deadlines". */
+  /** What the row says: a person's name, a room's name, "Case Settings". */
   readonly name: string;
   readonly kind: CalendarSourceKind;
   /**
@@ -85,25 +87,32 @@ export function layerSourceKey(layerKey: string): string {
   return `layer:${layerKey}`;
 }
 
-/** The firm's matters: the calendar every firm opens on, and the one that is never empty. */
-export const RECORDS_SOURCE_KEY = "records";
+/**
+ * The firm's case settings and the firm's deadlines: two calendars, each with its own row and its
+ * own colour. They were one row ("Matters and deadlines") until 2026-11-09, when the owner split
+ * them so a hearing and a filing deadline read differently at a glance and each can be turned off
+ * alone — which is also what let the toolbar's separate Kinds filter go.
+ */
+export const CASE_SETTINGS_SOURCE_KEY = "caseSettings";
+export const DEADLINES_SOURCE_KEY = "deadlines";
 /** The firm's own events. */
 export const FIRM_EVENTS_SOURCE_KEY = "firmEvents";
 
 /**
- * The calendars that are on when nobody has said otherwise: the firm's records and the firm's own
- * events, and nothing else.
+ * The calendars that are on when nobody has said otherwise: the firm's case settings, its deadlines
+ * and its own events, and nothing else.
  *
  * Deliberately not "everything". Turning on eleven attorneys and nine rooms is twenty reads a
  * reader never asked for, and a grid painted from twenty calendars at once is the undifferentiated
  * month this whole catalog exists to replace. The firm opens on its own record and adds people.
  */
 export const DEFAULT_ON_SOURCE_KEYS: readonly string[] = [
-  RECORDS_SOURCE_KEY,
+  CASE_SETTINGS_SOURCE_KEY,
+  DEADLINES_SOURCE_KEY,
   FIRM_EVENTS_SOURCE_KEY,
 ];
 
-/** The folder the firm's own two calendars sit in. */
+/** The folder the firm's own three calendars sit in. */
 const FIRM_FOLDER_KEY = "firm";
 /** The folder a member with no role at all falls into. */
 const OTHER_MEMBERS_FOLDER_KEY = "role:";
@@ -117,23 +126,18 @@ const DATES_FOLDER_KEY = "dates";
  * The date calendars that have no source behind them yet, listed so the shape of the calendar is
  * honest about what it will hold, and refused so it cannot be mistaken for what it holds today.
  *
- * File destruction is the one the owner asked for by name. A retention schedule reaching a date is
- * a date that falls due exactly as a custody due-back is, so it belongs in this folder and nowhere
- * else — there is simply no retention model to read from yet.
+ * Empty today. File destruction dates were the one listed here until the matter's paper file
+ * carried a date of its own; it is a served layer now (`CALENDAR_LAYERS`), under the same key, so a
+ * reader who had the row in view keeps it. The list stays as the place the next unserved date
+ * calendar goes.
  */
-interface UnservedDateCalendar {
+export interface UnservedDateCalendar {
   readonly key: string;
   readonly name: string;
   readonly soonReason: string;
 }
 
-const UNSERVED_DATE_CALENDARS: readonly UnservedDateCalendar[] = [
-  {
-    key: "fileDestruction",
-    name: "File destruction dates",
-    soonReason: "a retention schedule on a matter's files",
-  },
-];
+const UNSERVED_DATE_CALENDARS: readonly UnservedDateCalendar[] = [];
 
 /** What the catalog is built from: everything the calendar's context already read. */
 export interface CalendarCatalogInput {
@@ -143,7 +147,22 @@ export interface CalendarCatalogInput {
   readonly resources: readonly FirmResource[];
   /** The date-bearing sources the read can be widened to. The vocabulary's own list by default. */
   readonly layers?: readonly CalendarLayer[];
+  /** The date calendars listed but not yet served. The catalog's own list by default. */
+  readonly unservedDates?: readonly UnservedDateCalendar[];
 }
+
+/**
+ * The firm's own calendars, in the order the rail lists them. Every rail name is Title Case (owner,
+ * 2026-11-09): a row names a calendar, and a calendar's name is a proper name.
+ *
+ * Also the plan an embedded host that drew no rail reads (calendar-reads.ts), so Home's Today card
+ * and the rail's defaults are one list rather than two that could drift.
+ */
+export const FIRM_OWN_CALENDARS: readonly CalendarSource[] = [
+  { key: CASE_SETTINGS_SOURCE_KEY, name: "Case Settings", kind: { kind: "caseSettings" } },
+  { key: DEADLINES_SOURCE_KEY, name: "Deadlines", kind: { kind: "deadlines" } },
+  { key: FIRM_EVENTS_SOURCE_KEY, name: "Firm Events", kind: { kind: "firmEvents" } },
+];
 
 /**
  * The whole catalog, in the order the rail draws it: the firm's own calendars, then the members
@@ -155,23 +174,12 @@ export function calendarFolders(input: CalendarCatalogInput): readonly CalendarF
   const folders: CalendarFolder[] = [
     {
       key: FIRM_FOLDER_KEY,
-      name: "The firm",
-      sources: [
-        {
-          key: RECORDS_SOURCE_KEY,
-          name: "Matters and deadlines",
-          kind: { kind: "records" },
-        },
-        {
-          key: FIRM_EVENTS_SOURCE_KEY,
-          name: "Firm events",
-          kind: { kind: "firmEvents" },
-        },
-      ],
+      name: "The Firm",
+      sources: FIRM_OWN_CALENDARS,
     },
     ...memberFolders(input.members),
     ...resourceFolders(input.resources),
-    dateFolder(input.layers ?? CALENDAR_LAYERS),
+    dateFolder(input.layers ?? CALENDAR_LAYERS, input.unservedDates ?? UNSERVED_DATE_CALENDARS),
   ];
   return folders.filter((folder) => folder.sources.length > 0);
 }
@@ -209,7 +217,7 @@ function memberFolders(members: readonly FirmMemberSummary[]): readonly Calendar
     })
     .map(([role, sources]) => ({
       key: role === "" ? OTHER_MEMBERS_FOLDER_KEY : `role:${role}`,
-      name: role === "" ? "Other members" : pluralRole(role),
+      name: role === "" ? "Other Members" : pluralRole(role),
       sources,
     }));
 }
@@ -244,14 +252,17 @@ function resourceFolders(resources: readonly FirmResource[]): readonly CalendarF
     },
     {
       key: EQUIPMENT_FOLDER_KEY,
-      name: "Vehicles and equipment",
+      name: "Vehicles and Equipment",
       sources: active.filter((resource) => resource.kind !== "room").map(toSource),
     },
   ];
 }
 
 /** The calendars that are dates rather than people: the served layers, then the ones still coming. */
-function dateFolder(layers: readonly CalendarLayer[]): CalendarFolder {
+function dateFolder(
+  layers: readonly CalendarLayer[],
+  unservedDates: readonly UnservedDateCalendar[],
+): CalendarFolder {
   return {
     key: DATES_FOLDER_KEY,
     name: "Dates",
@@ -261,7 +272,7 @@ function dateFolder(layers: readonly CalendarLayer[]): CalendarFolder {
         name: layer.label,
         kind: { kind: "layer", layerKey: layer.key },
       })),
-      ...UNSERVED_DATE_CALENDARS.map((unserved): CalendarSource => ({
+      ...unservedDates.map((unserved): CalendarSource => ({
         key: layerSourceKey(unserved.key),
         name: unserved.name,
         kind: { kind: "layer", layerKey: unserved.key },

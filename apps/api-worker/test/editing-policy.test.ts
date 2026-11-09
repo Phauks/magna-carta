@@ -11,7 +11,7 @@ import {
 } from "./support/test-auth.ts";
 
 // The firm's editing policy over its route: on by default for a fresh firm, held by the seeded
-// Owner/Admin role alone, and written through one idempotent batch with its audit row.
+// Admin role alone, and written through one idempotent batch with its audit row.
 
 let poolFirmId: FirmId;
 
@@ -20,7 +20,7 @@ const ROUTE = "https://example.com/api/v1/firm/editing-policy";
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   // The FirmDatabase Durable Object self-migrates the full per-firm lineage (including the seed
-  // that grants Owner/Admin firm:manageEditingPolicy) on first access.
+  // that grants Admin firm:manageEditingPolicy) on first access.
   poolFirmId = (
     await seedFirm({ name: "Editing Policy Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;

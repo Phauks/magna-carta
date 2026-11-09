@@ -18,7 +18,7 @@ let poolFirmId: FirmId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   poolFirmId = (await seedFirm({ name: "Support Diagnostics Test Firm" })).firmId;
-  // Seed a member with the Owner/Admin role so they carry support:request (seeded to every default
+  // Seed a member with the Admin role so they carry support:request (seeded to every default
   // role by the per-firm DO migrations) but NOT diagnostics:overview (never seeded to any firm role).
   const { userId } = await seedCredentialedUser("diag-e2e@example.com", { firmId: poolFirmId });
   await mirrorMemberWithOwnerRole(userId, "Diagnostics E2E Member", poolFirmId);

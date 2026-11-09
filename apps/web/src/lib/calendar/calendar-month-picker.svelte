@@ -16,6 +16,13 @@
    * THE WEEK BEGINS WHERE THE FIRM SAID. The same `weekStartsOn` the grids take, so the little
    * month's columns and the big grid's columns are the same seven days in the same order. A picker
    * that began its week on Sunday beside a grid that began on Monday would be two calendars.
+   *
+   * IT IS THE COMPACT MONTH, and it browses on its own. The framed date picker was wider than the
+   * column it stands in and chose its month from two native selects (owner, 2026-11-09: "pretty
+   * big", "hard to read"); the compact density fits the column and names its month in words, with
+   * arrows and a twelve-month jump. Browsing it ahead does not move the grid — only pressing a day
+   * does — and when the grid moves (the toolbar's arrows, Today) it follows, so the two never
+   * disagree about where the reader is.
    */
   import { Calendar } from "@magna-carta/design-system/calendar";
   import type { DateValue } from "@internationalized/date";
@@ -26,6 +33,12 @@
   let { controller }: { controller: CalendarController } = $props();
 
   const anchorValue = $derived(civilDateValue(controller.anchor));
+
+  /** The month on show: the reader's to browse, and reset to the window whenever the window moves. */
+  let placeholder = $state<DateValue | undefined>(undefined);
+  $effect.pre(() => {
+    placeholder = anchorValue;
+  });
 
   function goToDay(next: DateValue | undefined): void {
     const day = civilDateText(next);
@@ -40,7 +53,9 @@
 <div class="border-t border-border-default pt-12">
   <Calendar
     type="single"
+    density="compact"
     value={anchorValue}
+    bind:placeholder
     onValueChange={goToDay}
     weekStartsOn={controller.weekStartsOn}
     fixedWeeks={true}

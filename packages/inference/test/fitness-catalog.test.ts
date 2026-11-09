@@ -34,10 +34,9 @@ describe("recorded provenance is the provider's, not something that resembles it
     const recorded = Object.fromEntries(CATALOG.map((e) => [e.modelId, e.snapshotId]));
     expect(recorded).toEqual({
       // Published dateless: from the 4.6 generation on, the undated id is itself the pinned snapshot.
-      "anthropic/claude-opus-4-8": "claude-opus-4-8",
-      "anthropic/claude-sonnet-4-6": "claude-sonnet-4-6",
-      // Predates that change, so the undated name is an alias and the dated id is the pin.
-      "anthropic/claude-haiku-4-5": "claude-haiku-4-5-20251001",
+      "anthropic/claude-opus-5-5": "claude-opus-5-5",
+      "anthropic/claude-sonnet-5-5": "claude-sonnet-5-5",
+      "anthropic/claude-haiku-5-5": "claude-haiku-5-5",
       // Composed rather than published: the model paired with the index generation its vectors belong to.
       "@cf/baai/bge-large-en-v1.5": "bge-large-en-v1.5-vectorize-index-v1",
     });

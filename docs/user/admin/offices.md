@@ -24,8 +24,10 @@ Press **New Office**. The record opens with its fields ready, in three tabs:
   code, its time zone and its email address.
 - **Addresses**: the street address, and a mailing address where post goes somewhere else. The
   country comes first because it decides what the rest of the form asks for: an Irish address has an
-  Eircode and no state, a German one puts the postal code before the town. Each address carries its
-  own telephone, grouped the way that country writes numbers, with an extension beside it.
+  Eircode and no state, a German one puts the postal code before the town. Where address
+  suggestions are available, the street box offers real addresses as you type, and choosing one
+  fills in the rest — exactly as it does on a Directory record. Each address carries its own
+  telephone, grouped the way that country writes numbers, with an extension beside it.
 - **Letterhead**: the address block, the footer and the remit-to text the office's letterhead and
   bills print.
 
@@ -48,7 +50,7 @@ member off their primary office hands the mark to their next one. A member can b
 ## The letterhead logo
 
 The **Letterhead Logo** tab shows the mark this office's letterhead prints. An office with no logo of
-its own prints the firm's primary mark, set under Firm Profile, and the tab says so. To give the
+its own prints the firm's primary mark, set under Firm Brand, and the tab says so. To give the
 office a mark of its own, choose a PNG or a JPEG, say how wide it prints in points, and press **Set
 Logo**. Only the width is asked for: the height follows from the image's own proportions, so a
 letterhead can never print a stretched logo. **Remove Logo** puts the office back on the firm's mark.
@@ -72,5 +74,5 @@ table and opens each office to read it.
 
 ## Related
 
-- [Firm Profile](firm-profile.md): the firm's name and the marks an office's letterhead falls back to.
+- [Firm Brand](firm-brand.md): the firm's marks, which an office's letterhead falls back to.
 - [Numbering](numbering.md): where an office's numbering code appears in a matter number.

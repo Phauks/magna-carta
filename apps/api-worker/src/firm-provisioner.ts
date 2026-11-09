@@ -226,7 +226,7 @@ export async function provisionFirm(
   // Step 3 — the activation batch, returned for the caller's atomic commit: the owner user
   // (unverified, account-less — activation runs through the password-reset flow, the Path A
   // members.invite verified), the firm.provisioned audit row, the member.provision outbox row
-  // carrying the Owner/Admin role, the activation fence, and the status flip that also records
+  // carrying the Admin role, the activation fence, and the status flip that also records
   // the owner. One batch: 'active' implies the owner exists AND is recorded, which is what makes
   // status the step-3 guard and owner_user_id the already-active branch's owner of record.
   const adoptedOwnerUserId = input.owner.userId;
@@ -335,7 +335,7 @@ export async function provisionFirm(
             userId: ownerUserId,
             firmId,
             displayName: input.owner.name,
-            roleName: "Owner/Admin",
+            roleName: "Admin",
           },
         },
       ],

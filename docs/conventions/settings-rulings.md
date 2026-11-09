@@ -88,6 +88,19 @@ with the reason.
   actually opens is whether firm branding is firm-wide, per-office, or firm-wide with a per-office
   override — not whether an upload path has to be built from nothing.
 
+| #   | Ruling (2026-11-09)                                                                                                                                                                                                | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| F3  | **Offices come off Firm Profile, and the marks get a Firm Brand page of their own.** The offices plate repeated the Offices register one link away; the owner removed it to remove the duplication. Supersedes F1. | settled |
+| F4  | **Rooms and Resources sits under Firm, not Practice**, and its row acts (Change, Retire, Restore) are one `...` menu so the actions column never reflows.                                                          | settled |
+
+How it landed: Firm Profile holds the name alone (`apps/web/src/routes/(app)/settings/firm-profile/+page.svelte`);
+the brand-images plate moved to `apps/web/src/routes/(app)/settings/firm-brand/`, a new section in
+the Firm group of `apps/web/src/lib/settings/settings-sections.ts`, behind the same
+`firm:manageProfile` the brand-image routes enforce. The Rooms and Resources section moved to the
+Firm group in the same registry, and `apps/web/src/routes/(app)/settings/resources/+page.svelte`
+draws one `DropdownMenu` per row from an icon-sized trigger. Event Types and Users still draw a
+button per act; the ruling names Rooms and Resources only.
+
 ### Offices
 
 | #   | Ruling                                                                                                                                                                                                                      | Status  |

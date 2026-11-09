@@ -15,7 +15,9 @@
  *     as a consultation and opened months later has two dates, and only the detail read carries the
  *     second. The column that shows it therefore says "Created" and means it.
  */
+import { meGetQueryKey } from "@magna-carta/api-client";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
+import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
 import type { MatterStatus } from "./matter-status.ts";
 
 /** One matter as the firm's listing answers it. */
@@ -286,9 +288,65 @@ export function listLocations(
   return requestJson(fetchImpl, "/api/v1/locations");
 }
 
-/** Who is asking, and what they are allowed to do. */
-export function readSession(fetchImpl: typeof fetch): Promise<ApiOutcome<SessionBootstrap>> {
-  return requestJson(fetchImpl, "/api/v1/me");
+/** How a caller asks for the session: from the cache when it is current, or from the server now. */
+export interface SessionReadOptions {
+  /**
+   * Skip the cache and ask the server, then refresh the cache with the answer. For the one kind of
+   * caller that knows the session has just changed under it — a write that moves the firm's release
+   * channel, whose flag set is part of the session — and nobody else.
+   */
+  readonly fresh?: boolean;
+}
+
+/**
+ * Who is asking, and what they are allowed to do — answered from the one query cache when it holds
+ * a current answer, and from the server when it does not.
+ *
+ * WHY THE CACHE. Forty-odd surfaces read the session for themselves on mount, and each of those
+ * reads used to be its own request: a control-plane read, a firm Durable Object wake, a permissions
+ * join, the channel and flags. The (app) guard has already read the same answer into the cache on
+ * the way in, so a screen asking a moment later was paying a full round trip, in series in front of
+ * its own data, for something it already had. That serial round trip is a large part of why a
+ * screen's loading shape showed at all. The answer is held at the session-stable ceiling the guard
+ * itself uses (`SESSION_STABLE`, src/lib/api/screen-data.ts): a permission or a channel changes when
+ * an administrator changes it, which is a page-load-scale event.
+ *
+ * The outcome stays the `ApiOutcome` every caller already branches on. A refusal is never cached as
+ * an answer: the cache keeps only a session that was read, and a failed read is asked again by the
+ * next caller. When the cache joins a read somebody else started and that read fails, the failure
+ * arrives without the outcome this function promises, so it asks once more for itself to report it
+ * in the shape the caller reads.
+ */
+export async function readSession(
+  fetchImpl: typeof fetch,
+  options: SessionReadOptions = {},
+): Promise<ApiOutcome<SessionBootstrap>> {
+  let refused: ApiOutcome<SessionBootstrap> | null = null;
+  try {
+    const value = await queryClient.fetchQuery({
+      // The generated key, so this read and the guard's `meGetOptions()` read are one cache entry.
+      queryKey: meGetQueryKey() as readonly unknown[],
+      staleTime: options.fresh === true ? 0 : SESSION_STABLE,
+      queryFn: async (): Promise<SessionBootstrap> => {
+        const outcome = await requestJson<SessionBootstrap>(fetchImpl, "/api/v1/me");
+        if (outcome.kind === "ok") return outcome.value;
+        refused = outcome;
+        throw new Error("The session could not be read.");
+      },
+    });
+    return { kind: "ok", value };
+  } catch {
+    return refused ?? requestJson(fetchImpl, "/api/v1/me");
+  }
+}
+
+/**
+ * Drop the cached session, so the next reader asks the server. For a caller that has just learned
+ * the cached answer no longer describes the person — the (app) guard sending somebody with no firm
+ * to the joining screen, who will come back with one.
+ */
+export function forgetSession(): void {
+  queryClient.removeQueries({ queryKey: meGetQueryKey() as readonly unknown[], exact: true });
 }
 
 /** The permission the create endpoint names. A member without it is refused server-side. */
@@ -298,7 +356,8 @@ export const CREATE_MATTER_PERMISSION = "matters:create";
 export const EDIT_MATTER_PERMISSION = "matters:edit";
 
 /**
- * What the matter read answers about the two offices a matter names, and nothing else.
+ * What the matter read answers about the two offices a matter names, and the paper file's destruction
+ * date beside them — the facts the status window states and re-reads each time it opens.
  *
  * TWO OFFICES, NEVER ONE. `locationId` is the office the matter is RUN OUT OF — the fact the
  * header's citation states. `physicalFileLocationId` is the office the firm's own paper file for
@@ -311,6 +370,12 @@ export interface MatterOffices {
   locationName: string | null;
   physicalFileLocationId: string | null;
   physicalFileLocationName: string | null;
+  /**
+   * The civil date on or after which the firm may destroy its paper file for this matter, as a
+   * person at the firm recorded it, or null where nobody has. It rides the same read as the paper
+   * file's office because the status window states both and re-reads both each time it opens.
+   */
+  fileDestructionDate: string | null;
 }
 
 /**
@@ -339,6 +404,7 @@ export async function readMatterOffices(
       locationName: outcome.value.locationName ?? null,
       physicalFileLocationId: outcome.value.physicalFileLocationId ?? null,
       physicalFileLocationName: outcome.value.physicalFileLocationName ?? null,
+      fileDestructionDate: outcome.value.fileDestructionDate ?? null,
     },
   };
 }
@@ -374,6 +440,33 @@ export function updateMatter(
     body: patch,
     idempotencyKey,
   });
+}
+
+/** The matter's file destruction date as it stands after a write. */
+export interface MatterFileDestructionDate {
+  matterId: string;
+  destroyOn: string | null;
+  recordedByUserId: string | null;
+  recordedAt: string | null;
+}
+
+/**
+ * Record, change or clear the date on or after which the firm may destroy its paper file for the
+ * matter. Null clears it. A reminder only: nothing is deleted when the date arrives, and the server
+ * audits every change with the date it replaced. Behind the same permission as the matter's other
+ * fields.
+ */
+export function setMatterFileDestructionDate(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  destroyOn: string | null,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MatterFileDestructionDate>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/file-destruction-date`,
+    { method: "PUT", body: { destroyOn }, idempotencyKey },
+  );
 }
 
 /**
@@ -443,9 +536,40 @@ export function closeMatter(
   fetchImpl: typeof fetch,
   matterId: string,
   idempotencyKey: string,
+  fileDestroyOn?: string | null,
 ): Promise<ApiOutcome<CloseMatterResult>> {
+  // The paper file's destruction date rides the close itself, so a date under the firm's minimum
+  // refuses the close rather than closing a matter whose date was lost. Absent records nothing.
   return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/close`, {
     method: "POST",
+    ...(fileDestroyOn === undefined ? {} : { body: { fileDestroyOn } }),
+    idempotencyKey,
+  });
+}
+
+/** The firm's matter settings. */
+export interface MatterSettings {
+  /** Minimum years a closed matter's paper file is kept after the close. 0 means no minimum. */
+  fileRetentionMinimumYears: number;
+}
+
+/** The permission that sets the firm's minimum retention. */
+export const MANAGE_RETENTION_PERMISSION = "matters:manageRetention";
+
+/** Read the firm's matter settings. Every member may: the close asks for a date against them. */
+export function readMatterSettings(fetchImpl: typeof fetch): Promise<ApiOutcome<MatterSettings>> {
+  return requestJson(fetchImpl, "/api/v1/matters/settings");
+}
+
+/** Change the firm's matter settings. Sparse: an absent field is left alone. */
+export function updateMatterSettings(
+  fetchImpl: typeof fetch,
+  patch: Partial<MatterSettings>,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MatterSettings>> {
+  return requestJson(fetchImpl, "/api/v1/matters/settings", {
+    method: "PATCH",
+    body: patch,
     idempotencyKey,
   });
 }

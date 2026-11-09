@@ -132,12 +132,13 @@ const DEFAULT_SETTINGS: FirmAiSettings = {
   model: null,
   models: [],
   catalog: { version: 0, effectiveDate: "" },
+  provider: { status: "not-configured", checkedAt: null, awaitingVerification: [] },
   magnus: { enabled: false, dailyTurnCeiling: 500 },
 };
 
-/** How a roster entry reads as a choice: its id, with the platform's own marked as such. */
+/** How a roster entry reads as a choice: the provider's own name for it. */
 function modelChoiceLabel(choice: AiModelChoice): string {
-  return choice.modelId;
+  return choice.displayName;
 }
 
 export class AiSettingsDraft extends SettingsDraft {
@@ -188,7 +189,7 @@ export class AiSettingsDraft extends SettingsDraft {
           label:
             platform === undefined
               ? "The platform's current model"
-              : `The platform's current model (${platform.modelId})`,
+              : `The platform's current model (${platform.displayName})`,
         },
         ...settings.models.map((choice) => ({
           value: choice.modelId,

@@ -1,15 +1,17 @@
 /*
- * What the entity window says about a record before any pane is opened — the words in its header
- * and the facts in its context pane — kept as pure functions so they can be asserted without a
- * browser and so the window and the screen that hosts it never assemble them two ways.
+ * What the entity window says about a record before any section is read — the words in its
+ * header — kept as pure functions so they can be asserted without a browser and so the window and
+ * the screen that hosts it never assemble them two ways.
  *
  * THE WINDOW IS THE ONE SURFACE A DIRECTORY RECORD OPENS IN. It opens over whatever the reader was
  * doing — the directory's own list, a matter's parties, a conflicts hit — and closing it lands
  * them back exactly there. Every host therefore describes the record the same way, and the only
  * thing a host adds is what it alone knows: a matter knows the roles this person holds on it, the
  * directory knows nothing of the kind. That addition is the `EntityStanding` a host hands over,
- * and it is rendered above the record's own facts rather than mixed into them.
+ * and it is the only thing the window's right-hand pane holds: with nothing to hand over, there
+ * is no pane.
  */
+import { formatDate } from "@magna-carta/design-system/formatters";
 import type { RecordSubject } from "@magna-carta/design-system/record-reference";
 import type { DirectoryEntityDetail } from "./directory-api.ts";
 import {
@@ -38,45 +40,32 @@ export interface EntityStanding {
 export const UNREAD_RECORD_HEADING = "Directory Record";
 
 /**
- * The line beneath the name: what the record is, then what a reader recognises it by beyond the
- * name — a person's stated pronouns, an organization's legal name where it differs.
+ * The line beneath the name: what the record is, then the facts a reader recognises it by and wants
+ * before reading anything else — a person's stated pronouns and life dates, an organization's legal
+ * name where it differs.
+ *
+ * THE HEADER CARRIES THE RECORD'S OWN FACTS. They used to stand in a pane on the right, which put a
+ * column beside every record to hold two or three short lines; in the header they are read with the
+ * name, and the right-hand pane is left for what only a host knows (a matter's roles for a party).
  *
  * A directory record carries no number anybody quotes — it is found by name, which the heading has
- * already given — so the reference names only which side of the directory it is on, and the rest
- * are facts about that record. The separator is no longer joined here: the design system owns it,
- * which is what stops this line and the panels that act on the record drifting apart.
+ * already given — so the reference names only which side of the directory it is on. The separator
+ * is not joined here: the design system owns it, which is what stops this line and the panels that
+ * act on the record drifting apart. Only facts the record actually holds are listed.
  */
 export function entityWindowSubtitle(entity: DirectoryEntityDetail): RecordSubject {
   const facts: string[] = [];
   if (entity.kind === "person") {
-    if (entity.person.pronouns !== null) facts.push(pronounShortForm(entity.person.pronouns));
+    const person = entity.person;
+    if (person.pronouns !== null) facts.push(pronounShortForm(person.pronouns));
+    if (person.dateOfBirth !== null) facts.push(`Born ${formatDate(person.dateOfBirth)}`);
+    if (person.dateOfDeath !== null) facts.push(`Died ${formatDate(person.dateOfDeath)}`);
+    else if (person.deceased) facts.push("Deceased");
   } else {
     const aside = organizationLegalNameAside(entity.organization);
     if (aside !== null) facts.push(aside);
   }
   return { reference: { kind: entityKindLabel(entity.kind), number: null }, facts };
-}
-
-/**
- * The record's own standing facts for the context pane: what a reader wants to know before
- * opening any section. Only facts the record actually holds are listed — a blank is not drawn as
- * a label with nothing against it.
- */
-export function entityWindowFacts(entity: DirectoryEntityDetail): readonly StandingLine[] {
-  const lines: StandingLine[] = [{ label: "Kind", value: entityKindLabel(entity.kind) }];
-  if (entity.kind === "person") {
-    const person = entity.person;
-    if (person.pronouns !== null) {
-      lines.push({ label: "Pronouns", value: pronounShortForm(person.pronouns) });
-    }
-    if (person.dateOfBirth !== null) lines.push({ label: "Born", value: person.dateOfBirth });
-    if (person.dateOfDeath !== null) lines.push({ label: "Died", value: person.dateOfDeath });
-    else if (person.deceased) lines.push({ label: "Died", value: "Date not recorded" });
-  } else {
-    const aside = organizationLegalNameAside(entity.organization);
-    if (aside !== null) lines.push({ label: "Legal name", value: aside });
-  }
-  return lines;
 }
 
 /** The name the window's heading shows, in the one wording every surface uses for the record. */

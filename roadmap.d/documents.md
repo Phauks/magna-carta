@@ -269,7 +269,7 @@
   surface: awaiting-screen
   adrs: ADR-0126
   evidence: packages/file-manager/src/checkout-statements.ts + apps/api-worker/src/editing idle-checkout-sweep.ts. The four permissions the chokepoint enforces across this surface are seeded as of packages/database/drizzle/per-firm/20260908T000000_baseline.sql — until then documents:edit, documents:checkout, documents:reconcile and documents:forceReleaseLock were granted to no role and every route answered 403 to every member of every firm.
-  awaiting-owner: Should documents:forceReleaseLock also reach Attorney? It is seeded to Owner/Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
+  awaiting-owner: Should documents:forceReleaseLock also reach Attorney? It is seeded to Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
 
 - id: documents.editing.export-copy
   name: Accepted copies on the way out

@@ -73,7 +73,7 @@ export const provisionFirmRoute = defineOpenAPIRoute(provisionFirmMeta, {
   path: "/api/v1/firms",
   description:
     "Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the " +
-    "Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and " +
+    "Admin role — resumable; re-invoking with the same name no-ops completed steps and " +
     "returns the existing firm. The firm's per-firm database is the firmId-addressed database " +
     "that self-migrates on first access, so it needs no provisioning step.",
   request: {
@@ -246,7 +246,7 @@ export function registerFirmsRoute(
         await authForEnv(c.env).api.requestPasswordReset({ body: { email: outcome.ownerEmail } });
         // Best-effort latency optimization (same seam as members.invite): close the up-to-5-minute
         // window where the owner could activate before the next */5 cron sweeps the member.provision
-        // row (Owner/Admin) into the firm database — without it the owner reads permissions: [] and
+        // row (Admin) into the firm database — without it the owner reads permissions: [] and
         // 403s until the cron fires. The cron stays the at-least-once guarantee; overlapping sweeps
         // are safe per scheduled.ts's documented invariant. Off the response path via waitUntil.
         scheduleRequestPathSweep(c.executionCtx, c.env);

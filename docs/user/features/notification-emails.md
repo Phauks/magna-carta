@@ -62,7 +62,7 @@ can only ever be a starting point: whatever you choose stands, including off.
 
 ## What your firm controls
 
-Three settings belong to the whole firm rather than to any one person. Only Owner/Admin seats can
+Three settings belong to the whole firm rather than to any one person. Only Admin seats can
 change them, and every change is written to your firm's audit log.
 
 **Which categories everyone hears in app.** Your firm can turn a category on for everybody, and then
@@ -90,7 +90,7 @@ about somebody who was away.
 ## When it arrives
 
 In your firm's own morning, not at some hour set by a clock on the other side of the world. The hour
-is set once for the whole firm and starts at 7am; an Owner/Admin can move it to any hour of the day.
+is set once for the whole firm and starts at 7am; an Admin can move it to any hour of the day.
 The time zone is your firm's main office, so it follows the office rather than needing to be kept in
 step with it by hand.
 

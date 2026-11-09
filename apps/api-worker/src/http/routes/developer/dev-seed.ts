@@ -31,7 +31,7 @@ import { devUploadEmulationActive } from "../../../files/presigner-wiring.ts";
 // nothing real. This route stands up a complete, signed-in-ready tenant in one call so a developer
 // can log in and see real seeded data flow through the typed hooks. It provisions, idempotently:
 //   - a dev firm (a stable name, so a re-run resumes the same tenant) plus its wrapped firm key,
-//   - a credentialed owner user with a KNOWN dev email + password, mirrored as Owner/Admin,
+//   - a credentialed owner user with a KNOWN dev email + password, mirrored as Admin,
 //   - a matter, two folders, and a handful of files visible through the file-manager reads
 //     (committed clean versions with current_version_id set and R2 objects present), including a
 //     re-scan-flagged file and a quarantined file so the enriched summary fields have something to
@@ -213,15 +213,15 @@ async function createCredentialAccount(
   });
 }
 
-// Mirrors the owner into the firm's member table and assigns the seeded Owner/Admin role. Both
+// Mirrors the owner into the firm's member table and assigns the seeded Admin role. Both
 // inserts are ON CONFLICT DO NOTHING, so a re-run is a no-op. Reading the role first also triggers
 // the per-firm FirmDatabase DO to self-migrate, so the seeded role row exists.
 async function ensureOwnerMember(firmDatabase: ProxyBatchDatabase, userId: UserId): Promise<void> {
   const ownerRole = await firmDatabase
-    .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+    .prepare("SELECT id FROM role WHERE name = 'Admin'")
     .first<{ id: string }>();
   if (ownerRole === null) {
-    throw new Error("seeded Owner/Admin role missing from the firm database");
+    throw new Error("seeded Admin role missing from the firm database");
   }
   await insertMemberStatement(firmDatabase, {
     userId,

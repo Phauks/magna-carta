@@ -17,12 +17,12 @@ describe("tokenUsageKeyForDay", () => {
     const key = tokenUsageKeyForDay(
       "2026-06-18T13:45:00.000Z",
       "reasoning",
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-5-5",
     );
     expect(key).toEqual({
       day: "2026-06-18",
       slot: "reasoning",
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
     });
   });
 });

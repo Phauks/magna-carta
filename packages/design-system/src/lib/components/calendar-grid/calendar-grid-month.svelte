@@ -126,8 +126,14 @@
   <!--
     The caption region is where the grid says what it is missing. It stays mounted, blank, while
     there are entries, so the grid's height never depends on whether there was something to say.
+
+    A caller that never says anything (`emptyMessage=""`) gets the caption for assistive technology
+    only. A caption is drawn OUTSIDE the table's own box, so a month told to fill its host (`h-full`)
+    was the host's full height PLUS the blank caption line, and the region around it scrolled by that
+    line on every screen with nothing to scroll (owner, 2026-11-09: "the calendar on the right has a
+    scrollbar when it should not").
   -->
-  <caption class="mc-calendar-grid-caption">
+  <caption class={mergeClasses("mc-calendar-grid-caption", emptyMessage === "" && "sr-only")}>
     {#if loading}
       <span class="sr-only">{loadingMessage}</span>
     {/if}
