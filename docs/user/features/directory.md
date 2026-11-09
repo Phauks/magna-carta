@@ -21,23 +21,27 @@ need that, and stays a list of names on the day you do not. When something is na
 The search finds a record by any name it has ever held: a maiden name, a former trading name or a
 typo still finds the right record, and the results say which name matched.
 
-Press **New** to record a person or an organization. A person is recorded whole: the screen puts
-the record's sections down its left side, each with a count of what it holds, and the section you
-are on beside it, so a name, a way to reach them, an address, their pronouns, dates, sealed
-identifiers and the organizations they belong to can all be entered before the record exists. Moving between the
-sections never changes the size of the window. On the right, as you type
+Press **New** to record a person or an organization. A person is recorded whole, on one form that
+scrolls: their names, the ways to reach them, an address, an About section for their pronouns and
+dates, sealed identifiers and the organizations they belong to, one under another. Press **Tab**
+to move through every field in order. The list down the left side jumps to a section, shows how
+many entries each one holds, and highlights the section you are in. On the right, as you type
 the name, the Directory shows records that may already be the same person, with a way to open each
-beside your draft, so the same client does not end up in the book twice under two spellings.
-Everything you entered is recorded together when you press Record Person, or not at all.
+beside your draft, so the same client does not end up in the book twice under two spellings. Below
+that, the record is read back as it will read, with the email address and the address themselves,
+so you can check it before you save. Everything you entered is recorded together when you press
+Save, or not at all.
 
 ## A record
 
 A record opens in a window over whatever you were doing, and it looks the way it did when it was
-recorded: the record's sections down the left side, the section you are on beside it, and on the
-right what stands about the record as a whole. Close the window and you are back exactly where you
+recorded: one page that scrolls, with every section of the record one under another, and the list
+down the left side jumping between them. A person's pronouns and dates of birth and death are
+under their name at the top. A long list, such as the matters a record is on, shows its first few
+lines and a **Show All** button. Close the window and you are back exactly where you
 were, with nothing to retrace. It is the same window from the Directory's list, from a party on a
 matter, from the client on a matter's overview and from a conflicts check, so a record has one shape
-everywhere. Opened from a matter, the right side also lists the roles this record holds on that
+everywhere. Opened from a matter, a column on the right lists the roles this record holds on that
 matter.
 
 A record has an address you can paste into a message. Following it opens the Directory with that
@@ -68,7 +72,7 @@ A record answers the questions the firm keeps an answer to:
   address also says what it is for and whether the place physically exists, which is the difference
   between somewhere a document can be served and a delivery point that cannot. Addresses are
   corrected in place, the same way.
-- **Pronouns** and **Dates** on a person: what the person stated, and their dates of birth and death.
+- **About**, on a person: the pronouns they stated, and their dates of birth and death.
 - **Identifiers**: sealed values such as a social security number, a driver's licence, a bar
   number or an account. The type decides what is asked for: nine digits for a social security
   number, the issuing state and the number for a licence, and for an account who it is held with,
