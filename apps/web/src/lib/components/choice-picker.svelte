@@ -51,6 +51,7 @@
     whenNoMatch,
     row,
     onchange,
+    fillsCell = false,
   }: {
     options: readonly ChoiceOption[];
     /** The chosen value, or the empty string where nothing is chosen. Bindable. */
@@ -67,6 +68,14 @@
     /** How a row draws itself, where the label alone is not the whole choice. */
     row?: Snippet<[ChoiceOption]>;
     onchange?: (value: string) => void;
+    /**
+     * Take the width of whatever holds the field — a table cell, a sized wrapper — and claim none
+     * of its own. A text input's default width is the browser's (about twenty characters), and in
+     * a table that sizes its columns from their content that default becomes the column's floor,
+     * so two pickers in one row can push a table past its frame and its last column out of sight.
+     * The field still fills its holder exactly as before; it only stops asking for more.
+     */
+    fillsCell?: boolean;
   } = $props();
 
   /** What has been typed. Meaningful only while the field is being searched. */
@@ -128,6 +137,7 @@
     {title}
     autocomplete="off"
     spellcheck={false}
+    size={fillsCell ? 1 : undefined}
     onfocus={(event) => {
       // Arriving selects what is there, so the first letter typed replaces the label rather than
       // appending to it. Nothing else: a focus that is the primitive returning to the input after a

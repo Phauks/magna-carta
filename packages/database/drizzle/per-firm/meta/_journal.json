@@ -236,6 +236,13 @@
     {
       "idx": 33,
       "version": "6",
+      "when": 1789928863768,
+      "tag": "20261002T192145_communication-number-scope-parts",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
       "when": 1790273672187,
       "tag": "20261002T192301_version-changes",
       "breakpoints": true

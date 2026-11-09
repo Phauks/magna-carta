@@ -5,19 +5,17 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  isSchemeNumberingPurpose,
   matterNumberRefusal,
   moveNumberSegment,
   newNumberSegment,
   NUMBER_SEGMENT_VOCABULARY,
   NUMBERING_STARTERS,
   numberingFrozenSentence,
-  numberingInForceDescriptor,
+  numberingCurrentDescriptor,
   numberingNothingInForceSentence,
   numberingSampleSentence,
   numberingSampleYear,
   numberingSavedSentence,
-  numberingSchemeLabel,
   numberingSchemeRefusal,
   numberingSchemesEqual,
   numberingStartersFor,
@@ -39,11 +37,12 @@ const MATTER: NumberingPurposeRecord = {
   subject: "matter",
   subjects: "matters",
   drawnWhen: "Drawn once, the moment a matter opens, and frozen from then on.",
-  formulation: "scheme",
-  segmentKinds: NUMBER_SEGMENT_VOCABULARY.map((entry) => entry.kind),
+  segmentKinds: NUMBER_SEGMENT_VOCABULARY.map((entry) => entry.kind).filter(
+    (kind) => kind !== "matter_number",
+  ),
   segments: null,
   usingDefault: false,
-  fixedShape: null,
+  scopeSource: "segments",
   example: null,
 };
 const CONFLICTS_CHECK: NumberingPurposeRecord = {
@@ -53,8 +52,7 @@ const CONFLICTS_CHECK: NumberingPurposeRecord = {
   subject: "conflicts check",
   subjects: "conflicts checks",
   drawnWhen: "Drawn the moment a conflicts check is opened.",
-  formulation: "scheme",
-  segmentKinds: ["literal", "counter", "year", "date_opened"],
+  segmentKinds: ["literal", "counter", "year", "month", "day", "date_opened"],
   segments: [
     { kind: "literal", text: "CC" },
     { kind: "year", digits: 4, scoping: true },
@@ -62,11 +60,12 @@ const CONFLICTS_CHECK: NumberingPurposeRecord = {
     { kind: "counter", padWidth: 5, start: 1 },
   ],
   usingDefault: true,
-  fixedShape: null,
+  scopeSource: "segments",
   example: "CC2026-00001",
 };
 const SAMPLE = {
   openedDate: "2026-09-18",
+  matterNumber: "2026-0001",
   locationCode: "RNO",
   matterTypeCode: "LIT",
   clientCode: "ASH",
@@ -185,23 +184,36 @@ describe("the list operations", () => {
 
 describe("a purpose's vocabulary", () => {
   it("offers only the parts the listing names for the purpose, in the picker's order", () => {
+    // Alphabetical by the name the picker shows, which is the order the vocabulary is written in.
     expect(
-      numberSegmentVocabularyFor(CONFLICTS_CHECK.segmentKinds ?? []).map((e) => e.kind),
-    ).toEqual(["literal", "counter", "year", "date_opened"]);
-    expect(numberSegmentVocabularyFor(MATTER.segmentKinds ?? [])).toHaveLength(
-      NUMBER_SEGMENT_VOCABULARY.length,
+      numberSegmentVocabularyFor(CONFLICTS_CHECK.segmentKinds).map((entry) => entry.label),
+    ).toEqual(["Counter", "Date Numbered", "Day", "Month", "Text", "Year"]);
+    expect(numberSegmentVocabularyFor(MATTER.segmentKinds)).toHaveLength(
+      NUMBER_SEGMENT_VOCABULARY.length - 1,
     );
   });
 
-  it("offers a starter only where every part of it is one the purpose may use", () => {
-    const keys = numberingStartersFor(CONFLICTS_CHECK.segmentKinds ?? []).map((s) => s.key);
-    expect(keys).toEqual(["year-counter", "counter"]);
-    expect(numberingStartersFor(MATTER.segmentKinds ?? [])).toHaveLength(NUMBERING_STARTERS.length);
+  it("offers an example only where every part of it is one the purpose may use", () => {
+    const keys = numberingStartersFor(CONFLICTS_CHECK).map((starter) => starter.key);
+    expect(keys).toEqual(["year-counter", "counter", "day-counter"]);
+    // The matter run may use every part but its own number, so it is offered every example but the
+    // one built from a matter number.
+    expect(numberingStartersFor(MATTER).map((starter) => starter.key)).not.toContain(
+      "matter-counter",
+    );
   });
 
-  it("tells a scheme-shaped purpose from a fixed one", () => {
-    expect(isSchemeNumberingPurpose("custody_packet")).toBe(true);
-    expect(isSchemeNumberingPurpose("invoice")).toBe(false);
+  it("offers no example that restarts the count where the count's scope is not the template's", () => {
+    // A time entry counts within its matter whatever the template says, so an example marking a
+    // part as restarting the count would set a switch that does nothing.
+    const timeEntry = {
+      ...MATTER,
+      purpose: "time_entry" as const,
+      segmentKinds: ["literal", "counter", "matter_number"] as const,
+      scopeSource: "owner" as const,
+    };
+    const keys = numberingStartersFor(timeEntry).map((starter) => starter.key);
+    expect(keys).toEqual(["counter", "matter-counter"]);
   });
 
   it("names in the sample sentence only the facts the purpose's parts can use", () => {
@@ -219,30 +231,21 @@ describe("a purpose's vocabulary", () => {
     expect(yearCounter?.exampleFor("2027")).toBe("2027-0001");
   });
 
-  it("describes what is in force under the number: the parts, the built-in sequence, or nothing", () => {
-    expect(numberingInForceDescriptor(MATTER, null, false)).toMatch(/cannot open/);
-    expect(numberingInForceDescriptor(CONFLICTS_CHECK, CONFLICTS_CHECK.segments, true)).toBe(
+  it("describes what is current under the number: the parts, the built-in sequence, or nothing", () => {
+    expect(numberingCurrentDescriptor(MATTER, null, false)).toMatch(/cannot open/);
+    expect(numberingCurrentDescriptor(CONFLICTS_CHECK, CONFLICTS_CHECK.segments, true)).toBe(
       'The built-in sequence: "CC" · Year, 4 digits, restarts the count · "-" · Counter, 5 digits',
     );
-    expect(numberingInForceDescriptor(MATTER, YEAR_COUNTER, false)).toBe(
+    expect(numberingCurrentDescriptor(MATTER, YEAR_COUNTER, false)).toBe(
       'Year, 4 digits, restarts the count · "-" · Counter, 4 digits',
     );
   });
 });
 
 describe("the editor's words", () => {
-  it("names the scheme row for the sequence it shapes, never for the gesture", () => {
-    // Owner ruling, 2026-09-11: "Start from" reads "Matter Numbering Scheme".
-    expect(numberingSchemeLabel(MATTER)).toBe("Matter Numbering Scheme");
-    expect(numberingSchemeLabel({ title: "Consultation Numbers" })).toBe(
-      "Consultation Numbering Scheme",
-    );
-    expect(numberingSchemeLabel(CONFLICTS_CHECK)).toBe("Conflicts Check Numbering Scheme");
-  });
-
   it("says on a part's hover why a column holds no fact for it, and nothing where it does", () => {
-    expect(numberSegmentCellRefusal("literal", "text")).toBeNull();
-    expect(numberSegmentCellRefusal("year", "text")).toMatch(/no text of its own/);
+    expect(numberSegmentCellRefusal("literal", "value")).toBeNull();
+    expect(numberSegmentCellRefusal("year", "value")).toMatch(/no text of its own/);
     expect(numberSegmentCellRefusal("counter", "digits")).toBeNull();
     expect(numberSegmentCellRefusal("year", "digits")).toBeNull();
     expect(numberSegmentCellRefusal("literal", "digits")).toMatch(/digit count/);
@@ -250,6 +253,8 @@ describe("the editor's words", () => {
     expect(numberSegmentCellRefusal("client_code", "start")).toMatch(/counter starts/);
     expect(numberSegmentCellRefusal("client_code", "scoping")).toBeNull();
     expect(numberSegmentCellRefusal("literal", "scoping")).toMatch(/cannot restart the count/);
+    // Where the count's scope is the domain's, no part restarts it, whatever the part is.
+    expect(numberSegmentCellRefusal("year", "scoping", "owner")).toMatch(/already restarts/);
   });
 
   it("states the consequence of an unset scheme in the sequence's own terms, without an em dash", () => {
