@@ -48,11 +48,11 @@ import {
 // touching a counter. The sequence-numbering package owns the register, the segment model, the
 // renderer, and the "exactly one counter" validation; these routes are the HTTP edge over them.
 
-// The segment contract, mirroring @magna-carta/sequence-numbering's NumberSegment for a precise
-// OpenAPI document. The cross-field rules — exactly one counter, and only the parts a purpose may
-// use — live in the package's scheme schema (one home); the write path re-validates there, so a
-// body that passes this per-segment schema can still be refused by the service as a 422.
+// The segment contract, mirroring the package's NumberSegment for a precise OpenAPI document. The
+// cross-field rules (exactly one counter, only the parts a purpose may use) live in the package's
+// scheme schema, which the write path re-validates against, so a body passing here can still 422.
 const optionalScoping = z.boolean().optional();
+const separator = z.enum(["-", ".", "_", "~", ""]).optional();
 const NumberSegmentSchema = z
   .discriminatedUnion("kind", [
     z.object({ kind: z.literal("literal"), text: z.string().regex(URL_SAFE_PATTERN) }),
@@ -68,21 +68,13 @@ const NumberSegmentSchema = z
     }),
     z.object({ kind: z.literal("month"), scoping: optionalScoping }),
     z.object({ kind: z.literal("day"), scoping: optionalScoping }),
-    z.object({
-      kind: z.literal("date_opened"),
-      separator: z.enum(["-", ".", "_", "~", ""]).optional(),
-      scoping: optionalScoping,
-    }),
+    z.object({ kind: z.literal("date_opened"), separator, scoping: optionalScoping }),
     z.object({ kind: z.literal("matter_number"), scoping: optionalScoping }),
     z.object({ kind: z.literal("location_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("matter_type_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("client_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("staff_initials"), scoping: optionalScoping }),
-    z.object({
-      kind: z.literal("client_name"),
-      separator: z.enum(["-", ".", "_", "~", ""]).optional(),
-      scoping: optionalScoping,
-    }),
+    z.object({ kind: z.literal("client_name"), separator, scoping: optionalScoping }),
   ])
   .openapi("NumberSegment");
 
