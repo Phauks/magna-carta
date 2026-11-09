@@ -1,6 +1,6 @@
 # Meetings — end-to-end encryption, design
 
-**Status:** Design, 2026-11-09. Shaped with the owner on 2026-11-09; every owner question is settled (section 12).
+**Status:** Design, 2026-11-09. The experiments in section 10 come before any code; they are not owner questions. Shaped with the owner on 2026-11-09; every owner question is settled (section 12).
 **Over:** [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md) covers the meeting record, the `MeetingRoom` Durable Object, the routing-service client and the screen. Nothing here rebuilds any of it.
 **Research:** [`docs/research/2026-09-24-meetings-end-to-end-encryption.md`](../research/2026-09-24-meetings-end-to-end-encryption.md). This design takes its frame format, browser findings and threat model as they stand. It changes four of its recommendations, and section 2 says which and why.
 **Beside:** [`2026-09-20-meetings-recording-and-transcription-design.md`](2026-09-20-meetings-recording-and-transcription-design.md), [`2026-09-24-meetings-dial-in-design.md`](2026-09-24-meetings-dial-in-design.md), [`2026-09-20-meetings-reactions-and-polls-design.md`](2026-09-20-meetings-reactions-and-polls-design.md) and [`2026-09-24-meetings-breakout-rooms-design.md`](2026-09-24-meetings-breakout-rooms-design.md).
@@ -16,12 +16,12 @@ The owner's direction of 2026-11-09 was to build it ("absolutely"), at the room'
 
 ## 2. What changed from the research note
 
-| Research note recommended                          | This design                                                                 | Why                                                                                                                                                                                                                                                                                                                                                                  |
-| -------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sender keys, a ceiling of 50, MLS later            | **MLS (RFC 9420) from the start, up to the room's 300**                    | Under sender keys, one departure from a room of 300 is 89,102 envelopes, about 13 MB through one Durable Object (research, section 6.3). Under MLS, a removal is one commit of about log₂(300) ≈ 9 path secrets. Cloudflare's own Orange Me2eets runs MLS on the same routing service, unmodified (research, section 3.2). The owner rejected a ceiling below the room's size. |
-| Refuse recording in an encrypted meeting            | **Record in the host's browser** (section 6)                                | The owner wants recording. The browser already holds decrypted media. The research note's objection (section 15) was that this puts decrypted media in the firm's storage. That is the firm's own record of its own meeting, which it already keeps for every unencrypted meeting, so the objection does not outweigh the owner's ruling. |
-| Refuse dial-in                                      | **Allow it, behind a warning everyone sees** (section 7)                   | The telephone network has no end-to-end encryption, so a phone caller's audio is decrypted at the bridge. The owner accepted that trade, provided participants are told.                                                                                                                                                                                             |
-| Wait for recording and dial-in to exist first       | **Build when the experiments pass;** a refusal lands on a route only once that route exists | The ordering existed so the refusals would have routes to land on. With recording kept and dial-in warned rather than refused, encryption no longer has to wait for either one.                                                                                                                                                                                    |
+| Research note recommended                     | This design                                                                               | Why                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sender keys, a ceiling of 50, MLS later       | **MLS (RFC 9420) from the start, up to the room's 300**                                   | Under sender keys, one departure from a room of 300 is 89,102 envelopes, about 13 MB through one Durable Object (research, section 6.3). Under MLS, a removal is one commit of about log₂(300) ≈ 9 path secrets. Cloudflare's own Orange Me2eets runs MLS on the same routing service, unmodified (research, section 3.2). The owner rejected a ceiling below the room's size. |
+| Refuse recording in an encrypted meeting      | **Pause encryption while a server feature runs** (section 6)                              | The owner wants recordings in the cloud, reachable by others and not dependent on one computer, and wants live captions. Both need the server to hear the audio. Encryption pauses while either runs, everyone is told, and it resumes with fresh keys when they stop.                                                                                                         |
+| Refuse dial-in                                | **Allow it, as the third reason to pause** (section 6)                                    | The telephone network has no end-to-end encryption, so a phone caller's audio is decrypted at the bridge. The owner accepted that trade, provided participants are told.                                                                                                                                                                                                       |
+| Wait for recording and dial-in to exist first | **Build when the experiments pass;** a pause lands on a route only once that route exists | The ordering existed so the refusals would have routes to land on. With recording, captions and dial-in pausing encryption rather than being refused, encryption no longer has to wait for any of them.                                                                                                                                                                        |
 
 Unchanged: SFrame (RFC 9605) as the frame format, `RTCRtpScriptTransform` in a worker, WebCrypto for the frame cipher, the security code, and no C or C++ anywhere.
 
@@ -37,10 +37,10 @@ Against those, an encrypted meeting here:
 1. **Runs in the browser**, which Zoom's encrypted mode does not.
 2. **Needs no key service for the firm to run.** Keys are agreed between the browsers.
 3. **Keeps polls, questions, raised hands, reactions, the lobby and host controls.** None of these travels in the media. They travel on the signaling socket, which is unchanged (`apps/api-worker/src/meetings/room/`).
-4. **Keeps recording** (section 6), and **keeps dial-in** behind a warning (section 7).
+4. **Keeps cloud recording, live captions and dial-in.** Each pauses encryption, visibly, for as long as it runs (section 6), where Zoom and Meet switch them off.
 5. **Uses the IETF standards** (MLS and SFrame) rather than a vendor protocol.
 
-What it still gives up while it is on: live captions and anything else that reads media on a server while the meeting is running (section 8).
+What it gives up: nothing permanently. What it does is make plain, to everyone in the room, every moment the server can hear the meeting.
 
 ## 4. Key agreement: MLS
 
@@ -59,38 +59,32 @@ What it still gives up while it is on: live captions and anything else that read
 - **A frame that does not decrypt is dropped, never shown.** A frame with no SFrame header is refused and its tile says "Not encrypted, not shown" (research, section 5).
 - Audio is Opus with the whole frame encrypted, subject to experiment E2.
 
-## 6. Recording in an encrypted meeting
+## 6. Server features pause encryption, visibly
 
-A host starts recording exactly as in an unencrypted meeting, and the same notice applies. Everyone hears and sees "Recording in progress" when it starts and when they arrive, and the mark stays on every screen while it runs (recording design, the owner's ruling of 2026-09-20).
+Three features need the server to hear the meeting: **cloud recording**, **live captions** and **a phone caller**. The owner wants all three: recordings in the cloud, so others can reach them and no one computer's failure loses them; live captions; and dial-in. None of them can work on encrypted media, because the routing service's adapter decodes Opus and an encrypted frame does not decode (research, section 4). So while any of them runs, **end-to-end encryption pauses**, and everybody is told.
 
-What differs is where the recording is made:
+- **Pausing is a host's act, signed into the group.** A host starting recording or captions, or admitting a phone caller, commits a `paused` flag into the MLS group context with the reason. Every browser reads the pause from the group state it has itself verified, never from the room's word, so a malicious server cannot fake a pause to make browsers send in the clear.
+- **While paused,** senders stop applying the frame transform and receivers accept unencrypted frames. The media is then protected hop by hop, exactly as an unencrypted meeting is today (DTLS-SRTP to and from the routing service).
+- **Everyone sees it, the whole time.** A persistent banner names the reason: "Not end-to-end encrypted while this meeting is being recorded", "…while live captions are on" or "…while a phone participant is connected". Whoever arrives during a pause is told on arrival. The recording notice of the 2026-09-20 ruling runs as well, unchanged.
+- **Resuming is automatic.** When the last reason stops (recording stopped, captions off, last caller gone), the next commit clears the flag and advances the epoch, so the keys that resume are new. The banner clears.
+- **Cloud recording is the recording design's own path,** unchanged: the routing service's adapter streams each audio track to a Durable Object we run, filed into the matter through the untrusted-file pipeline. Others reach it like any matter file, and no participant's computer is in the path.
+- **Live captions are the recording design's caption path,** on the Cloudflare-hosted speech models, unchanged.
+- **The dial-in bridge is the dial-in design's bridge,** unchanged. The security code shows it as a labelled member while a caller is present.
+- A firm may forbid any of the three in encrypted meetings with a setting. All three are allowed by default, per the owner's rulings.
 
-- **The recording host's browser records what it has already decrypted**, one audio file per speaker and the mixed meeting, using the browser's own `MediaRecorder`. No new dependency is added. Video is recorded only if the recording design's video question is answered yes. Until then this matches the server path's audio-only record.
-- **The pieces upload as they are made**, in chunks, through the same untrusted-file pipeline the server path files into, so a crashed browser loses at most its last chunk. The file lands in the matter's file the same way and carries the same record.
-- **Transcripts and the summary run on the saved recording after the meeting**, through the recording design's existing transcription path. Only the live captions are lost.
-- **If the recording host leaves, recording passes to another host** who is present. If no host is present, it stops, and stopping is announced the same way.
-- The user guide says plainly that a recording of an encrypted meeting is the firm's own copy in its own storage, readable by the firm like any other matter file. Encryption protects the meeting in transit, not the record the firm chose to keep.
+## 7. What is never paused for, and what never needs a pause
 
-## 7. Dial-in in an encrypted meeting
+| Feature                                   | In an encrypted meeting                                               |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| Cloud recording, live captions, dial-in   | Pause encryption while they run (section 6)                           |
+| Webinars and live streaming               | Run unencrypted. A broadcast to an audience is not a private meeting. |
+| Background blur, image backgrounds, noise | **Unaffected.** They run in the browser before encryption.            |
+| Chat, polls, questions, reactions, hands  | **Unaffected.** Signaling, not media.                                 |
+| Breakout rooms                            | Each room is its own MLS group, made the same way                     |
 
-The dial-in bridge (dial-in design) joins the MLS group as a member, labelled as the telephone bridge. A phone caller's audio is decrypted there, because the telephone network cannot carry anything else.
+## 8. What the claim becomes
 
-- **Everyone is told, every time.** While any phone caller is present, every participant sees a persistent banner: "A phone participant has joined. Audio in this meeting is not end-to-end encrypted while they are connected." Whoever arrives later is told on arrival. When the last phone caller leaves, the bridge is removed from the group, the epoch advances, and the banner clears.
-- **The security code shows the bridge as a member**, so nobody can mistake it for a person.
-- **A firm may turn dial-in off for encrypted meetings** with one setting. It is on by default, per the owner's ruling.
-
-## 8. What still turns off, and where it is refused
-
-| Feature                                   | In an encrypted meeting                                            | Refused where                       |
-| ----------------------------------------- | ------------------------------------------------------------------ | ----------------------------------- |
-| Live captions                             | Off. The routing service's adapter cannot decode encrypted Opus.   | The captions start route            |
-| Server-side recording                     | Replaced by section 6                                              | The recording start route chooses the path |
-| Webinars and live streaming               | Not offered. A broadcast is a meeting nobody could audit.          | Their start routes                  |
-| Background blur, image backgrounds, noise | **Unaffected.** They run in the browser before encryption.        | Not refused                         |
-| Chat, polls, questions, reactions, hands  | **Unaffected.** Signaling, not media.                              | Not refused                         |
-| Breakout rooms                            | Each room is its own MLS group, made the same way                  | Not refused                         |
-
-Each refusal is a reason on the screen at the point where the feature starts, never a failure while it runs.
+Section 1's claim holds **for every moment the banner is absent**. The meeting's attendance record also notes each pause, with its reason, start and end, so the firm can later say which stretches of a meeting were end-to-end encrypted. Identifiers and instants only, on the attendance record's own rule.
 
 ## 9. The security code
 
@@ -98,19 +92,19 @@ As in the research note (section 6.4): each browser hashes the group's member li
 
 ## 10. Experiments before code
 
-| Experiment | Question                                                                 | Pass                                                                     |
-| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| **E1**     | Does simulcast layer switching survive encrypted VP8 on the routing service? | Every switch lands within one keyframe interval with no decode errors     |
-| **E2**     | Does Opus need any clear prefix?                                         | Audio plays with the whole frame encrypted                               |
-| **E3**     | Does encrypted H.264 from Safari arrive whole?                           | No split frames over a 5-minute call                                     |
-| **E4**     | What does MLS cost at 300?                                               | An admission and a removal at 300 each finish under 1 second in a mid-range laptop browser; the WebAssembly bundle is at most 1 MB gzipped, loaded only when an encrypted meeting is joined |
+| Experiment | Question                                                                     | Pass                                                                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **E1**     | Does simulcast layer switching survive encrypted VP8 on the routing service? | Every switch lands within one keyframe interval with no decode errors                                                                                                                       |
+| **E2**     | Does Opus need any clear prefix?                                             | Audio plays with the whole frame encrypted                                                                                                                                                  |
+| **E3**     | Does encrypted H.264 from Safari arrive whole?                               | No split frames over a 5-minute call                                                                                                                                                        |
+| **E4**     | What does MLS cost at 300?                                                   | An admission and a removal at 300 each finish under 1 second in a mid-range laptop browser; the WebAssembly bundle is at most 1 MB gzipped, loaded only when an encrypted meeting is joined |
 
 ## 11. Files touched, in shape
 
-`crates/mls-core/` and `packages/mls/` (each with its own `CLAUDE.md`). The frame transform worker under `apps/web/src/lib/meetings/client/`. Four frames in `packages/meeting-protocol`. The room's relay in a new `apps/api-worker/src/meetings/room/room-group.ts`. An `encrypted` column on `meeting`, fixed at Start. Refusals on the captions, webinar and streaming start routes. The browser recording path beside the server path. The dial-in bridge as an MLS member. The security panel and the phone banner in `apps/web/src/lib/meetings/screen/`. The user guide section. Registration in [`tooling/lint-native-builds/register.mjs`](../../tooling/lint-native-builds/register.mjs) is not needed, because nothing is native.
+`crates/mls-core/` and `packages/mls/` (each with its own `CLAUDE.md`). The frame transform worker under `apps/web/src/lib/meetings/client/`. Four frames in `packages/meeting-protocol`. The room's relay in a new `apps/api-worker/src/meetings/room/room-group.ts`. An `encrypted` column on `meeting`, fixed at Start. The pause commit on the recording, captions and dial-in start routes, and a `meeting_encryption_pause` row per pause. The dial-in bridge as an MLS member. The security panel and the pause banner in `apps/web/src/lib/meetings/screen/`. The user guide section. Registration in [`tooling/lint-native-builds/register.mjs`](../../tooling/lint-native-builds/register.mjs) is not needed, because nothing is native.
 
 ## 12. Owner questions
 
-- **Settled 2026-11-09: on by default.** Every meeting starts end-to-end encrypted unless the host switches it off at Start. It is fixed for the meeting once started. Switching it off is the only way to get live captions or a webinar.
-- **Settled 2026-11-09:** build it; full room size (MLS); keep recording; allow dial-in with a warning; personal rooms are allowed (a separate ledger node).
+- **Settled 2026-11-09: on by default.** Every meeting starts end-to-end encrypted unless the host switches it off at Start. It is fixed for the meeting once started. Recording, captions and dial-in pause it rather than needing it off (section 6).
+- **Settled 2026-11-09:** build it; full room size (MLS); recordings stay in the cloud, live captions stay available, and dial-in is allowed, each pausing encryption visibly while it runs; personal rooms are allowed (a separate ledger node).
 - **Carried from the research note, with the recommended answer taken unless the owner says otherwise:** a firm may forbid encrypted meetings (O2); the security code is shown, not required (O5); the claim in section 1 is the claim (O4).
