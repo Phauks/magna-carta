@@ -13663,7 +13663,7 @@ export const supportDiagnosticsOverviewOptions = (options?: Options<SupportDiagn
 });
 
 /**
- * Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.
+ * Disconnects the firm's EasyPost postage account and clears its stored key. Shipping operations stop until the account is connected again. An administrative act: it requires firm:manageSecrets, not shipping:manage.
  */
 export const shippingDisconnectCarrierMutation = (options?: Partial<Options<ShippingDisconnectCarrierData>>): MutationOptions<ShippingDisconnectCarrierResponse, ShippingDisconnectCarrierError, Options<ShippingDisconnectCarrierData>> => {
     const mutationOptions: MutationOptions<ShippingDisconnectCarrierResponse, ShippingDisconnectCarrierError, Options<ShippingDisconnectCarrierData>> = {
@@ -13698,7 +13698,7 @@ export const shippingReadConnectionOptions = (options?: Options<ShippingReadConn
 });
 
 /**
- * Connects the firm's EasyPost postage account by storing its API key as a firm secret.
+ * Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.
  */
 export const shippingConnectMutation = (options?: Partial<Options<ShippingConnectData>>): MutationOptions<ShippingConnectResponse, ShippingConnectError, Options<ShippingConnectData>> => {
     const mutationOptions: MutationOptions<ShippingConnectResponse, ShippingConnectError, Options<ShippingConnectData>> = {

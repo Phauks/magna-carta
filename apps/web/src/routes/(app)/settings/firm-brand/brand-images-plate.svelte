@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * The firm's marks, on the Firm Profile: the primary mark, and the additional images the firm
+   * The firm's marks, on Firm Brand: the primary mark, and the additional images the firm
    * keeps beside it. Each act — add one, make one the primary, caption it, remove it — commits at
    * once against the brand-image routes, so nothing on this plate is staged. An office's letterhead
    * prints the primary mark unless the office has set a logo of its own, which is why the primary

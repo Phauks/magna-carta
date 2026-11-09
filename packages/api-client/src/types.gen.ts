@@ -8825,7 +8825,6 @@ export type PurchaseAck = {
 export type PurchaseRequest = {
     remoteShipmentId: string;
     remoteRateId: string;
-    serviceFeeMinor?: number;
 };
 
 export type ShipmentListResponse = {
