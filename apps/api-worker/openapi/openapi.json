@@ -114309,11 +114309,26 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "unread",
-                "read",
-                "dismissed"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "unread",
+                    "read",
+                    "dismissed"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "unread",
+                      "read",
+                      "dismissed"
+                    ]
+                  }
+                }
               ]
             },
             "required": false,
@@ -114615,6 +114630,91 @@
           "notifications"
         ],
         "x-mc-operationId": "notifications.dismiss",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notifications:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "notifications"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^notificationRecipient_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "notificationRecipientId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The notification's settled state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationMarkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks notifications:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such notification for this member",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notificationRecipientId}/restore": {
+      "post": {
+        "description": "Puts one of the session member's own dismissed notifications back on their feed, as read: dismissing it said the member had dealt with it, so restoring it does not count it as waiting a second time. Idempotent: restoring a notification that is not dismissed changes nothing and returns the state that stands.",
+        "operationId": "notifications.restore",
+        "tags": [
+          "notifications"
+        ],
+        "x-mc-operationId": "notifications.restore",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "notifications:read",

@@ -110,7 +110,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "notes-and-tasks/notes.ts": { lines: 685, shapes: 7 },
   "notes-and-tasks/tasks.ts": { lines: 1511, shapes: 20 },
   "notifications/notification-preferences.ts": { lines: 541, shapes: 8 },
-  "notifications/notifications.ts": { lines: 630, shapes: 6 },
+  "notifications/notifications.ts": { lines: 623, shapes: 1 },
   "platform/meta-database-health.ts": { lines: 536, shapes: 9 },
   "platform/meta-versions.ts": { lines: 330, shapes: 5 },
   "platform/platform-status.ts": { lines: 407, shapes: 6 },

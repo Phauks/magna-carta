@@ -11,6 +11,7 @@
     "./registry": "./src/registry.ts",
     "./materialize": "./src/materialize.ts",
     "./recipients": "./src/recipients.ts",
+    "./contract": "./src/contract.ts",
     "./statements": "./src/statements.ts",
     "./read-statements": "./src/read-statements.ts",
     "./settings": "./src/settings.ts",

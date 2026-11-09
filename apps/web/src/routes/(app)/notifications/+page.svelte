@@ -1,160 +1,188 @@
 <script lang="ts">
   /*
-   * The notification centre — the member's own feed, and the first surface to read the notification
-   * rows the platform has been writing all along.
+   * Notifications — the member's own feed, as the product's one table.
    *
-   * WHAT THE SCREEN IS FOR: clearing a backlog, not browsing an archive. That decides the two
-   * filters it carries and the ones it does not. State (everything / unread) and category are the
-   * two questions a member actually asks of a backlog; a date range, a matter picker and a search
-   * box are questions about an archive, and the timeline is where those belong — a notification is
-   * a pointer, and the record it points at is the thing worth searching.
+   * WHAT THE SCREEN IS FOR: clearing a backlog. It is the List archetype, the same table Matters,
+   * the Directory and the task list are, so a reader narrows it from the columns' own headers (read
+   * state, category, priority) rather than from a second strip of controls above it, and sorts,
+   * hides and pins the way they do everywhere else (docs/conventions/design-corrections.md, the
+   * list-screen rulings).
    *
-   * THE FILTERS NARROW THE READ, NOT THE ROWS. Both are query parameters, so a filtered feed is
-   * cheaper rather than merely shorter, and the page size keeps meaning the same thing. Filtering on
-   * this side would also make the cursor mean something different from page to page.
+   * READ AND DISMISSED ARE TWO DIFFERENT STATEMENTS, and the owner chose to keep both
+   * (2026-11-09). Opening a notification, or pressing its leading check, marks it READ: the member
+   * has seen it, and it stays in the feed. DISMISSING it says the member is finished with it, and it
+   * leaves the feed. Nothing is deleted by either: every row ages out on the firm's retention clock
+   * whatever its state, and what it pointed at is untouched. So the dismissed rows are a shelf the
+   * member can open from the foot of the table, where a dismissed row reads quieter, sorts after
+   * everything live, and offers Restore in place of Dismiss.
    *
-   * EVERY COUNT ON THIS SCREEN COMES FROM THE SERVER, INCLUDING AFTER A WRITE. The badge is not
-   * decremented by counting rows that left the view: a member's unread count is resolved under the
-   * same visibility filter the feed is, and a client-side tally would drift from it the moment a row
-   * was filtered rather than deleted.
+   * TWO READS, BECAUSE THEY ARE TWO QUESTIONS. The feed asks the server for unread and read rows
+   * together, so a page is never short because dismissed rows filled it; the shelf asks for the
+   * dismissed rows, and only once somebody opens it. The search travels with both. The column
+   * filters narrow the rows in hand, as on every other paged register, which is why the footer says
+   * how many of how many are showing.
+   *
+   * EVERY COUNT COMES FROM THE SERVER. The badge is the shared count the bell reads, settled from
+   * the server's answer after a write, never a tally of rows that left this view.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import * as Select from "@magna-carta/design-system/select";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { formatDate } from "@magna-carta/design-system/formatters";
+  import Check from "@lucide/svelte/icons/check";
   import CheckCheck from "@lucide/svelte/icons/check-check";
+  import Archive from "@lucide/svelte/icons/archive";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Settings2 from "@lucide/svelte/icons/settings-2";
+  import X from "@lucide/svelte/icons/x";
+  import { goto } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import {
+    NOTIFICATION_COLUMN_IDENTIFIERS,
+    NOTIFICATION_INITIAL_SORT,
+    notificationColumns,
+    orderNotificationRows,
+  } from "$lib/notifications/notification-columns.ts";
   import {
     categoriesMatching,
+    describeNotification,
     kindsMatching,
+    PRIORITY_LABEL,
+    SEVERITY_BADGE,
   } from "$lib/notifications/notification-presentation.ts";
-  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
-  import NotificationRows from "$lib/notifications/notification-rows.svelte";
-  import {
-    NOTIFICATION_CATEGORIES,
-    notificationCategoryLabel,
-    type NotificationCategory,
-  } from "$lib/notifications/category-vocabulary.ts";
   import { unreadNotificationCount } from "$lib/notifications/unread-count.svelte.ts";
   import {
     dismissNotification,
     listNotifications,
     markNotificationRead,
     markNotificationsReadThrough,
+    restoreNotification,
     type NotificationItem,
   } from "$lib/notifications/notifications-api.ts";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
 
-  const ALL = "all" as const;
+  const live = new PagedList<NotificationItem>("Your notifications could not be read.");
+  const shelf = new PagedList<NotificationItem>("Your dismissed notifications could not be read.");
 
-  // `items` is what lets the trigger render the selected label; the same list drives the menu, so
-  // the two can never name a category differently.
-  const CATEGORY_FILTER_OPTIONS = [
-    { value: ALL, label: "All categories" },
-    ...NOTIFICATION_CATEGORIES.map((category) => ({
-      value: category,
-      label: notificationCategoryLabel(category),
-    })),
-  ];
-
-  let stateFilter = $state<"all" | "unread">("all");
-  let categoryFilter = $state<NotificationCategory | typeof ALL>(ALL);
-  /** The bound `read-all` takes: the newest row of the first page this screen drew. */
+  /** Whether the dismissed rows are on screen. Opened from the foot of the table, never above it. */
+  let showDismissed = $state(false);
+  /** The bound `read-all` takes: the newest row of the first page of the live feed. */
   let readThroughCursor = $state<string | null>(null);
   let clearing = $state(false);
-  /** Bumped after a write, so the list re-reads what the server now holds rather than guessing. */
+  /** Bumped to read both lists again from the top, after a write whose result moves rows. */
   let reloadToken = $state(0);
 
-  const list = new PagedList<NotificationItem>("Your notifications could not be read.");
-
   /*
-   * What the feed is being asked. `searchText` is the field's and `appliedSearch` is what the
-   * server was last asked for; ScreenSearch owns the pause between them.
+   * What the feed is being asked. `searchText` is the field's and `appliedSearch` is what the server
+   * was last asked for; ScreenSearch owns the pause between them.
    *
-   * IT GOES TO THE SERVER, and the shape it takes on the way is the interesting part. This row
-   * carries no sentence to match — the words a member reads are composed here from the kind and the
-   * declared facts — so the query is resolved into the KINDS and CATEGORIES whose words it reaches
-   * and those travel with it. That is what lets the whole feed be searched rather than the page in
-   * hand: a member whose match is two pages down is told about it, instead of being told there is
-   * none.
+   * The row carries no sentence to match, because the words a member reads are composed here from
+   * the kind and the declared facts. So the query is resolved into the KINDS and CATEGORIES whose
+   * words it reaches and those travel with it, which lets the whole feed be searched rather than the
+   * page in hand.
    */
   let searchText = $state("");
   let appliedSearch = $state("");
-  const searching = $derived(appliedSearch.trim() !== "");
   const searchFilters = $derived(
-    searching
-      ? {
+    appliedSearch.trim() === ""
+      ? {}
+      : {
           kinds: kindsMatching(appliedSearch),
           searchCategories: categoriesMatching(appliedSearch),
           search: appliedSearch.trim(),
-        }
-      : {},
+        },
   );
+  const subject = $derived(`${appliedSearch.trim()}:${String(reloadToken)}`);
 
-  const items = $derived(list.items);
-  const narrowed = $derived(stateFilter !== "all" || categoryFilter !== ALL || searching);
-
-  function readPage(cursor?: string) {
-    return listNotifications(fetch, cursor, {
-      category: categoryFilter === ALL ? undefined : categoryFilter,
-      state: stateFilter === "unread" ? "unread" : undefined,
-      ...searchFilters,
-    }).then((outcome) => {
-      // Only the FIRST page sets the bound. A later page names an older row, and adopting it would
-      // quietly narrow what "mark all read" covers the further a member scrolled.
-      if (outcome.kind === "ok" && cursor === undefined) {
-        readThroughCursor = outcome.value.readThroughCursor;
-      }
-      return outcome;
-    });
+  function readLive(cursor?: string) {
+    return listNotifications(fetch, cursor, { state: ["unread", "read"], ...searchFilters }).then(
+      (outcome) => {
+        // Only the FIRST page sets the bound. A later page names an older row, and adopting it would
+        // quietly narrow what "mark all read" covers the further a member scrolled.
+        if (outcome.kind === "ok" && cursor === undefined) {
+          readThroughCursor = outcome.value.readThroughCursor;
+        }
+        return outcome;
+      },
+    );
   }
 
-  /*
-   * The read, and nothing else in this effect. The subject carries both filters and the reload
-   * token, so changing a filter is a change of subject (the rows are replaced) while a re-read after
-   * a write is the same subject read again — which keeps the list from flashing a skeleton over a
-   * page the member is still looking at.
-   */
+  function readShelf(cursor?: string) {
+    return listNotifications(fetch, cursor, { state: "dismissed", ...searchFilters });
+  }
+
   $effect(() => {
-    const subject = `${stateFilter}:${categoryFilter}:${appliedSearch.trim()}:${String(reloadToken)}`;
-    if (list.showing(subject)) return;
-    list.reset(subject);
-    void list.load(readPage);
+    const asked = subject;
+    if (live.showing(asked)) return;
+    live.reset(asked);
+    void live.load(readLive);
+  });
+
+  $effect(() => {
+    const asked = subject;
+    if (!showDismissed || shelf.showing(asked)) return;
+    shelf.reset(asked);
+    void shelf.load(readShelf);
   });
 
   // The badge is shared with the top bar's bell, so this screen watches it rather than keeping a
-  // second count that could disagree with the one three inches above it.
+  // second count that could disagree with the one above it.
   $effect(() => unreadNotificationCount.watch(fetch));
 
-  function reload(): void {
-    reloadToken += 1;
+  const rows = $derived([...(live.items ?? []), ...(showDismissed ? (shelf.items ?? []) : [])]);
+
+  const grid = DataTable.createDataTableGrid<NotificationItem>({
+    columns: () => notificationColumns(),
+    rows: () => rows,
+    rowKey: (item) => item.id,
+    initialSort: NOTIFICATION_INITIAL_SORT,
+    itemNoun: { singular: "notification", plural: "notifications" },
+    rowMark: (item) => (item.state === "dismissed" ? { quiet: true } : undefined),
+    orderRows: orderNotificationRows,
+    onActivate: (item) => void follow(item),
+  });
+
+  /** Settle one row in place: the row object is reactive state, so moving its one field is enough. */
+  function settleInPlace(item: NotificationItem, state: NotificationItem["state"]): void {
+    const row = rows.find((candidate) => candidate.id === item.id);
+    if (row !== undefined) row.state = state;
   }
 
-  async function open(item: NotificationItem): Promise<void> {
+  async function markRead(item: NotificationItem): Promise<void> {
     if (item.state !== "unread") return;
     const outcome = await markNotificationRead(fetch, item.id);
     if (outcome.kind !== "ok") return;
-    // The row is settled in place rather than re-reading the page: following a link should not pull
-    // the list out from under the member as they leave it. The badge moves immediately because it is
-    // the thing they will look at next.
     unreadNotificationCount.noteOneSettled();
-    // Settled in place: the row object is reactive state, so moving its one field is enough and
-    // rebuilding the array would discard the identity every keyed block is tracking.
-    const row = (list.items ?? []).find((candidate) => candidate.id === item.id);
-    if (row !== undefined) row.state = "read";
+    settleInPlace(item, "read");
+  }
+
+  /** Open what a notification points at, settling it on the way past. */
+  async function follow(item: NotificationItem): Promise<void> {
+    await markRead(item);
+    // A kind whose type has been retired resolves to no link; there is nowhere to go, and reloading
+    // the page the reader is standing on would be worse than staying.
+    if (item.link !== "") void goto(item.link);
   }
 
   async function dismiss(item: NotificationItem): Promise<void> {
     const outcome = await dismissNotification(fetch, item.id);
     if (outcome.kind !== "ok") return;
     if (item.state === "unread") unreadNotificationCount.noteOneSettled();
-    // A dismissal changes what the current filter matches, so this one re-reads: leaving a dismissed
-    // row standing under "Unread" would be the list disagreeing with its own filter.
-    reload();
+    // The row moves from the feed to the shelf rather than vanishing, so a member who pressed the
+    // wrong row and then opens the shelf finds it where it went.
+    live.items = (live.items ?? []).filter((row) => row.id !== item.id);
+    if (shelf.items !== null) shelf.items = [{ ...item, state: "dismissed" }, ...shelf.items];
+  }
+
+  async function restore(item: NotificationItem): Promise<void> {
+    const outcome = await restoreNotification(fetch, item.id);
+    if (outcome.kind !== "ok") return;
+    // Read the feed again rather than guessing where the row belongs in it: it returns read, at
+    // whatever point in the paged feed its own date puts it.
+    shelf.items = (shelf.items ?? []).filter((row) => row.id !== item.id);
+    reloadToken += 1;
   }
 
   async function clearBacklog(): Promise<void> {
@@ -165,158 +193,191 @@
     clearing = false;
     if (outcome.kind !== "ok") return;
     unreadNotificationCount.noteUnread(outcome.value.remainingUnreadCount);
-    reload();
+    for (const row of live.items ?? []) if (row.state === "unread") row.state = "read";
   }
 
+  function loadMore(): void {
+    if (live.nextCursor !== null) void live.loadMore(readLive);
+    else if (showDismissed && shelf.nextCursor !== null) void shelf.loadMore(readShelf);
+  }
+
+  const moreToRead = $derived(
+    live.nextCursor !== null || (showDismissed && shelf.nextCursor !== null),
+  );
+  const swept = $derived(unreadNotificationCount.sweptUnread);
+  const sweptOldest = $derived(unreadNotificationCount.counts?.sweptUnreadOldestOccurredAt ?? null);
 </script>
 
 <svelte:head>
   <title>Notifications · Magna Carta</title>
 </svelte:head>
 
-<ScreenHeader title="Notifications" class="mb-24">
-  {#snippet meta()}
-    {#if unreadNotificationCount.unread > 0}
-      <Badge variant="accent">{unreadNotificationCount.unread} unread</Badge>
+{#snippet cell({ row, column, text }: DataTable.GridCellContext<NotificationItem>)}
+  {#if column.id === NOTIFICATION_COLUMN_IDENTIFIERS.state}
+    {#if row.state === "dismissed"}
+      <span class="inline-flex size-20 items-center justify-center text-text-subtle" title="Dismissed">
+        <Archive class="size-16" aria-hidden="true" />
+        <span class="sr-only">Dismissed</span>
+      </span>
+    {:else if row.state === "unread"}
+      <!-- The leading check: filled while unread, and pressing it marks the row read without
+           leaving the screen. Opening the row marks it read too. -->
+      <button
+        type="button"
+        class="inline-flex size-20 items-center justify-center rounded-full border border-accent-default
+               bg-accent-default text-text-inverse"
+        title="Mark Read"
+        aria-label="Mark Read"
+        onclick={(event) => {
+          event.stopPropagation();
+          void markRead(row);
+        }}
+      >
+        <Check class="size-12" aria-hidden="true" />
+      </button>
+    {:else}
+      <span
+        class="inline-flex size-20 items-center justify-center rounded-full border border-border-strong"
+        title="Read"
+      >
+        <span class="sr-only">Read</span>
+      </span>
     {/if}
-  {/snippet}
-  {#snippet actions()}
-    <!-- The search leads the row and grows toward the inline start, so what follows never moves when
-         it opens — the same order as every other Workspace screen. -->
-    <ScreenSearch
-      bind:value={searchText}
-      label="Search your notifications"
-      searchOn="pause"
-      fieldClass="w-2xs sm:w-xs"
-      onsearch={(next) => {
-        appliedSearch = next;
-      }}
-    />
-    <Button
-      variant="secondary"
-      size="sm"
-      disabled={readThroughCursor === null || clearing || unreadNotificationCount.unread === 0}
-      onclick={() => void clearBacklog()}
-    >
-      <CheckCheck class="size-16" aria-hidden="true" />
-      Mark all read
-    </Button>
-    <Button variant="ghost" size="sm" href="/settings/notifications">
-      <Settings2 class="size-16" aria-hidden="true" />
-      What you hear about
-    </Button>
-  {/snippet}
-</ScreenHeader>
-
-<div class="flex flex-col gap-16">
-  <!-- The two filters. State first: "what still needs me" is the question a backlog is opened with,
-       and the category narrows it afterwards. -->
-  <div class="flex flex-wrap items-center gap-8">
-    <div class="flex items-center gap-4 rounded-md border border-border-subtle p-2">
+  {:else if column.id === NOTIFICATION_COLUMN_IDENTIFIERS.notification}
+    <span class={row.state === "unread" ? "font-semibold" : ""}>{text}</span>
+    {#if describeNotification(row).fallback}
+      <span class="sr-only">(a kind this version of the app has no words for)</span>
+    {/if}
+  {:else if column.id === NOTIFICATION_COLUMN_IDENTIFIERS.priority}
+    {#if PRIORITY_LABEL[row.severity] !== null}
+      <Badge variant={SEVERITY_BADGE[row.severity]}>{PRIORITY_LABEL[row.severity]}</Badge>
+    {/if}
+  {:else if column.id === NOTIFICATION_COLUMN_IDENTIFIERS.actions}
+    <!-- On every row, never only on hover: a control that comes and goes at the end of a row moves
+         everything before it, and is out of reach of anybody not using a mouse. -->
+    {#if row.state === "dismissed"}
       <Button
-        variant={stateFilter === "all" ? "secondary" : "ghost"}
+        variant="ghost"
         size="sm"
-        aria-pressed={stateFilter === "all"}
-        onclick={() => (stateFilter = "all")}
+        onclick={(event: MouseEvent) => {
+          event.stopPropagation();
+          void restore(row);
+        }}
       >
-        Everything
+        <RotateCcw class="size-16" aria-hidden="true" />
+        Restore
       </Button>
+    {:else}
       <Button
-        variant={stateFilter === "unread" ? "secondary" : "ghost"}
+        variant="ghost"
         size="sm"
-        aria-pressed={stateFilter === "unread"}
-        onclick={() => (stateFilter = "unread")}
+        onclick={(event: MouseEvent) => {
+          event.stopPropagation();
+          void dismiss(row);
+        }}
       >
-        Unread
+        <X class="size-16" aria-hidden="true" />
+        Dismiss
       </Button>
-    </div>
-
-    <Select.Root
-      type="single"
-      items={CATEGORY_FILTER_OPTIONS}
-      value={categoryFilter}
-      onValueChange={(value) => (categoryFilter = value as NotificationCategory | typeof ALL)}
-    >
-      <Select.Trigger class="w-56" aria-label="Filter by category">
-        <Select.Value placeholder="All categories" />
-      </Select.Trigger>
-      <Select.Content>
-        {#each CATEGORY_FILTER_OPTIONS as option (option.value)}
-          <Select.Item value={option.value} label={option.label} />
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
-
-  <!-- What the retention sweep took while it was still unread. Stated rather than dropped: "there
-       is nothing you missed" is a claim the platform is not in a position to make about somebody
-       who has been away, and everything those pointers pointed at is still where it was. -->
-  {#if unreadNotificationCount.sweptUnread > 0}
-    {@const oldest = unreadNotificationCount.counts?.sweptUnreadOldestOccurredAt ?? null}
-    <p class="text-xs text-text-muted">
-      {unreadNotificationCount.sweptUnread} unread {unreadNotificationCount.sweptUnread === 1
-        ? "notification"
-        : "notifications"} aged out of this list{oldest === null
-        ? ""
-        : `, the oldest from ${formatInstant(oldest)}`}. What they pointed at — the matter, the
-      deadline, the record — is unchanged.
-    </p>
+    {/if}
+  {:else}
+    {text}
   {/if}
+{/snippet}
 
-  <LoadingRegion
-    loading={items === null}
-    failed={list.failure !== null && items === null}
-    empty={items !== null && items.length === 0}
-    label="Reading your notifications"
-    onRetry={reload}
-    class="flex flex-col gap-16"
-  >
-    {#snippet failure()}
-      {#if list.failure !== null}
-        <FailureNotice
-          failure={list.failure}
-          title="Notifications Unavailable"
-          fallback="Your notifications could not be read."
-          onRetry={reload}
-        />
+<div class="flex h-full min-h-0 flex-col">
+  <ScreenHeader title="Notifications" class="mb-24">
+    {#snippet meta()}
+      {#if unreadNotificationCount.unread > 0}
+        <Badge variant="accent">{unreadNotificationCount.unread} unread</Badge>
       {/if}
     {/snippet}
-
-    {#snippet emptyState()}
-      <EmptyState title={narrowed ? "Nothing matches" : "You are up to date"}>
-        {narrowed
-          ? "No notification matches what you are narrowing by. Clearing the search, or widening the filters, brings the feed back."
-          : "When something needs you — a deadline falling due, a task assigned, a movement on client money — it gathers here."}
-      </EmptyState>
+    {#snippet actions()}
+      <!-- Clear Filters comes and goes, so it leads rather than ending the row. -->
+      <DataTable.ClearFilters {grid} />
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search your notifications"
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={readThroughCursor === null || clearing || unreadNotificationCount.unread === 0}
+        onclick={() => void clearBacklog()}
+      >
+        <CheckCheck class="size-16" aria-hidden="true" />
+        Mark All Read
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        href="/settings/notifications"
+        title="Notification Settings"
+        aria-label="Notification Settings"
+      >
+        <Settings2 class="size-16" aria-hidden="true" />
+      </Button>
     {/snippet}
+  </ScreenHeader>
 
-    {#if items !== null}
-      <NotificationRows items={items} onOpen={(item) => void open(item)} onDismiss={(item) => void dismiss(item)} />
+  {#if live.failure !== null && live.items === null}
+    <FailureNotice
+      failure={live.failure}
+      title="Notifications Unavailable"
+      fallback={live.failureMessage ?? undefined}
+      onRetry={() => (reloadToken += 1)}
+    />
+  {:else}
+    <DataTable.Grid
+      {grid}
+      {cell}
+      class="min-h-0 flex-1"
+      caption="Your notifications"
+      loading={live.items === null}
+    ></DataTable.Grid>
 
-      {#if list.nextCursor !== null}
-        <div class="flex justify-center">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={list.loadingMore}
-            onclick={() => void list.loadMore(readPage)}
-          >
-            {list.loadingMore ? "Reading older" : "Show older"}
-          </Button>
-        </div>
-      {/if}
-
-      <!-- A page that failed AFTER rows were already on screen. Those rows were read successfully
-           and are still true, so they stay; the failure is stated under them rather than replacing
-           them. -->
-      {#if list.failure !== null && items.length > 0}
-        <FailureNotice
-          failure={list.failure}
-          title="Older Notifications Unavailable"
-          fallback="The older notifications could not be read."
-          onRetry={() => void list.loadMore(readPage)}
-        />
-      {/if}
+    <!-- A page that failed after rows were already on screen. Those rows were read and are still
+         true, so they stay; the failure is stated under them. -->
+    {@const laterFailure = live.failure ?? (showDismissed ? shelf.failure : null)}
+    {#if laterFailure !== null}
+      <FailureNotice
+        failure={laterFailure}
+        title="More Notifications Unavailable"
+        fallback={live.failureMessage ?? shelf.failureMessage ?? undefined}
+        onRetry={() => (reloadToken += 1)}
+      />
     {/if}
-  </LoadingRegion>
+
+    <DataTable.GridFooter {grid}>
+      {#snippet end()}
+        <span class="inline-flex items-center gap-12">
+          {#if swept > 0}
+            <!-- What the retention sweep took while it was still unread: a count, stated where the
+                 other counts are, rather than a sentence over the table. -->
+            <span class="text-text-muted">
+              {swept} unread aged out{sweptOldest === null
+                ? ""
+                : `, oldest ${formatDate(sweptOldest)}`}
+            </span>
+          {/if}
+          <!-- It WIDENS the list, so it sits at the foot rather than among the controls that narrow
+               it, and it says what pressing it again will do. -->
+          <Button variant="ghost" size="sm" onclick={() => (showDismissed = !showDismissed)}>
+            {showDismissed ? "Hide Dismissed" : "Show Dismissed"}
+          </Button>
+          <DataTable.LoadMore
+            noun="notifications"
+            more={moreToRead}
+            loading={live.loadingMore || shelf.loadingMore}
+            onLoad={loadMore}
+          />
+        </span>
+      {/snippet}
+    </DataTable.GridFooter>
+  {/if}
 </div>
