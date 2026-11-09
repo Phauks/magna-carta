@@ -13,6 +13,7 @@
     "./nickname": "./src/nickname.ts",
     "./honorifics": "./src/honorifics.ts",
     "./person": "./src/person.ts",
+    "./entity-photo": "./src/entity-photo.ts",
     "./person-record": "./src/person-record.ts",
     "./person-name": "./src/person-name.ts",
     "./pronouns": "./src/pronouns.ts",

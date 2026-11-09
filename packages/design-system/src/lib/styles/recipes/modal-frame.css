@@ -87,6 +87,13 @@
     border-block-end-width: var(--mc-border-width-default);
     border-block-end-color: var(--mc-border-default);
   }
+  /* A picture before the heading: the record's face, centred on the heading and its subtitle. */
+  .mc-modal-frame-lead {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-16);
+    min-inline-size: var(--mc-space-0);
+  }
   .mc-modal-frame-identity {
     display: flex;
     flex-direction: column;

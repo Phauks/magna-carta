@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The trust refusal-code → problem mapping, exercised directly. The route tests reach this through
 // live routes for the common refusals; this suite pins the full jurisdiction family, because the
 // failure mode it guards against is quiet — a code missing from the mapping does not error, it just

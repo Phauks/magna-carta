@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The rate-limiter seam — named buckets as data, an in-memory sliding-window limiter behind the
 // RateLimiter interface. The chokepoint owns the 429 problem reply; this module only returns the
 // check verdict.

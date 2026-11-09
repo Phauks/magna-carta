@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { REVIEW_DOCUMENT_EXCEPTION_CODES } from "@magna-carta/discovery/types";
 import { EXTRACTION_FAILURE_CODES } from "@magna-carta/search/extraction";

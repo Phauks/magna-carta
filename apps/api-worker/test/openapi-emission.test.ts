@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // Library-emission guardrails: the contract layer depends on @hono/zod-openapi emitting a handful
 // of Zod shapes a particular way (named schemas as $ref components, branded handles as plain
 // constrained strings, discriminated unions as a union schema, ISO datetimes with a date-time

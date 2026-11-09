@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // @repo-wide-fitness — measures every route module's size and inline shape count against a ledger
 // that only shrinks; a route added from any branch is what moves the numbers.
 import { describe, expect, it } from "vitest";

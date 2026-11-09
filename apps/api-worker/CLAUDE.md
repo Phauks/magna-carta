@@ -119,6 +119,7 @@ Worker.
 
 ## Local rules
 
+- **A test that reaches no Workers runtime API runs in plain Node.** To opt in, put `// @node-runtime` among its header comments (`vitest.node-runtime.ts` reads it). Each file in the Workers project costs about 25 s of VM boot and app preload, while a Node file costs milliseconds. Opt a file in only when it passes under Node: `crypto.subtle.timingSafeEqual`, `DigestStream`, WebAssembly imports and `cloudflare:*` exist only in workerd. The config rejects a directive on a file that imports `cloudflare:*`.
 - **Every `/api/v1` route goes through the chokepoint.** Register with `defineOpenAPIRoute` + a full
   `RouteMeta`; a route mounted without meta (or naming an unregistered permission) throws at startup.
   Changing a route's responses or any `x-mc-*` meta changes the contract — re-emit the snapshot and the

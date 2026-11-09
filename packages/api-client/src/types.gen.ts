@@ -5220,6 +5220,26 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
+export type DirectoryEntityPhotoResponse = {
+    photo: DirectoryEntityPhoto;
+};
+
+export type DirectoryEntityPhoto = {
+    /**
+     * The SHA-256 of the bytes.
+     */
+    sha256: string;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type SetDirectoryEntityPhotoRequest = {
+    imageBase64: string;
+};
+
 /**
  * `suggestions` may be empty, which means the country is covered and nothing matched. `no-coverage` means the service holds no addresses for that country, which is not the same thing and must not be shown as though it were. `unavailable` means no address service is provisioned: a person types the address themselves, exactly as before.
  */
@@ -26388,6 +26408,184 @@ export type DirectorySetPersonLifeDatesResponses = {
 };
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
+
+export type DirectoryRemoveEntityPhotoData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectoryRemoveEntityPhotoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryRemoveEntityPhotoError = DirectoryRemoveEntityPhotoErrors[keyof DirectoryRemoveEntityPhotoErrors];
+
+export type DirectoryRemoveEntityPhotoResponses = {
+    /**
+     * The record holds no picture
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectoryRemoveEntityPhotoResponse = DirectoryRemoveEntityPhotoResponses[keyof DirectoryRemoveEntityPhotoResponses];
+
+export type DirectoryEntityPhotoData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectoryEntityPhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityPhotoError = DirectoryEntityPhotoErrors[keyof DirectoryEntityPhotoErrors];
+
+export type DirectoryEntityPhotoResponses = {
+    /**
+     * The record's picture, or null
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectoryEntityPhotoResponse2 = DirectoryEntityPhotoResponses[keyof DirectoryEntityPhotoResponses];
+
+export type DirectorySetEntityPhotoData = {
+    body: SetDirectoryEntityPhotoRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectorySetEntityPhotoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySetEntityPhotoError = DirectorySetEntityPhotoErrors[keyof DirectorySetEntityPhotoErrors];
+
+export type DirectorySetEntityPhotoResponses = {
+    /**
+     * The record's picture after the write
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectorySetEntityPhotoResponse = DirectorySetEntityPhotoResponses[keyof DirectorySetEntityPhotoResponses];
+
+export type DirectoryEntityPhotoContentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo/content';
+};
+
+export type DirectoryEntityPhotoContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityPhotoContentError = DirectoryEntityPhotoContentErrors[keyof DirectoryEntityPhotoContentErrors];
+
+export type DirectoryEntityPhotoContentResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type DirectoryEntityPhotoContentResponse = DirectoryEntityPhotoContentResponses[keyof DirectoryEntityPhotoContentResponses];
 
 export type AddressLookupSuggestData = {
     body: AddressSuggestionsRequest;

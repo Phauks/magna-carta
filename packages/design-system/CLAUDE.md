@@ -209,6 +209,10 @@ is still an `ActionDialog` inside it, not a panel of its own.
   done WITH the thing shown (copy its link, download a copy), and it follows the "a menu earns its
   glyph" ruling in `docs/conventions/design-corrections.md`: a caller with fewer than two live items
   passes no menu.
+- **`ActionDialog` takes an optional `leading` snippet, drawn before the heading** (in
+  `.mc-modal-frame-lead`, `styles/recipes/modal-frame.css`). It is for one small square that names
+  what the panel is about, such as the directory record's picture; it is not a second toolbar, so
+  actions still go in `menu` or the footer.
 - **Where a modal panel sits on the screen is one module, in four named parts, and no panel
   touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
   (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:
