@@ -204,6 +204,13 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
+  /* The Group By trigger: the word muted, the current grouping in weight. */
+  .mc-table-group-by-label {
+    color: var(--mc-text-muted);
+  }
+  .mc-table-group-by-value {
+    font-weight: var(--mc-weight-semibold);
+  }
   /*
    * Per-column filter — a funnel button in the header that opens a popover with the type-appropriate
    * control. The funnel mutes to a subtle tint and lights up (link colour) while the column is
@@ -705,6 +712,33 @@
     block-size: var(--mc-space-0);
     padding: var(--mc-space-0);
     border-block-end: var(--mc-focus-ring-width) solid var(--mc-border-strong);
+  }
+  /*
+   * A BAND HEADING names a group and counts it. It sticks beneath the header (whose height the grid
+   * measures and publishes) while its rows scroll past, so a reader deep in a long band still knows
+   * which band they are in. It is a heading, not a record: no hover, no selection, no stripe.
+   */
+  .mc-table-grid-band-cell {
+    position: sticky;
+    inset-block-start: var(--mc-table-grid-head-block-size);
+    z-index: var(--mc-z-sticky);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-16);
+    background-color: var(--mc-surface-sunken);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    text-align: start;
+  }
+  .mc-table-grid-band-inner {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mc-space-8);
+  }
+  .mc-table-grid-band-count {
+    color: var(--mc-text-muted);
+    font-weight: var(--mc-weight-regular);
+    font-variant-numeric: tabular-nums;
   }
   /* The pin rides the row's first cell, the one elegant gold touch a work surface earns. */
   /*

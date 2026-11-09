@@ -36,6 +36,13 @@
   const bodyRows = (table: HTMLElement): HTMLElement[] =>
     Array.from(table.querySelectorAll("tbody tr[data-grid-row]"));
 
+  // Grouped by who did the work, with the bands in a fixed order the surface chose (the order is
+  // deliberately not alphabetical, so a band order that fell back to the sort would show).
+  const BY_TIMEKEEPER = {
+    keyOf: (row: { timekeeper: string }): string => row.timekeeper,
+    order: (): readonly string[] => ["Marian Holt", "Rosalind Chase", "Edmund Voss"],
+  };
+
   // The row-groups fixture: two entries pinned in a deliberate arrangement (the OLDER one first,
   // so the block cannot be mistaken for the sort), and two rows waiting on the clipboard.
   const PINNED_ROW_KEYS = ["t12", "t05"];
@@ -1016,3 +1023,36 @@
   {/snippet}
 </Story>
 
+
+<!--
+  BANDS. A grouped list renders a heading row per band, naming it and counting its rows, with each
+  band's rows still in the reader's sort. The band order is the surface's, and keyboard movement
+  walks the rows in the order they are drawn.
+-->
+<Story
+  name="Grouped into bands"
+  args={{}}
+  play={async ({ canvas, canvasElement, step }) => {
+    const table = canvas.getByRole("table");
+
+    await step("One heading per band, in the surface's order, each with its count", async () => {
+      const bands = Array.from(canvasElement.querySelectorAll("tr[data-grid-band]"));
+      await expect(bands.map((band) => band.getAttribute("data-grid-band"))).toEqual([
+        "Marian Holt",
+        "Rosalind Chase",
+        "Edmund Voss",
+      ]);
+      await expect(bands[0]?.textContent).toContain("3");
+      await expect(bands[1]?.textContent).toContain("5");
+    });
+
+    await step("Each band holds its rows in the reader's sort, newest first", async () => {
+      const keys = bodyRows(table).map((row) => row.dataset.gridRow);
+      await expect(keys.slice(0, 3)).toEqual(["t10", "t07", "t04"]);
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid grouping={BY_TIMEKEEPER} />
+  {/snippet}
+</Story>
