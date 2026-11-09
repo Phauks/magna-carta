@@ -69,7 +69,9 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   // Address lookup arrived with its request and offer shapes inline, written before this ledger
   // existed; they belong in a contract module.
   "directory/address-lookup.ts": { lines: 369, shapes: 13 },
-  "directory/conflicts.ts": { lines: 1840, shapes: 40 },
+  // Raised when the conflicts branch (subject parties on the run and check summaries) landed after
+  // the ratchet; the two new shapes belong in packages/conflicts/src/contract.ts.
+  "directory/conflicts.ts": { lines: 1905, shapes: 42 },
   "directory/directory.ts": { lines: 2558, shapes: 5 },
   "discovery/discovery-coding.ts": { lines: 1347, shapes: 21 },
   "discovery/discovery-review-reads.ts": { lines: 742, shapes: 9 },
@@ -114,7 +116,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "notes-and-tasks/notes.ts": { lines: 685, shapes: 7 },
   "notes-and-tasks/tasks.ts": { lines: 1511, shapes: 20 },
   "notifications/notification-preferences.ts": { lines: 541, shapes: 8 },
-  "notifications/notifications.ts": { lines: 630, shapes: 6 },
+  "notifications/notifications.ts": { lines: 623, shapes: 1 },
   "platform/meta-database-health.ts": { lines: 536, shapes: 9 },
   // Raised by one line when the address engine joined the versions it reports.
   "platform/meta-versions.ts": { lines: 331, shapes: 5 },

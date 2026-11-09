@@ -18,9 +18,10 @@ async function wrappedKeyFor(): Promise<string> {
 describe("createFirmKeyProvider", () => {
   it("caches the unwrapped key — readWrappedKey runs once across two gets", async () => {
     const wrapped = await wrappedKeyFor();
-    const readWrappedKey = vi.fn(
-      async (): Promise<WrappedKeyRow> => ({ wrappedFirmKey: wrapped, firmKeyVersion: 1 }),
-    );
+    const readWrappedKey = vi.fn(async (): Promise<WrappedKeyRow> => ({
+      wrappedFirmKey: wrapped,
+      firmKeyVersion: 1,
+    }));
     const provider = createFirmKeyProvider({ rootKekBase64: ROOT_KEK, readWrappedKey });
 
     const first = await provider.getFirmHkdfKey("firm_a" as FirmId);
@@ -37,12 +38,10 @@ describe("createFirmKeyProvider", () => {
       ["firm_2", await wrappedKeyFor()],
       ["firm_3", await wrappedKeyFor()],
     ]);
-    const readWrappedKey = vi.fn(
-      async (firmId: FirmId): Promise<WrappedKeyRow> => ({
-        wrappedFirmKey: wrappedByFirm.get(firmId) ?? null,
-        firmKeyVersion: 1,
-      }),
-    );
+    const readWrappedKey = vi.fn(async (firmId: FirmId): Promise<WrappedKeyRow> => ({
+      wrappedFirmKey: wrappedByFirm.get(firmId) ?? null,
+      firmKeyVersion: 1,
+    }));
     const provider = createFirmKeyProvider({
       rootKekBase64: ROOT_KEK,
       readWrappedKey,
@@ -88,9 +87,10 @@ describe("createFirmKeyProvider", () => {
 
   it("invalidate forces a re-read (the shred same-isolate window)", async () => {
     const wrapped = await wrappedKeyFor();
-    const readWrappedKey = vi.fn(
-      async (): Promise<WrappedKeyRow> => ({ wrappedFirmKey: wrapped, firmKeyVersion: 1 }),
-    );
+    const readWrappedKey = vi.fn(async (): Promise<WrappedKeyRow> => ({
+      wrappedFirmKey: wrapped,
+      firmKeyVersion: 1,
+    }));
     const provider = createFirmKeyProvider({ rootKekBase64: ROOT_KEK, readWrappedKey });
 
     await provider.getFirmHkdfKey("firm_a" as FirmId);

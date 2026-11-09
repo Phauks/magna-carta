@@ -73,3 +73,68 @@ export function gridRowMarkAttributes(mark: GridRowMark | undefined): {
     ...(mark.quiet === true ? { "data-quiet": "true" as const } : {}),
   };
 }
+
+/*
+ * BANDS. A list grouped by something the reader chose — a task's list, its due date, who it is
+ * assigned to — renders as bands: a heading row naming the group and how many rows are in it, then
+ * that group's rows. The surface says which band a row belongs to and, when the bands have an order
+ * of their own (Today before This Week; the newest day first), what that order is. The grid owns
+ * everything else, so two grouped lists cannot disagree about how a band looks or behaves.
+ *
+ * The reader's sort still means what it says: rows are sorted first and then split, so every band
+ * holds its rows in the chosen order. Pinned rows stay above every band — pinning is an act of
+ * arranging that a grouping does not get to undo.
+ */
+
+/** How a surface groups its rows into bands. */
+export interface GridGrouping<TRow> {
+  /** The band a row belongs to. Rows with the same key share a band. */
+  keyOf: (row: TRow) => string;
+  /** The band's heading; defaults to the key itself. */
+  labelOf?: (key: string) => string;
+  /**
+   * The bands in the order they render, given every key present and the table's sort direction
+   * (null when the table is unsorted). A key it leaves out renders after the ones it names, in
+   * first-seen order, so a band can never vanish because an ordering forgot it. Omitted, bands
+   * render in the order their first row appears in the sorted rows.
+   */
+  order?: (
+    keys: readonly string[],
+    direction: "ascending" | "descending" | null,
+  ) => readonly string[];
+}
+
+/** One band: its key, its heading, and its rows in sorted order. */
+export interface GridRowBand<TRow> {
+  key: string;
+  label: string;
+  rows: readonly TRow[];
+}
+
+/**
+ * The rows split into bands, in band order, each band's rows in the order they arrived (already
+ * filtered and sorted). Empty bands never appear: a band exists because a row is in it.
+ */
+export function bandedGridRows<TRow>(
+  rows: readonly TRow[],
+  grouping: GridGrouping<TRow>,
+  direction: "ascending" | "descending" | null,
+): readonly GridRowBand<TRow>[] {
+  const byKey = new Map<string, TRow[]>();
+  for (const row of rows) {
+    const key = grouping.keyOf(row);
+    const band = byKey.get(key);
+    if (band === undefined) byKey.set(key, [row]);
+    else band.push(row);
+  }
+  const seen = [...byKey.keys()];
+  const named = grouping.order
+    ? grouping.order(seen, direction).filter((key) => byKey.has(key))
+    : [];
+  const ordered = [...new Set([...named, ...seen])];
+  return ordered.map((key) => ({
+    key,
+    label: grouping.labelOf ? grouping.labelOf(key) : key,
+    rows: byKey.get(key) ?? [],
+  }));
+}

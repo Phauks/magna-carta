@@ -55,6 +55,9 @@ export interface ReportedCheck {
   readonly trigger: string;
   // Null when no acting member is on the row.
   readonly actorUserId: string | null;
+  // The acting member's name as the firm's roster gives it. The statement is read by people, so it
+  // names the member rather than quoting their handle; null where the roster has no name for them.
+  readonly actorDisplayName?: string | null;
   readonly strictness: Strictness;
   readonly depth: number;
   readonly floorRaised: boolean;
@@ -220,10 +223,16 @@ export function describeCheck(
 ): readonly string[] {
   const statements: string[] = [];
 
+  // A handle is never printed: a member the roster cannot name is said to be one, not quoted.
+  const name = check.actorDisplayName?.trim() ?? "";
   const actor =
-    check.actorUserId === null ? "with no acting member recorded" : `by ${check.actorUserId}`;
+    check.actorUserId === null
+      ? "with no acting member recorded"
+      : name.length > 0
+        ? `by ${name}`
+        : "by a member the firm's roster does not name";
   statements.push(
-    `Searched on ${describeCheckInstant(check.createdAt)} ${actor}, trigger ${check.trigger}.`,
+    `Searched on ${describeCheckInstant(check.createdAt)} ${actor}, as a ${check.trigger} check.`,
   );
 
   if (check.floorRaised) {

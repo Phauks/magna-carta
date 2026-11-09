@@ -16,7 +16,7 @@
     "@magna-carta/signing": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/vitest-plugin": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
     "asn1js": "catalog:",

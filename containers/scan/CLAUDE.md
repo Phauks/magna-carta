@@ -98,7 +98,7 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   The runtime stage carries `libstdc++6` and `libgomp1` (C++ standard library + OpenMP): onnxruntime
   is statically linked into the binary but its C++ code still calls into these shared system libs at
   run time, so they must be present in the container. The container remains egress-free (`enableInternet
-= false`) — no onnxruntime network traffic at run time. On a dev host the `ort` link requires
+  = false`) — no onnxruntime network traffic at run time. On a dev host the `ort` link requires
   `download-binaries` (already on by default for the crate); without it the link fails
   (`unresolved external OrtGetApiBase`). Identification returns **raw facts**; the app decides the
   extension verdict.
@@ -126,7 +126,7 @@ node harness/scan-proxy.mjs                  # browser harness vs a running cont
 
 ## Gotchas
 
-- The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there —
+- The engine **cannot run under `@cloudflare/vitest-plugin`** (containers unsupported there —
   workers-sdk#10408), so the worker binding is a **deploy-time activation** and the EICAR acceptance gate
   runs in the `scan-container` CI job, not the local worker suite.
 - yara rules are the **YARA Forge `extended`** package (`YARA_FORGE_TIER` ARG), fetched + compiled +

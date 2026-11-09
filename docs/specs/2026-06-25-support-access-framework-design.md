@@ -22,7 +22,7 @@ constrained, attributed, expiring path _through_ the same enforcement everything
 Two design facts make this tractable:
 
 - The worker **chokepoint** already runs every `/api/v1` route through `tenancy → authn → RBAC →
-idempotency → rate-limit`. A request's authority is a `SessionContext { userId, firmId }` (the firm
+  idempotency → rate-limit`. A request's authority is a `SessionContext { userId, firmId }` (the firm
   comes from the session, never the URL) plus an effective-permission set resolved against that firm's
   database.
 - A **platform-admin surface** and a control-plane `auth_audit` trail already exist as seams.

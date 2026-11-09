@@ -25,7 +25,7 @@ A direct transposition of `apps/scan-worker`. Stateless: no D1, R2, or Queues. *
 which is the trust boundary (no auth in this worker).
 
 - **`src/libvips-container.ts`** — `class LibvipsContainer extends Container` with `enableInternet =
-false` (untrusted bytes never reach the network), a `defaultPort`, a short `sleepAfter`, and a
+  false` (untrusted bytes never reach the network), a `defaultPort`, a short `sleepAfter`, and a
   `pingEndpoint` (the boot-readiness probe). **Scale-to-zero, no warm cron:** the Container sleeps
   after `sleepAfter` and bills only while a conversion runs — conversions are bursty/on-demand, so an
   always-on warm instance would pay continuously to save a cold start that rarely matters (unlike scan,
@@ -61,7 +61,7 @@ binding instead of a same-worker Container DO.
   `magna-carta-convert`.
 - **`apps/worker/src/conversions/conversion-engine.ts`** — `resolveEnginePort(env)`: when `env.CONVERT`
   is present, return a `ConversionPort` whose `convert(input)` POSTs the source bytes + `{ from, to,
-engineId, recipeRef }` to `env.CONVERT.fetch("https://convert/convert", …)`, maps a 2xx →
+  engineId, recipeRef }` to `env.CONVERT.fetch("https://convert/convert", …)`, maps a 2xx →
   `converted(new Uint8Array(await res.arrayBuffer()), res.headers.get("content-type") ?? …)` and a
   non-2xx or a thrown transport error → `adapterError(...)` — **never throws** (the integrations
   Dispatch discipline, matching the consumer's `!result.ok` → `markFailed` + ack contract). When

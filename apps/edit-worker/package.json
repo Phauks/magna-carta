@@ -16,7 +16,7 @@
     "@magna-carta/telemetry": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/vitest-plugin": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
     "vite-plus": "catalog:",

@@ -11,15 +11,22 @@
 
 What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and since 2026-09-16 that verification is `pnpm gate` on the branch, run by whoever made the change, with nothing hosted repeating it. The first two entries below record why there is no second run on the exact tree that lands, and the one repository setting that still has to change.
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and that verification is `pnpm gate`: run on the branch by whoever made the change and, from 2026-11-09, run again hosted as the `gate` check on every pull request. The first two entries below record the settings that hosted run needs and why there is still no second run on the exact tree that lands.
 
-## Remove the `gate` status from the `main` ruleset — the workflow that reported it is gone (2026-09-16)
+## Turn the hosted gate on — fund Actions with a cap, require `gate` again (2026-11-09)
 
-**What to do.** Settings → Rules → Rulesets → the ruleset on `main` → _Require status checks to pass_: remove `gate` from the required checks (or turn the requirement off if it was the only one). Leave _Require a pull request before merging_ and the rest as they are.
+**What to do.** Four repository and account settings, in this order, once the pull request that adds `ci.yml`, `pr-upkeep.yml` and `preview-cleanup.yml` has merged:
 
-**Why.** The quality gate is now `pnpm gate`, run locally ([`build-performance.md`](conventions/build-performance.md) under _The gate — `pnpm gate`, on the machine that made the change_); `gate.yml` and `seed-caches.yml` are deleted. A required status check that no workflow reports keeps every pull request in the "waiting for status" state forever, which is exactly the stonewall the removal exists to end — until this setting changes, merges still need the administrator override they have needed since 2026-09-03. Nothing in the repository can change a ruleset.
+1. **Set an Actions spending limit.** GitHub → Settings (the account's, not the repository's) → Billing and licensing → Budgets and alerts: a budget on Actions with _Stop usage when budget limit is reached_ on. This is the cap the owner chose on 2026-11-09; without _stop usage_ a budget only alerts.
+2. **Let workflows open pull requests.** Repository → Settings → Actions → General → Workflow permissions → _Allow GitHub Actions to create and approve pull requests_. `assemble-docs.yml` needs it.
+3. **Allow auto-merge.** Repository → Settings → General → Pull Requests → _Allow auto-merge_. The thread rules in the root `CLAUDE.md` and `assemble-docs.yml` both turn it on per pull request.
+4. **Require `gate` again.** Repository → Settings → Rules → Rulesets → the ruleset on `main` → _Require status checks to pass_ → add `gate` (the job name in `ci.yml`). Leave _Require a pull request before merging_ as it is. Add the same rule to a `beta` ruleset when that branch exists.
 
-**Also worth doing while there:** close the stale docs-assembly pull request (#457), which was waiting on the gate; the next `assemble-docs` run opens a fresh one. Whether to fund Actions again is a separate decision — the only workflow left is the docs assembly, and nothing waits on it.
+Optional, for the Preview cleanup: repository secrets `CLOUDFLARE_API_TOKEN` (a Cloudflare API token with Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID`. Without them the workflow runs and does nothing, and it deletes nothing until a `beta` Preview exists anyway.
+
+**Why.** The quality gate left the runner on 2026-09-16 because the Actions budget ran dry and the required `gate` check wedged every pull request ([`build-performance.md`](conventions/build-performance.md) under _The gate — `pnpm gate`, on the machine that made the change_ has the history). With several threads now opening pull requests in parallel against a `main` that deploys on merge, a gate that only runs when someone remembers to run it is the larger risk, so the owner funded Actions with a cap and the gate returned as a hosted run of the same command. **If the budget runs out again**, the `gate` check stops reporting and every pull request waits on it: remove `gate` from the required checks (step 4, reversed) until the budget resets, and fall back to `pnpm gate` locally. Nothing in the repository can change a ruleset or a budget.
+
+**Also worth doing while there:** close the stale docs-assembly pull request (#457) if it is still open; the next `assemble-docs` run opens a fresh one.
 
 _Position, 2026-08-29: `main` is production for the app Worker and the SPA. Everything else about the account is read live, not recorded here — including which projects are connected, what branch each builds from, and what is deployed on any of them. The 2026-08-24 API pass that this file used to treat as its "evidentiary floor" is exactly the thing that stopped being one: it was accurate on the day and had decayed within the week, and a floor that decays silently is worse than no floor. Read the account instead._
 
@@ -624,7 +631,7 @@ blank" should now fill.
 - **A discovery load's manifest and exception report must never be given a
   lifecycle rule.** They land in the already-bound `R2` bucket under
   `discovery/<reviewSetId>/loads/`, stamped `object_class:
-review-load-record` — deliberately a different class from the
+  review-load-record` — deliberately a different class from the
   `review-extracted-text` and `review-document-metadata` objects beside them,
   which ARE a derived cache and are released when a review set closes. If an
   expiry rule is ever added under the `discovery/` prefix (there is none today),
@@ -860,7 +867,7 @@ Do them in this order; each one is inert without the ones before it.
 
    **It is also Better Auth's `baseURL`, and that makes it worth setting on its own**, ahead of and
    independently of anything about mail. Unset, the library logs `Base URL is not set … callbacks and
-redirects may not work correctly` on every cold start and derives the origin from each incoming
+   redirects may not work correctly` on every cold start and derives the origin from each incoming
    request — which is exactly what a background pass has no way to do. `createAuth` reads it when
    present and falls back to the request-derived default when absent (`apps/api-worker/src/auth.ts`),
    so local development and the test pool, which are reached at whatever host serves them, keep
@@ -902,7 +909,7 @@ them the same day. Everything the section held is now confirmed, with one new fa
 - `magna-carta-convert`: **confirmed real.** Connected to Workers Builds on `release`, root
   `apps/convert-worker`, watch paths covering both container images; latest build green
   (2026-08-21, from `19d02cf`); the deployed script carries `RASTER_ENGINE ->
-RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
+  RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
   `v2`. **The `conversions/` R2 lifecycle rule is NOT there** — the platform files bucket carries
   exactly two rules (`bundles/` at seven days, incomplete-multipart abort at seven days), so that
   dashboard step moves back to open, on the LibreOffice entry above. Nothing expires under

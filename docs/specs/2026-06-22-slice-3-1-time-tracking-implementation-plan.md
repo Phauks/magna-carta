@@ -115,30 +115,31 @@ The canonical cross-task vocabulary. Every fill agent uses these exact names/typ
 ### New per-firm tables (exact columns + types)
 
 **`time_entry`** (the WIP store; `time_entry-statements.ts`)
-| column | type | notes |
-|---|---|---|
-| `id` | TEXT PK | `timeEntry_` handle |
-| `matter_id` | TEXT NOT NULL → `matter.id` | bound at commit |
-| `timekeeper_user_id` | TEXT NOT NULL → `member.user_id` | who the time is for |
-| `work_date` | TEXT NOT NULL | civil `PlainDate` (YYYY-MM-DD); the effective date |
-| `duration_minutes` | INTEGER NOT NULL | rounded billable quantity |
-| `raw_duration_minutes` | INTEGER NOT NULL | captured pre-rounding minutes |
-| `narrative` | TEXT NOT NULL | |
-| `billable` | INTEGER NOT NULL | 0/1, CHECK IN (0,1) |
-| `non_billable_category_id` | TEXT → `non_billable_category.id` | nullable; set only when `billable = 0` |
-| `currency` | TEXT NOT NULL | ISO-4217, CHECK against registered set, seed `USD` |
-| `rate_e4` | INTEGER | nullable (null for non-billable internal time) |
-| `rate_card_id` | TEXT → `rate_card.id` | null ⟺ `rate_e4` null |
-| `rate_source` | TEXT | CHECK IN (`override`,`matter`,`client`,`timekeeper`,`role`,`card_default`); null when `rate_e4` null |
-| `amount_minor` | INTEGER | CHECK: (`amount_minor` IS NULL) = (`rate_e4` IS NULL) |
-| `utbms_task_code_id` | TEXT → `utbms_code.id` | nullable |
-| `utbms_activity_code_id` | TEXT → `utbms_code.id` | nullable |
-| `status` | TEXT NOT NULL | CHECK IN (`draft`,`submitted`,`approved`,`billed`,`void`) |
-| `source` | TEXT NOT NULL | CHECK IN (`timer`,`manual`,`quick_add`,`grid`,`offline_sync`,`calendar`) |
-| `live_run_id` | TEXT | nullable; set for `source = timer`, the stop-commit dedup anchor |
-| `invoice_id` | TEXT | nullable; set at billing |
-| `created_at`/`updated_at` | TEXT NOT NULL | ISO instants |
-| `created_by` | TEXT | actor user handle (not an FK) |
+
+| column                     | type                              | notes                                                                                                |
+| -------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `id`                       | TEXT PK                           | `timeEntry_` handle                                                                                  |
+| `matter_id`                | TEXT NOT NULL → `matter.id`       | bound at commit                                                                                      |
+| `timekeeper_user_id`       | TEXT NOT NULL → `member.user_id`  | who the time is for                                                                                  |
+| `work_date`                | TEXT NOT NULL                     | civil `PlainDate` (YYYY-MM-DD); the effective date                                                   |
+| `duration_minutes`         | INTEGER NOT NULL                  | rounded billable quantity                                                                            |
+| `raw_duration_minutes`     | INTEGER NOT NULL                  | captured pre-rounding minutes                                                                        |
+| `narrative`                | TEXT NOT NULL                     |                                                                                                      |
+| `billable`                 | INTEGER NOT NULL                  | 0/1, CHECK IN (0,1)                                                                                  |
+| `non_billable_category_id` | TEXT → `non_billable_category.id` | nullable; set only when `billable = 0`                                                               |
+| `currency`                 | TEXT NOT NULL                     | ISO-4217, CHECK against registered set, seed `USD`                                                   |
+| `rate_e4`                  | INTEGER                           | nullable (null for non-billable internal time)                                                       |
+| `rate_card_id`             | TEXT → `rate_card.id`             | null ⟺ `rate_e4` null                                                                                |
+| `rate_source`              | TEXT                              | CHECK IN (`override`,`matter`,`client`,`timekeeper`,`role`,`card_default`); null when `rate_e4` null |
+| `amount_minor`             | INTEGER                           | CHECK: (`amount_minor` IS NULL) = (`rate_e4` IS NULL)                                                |
+| `utbms_task_code_id`       | TEXT → `utbms_code.id`            | nullable                                                                                             |
+| `utbms_activity_code_id`   | TEXT → `utbms_code.id`            | nullable                                                                                             |
+| `status`                   | TEXT NOT NULL                     | CHECK IN (`draft`,`submitted`,`approved`,`billed`,`void`)                                            |
+| `source`                   | TEXT NOT NULL                     | CHECK IN (`timer`,`manual`,`quick_add`,`grid`,`offline_sync`,`calendar`)                             |
+| `live_run_id`              | TEXT                              | nullable; set for `source = timer`, the stop-commit dedup anchor                                     |
+| `invoice_id`               | TEXT                              | nullable; set at billing                                                                             |
+| `created_at`/`updated_at`  | TEXT NOT NULL                     | ISO instants                                                                                         |
+| `created_by`               | TEXT                              | actor user handle (not an FK)                                                                        |
 
 Indexes: `(timekeeper_user_id, work_date)`; `(matter_id, status)`; `(status, work_date)`. Partial UNIQUE on `live_run_id WHERE live_run_id IS NOT NULL` (collapses racing stop-commits).
 
