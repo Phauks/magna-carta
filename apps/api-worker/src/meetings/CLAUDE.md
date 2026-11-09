@@ -4,7 +4,7 @@
 that brokers each browser's session with Cloudflare Realtime and keeps the roster, and the client for
 the two Realtime services it speaks to. It holds no business logic and writes no record of its own —
 the meeting row, attendance and chat are `@magna-carta/meetings` behind
-`apps/api-worker/src/routes/meetings.ts`; what is here is signaling, and it is deleted when the
+`apps/api-worker/src/http/routes/communications/meetings.ts`; what is here is signaling, and it is deleted when the
 meeting ends.
 
 **Spec:** [`docs/specs/2026-09-18-meetings-design.md`](../../../../docs/specs/2026-09-18-meetings-design.md)

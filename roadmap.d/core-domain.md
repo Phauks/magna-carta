@@ -208,7 +208,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0007
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
-  evidence: packages/matters + apps/api-worker/src/routes/matters.ts on main; the intake at apps/web/src/lib/matters/new-matter-dialog.svelte chooses the client from the directory (EntityPicker) and the create writes the client party in the same batch
+  evidence: packages/matters + apps/api-worker/src/http/routes/matters/matters.ts on main; the intake at apps/web/src/lib/matters/new-matter-dialog.svelte chooses the client from the directory (EntityPicker) and the create writes the client party in the same batch
   audience: public
   public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
   awaiting-owner: The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
@@ -220,7 +220,7 @@
   status: partial
   surface: screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
-  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab links, reads and severs; the client's own party row is written by packages/matters createMatter in the same batch as the matter (clientPartyStatements).
+  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/http/routes/directory/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab links, reads and severs; the client's own party row is written by packages/matters createMatter in the same batch as the matter (clientPartyStatements).
   notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a consultation's conflict check needs a person.
 
 - id: matters.numbering
@@ -229,7 +229,7 @@
   status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079
-  evidence: packages/sequence-numbering/src/ (purposes, segments, render, scheme-service, scheme-draw) with matters' own tables in packages/matters/src/numbering/ + routes/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
+  evidence: packages/sequence-numbering/src/ (purposes, segments, render, scheme-service, scheme-draw) with matters' own tables in packages/matters/src/numbering/ + routes/firm/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
   notes: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs. The engine moved out of matters into the platform-wide numbering register on 2026-09-18 (matters.numbering.register).
 
 - id: matters.numbering.register
@@ -238,7 +238,7 @@
   status: shipped
   surface: screen
   slices: 1-1-matters-locations-file-manager
-  evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; the draws in packages/billing/src/finalize.ts, packages/timekeeping/src/entry-numbering.ts and packages/communications/src/communication-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/routes/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migrations 20260918T195508_conflicts-check-numbering-scheme and 20261002T192145_communication-number-scope-parts
+  evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; the draws in packages/billing/src/finalize.ts, packages/timekeeping/src/entry-numbering.ts and packages/communications/src/communication-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/http/routes/firm/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migrations 20260918T195508_conflicts-check-numbering-scheme and 20261002T192145_communication-number-scope-parts
   notes: Shipped 2026-09-18; the last three fixed runs became schemes on 2026-09-20. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are schemes like the rest, each defaulting to byte-for-byte what it rendered before — which needed the month, day and matter-number parts plus scopeSource (template-derived scope versus a key the domain passes) and scopeDistinguishedBy on the register. A new sequence is a row here and a draw site; nothing about its shape goes in the owning package.
 
 - id: matters.numbering.location-segment
@@ -255,7 +255,7 @@
   status: partial
   slices: 1-1-matters-locations-file-manager, 1-4-custom-fields-engine
   adrs: ADR-0087
-  evidence: packages/matters/src/matter-type-service.ts + routes/matter-types.ts; custom-fields engine on main
+  evidence: packages/matters/src/matter-type-service.ts + routes/firm/matter-types.ts; custom-fields engine on main
   notes: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built.
 
 - id: matters.types.templates-workflows
@@ -300,7 +300,7 @@
   status: shipped
   surface: internal
   slices: 1-1-matters-locations-file-manager
-  evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/api-worker/src/routes/matters.ts, where the subsystems meet.
+  evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/api-worker/src/http/routes/matters/matters.ts, where the subsystems meet.
   notes: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
 
 - id: matters.lifecycle.stale-consultations
@@ -315,9 +315,11 @@
 - id: matters.physical-file
   name: Physical file register and retention
   scope: The firm's OWN paper file for a matter - what holds it, where that is kept, and the date the file may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard.
-  status: not-started
-  evidence: Nothing in the tree models it. Custodian is client property (packages/custodian), the close stamps closed_at as the instant retention would run from (packages/matters/src/matter-service.ts), and no retention policy or destruction date exists anywhere to run from it - the custody register is explicit that it runs no timer at all and destroys an original only on a written basis by two people.
-  notes: NEEDS ITS OWN DESIGN WORK, and the owner has said so: what holds a file is not one shape. A box at a remote store, a drawer in a cabinet, a safe, a shelf, a crate - the medium is a firm's own choice and a model that hardcodes any one of them is wrong for most firms, so the container is a record carrying its own kind rather than a field spelling "box". A container is a record in its own right for a second reason too: one holds the folders of several matters, so a matter points at it. Surfaced rather than hidden meanwhile - the matter status window gives it a panel of its own, marked Soon, naming what it waits on, because a window that answers "where is the file" while silently omitting the question is worse than one that says it cannot answer yet. It sits beside the status rather than under the close because the file is a standing fact: a folder sits where it sits whatever the matter's status is, and the panel says so. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks.
+  status: partial
+  surface: screen
+  slices: 1-1-matters-locations-file-manager
+  evidence: Where it is kept is matter.physical_file_location_id; the destruction date is matter_file_retention (packages/matters/src/matter-file-retention.ts) stated at the close (POST /api/v1/matters/{id}/close, body fileDestroyOn) no earlier than the firm minimum matters.fileRetentionMinimumYears (Settings > File Retention, GET/PATCH /api/v1/matters/settings, matters:manageRetention), changed afterwards on a closed matter by PUT /api/v1/matters/{id}/file-destruction-date and cleared on reopen, read on the matter detail and served to the calendar by the matterFileDestruction timeline source. The close step asks for it (apps/web/src/lib/matters/matter-status-change-dialog.svelte); both are edited on the matter status window (apps/web/src/lib/matters/matter-status-dialog.svelte). What holds the file has no record yet.
+  notes: The destruction date is one the firm STATES and nothing derives - a retention period is jurisdictional, and a default the platform picked would be a date somebody destroys a client's file on - and nothing deletes anything when it arrives; it is a reminder on the status window and on the firm calendar's File destruction dates, each change audited with the date it replaced. Still to come - the container ("Held In"), which NEEDS ITS OWN DESIGN WORK and the owner has said so, because what holds a file is not one shape (a box at a remote store, a drawer, a safe, a shelf, a crate) and one container holds several matters' folders, so it is a record a matter points at. The owner's ruling (2026-11-09): closing a matter sets the date, at least the firm's minimum after the close, a later date or none allowed; the minimum is a firm setting defaulting to none, never a number this platform picks.
 
 - id: matters.file-manager
   name: File Manager
@@ -345,7 +347,7 @@
   status: shipped
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0082
-  evidence: apps/api-worker/src/downloads/bundle-coordinator.ts + routes/downloads.ts; status.d/2-1 built
+  evidence: apps/api-worker/src/downloads/bundle-coordinator.ts + routes/files/downloads.ts; status.d/2-1 built
   notes: Client-portal reuse awaits the portal (not built).
 
 - id: matters.file-manager.bulk-download.async-jobs
@@ -354,7 +356,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
-  evidence: apps/bundle-worker + routes/bundle-status.ts; docs/specs/2026-06-17-slice-2-1-plan-3-async-bulk-download-implementation-plan.md
+  evidence: apps/bundle-worker + routes/files/bundle-status.ts; docs/specs/2026-06-17-slice-2-1-plan-3-async-bulk-download-implementation-plan.md
   notes: White paper scoped v1 to live-stream only; the async path was built anyway per the 2-1 plan.
 
 - id: matters.file-manager.upload
@@ -365,7 +367,7 @@
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0081
   spec: docs/specs/2026-06-16-slice-2-1-inbound-upload-untrusted-pipeline-design.md
-  evidence: routes/uploads.ts; status.d/2-1 built, deployed scan pipeline
+  evidence: routes/files/uploads.ts; status.d/2-1 built, deployed scan pipeline
   notes: Client portal and Discovery reuse await those subsystems.
 
 - id: matters.file-manager.untrusted-pipeline
@@ -424,8 +426,8 @@
   scope: Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits.
   status: partial
   surface: internal
-  evidence: access-triggered rescan built — rescanCommittedVersion in apps/api-worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
-  notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
+  evidence: access-triggered rescan built — rescanCommittedVersion in apps/api-worker/src/background/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
+  notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/background/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
 
 - id: matters.search
   name: Consolidated matter search
@@ -461,7 +463,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0031
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
-  evidence: packages/locations + routes/locations.ts on main; status.d/1-1 built done, ui todo
+  evidence: packages/locations + routes/matters/locations.ts on main; status.d/1-1 built done, ui todo
   audience: public
   public-name: More than one office
   public-summary: Run several offices, with staff, matters and letterhead attached to the right one and nothing hidden from the rest of the firm.
@@ -608,7 +610,7 @@
   status: partial
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: packages/matter-assets + twenty routes in apps/api-worker/src/routes/matter-assets.ts, over fifteen per-firm tables. Backend only.
+  evidence: packages/matter-assets + twenty routes in apps/api-worker/src/http/routes/matters/matter-assets.ts, over fifteen per-firm tables. Backend only.
   audience: public
   public-name: Asset registers
   public-summary: Track the property, accounts and possessions a matter deals with — what each is worth, what is owed against it, and who holds an interest.
@@ -731,7 +733,7 @@
   surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: CUSTOM_FIELD_TARGETS in packages/custom-fields/src/types.ts drives the drizzle column, the define-field request schema, and readCustomFieldValuesForScope in src/reads.ts; the asset detail composes it in apps/api-worker/src/routes/matter-assets.ts; packages/custom-fields/test/{schema-name-sync,matter-asset-target}.test.ts and the asset-field block in apps/api-worker/test/matter-assets-routes.test.ts.
+  evidence: CUSTOM_FIELD_TARGETS in packages/custom-fields/src/types.ts drives the drizzle column, the define-field request schema, and readCustomFieldValuesForScope in src/reads.ts; the asset detail composes it in apps/api-worker/src/http/routes/matters/matter-assets.ts; packages/custom-fields/test/{schema-name-sync,matter-asset-target}.test.ts and the asset-field block in apps/api-worker/test/matter-assets-routes.test.ts.
   notes: No migration — custom_field.target is a bare text NOT NULL with no CHECK and drizzle's enum emits no SQL, so check-snapshots reports the per-firm head already current; the readers carry the whole of the safety and the vocabulary has one home. The Custodian custodyPacket widening is decoupled rather than coordinated, because with no migration there is nothing to share.
 
 - id: matter-assets.schedule-template

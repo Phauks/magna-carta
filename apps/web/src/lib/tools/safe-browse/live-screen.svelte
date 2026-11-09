@@ -273,7 +273,10 @@
 >
   <!-- The canvas scales the remote screen to fit and centres it; remotePoint allows for that fit
        when it maps a click back onto the remote page. Hidden while there is no live frame, so a
-       stopped stream's last picture never passes for a working screen. -->
+       stopped stream's last picture never passes for a working screen.
+       role="application" is deliberate: the canvas is a remote page the keyboard drives directly, so
+       assistive technology has to pass keys through rather than read it as an image. -->
+  <!-- svelte-ignore a11y_no_interactive_element_to_noninteractive_role -->
   <canvas
     bind:this={canvas}
     tabindex={client.showing ? 0 : -1}

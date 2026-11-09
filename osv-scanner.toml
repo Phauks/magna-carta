@@ -4,7 +4,7 @@
 # each carries a cause. The `ignoreUntil` on the tracked-remediation set is a forcing function — when it
 # lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
 #
-# ONE ENTRY IS ACCEPTED TODAY, AND THE EMPTY STATE IS STILL THE INTENDED ONE. An entry belongs here
+# NO ENTRY IS ACCEPTED TODAY, WHICH IS THE INTENDED STATE. An entry belongs here
 # only when an advisory would otherwise FAIL the gate — that is, a remaining HIGH or CRITICAL
 # (CVSS >= 7.0) with no remediation available. An advisory the gate already passes needs no entry, and
 # adding one would be actively harmful: it would hide a finding that is currently visible in the scan
@@ -50,47 +50,30 @@
 #
 # --- What is NOT accepted, and is deliberately left visible ----------------------------------------
 #
-# Nine advisories remain in the audited lockfiles. All nine pass the gate on severity, and every one
-# has either no fix published or no fix reachable without a carrier moving first, so there is nothing
-# an entry here could usefully forgive:
+# These advisories remain in the audited lockfiles as of 2026-11-09. Every one passes the gate on
+# severity, and every one has either no fix published or no fix reachable without a carrier moving
+# first, so there is nothing an entry here could usefully forgive:
 #
-#   cookie 0.6.0 (GHSA-pxg6-pf52-xh8x, low) — @sveltejs/kit still declares ^0.6.0 as of 2.70.2.
+#   cookie 0.6.0 (GHSA-pxg6-pf52-xh8x, low) — @sveltejs/kit still declares ^0.6.0 on the 2.x line.
+#   @sveltejs/kit 2.70.4 (GHSA-27mw-82g8-phjj and GHSA-pfhg-q3qv-9q6r, both low) — fixed only in 3.0,
+#     a framework major taken on its own rather than inside a dependency sweep.
+#   deepmerge 4.3.1 (GHSA-gcqx-w48m-w2h4, low) — no fixed release; it arrives through
+#     @sveltejs/vite-plugin-svelte, a build-time tool that merges its own configuration.
 #   esbuild 0.18.20 (GHSA-67mh-4wv8-2f99, 5.3) — @esbuild-kit/core-utils hard-pins ~0.18.20 and is
 #     deprecated; it reaches the tree only through drizzle-kit's config loader, which never starts the
 #     esbuild dev server the advisory is about.
-#   lru 0.16.4 (RUSTSEC-2026-0253) — tantivy pins it; the fix is 0.18.2, a Cargo-breaking bump.
-#   paste 1.0.15, proc-macro-error2 2.0.1, ttf-parser 0.25.1, bincode 2.0.1 — unmaintained-crate
-#     notices with no fixed version published. The first two are build-time proc macros with no
-#     runtime surface at all.
-#   rsa 0.9.10 (RUSTSEC-2023-0071, Marvin timing sidechannel, 5.9) — no fixed release exists upstream.
-#     It arrives through yara-x's signature-parsing modules, which verify Authenticode signatures on
+#   paste 1.0.15, ttf-parser 0.25.1, bincode 2.0.1, unsafe-libyaml 0.2.11 — unmaintained-crate notices
+#     with no fixed version published. paste is a build-time proc macro with no runtime surface.
+#   rsa 0.10.0-rc.21 (RUSTSEC-2023-0071, Marvin timing sidechannel, 5.9) — no fixed release exists
+#     upstream. It arrives through yara-x's signature-parsing modules, which verify Authenticode signatures on
 #     scanned samples and hold no private key; the attack recovers a private key through a
 #     decryption/signing oracle, so there is no operation here for it to target.
-#   wasmtime 43.0.2 (RUSTSEC-2026-0222, 3.8) — yara-x requires ^43.0.2 and the fix landed in 46.0.2,
-#     so no yara-x release reaches it. The defect needs an application that moves a Store between two
-#     Engines; yara-x uses one.
-
-# --- Accepted, with cause ---------------------------------------------------------------------------
-
-# The owner accepted this advisory on 2026-09-01, after the remediation search below came back empty.
-# It is the same crate and the same wall as RUSTSEC-2026-0222 above, one advisory later and over the
-# fail threshold rather than under it.
 #
-# Why no remediation exists: the fixed ranges are < 24.0.13, < 36.0.14, < 46.0.3 and < 47.0.4, and
-# 43.0.2 sits in the 37.0.0 → < 46.0.3 band, so the fix for this line is 46.0.3. yara-x is wasmtime's
-# only carrier in every audited lockfile, and no published release reaches that high — 1.18.0 (ours)
-# and 1.19.0 require ^43.0.2, and even 1.20.0, the newest, requires ^45.0.3. Checked against crates.io
-# rather than assumed.
+# Cleared on 2026-11-09 by the dependency refresh rather than accepted: wasmtime (RUSTSEC-2026-0222 and
+# the accepted RUSTSEC-2026-0269, which left this file) once yara-x 1.22 required wasmtime 48; lru
+# (RUSTSEC-2026-0253) once tantivy 0.27 moved it to 0.18; and nine zip advisories, several CRITICAL,
+# once every consumer moved to zip 9.4.
 #
-# Why the exposure is judged nil rather than small: the defect is a filesystem sandbox escape through
-# trailing slashes or symlinks in a WASI preopen. containers/scan uses yara_x::{Compiler, Rules,
-# Scanner} only; wasmtime is internal to yara-x's rule JIT, and there is no WASI, no preopen and no
-# guest filesystem anywhere in that container's source. There is no operation here for the advisory
-# to target.
-#
-# The exit condition is a yara-x release requiring wasmtime >= 46.0.3. ignoreUntil re-surfaces it for
-# review before then, so this cannot become permanent by inattention.
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0269"
-ignoreUntil = 2026-10-01
-reason = "wasmtime 43.0.2 WASI filesystem sandbox escape. No remediation reachable: the fix for the 37-45 line is 46.0.3 and no yara-x release requires above ^45.0.3. yara-x is the only carrier, and containers/scan uses it for rule compilation and scanning only - no WASI, no preopens, no guest filesystem - so the advisory has no reachable surface. Revisit when a yara-x release requires wasmtime >= 46.0.3."
+# Not listed because it does not pass: the vite-plus 0.1.24 / vite 8.0.16 records (GHSA-587h-7wmj-h5pm,
+# 7.5, and four lower). The fix is vite-plus 1.1 or later, which brings Vitest 5, and that move is a
+# toolchain change made on its own (the Workers test pool becomes @cloudflare/vitest-plugin).

@@ -61,10 +61,10 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
   [
     // The incident-intake route: seals the description through composeProtectedWrite, then binds the
     // returned ciphertext value into its INSERT — it never SELECTs the ciphertext to decrypt.
-    "apps/api-worker/src/routes/incidents.ts",
+    "apps/api-worker/src/http/routes/platform/incidents.ts",
     // The backfill sweep: seals pre-slice plaintext through the chokepoint, UPDATEs the ciphertext
     // column, and selects rows by `description_ciphertext IS NULL` — it never decrypts.
-    "apps/api-worker/src/scheduled.ts",
+    "apps/api-worker/src/background/scheduled.ts",
     // The directory identifier write/match path: addIdentifier seals each typed identifier value
     // through composeProtectedWrite and binds the returned ciphertext + blind-index values into its
     // own INSERT; findByIdentifier filters on value_blind_index equality (no decrypt); the only

@@ -133,7 +133,7 @@ address**, so a search survives a reload and can be handed to a colleague, accep
 of a matter's text lands in browser history on a URL that already names the matter.
 
 **Four recommendations stand, each reversible**, recorded as M3, M5, M6 and M7 in
-[`docs/specs/2026-08-31-matter-consolidated-search-design.md`](../../specs/2026-08-31-matter-consolidated-search-design.md):
+[`docs/specs/2026-08-31-matter-consolidated-search-design.md`](../specs/2026-08-31-matter-consolidated-search-design.md):
 a hit may carry a snippet within a matter (with a source over a protected column declaring it has
 none); `search:matter` is a new key seeded to every default role; "include deleted" is per source
 and declared rather than one global toggle; and a source withheld for want of a permission says so

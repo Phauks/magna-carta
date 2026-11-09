@@ -8,7 +8,7 @@ import {
 
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 const ALL_DEFAULT_ROLE_IDS = new Set([
-  "role_Gw-zKO8hOHQuNv2bWokMp", // Owner/Admin
+  "role_Gw-zKO8hOHQuNv2bWokMp", // Admin
   "role_gEyJ_YqL1_RI_yDqSa28Y", // Attorney
   "role_917LCQyRKP50Z9bW89vXl", // Paralegal
   "role_hwwC1D98d8Lazc_asL6vO", // Billing

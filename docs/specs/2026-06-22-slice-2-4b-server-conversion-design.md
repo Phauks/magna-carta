@@ -18,7 +18,7 @@ substrate; the real image lights it up at deploy.
 ## Architecture — the flow (uniform-async, matter-free)
 
 1. **Upload (transient).** Client requests a presigned PUT (reuse `files/presign.ts` +
-   `routes/uploads.ts`) and uploads the source to a **transient R2 prefix** (`conversions/<jobId>/source`).
+   `routes/files/uploads.ts`) and uploads the source to a **transient R2 prefix** (`conversions/<jobId>/source`).
 2. **Submit.** Client POSTs `convert {sourceKey, targetFormat}` to the route (0·5 chokepoint,
    `tools:fileConverter`). The route validates the edge against the registry, mints a `jobId`, creates
    a **`ConversionJob` Durable Object** in `queued`, and **enqueues** the job on a `CONVERSION` queue.
@@ -41,7 +41,7 @@ substrate; the real image lights it up at deploy.
   retries. Mirrors `downloads/bundle-consumer.ts`.
 - **Routes** (through the ADR-0067 chokepoint): `POST /conversions` (submit), `GET /conversions/:id`
   (status + token on done), `GET /conversions/:id/result?token=…` (download). Mirrors
-  `routes/bundle-status.ts` + `routes/downloads.ts` + `routes/uploads.ts`.
+  `routes/files/bundle-status.ts` + `routes/files/downloads.ts` + `routes/files/uploads.ts`.
 - **`LibvipsContainer extends Container`** — `enableInternet: false` (untrusted bytes — the cross-cutting
   untrusted-input posture), `pingEndpoint`, `sleepAfter`, a warm-poke cron. Runs native libvips behind
   a tiny HTTP service (bytes + recipe in → bytes out). Mirrors `files/scan-container.ts`.

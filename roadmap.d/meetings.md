@@ -9,7 +9,7 @@
   scope: In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event.
   status: partial
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: Slice 1 built and reviewed — packages/meetings, apps/api-worker/src/meetings, apps/api-worker/src/routes/meetings.ts, apps/web/src/lib/meetings, apps/web/src/routes/(app)/meetings (the Meetings page and the room), and a Communications group in the sidebar; guests, recording, dial-in and larger rooms are ahead.
+  evidence: Slice 1 built and reviewed — packages/meetings, apps/api-worker/src/meetings, apps/api-worker/src/http/routes/communications/meetings.ts, apps/web/src/lib/meetings, apps/web/src/routes/(app)/meetings (the Meetings page and the room), and a Communications group in the sidebar; guests, recording, dial-in and larger rooms are ahead.
   audience: public
   public-summary: Meet your colleagues by video from the calendar, share a screen, and keep a record of who attended — without a separate conferencing subscription.
   notes: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default.
@@ -44,7 +44,7 @@
   status: shipped
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/api-worker/src/routes/meetings.ts; the two keys in packages/access-control/src/registry.ts.
+  evidence: apps/api-worker/src/http/routes/communications/meetings.ts; the two keys in packages/access-control/src/registry.ts.
 
 - id: meetings.screen
   name: Meeting screen
@@ -80,7 +80,7 @@
   status: in-build
   surface: awaiting-screen
   spec: docs/specs/2026-09-20-meetings-external-guests-design.md
-  evidence: The server half is built — meeting_guest_invitation and meeting_guest_stay in packages/database/src/per-firm-schema.ts (migration 20260924T090000); packages/meetings/src/guest-types.ts, guest-statements.ts, guest-service.ts and guest-removal.ts, with presence unioned over both stay tables through MEETING_STAY_TABLES in meeting-statements.ts; the chokepoint's guest lane (guestLane in apps/api-worker/src/contracts/route-meta.ts, step 0 in chokepoint/chokepoint.ts, makeGuestLane in chokepoint/ports.ts); the credentials in apps/api-worker/src/meetings/guest-token.ts over src/signed-token.ts; the four host routes and six guest routes in apps/api-worker/src/routes/meetings-guest.ts; guest sockets redacted per viewer in apps/api-worker/src/meetings/room/. Tests: test/guest-lane.test.ts, test/guest-token.test.ts, test/guest-invitation-mail.test.ts, test/meetings-guest-routes.test.ts, the guest block in test/meeting-room.test.ts, and packages/meetings/test/guests.test.ts.
+  evidence: The server half is built — meeting_guest_invitation and meeting_guest_stay in packages/database/src/per-firm-schema.ts (migration 20260924T090000); packages/meetings/src/guest-types.ts, guest-statements.ts, guest-service.ts and guest-removal.ts, with presence unioned over both stay tables through MEETING_STAY_TABLES in meeting-statements.ts; the chokepoint's guest lane (guestLane in apps/api-worker/src/http/contracts/route-meta.ts, step 0 in chokepoint/chokepoint.ts, makeGuestLane in chokepoint/ports.ts); the credentials in apps/api-worker/src/meetings/guest-token.ts over src/signed-token.ts; the four host routes and six guest routes in apps/api-worker/src/http/routes/communications/meetings-guest.ts; guest sockets redacted per viewer in apps/api-worker/src/meetings/room/. Tests: test/guest-lane.test.ts, test/guest-token.test.ts, test/guest-invitation-mail.test.ts, test/meetings-guest-routes.test.ts, the guest block in test/meeting-room.test.ts, and packages/meetings/test/guests.test.ts.
   notes: The guest arrival page, the host's Guests panel and the lobby rows' guest mark are the web half, in build beside this in the stream at docs/active-work/claude/focused-edison-ylxfiy.md. The portal grant model will subsume the link when it lands.
   audience: public
   public-summary: Invite a client or another party to a meeting with a one-time link.
@@ -111,7 +111,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
-  evidence: Server half built — the meeting_host table with its two partial unique indexes plus meeting.locked_at and meeting_attendance.ended_reason in packages/database/src/per-firm-schema.ts, the hosting trio in packages/meetings (hosting-types/hosting-statements/hosting-service, with requireHostGrant as the one authority chokepoint), the four host frames and room-state in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-hosting.ts, and apps/api-worker/src/routes/meeting-hosting.ts. The per-tile menu, the Host controls band and the spotlight's subscription band are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  evidence: Server half built — the meeting_host table with its two partial unique indexes plus meeting.locked_at and meeting_attendance.ended_reason in packages/database/src/per-firm-schema.ts, the hosting trio in packages/meetings (hosting-types/hosting-statements/hosting-service, with requireHostGrant as the one authority chokepoint), the four host frames and room-state in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-hosting.ts, and apps/api-worker/src/http/routes/communications/meeting-hosting.ts. The per-tile menu, the Host controls band and the spotlight's subscription band are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
   public-summary: Run a large meeting from the front — mute the room, remove a participant, spotlight the speaker.
   notes: Open — the signaling socket outlives the session and the permission that opened it. Authority is read once at the upgrade and the socket then runs for the length of the meeting, so a session revoked elsewhere, a suspended member or a withdrawn meetings-join key changes nothing until that browser reconnects. The hosting half is already covered (a withdrawn grant binds on the next frame, because the routes rewrite the stored record); the rest wants a bounded socket lifetime or a revalidation, and the shape is an owner question recorded in the amendments of docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md.
@@ -122,7 +122,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
-  evidence: Server half built — meeting.lobby plus meeting_attendance.waiting_from / admitted_at and their partial index in packages/database/src/per-firm-schema.ts, the lobby trio in packages/meetings (lobby-types/lobby-statements/lobby-service, with MAX_MEETING_LOBBY at the door and the room's own capacity guard moved onto the admission), the two presence predicates as single exported fragments in meeting-statements.ts, the lobby/admitted/waiting frames and the two refusal reasons in packages/meeting-protocol/src/frames.ts, the waiting: storage prefix in apps/api-worker/src/meetings/room/room-lobby.ts, and apps/api-worker/src/routes/meeting-lobby.ts. The waiting screen, the host's lobby sheet and the lobby switch at Start are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  evidence: Server half built — meeting.lobby plus meeting_attendance.waiting_from / admitted_at and their partial index in packages/database/src/per-firm-schema.ts, the lobby trio in packages/meetings (lobby-types/lobby-statements/lobby-service, with MAX_MEETING_LOBBY at the door and the room's own capacity guard moved onto the admission), the two presence predicates as single exported fragments in meeting-statements.ts, the lobby/admitted/waiting frames and the two refusal reasons in packages/meeting-protocol/src/frames.ts, the waiting: storage prefix in apps/api-worker/src/meetings/room/room-lobby.ts, and apps/api-worker/src/http/routes/communications/meeting-lobby.ts. The waiting screen, the host's lobby sheet and the lobby switch at Start are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
   public-summary: Hold arrivals in a lobby and let them in when you are ready.
   notes: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm. Guests always wait regardless of the setting; the signed one-time link is its own slice and nothing here mints one.
@@ -133,7 +133,7 @@
   status: partial
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: Both halves shipped. Browser — apps/web/src/lib/meetings/client/connection-quality.ts and client/diagnostics.svelte.ts with the marks in screen/meeting-connection.ts. Room — the meetings.room.\* event family in packages/telemetry/src/events.ts, apps/api-worker/src/meetings/room/room-diagnostics.ts wired at one call per act, the diagnostic-report frame in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-inspect.ts behind apps/api-worker/src/routes/meeting-inspect.ts, and the harness in apps/api-worker/test/support/meeting-room-load.ts. Partial because nothing READS the stream yet: the operator console page over inspect, and a dashboard over the events, are the remaining halves.
+  evidence: Both halves shipped. Browser — apps/web/src/lib/meetings/client/connection-quality.ts and client/diagnostics.svelte.ts with the marks in screen/meeting-connection.ts. Room — the meetings.room.\* event family in packages/telemetry/src/events.ts, apps/api-worker/src/meetings/room/room-diagnostics.ts wired at one call per act, the diagnostic-report frame in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-inspect.ts behind apps/api-worker/src/http/routes/communications/meeting-inspect.ts, and the harness in apps/api-worker/test/support/meeting-room-load.ts. Partial because nothing READS the stream yet: the operator console page over inspect, and a dashboard over the events, are the remaining halves.
   notes: The harness falsified a design claim on its first run — every deferred presence transition armed the alarm through the full reconciliation, two roster-wide reads on the frame a large room sends most, measured at 1.2 storage lists per frame against a design that claims one. Arming for the known deadline instead took the same pass to 0.4.
 
 - id: meetings.reactions
@@ -151,7 +151,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: The meeting_message table in packages/database/src/per-firm-schema.ts, the chat trio in packages/meetings (chat-service, chat-statements, chat-types, chat-validation), the three routes in apps/api-worker/src/routes/meeting-chat.ts, and the chat panel in apps/web/src/lib/meetings. The RELAY now exists beside the record — apps/api-worker/src/meetings/room/room-chat.ts broadcasts a copy of the committed row to every welcomed socket as the message and message-redacted frames, and the list route carries a redacted array so a reader that missed a frame converges on what a forward-only walk cannot reach.
+  evidence: The meeting_message table in packages/database/src/per-firm-schema.ts, the chat trio in packages/meetings (chat-service, chat-statements, chat-types, chat-validation), the three routes in apps/api-worker/src/http/routes/communications/meeting-chat.ts, and the chat panel in apps/web/src/lib/meetings. The RELAY now exists beside the record — apps/api-worker/src/meetings/room/room-chat.ts broadcasts a copy of the committed row to every welcomed socket as the message and message-redacted frames, and the list route carries a redacted array so a reader that missed a frame converges on what a forward-only walk cannot reach.
   notes: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only. The route is the record and the room stores nothing about a message; a browser that misses a frame is caught up by the read. Open — the transcript is readable by any member who can see the matter event, including one who never joined the meeting and one added to the matter afterwards; posting needs an open stay but reading inherits the event's visibility. Whether the read should narrow to the people who were in the room is an owner question recorded in the amendments of docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md.
 
 - id: meetings.breakout-rooms
@@ -168,7 +168,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-20-meetings-reactions-and-polls-design.md
-  evidence: Both halves built. The server half — six tables in packages/database/src/per-firm-schema.ts (meeting_poll, meeting_poll_option, meeting_poll_respondent, meeting_poll_answer, meeting_question, meeting_question_upvote) by one additive per-firm migration, the poll and question trios in packages/meetings, the twelve routes in apps/api-worker/src/routes/meeting-polls.ts and meeting-questions.ts, the six room frames in packages/meeting-protocol, and the relay in apps/api-worker/src/meetings/room/room-polls.ts over the per-second bucket the reactions now share (room/room-coalescing.ts). The screen is the web half, in flight. The web half — the concern in apps/web/src/lib/meetings/client/polls.svelte.ts and questions.svelte.ts, the Polls and Q&A panels in screen/meeting-polls-panel.svelte and meeting-questions-panel.svelte opened from the control bar with count badges, the six frame handlers in client/signaling.ts, and the once-only toast on the room page. Nothing yet seen in a browser.
+  evidence: Both halves built. The server half — six tables in packages/database/src/per-firm-schema.ts (meeting_poll, meeting_poll_option, meeting_poll_respondent, meeting_poll_answer, meeting_question, meeting_question_upvote) by one additive per-firm migration, the poll and question trios in packages/meetings, the twelve routes in apps/api-worker/src/http/routes/communications/meeting-polls.ts and meeting-questions.ts, the six room frames in packages/meeting-protocol, and the relay in apps/api-worker/src/meetings/room/room-polls.ts over the per-second bucket the reactions now share (room/room-coalescing.ts). The screen is the web half, in flight. The web half — the concern in apps/web/src/lib/meetings/client/polls.svelte.ts and questions.svelte.ts, the Polls and Q&A panels in screen/meeting-polls-panel.svelte and meeting-questions-panel.svelte opened from the control bar with count badges, the six frame handlers in client/signaling.ts, and the once-only toast on the room page. Nothing yet seen in a browser.
   notes: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen. Member routes only — a guest's stay can be named on every row, and the guest lane for answering and asking is not built.
 
 - id: meetings.whiteboard
@@ -237,7 +237,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/routes/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte.
+  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/http/routes/calendar/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte.
   audience: public
   public-summary: Choose Video meeting or Audio call when you record an event, and the room is there the moment it is saved.
   notes: Firm events raise no invitation yet — notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves.
@@ -254,14 +254,15 @@
   scope: A room a member always has, joined by a stable link, not tied to a calendar event.
   status: not-started
   evidence: No code.
-  awaiting-owner: Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
+  notes: The owner's ruling of 2026-11-09 — personal rooms are allowed. The design still has to say how a meeting held in one reaches the record, since every other meeting hangs from a calendar event.
 
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
   scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
   status: not-started
   evidence: No code; researched 2026-09-24 in docs/research/2026-09-24-meetings-end-to-end-encryption.md (research, not yet a design) — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
-  awaiting-owner: Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
+  notes: The owner's ruling of 2026-11-09 — build it; deferring is off the table.
+  awaiting-owner: Opt-in fixed at the meeting's start, or on by default; whether a firm may forbid it; whether it waits for recording and dial-in and the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty); and the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
 
 - id: meetings.usage-reporting
   name: Meetings usage and quality

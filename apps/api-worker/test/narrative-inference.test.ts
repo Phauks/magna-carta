@@ -74,7 +74,7 @@ describe("suggestNarrative — dark until the firm's AI-processing gate is on", 
   it("returns a typed feature-disabled result and reaches NO model when eligibility is the default (off)", async () => {
     const calls: GenerateInput[] = [];
     const result = await suggestNarrative(fakeFirmDatabase(), recordingPort(calls), {
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       input: INPUT,
     });
     expect(result).toEqual({ status: "feature-disabled" });
@@ -84,7 +84,7 @@ describe("suggestNarrative — dark until the firm's AI-processing gate is on", 
   it("still returns feature-disabled (no model) when eligibility is explicitly false", async () => {
     const calls: GenerateInput[] = [];
     const result = await suggestNarrative(fakeFirmDatabase(false), recordingPort(calls), {
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       input: INPUT,
     });
     expect(result.status).toBe("feature-disabled");

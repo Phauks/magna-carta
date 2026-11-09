@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  rebaseLinks,
   collectFragments,
   containsEmoji,
   ensureDatedSection,
@@ -295,5 +296,25 @@ describe("ensureDatedSection", () => {
   it("is a no-op for a date already present, so a second assembly the same day appends", () => {
     const existing = ensureDatedSection(publicChangelog, "2026-08-12");
     expect(ensureDatedSection(existing, "2026-08-12")).toBe(existing);
+  });
+});
+
+describe("rebaseLinks", () => {
+  it("drops the fragment's climb for the root changelog, and leaves absolute links and anchors alone", () => {
+    const text =
+      "See [the spec](../docs/specs/x.md), [the site](https://example.com) and [below](#here).";
+    expect(rebaseLinks(text, "developer")).toBe(
+      "See [the spec](docs/specs/x.md), [the site](https://example.com) and [below](#here).",
+    );
+  });
+
+  it("rebases into docs/ for the public changelog, whichever way the fragment wrote the link", () => {
+    expect(rebaseLinks("[guide](../docs/user/features/x.md)", "public")).toBe(
+      "[guide](user/features/x.md)",
+    );
+    expect(rebaseLinks("[guide](docs/user/features/x.md)", "public")).toBe(
+      "[guide](user/features/x.md)",
+    );
+    expect(rebaseLinks("[tool](../tooling/x.mjs)", "public")).toBe("[tool](../tooling/x.mjs)");
   });
 });

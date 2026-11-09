@@ -4,7 +4,7 @@
 [design spec](2026-06-17-integration-platform-foundation-design.md) and its
 [implementation plan](2026-06-17-integration-platform-foundation-implementation-plan.md); those two
 are the authoritative detail. The diagrams below are grounded in the code as it stands today
-(`apps/worker/src/app.ts`, `apps/worker/src/routes/shipping.ts`, `apps/worker/src/shipping/registry.ts`)
+(`apps/worker/src/app.ts`, `apps/worker/src/routes/communications/shipping.ts`, `apps/worker/src/shipping/registry.ts`)
 and the model the design introduces.
 
 The one-sentence story: **today the platform core _contains_ knowledge of each plugin — it imports
@@ -21,7 +21,7 @@ self-describe.
 Today, adding shipping meant teaching the core about shipping in several places at once. `app.ts`
 imports `registerShippingRoutes` and `fetchHttpClient` directly; `CreateAppOptions` carries a
 bespoke `shipping?` field; the registration is a hand-written call with an inline default-deps
-fallback; and `routes/shipping.ts` reaches back into a shipping-specific `buildShippingRegistry` that
+fallback; and `routes/communications/shipping.ts` reaches back into a shipping-specific `buildShippingRegistry` that
 hard-codes `createEasyPostAdapter`. Every one of those is a thread tying the core to this one plugin —
 so a second plugin re-creates every thread.
 
@@ -35,7 +35,7 @@ flowchart TB
   end
 
   subgraph plugin["Shipping plugin surface"]
-    routes["routes/shipping.ts<br/>ShippingRouteDeps + 7 routes"]
+    routes["routes/communications/shipping.ts<br/>ShippingRouteDeps + 7 routes"]
     shimreg["shipping/registry.ts<br/>buildShippingRegistry()<br/>hard-codes createEasyPostAdapter"]
     adapter["@magna-carta/shipping<br/>EasyPost adapter"]
   end

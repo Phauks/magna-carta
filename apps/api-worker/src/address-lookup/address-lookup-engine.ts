@@ -27,7 +27,7 @@ import {
 } from "@magna-carta/address-lookup/routed";
 import { selfHostedAddressLookupPort } from "@magna-carta/address-lookup/self-hosted";
 import { smartyAddressLookupPort } from "@magna-carta/address-lookup/smarty";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 /**
  * Which engine served a request — a metric dimension, so an operator can see what is live. The

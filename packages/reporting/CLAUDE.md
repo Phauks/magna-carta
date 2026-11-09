@@ -82,7 +82,7 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   and beside the invariants it must respect. This package holds no SQL of its own by design; it
   composes those builders into report shapes. The purity scan's non-vacuity floor is that these
   sources really do call them.
-- The route layer (`apps/api-worker/src/routes/reports.ts`) supplies the firm-scoped database, the clock,
+- The route layer (`apps/api-worker/src/http/routes/billing/reports.ts`) supplies the firm-scoped database, the clock,
   and the jurisdiction port. Nothing here resolves any of the three.
 
 ## Gotchas

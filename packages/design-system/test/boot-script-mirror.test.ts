@@ -23,6 +23,7 @@ import {
   MOTION_STORAGE_KEY,
   SCROLL_EDGE_HINTS_STORAGE_KEY,
   THEME_STORAGE_KEY,
+  TYPEFACE_STORAGE_KEY,
 } from "../src/lib/internal/theme-preference.ts";
 
 const appHtml = readFileSync(join(import.meta.dirname, "../../../apps/web/src/app.html"), "utf-8");
@@ -62,6 +63,14 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
 
   it("resolves system contrast via the same media query", () => {
     expect(appHtml).toContain('"(prefers-contrast: more)"');
+  });
+
+  it("reads the same typeface storage key", () => {
+    expect(appHtml).toContain(`"${TYPEFACE_STORAGE_KEY}"`);
+  });
+
+  it("writes the same data-typeface attribute the token overlays key on", () => {
+    expect(appHtml).toContain("root.dataset.typeface");
   });
 
   /*

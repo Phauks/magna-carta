@@ -25,7 +25,7 @@ import { insertCredentialAccountStatement } from "./joining-credentials.ts";
 // minted per attempt, and the idempotency record stores only a response — neither survives a
 // crash as a lookup key, so the client-supplied name is the one stable handle a re-invocation can
 // find its partial row by. The match is BYTE-EXACT (WHERE name = ?1), so the ROUTE owns name
-// normalization: routes/firms.ts canonicalizes (trim + Unicode NFC) in its request schema before
+// normalization: routes/platform/firms.ts canonicalizes (trim + Unicode NFC) in its request schema before
 // the name reaches this module — a trailing space or an NFD variant must resume the same row, not
 // insert a second one. Platform-admin-controlled input on a fleet of ~1 (the endpoint is
 // secret-gated); revisit if firm creation ever becomes self-serve.
@@ -226,7 +226,7 @@ export async function provisionFirm(
   // Step 3 — the activation batch, returned for the caller's atomic commit: the owner user
   // (unverified, account-less — activation runs through the password-reset flow, the Path A
   // members.invite verified), the firm.provisioned audit row, the member.provision outbox row
-  // carrying the Owner/Admin role, the activation fence, and the status flip that also records
+  // carrying the Admin role, the activation fence, and the status flip that also records
   // the owner. One batch: 'active' implies the owner exists AND is recorded, which is what makes
   // status the step-3 guard and owner_user_id the already-active branch's owner of record.
   const adoptedOwnerUserId = input.owner.userId;
@@ -335,7 +335,7 @@ export async function provisionFirm(
             userId: ownerUserId,
             firmId,
             displayName: input.owner.name,
-            roleName: "Owner/Admin",
+            roleName: "Admin",
           },
         },
       ],

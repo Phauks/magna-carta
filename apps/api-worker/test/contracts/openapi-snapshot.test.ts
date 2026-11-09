@@ -5,7 +5,7 @@
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import committedSnapshot from "../../openapi/openapi.json?raw";
-import { serializeOpenAPIDocument } from "../../src/app.ts";
+import { serializeOpenAPIDocument } from "../../src/http/app.ts";
 
 describe("OpenAPI snapshot — committed artifact equals a fresh emission", () => {
   it("matches scripts/emit-openapi byte-for-byte (run `pnpm --filter @magna-carta/api-worker run emit-openapi` if this fails)", () => {

@@ -29,7 +29,9 @@
    * NO MATTER IS A CHOICE, NOT AN ABSENCE. A person captures time before they know where it
    * belongs, so the list leads with a row that says so and takes the matter back off. Leaving it
    * blank by deleting the text would work too, but a choice somebody has to discover is a choice
-   * most people never make.
+   * most people never make. A record that cannot exist off a matter (a deadline is a deadline ON a
+   * matter, and its table will not hold one without) turns the row off with `offerNoMatter`, so the
+   * list never offers an answer the commit will then refuse.
    *
    * A CALLER MAY ADD ANSWERS THAT ARE NOT MATTERS. The call log asks one question — where does this
    * belong — and three of its answers are not matters at all: spam, the firm's own business, a
@@ -58,6 +60,7 @@
     capped = false,
     reading = false,
     noMatterLabel = "No matter",
+    offerNoMatter = true,
     extraChoices = [],
     extraHeading,
     extraValue = null,
@@ -86,6 +89,8 @@
     reading?: boolean;
     /** What the row that takes it off every matter is called, where "No matter" is not the words. */
     noMatterLabel?: string;
+    /** Whether the list offers that row at all. Off where the record must belong to a matter. */
+    offerNoMatter?: boolean;
     /** Answers that are not matters, offered after them under `extraHeading`. */
     extraChoices?: readonly { value: string; label: string; meaning?: string }[];
     /** What those answers are called as a group, so a reader knows they are not matters. */
@@ -176,7 +181,7 @@
   allowDeselect={false}
   {disabled}
   items={[
-    { value: NO_MATTER_VALUE, label: noMatterLabel },
+    ...(offerNoMatter ? [{ value: NO_MATTER_VALUE, label: noMatterLabel }] : []),
     ...matching.map((matter) => ({ value: matter.id, label: matterDisplay(matter) })),
     ...matchingExtras.map((choice) => ({ value: choice.value, label: choice.label })),
   ]}
@@ -216,7 +221,9 @@
     }}
   />
   <Combobox.Content>
-    <Combobox.Item value={NO_MATTER_VALUE} label={noMatterLabel} />
+    {#if offerNoMatter}
+      <Combobox.Item value={NO_MATTER_VALUE} label={noMatterLabel} />
+    {/if}
     {#each matching as matter (matter.id)}
       <Combobox.Item value={matter.id} label={matterDisplay(matter)} />
     {/each}

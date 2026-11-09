@@ -625,18 +625,17 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
 - **Node 25 ships a dead `localStorage` global that happy-dom cannot replace** — stub storage via
   `vi.stubGlobal` (see `theme-preference.test.ts`).
 - **CSP (`test/csp-spike/VERDICT.md`):** Floating UI positioning is CSP-clean; Bits' scroll-lock
-  RESTORE used `setAttribute("style", …)`, which strict `style-src` blocks. **Patched** with the
-  first scroll-locking Tier 3 component (Dialog): `patches/bits-ui@2.18.1.patch` rewrites the
-  restore to `style.cssText` (the CSP-clean CSSOM channel). Never loosen `style-src` instead. The
-  spike asserts the patched verdict and fails if a bits-ui upgrade regresses it — re-run on every
-  bits-ui/svelte bump (`tools/run-csp-spike.cmd`) and drop the patch if #1995 lands upstream.
-- **The same patch makes `onFocusOutside` preventable.** A focus event is not cancelable, so the
+  RESTORE used `setAttribute("style", …)`, which strict `style-src` blocks. That was patched locally
+  until upstream fixed it: as of 2.20.6 Bits restores the body through `style.setProperty` /
+  `removeProperty` (CSSOM), so the scroll-lock half of `patches/bits-ui@2.20.6.patch` is gone. Never
+  loosen `style-src` instead. The spike asserts the CSP-clean verdict and fails if a bits-ui upgrade
+  regresses it — re-run on every bits-ui/svelte bump (`tools/run-csp-spike.cmd`).
+- **The patch makes `onFocusOutside` preventable.** A focus event is not cancelable, so the
   `event.preventDefault()` Bits documents as the way to keep a layer open on focus leaving was a
   no-op and Bits closed the layer anyway — a submenu hosting a DatePicker closed the moment its
   calendar took focus. The patch wraps the focus event the way Bits already wraps a pointer event,
-  so the prevented state is tracked; `context-menu/menu-field-layer.ts` relies on it. Both halves
-  of the patch are re-checked on every bits-ui bump; upstream still passes the raw event as of
-  2.19.2.
+  so the prevented state is tracked; `context-menu/menu-field-layer.ts` relies on it. Re-check it
+  on every bits-ui bump; upstream still passes the raw event as of 2.20.6.
 - **Visual regression baselines are authoritative ONLY from the pinned Playwright container**
   (`update-baselines.cmd`/`.sh`; no Docker on the dev machine — first baselines land via CI).
   After any local VRT run, check `git status` for stray `visual-regression/baselines/*.png` —
