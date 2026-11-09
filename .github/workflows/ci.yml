@@ -55,9 +55,9 @@ env:
 jobs:
   gate:
     name: gate
-    # Pinned rather than ubuntu-latest: the Playwright the browser suites run on (1.60, pinned in
-    # pnpm-workspace.yaml) has no Chromium build for ubuntu 26.04, which ubuntu-latest now is. Move
-    # this with that pin.
+    # Pinned rather than ubuntu-latest, which moves to a new Ubuntu release before Playwright ships
+    # browser builds for it (on 2026-11-09 ubuntu-latest was 26.04 and Playwright 1.60 refused it).
+    # Move this deliberately, after checking the catalog's Playwright supports the newer image.
     runs-on: ubuntu-24.04
     # The full test battery alone took about 52 minutes in a 4-core cloud session on 2026-11-09, and the first
     # hosted run hit a 60-minute ceiling, so the job gets room past the slowest honest run.
@@ -145,12 +145,9 @@ jobs:
 
       - name: Install the Playwright browser the test runner needs
         if: steps.plan.outputs.tests == 'true'
-        # The vitest browser provider resolves playwright-core 1.60 (pinned in pnpm-workspace.yaml);
-        # install through that CLI so another resolved `playwright` cannot pick a different build.
-        run: |
-          cli="$(find node_modules/.pnpm -maxdepth 4 -path '*playwright@1.60*/node_modules/playwright/cli.js' | head -1)"
-          if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
-          node "$cli" install --with-deps chromium chromium-headless-shell
+        # Through the workspace's own Playwright (the catalog pin in pnpm-workspace.yaml), so the
+        # browser build always matches the version the test runner resolves, with no version named here.
+        run: pnpm exec playwright install --with-deps chromium chromium-headless-shell
 
       - name: Free runner disk for the container builds
         if: steps.plan.outputs.containers == 'true'
