@@ -6360,6 +6360,10 @@ export type CommunicationDetail = {
     summary: string | null;
     producer: 'member' | 'carrier';
     loggedByUserId: string | null;
+    callerIdName: string | null;
+    outcome: 'answered' | 'transferred' | 'messageTaken' | 'spam' | 'connected' | 'voicemailLeft' | 'noAnswer' | null;
+    spamKind: 'sales' | 'wrongNumber' | 'scam' | null;
+    messageTaskId: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -6389,7 +6393,19 @@ export type LogCommunicationRequest = {
     body?: string | null;
     summary?: string | null;
     disposition?: 'spam' | 'firmBusiness' | 'noAction' | null;
+    callerIdName?: string | null;
+    outcome?: 'answered' | 'transferred' | 'messageTaken' | 'spam' | 'connected' | 'voicemailLeft' | 'noAnswer' | null;
+    spamKind?: 'sales' | 'wrongNumber' | 'scam' | null;
+    message?: CallMessageRequest;
 };
+
+export type CallMessageRequest = {
+    forUserId: string;
+    title: string;
+    dueOn?: string | null;
+    timeZone?: string | null;
+    urgent?: boolean;
+} | null;
 
 export type CommunicationAcknowledged = {
     ok: true;
