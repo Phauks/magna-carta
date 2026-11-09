@@ -328,7 +328,10 @@ corpus-fetch = ["dep:reqwest"]
 
 [dependencies]
 # ... existing ...
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = [
+  "rustls-tls",
+  "blocking",
+], optional = true }
 ```
 
 - [ ] **Step 2: Append the fetch function**

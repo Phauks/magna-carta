@@ -116,7 +116,7 @@ returns an empty field list. This is the forms analogue of the redaction↔detec
 
 - **Rust** (`crates/pdf-core/src/forms.rs`): the functions + types above, re-exported from `crate::`.
 - **wasm / TS** (`packages/pdf`): `readForm(bytes) → FormFieldJson[]`, `fillForm(bytes, values, options)
-→ { pdf }`, `flattenForm(bytes) → { pdf }`. `values` is `{ [name]: string | boolean }` (string →
+  → { pdf }`, `flattenForm(bytes) → { pdf }`. `values` is `{ [name]: string | boolean }` (string →
   Text/Choice, boolean → Checkbox; radio takes the on-state string). `options` carries `flatten?`.
   JSDoc states forms is not redaction.
 

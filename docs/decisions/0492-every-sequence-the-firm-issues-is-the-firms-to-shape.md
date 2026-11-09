@@ -1,8 +1,9 @@
 ---
+number: 492
 slug: every-sequence-the-firm-issues-is-the-firms-to-shape
 status: Accepted
-area: Platform
 date: 2026-09-19
+area: Platform
 summary: "The numbering register's `fixed` formulation is retired: invoice, time-entry and call-and-text numbers join the five already shaped by a scheme, so every sequence the platform draws is the firm's to formulate and a new one is a row rather than a renderer. Three things made that possible without changing a number any firm has issued. The segment model gains month, day and matter-number parts, so the day-scoped call number and the matter-prefixed entry number are expressible as templates rather than as special cases. The register gains `scopeSource`: a count is scoped by the scheme's own scoping parts (the general, collision-proof case) or by the DOMAIN, where the caller passes the key — a time entry counts within its matter's handle, an invoice within the letterhead chosen at finalize — and on such a run a scoping mark is refused because it would set a switch that does nothing. And `scopeDistinguishedBy` names the part a domain-scoped scheme must carry so two scopes' numbers stay apart, which is the time-entry matter number; the invoice run's is conditional and is enforced at finalize instead, where a bill drawn under a letterhead the scheme does not render is refused rather than silently issued a number the firm-wide run can issue too."
 ---
 

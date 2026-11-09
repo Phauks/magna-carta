@@ -1,8 +1,9 @@
 ---
+number: 498
 slug: the-gate-runs-hosted-again-on-a-capped-budget
 status: Accepted
-area: Dev tooling
 date: 2026-11-09
+area: Dev tooling
 summary: "`pnpm gate` stays the gate of record and runs hosted again as the required `gate` check, one job in `ci.yml` that runs the same command against GitHub's merge of the branch, on an Actions budget the owner funded with a spending cap. Two workflows ported from the Grim-Games repository go with it: PR upkeep, which comments on a conflicting or stuck pull request so its thread wakes and fixes it, and Preview cleanup, which deletes leftover Worker Previews so they stop holding Durable Object namespaces. The root CLAUDE.md gains the rules that make parallel pull requests land: merge `main` before every push, check with `git merge-tree`, turn on auto-merge. Amends ADR-0478 on where the gate runs; the command stays the gate of record."
 ---
 

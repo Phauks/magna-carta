@@ -19,12 +19,21 @@ import {
   dismissNotificationStatement,
   markNotificationReadStatement,
   markNotificationsReadThroughStatement,
+  restoreNotificationStatement,
 } from "@magna-carta/notifications/statements";
+import {
+  MarkAllReadRequest,
+  MarkAllReadResponse,
+  MarkReadResponse,
+  NotificationCategoryEnum,
+  NotificationItem,
+  NotificationPage,
+  NotificationStateEnum,
+  UnreadCountResponse,
+} from "@magna-carta/notifications/contract";
 import { notificationTypeForKey } from "@magna-carta/notifications/registry";
 import {
   MAX_FEED_PAGE_SIZE,
-  NOTIFICATION_CATEGORIES,
-  NOTIFICATION_RECIPIENT_STATES,
   type NotificationRecipientState,
 } from "@magna-carta/notifications/types";
 import { identifierField } from "@magna-carta/identifiers/field";
@@ -36,7 +45,6 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { paginated } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 
@@ -56,86 +64,6 @@ import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.t
 // follows the deep link, through the owning subsystem's own access-checked read.
 
 const READ = "notifications:read" as const;
-
-const NotificationCategoryEnum = z.enum(NOTIFICATION_CATEGORIES);
-const NotificationStateEnum = z.enum(NOTIFICATION_RECIPIENT_STATES);
-
-const NotificationItem = z
-  .object({
-    id: z.string(),
-    kind: z.string(),
-    category: NotificationCategoryEnum,
-    severity: z.enum(["informational", "attention", "critical"]),
-    state: NotificationStateEnum,
-    subjectKind: z.string(),
-    subjectId: z.string(),
-    matterId: z.string().nullable(),
-    // The firm's own number for the matter, resolved at read time through the visibility join. Not
-    // the title: a matter title is client-identifying by construction, because firms name matters
-    // after the parties and the dispute.
-    matterNumber: z.string().nullable(),
-    occurredAt: z.string(),
-    createdAt: z.string(),
-    readAt: z.string().nullable(),
-    dismissedAt: z.string().nullable(),
-    // The declared non-privileged slot: identifiers, integers, booleans, declared enum labels, and
-    // dates. A registered type cannot declare a free-text field.
-    facts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).nullable(),
-    link: z.string(),
-  })
-  .openapi("NotificationItem");
-
-// The feed page carries ONE field beyond the uniform envelope: a cursor naming the NEWEST row it
-// returned. `nextCursor` cannot serve here — it names the page's oldest row and is null at the end
-// of the record, which is exactly the common case of a member with one page of notifications.
-// Without this field a client has only two ways to offer "mark all read": mint the cursor itself,
-// which puts the cursor's encoding in a second place and guarantees the two drift, or fire one
-// request per visible row, which is neither atomic nor able to clear the aged-out tally. So the
-// route that mints cursors hands this one back too.
-const NotificationPage = paginated(NotificationItem)
-  .extend({
-    readThroughCursor: z.string().nullable(),
-  })
-  .openapi("NotificationPage");
-
-const UnreadCountResponse = z
-  .object({
-    unreadCount: z.number().int(),
-    // What the retention sweep took from this member while it was still unread. Reported BESIDE the
-    // live count and never folded into it: they are different facts — one is work waiting, the
-    // other is work that aged out — and adding them would produce a number that means neither.
-    // Surfaced rather than dropped because "there is nothing to see" is a claim the platform is not
-    // in a position to make about a member who was away; what the swept pointers pointed at (the
-    // matter timeline, the deadline, the audit log) is all still there.
-    sweptUnreadCount: z.number().int(),
-    sweptUnreadOldestOccurredAt: z.string().nullable(),
-  })
-  .openapi("NotificationUnreadCountResponse");
-
-const MarkReadResponse = z
-  .object({ id: z.string(), state: NotificationStateEnum })
-  .openapi("NotificationMarkResponse");
-
-const MarkAllReadRequest = z
-  .object({
-    // The cursor from a page the caller actually rendered. REQUIRED, and the reason is not
-    // ceremony: without it "mark all read" would silently clear items that arrived after the page
-    // was drawn — the member is saying "these", not "whatever is there when this lands" — and it
-    // would become an unbounded UPDATE over a member's whole history.
-    throughCursor: z.string(),
-  })
-  .openapi("NotificationMarkAllReadRequest");
-
-const MarkAllReadResponse = z
-  .object({
-    // What the badge now says, re-read under the same visibility filter. Reported instead of "how
-    // many did I just clear" because that is the number the caller actually needs and the one this
-    // route can answer honestly: a driver-reported changed-row count is not uniform across the
-    // batch adapters this runs on, and inventing a plausible number would be worse than not
-    // offering one.
-    remainingUnreadCount: z.number().int(),
-  })
-  .openapi("NotificationMarkAllReadResponse");
 
 const notificationErrorResponses = {
   400: {
@@ -219,7 +147,9 @@ const listRoute = defineOpenAPIRoute(listMeta, {
     query: z.object({
       cursor: z.string().optional(),
       category: NotificationCategoryEnum.optional(),
-      state: NotificationStateEnum.optional(),
+      // One state or several, repeated: `?state=unread&state=read` is the feed with every dismissed
+      // row left out, which is what the notification centre shows by default.
+      state: z.union([NotificationStateEnum, z.array(NotificationStateEnum)]).optional(),
       // Repeated query parameters, so `?kinds=a&kinds=b`. Capped at the registry's own size: a
       // caller cannot ask for more kinds than exist, and the bound is what keeps a hand-written
       // request from composing an unbounded IN list.
@@ -347,6 +277,37 @@ const dismissRoute = defineOpenAPIRoute(dismissMeta, {
   },
 });
 
+const restoreMeta: RouteMeta = {
+  operationId: "notifications.restore",
+  surface: "app",
+  authenticated: true,
+  permission: READ,
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+const restoreRoute = defineOpenAPIRoute(restoreMeta, {
+  method: "post",
+  path: "/api/v1/notifications/{notificationRecipientId}/restore",
+  description:
+    "Puts one of the session member's own dismissed notifications back on their feed, as read: dismissing " +
+    "it said the member had dealt with it, so restoring it does not count it as waiting a second time. " +
+    "Idempotent: restoring a notification that is not dismissed changes nothing and returns the state that stands.",
+  request: { params: notificationIdParam },
+  responses: {
+    200: {
+      description: "The notification's settled state",
+      content: { "application/json": { schema: MarkReadResponse } },
+    },
+    401: notificationErrorResponses[401],
+    403: notificationErrorResponses[403],
+    404: notificationErrorResponses[404],
+    429: notificationErrorResponses[429],
+  },
+});
+
 const markAllReadMeta: RouteMeta = {
   operationId: "notifications.markAllRead",
   surface: "app",
@@ -440,7 +401,7 @@ export function registerNotificationsRoutes(app: NotificationsApp, chokepoint: C
           // THE WALL. Required argument, composed in SQL before the LIMIT.
           visibility: visibleMatterPredicate(),
           category: query.category,
-          state: query.state,
+          states: asList(query.state),
           kinds: asList(query.kinds).slice(0, MAX_SEARCH_KINDS),
           searchCategories: asList(query.searchCategories),
           search: query.search,
@@ -564,6 +525,37 @@ export function registerNotificationsRoutes(app: NotificationsApp, chokepoint: C
         }).run();
       }
       return c.json({ id: notificationRecipientId, state: "dismissed" as const }, 200);
+    },
+  );
+
+  // POST /api/v1/notifications/{notificationRecipientId}/restore
+  app.openapi(
+    { ...restoreRoute, middleware: chokepointMiddleware(chokepoint, restoreRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const sessionUserId = requireChokepointUserId(c);
+      const { notificationRecipientId } = c.req.valid("param");
+      const now = new Date().toISOString();
+
+      const existing = await selectOwnNotificationStatement(
+        firm.firmDatabase,
+        { recipientUserId: sessionUserId, visibility: visibleMatterPredicate() },
+        notificationRecipientId,
+      ).all<{ id: string; state: NotificationRecipientState }>();
+      const row = existing.results[0];
+      if (row === undefined) return notFound(c);
+
+      if (row.state === "dismissed") {
+        await restoreNotificationStatement(firm.firmDatabase, {
+          notificationRecipientId,
+          recipientUserId: sessionUserId,
+          now,
+        }).run();
+      }
+      return c.json(
+        { id: notificationRecipientId, state: row.state === "dismissed" ? "read" : row.state },
+        200,
+      );
     },
   );
 

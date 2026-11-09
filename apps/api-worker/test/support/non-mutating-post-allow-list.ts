@@ -68,7 +68,7 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "A printer, not a data source: pure composition of the tabular document the caller already holds into a Word or PDF file, returned as bytes. Nothing is stored; filing a produced export would be a separate route riding reports:produce.",
   "uploads.matches":
     "Read-shaped POST: answers whether the firm already holds a file's bytes, by the SHA-256 and size in the body, before they are uploaded. Nothing is stored; a POST only because the digest and size are a question, not a resource. Landed in the matter-upload redesign without this entry, which is what left the conformance suite red on main.",
-  // The three notification-settling routes. They DO write — a read receipt on the member's own feed
+  // The four notification-settling routes. They DO write — a read receipt on the member's own feed
   // row — and are exempt on the aiDetection.detect reasoning rather than the pure-computation one:
   // the write records nothing about the firm's conduct, only that one member cleared one badge, and
   // it fires once per item cleared. Auditing it would put a row in audit_log every time somebody
@@ -79,6 +79,8 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "A member's read receipt on their own feed row — no firm-domain state changes, and auditing every badge clear would flood audit_log.",
   "notifications.dismiss":
     "As notifications.markRead: the member settling their own feed row, which records nothing about the firm's conduct.",
+  "notifications.restore":
+    "As notifications.dismiss, undone: the member putting their own feed row back, which records nothing about the firm's conduct.",
   "notifications.markAllRead":
     "As notifications.markRead, bounded by a cursor from a page the member actually read — one member clearing their own backlog.",
 };

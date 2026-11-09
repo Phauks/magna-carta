@@ -168,9 +168,8 @@ export class DataTableGridState<TRow> {
    * The rows in view — filtered, stably sorted, then grouped so pinned items lead in their own
    * arranged order. `pinnedCount` is where the grid draws the rule that separates the two.
    */
-  rowGrouping = $derived.by(
-    (): GridRowGrouping<TRow> =>
-      groupedGridRows(this.sortedRows, this.options.pinnedRowKeys?.() ?? [], this.options.rowKey),
+  rowGrouping = $derived.by((): GridRowGrouping<TRow> =>
+    groupedGridRows(this.sortedRows, this.options.pinnedRowKeys?.() ?? [], this.options.rowKey),
   );
 
   rowsInView = $derived.by((): readonly TRow[] => this.rowGrouping.rows);

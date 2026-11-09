@@ -140,7 +140,7 @@ ADR-0039.)
 - **Primacy is taken once, held by the database, and never moves.** `claimDedupPrimaryStatement` is a
   single statement whose `WHERE NOT EXISTS` refuses the claim while a holder exists, and the partial
   unique index on `(review_set_id, dedup_group_id) WHERE dedup_group_id IS NOT NULL AND
-is_dedup_primary = 1` is the same rule held for the write path nobody has written yet. A read
+  is_dedup_primary = 1` is the same rule held for the write path nobody has written yet. A read
   followed by a write would let two consumers each see "nobody holds it".
 - **The record artifacts are reproducible, and that is a property of `src/manifest.ts` rather than a
   habit.** It reads NO CLOCK: the knowledge instant is an argument, and the caller passes the load

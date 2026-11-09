@@ -17,7 +17,12 @@
    *
    * UNREAD ONLY, AND THE EMPTY STATE MEANS SOMETHING. An empty tray says the member is caught up,
    * which is a real answer — a tray listing already-read items would never be empty and would
-   * therefore never say anything.
+   * therefore never say anything. It says so the way every empty list in the product does: "No
+   * Results", and no sentence explaining the bell.
+   *
+   * THE MOST PRESSING FIRST. Of the newest few, an Urgent row leads, then Needs Attention, then the
+   * rest, each run newest first: a glance is for what needs the member now, and a deadline overdue
+   * must not sit under four routine rows that arrived after it.
    */
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
@@ -29,6 +34,7 @@
     type Destination,
   } from "$lib/navigation/destinations.ts";
   import NotificationRows from "./notification-rows.svelte";
+  import { PRIORITY_RANK } from "./notification-presentation.ts";
   import { unreadNotificationCount } from "./unread-count.svelte.ts";
   import {
     listNotifications,
@@ -60,7 +66,10 @@
         pageSize: TRAY_LIMIT,
       });
       if (outcome.kind === "ok") {
-        items = outcome.value.data;
+        // Stable: rows of one priority keep the server's newest-first order.
+        items = outcome.value.data.toSorted(
+          (left, right) => PRIORITY_RANK[left.severity] - PRIORITY_RANK[right.severity],
+        );
         unreadable = false;
         return;
       }
@@ -131,10 +140,7 @@
     {:else if items === null}
       <p class="text-sm text-text-muted">Reading your notifications.</p>
     {:else if items.length === 0}
-      <p class="text-sm text-text-muted">You are up to date.</p>
-      <p class="text-xs text-text-muted">
-        Anything needing you — a deadline, a task, a movement on client money — arrives here.
-      </p>
+      <p class="text-sm text-text-muted">No Results</p>
     {:else}
       <NotificationRows items={items} onOpen={(item) => void follow(item)} compact />
       {#if unreadNotificationCount.unread > items.length}
@@ -150,7 +156,7 @@
       style="color: var(--mc-accent-default)"
       onclick={() => (open = false)}
     >
-      Open notification center
+      Open Notifications
     </a>
   </Popover.Content>
 </Popover.Root>

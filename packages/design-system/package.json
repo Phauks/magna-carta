@@ -155,6 +155,7 @@
     "@sveltejs/vite-plugin-svelte": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "happy-dom": "catalog:",
     "storybook": "catalog:",
     "svelte": "catalog:",

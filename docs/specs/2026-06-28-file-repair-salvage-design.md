@@ -26,8 +26,8 @@ A new catalog entry, one user flow: **diagnose → (offer) repair → receipt**.
   (`metadata-scrubber`, `file-hash-integrity`, `file-type-verifier`, `file-converter`) into it, adding
   `file-repair`. The `documents` group key is retired (it had no document-specific members).
 - **Manifest:** `{ id: "file-repair", name: "File Repair & Salvage", icon: "life-buoy" (Lucide —
-provisional; the icon is finalized when the UI lands), subjectGroup: "files", permission: tools:fileRepair,
-contextTags: ["file", "none"], backing: { kind: "library" }, matterContext: "optional" }`. **No UI is
+  provisional; the icon is finalized when the UI lands), subjectGroup: "files", permission: tools:fileRepair,
+  contextTags: ["file", "none"], backing: { kind: "library" }, matterContext: "optional" }`. **No UI is
   built in SP2** — the entry widget lands with the 0·7a design-system shell, like the rest of the file-tool
   family (§7).
 - **Permission `tools:fileRepair`**, seeded to the default roles (per-firm seed migration), mirroring the
