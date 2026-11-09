@@ -6,7 +6,7 @@ import type { CloudflareEmailBinding } from "./email-cloudflare.ts";
 // the Cron sweeps, the Durable Objects) both import. It lives apart from app.ts on purpose — the
 // consumers and the objects need the env shape and nothing else the composition root builds, so
 // this module is the one thing they may share with it. worker-env.d.ts mirrors it into the ambient
-// `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
+// `Cloudflare.Env` the @cloudflare/vitest-plugin harness types `env` as.
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;

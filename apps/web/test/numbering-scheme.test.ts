@@ -1,26 +1,24 @@
 /*
  * The numbering editor's model, pinned: the one rule the editor repeats from the server (exactly
- * one counter, text that can stand in a link), the parts' defaults, the list operations, and the
- * starters, which have to be schemes the server would accept.
+ * one counter, text that can stand in a link), the parts' defaults, the list operations, and what
+ * the Part picker shows beside each choice.
  */
 import { describe, expect, it } from "vitest";
 import {
   matterNumberRefusal,
   moveNumberSegment,
+  moveNumberSegmentTo,
   newNumberSegment,
   NUMBER_SEGMENT_VOCABULARY,
-  NUMBERING_STARTERS,
-  numberingFrozenSentence,
+  NUMBERING_FUTURE_ONLY_SENTENCE,
   numberingCurrentDescriptor,
   numberingNothingInForceSentence,
-  numberingSampleSentence,
   numberingSampleYear,
   numberingSavedSentence,
   numberingSchemeRefusal,
   numberingSchemesEqual,
-  numberingStartersFor,
   numberSegmentCellRefusal,
-  numberSegmentSummary,
+  numberSegmentSampleValue,
   numberSegmentVocabularyFor,
   removeNumberSegment,
   replaceNumberSegment,
@@ -116,12 +114,6 @@ describe("numberingSchemeRefusal", () => {
       "starts at one",
     );
   });
-
-  it("accepts every starter, so a shape the picker offers is never one the server refuses", () => {
-    for (const starter of NUMBERING_STARTERS) {
-      expect(numberingSchemeRefusal(starter.segments), starter.key).toBeNull();
-    }
-  });
 });
 
 describe("the parts", () => {
@@ -133,26 +125,30 @@ describe("the parts", () => {
     }
   });
 
-  it("starts a year part restarting the count, and a counter at four digits from one", () => {
+  it("starts a year with a separate count, a counter unpadded from one, and the separators", () => {
     expect(newNumberSegment("year")).toEqual({ kind: "year", digits: 4, scoping: true });
-    expect(newNumberSegment("counter")).toEqual({ kind: "counter", padWidth: 4, start: 1 });
+    expect(newNumberSegment("counter")).toEqual({ kind: "counter", padWidth: 1, start: 1 });
+    expect(newNumberSegment("date_opened")).toEqual({
+      kind: "date_opened",
+      separator: ".",
+      scoping: false,
+    });
+    expect(newNumberSegment("client_name")).toEqual({
+      kind: "client_name",
+      separator: "-",
+      scoping: false,
+    });
   });
 
-  it("reads each part in the reader's words", () => {
-    expect(numberSegmentSummary({ kind: "literal", text: "-" })).toBe('"-"');
-    expect(numberSegmentSummary({ kind: "counter", padWidth: 4, start: 1 })).toBe(
-      "Counter, 4 digits",
-    );
-    expect(numberSegmentSummary({ kind: "counter", padWidth: 3, start: 100 })).toBe(
-      "Counter, 3 digits, from 100",
-    );
-    expect(numberSegmentSummary({ kind: "year", digits: 2, scoping: true })).toBe(
-      "Year, 2 digits, restarts the count",
-    );
-    expect(numberSegmentSummary({ kind: "location_code" })).toBe("Office Code");
-    expect(numberSegmentSummary({ kind: "client_code", scoping: true })).toBe(
-      "Client Code, restarts the count",
-    );
+  it("shows beside each choice in the Part picker what that part would put into the number", () => {
+    expect(numberSegmentSampleValue("date_opened", SAMPLE)).toBe("2026.09.18");
+    expect(numberSegmentSampleValue("client_name", SAMPLE)).toBe("Ashcombe-Mercantile");
+    expect(numberSegmentSampleValue("client_code", SAMPLE)).toBe("ASH");
+    expect(numberSegmentSampleValue("year", SAMPLE)).toBe("2026");
+    expect(numberSegmentSampleValue("counter", SAMPLE)).toBe("1");
+    for (const entry of NUMBER_SEGMENT_VOCABULARY) {
+      expect(numberSegmentSampleValue(entry.kind, SAMPLE), entry.kind).not.toBe("");
+    }
   });
 });
 
@@ -162,6 +158,21 @@ describe("the list operations", () => {
     expect(moved.map((segment) => segment.kind)).toEqual(["year", "counter", "literal"]);
     expect(moveNumberSegment(YEAR_COUNTER, 0, -1)).toBe(YEAR_COUNTER);
     expect(moveNumberSegment(YEAR_COUNTER, 2, 1)).toBe(YEAR_COUNTER);
+  });
+
+  it("seats a dragged part where it is dropped, either way, and ignores a drop off the list", () => {
+    expect(moveNumberSegmentTo(YEAR_COUNTER, 2, 0).map((segment) => segment.kind)).toEqual([
+      "counter",
+      "year",
+      "literal",
+    ]);
+    expect(moveNumberSegmentTo(YEAR_COUNTER, 0, 2).map((segment) => segment.kind)).toEqual([
+      "literal",
+      "counter",
+      "year",
+    ]);
+    expect(moveNumberSegmentTo(YEAR_COUNTER, 1, 1)).toBe(YEAR_COUNTER);
+    expect(moveNumberSegmentTo(YEAR_COUNTER, 0, 3)).toBe(YEAR_COUNTER);
   });
 
   it("replaces and removes by position without touching the rest", () => {
@@ -193,52 +204,14 @@ describe("a purpose's vocabulary", () => {
     );
   });
 
-  it("offers an example only where every part of it is one the purpose may use", () => {
-    const keys = numberingStartersFor(CONFLICTS_CHECK).map((starter) => starter.key);
-    expect(keys).toEqual(["year-counter", "counter", "day-counter"]);
-    // The matter run may use every part but its own number, so it is offered every example but the
-    // one built from a matter number.
-    expect(numberingStartersFor(MATTER).map((starter) => starter.key)).not.toContain(
-      "matter-counter",
-    );
+  it("says nothing under Current while a scheme is in force, and the consequence when none is", () => {
+    expect(numberingCurrentDescriptor(MATTER, null)).toMatch(/cannot open/);
+    expect(numberingCurrentDescriptor(CONFLICTS_CHECK, CONFLICTS_CHECK.segments)).toBe("");
+    expect(numberingCurrentDescriptor(MATTER, YEAR_COUNTER)).toBe("");
   });
 
-  it("offers no example that restarts the count where the count's scope is not the template's", () => {
-    // A time entry counts within its matter whatever the template says, so an example marking a
-    // part as restarting the count would set a switch that does nothing.
-    const timeEntry = {
-      ...MATTER,
-      purpose: "time_entry" as const,
-      segmentKinds: ["literal", "counter", "matter_number"] as const,
-      scopeSource: "owner" as const,
-    };
-    const keys = numberingStartersFor(timeEntry).map((starter) => starter.key);
-    expect(keys).toEqual(["counter", "matter-counter"]);
-  });
-
-  it("names in the sample sentence only the facts the purpose's parts can use", () => {
-    expect(numberingSampleSentence(SAMPLE, CONFLICTS_CHECK)).toBe(
-      "Previewed for a conflicts check numbered Sep 18, 2026.",
-    );
-    expect(numberingSampleSentence(SAMPLE, MATTER)).toBe(
-      "Previewed for a matter numbered Sep 18, 2026 at office RNO, practice area LIT, client code ASH, attorney EV, client Ashcombe Mercantile.",
-    );
-  });
-
-  it("names the sample's year, never a hard-coded one, in a starter's example", () => {
+  it("names the sample's year, never a hard-coded one", () => {
     expect(numberingSampleYear(SAMPLE)).toBe("2026");
-    const yearCounter = NUMBERING_STARTERS.find((starter) => starter.key === "year-counter");
-    expect(yearCounter?.exampleFor("2027")).toBe("2027-0001");
-  });
-
-  it("describes what is current under the number: the parts, the built-in sequence, or nothing", () => {
-    expect(numberingCurrentDescriptor(MATTER, null, false)).toMatch(/cannot open/);
-    expect(numberingCurrentDescriptor(CONFLICTS_CHECK, CONFLICTS_CHECK.segments, true)).toBe(
-      'The built-in sequence: "CC" · Year, 4 digits, restarts the count · "-" · Counter, 5 digits',
-    );
-    expect(numberingCurrentDescriptor(MATTER, YEAR_COUNTER, false)).toBe(
-      'Year, 4 digits, restarts the count · "-" · Counter, 4 digits',
-    );
   });
 });
 
@@ -246,15 +219,17 @@ describe("the editor's words", () => {
   it("says on a part's hover why a column holds no fact for it, and nothing where it does", () => {
     expect(numberSegmentCellRefusal("literal", "value")).toBeNull();
     expect(numberSegmentCellRefusal("year", "value")).toMatch(/no text of its own/);
-    expect(numberSegmentCellRefusal("counter", "digits")).toBeNull();
-    expect(numberSegmentCellRefusal("year", "digits")).toBeNull();
-    expect(numberSegmentCellRefusal("literal", "digits")).toMatch(/digit count/);
+    expect(numberSegmentCellRefusal("counter", "format")).toBeNull();
+    expect(numberSegmentCellRefusal("year", "format")).toBeNull();
+    expect(numberSegmentCellRefusal("date_opened", "format")).toBeNull();
+    expect(numberSegmentCellRefusal("client_name", "format")).toBeNull();
+    expect(numberSegmentCellRefusal("literal", "format")).toMatch(/no format/);
     expect(numberSegmentCellRefusal("counter", "start")).toBeNull();
     expect(numberSegmentCellRefusal("client_code", "start")).toMatch(/counter starts/);
     expect(numberSegmentCellRefusal("client_code", "scoping")).toBeNull();
-    expect(numberSegmentCellRefusal("literal", "scoping")).toMatch(/cannot restart the count/);
-    // Where the count's scope is the domain's, no part restarts it, whatever the part is.
-    expect(numberSegmentCellRefusal("year", "scoping", "owner")).toMatch(/already restarts/);
+    expect(numberSegmentCellRefusal("literal", "scoping")).toMatch(/cannot keep a separate count/);
+    // Where the count's scope is the domain's, no part separates it, whatever the part is.
+    expect(numberSegmentCellRefusal("year", "scoping", "owner")).toMatch(/already keeps its own/);
   });
 
   it("states the consequence of an unset scheme in the sequence's own terms, without an em dash", () => {
@@ -265,8 +240,8 @@ describe("the editor's words", () => {
     for (const record of [MATTER, CONFLICTS_CHECK]) {
       expect(numberingNothingInForceSentence(record)).not.toContain("—");
       expect(numberingSavedSentence(record)).toMatch(/^Saved\./);
-      expect(numberingFrozenSentence(record)).toContain(record.subjects);
     }
+    expect(NUMBERING_FUTURE_ONLY_SENTENCE).toBe("Numbering Scheme only affects future generation.");
     expect(numberingSavedSentence(CONFLICTS_CHECK)).toBe(
       "Saved. Conflicts checks numbered from now on draw their number from this scheme; numbers already drawn are unchanged.",
     );

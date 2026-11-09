@@ -199,3 +199,59 @@ describe("deriveScopeKey", () => {
     ).toThrow(NumberingRenderError);
   });
 });
+
+describe("renderNumber — separators and unpadded counters", () => {
+  it("renders a client-code run without padding, so the tenth matter is 3333-10", () => {
+    const segments: NumberSegment[] = [
+      { kind: "client_code", scoping: true },
+      literal("-"),
+      counter(1),
+    ];
+    const context = { openedDate: "2026-11-11", clientCode: "3333" };
+    expect(renderNumber(segments, context, 1)).toBe("3333-1");
+    expect(renderNumber(segments, context, 9)).toBe("3333-9");
+    expect(renderNumber(segments, context, 10)).toBe("3333-10");
+    expect(deriveScopeKey(segments, context)).toBe("3333");
+  });
+
+  it("joins the date numbered with the chosen separator", () => {
+    const context = { openedDate: "2026-11-11" };
+    const withSeparator = (separator: "-" | "." | "_" | "~" | ""): NumberSegment[] => [
+      { kind: "date_opened", separator },
+      literal("-"),
+      counter(1),
+    ];
+    expect(renderNumber(withSeparator("."), context, 1)).toBe("2026.11.11-1");
+    expect(renderNumber(withSeparator("_"), context, 1)).toBe("2026_11_11-1");
+    expect(renderNumber(withSeparator(""), context, 1)).toBe("20261111-1");
+  });
+
+  it("keeps a scheme saved before separators existed drawing the numbers it always drew", () => {
+    const context = { openedDate: "2026-11-11", clientName: "Ashcombe Mercantile" };
+    expect(renderNumber([{ kind: "date_opened" }, counter(1)], context, 1)).toBe("202611111");
+    expect(renderNumber([{ kind: "client_name" }, counter(1)], context, 1)).toBe(
+      "AshcombeMercantile1",
+    );
+  });
+
+  it("joins a client name's words with the separator and drops a word that folds to nothing", () => {
+    const segments: NumberSegment[] = [
+      { kind: "client_name", separator: "-" },
+      literal("."),
+      counter(1),
+    ];
+    expect(
+      renderNumber(segments, { openedDate: "2026-11-11", clientName: "Smith & Jones" }, 2),
+    ).toBe("Smith-Jones.2");
+    expect(
+      renderNumber(segments, { openedDate: "2026-11-11", clientName: "  Éclair   Holdings " }, 2),
+    ).toBe("Eclair-Holdings.2");
+  });
+
+  it("refuses a separator that is not URL-safe", () => {
+    expect(
+      numberingSchemeSchema.safeParse([{ kind: "date_opened", separator: "/" }, counter(1)])
+        .success,
+    ).toBe(false);
+  });
+});

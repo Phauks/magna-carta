@@ -1,4 +1,4 @@
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { defineConfig, type Plugin } from "vite-plus";
@@ -317,7 +317,7 @@ export default {
 `;
 
 // Run Vitest inside Miniflare so the integration test gets real Worker bindings (D1/R2/Queues/ASSETS) loaded from wrangler.jsonc.
-// @cloudflare/vitest-pool-workers 0.16.x exposes the harness as the cloudflareTest() Vite plugin (the older defineWorkersConfig/poolOptions shape was removed); configPath points it at our Wrangler config so the same bindings back the test as back `wrangler dev`.
+// @cloudflare/vitest-plugin exposes the harness as the cloudflareTest() Vite plugin; configPath points it at our Wrangler config so the same bindings back the test as back `wrangler dev`.
 // root is pinned to this package so the pool resolves `vitest/worker` (and the wrangler config) from apps/api-worker even when this config is loaded as a Vitest project from the repo-root `vp test`; without it the workerd VM reports `No such module "vitest/worker"`.
 // miniflare.workers registers an auxiliary stub worker named "magna-carta-scan" so the SCAN_SERVICE
 // service binding declared in wrangler.jsonc resolves without a real scan worker running in the pool.

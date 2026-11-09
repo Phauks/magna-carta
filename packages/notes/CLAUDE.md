@@ -84,7 +84,7 @@ deleted, because the position was really taken.
 ## Gotchas
 
 - **The ordering expression appears twice and must agree.** `COALESCE(occurred_on, substr(created_at,
-1, 10))` is both the list's `ORDER BY` and its keyset cursor, and it is the timeline source's sort
+  1, 10))` is both the list's `ORDER BY` and its keyset cursor, and it is the timeline source's sort
   column. If one moves and the others do not, the walk skips or repeats rows at a page boundary.
 - **The fallback is a DATE cut from the instant, never the instant.** Mixing `2026-08-25` and
   `2026-08-25T09:00:00.000Z` in one sort column orders a note typed in the morning before a note that

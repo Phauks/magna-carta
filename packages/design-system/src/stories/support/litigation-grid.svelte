@@ -121,7 +121,7 @@
   import Badge from "../../lib/components/badge/index.ts";
   import * as DataTable from "../../lib/components/data-table/index.ts";
   import { createDataTableGrid } from "../../lib/components/data-table/index.ts";
-  import type { GridRowMark } from "../../lib/components/data-table/index.ts";
+  import type { GridGrouping, GridRowMark } from "../../lib/components/data-table/index.ts";
 
   type Props = {
     rows?: TimeEntry[];
@@ -135,6 +135,10 @@
     rowMark?: (row: TimeEntry) => GridRowMark | undefined;
     /** The record's second line, passed through to the grid. */
     rowDetail?: Snippet<[TimeEntry]>;
+    /** Bands the rows split into, under a heading row each; omitted, the list is flat. */
+    grouping?: GridGrouping<TimeEntry> | null;
+    /** What a band heading carries after its label and count. */
+    bandDetail?: Snippet<[string]>;
     /**
      * Column widths to snapshot on mount, which also puts the table into its fixed layout.
      *
@@ -171,6 +175,8 @@
     pinnedRowKeys = [],
     rowMark,
     rowDetail,
+    grouping = null,
+    bandDetail,
     columnWidths,
     frameClass = "max-h-96",
     frameHeight,
@@ -185,6 +191,7 @@
     rowKey: (row) => row.id,
     pinnedRowKeys: () => pinnedRowKeys,
     rowMark: (row) => rowMark?.(row),
+    grouping: () => grouping,
     initialSort: { columnId: "workDate", direction: "descending" },
     // Voids never count toward totals — a withdrawn line is not part of any sum.
     totalIncludes: (row) => row.status !== "Void",
@@ -211,6 +218,7 @@
     {loading}
     {density}
     {rowDetail}
+    {bandDetail}
     {frame}
     class={frameClass}
   >

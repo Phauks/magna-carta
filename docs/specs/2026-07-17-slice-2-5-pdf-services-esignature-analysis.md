@@ -70,7 +70,7 @@ New pure-domain package (the natural Fable-owned unit per the signing-options do
 
 ### 3.4 Delivery + data model
 
-Per-firm schema for envelopes/fields/signing-events/certificates (through the firm-scoped data-access layer, golden rule 3; bulk artifacts to R2, never D1). Worker routes through the slice 0·5 chokepoint (audited, RBAC-gated — a new `esign:*` permission namespace), the `signing.*` OpenAPI surface, and the completion→*Tasks/workflows* + _Communications layer_ notification seams. Load-profile extension in-area (ADR-0078 accretion rule) — envelopes/events at volume. **UI is deferred** (0·7 design-system gate + the model-split policy makes UI a Fable matter) — the client-side field-placement/signing surfaces (§18.6 "client-side except the seal") land with the portal/0·7 work.
+Per-firm schema for envelopes/fields/signing-events/certificates (through the firm-scoped data-access layer, golden rule 3; bulk artifacts to R2, never D1). Worker routes through the slice 0·5 chokepoint (audited, RBAC-gated — a new `esign:*` permission namespace), the `signing.*` OpenAPI surface, and the completion→_Tasks/workflows_ + _Communications layer_ notification seams. Load-profile extension in-area (ADR-0078 accretion rule) — envelopes/events at volume. **UI is deferred** (0·7 design-system gate + the model-split policy makes UI a Fable matter) — the client-side field-placement/signing surfaces (§18.6 "client-side except the seal") land with the portal/0·7 work.
 
 ---
 

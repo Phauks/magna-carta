@@ -839,23 +839,19 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
       ]);
       return c.json(
         {
-          data: rows.map(
-            (row): z.infer<typeof LocationSummary> => ({
-              id: row.id,
-              name: row.name,
-              status: row.status,
-              jurisdiction: row.jurisdiction,
-              timeZone: row.timeZone,
-              numberCode: row.numberCode,
-              email: row.email,
-              addresses: addresses
-                .filter((address) => address.locationId === row.id)
-                .map(addressOf),
-              members: row.members,
-              hasLetterheadLogo: row.hasLetterheadLogo,
-              firmDefault: firmDefault === row.id,
-            }),
-          ),
+          data: rows.map((row): z.infer<typeof LocationSummary> => ({
+            id: row.id,
+            name: row.name,
+            status: row.status,
+            jurisdiction: row.jurisdiction,
+            timeZone: row.timeZone,
+            numberCode: row.numberCode,
+            email: row.email,
+            addresses: addresses.filter((address) => address.locationId === row.id).map(addressOf),
+            members: row.members,
+            hasLetterheadLogo: row.hasLetterheadLogo,
+            firmDefault: firmDefault === row.id,
+          })),
         },
         200,
       );

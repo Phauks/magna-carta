@@ -106,6 +106,25 @@ export function dismissNotificationStatement(
     .bind(options.notificationRecipientId, options.recipientUserId, options.now);
 }
 
+// Restoring undoes a dismissal and nothing else. The row comes back READ rather than unread: the
+// member dismissed it, so they had already dealt with it, and putting it back on the badge would
+// count it as waiting for them a second time.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
+export function restoreNotificationStatement(
+  database: SqlDatabase,
+  options: {
+    readonly notificationRecipientId: string;
+    readonly recipientUserId: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${NOTIFICATION_RECIPIENT_TABLE} SET state = 'read', read_at = ?3, dismissed_at = NULL WHERE id = ?1 AND recipient_user_id = ?2 AND state = 'dismissed'`,
+    )
+    .bind(options.notificationRecipientId, options.recipientUserId, options.now);
+}
+
 // "Mark everything I have seen as read", BOUNDED BY A CURSOR the caller hands back from a page it
 // actually rendered. Two things that bound buys:
 //

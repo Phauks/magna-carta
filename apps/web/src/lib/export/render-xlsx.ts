@@ -56,9 +56,10 @@ function cellPlan(cell: TabularExportCell): WorksheetCellPlan {
 }
 
 function sectionHeaderRow(section: TabularExportSection): WorksheetCellPlan[] {
-  return section.headers.map(
-    (header): WorksheetCellPlan => ({ value: header, fontWeight: "bold" }),
-  );
+  return section.headers.map((header): WorksheetCellPlan => ({
+    value: header,
+    fontWeight: "bold",
+  }));
 }
 
 function columnWidths(rows: readonly (readonly WorksheetCellPlan[])[]): { width: number }[] {

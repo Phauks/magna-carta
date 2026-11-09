@@ -124,7 +124,7 @@ more than one engine:
   - `Format` — node; id (mime/extension), label.
   - `ConversionEdge` — `from Format → to Format`, carrying **1..N** `EngineCandidate`.
   - `EngineCandidate` — `engineId` · `recipe` · `fidelity` · `cost` · **`confidentiality: in-tenant |
-egress`**.
+    egress`**.
   - `Engine` / adapter (behind one `ConversionPort`) — id · kind (`in-tenant container` |
     `external credentialed`) · **capability descriptor** = the edge set it serves.
 - **Per-firm overlay (enablement + policy only):**

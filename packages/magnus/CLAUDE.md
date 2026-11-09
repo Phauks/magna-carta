@@ -167,7 +167,7 @@ registered there; this file states what they mean for the code, not where they w
   (`apps/api-worker/src/magnus/attachment-text.ts`; plain text directly), and `buildConversationWindow`
   lays it ahead of the newest member turn under a heading naming the file within
   `ATTACHMENT_TEXT_MAX_BYTES`, cutting and marking the cut. The row records `sent | cut | unreadable |
-pending`. A stored extraction would be a second copy of privileged content outside the file's own
+  pending`. A stored extraction would be a second copy of privileged content outside the file's own
   erasure path; the per-question extraction is the cost paid to keep exactly one. Because what Magnus
   can SEE changed, `MAGNUS_DISCLOSURE_VERSION` is 2, and the disclosure statement and the system prompt
   describe the same thing.

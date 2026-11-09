@@ -146,6 +146,10 @@ is usually the fastest way to understand the rule.
 
 ### Lists and tables
 
+- **Numbers in text sort as they are read.** A table's text column compares a run of digits as the
+  number it is, so `3333-2` comes before `3333-10`, `9999-1` before `10000-1`, and "Exhibit 2"
+  before "Exhibit 10". Nobody is asked to pad a number with zeros so that a list will order it.
+  _(client and matter numbering, 2026-11-09)_
 - **A list OFFERS more columns than it SHOWS, and the difference is where the design lives.** A
   register is read for a different reason on a different day — sorted by surname to work down it,
   narrowed to one place to see who is local, scanned for whether a fact was ever recorded — and a
@@ -1563,6 +1567,43 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-11-09 — the numbering editor: preview beside current, parts that drag, and counts that need no padding
+
+The owner, reviewing client and matter numbering over a mockup of Settings, Numbering:
+
+- **"A client may be assigned a code, as in numbers, instead of letters ... 3333 is the client,
+  3333-1 is the first matter ... 3333-9 and 3333-10 should be allowed and not require setting the
+  amount of white space between."** The engine already wrote a counter's width as a floor rather
+  than a fixed width; a new counter now starts at one digit, so a scheme of Client Code, `-` and a
+  Counter with a separate count per client issues `3333-1` through `3333-10` with no zeros. The
+  column that set it is **Format**, and on a counter it reads as the fewest digits.
+- **Numbers sort as they are read.** `3333-10` filing between `3333-1` and `3333-2` was the cost of
+  dropping the padding, so every text column in the product's table compares runs of digits as
+  numbers. Promoted to _Lists and tables_.
+- **"Instead of up and down arrows, would prefer drag ability of those items."** A part moves by
+  its grip, and the grip keeps the keyboard path (Alt with an arrow key). Replaces the move-up and
+  move-down buttons at the row's end, which had been placed there on 2026-09-19.
+- **"Preview should sit beneath the current area."** Current and Preview are one above the other,
+  ahead of the parts, so the number in force and the number the edit would issue are compared at a
+  glance. **"We don't need the text beneath current and preview that explains it, nor the
+  continuation count."** Both rows state their number and nothing else, except that an unset
+  scheme still says what being unset means, which is a consequence rather than an explanation.
+- **"Rename Restarts the Count."** Asked what it does and how it is said elsewhere (a separate run
+  for each value of the part: Client Code on gives 3333-1, 3333-2, 4444-1; off gives one firm-wide
+  count with the code as a label), the owner chose **Separate Count**.
+- **"Load example and add parts ... don't need to be as big ... prefer no load example."** The
+  examples are gone; **Add Part** is a quiet line under the last part.
+- **"Numbers already drawn" becomes "Numbering Scheme only affects future generation."**, in the
+  owner's words, beside Save.
+- **"Date numbered should be 2026.11.11 ... client name should have - between words ... allow a
+  minor setting for how the user wants to delineate."** Date Numbered and Client Name each take a
+  separator: Dash, Period, Underscore, Tilde or None. A slash is refused, because a number rides in
+  links. A new part starts with a period for the date and a dash for the name; a scheme saved before
+  the choice existed renders exactly what it always did (`20261111`, `AshfordHoldings`), because a
+  firm's run must not change shape on its own. **"When clicking into the dropdown, show what the
+  output would look like from there."** The Part picker shows beside each choice what that part
+  would put into the number.
+
 ### 2026-09-18 — a Communications group
 
 The owner, placing Meetings in the left sidebar:
@@ -2161,7 +2202,7 @@ different document types to different files at the same time". What binds:
   as the transfer runs, which resized the progress bar several times a second. The measure is a
   token, the way the create control's width is, and the bar is what does not move.
 - **A second browser dialog over ours is a defect, not a browser fact to accept.** An `<input
-webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
+  webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
   just chosen, in a dialog we neither control nor word. The File System Access pickers raise no such
   confirmation and are used wherever the engine has them.
 - **A failure states WHERE the fault is, not only that there was one.** The byte write is the one
@@ -3402,3 +3443,29 @@ at most 5. think we need to find a better way to showcase the date above the cal
   _(built 2026-11-09)_
 - **A deadline's Source reads Court Order or Firm.** The stored values are unchanged.
   _(built 2026-11-09)_
+
+### 2026-11-09 — the notification centre: one grid, read and dismissed kept apart, and a priority only where one occurs
+
+The owner, reviewing mockups of the notification centre beside the task screen's (the two were
+designed together on his instruction). What was said, and what each part generalizes to:
+
+- **The task screen's "A is the basis, but should be able to group", applied to both.** The feed
+  became the one grid; its Everything/Unread toggle and category select were removed, not moved,
+  because the Status and Category columns already answer both. Already covered by _A list of
+  records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
+  the notification centre was the last register still hand-built as a list. Grouping arrives with the
+  grid's own group-by, which the task stream builds once for every register.
+- **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
+  ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
+  among them** — after them whatever the sort, quieter, with the act that undoes setting it aside
+  (Restore) where the act that did it (Dismiss) was.
+- **"The seen versus delete is interesting" — the owner chose to keep both.** Reading and dismissing
+  stay two acts: seen, and finished with. Neither deletes; the retention clock ages every row out
+  whatever its state. Generalizes: **"finished with" is a state with a way back, not a deletion**,
+  so the control that sets it can be pressed without a confirmation.
+- **"What happened -> Notification", "severity -> Priority".** A column is named for the thing its
+  rows are, and for the word a reader uses, not the platform's field name. The wire field stays
+  `severity`; what a reader sees is decided at the presentation layer.
+- **"Remove for information, priority only if a priority actually occurs."** Generalizes: **a column
+  whose ordinary value is "nothing in particular" is blank in the ordinary case.** A word on every
+  routine row is noise that hides the few rows that carry one.

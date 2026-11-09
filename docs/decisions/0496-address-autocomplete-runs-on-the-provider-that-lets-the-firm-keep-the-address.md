@@ -1,8 +1,9 @@
 ---
+number: 496
 slug: address-autocomplete-runs-on-the-provider-that-lets-the-firm-keep-the-address
 status: "Accepted (amended 2026-10-02)"
-area: Directory
 date: 2026-09-24
+area: Directory
 summary: "With the owner's ruling that an address may leave the tenancy, the lookup engine was chosen, and the deciding fact was storage terms rather than coverage or price: the address a person picks is written into a permanent record, one of the two largest autocomplete services lets a customer keep only its own place identifier and the other treats every result as temporary, while Smarty lets the firm keep the data — including after cancelling. The engine is dormant until its key pair is provisioned, so no deploy waits on an account and nothing is spent until the owner opens one. The Worker serves it through two read-shaped POSTs rather than GETs, because invocation logging records every full URL and the query is a client's address typed a few characters at a time. It is gated on directory:edit, which covers both forms that ask with no migration. In the form, what is typed is the street line and nothing takes it back; a chosen address replaces the parts it carries and leaves the rest; a building with many units is opened, never chosen; and after one failure the box stops asking until somebody presses Try Again."
 ---
 
@@ -84,7 +85,7 @@ is the provider subscription's own quota, because the Worker's rate limit is per
 has a commercial act to take, and until then the feature is present, tested and invisible.
 
 **Amended 2026-10-02:** the self-hosted index rejected above was measured and then built
-(ADR-the-united-states-is-answered-from-the-platforms-own-address-index). The United States is now
+(ADR-0497). The United States is now
 answered from the platform's own index whenever its worker is bound; Smarty, unchanged, answers every
 other country when its key pair is set, and the United States only when the platform's index is not
 bound. Its offer identifiers now carry the engine's name, because one port routes between the two.

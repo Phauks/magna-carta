@@ -93,7 +93,7 @@ a `q /GS gs … Q` overlay stream **last** so it draws on top. Shared resources 
 image XObject) are deduped to one object each per document.
 
 - **Text:** width from the baked standard-font tables; `… BT /<font> <size> Tf <color> <matrix> Tm
-(escaped text) Tj ET …` (the Bates text path, extended to an arbitrary rotation matrix and centring).
+  (escaped text) Tj ET …` (the Bates text path, extended to an arbitrary rotation matrix and centring).
 - **Image (logo):** the PNG/JPEG is decoded with the `image` crate (already a dependency) and embedded
   as an image XObject — JPEG bytes embed directly via `/DCTDecode`; other formats decode to RGB samples
   Flate-encoded, with an `/SMask` carrying the alpha channel when the source has transparency. Drawn

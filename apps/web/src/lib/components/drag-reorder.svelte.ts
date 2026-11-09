@@ -12,9 +12,10 @@
  * - The pointer path is one half; the KEYBOARD half lives with the consumer (a focused row
  *   moves one slot per modifier-arrow press through the same commit callback), because arrow
  *   semantics belong to the row widget, not this controller.
- * - PROMOTION PATH: app-side on purpose while it has one consumer (the sidebar's Customize
- *   mode). When a second reorderable list appears (table rows, kanban), this moves into
- *   @magna-carta/design-system as a primitive with a story and behavior tests.
+ * - PROMOTION PATH: app-side while its consumers are both in this app: the sidebar's Customize
+ *   mode and the numbering editor's parts table, whose rows are table rows (the pitch is measured
+ *   across `data-reorder-row` siblings, so a <tr> works as well as a list item). The next consumer
+ *   moves this into @magna-carta/design-system as a primitive with a story and behavior tests.
  *
  * WHY IT USED TO STUTTER, and what each fix is for (owner report, 2026-09-16). Three defects
  * stacked, and any one of them alone was enough to make the rows judder:

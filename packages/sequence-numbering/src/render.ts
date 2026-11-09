@@ -53,6 +53,18 @@ function sanitizeUrlSafe(value: string): string {
     .replace(/[^A-Za-z0-9._~-]/g, "");
 }
 
+// A name's words, each folded to URL-safe on its own and joined by the part's separator. A word that
+// folds to nothing ("&" in "Smith & Jones") is dropped rather than leaving two separators side by
+// side. With no separator this is exactly the old whole-string fold, which also dropped whitespace.
+function joinWords(value: string | undefined, separator: string): string | undefined {
+  if (value === undefined) return undefined;
+  return value
+    .split(/\s+/)
+    .map(sanitizeUrlSafe)
+    .filter((word) => word.length > 0)
+    .join(separator);
+}
+
 // Resolve a non-counter segment to its rendered string, or throw when a referenced value is absent
 // or sanitizes to nothing — an empty segment would yield a malformed, ambiguous number.
 function renderValueSegment(segment: NumberSegment, context: RenderContext): string {
@@ -76,7 +88,7 @@ function renderValueSegment(segment: NumberSegment, context: RenderContext): str
     case "day":
       return context.openedDate.slice(8, 10);
     case "date_opened":
-      return context.openedDate.replace(/-/g, "");
+      return context.openedDate.split("-").join(segment.separator ?? "");
     case "matter_number":
       return required(context.matterNumber, "matter_number");
     case "location_code":
@@ -88,7 +100,7 @@ function renderValueSegment(segment: NumberSegment, context: RenderContext): str
     case "staff_initials":
       return required(context.staffInitials, "staff_initials");
     case "client_name":
-      return required(context.clientName, "client_name");
+      return required(joinWords(context.clientName, segment.separator ?? ""), "client_name");
     case "counter":
       throw new Error("renderValueSegment received a counter segment"); // unreachable — handled in render
   }

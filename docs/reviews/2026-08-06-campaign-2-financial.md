@@ -499,7 +499,7 @@ back clean.
   serialize amounts into its thrown message, but it is called only from the fixtures and load-profile
   harness, never from a Worker handler.
 - **Billing concurrency.** The partial unique index on `(source_kind, source_id) WHERE released_at IS
-NULL` is the claim guard and the entry's `invoice_id` is correctly treated as a mirror;
+  NULL` is the claim guard and the entry's `invoice_id` is correctly treated as a mirror;
   `refuseFinalizeOnFrozenWorkInProgressStatements` aims `'billing-refused-frozen-entry'` at a column
   whose `time_entry_status_check` / `cost_entry_status_check` genuinely forbid it (both verified in
   the baseline migration), so a concurrent void aborts the finalize batch rather than being relocked.

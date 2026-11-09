@@ -108,19 +108,17 @@ export async function evaluateAutoFileRules(
   ]);
 
   const evidence: AutoFileEvidence = {
-    matchedRules: ruleRows.map(
-      (rule): AutoFileCandidateRule => ({
-        ruleId: rule.id,
-        kind: rule.kind,
-        matterId: rule.matterId,
-        matchValue: rule.matchValue,
-        promotion: rule.promotion,
-        state: rule.state,
-        creatorRetainsMatterAccess: accessByRuleId.get(rule.id) ?? null,
-        firesInWindow: activityByRuleId.get(rule.id)?.firesInWindow ?? 0,
-        undosInRecentFires: activityByRuleId.get(rule.id)?.undosInRecentFires ?? 0,
-      }),
-    ),
+    matchedRules: ruleRows.map((rule): AutoFileCandidateRule => ({
+      ruleId: rule.id,
+      kind: rule.kind,
+      matterId: rule.matterId,
+      matchValue: rule.matchValue,
+      promotion: rule.promotion,
+      state: rule.state,
+      creatorRetainsMatterAccess: accessByRuleId.get(rule.id) ?? null,
+      firesInWindow: activityByRuleId.get(rule.id)?.firesInWindow ?? 0,
+      undosInRecentFires: activityByRuleId.get(rule.id)?.undosInRecentFires ?? 0,
+    })),
     threadMatterIds,
     subjectMatterIds,
     existingLinks,
