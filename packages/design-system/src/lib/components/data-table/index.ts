@@ -28,6 +28,7 @@ import Caption from "./table-caption.svelte";
 import FlexRender from "./flex-render.svelte";
 import Search from "./data-table-search.svelte";
 import ViewMenu from "./data-table-view-menu.svelte";
+import GroupByMenu from "./data-table-group-by-menu.svelte";
 import ColumnFilter from "./data-table-column-filter.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
@@ -68,8 +69,11 @@ export {
   rowPassesGridFilters,
 } from "./grid-filters.ts";
 export {
+  type GridGrouping,
+  type GridRowBand,
   type GridRowGrouping,
   type GridRowMark,
+  bandedGridRows,
   gridRowMarkAttributes,
   groupedGridRows,
 } from "./grid-rows.ts";
@@ -136,6 +140,7 @@ export {
   FlexRender,
   Search,
   ViewMenu,
+  GroupByMenu,
   ColumnFilter,
   //
   Root as Table,
@@ -153,5 +158,6 @@ export {
   Caption as TableCaption,
   Search as TableSearch,
   ViewMenu as TableViewMenu,
+  GroupByMenu as TableGroupByMenu,
   ColumnFilter as TableColumnFilter,
 };
