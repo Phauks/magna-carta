@@ -452,7 +452,7 @@
                       Where the matter stands
                     </a>
                   {:else}
-                    <span class="text-text-muted">Not filed on a matter</span>
+                    <span class="text-text-muted">No Matter</span>
                   {/if}
                 </dd>
               </div>
