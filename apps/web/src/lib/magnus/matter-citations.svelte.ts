@@ -19,6 +19,7 @@ const NAMES_PER_PASS = 12;
 
 export class MatterCitations {
   #titles = $state<Record<string, string>>({});
+  #numbers = $state<Record<string, string>>({});
   readonly #asked = new Set<string>();
   readonly #fetchImpl: typeof fetch;
 
@@ -31,9 +32,15 @@ export class MatterCitations {
     return this.#titles[matterId] ?? null;
   }
 
+  /** The matter's number, or null while it is unknown or the matter has not drawn one yet. */
+  numberFor(matterId: string): string | null {
+    return this.#numbers[matterId] ?? null;
+  }
+
   /** Forget everything, for a surface that has changed subject. */
   reset(): void {
     this.#titles = {};
+    this.#numbers = {};
     this.#asked.clear();
   }
 
@@ -51,11 +58,15 @@ export class MatterCitations {
       wanted.map((matterId) => resolveMatterRecord(this.#fetchImpl, matterId)),
     );
     const found: Record<string, string> = { ...this.#titles };
+    const numbers: Record<string, string> = { ...this.#numbers };
     records.forEach((record, index) => {
       const matterId = wanted[index];
       if (record === undefined || matterId === undefined) return;
       found[matterId] = record.title;
+      const number = record.matterNumber ?? record.consultationNumber ?? record.intakeNumber;
+      if (number !== null) numbers[matterId] = number;
     });
     this.#titles = found;
+    this.#numbers = numbers;
   }
 }

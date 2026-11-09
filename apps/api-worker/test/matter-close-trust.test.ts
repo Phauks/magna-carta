@@ -41,7 +41,10 @@ function post(path: string, body?: unknown): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
+      // Only a request that carries a body says it is JSON, as the web client does
+      // (apps/web/src/lib/api/request.ts): the close body is optional, and an empty body declared
+      // as JSON is refused as malformed before the handler runs.
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
       origin: "https://example.com",
       cookie: ownerCookie,
       "Idempotency-Key": crypto.randomUUID(),
