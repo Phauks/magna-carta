@@ -35,6 +35,7 @@
     "./contact-address": "./src/contact-address.ts",
     "./contact-points": "./src/contact-points.ts",
     "./contact-preference": "./src/contact-preference.ts",
+    "./phone-match": "./src/phone-match.ts",
     "./phone-number": "./src/phone-number.ts",
     "./postal-address": "./src/postal-address.ts",
     "./statements": "./src/statements.ts",

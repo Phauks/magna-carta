@@ -175,7 +175,11 @@ describe("schema conformance (fitness functions)", () => {
     // key, same idiom as directory_entity_category; no handle is warranted.
     // file_version_change is one tracked change of a version, keyed by (version_id, sequence): its
     // document order within the version IS its identity, and nothing references a change row.
+    // caller_identity is keyed by (country_calling_code, national_number) — the network's answer
+    // about one number, and the number IS the row. A handle would let two answers exist for one
+    // number, and the write is an upsert on this key so a second paid lookup replaces the first.
     const compositeKeyTables = new Set([
+      "caller_identity",
       "file_version_participant",
       "file_version_change",
       "ai_search_feed_object",

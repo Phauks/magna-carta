@@ -27128,6 +27128,196 @@
           "unloggedDay"
         ]
       },
+      "CallerLookup": {
+        "type": "object",
+        "properties": {
+          "directoryMatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallerDirectoryMatch"
+            }
+          },
+          "areaCode": {
+            "$ref": "#/components/schemas/CallerAreaCode"
+          },
+          "callerIdentity": {
+            "$ref": "#/components/schemas/CallerIdentity"
+          },
+          "paidLookup": {
+            "type": "string",
+            "enum": [
+              "available",
+              "unavailable",
+              "not-covered"
+            ],
+            "description": "Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country."
+          }
+        },
+        "required": [
+          "directoryMatches",
+          "areaCode",
+          "callerIdentity",
+          "paidLookup"
+        ]
+      },
+      "CallerDirectoryMatch": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when the record holds no name at all; a reader shows the gap."
+          }
+        },
+        "required": [
+          "entityId",
+          "entityKind",
+          "displayName"
+        ]
+      },
+      "CallerAreaCode": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "areaCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string",
+            "description": "Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is."
+          }
+        },
+        "required": [
+          "areaCode",
+          "region"
+        ]
+      },
+      "CallerIdentity": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "callerName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name the carriers' caller-name database holds, as it holds it. Null when it holds none."
+          },
+          "lineType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "mobile",
+              "fixed",
+              "fixedOrMobile",
+              "voip",
+              "tollFree",
+              "other",
+              null
+            ]
+          },
+          "carrierName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lookedUpAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "callerName",
+          "lineType",
+          "carrierName",
+          "lookedUpAt"
+        ],
+        "description": "A caller ID the firm already paid for, or null."
+      },
+      "CallerLookupRequest": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "pattern": "^\\+[1-9][0-9]{6,14}$",
+            "description": "The number in E.164 — a plus, the country calling code and the national number, digits only. The form builds it from the number field and its country.",
+            "example": "+17025550142"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "CallerIdentityLookup": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "found"
+                ]
+              },
+              "callerIdentity": {
+                "$ref": "#/components/schemas/CallerIdentity"
+              }
+            },
+            "required": [
+              "outcome",
+              "callerIdentity"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "not-covered"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          }
+        ],
+        "description": "`found` is the kept answer, which may hold no name. `not-covered` and `unavailable` are answers, not failures: nothing was asked and nothing was charged."
+      },
       "CommunicationPage": {
         "type": "object",
         "properties": {
@@ -80185,6 +80375,16 @@
               }
             }
           },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -89429,6 +89629,235 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/communications/caller-lookup": {
+      "post": {
+        "description": "Everything known about a number that costs nothing: the Directory records that list it, the region its area code was issued for, and any caller ID the firm already looked up. A read-shaped POST: it reads and writes nothing, and takes a body because what it is sent is a client's telephone number.",
+        "operationId": "communications.callerLookup",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.callerLookup",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallerLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What is known about the number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerLookup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks communications:log",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/communications/caller-lookup/caller-identity": {
+      "post": {
+        "description": "Asks the carriers' caller-name database who a number belongs to, and keeps the answer so the number is never paid for twice. Each call that reaches the network is a billed query; a number the firm already looked up is answered from the kept answer without one.",
+        "operationId": "communications.callerIdentity",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.callerIdentity",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallerLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The caller ID, or why there is none to ask for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerIdentityLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks communications:log",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The caller-name service did not answer, or refused. Nothing was kept; pressing again asks again.",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -303,6 +303,13 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
       },
+      // The meeting's person segmentation, for background blur and image backgrounds. Its own task and
+      // not yet in the composite above, because nothing deployed imports it until the meeting client's
+      // effects Worker does; that change adds it to the chain.
+      "rust-wasm-build-segmentation": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/segmentation/src/pkg -f crates/segmentation-core/wasm.Dockerfile crates",
+      },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
       // cannot pull the base image (e.g. a cloud session whose egress policy blocks Docker Hub /

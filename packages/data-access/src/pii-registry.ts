@@ -291,6 +291,22 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "who entered a hand-logged call, and when, is that entry's provenance — the reason a member-produced row can be weighed differently from a carrier-produced one",
   },
+  // A looked-up caller identity is the telephone network's answer about a number, kept so one number
+  // is paid for once. It is reached by the number rather than by an entity — nothing links it to a
+  // Directory record — and it is no part of any matter's record, so a subject's erasure deletes the
+  // row outright: the next lookup simply pays again.
+  {
+    table: "caller_identity",
+    subjectKey: "national_number",
+    action: "hard-delete",
+    note: "the caller name the carriers' database returned for the number; the country calling code is the other half of the key",
+  },
+  {
+    table: "caller_identity",
+    subjectKey: "looked_up_by_user_id",
+    action: "pseudonymize-keep",
+    note: "which member asked is the provenance of a billed lookup",
+  },
   // Meetings. A meeting is a conversation the firm had, so its retention basis is the call log's one
   // line above: who was in the room is part of what the matter record says happened. The meeting row
   // names two members — who convened it and who ended it — and the attendance row names one per

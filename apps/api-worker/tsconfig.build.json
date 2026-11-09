@@ -36,6 +36,9 @@
       "path": "../../packages/calendar/tsconfig.build.json"
     },
     {
+      "path": "../../packages/caller-lookup/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/civil-time/tsconfig.build.json"
     },
     {

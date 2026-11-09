@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a4ccedf6-747d-40ea-a0c8-2b652c935821",
+  "id": "af56de18-f49c-49a2-9624-de013a9be936",
   "prevId": "8549b78c-48da-40cd-a577-0223256a8e13",
   "tables": {
     "account_balance": {
@@ -667,6 +667,85 @@
         "calendar_event_link_continuance_matter_check": {
           "name": "calendar_event_link_continuance_matter_check",
           "value": "\"calendar_event_link\".\"kind\" <> 'continuance_of' OR (\"calendar_event_link\".\"from_matter_event_id\" IS NOT NULL AND \"calendar_event_link\".\"to_matter_event_id\" IS NOT NULL)"
+        }
+      }
+    },
+    "caller_identity": {
+      "name": "caller_identity",
+      "columns": {
+        "country_calling_code": {
+          "name": "country_calling_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "national_number": {
+          "name": "national_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "caller_name": {
+          "name": "caller_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "line_type": {
+          "name": "line_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "carrier_name": {
+          "name": "carrier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "looked_up_by_user_id": {
+          "name": "looked_up_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "looked_up_at": {
+          "name": "looked_up_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "caller_identity_country_calling_code_national_number_pk": {
+          "columns": [
+            "country_calling_code",
+            "national_number"
+          ],
+          "name": "caller_identity_country_calling_code_national_number_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "caller_identity_number_digits_check": {
+          "name": "caller_identity_number_digits_check",
+          "value": "length(\"caller_identity\".\"country_calling_code\") > 0 AND \"caller_identity\".\"country_calling_code\" NOT GLOB '*[^0-9]*' AND length(\"caller_identity\".\"national_number\") > 0 AND \"caller_identity\".\"national_number\" NOT GLOB '*[^0-9]*'"
         }
       }
     },
@@ -5249,88 +5328,6 @@
       },
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "directory_entity_photo": {
-      "name": "directory_entity_photo",
-      "columns": {
-        "entity_id": {
-          "name": "entity_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sha256": {
-          "name": "sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "object_key": {
-          "name": "object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "content_type": {
-          "name": "content_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "width_pixels": {
-          "name": "width_pixels",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "height_pixels": {
-          "name": "height_pixels",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "directory_entity_photo_size_check": {
-          "name": "directory_entity_photo_size_check",
-          "value": "\"directory_entity_photo\".\"size_bytes\" > 0"
-        },
-        "directory_entity_photo_pixels_check": {
-          "name": "directory_entity_photo_pixels_check",
-          "value": "\"directory_entity_photo\".\"width_pixels\" > 0 AND \"directory_entity_photo\".\"height_pixels\" > 0"
-        }
-      }
     },
     "directory_identifier": {
       "name": "directory_identifier",

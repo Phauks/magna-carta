@@ -32,6 +32,7 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - **Every page has a menu beside its title.** The three dots next to the star let you copy the page's link or open it in a new tab, and some pages add their own entries there: What You Hear About on Notifications, Postage Account on Shipping & Postage, and Clear History on Uploads. The star stays where it was, so you can still see at a glance which pages are favorites.
 - **Choose the typeface you read in.** Settings · Text now lets you set the interface in Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata or your computer's own font. It applies at once, follows you across your open tabs, and is yours alone: it never changes what anyone else at your firm sees.
 - **Version History now says who changed what.** For a Word document edited in the browser with recording on, each version reads "Ana Vasquez: 3 added, 2 removed · Trevor Goldsmith: 1 reformatted", naming the person who typed the words rather than the person who pressed Save. Open a version's changes and the words appear in order with their author: additions underlined, removals struck through. A version lists only what is new in it. Uploaded documents, spreadsheets and presentations carry no such record.
+- **A Directory record can be downloaded as a PDF or a text file.** The More menu on a person's or organization's record now has a Download option with three formats: PDF, Plain Text, and Contact Card (.vcf). The PDF and text file are a printout of the record, including its names, dates, contact details, addresses, relationships and matters. Contact details the person asked the firm not to use are marked. Sealed identifiers such as a social security number never appear in the printout.
 
 ### Changed
 
@@ -50,6 +51,18 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 **The page can check Anthropic's own list.** Where it is set up, a new **Provider's Live List** row says when Anthropic's list of models was last read and names any newer model that is not on your list yet, so you can see what exists before it is verified and offered.
 
 **One scrollbar.** The AI settings page no longer shows a second scrollbar beside its own.
+
+- **A conflicts check says who ran it and who it searched.** A check's report names the person who ran it, the check page lists the parties searched by name, and the conflicts log shows them in a Parties column. A check not filed on a matter now reads No Matter.
+- **Notifications is now a table you can sort and filter.** Narrow it from the column headings (unread,
+  category, priority), mark an item read with the check at the start of its row, and dismiss what you
+  are finished with. Dismissed items are no longer mixed in with the rest: **Show Dismissed** at the
+  foot brings them back into view, and **Restore** puts one back in the list. The bell now shows the
+  most urgent items first.
+- **Client codes can be numbers, and matter numbers need no padding.** A matter numbering scheme of Client Code, a dash and a Counter, with Separate Count on for the client code, gives client 3333's matters `3333-1`, `3333-2` and on through `3333-10`, while client 4444's start at `4444-1`. A new counter is written with no leading zeros; set its fewest digits to 4 if you want `0001`. Lists now sort numbers the way you read them, so `3333-2` comes before `3333-10` in every table.
+
+**Choose how dates and client names are joined.** **Date Numbered** and **Client Name** now have a separator: Dash, Period, Underscore, Tilde or None, so a date can read `2026.11.11` and a name `Ashford-Holdings`. Schemes you have already saved keep the shape they have.
+
+**The numbering editor is simpler.** **Preview** now sits directly under **Current**, so you can compare the two at a glance. Drag a part by its grip to move it, or focus the grip and press Alt with an arrow key. **Restarts the Count** is now **Separate Count**, the **Digits** column is now **Format**, the Part list shows what each part would put into the number, and **Add Part** is a quiet line under the last part. **Load an example** has been removed.
 
 ### Fixed
 

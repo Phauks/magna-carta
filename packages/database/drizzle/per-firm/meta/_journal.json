@@ -264,8 +264,15 @@
     {
       "idx": 37,
       "version": "6",
-      "when": 1794264067976,
-      "tag": "20261109T224108_a-directory-record-carries-a-picture",
+      "when": 1794260036973,
+      "tag": "20261109T213357_a-looked-up-caller-identity-is-kept",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794265957034,
+      "tag": "20261109T231237_a-directory-record-carries-a-picture",
       "breakpoints": true
     }
   ]
