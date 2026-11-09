@@ -320,9 +320,10 @@
                than the panel growing with the record. -->
           <RecordSections {sections} label="Sections of {name}">
             {#snippet section(part)}
-              {#if entity === null}
-                <!-- Never drawn: the sections render only once the record is read. -->
-              {:else if part.id === "names"}
+              <!-- The guard is for the type checker: these sections render only once the record
+                   is read, under the loading region above. -->
+              {#if entity !== null}
+              {#if part.id === "names"}
                 <NamesPane {entity} {mayEdit} {editDisabledReason} onRecorded={recorded} />
               {:else if part.id === "contact"}
                 <ContactPane {entityId} {mayEdit} {editDisabledReason} />
@@ -369,6 +370,7 @@
                 <MattersPane {entityId} />
               {:else if part.id === "categories"}
                 <CategoriesPane {entityId} kind={entity.kind} {mayEdit} {editDisabledReason} />
+              {/if}
               {/if}
             {/snippet}
           </RecordSections>
