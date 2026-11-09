@@ -92,7 +92,7 @@ export function packetDraftShortfalls(draft: PacketDraft): readonly string[] {
     shortfalls.push(`An ownership role is longer than ${OWNERSHIP_ROLE_LIMIT} characters.`);
   }
 
-  if (draft.locationId === null) shortfalls.push("Say where it is being kept.");
+  if (draft.locationId === null) shortfalls.push("Choose a container, or add one.");
 
   if (draft.notes.trim().length > PACKET_NOTES_LIMIT) {
     shortfalls.push(`The notes are longer than ${PACKET_NOTES_LIMIT} characters.`);
