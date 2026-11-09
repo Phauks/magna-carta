@@ -227,6 +227,9 @@
       "path": "packages/search/tsconfig.build.json"
     },
     {
+      "path": "packages/segmentation/tsconfig.build.json"
+    },
+    {
       "path": "packages/sequence-numbering/tsconfig.build.json"
     },
     {
