@@ -73,7 +73,6 @@
   const dates = $derived([...new Set(visible.map((record) => record.date))]);
   const filtered = $derived(kinds.length > 0 || areas.length > 0 || audience !== "all");
   let open = $state<string[]>(records.slice(0, 1).map((record) => record.date));
-  let detailsOpen = $state<string[]>([]);
 </script>
 
 <div class="flex flex-col gap-24">
@@ -166,10 +165,18 @@
                 <p class="text-base font-semibold">{record.title}</p>
                 <div class="flex flex-wrap items-center gap-4">
                   <a
+                    href={`${REPOSITORY}/pull/${record.number}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Pull request #${record.number} on GitHub`}
+                  >
+                    <Badge variant="neutral" class="font-mono">#{record.number}</Badge>
+                  </a>
+                  <a
                     href={`${REPOSITORY}/commit/${record.sha}`}
                     target="_blank"
                     rel="noreferrer"
-                    title={`Commit ${record.sha}, pull request #${record.number}, on GitHub`}
+                    title={`Commit ${record.sha} on GitHub`}
                   >
                     <Badge variant="neutral" class="font-mono">{record.sha.slice(0, 7)}</Badge>
                   </a>
@@ -183,32 +190,15 @@
                     </button>
                   {/each}
                 </div>
-                {#if record.publicParagraphs.length > 0}
+                <!-- One body, always here: the pull request's changelog entry as written. -->
+                {#if record.developerParagraphs.length > 0}
                   <div class="flex flex-col gap-8 text-sm text-text-default">
-                    {#each record.publicParagraphs as paragraph, index (index)}
+                    {#each record.developerParagraphs as paragraph, index (index)}
                       <p><ChangelogInline nodes={paragraph} /></p>
                     {/each}
                   </div>
-                {/if}
-                {#if record.developerParagraphs.length > 0}
-                  <Accordion.Root
-                    type="multiple"
-                    value={detailsOpen}
-                    onValueChange={(value) => (detailsOpen = value)}
-                  >
-                    <Accordion.Item value={String(record.number)} class="border-none">
-                      <Accordion.Trigger chevron="start" class="py-4 text-sm text-text-muted">
-                        Changelog entry
-                      </Accordion.Trigger>
-                      <Accordion.Content>
-                        <div class="flex flex-col gap-8 ps-24 text-sm text-text-muted">
-                          {#each record.developerParagraphs as paragraph, index (index)}
-                            <p><ChangelogInline nodes={paragraph} /></p>
-                          {/each}
-                        </div>
-                      </Accordion.Content>
-                    </Accordion.Item>
-                  </Accordion.Root>
+                {:else}
+                  <p class="text-sm text-text-muted">No changelog entry was written for this pull request.</p>
                 {/if}
               </li>
             {/each}
