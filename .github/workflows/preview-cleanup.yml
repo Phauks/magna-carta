@@ -1,0 +1,42 @@
+# Deletes every Worker Preview of the repository's Workers except the staging branch's (`beta`), so
+# merged branches' Previews stop holding Durable Object namespaces (tooling/preview-cleanup/index.mjs
+# says why that matters). Ported from the Grim-Games repository's workflow of the same name, where
+# leftover Previews exhausted the account's namespaces and failed the staging deploy.
+#
+# Dormant until two things exist: a `beta` Preview (the script deletes nothing for a Worker without
+# one), and the repository secrets CLOUDFLARE_API_TOKEN (a Cloudflare API token with Workers Scripts:
+# Edit on the account) and CLOUDFLARE_ACCOUNT_ID. Without the secrets the job runs and does nothing.
+name: Preview cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List the Previews it would delete, and delete none
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-cleanup
+  cancel-in-progress: false
+
+jobs:
+  delete:
+    # Dependency-free node over a few API calls: the 1-vCPU runner, at a third of the 2-core rate.
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Delete old Previews
+        # The runner's own node; the script imports nothing outside node's modules, so no install.
+        run: node tooling/preview-cleanup/index.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

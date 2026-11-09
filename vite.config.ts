@@ -193,6 +193,7 @@ export default defineConfig({
       "tooling/resolve-journal/vitest.config.ts",
       "tooling/retire-note/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
+      "tooling/preview-cleanup/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
       "tooling/branch-landing/vitest.config.ts",
       "tooling/affected-lint/vitest.config.ts",

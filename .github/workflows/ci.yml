@@ -1,0 +1,169 @@
+# The hosted run of `pnpm gate`. The gate of record is still the command (tooling/gate/index.mjs):
+# this workflow runs that same command, once, on every pull request and on every push that lands, so
+# a pull request whose author skipped the local run, or two branches that each passed alone and break
+# together, are caught before `main` deploys them. Nothing here re-implements a check; the dimensions,
+# their path classification and their budgets all come from the gate itself, so the hosted and local
+# answers cannot drift apart.
+#
+# Why it came back (owner ruling 2026-11-09): with several Claude threads working in parallel on a
+# repository where a merge to `main` IS a production deploy, a gate that only runs when someone
+# remembers to run it ships untested interleavings. The 2026-09-16 removal was about the Actions
+# budget running dry and wedging every pull request behind a status that never reported; the fix for
+# that is a funded budget with a spending cap (Settings > Billing), not no check at all. If minutes
+# run out again, this check stops reporting: remove it from the `main` ruleset's required checks
+# until the budget resets (docs/deploy-queue.md has the steps).
+#
+# Spending minutes carefully, since they are paid:
+#   - ONE job. The gate already skips every dimension the change cannot reach (a docs-only change runs
+#     format and governance and nothing else), so the job pays for the toolchain install plus what the
+#     change actually touches.
+#   - A newer push to a pull request cancels its stale run. On `main` and `beta` a started run is never
+#     cancelled, so every landed push gets a verdict.
+#   - Every slow input is cached: the pnpm store and linked node_modules (the setup action), the WASM
+#     artefacts keyed on their Rust sources, the cargo registry, and the Playwright browser. The
+#     wasm-pack and browser installs are skipped outright when the gate's own plan says nothing needs
+#     them.
+#
+# The required check on the `main` ruleset is the job name, `gate`.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, beta]
+  push:
+    branches: [main, beta]
+  # The docs-assembly pull request is opened with the workflow's own token, which fires no
+  # pull_request events, so assemble-docs.yml dispatches this onto its branch to produce the `gate`
+  # check. Also the manual handle for running the sweep on demand.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # A stalled cache download gives up after 2 minutes instead of the default 10 and the job carries on
+  # uncached, rather than spending paid minutes waiting on the cache service.
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The gate measures the change from a merge-base, and the docs assemblers order fragments by
+          # the commit that added them; both need history a depth-1 clone does not have.
+          fetch-depth: 0
+
+      - name: Resolve the diff base
+        # A pull request checks out GitHub's merge of the branch into its base, so it is measured from
+        # that merge's first parent: the base exactly as the merge saw it, even when the base moved
+        # after the event fired. A push is measured from the commit it replaced. A new branch's push,
+        # a dispatch, or a base the clone cannot see falls back to the merge-base with origin/main; on
+        # `main` itself that is HEAD, which the gate reads as an empty change and runs as the full
+        # sweep.
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then base="$(git rev-parse HEAD^1)"; else base="$BEFORE"; fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base="$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD)"
+          fi
+          echo "DIFF_BASE=$base" >> "$GITHUB_ENV"
+          echo "diff base: $base"
+
+      - name: Restore the built WASM artefacts
+        id: wasm-cache
+        uses: actions/cache@v6
+        with:
+          # Generated and git-ignored. The stamp tooling/bootstrap writes beside each output holds the
+          # hash of the sources it was built from, so a restored entry is re-verified, never trusted.
+          path: |
+            packages/pdf/src/pkg
+            packages/decryption/src/pkg
+            packages/email/src/pkg
+            packages/seven-zip/src/pkg
+          key: wasm-${{ runner.os }}-${{ hashFiles('crates/**/*.rs', 'crates/**/Cargo.toml', 'crates/Cargo.lock', 'rust-toolchain.toml') }}
+
+      - name: Toolchain and workspace
+        uses: ./.github/actions/setup
+
+      - name: Plan the gate
+        id: plan
+        run: |
+          pnpm --silent gate --plan --base "$DIFF_BASE" | tee plan.txt
+          running="$(grep '^gate: running ' plan.txt || true)"
+          for dimension in wasm rust containers tests; do
+            if echo "$running" | grep -qw "$dimension"; then echo "$dimension=true" >> "$GITHUB_OUTPUT"; fi
+          done
+
+      - name: Install wasm-pack (only when the WASM artefacts must be rebuilt)
+        if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Rust toolchain (pinned by rust-toolchain.toml)
+        if: steps.plan.outputs.rust == 'true' || steps.plan.outputs.containers == 'true' || (steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
+        run: rustup show && rustc --version
+
+      - name: Cache the cargo registry and the crates target
+        if: steps.plan.outputs.rust == 'true' || (steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+          # The bootstrap shares one target directory across worktrees on a laptop; here there is one
+          # checkout, so the workspace's own target directory is the one worth caching.
+        env:
+          MAGNA_CARTA_SHARED_CARGO_TARGET: "0"
+
+      - name: Point Playwright's browser cache outside the checkout
+        if: steps.plan.outputs.tests == 'true'
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
+
+      - name: Cache the Playwright browser
+        if: steps.plan.outputs.tests == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/pw-browsers
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install the Playwright browser the test runner needs
+        if: steps.plan.outputs.tests == 'true'
+        # The vitest browser provider resolves playwright-core 1.60 (pinned in pnpm-workspace.yaml);
+        # install through that CLI so another resolved `playwright` cannot pick a different build.
+        run: |
+          cli="$(find node_modules/.pnpm -maxdepth 4 -path '*playwright@1.60*/node_modules/playwright/cli.js' | head -1)"
+          if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
+          node "$cli" install --with-deps chromium chromium-headless-shell
+
+      - name: Free runner disk for the container builds
+        if: steps.plan.outputs.containers == 'true'
+        # Container acceptance suites build full Docker images; the stock runner leaves too little
+        # headroom for them, so drop the preinstalled bundles this repository never uses.
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache/CodeQL /usr/local/.ghcup
+          docker system prune -af --volumes > /dev/null 2>&1 || true
+          df -h / | tail -1
+
+      - name: pnpm gate
+        env:
+          MAGNA_CARTA_SHARED_CARGO_TARGET: "0"
+        run: |
+          set -o pipefail
+          pnpm --silent gate --base "$DIFF_BASE" 2>&1 | tee gate.log
+
+      - name: Gate summary
+        if: always()
+        # The summary block the pull-request template asks for, on the run's own page.
+        run: |
+          if [ -f gate.log ]; then
+            { echo '```'; sed -n '/^gate: summary/,$p' gate.log | tail -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
