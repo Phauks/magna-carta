@@ -27,6 +27,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Button from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Progress from "@magna-carta/design-system/progress";
@@ -184,15 +185,17 @@
         Clear Finished
       </Button>
     {/if}
-    {#if everyRemembered.length > 0}
-      <!-- Clears what this BROWSER remembers, and nothing else — the files stay on their matters.
-           Its label says "history" for exactly that reason: "Clear Uploads" beside a list of files
-           would read as a control that removes them. -->
-      <Button variant="ghost" onclick={clearUploadHistory}>
-        <Trash2 class="size-16" aria-hidden="true" />
-        Clear History
-      </Button>
-    {/if}
+  {/snippet}
+  {#snippet pageMenu()}
+    <!-- Clears what this BROWSER remembers, and nothing else — the files stay on their matters.
+         Its label says "history" for exactly that reason: "Clear Uploads" beside a list of files
+         would read as a control that removes them. It is a once-in-a-while tidy of the page rather
+         than work on today's uploads, so it lives in the page menu; Clear Finished stays on the row.
+         Disabled rather than absent while there is nothing to forget, so the menu keeps one shape. -->
+    <DropdownMenu.Item disabled={everyRemembered.length === 0} onSelect={clearUploadHistory}>
+      <Trash2 class="size-16 shrink-0" aria-hidden="true" />
+      Clear History
+    </DropdownMenu.Item>
   {/snippet}
 </ScreenHeader>
 

@@ -39,7 +39,7 @@ describe("migration 20260717T120001_seed-emails-permissions", () => {
     expect(await rolesFor("emails:read")).toEqual(ALL_DEFAULT_ROLE_IDS);
   });
 
-  it("grants emails:manageCaptureAddresses to Owner/Admin only", async () => {
+  it("grants emails:manageCaptureAddresses to Admin only", async () => {
     expect(await rolesFor("emails:manageCaptureAddresses")).toEqual(new Set([OWNER_ADMIN]));
   });
 });

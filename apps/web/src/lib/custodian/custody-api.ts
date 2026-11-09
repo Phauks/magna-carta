@@ -360,6 +360,30 @@ export function listCustodyLocations(
   return requestJson(fetchImpl, "/api/v1/custody/locations");
 }
 
+/**
+ * A new node of the tree. Only a root may name one of the firm's offices; a child inherits its
+ * office from the root it hangs off, and the server refuses the two together.
+ */
+export interface CreateCustodyLocationRequest {
+  name: string;
+  kind: CustodyLocationKind;
+  parentLocationId?: string;
+  firmLocationId?: string;
+}
+
+/** Add a container to the firm's tree. */
+export function createCustodyLocation(
+  fetchImpl: typeof fetch,
+  request: CreateCustodyLocationRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/custody/locations", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
 export interface CustodyLocationOccupancy {
   locationId: string;
   name: string;

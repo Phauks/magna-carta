@@ -118,7 +118,7 @@
 
 <section class="flex flex-col gap-16">
   <div class="flex flex-wrap items-center justify-between gap-16">
-    <h3 class="text-sm font-semibold">Pronouns</h3>
+    <h4 class="text-sm font-semibold">Pronouns</h4>
     {#if person.pronouns !== null}
       <span class="text-sm text-text-muted">{pronounShortForm(person.pronouns)}</span>
     {:else}

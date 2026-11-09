@@ -20,9 +20,22 @@
  * every tab. They are listed here for that reason: the permissions outlived the rows.
  *
  * When real grants land, this is the one call site that changes.
+ *
+ * THE SESSION'S REAL GRANTS ARE UNIONED IN. A destination gated on a permission this seam does not
+ * name — Meetings, on `meetings:join` — was filtered out of the rail and the palette for every
+ * member, including the ones the server had granted it to, because the gate only ever asked this
+ * list. The bootstrap session already carries the member's own permissions, so whatever the server
+ * says the member holds is held here too. It only ever adds: the mock grants above stay until real
+ * grants replace them, and a session that has not answered yet adds nothing, so a gated row
+ * appears once the read lands rather than flashing in and out.
  */
-import { assertPermission, type Permission } from "@magna-carta/access-control/registry";
+import {
+  assertPermission,
+  isPermission,
+  type Permission,
+} from "@magna-carta/access-control/registry";
 import { CATALOG } from "@magna-carta/tools/catalog";
+import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
 
 export function grantedPermissions(): ReadonlySet<Permission> {
   return new Set<Permission>([
@@ -45,5 +58,6 @@ export function grantedPermissions(): ReadonlySet<Permission> {
     assertPermission("tools:ocr"),
     assertPermission("tools:decryption"),
     assertPermission("tools:aiTextDetection"),
+    ...(sessionPermissions.session?.permissions ?? []).filter(isPermission),
   ]);
 }

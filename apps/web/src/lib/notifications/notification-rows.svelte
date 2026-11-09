@@ -29,7 +29,7 @@
   import {
     CATEGORY_PRESENTATION,
     SEVERITY_BADGE,
-    SEVERITY_LABEL,
+    PRIORITY_LABEL,
     describeNotification,
   } from "./notification-presentation.ts";
   import type { NotificationItem } from "./notifications-api.ts";
@@ -48,7 +48,7 @@
      * from a list of five, with no filter and no undo in view, is too easy to do by accident.
      */
     onDismiss?: (item: NotificationItem) => void;
-    /** The bell's register: tighter rows, no severity chip, no dismiss. */
+    /** The bell's register: tighter rows and no dismiss. The priority word stays, because the tray leads with it. */
     compact?: boolean;
   } = $props();
 </script>
@@ -102,8 +102,8 @@
               role="img"
             ></span>
           {/if}
-          {#if !compact && item.severity !== "informational"}
-            <Badge variant={SEVERITY_BADGE[item.severity]}>{SEVERITY_LABEL[item.severity]}</Badge>
+          {#if item.severity !== "informational"}
+            <Badge variant={SEVERITY_BADGE[item.severity]}>{PRIORITY_LABEL[item.severity]}</Badge>
           {/if}
         </div>
 

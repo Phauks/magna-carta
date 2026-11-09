@@ -1,0 +1,136 @@
+# Flags open pull requests that cannot land on their own, with one comment per pull-request head, so
+# the Claude thread watching the pull request wakes up and fixes it. Ported from the Grim-Games
+# repository's workflow of the same name (owner ruling there, 2026-10-26: "Be better for merge
+# conflicts on these open PRs"); adopted here 2026-11-09 alongside the hosted gate (ci.yml).
+#
+# Two ways a pull request stalls silently:
+# - It conflicts with its base. GitHub then runs no pull_request workflows on it, so the `gate` check
+#   never reports, auto-merge never fires, and nothing wakes the owning thread.
+# - It is green and mergeable, but auto-merge is off or never fired.
+#
+# It only comments and labels. A push or merge made with GITHUB_TOKEN would start no CI, so fixing the
+# pull request is left to its owner.
+#
+# Cost: the 1-vCPU runner, at a third of the 2-core rate, and a few API calls per open pull request.
+name: PR upkeep
+
+on:
+  push:
+    branches: [main, beta]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-upkeep
+  cancel-in-progress: true
+
+jobs:
+  flag:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            // The branches pull requests land on. `beta` is listed ahead of the staging branch existing;
+            // a base with no open pull requests costs one list call.
+            const BASES = ['main', 'beta'];
+            const LABEL = 'merge conflict';
+            // A green pull request left unmerged this long counts as stuck.
+            const STUCK_MINUTES = 30;
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            // Right after a push to a base, GitHub still reports each pull request's mergeability
+            // against the old base for a while, so give it time to recompute.
+            if (context.eventName === 'push') await sleep(90000);
+
+            const pullRequests = [];
+            for (const base of BASES) {
+              const open = await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: 'open', base, per_page: 100
+              });
+              core.info(`${open.length} open pull requests into ${base}`);
+              pullRequests.push(...open);
+            }
+
+            // GitHub works out mergeability lazily: the first read starts it, later reads see it.
+            async function read(number) {
+              for (let attempt = 0; attempt < 6; attempt++) {
+                const { data } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+                if (data.mergeable !== null && data.mergeable_state !== 'unknown') return data;
+                await sleep(5000);
+              }
+              return undefined;
+            }
+
+            async function commentOnce(pullRequest, kind, body) {
+              const marker = `<!-- pr-upkeep:${kind}:${pullRequest.head.sha} -->`;
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: pullRequest.number, per_page: 100
+              });
+              if (comments.some((comment) => comment.body?.includes(marker))) return;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pullRequest.number, body: `${marker}\n${body}`
+              });
+              core.info(`#${pullRequest.number}: commented (${kind})`);
+            }
+
+            async function setLabel(pullRequest, on) {
+              const has = pullRequest.labels.some((label) => label.name === LABEL);
+              if (on && !has) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: pullRequest.number, labels: [LABEL] });
+              } else if (!on && has) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: pullRequest.number, name: LABEL });
+              }
+            }
+
+            for (const listed of pullRequests) {
+              if (listed.draft) continue;
+              const pullRequest = await read(listed.number);
+              if (!pullRequest) {
+                core.info(`#${listed.number}: mergeability still unknown, next run`);
+                continue;
+              }
+              const base = pullRequest.base.ref;
+              core.info(`#${pullRequest.number}: mergeable=${pullRequest.mergeable} state=${pullRequest.mergeable_state}`);
+
+              if (pullRequest.mergeable === false || pullRequest.mergeable_state === 'dirty') {
+                await setLabel(pullRequest, true);
+                await commentOnce(
+                  pullRequest,
+                  'conflict',
+                  `This pull request conflicts with \`${base}\`, so GitHub runs no CI on it and auto-merge cannot land it. ` +
+                    `Merge \`${base}\` into this branch (a merge commit, no rebase), resolve the conflicts, run ` +
+                    '`pnpm gate` and push.'
+                );
+                continue;
+              }
+              await setLabel(pullRequest, false);
+
+              // clean: every check passed. unstable: the required ones passed and only an optional one
+              // (such as a Workers Builds status) did not.
+              const mergeable = pullRequest.mergeable_state === 'clean' || pullRequest.mergeable_state === 'unstable';
+              const idleMinutes = (Date.now() - Date.parse(pullRequest.updated_at)) / 60000;
+              if (mergeable && !pullRequest.auto_merge) {
+                await commentOnce(
+                  pullRequest,
+                  'no-auto-merge',
+                  'This pull request is green and mergeable but auto-merge is off, so it will not land. ' +
+                    'Turn on auto-merge (squash), or close it if it is no longer wanted.'
+                );
+              } else if (mergeable && idleMinutes > STUCK_MINUTES) {
+                await commentOnce(
+                  pullRequest,
+                  'stuck',
+                  `This pull request has been green and mergeable for over ${STUCK_MINUTES} minutes with auto-merge on, ` +
+                    'but it has not merged. Merge it through the merge API (squash).'
+                );
+              }
+            }

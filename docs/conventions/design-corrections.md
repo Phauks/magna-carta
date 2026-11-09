@@ -702,6 +702,19 @@ is usually the fastest way to understand the rule.
   the directory's, carrying which record to open, so a pasted link still lands on it. Chosen over an
   origin-aware way back ("hard to keep track of over time") and over a breadcrumb trail. _(the
   directory record, 2026-09-05)_
+- **A directory record is one scrolling document, entered and read alike.** Every section of a
+  person stands on one page that scrolls, on the New Person screen and in the entity window both;
+  the side rail is a table of contents that jumps to a section and lights the one the reader is in,
+  never a switch that swaps one section in at a time. A pane-at-a-time rail put a person's phone
+  number and address two presses from their name and left Tab unable to walk the record. A section
+  holding one answer is folded into a neighbour (pronouns and life dates are one About section);
+  the record's own facts stand in the header under its name; the right-hand pane holds only what
+  the host knows (a matter's roles for a party) and is absent otherwise; a long list shows its
+  first rows and Show All, so it cannot bury the sections after it. The New Person screen's right
+  side reads the entry back as values, never counts. Chosen over tabs and over an Overview page
+  that summarised the sections in cards. Supersedes the "chosen section beside it" half of the side
+  rail and one-window rulings above; the rail itself stands. Composed through
+  `apps/web/src/lib/directory/record-sections.svelte`. _(the person screen, 2026-11-09)_
 - **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
   panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
   icon control the file manager uses, reading its state through its glyph, and it sits last among a
@@ -1014,6 +1027,15 @@ is usually the fastest way to understand the rule.
   rides the one component every screen already builds its title from rather than being added screen
   by screen — a favourite control thirty screens have to opt into is a favourite control that covers
   twenty. _(favourites, 2026-09-16)_
+- **Every page has a menu beside its star, and the star stays out of it.** The `…` on the title's
+  row holds what is about the page rather than work on it: Copy Link and Open in New Tab on every
+  screen, then the screen's own secondary page-level items (`pageMenu` on `ScreenHeader`) — a
+  hand-off to the settings page behind it, a history it can forget. Moving the star into the menu
+  was considered and declined, because the gold star is the only thing that tells a member the page
+  is already a favourite, and a menu hides that answer. Search, create, filters and the screen's
+  main action never move in, and an unwired item stays on the row marked Soon rather than going
+  behind the glyph. A screen being redesigned passes its page-level extras here instead of growing
+  its own header overflow. _(page menu, 2026-11-09)_
 - **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
   truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
   inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
@@ -3340,3 +3362,69 @@ width.
   one. Generalizes: **a component that refuses its own props by throwing needs a gate that reads the
   props from source**, because review does not catch a label that is one character too long and the
   type-checker sees a string.
+
+### 2026-11-09 — the calendar screen: one View menu, the date as its heading, three firm calendars
+
+The owner, on the firm calendar: "the calendar preview area on the left side is pretty big. the
+calendar on the right has a scrollbar when it should not. should swap the kinds button and the
+button that changes the view, should combine those view buttons into a single view dropdown." Then,
+over three rounds on a mockup: "rename to Firm Events, title case. should we separate out matters and
+deadlines?"; "we don't need to duplicate which month it is and year in two different locations,
+picking the month or date in those dropdowns is bad and can be hard to read"; "source should be
+changed to Court Order and Firm"; "not sure how necessary kinds is when we already have the settings
+on the left side. the calendar on the left needs a picker. we still need the calendar names in both
+places though. move today to left of view dropdown"; "calendar is showing six weeks, when a month has
+at most 5. think we need to find a better way to showcase the date above the calendar".
+
+- **The views are one labelled menu, not four icon buttons.** `View` names the view the reader is in;
+  the week and the day add how concurrent entries are drawn as a section of it, and the agenda adds
+  Hide settled. A choice that means nothing on a view is not drawn there. _(built 2026-11-09)_
+- **The window's name is the heading over the grid, and it is the way to go somewhere far.** Large,
+  at the reading edge, with the arrows BEFORE it so they hold still whatever the name's length;
+  pressing it opens `MonthJump`, twelve months a year at a time. Today and View sit together at the
+  far end, Today first. _(built 2026-11-09)_
+- **A month and a year are never chosen from native selects on the calendar screen.** The rail's
+  month names its month in words with arrows of its own, and its name opens the same `MonthJump`.
+  The month name reads in both places, because the rail's month browses on its own and must say
+  which month it is showing. _(built 2026-11-09 for the compact `Calendar`; the framed date picker
+  still carries the two selects and is the open follow-up.)_
+- **The rail's month fits the rail.** The compact density drops the frame and steps the days down
+  one control rung, so seven make exactly the navigation measure; the framed picker was wider than
+  the column it stood in. _(built 2026-11-09)_
+- **A month grid draws only the weeks the month touches, and never scrolls for nothing.** Four, five
+  or six rows sharing the height. A month told to fill its host while also drawing a blank caption
+  line was the host's height plus that line, so the region scrolled on every screen; a grid with
+  nothing to say keeps its caption for assistive technology only. _(built 2026-11-09)_
+- **The firm's own calendars are three: Case Settings, Deadlines, Firm Events.** Each has its own row
+  and colour, so a hearing and a filing deadline read differently and either can be turned off alone.
+  That is also why the separate **Kinds** filter is gone: what sort of thing is on screen is the
+  rail's question now, as whose calendar it is already was. Every rail name is Title Case.
+  _(built 2026-11-09)_
+- **A deadline's Source reads Court Order or Firm.** The stored values are unchanged.
+  _(built 2026-11-09)_
+
+### 2026-11-09 — the notification centre: one grid, read and dismissed kept apart, and a priority only where one occurs
+
+The owner, reviewing mockups of the notification centre beside the task screen's (the two were
+designed together on his instruction). What was said, and what each part generalizes to:
+
+- **The task screen's "A is the basis, but should be able to group", applied to both.** The feed
+  became the one grid; its Everything/Unread toggle and category select were removed, not moved,
+  because the Status and Category columns already answer both. Already covered by _A list of
+  records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
+  the notification centre was the last register still hand-built as a list. Grouping arrives with the
+  grid's own group-by, which the task stream builds once for every register.
+- **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
+  ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
+  among them** — after them whatever the sort, quieter, with the act that undoes setting it aside
+  (Restore) where the act that did it (Dismiss) was.
+- **"The seen versus delete is interesting" — the owner chose to keep both.** Reading and dismissing
+  stay two acts: seen, and finished with. Neither deletes; the retention clock ages every row out
+  whatever its state. Generalizes: **"finished with" is a state with a way back, not a deletion**,
+  so the control that sets it can be pressed without a confirmation.
+- **"What happened -> Notification", "severity -> Priority".** A column is named for the thing its
+  rows are, and for the word a reader uses, not the platform's field name. The wire field stays
+  `severity`; what a reader sees is decided at the presentation layer.
+- **"Remove for information, priority only if a priority actually occurs."** Generalizes: **a column
+  whose ordinary value is "nothing in particular" is blank in the ordinary case.** A word on every
+  routine row is noise that hides the few rows that carry one.

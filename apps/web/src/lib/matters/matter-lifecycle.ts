@@ -38,6 +38,12 @@
  * unmet requirement is in the rule's own words, which name the amount, where it sits, and the
  * movements that clear it.
  */
+import {
+  addCalendarDays,
+  civilDateFromParts,
+  civilDateParts,
+  endOfCivilMonth,
+} from "@magna-carta/civil-time/civil-date";
 import type { Problem } from "$lib/api/request.ts";
 import type { MatterStatus } from "./matter-status.ts";
 import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -170,7 +176,7 @@ const REOPEN_STEP: MatterLifecycleStep = {
   doneSentence: "The matter is back where it was before it closed.",
   failureSentence: "The matter could not be reopened.",
   consequence:
-    "The matter returns to the status it left: the hold it was in, Active if it had been opened, else the consultation or intake it was. Its number is unchanged and the recorded close date clears.",
+    "The matter returns to the status it left: the hold it was in, Active if it had been opened, else the consultation or intake it was. Its number is unchanged, and the recorded close date and the paper file's destruction date clear.",
 };
 
 /**
@@ -598,19 +604,22 @@ function unmetSentence(count: number): string {
  * affairs need it, long after the matter that brought it in has closed. The firm's own file is a
  * different object with a different life.
  *
- * LOCATION IS SERVED AND THE OTHER TWO ARE NOT. Where the file is kept is one of the firm's own
- * offices, a record the product already holds, so it resolves to that record and links to it rather
- * than being free text nobody can follow. It is NOT the office the matter is run out of: a folder
- * travels, and a matter opened at one office is commonly boxed at another or at a remote store the
- * firm keeps as an office of its own.
+ * LOCATION AND DESTROY AFTER ARE SERVED; HELD IN IS NOT. Where the file is kept is one of the
+ * firm's own offices, a record the product already holds, so it resolves to that record and links
+ * to it rather than being free text nobody can follow. It is NOT the office the matter is run out
+ * of: a folder travels, and a matter opened at one office is commonly boxed at another or at a
+ * remote store the firm keeps as an office of its own.
  *
- * "Held In" and "Destroy After" hold nothing yet, and there is nothing behind either to invent
- * from: one container holds several matters' folders, so it is a record of its own that does not
- * exist, and there is no retention clock anywhere to derive a destruction date from. The custody
- * register is explicit that it runs no timer at all — an original is destroyed on a written basis,
- * by two people, never because a date arrived. So both render, holding nothing, marked Soon: the
- * shape of the answer, never an invented one. A date made up here would be a date somebody destroys
- * a client's file on.
+ * "Destroy After" is a date a person at the firm states and nothing else. The platform derives
+ * none — a retention period is the jurisdiction's and the firm's, and a date invented here would be
+ * a date somebody destroys a client's file on — and nothing deletes anything when it arrives. It is
+ * a reminder: here, and on the firm calendar's File Destruction Dates. The custody register is
+ * explicit about the same posture for client property — an original is destroyed on a written
+ * basis, by two people, never because a date arrived.
+ *
+ * "Held In" holds nothing yet, and there is nothing behind it to invent from: one container holds
+ * several matters' folders, so it is a record of its own that does not exist. It renders, holding
+ * nothing, marked Soon: the shape of the answer, never an invented one.
  *
  * An unserved row carries no sentence naming the dependency (owner ruling): a row that says "Not
  * recorded" beside the Soon mark has already said it is not built, and a paragraph repeating that
@@ -640,8 +649,47 @@ export interface MatterPhysicalFileFact {
 export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
   { key: "location", label: "Location", served: true },
   { key: "container", label: "Held In", served: false },
-  { key: "destroy-after", label: "Destroy After", served: false },
+  { key: "destroy-after", label: "Destroy After", served: true },
 ];
+
+// ---- the destruction date the close asks for --------------------------------------------------
+
+/**
+ * The earliest date a matter closing on `closedOn` may name for its paper file's destruction,
+ * under the firm's minimum retention in whole years; null where the firm states no minimum.
+ *
+ * The same rule the server applies (packages/matters/src/matter-file-retention.ts), stated here so
+ * the close can offer the floor as its starting answer and refuse a date under it before the press.
+ * The server still has the last word. A close on 29 February rolls forward to 1 March, so the floor
+ * is never a day short of the period the firm set.
+ */
+export function earliestFileDestructionDate(closedOn: string, minimumYears: number): string | null {
+  if (minimumYears <= 0) return null;
+  const { year, month, day } = civilDateParts(closedOn);
+  const targetYear = year + minimumYears;
+  const monthEnd = endOfCivilMonth(targetYear, month);
+  return day <= Number(monthEnd.slice(8, 10))
+    ? civilDateFromParts({ year: targetYear, month, day })
+    : addCalendarDays(monthEnd, 1);
+}
+
+/**
+ * Why the close cannot record the destruction date it was given, or null where it can. `destroyOn`
+ * null is "No destruction date", which is always an answer; an empty string is a date not chosen.
+ */
+export function fileDestructionDateRefusal(
+  destroyOn: string | null,
+  earliest: string | null,
+): string | null {
+  if (destroyOn === null) return null;
+  if (destroyOn.trim() === "") {
+    return "Choose the date the paper file may be destroyed after, or No Destruction Date.";
+  }
+  if (earliest !== null && destroyOn < earliest) {
+    return `The firm keeps a closed matter's paper file until at least ${earliest}.`;
+  }
+  return null;
+}
 
 // ---- what stops the step being taken from this screen ---------------------------------------------
 

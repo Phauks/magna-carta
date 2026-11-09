@@ -10,5 +10,6 @@ export const OPERATIONS: readonly string[] = [
   "notifications.list",
   "notifications.markAllRead",
   "notifications.markRead",
+  "notifications.restore",
   "notifications.unreadCount",
 ];

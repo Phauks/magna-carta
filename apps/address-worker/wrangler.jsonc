@@ -1,0 +1,83 @@
+{
+  // The dedicated address-autocomplete worker. It owns the two Container classes that run the address
+  // engine (containers/address, over crates/address-core), the one R2 bucket that engine's index lives
+  // in, the two non-routable hosts the engine reaches the world through, and the daily cron that keeps
+  // the index current. It is reached only over a service binding from the main app worker — it has no
+  // public routes.
+  "name": "magna-carta-address",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // ONE image, run as two Container classes. The engine binary answers queries and runs builds; which
+  // of the two an instance does is decided by which requests reach it, so a second image would be a
+  // second build of the same code. The classes differ only in size and in what they may reach.
+  //
+  // The build context is the REPOSITORY ROOT, not the container directory, and it has to be said here
+  // rather than inferred: wrangler defaults the context to the Dockerfile's own directory, and this
+  // image copies `crates/` because containers/address path-depends on crates/address-core (and through
+  // it on crates/search-core, whose split format the index is stored in). The root `.dockerignore` is
+  // then what keeps the wider context small. The same reasoning, and the production build failure that
+  // taught it, is written out beside apps/search-worker/wrangler.jsonc's identical line.
+  "containers": [
+    {
+      // The query instance. `basic` (1 GiB) is enough because the index is never loaded whole: the
+      // engine holds the four partitions open and reads them by range, and its byte-range cache is
+      // bounded at 384 MB inside the container, which leaves room for the process and its searchers.
+      // The index is public reference data, identical for every firm, so one warm instance serves
+      // everyone and src/forward-query.ts addresses exactly one name. max_instances is 2 rather than 1
+      // as headroom, not fan-out: a second instance would be a second cold cache for no gain, which is
+      // why no second name is addressed.
+      "class_name": "AddressIndexContainer",
+      "image": "../../containers/address/Dockerfile",
+      "image_build_context": "../../",
+      "max_instances": 2,
+      "instance_type": "basic",
+    },
+    {
+      // The build instance. `standard-4` (4 vCPU, 12 GiB, 20 GB disk) because a build indexes a
+      // partition on four threads into a scratch directory and then merges it into one segment, and
+      // the merge needs about twice the partition's size on disk: the largest partition is about
+      // 3.5 GB, so the disk, not the memory, is the constraint that chose this size. It runs only
+      // during a build — about an hour a month — and sleeps otherwise, so the size costs nothing idle.
+      // One instance, because two concurrent builds would race to publish the pointer.
+      "class_name": "AddressBuildContainer",
+      "image": "../../containers/address/Dockerfile",
+      "image_build_context": "../../",
+      "max_instances": 1,
+      "instance_type": "standard-4",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ADDRESS_INDEX_CONTAINER", "class_name": "AddressIndexContainer" },
+      { "name": "ADDRESS_BUILD_CONTAINER", "class_name": "AddressBuildContainer" },
+    ],
+  },
+  // SQLite-backed DO classes introduced via migration tag; first migration for this worker.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["AddressIndexContainer", "AddressBuildContainer"] },
+  ],
+  // The address index: the pointer (us/current.json), each build's four partition splits, and each
+  // build's attribution manifest.
+  //
+  // Unlike apps/search-worker, this worker holds an R2 binding, and the contrast is deliberate. The
+  // search worker must not hold one, because which bucket holds a firm's bytes is one decision made in
+  // the app worker, and a binding there would be a second answer to it. Address data belongs to no
+  // firm: it is public reference data the platform builds for itself, so there is no bucket decision to
+  // keep in one place. Routing the engine's reads through the app worker instead would add a hop to
+  // every keystroke for nothing. The engine still holds no credential — it reaches this binding only
+  // through the intercepted object host in src/object-host.ts.
+  "r2_buckets": [{ "binding": "ADDRESS_INDEX", "bucket_name": "magna-carta-addresses" }],
+  // Daily at 07:17 UTC: the refresh check (src/refresh-decision.ts). It reads the pointer and starts a
+  // build only when the index is missing or more than 30 days old and no build is running, so on most
+  // days it is one small R2 read and nothing else. Daily rather than monthly so a failed build is
+  // retried the next day instead of the next month. The odd minute keeps it off the top of the hour,
+  // where scheduled work across the platform bunches.
+  "triggers": {
+    "crons": ["17 7 * * *"],
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

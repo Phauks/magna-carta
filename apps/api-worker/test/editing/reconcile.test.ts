@@ -110,7 +110,7 @@ beforeAll(async () => {
     .bind(firmId)
     .run();
 
-  // The acting member is an ATTORNEY, not an owner: documents:reconcile is seeded to Owner/Admin and
+  // The acting member is an ATTORNEY, not an owner: documents:reconcile is seeded to Admin and
   // Attorney, and the attorney is the seat the wider half of that pair rests on.
   const attorney = await seedCredentialedUser("reconcile-attorney@example.com", { firmId });
   attorneyUserId = attorney.userId;

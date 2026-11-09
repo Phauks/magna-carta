@@ -1,0 +1,17 @@
+{
+  "$description": "Typeface axis — OPENDYSLEXIC: the face drawn for dyslexic readers (weighted bottoms, distinct letter shapes). Offered, never the default — its texture is heavy for everyone else. Re-points font.sans ONLY.",
+  "font": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": [
+        "OpenDyslexic",
+        "system-ui",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ]
+    }
+  }
+}
