@@ -45,14 +45,14 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 // demanded every tree would fail on the first one to arrive.
 const CONFLICTS_TREES = [
   "packages/conflicts",
-  "apps/api-worker/src/routes/conflicts.ts",
+  "apps/api-worker/src/http/routes/directory/conflicts.ts",
   "apps/web/src/routes/(app)/conflicts",
   "apps/web/src/routes/(app)/matters/[id]/conflicts",
   "apps/web/src/lib/conflicts",
   // Intake gates a consultation's opening on the conflicts posture, which is exactly where a
   // verdict-shaped word tempts a builder: the package, its route, and its web surfaces.
   "packages/intake",
-  "apps/api-worker/src/routes/intake.ts",
+  "apps/api-worker/src/http/routes/matters/intake.ts",
   "apps/web/src/lib/intake",
   "apps/web/src/routes/(app)/matters/[id]/intake",
   "apps/web/src/routes/(app)/settings/intake-procedures",

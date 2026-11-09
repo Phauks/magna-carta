@@ -447,6 +447,29 @@ export async function readMemberLocations(
   return results.map((row) => ({ locationId: row.location_id, isPrimary: row.is_primary === 1 }));
 }
 
+/** The region and country of a member's primary office, as its physical address records them. */
+export interface MemberPrimaryOfficeRegion {
+  readonly region: string;
+  readonly country: string;
+}
+
+// Where a member's primary office is, to the region. Only the physical address answers: a mailing
+// address can be a post-office box in another state, and the question is where the member works.
+// Null for a member with no primary office, or one whose address does not say.
+export async function readMemberPrimaryOfficeRegion(
+  database: SqlDatabase,
+  memberUserId: UserId,
+): Promise<MemberPrimaryOfficeRegion | null> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${LOCATION_ADDRESS_TABLE}.region AS region, ${LOCATION_ADDRESS_TABLE}.country AS country FROM ${MEMBER_LOCATION_TABLE} JOIN ${LOCATION_ADDRESS_TABLE} ON ${LOCATION_ADDRESS_TABLE}.location_id = ${MEMBER_LOCATION_TABLE}.location_id WHERE ${MEMBER_LOCATION_TABLE}.member_user_id = ?1 AND ${MEMBER_LOCATION_TABLE}.is_primary = 1 AND ${LOCATION_ADDRESS_TABLE}.kind = 'physical' AND ${LOCATION_ADDRESS_TABLE}.region IS NOT NULL AND ${LOCATION_ADDRESS_TABLE}.country IS NOT NULL LIMIT 1`,
+    )
+    .bind(memberUserId)
+    .all<{ region: string; country: string }>();
+  const row = results[0];
+  return row === undefined ? null : { region: row.region, country: row.country };
+}
+
 // Per-firm count of all locations (active and closed alike).
 export async function readLocationCount(database: SqlDatabase): Promise<number> {
   const { results } = await database

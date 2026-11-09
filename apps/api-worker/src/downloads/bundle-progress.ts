@@ -11,7 +11,7 @@
 //
 // The signed URL is minted per call and never stored: it is short-lived by design, and a URL held in
 // durable state would outlive the reason the caller was allowed to have it.
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { FirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import type { BundleJobState } from "./bundle-types.ts";

@@ -81,7 +81,7 @@ function fakeDatabase() {
 const KEY: TokenUsageKey = {
   day: "2026-06-18",
   slot: "reasoning",
-  modelId: "anthropic/claude-opus-4-8",
+  modelId: "anthropic/claude-opus-5-5",
 };
 
 describe("tokenUsageCommitStatements", () => {
@@ -94,7 +94,7 @@ describe("tokenUsageCommitStatements", () => {
     expect(usage).toEqual([
       {
         slot: "reasoning",
-        modelId: "anthropic/claude-opus-4-8",
+        modelId: "anthropic/claude-opus-5-5",
         inputTokens: 15,
         outputTokens: 27,
         requestCount: 2,

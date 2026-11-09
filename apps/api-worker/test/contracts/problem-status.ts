@@ -2,7 +2,7 @@
 // (pnpm check), not by Vitest — the pattern from problem-type-keys.ts. problemJson is the
 // platform-wide error-reply path, so a non-error status must be a compile error, not a runtime bug.
 import type { Context } from "hono";
-import { problemJson } from "../../src/contracts/problem";
+import { problemJson } from "../../src/http/contracts/problem";
 
 declare const c: Context;
 

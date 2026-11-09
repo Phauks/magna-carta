@@ -14,7 +14,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // Opening a trust account over HTTP. What is proved here is the wiring the domain suite cannot
 // reach: that the chokepoint gates the route on trust:manage, that the jurisdiction on the opened

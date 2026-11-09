@@ -15,7 +15,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The trust-movement HTTP surface over real Miniflare bindings. What is proved here is the wiring the
 // domain suites cannot reach: that the chokepoint gates these routes on trust:manage, that a movement

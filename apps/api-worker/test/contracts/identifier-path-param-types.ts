@@ -5,7 +5,7 @@
 // flows out of route inference and that it stays entity-specific.
 import { z } from "@hono/zod-openapi";
 import type { DocumentId, MatterId } from "@magna-carta/identifiers/types";
-import { identifierPathParam } from "../../src/contracts/common";
+import { identifierPathParam } from "../../src/http/contracts/common";
 
 const matterParams = z.object({ matterId: identifierPathParam("matter", "matterId") });
 type InferredMatterParams = z.infer<typeof matterParams>;

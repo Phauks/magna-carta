@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
-import { resolveSupportSession } from "../src/support/resolve-support-session.ts";
+import { resolveSupportSession } from "../src/http/resolve-support-session.ts";
 import { mintSupportSessionToken } from "../src/support/support-session-token.ts";
 import {
   insertPlatformStaffStatement,

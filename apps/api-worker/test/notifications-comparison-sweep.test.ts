@@ -6,7 +6,7 @@ import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import type { DocumentAssemblyJob } from "../src/assemblies/assembly-coordinator.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { runNotificationComparisonSweep } from "../src/scheduled.ts";
+import { runNotificationComparisonSweep } from "../src/background/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // The two production paths that are not the queue, driven through the real cron entry point and the

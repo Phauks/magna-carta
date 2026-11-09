@@ -40,7 +40,21 @@ const densityPermutations = ["compact"].map((density) => ({
   prepare: (css) => `:root[data-density="${density}"] {\n${css}\n}`,
 }));
 
-const permutations = [...themeModePermutations, ...densityPermutations, ...motionPermutations];
+// Same shape for the typeface axis: each non-default reading face re-points font.sans only (a font
+// stack is theme-, mode- and density-invariant); "atkinson" is the primitive truth and needs no
+// overlay.
+const typefacePermutations = ["lexend", "opendyslexic", "serif", "system"].map((typeface) => ({
+  input: { theme: "chancery", mode: "light", typeface },
+  include: ["font.sans"],
+  prepare: (css) => `:root[data-typeface="${typeface}"] {\n${css}\n}`,
+}));
+
+const permutations = [
+  ...themeModePermutations,
+  ...densityPermutations,
+  ...motionPermutations,
+  ...typefacePermutations,
+];
 
 export default defineConfig({
   // The resolver document is the single entry point; it pulls in every token file.
@@ -65,8 +79,11 @@ export default defineConfig({
         // @theme inline block onto --mc-elevation-*, keeping it mode-responsive.
         spacing: ["space.*"],
         radius: ["radius.*"],
+        // No `sans` here: the plugin would inline the resolved stack, freezing font-sans (and the
+        // document's default face, which Tailwind's base layer reads from it) to Atkinson. The
+        // reading face is a user axis (:root[data-typeface=…] re-points --mc-font-sans), so sans
+        // is hand-mapped in tailwind.template.css's @theme inline block onto the variable.
         font: {
-          sans: "font.sans",
           mono: "font.mono",
         },
         // Tailwind's text-* SIZE utilities map to the font-size.* primitives; the token group is

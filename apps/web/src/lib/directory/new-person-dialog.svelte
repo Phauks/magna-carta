@@ -2,11 +2,12 @@
   /*
    * Recording a person: every section of the record, reachable before the record exists.
    *
-   * ONE SCREEN, WITH A LEFT SIDE AND A RIGHT SIDE. The record's sections stand as a rail on the
-   * left, each with a count of what it holds, and the chosen section's fields beside it; the gate
-   * the entry has to pass — what the firm may already hold under a similar spelling — is on the
-   * right, permanently in view, with a summary of everything the record will hold, so nothing
-   * behind a rail item is out of sight. Wider and shorter, so the whole thing fits a screen.
+   * ONE SCROLLING FORM, WITH A RAIL BESIDE IT AND THE GATE ON THE RIGHT. Every section of the
+   * record is stacked in one form (record-sections.svelte), so Tab walks from the name to the last
+   * organization without a press in between, and the rail on the left jumps to a section and says
+   * which one the reader is in, with a count of what each holds. The gate the entry has to pass —
+   * what the firm may already hold under a similar spelling — is on the right, permanently in
+   * view, above the record read back as it will read: the email itself, not "1 email".
    *
    * THE DRAFT IS RECORDED IN ONE BATCH. Nothing is written until the commit, and then everything
    * is written together (person-draft.ts builds the one request), so a person is never
@@ -20,7 +21,6 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Tabs from "@magna-carta/design-system/tabs";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { createDirectoryPerson } from "./directory-api.ts";
@@ -36,7 +36,6 @@
     personDraftWarning,
     personSectionCounts,
     type PersonDraft,
-    type PersonSectionId,
   } from "./person-draft.ts";
   import AddressSection from "./sections/address-section.svelte";
   import ContactSection from "./sections/contact-section.svelte";
@@ -54,6 +53,7 @@
   } from "./contact-draft.ts";
   import { identifierRowFromDraft } from "./identifier-draft.ts";
   import { RECORD_PANEL_BODY_STYLE } from "./record-panel.ts";
+  import RecordSections from "./record-sections.svelte";
 
   let {
     open = $bindable(false),
@@ -71,7 +71,6 @@
   } = $props();
 
   let draft = $state<PersonDraft>(emptyPersonDraft());
-  let section = $state<PersonSectionId>("names");
   let failure = $state<StatedFailure | null>(null);
 
   const search = directoryPickerSearch(fetch, { kinds: ["organization"] });
@@ -101,7 +100,6 @@
       prefill === null
         ? empty
         : { ...empty, name: { ...empty.name, given: prefill.given, family: prefill.family } };
-    section = "names";
     failure = null;
   }
 
@@ -145,8 +143,8 @@
   bind:open
   kind="form"
   heading="New Person"
-  commitLabel="Record Person"
-  commitBusyLabel="Recording"
+  commitLabel="Save"
+  commitBusyLabel="Saving"
   commitRefusal={refusal}
   width="record"
   unsavedChanges={started}
@@ -164,7 +162,7 @@
     {/if}
     <!-- A WARNING, WHICH IS NOT A REFUSAL: the commit stays live and records exactly what is on
          screen. It stands in the band directly above the commit rather than beside the name field,
-         because the moment it is about is the moment somebody presses Record. -->
+         because the moment it is about is the moment somebody presses Save. -->
     {#if warning !== null}
       <Alert.Root variant="warning">
         <Alert.Title>This Person Has No Last Name</Alert.Title>
@@ -174,83 +172,62 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <!-- The record's sections as a rail; the chosen one's fields beside it.
-         ONE HEIGHT, WHICHEVER SECTION IS CHOSEN (record-panel.ts): the section scrolls inside the
-         panel rather than the panel resizing under the rail the reader is using. -->
-    <Tabs.Root bind:value={section} orientation="vertical" class="gap-16" style={RECORD_PANEL_BODY_STYLE}>
-      <Tabs.List class="mc-scrollbar shrink-0 overflow-y-auto" style="width: 11rem">
-        {#each counts as entry (entry.id)}
-          <Tabs.Trigger value={entry.id} class="justify-between">
-            <span>{entry.label}</span>
-            {#if entry.count !== null && entry.count > 0}
-              <span class="text-xs text-text-subtle tabular-nums">{entry.count}</span>
-            {/if}
-          </Tabs.Trigger>
-        {/each}
-      </Tabs.List>
-
-      <Tabs.Content value="names" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <NamesSection
-          bind:name={draft.name}
-          otherNames={draft.otherNames}
-          disabled={busy}
-          onAddOtherName={(other) => (draft.otherNames = [...draft.otherNames, { ...other, id: crypto.randomUUID() }])}
-          onRemoveOtherName={(other) => (draft.otherNames = draft.otherNames.filter((entry) => entry.id !== other.id))}
-        />
-      </Tabs.Content>
-
-      <Tabs.Content value="contact" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <ContactSection
-          rows={contactRows}
-          canEdit={!busy}
-          onAdd={(contact) => (draft.contacts = [...draft.contacts, { ...contact, id: crypto.randomUUID() }])}
-          onEdit={(row) => draftFor(row.id)}
-          onChange={(row, contact) => replaceDraft(row.id, contact)}
-          onRemove={(row) => (draft.contacts = draft.contacts.filter((entry) => entry.id !== row.id))}
-        />
-      </Tabs.Content>
-
-      <!-- Beside Contact rather than a fourth kind inside it: an address is a form of six to nine
-           boxes whose shape is the country's, and the record reads it back on its own section too. -->
-      <Tabs.Content value="address" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <AddressSection
-          rows={addressRows}
-          canEdit={!busy}
-          onAdd={(address) => (draft.contacts = [...draft.contacts, { ...address, id: crypto.randomUUID() }])}
-          onEdit={(row) => draftFor(row.id) as AddressDraft}
-          onChange={(row, address) => replaceDraft(row.id, address)}
-          onRemove={(row) => (draft.contacts = draft.contacts.filter((entry) => entry.id !== row.id))}
-        />
-      </Tabs.Content>
-
-      <Tabs.Content value="pronouns" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <PronounsSection bind:value={draft.pronouns} disabled={busy} />
-      </Tabs.Content>
-
-      <Tabs.Content value="dates" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <DatesSection bind:dateOfBirth={draft.dateOfBirth} bind:dateOfDeath={draft.dateOfDeath} disabled={busy} />
-      </Tabs.Content>
-
-      <Tabs.Content value="identifiers" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <IdentifiersSection
-          rows={identifierRows}
-          kind="person"
-          canEdit={!busy}
-          onAdd={(identifier) => (draft.identifiers = [...draft.identifiers, { ...identifier, id: crypto.randomUUID() }])}
-          onRemove={(row) => (draft.identifiers = draft.identifiers.filter((entry) => entry.id !== row.id))}
-        />
-      </Tabs.Content>
-
-      <Tabs.Content value="organizations" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
-        <OrganizationsSection
-          rows={draft.organizations}
-          {search}
-          disabled={busy}
-          onAdd={(organization) => (draft.organizations = [...draft.organizations, { ...organization, id: crypto.randomUUID() }])}
-          onRemove={(organization) => (draft.organizations = draft.organizations.filter((entry) => entry.id !== organization.id))}
-        />
-      </Tabs.Content>
-    </Tabs.Root>
+    <!-- Every section in one form; the rail beside it jumps between them. -->
+    <RecordSections sections={counts} label="Sections of the new person">
+      {#snippet section(part)}
+        {#if part.id === "names"}
+          <NamesSection
+            bind:name={draft.name}
+            otherNames={draft.otherNames}
+            disabled={busy}
+            onAddOtherName={(other) => (draft.otherNames = [...draft.otherNames, { ...other, id: crypto.randomUUID() }])}
+            onRemoveOtherName={(other) => (draft.otherNames = draft.otherNames.filter((entry) => entry.id !== other.id))}
+          />
+        {:else if part.id === "contact"}
+          <ContactSection
+            rows={contactRows}
+            canEdit={!busy}
+            onAdd={(contact) => (draft.contacts = [...draft.contacts, { ...contact, id: crypto.randomUUID() }])}
+            onEdit={(row) => draftFor(row.id)}
+            onChange={(row, contact) => replaceDraft(row.id, contact)}
+            onRemove={(row) => (draft.contacts = draft.contacts.filter((entry) => entry.id !== row.id))}
+          />
+        {:else if part.id === "address"}
+          <!-- Beside Contact rather than a fourth kind inside it: an address is a form of six to
+               nine boxes whose shape is the country's, and the record reads it back on its own
+               section too. -->
+          <AddressSection
+            rows={addressRows}
+            canEdit={!busy}
+            onAdd={(address) => (draft.contacts = [...draft.contacts, { ...address, id: crypto.randomUUID() }])}
+            onEdit={(row) => draftFor(row.id) as AddressDraft}
+            onChange={(row, address) => replaceDraft(row.id, address)}
+            onRemove={(row) => (draft.contacts = draft.contacts.filter((entry) => entry.id !== row.id))}
+          />
+        {:else if part.id === "about"}
+          <div class="flex flex-col gap-16">
+            <PronounsSection bind:value={draft.pronouns} disabled={busy} />
+            <DatesSection bind:dateOfBirth={draft.dateOfBirth} bind:dateOfDeath={draft.dateOfDeath} disabled={busy} />
+          </div>
+        {:else if part.id === "identifiers"}
+          <IdentifiersSection
+            rows={identifierRows}
+            kind="person"
+            canEdit={!busy}
+            onAdd={(identifier) => (draft.identifiers = [...draft.identifiers, { ...identifier, id: crypto.randomUUID() }])}
+            onRemove={(row) => (draft.identifiers = draft.identifiers.filter((entry) => entry.id !== row.id))}
+          />
+        {:else if part.id === "organizations"}
+          <OrganizationsSection
+            rows={draft.organizations}
+            {search}
+            disabled={busy}
+            onAdd={(organization) => (draft.organizations = [...draft.organizations, { ...organization, id: crypto.randomUUID() }])}
+            onRemove={(organization) => (draft.organizations = draft.organizations.filter((entry) => entry.id !== organization.id))}
+          />
+        {/if}
+      {/snippet}
+    </RecordSections>
   {/snippet}
 
   {#snippet context()}
@@ -260,11 +237,11 @@
       <DuplicateGate kind="person" given={draft.name.given} family={draft.name.family} />
       {#if summary.length > 0}
         <div class="flex flex-col gap-8">
-          <SectionHeading label="On This Record" />
+          <SectionHeading label="As It Will Read" />
           <dl class="grid gap-x-12 gap-y-4 text-sm" style="grid-template-columns: auto minmax(0, 1fr)">
-            {#each summary as line (line.label)}
+            {#each summary as line, index (index)}
               <dt class="text-text-muted">{line.label}</dt>
-              <dd class="text-right">{line.value}</dd>
+              <dd class="text-right break-words">{line.value}</dd>
             {/each}
           </dl>
         </div>

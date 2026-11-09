@@ -20,7 +20,7 @@ import { twoFactorClient } from "better-auth/client/plugins";
 /*
  * THE ATTEMPT BUDGET, as the server publishes it. The ladder in ./attempt-ladder.ts describes the
  * rungs; this is where the numbers behind them come from. The Worker stamps three headers on every
- * answer from a credential endpoint (apps/api-worker/src/auth-attempt-budget.ts), and headers rather
+ * answer from a credential endpoint (apps/api-worker/src/http/auth-attempt-budget.ts), and headers rather
  * than a body field because the failure bodies on that path are Better Auth's own — a client that
  * parsed them would break on the library's next error-shape change.
  *

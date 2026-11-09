@@ -57,7 +57,7 @@ Under `apps/web/`:
 
 | File                                            | Role                                                                         |
 | ----------------------------------------------- | ---------------------------------------------------------------------------- |
-| `src/routes/(app)/tools/+page.svelte`           | The listing page — masthead, view toggle, grouped views                      |
+| `src/http/routes/(app)/tools/+page.svelte`      | The listing page — masthead, view toggle, grouped views                      |
 | `src/lib/tools/tool-presentation.ts`            | id → `{ description, stage }`; group labels; icon map; `visibleToolGroups()` |
 | `src/lib/tools/tools-view-preference.svelte.ts` | Persisted `"tiles" \| "list"` view preference (default tiles)                |
 | `src/lib/tools/tool-tile.svelte`                | One tool as a card tile                                                      |

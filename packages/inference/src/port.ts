@@ -7,7 +7,7 @@ import type { Dispatch } from "@magna-carta/integrations/dispatch";
 // problem, never a bare throw. The reasoning model id is an explicit per-call parameter (read per call
 // site through the firm-scoped data-access layer); it never rides on a connection or context object.
 
-// A gateway-routable, provider-prefixed model id (e.g. "anthropic/claude-opus-4-8"). A bare id would
+// A gateway-routable, provider-prefixed model id (e.g. "anthropic/claude-opus-5-5"). A bare id would
 // not route through the gateway binding.
 export type InferenceModelId = string;
 

@@ -43,7 +43,7 @@ function* sourceFiles(directory: string): Generator<string> {
 function isPermittedImporter(path: string): boolean {
   const relativePath = relative(ROOT, path).replaceAll("\\", "/");
   if (relativePath.startsWith("packages/intake/")) return true;
-  return /^apps\/[^/]+\/src\/routes\//u.test(relativePath);
+  return /^apps\/[^/]+\/src\/http\/routes\//u.test(relativePath);
 }
 
 describe("no automated path writes an intake record", () => {

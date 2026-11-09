@@ -192,6 +192,31 @@ describe("the deadline draft", () => {
     ]);
   });
 
+  it("refuses a time that is not a time of day, and a half-typed one the control reports as empty", () => {
+    const draft = {
+      ...emptyDeadlineDraft("America/Los_Angeles"),
+      title: "Response due",
+      dueOn: "2026-09-10",
+    };
+    for (const dueAtTime of ["abc", "5pm", "24:00", "17:60", "9:30"]) {
+      expect(
+        shortfallSentences(deadlineDraftShortfalls({ ...draft, dueAtTime })),
+        dueAtTime,
+      ).toEqual(["The time does not read as a time of day."]);
+    }
+    // The time control holding "5:" reports an empty value. Read alone that would be "end of the
+    // day"; told the entry is unfinished, the draft refuses it instead of recording the wrong hour.
+    expect(deadlineDraftReady(draft)).toBe(true);
+    expect(deadlineDraftReady(draft, { timeEntryUnfinished: true })).toBe(false);
+    expect(
+      deadlineDraftShortfalls(draft, { timeEntryUnfinished: true }).map((each) => each.field),
+    ).toEqual(["dueAtTime"]);
+    // A finished time wins over a stale flag: the value the control reports is the answer.
+    expect(
+      deadlineDraftReady({ ...draft, dueAtTime: "17:00" }, { timeEntryUnfinished: true }),
+    ).toBe(true);
+  });
+
   it("reads a recorded deadline back into a draft and sees no change until one is made", () => {
     const draft = deadlineDraftFrom({
       id: "d",

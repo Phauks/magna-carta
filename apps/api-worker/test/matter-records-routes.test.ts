@@ -9,7 +9,7 @@ import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { insertDocumentAssemblyStatement } from "@magna-carta/document-assembly/assembly-statements";
-import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
+import { documentAssemblyQueue } from "../src/background/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";

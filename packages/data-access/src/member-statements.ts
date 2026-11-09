@@ -172,6 +172,8 @@ export function selectMemberStatusStatement(database: SqlDatabase, userId: UserI
 export interface FirmRoleRow {
   readonly id: string;
   readonly name: string;
+  /** The role this one is a sub-role of, or null for a top-level role. */
+  readonly parentRoleId: string | null;
   /** The role's permission keys packed with ROLE_NAME_SEPARATOR, or null where it carries none. */
   readonly permissions: string | null;
   /** How many ACTIVE members hold this role. */
@@ -182,6 +184,7 @@ export function selectFirmRolesStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
     `SELECT ${ROLE_TABLE}.id AS id, ` +
       `${ROLE_TABLE}.name AS name, ` +
+      `${ROLE_TABLE}.parent_role_id AS parentRoleId, ` +
       `(SELECT group_concat(${ROLE_PERMISSION_TABLE}.permission, char(31)) FROM ${ROLE_PERMISSION_TABLE} ` +
       `WHERE ${ROLE_PERMISSION_TABLE}.role_id = ${ROLE_TABLE}.id) AS permissions, ` +
       `(SELECT COUNT(*) FROM ${MEMBER_ROLE_TABLE} ` +

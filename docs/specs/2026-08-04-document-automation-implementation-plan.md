@@ -170,7 +170,7 @@ custom fields, no PDF.
 
 ## Task 8 — Template registration routes
 
-- [ ] `apps/worker/src/routes/templates.ts` — `POST /api/v1/templates/upload` (presigned PUT, the
+- [ ] `apps/worker/src/routes/documents/templates.ts` — `POST /api/v1/templates/upload` (presigned PUT, the
       `conversions.upload` shape), `POST /api/v1/templates`, `POST /api/v1/templates/{id}/versions`,
       `GET /api/v1/templates`, `GET /api/v1/templates/{id}/versions/{versionId}/fields`,
       `POST /api/v1/templates/{id}/archive`, `GET /api/v1/merge-fields`.

@@ -1,4 +1,4 @@
-import type { Bindings } from "../../app.ts";
+import type { Bindings } from "../../bindings.ts";
 
 // Minting relay credentials from Cloudflare Realtime's TURN service, in ONE home.
 //

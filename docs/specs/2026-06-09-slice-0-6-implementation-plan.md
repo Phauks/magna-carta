@@ -42,7 +42,7 @@ packages/identifiers/src/prefix-registry.ts   # MODIFY: cor/err/inc entries (dec
 packages/database/src/per-firm-schema.ts      # MODIFY: incident table
 packages/database/drizzle/per-firm/           # new migration
 apps/worker/src/telemetry-middleware.ts       # correlation mint + request event + escaped-exception capture
-apps/worker/src/routes/incidents.ts           # POST /v1/incidents (contract pipeline)
+apps/worker/src/routes/platform/incidents.ts           # POST /v1/incidents (contract pipeline)
 apps/worker/src/email-cloudflare.ts           # CloudflareEmailAdapter (sendEmail port impl)
 apps/worker/src/app.ts                        # MODIFY: install telemetry middleware first; wire logger
 apps/worker/src/contracts/problem.ts          # MODIFY (0·5 file): errorId minted via @magna-carta/telemetry
@@ -146,7 +146,7 @@ export const incident = sqliteTable("incident", {
 - [ ] Extend the 0·5 conformance suite: every non-2xx response schema in the emitted OpenAPI document includes the `errorId` property (spec §3).
 - [ ] Commit `test: console-ban + errorId-coverage fitness functions (golden rule 4 structural)`.
 
-### Task 8: Incident intake (`apps/worker/src/routes/incidents.ts`)
+### Task 8: Incident intake (`apps/worker/src/routes/platform/incidents.ts`)
 
 - [ ] `defineOpenAPIRoute` — `operationId: "incidents.report"`, `surface: "app"`, `authenticated: true`, `permission: null`… **no**: the fitness rules require a permission on mutating authenticated routes — add `incident:report` to the access-control registry (every member may hold it via all five seeded roles; extend the seed migration in this slice's migration or grant via a role update migration). `audited: true`, `idempotency: "optional"`, `rateLimit: "incident-report"` (add the bucket: 5/300s).
 - [ ] Body schema: `errorIds` (array of validated `err_` handles, max 10, may be empty), `breadcrumbs` (max 50 of `{ at, action, route }`, each string length-capped), `description` (1–5000 chars), `context` (`route`, `appVersion`, `clientAt`). Handler: effect batch via the firm-scoped path → `[incident INSERT, outbox incident.created]`; logs `incidentCreated`; 201 returns `{ id, status }`.
