@@ -156,6 +156,11 @@ catalog:
   "@fontsource-variable/atkinson-hyperlegible-next": 5.3.0
   "@fontsource-variable/fraunces": 5.3.0
   "@fontsource/unifrakturmaguntia": 5.3.0
+  # The reading-typeface choices beside the Atkinson default (Settings > Text): Lexend for reading
+  # endurance, OpenDyslexic for dyslexic readers, Literata as the one serif reading face. All OFL.
+  "@fontsource-variable/lexend": 5.3.0
+  "@fontsource-variable/literata": 5.3.0
+  "@fontsource/opendyslexic": 5.3.0
   # Signature-moment animation (design-system internal/signature-motion.ts is the ONLY import
   # site — gated). MIT; supersedes the GSAP+DrawSVG+SplitText plan (ADR with the first consumer).
   animejs: 4.5.0

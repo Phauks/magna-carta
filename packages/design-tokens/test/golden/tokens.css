@@ -3472,3 +3472,19 @@
   --mc-duration-signature: 0ms;
   --mc-duration-slow: 0ms;
 }
+
+:root[data-typeface="lexend"] {
+--mc-font-sans: "Lexend Variable", "Lexend", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+:root[data-typeface="opendyslexic"] {
+--mc-font-sans: "OpenDyslexic", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+:root[data-typeface="serif"] {
+--mc-font-sans: "Literata Variable", "Literata", "Georgia", "Times New Roman", serif;
+}
+
+:root[data-typeface="system"] {
+--mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}

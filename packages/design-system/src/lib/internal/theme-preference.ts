@@ -1,5 +1,5 @@
 /*
- * The theme/mode/motion persistence seam.
+ * The theme/mode/motion/density/contrast/typeface persistence seam.
  *
  * This module is the ONLY place the persisted appearance preferences are read or written — slice
  * 0.7b swaps the localStorage calls for the settings registry without touching anything else.
@@ -29,6 +29,14 @@ export type ContrastPreference = "standard" | "high" | "system";
  * a preference rather than a fixture.
  */
 export type ScrollEdgeHintPreference = "shown" | "hidden";
+/**
+ * The user typeface axis — the reading face (design language: a curated set, all open-licensed and
+ * self-hosted). "atkinson" is the default and the primitive truth; "serif" is the one serif
+ * reading profile; "system" is the operating system's own face and loads no web font at all.
+ * No OS signal resolves this one: no platform reports a preferred reading face, so there is no
+ * "system" seed to follow — "system" here names the FACE, not an unset encoding.
+ */
+export type TypefacePreference = "atkinson" | "lexend" | "opendyslexic" | "serif" | "system";
 
 // Exported so the boot-script mirror test (test/boot-script-mirror.test.ts) can pin the literals
 // the inline app.html script must contain — the keys are part of the persistence contract.
@@ -38,6 +46,7 @@ export const MOTION_STORAGE_KEY = "magna-carta.motion";
 export const DENSITY_STORAGE_KEY = "magna-carta.density";
 export const CONTRAST_STORAGE_KEY = "magna-carta.contrast";
 export const SCROLL_EDGE_HINTS_STORAGE_KEY = "magna-carta.scrollEdgeHints";
+export const TYPEFACE_STORAGE_KEY = "magna-carta.typeface";
 
 export const DEFAULT_THEME = "chancery";
 const DEFAULT_MODE: Mode = "system";
@@ -45,6 +54,7 @@ const DEFAULT_MOTION: MotionPreference = "system";
 const DEFAULT_DENSITY: DensityPreference = "comfortable";
 const DEFAULT_CONTRAST: ContrastPreference = "system";
 const DEFAULT_SCROLL_EDGE_HINTS: ScrollEdgeHintPreference = "shown";
+const DEFAULT_TYPEFACE: TypefacePreference = "atkinson";
 
 function isMode(value: string | null): value is Mode {
   return value === "light" || value === "dark" || value === "system";
@@ -66,10 +76,20 @@ function isScrollEdgeHintPreference(value: string | null): value is ScrollEdgeHi
   return value === "shown" || value === "hidden";
 }
 
+function isTypefacePreference(value: string | null): value is TypefacePreference {
+  return (
+    value === "atkinson" ||
+    value === "lexend" ||
+    value === "opendyslexic" ||
+    value === "serif" ||
+    value === "system"
+  );
+}
+
 /**
  * Reads the persisted appearance preferences. Unset or unrecognized stored values fall back to
  * the defaults (theme "chancery", mode "system", motion "system", density "comfortable",
- * contrast "standard") rather than leaking garbage into the unions.
+ * contrast "standard", typeface "atkinson") rather than leaking garbage into the unions.
  */
 export function readThemePreference(): {
   theme: string;
@@ -78,12 +98,14 @@ export function readThemePreference(): {
   density: DensityPreference;
   contrast: ContrastPreference;
   scrollEdgeHints: ScrollEdgeHintPreference;
+  typeface: TypefacePreference;
 } {
   const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
   const storedMotion = localStorage.getItem(MOTION_STORAGE_KEY);
   const storedDensity = localStorage.getItem(DENSITY_STORAGE_KEY);
   const storedContrast = localStorage.getItem(CONTRAST_STORAGE_KEY);
   const storedScrollEdgeHints = localStorage.getItem(SCROLL_EDGE_HINTS_STORAGE_KEY);
+  const storedTypeface = localStorage.getItem(TYPEFACE_STORAGE_KEY);
   return {
     theme: localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME,
     mode: isMode(storedMode) ? storedMode : DEFAULT_MODE,
@@ -93,6 +115,7 @@ export function readThemePreference(): {
     scrollEdgeHints: isScrollEdgeHintPreference(storedScrollEdgeHints)
       ? storedScrollEdgeHints
       : DEFAULT_SCROLL_EDGE_HINTS,
+    typeface: isTypefacePreference(storedTypeface) ? storedTypeface : DEFAULT_TYPEFACE,
   };
 }
 
@@ -193,6 +216,19 @@ export function applyScrollEdgeHintsToDocument(preference: ScrollEdgeHintPrefere
   else root.dataset.scrollEdgeHints = preference;
 }
 
+/**
+ * Applies the reading face to the document WITHOUT persisting anything: sets `data-typeface` on
+ * `<html>`, which the token overlay blocks (`:root[data-typeface="…"]`) key on to re-point
+ * --mc-font-sans. "atkinson" removes the attribute (the primitive truth needs no overlay). Only
+ * the reading face moves: the display serif, the blackletter mark and the monospace face keep
+ * their own variables.
+ */
+export function applyTypefaceToDocument(typeface: TypefacePreference): void {
+  const root = document.documentElement;
+  if (typeface === "atkinson") delete root.dataset.typeface;
+  else root.dataset.typeface = typeface;
+}
+
 /*
  * CROSS-TAB FOLLOW. The browser fires "storage" in every OTHER same-origin tab when a
  * localStorage key changes, so re-reading and re-applying here makes a theme/mode/motion/density
@@ -211,17 +247,20 @@ const APPEARANCE_STORAGE_KEYS: readonly string[] = [
   DENSITY_STORAGE_KEY,
   CONTRAST_STORAGE_KEY,
   SCROLL_EDGE_HINTS_STORAGE_KEY,
+  TYPEFACE_STORAGE_KEY,
 ];
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== null && !APPEARANCE_STORAGE_KEYS.includes(event.key)) return;
-    const { theme, mode, motion, density, contrast, scrollEdgeHints } = readThemePreference();
+    const { theme, mode, motion, density, contrast, scrollEdgeHints, typeface } =
+      readThemePreference();
     applyThemeToDocument(theme, mode);
     applyMotionToDocument(motion);
     applyDensityToDocument(density);
     applyContrastToDocument(contrast);
     applyScrollEdgeHintsToDocument(scrollEdgeHints);
+    applyTypefaceToDocument(typeface);
   });
 }
 
@@ -236,6 +275,7 @@ export function applyThemePreference(
   density: DensityPreference = "comfortable",
   contrast: ContrastPreference = "standard",
   scrollEdgeHints: ScrollEdgeHintPreference = "shown",
+  typeface: TypefacePreference = "atkinson",
 ): void {
   localStorage.setItem(THEME_STORAGE_KEY, theme);
   localStorage.setItem(MODE_STORAGE_KEY, mode);
@@ -243,9 +283,11 @@ export function applyThemePreference(
   localStorage.setItem(DENSITY_STORAGE_KEY, density);
   localStorage.setItem(CONTRAST_STORAGE_KEY, contrast);
   localStorage.setItem(SCROLL_EDGE_HINTS_STORAGE_KEY, scrollEdgeHints);
+  localStorage.setItem(TYPEFACE_STORAGE_KEY, typeface);
   applyThemeToDocument(theme, mode);
   applyMotionToDocument(motion);
   applyDensityToDocument(density);
   applyContrastToDocument(contrast);
   applyScrollEdgeHintsToDocument(scrollEdgeHints);
+  applyTypefaceToDocument(typeface);
 }
