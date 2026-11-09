@@ -54,11 +54,7 @@ import {
 import type { CalendarScope } from "./calendar-scope.ts";
 import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
 import { calendarLayer, FIRM_CALENDAR_KINDS } from "./calendar-vocabulary.ts";
-import {
-  FIRM_EVENTS_SOURCE_KEY,
-  RECORDS_SOURCE_KEY,
-  type CalendarSource,
-} from "./calendar-sources.ts";
+import { FIRM_OWN_CALENDARS, type CalendarSource } from "./calendar-sources.ts";
 
 /** Which of the plan's reads a failure belongs to, in the words a notice uses. */
 export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings";
@@ -112,20 +108,11 @@ async function walk<T>(read: PageReader<T>, stopAfter?: (page: T[]) => boolean):
 export interface CalendarReadOptions {
   /**
    * The calendars the reader has turned on, in the rail's own order (calendar-sources.ts). Given,
-   * they decide the whole firm-side plan; absent, the plan is the firm's own two calendars, which
+   * they decide the whole firm-side plan; absent, the plan is the firm's own three calendars, which
    * is what every embedded host that never drew a rail asks for.
    */
   readonly sources?: readonly CalendarSource[];
 }
-
-/**
- * The plan a host that drew no rail gets: the firm's own two calendars, which is what every
- * embedded calendar (Home's Today card, a matter's Coming up) has always read.
- */
-const FIRM_OWN_CALENDARS: readonly CalendarSource[] = [
-  { key: RECORDS_SOURCE_KEY, name: "Matters and deadlines", kind: { kind: "records" } },
-  { key: FIRM_EVENTS_SOURCE_KEY, name: "Firm events", kind: { kind: "firmEvents" } },
-];
 
 /** Everything the window holds for the scope, projected and ordered. */
 export async function readCalendarWindow(
@@ -184,7 +171,7 @@ async function readResourceWindow(
  *
  * A calendar that was not turned on is not read at all — which is the point of the rail, and what
  * keeps the request count the reader's own choice rather than the roster's size. When no rail said
- * otherwise the plan is the firm's own two calendars, exactly as it was before there were
+ * otherwise the plan is the firm's own three calendars, the same records it read before there were
  * calendars to choose between, so every embedded host keeps working unchanged.
  */
 async function readFirmWindow(
@@ -235,8 +222,10 @@ async function readOneCalendar(
   options: FirmReadOptions,
 ): Promise<CalendarWindowResult> {
   switch (source.kind.kind) {
-    case "records":
-      return readRecordsCalendar(fetchImpl, source, window, context, scope, options);
+    case "caseSettings":
+      return readCaseSettingsCalendar(fetchImpl, source, window, context, options);
+    case "deadlines":
+      return readDeadlinesCalendar(fetchImpl, source, window, context, scope);
     case "firmEvents":
       return readFirmEventsCalendar(fetchImpl, source, window, context);
     case "member":
@@ -249,48 +238,61 @@ async function readOneCalendar(
 }
 
 /**
- * The firm's matters: their settings from the federated read, and their deadlines from the
- * deadlines read, which is the one that carries titles and the read-time overdue flag.
+ * The firm's case settings: every matter's events, from the federated read narrowed to the matter
+ * side and to the EVENT kind only. A date calendar (custody dates) is its own row in the rail with
+ * its own read; widening this one with it would read the same rows twice and put a custody due-back
+ * on the case settings calendar, which is not where it is.
  */
-async function readRecordsCalendar(
+async function readCaseSettingsCalendar(
   fetchImpl: typeof fetch,
   source: CalendarSource,
   window: CalendarWindow,
   context: EntryContext,
-  scope: CalendarScope,
   options: FirmReadOptions,
 ): Promise<CalendarWindowResult> {
-  const [events, deadlines] = await Promise.all([
-    walk((cursor) =>
-      readFirmCalendar(fetchImpl, {
-        from: window.from,
-        to: window.to,
-        side: "matter",
-        // The EVENT kind only. A date calendar (custody dates) is its own row in the rail with its
-        // own read; widening this one with it would read the same rows twice and put a custody
-        // due-back on the calendar of the firm's matters and deadlines, which is not where it is.
-        kinds: FIRM_CALENDAR_KINDS,
-        memberId: options.memberId,
-        cursor,
-      }),
-    ),
-    walk((cursor) => listDeadlines(fetchImpl, { from: window.from, through: window.to, cursor })),
-  ]);
+  const events = await walk((cursor) =>
+    readFirmCalendar(fetchImpl, {
+      from: window.from,
+      to: window.to,
+      side: "matter",
+      kinds: FIRM_CALENDAR_KINDS,
+      memberId: options.memberId,
+      cursor,
+    }),
+  );
   const entries: CalendarEntry[] = [];
   for (const row of events.rows) {
     const entry = entryFromTimelineRow(row, context);
     if (entry !== null) entries.push(taggedWith(entry, source.key));
   }
-  for (const deadline of deadlines.rows) {
-    entries.push(taggedWith(entryFromDeadline(deadline, context, scope), source.key));
-  }
   return {
     entries,
-    failures: collectFailures([
-      ["events", events.failure],
-      ["deadlines", deadlines.failure],
-    ]),
-    truncated: events.truncated || deadlines.truncated,
+    failures: collectFailures([["events", events.failure]]),
+    truncated: events.truncated,
+  };
+}
+
+/**
+ * The firm's deadlines, from the deadlines read, which is the one that carries titles and the
+ * read-time overdue flag. It takes no member: a deadline belongs to a case rather than to a person.
+ */
+async function readDeadlinesCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  window: CalendarWindow,
+  context: EntryContext,
+  scope: CalendarScope,
+): Promise<CalendarWindowResult> {
+  const deadlines = await walk((cursor) =>
+    listDeadlines(fetchImpl, { from: window.from, through: window.to, cursor }),
+  );
+  const entries = deadlines.rows.map((deadline) =>
+    taggedWith(entryFromDeadline(deadline, context, scope), source.key),
+  );
+  return {
+    entries,
+    failures: collectFailures([["deadlines", deadlines.failure]]),
+    truncated: deadlines.truncated,
   };
 }
 
@@ -319,7 +321,7 @@ async function readFirmEventsCalendar(
  * a participant, the matter's responsible member, or an all-members firm event.
  *
  * SETTINGS, NOT DEADLINES. The deadlines read takes a matter and a window and has no member
- * predicate, because a deadline belongs to a case rather than to a person; the firm's own records
+ * predicate, because a deadline belongs to a case rather than to a person; the firm's Deadlines
  * calendar is where a firm sees its deadlines, and it is on by default.
  */
 async function readMemberCalendar(

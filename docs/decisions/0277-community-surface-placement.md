@@ -112,4 +112,4 @@ suffices); **avoiding a Durable Object because of preview URLs** (a correct conc
 does not apply). Extends **ADR-0044** (the package boundary is unchanged and is made structural) and
 **ADR-0048**; reuses the shipped service-status placement reasoning (ADR-0186) by contrast rather than by
 copy. Spec:
-[`docs/specs/2026-08-11-community-surfaces-design.md`](../../specs/2026-08-11-community-surfaces-design.md).
+[`docs/specs/2026-08-11-community-surfaces-design.md`](../specs/2026-08-11-community-surfaces-design.md).

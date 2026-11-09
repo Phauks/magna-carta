@@ -27,6 +27,7 @@
     class: className,
     fieldName,
     placeholder,
+    browsable = true,
     ...restProps
   }: WithoutChild<ComboboxPrimitive.InputProps> & {
     /**
@@ -34,6 +35,13 @@
      * also the field's ghost text, which is why it is one prop and not two.
      */
     fieldName?: string;
+    /**
+     * Whether the list can be opened before anything is typed. True for every choice from a known
+     * set, which is what the chevron promises. False for a field whose list only exists once there
+     * is something to answer — offers for a half-typed address — where a chevron would open onto
+     * nothing and read as a broken dropdown; the box is then drawn as the plain text field it is.
+     */
+    browsable?: boolean;
   } = $props();
 
   const listboxId = getContext<string>(COMBOBOX_LISTBOX_ID);
@@ -64,7 +72,9 @@
     class="mc-combobox-input grow min-w-0"
     {...restProps}
   />
-  <ComboboxPrimitive.Trigger class="mc-combobox-trigger" aria-label="Toggle options">
-    <ChevronsUpDown class="mc-combobox-trigger-icon" aria-hidden="true" />
-  </ComboboxPrimitive.Trigger>
+  {#if browsable}
+    <ComboboxPrimitive.Trigger class="mc-combobox-trigger" aria-label="Toggle options">
+      <ChevronsUpDown class="mc-combobox-trigger-icon" aria-hidden="true" />
+    </ComboboxPrimitive.Trigger>
+  {/if}
 </div>

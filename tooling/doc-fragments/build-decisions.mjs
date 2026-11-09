@@ -61,6 +61,13 @@ function rewriteReferences(slug, number) {
   // prefix of a longer one (ADR-foo must not rewrite the ADR-foo in ADR-foo-bar) is left intact.
   const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`${escaped}(?![A-Za-z0-9-])`, "g");
+  // A LINK to the pending file is a reference too: a spec that pointed at
+  // `docs/decisions/pending/<slug>.md` points at nothing once the file is numbered, and
+  // lint:doc-links refuses the spec for a move it did not make. Repointed at the numbered file,
+  // whatever directory the link was written from.
+  const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const linkPattern = new RegExp(`decisions/pending/${escapedSlug}\\.md`, "g");
+  const numberedLink = `decisions/${pad(number)}-${slug}.md`;
   const docsRoot = join(ROOT, "docs");
   const walk = (dir) => {
     for (const name of readdirSync(dir, { withFileTypes: true })) {
@@ -68,12 +75,31 @@ function rewriteReferences(slug, number) {
       if (name.isDirectory()) walk(full);
       else if (name.name.endsWith(".md")) {
         const text = readFileSync(full, "utf8");
-        const rewritten = text.replace(pattern, id);
+        const rewritten = text.replace(pattern, id).replace(linkPattern, numberedLink);
         if (rewritten !== text) writeFileSync(full, rewritten);
       }
     }
   };
   walk(docsRoot);
+}
+
+// A pending decision is written in docs/decisions/pending/ and its links are written from there:
+// `../../specs/x` reaches the specs, and a bare `<slug>.md` reaches a sibling still pending. The
+// numbered file lives one directory up, so every relative link climbs one level fewer, and a link
+// to a sibling that is numbered in the same pass (or was numbered before) is repointed at that
+// sibling's numbered file; one to a sibling that stays pending keeps reaching into pending/.
+// Absolute links and anchors are left alone.
+export function rebasePendingLinks(text, numberedBySlug) {
+  return text.replace(/\]\((?!https?:|mailto:|#)([^)\s]+)\)/g, (match, target) => {
+    if (target.startsWith("../")) return `](${target.slice(3)})`;
+    const sibling = /^([A-Za-z0-9-]+)\.md(#.*)?$/.exec(target);
+    if (sibling === null) return match;
+    const [, siblingSlug, anchor = ""] = sibling;
+    const number = numberedBySlug.get(siblingSlug);
+    return number === undefined
+      ? `](pending/${siblingSlug}.md${anchor})`
+      : `](${pad(number)}-${siblingSlug}.md${anchor})`;
+  });
 }
 
 function trackedPendingNames() {
@@ -138,10 +164,15 @@ function assemblePending() {
     existing,
     ordered.map((name) => name.replace(/\.md$/, "")),
   );
+  // Every number this pass assigns, with every number already assigned, so a pending decision's
+  // link to a sibling resolves whichever of the two the sibling is.
+  const numberedBySlug = new Map(numberedFiles().map((record) => [record.slug, record.number]));
+  for (const { slug, number } of assigned) numberedBySlug.set(slug, number);
   for (const { slug, number } of assigned) {
     const record = records.get(`${slug}.md`);
     record.number = number;
     record.slug = slug;
+    record.body = rebasePendingLinks(record.body, numberedBySlug);
     writeFileSync(join(DECISIONS_DIR, `${pad(number)}-${slug}.md`), serializeAdrFile(record));
     rmSync(join(PENDING_DIR, `${slug}.md`));
     rewriteReferences(slug, number);

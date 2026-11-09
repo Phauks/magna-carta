@@ -205,7 +205,7 @@ describe("auto-file rules migration", () => {
     expect(() => insertDecision(raw, messageId, { outcome: "deleted" })).toThrow();
   });
 
-  test("the capability seed reaches Owner/Admin and Attorney only", () => {
+  test("the capability seed reaches Admin and Attorney only", () => {
     const { raw } = createMigratedNodeDatabase("per-firm");
     const roleIds = (
       raw

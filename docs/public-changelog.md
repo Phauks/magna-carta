@@ -15,6 +15,48 @@ behind it.
 
 Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 
+## 2026-11-09
+
+### Added
+
+- **Record when a matter's paper file may be destroyed.** Closing a matter now asks about its paper file: choose **Destroy After** and a date, or **No Destruction Date**. Your firm can set a minimum number of years under **Settings › File Retention** (Owner and Admin only); a close then refuses a date earlier than the close plus that minimum, and opens on the earliest allowed date. A later date, or none, is always allowed. On a closed matter the date can be changed afterwards from the status window, and reopening a matter clears it. Magna Carta never works the date out for you, since retention periods depend on your jurisdiction and your firm's policy, and it never destroys or deletes anything when the date arrives. It is a reminder: the dates appear on the calendar under **Dates, File destruction dates**, and every change is kept in the matter's audit history with the date it replaced.
+- **Partner and Associate, as kinds of Attorney.** Every firm now has two sub-roles under Attorney. A
+  Partner or an Associate can do everything an Attorney can and counts as an attorney everywhere.
+  Partners can also see the firm's financial and productivity reports and every timekeeper's time,
+  approve time and costs, and reopen a closed matter. A rate card can give Partners and Associates
+  their own default rate, and a rate set for one person still wins. On Users, ticking Partner ticks
+  Attorney too, and a member holds one of the two. The Owner/Admin role is now called Admin, and
+  anybody can hold it alongside any other role.
+- **See what changed, inside Magna Carta.** Choose your avatar at the top right, then **Websites** and **Changelog**, to read every change made for you, newest first and grouped by date. Filter to Added, Fixed or another kind of change to find what you are looking for. The changelog comes with the version you are using, so it only describes what you actually have.
+- **A Directory record can be shared or saved as a contact card.** The three-dot More button at the top of a person's or organization's record now offers Copy Link, Email Link, and Download Contact Card. The contact card is a .vcf file that phones, Outlook and other address books open. It holds the name, a person's date of birth, and the ways of reaching them that the person allows the firm to use, and leaves off identifiers, matters and anything recorded as former.
+- **Every page has a menu beside its title.** The three dots next to the star let you copy the page's link or open it in a new tab, and some pages add their own entries there: What You Hear About on Notifications, Postage Account on Shipping & Postage, and Clear History on Uploads. The star stays where it was, so you can still see at a glance which pages are favorites.
+- **Choose the typeface you read in.** Settings · Text now lets you set the interface in Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata or your computer's own font. It applies at once, follows you across your open tabs, and is yours alone: it never changes what anyone else at your firm sees.
+- **Version History now says who changed what.** For a Word document edited in the browser with recording on, each version reads "Ana Vasquez: 3 added, 2 removed · Trevor Goldsmith: 1 reformatted", naming the person who typed the words rather than the person who pressed Save. Open a version's changes and the words appear in order with their author: additions underlined, removals struck through. A version lists only what is new in it. Uploaded documents, spreadsheets and presentations carry no such record.
+
+### Changed
+
+- **The calendar is easier to read and to move around.** The month you are reading is now the heading over the calendar; press it to jump to any month. **Today** and a single **View** menu sit at the top right. The firm's calendars on the left are now **Case Settings**, **Deadlines** and **Firm Events**, each with its own colour and tick, which replaces the separate Kinds filter. The small month under the list is smaller, has its own arrows, and picks a month from a grid instead of a dropdown. The month view shows only the weeks the month needs and no longer scrolls when there is nothing more to see. A deadline's Source now reads **Court Order** or **Firm**.
+- **Every number your firm issues is now yours to shape.** Invoice numbers, time entry numbers and call and text reference numbers join matters, consultations, intakes, conflicts checks and custody packets under **Settings, Numbering** — eight sequences, each built from the same parts. Nothing you have already issued changes: each one starts out rendering exactly what it rendered before, and only changes when you change it. Two new parts came with them, **Month** and **Day**, and time entry numbers can carry the **Matter Number** they belong to.
+
+**The numbering screen reads as a list again.** Each sequence is now a fold, closed by default, with its current number shown on the heading — so the page opens as a summary of all eight and you open only the one you want. The stray second scrollbar is gone — on this page and on every other settings page, where the whole page could be nudged a short way beside the list's own scrolling — and the table fits beside the settings list on any screen 1220 pixels wide or wider, so the controls at the end of each row are always in view. In the parts table, **Move Up**, **Move Down** and **Delete** sit together at the end of each row, the parts offered are in alphabetical order, and a cell you cannot type into now shows you what it will fill in instead of leaving you guessing. **In Force** now reads **Current**. The ready-made shapes moved under **Load an example**, because they were never the only shapes available.
+
+**One thing to check if you bill on more than one letterhead.** An invoice number counts within the letterhead it is issued under, and that letterhead now has to appear in the scheme. If your firm has opened a second invoice numbering scope, add the **Office Code** part to the invoice scheme before your next bill on it; until you do, that bill is refused rather than given a number your firm-wide run could issue as well. The reverse holds too: once invoice numbers print the office code, every bill needs a letterhead, so leave the part out unless your firm issues under more than one.
+
+- **Firm settings are tidier.** **Firm Profile** now holds just the firm's name, and the firm's logo and other brand images have their own page, **Settings › Firm › Firm Brand**. The list of offices no longer appears on Firm Profile, since **Offices** already shows it. **Rooms and Resources** moved from Practice to Firm, and each resource's **Change**, **Retire** and **Restore** now sit in a **...** menu at the end of its row.
+- **A person is entered and read on one scrolling page.** New Person and a person's record now show every section on one page that scrolls, and the list down the left side jumps between them and highlights the section you are in, so a name, a phone number and an address are entered or read without switching sections, and Tab moves through every field. Pronouns and dates share one About section. While you enter a new person, the right side shows the entry as it will read, such as the email address itself, and the button says Save. A record shows a person's pronouns and dates under their name, keeps its right-hand column for the roles they hold on the matter you opened it from, and shows the first few lines of a long list with Show All.
+- **Pages open faster, and show their loading placeholder less often.** Most screens no longer wait to re-check who you are before asking for their own data, and going back to a matter you just looked at opens it straight away.
+- **The current AI models, and only those.** Under **Settings, AI** (renamed from AI and the Assistant), you choose between **Claude Opus 5.5**, the platform's new default in place of Claude Opus 4.8, and **Claude Sonnet 5.5**, listed by name. Older models are no longer offered: if your firm had chosen one, it now uses the platform's model, and you can choose again on the same page. The page also lists the effort levels each model accepts, from low to maximum. Every model on the list still keeps nothing your firm sends it and never trains on it.
+
+**The page can check Anthropic's own list.** Where it is set up, a new **Provider's Live List** row says when Anthropic's list of models was last read and names any newer model that is not on your list yet, so you can see what exists before it is verified and offered.
+
+**One scrollbar.** The AI settings page no longer shows a second scrollbar beside its own.
+
+### Fixed
+
+- **Recording a deadline is clearer about what it needs.** The time field now takes only a time of day, and a time left half-typed is pointed out beneath the field instead of being saved as "end of day". The matter list on the deadline form no longer offers **No matter**, because every deadline belongs to a matter; pick the matter it is due on.
+- **Meetings appears under Communications.** Anyone allowed to join a meeting now sees Meetings in the sidebar and can find it from the command palette. Before, it was hidden from everyone.
+- **You can save a packet even if your firm has never set up its storage.** The Container field on New Packet lists every open container by its full path, and you can type to narrow it. If the container you need is not there, type its name and choose Add: say what kind it is and what it sits inside, and it is ready to use. The first time your firm logs a packet, the form opens straight onto this. The form now asks for the name, who it is held for and the container first, and its button reads Save.
+
 ## 2026-10-02
 
 ### Added
@@ -78,8 +120,8 @@ billing. Each row's matter is a link to that matter's own Fees section, and **Ne
 there too: because the screen is not standing on a matter, the first field is the matter, and nothing
 is pre-filled.
 
-New guide: [The firm's fees](docs/user/features/the-firms-fees.md). Updated guide: [A matter's money
-sections](docs/user/features/matter-money-sections.md).
+New guide: [The firm's fees](user/features/the-firms-fees.md). Updated guide: [A matter's money
+sections](user/features/matter-money-sections.md).
 
 - **Your firm can connect its postage account and use it** — compare rates, buy a label, track the parcel, and refund one you did not use. Postage lands on the matter as a recoverable cost, as it always did.
 
@@ -129,7 +171,7 @@ it, and every change is recorded in your firm's audit log with what was changed 
 never anybody's name beyond the person who made the change.
 
 The screens for this are still being built; what the settings mean is described in
-[Notification emails](features/notification-emails.md).
+[Notification emails](user/features/notification-emails.md).
 
 - **A firm can record a client's telephone number.** It could not before. `directory_email`,
   `directory_phone` and `directory_address` had been in the schema since the baseline migration with
@@ -484,7 +526,7 @@ that arrives afterwards. And a rule asking to file without confirmation is refus
 firm has not enabled that, rather than being accepted and quietly doing something else.
 
 The screens for all of this are still being built; what a rule does once it exists is described in
-[Filing email to a matter](features/filing-email-to-a-matter.md).
+[Filing email to a matter](user/features/filing-email-to-a-matter.md).
 
 - **Download the usage report in the format your next step wants.** Firm Usage's Download Report now
   offers plain text or a CSV that opens straight in Excel and other spreadsheets, and every file's
@@ -622,7 +664,7 @@ And nothing about this decides anything for you. An automatic re-check runs a se
 it found. It cannot mark a result reviewed, cleared, or waived — that stays a person's act with that
 person's name on it, and the software is built so that it cannot do otherwise.
 
-New guide: [Automatic conflicts re-checks](docs/user/features/automatic-conflicts-rechecks.md).
+New guide: [Automatic conflicts re-checks](user/features/automatic-conflicts-rechecks.md).
 
 - **A conflicts check now tells you what it searched, what it could not search, and what nobody has
   answered yet — and it will never tell you a matter is safe to accept.**
@@ -646,7 +688,7 @@ behind them yet — the report names each one every time. Describing the procedu
 stand behind if it is ever asked how a matter was screened. A verdict the software produced is not.
 Deciding remains a lawyer's act, and the record says whose.
 
-New guide: [Conflicts reports](docs/user/features/conflicts-reports.md).
+New guide: [Conflicts reports](user/features/conflicts-reports.md).
 
 - **Discovery has screens.** A matter's new **Discovery** section lists the review sets on that case and starts one; the **Discovery** row in the sidebar lists every review set you can open across every case; and opening one gives you its documents and its loads.
 
@@ -744,7 +786,7 @@ Magnus is off until your firm turns it on, and that takes two separate decisions
 allow its information to reach an AI provider at all, and it must enable Magnus specifically. If
 either is missing, the page says which one and who can change it.
 
-Full guide: [Asking Magnus](docs/user/features/asking-magnus.md).
+Full guide: [Asking Magnus](user/features/asking-magnus.md).
 
 - **Magnus is easier to keep in order, and can read the files you hand it.** The list of your
   conversations sorts by date, by name, or by the matter each is kept on. Rename a conversation by
@@ -1026,7 +1068,7 @@ limited to owners and administrators. And **what you save is what you are shown*
 something that cannot be stored as given, it is adjusted on save and the screen tells you exactly what
 was adjusted.
 
-Updated guide: [Conflicts reports](docs/user/features/conflicts-reports.md).
+Updated guide: [Conflicts reports](user/features/conflicts-reports.md).
 
 - **Your firm sets its own file-scanning policy.** Settings · File Safety & Scanning now works: choose how much of the scanner's rule set an upload is checked against, how confident a suspicious match has to be before it counts, and what your firm can do with a file the scanner flags — hold it, ask before opening it, or allow it with a mark. A flagged file is never deleted, whichever you choose.
 
@@ -1562,7 +1604,7 @@ keeps somebody who has merely seen your code from joining your firm in your plac
 **Coming back later costs nothing.** An account with no firm yet is a real account: it signs in, it
 can reset its password, and it returns to the same welcome screen until you are ready to choose.
 
-What the screens do is described in [Joining Magna Carta](features/joining-magna-carta.md).
+What the screens do is described in [Joining Magna Carta](user/features/joining-magna-carta.md).
 
 - **Settings look and behave like one surface.** Every settings page now scrolls, spaces and lists the same way. Wherever a setting is a choice from a list you can type to narrow it, on every page. The tables under Users, Event Types, Rooms and Resources and both Notifications pages sort by their headers, filter from a right-click on a column, let you choose which columns you see, and count what they show. The Versions page shows exactly what the version chip at the top of the screen shows, with more room: every part of the platform, whether the page and the server agree, and whether your firm's records can be reached. Under Beta Access the switch stays off if you cancel joining, and the heading reads Beta Branch. Under File Safety the scan depth reads Core, Extended or Full, with the engine every upload is scanned by and what the chosen depth means shown beneath it. Under Matter Numbering the parts of a scheme are a table: move a part with the arrows at the start of its row, remove it at the end, and choose a common shape from the Matter Numbering Scheme field.
 - **Folders in the calendar list collapse.** A firm with twenty conference rooms no longer scrolls past all twenty to reach the folder underneath. Press a folder's name to fold it; the tick beside the name still turns every calendar in it on or off while it is folded, and a folded folder shows how many of its calendars are switched on so nothing disappears quietly. What you fold is remembered on that browser.

@@ -9,10 +9,15 @@
    *
    * ONE LIST, ONE PREVIEW, ONE SAVE. The scheme is an ordered list of parts, and BUILDING IT IS A
    * TABLE (owner ruling, 2026-09-11): one row per part, its fields in columns, edited the way every
-   * other list in the product is edited. Moving a part and removing one are the row's own controls
-   * and sit together at its END (owner ruling, 2026-09-19, reversing the arrows-lead ruling of
-   * 2026-09-11): they are what you do TO the row rather than part of what it says, and the row says
-   * its piece first. The list's last row is where a part is added and where an example is loaded.
+   * other list in the product is edited. A part MOVES BY DRAG (owner ruling, 2026-11-09, replacing
+   * the up and down arrows): the grip leads the row, and Alt with an arrow key moves the focused
+   * grip's part one place for anybody not using a pointer. Removing a part is the row's own control
+   * at its end. Under the last part a quiet line adds one; there are no examples to load (owner
+   * ruling, 2026-11-09): a firm writes its scheme once, part by part.
+   *
+   * CURRENT, THEN PREVIEW, THEN THE PARTS (owner ruling, 2026-11-09). The number in force and the
+   * number the edit would draw sit one under the other, so the two are compared at a glance before
+   * the list that changes the second; neither carries a line of explanation under its name.
    *
    * THE TABLE FITS ITS PLATE. Every cell sizes to what it holds, and nothing carries a fixed width:
    * a table wider than the settings column grows its own horizontal scrollbar inside the page's,
@@ -30,17 +35,17 @@
    * the list to it. A number already drawn is frozen whatever is saved here, and the line beside
    * Save says so.
    */
-  import { untrack } from "svelte";
+  import { tick, untrack } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Input from "@magna-carta/design-system/input";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Switch from "@magna-carta/design-system/switch";
-  import ArrowDown from "@lucide/svelte/icons/arrow-down";
-  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
@@ -54,19 +59,22 @@
   import {
     isScoping,
     moveNumberSegment,
+    moveNumberSegmentTo,
     newNumberSegment,
+    NUMBER_PART_SEPARATOR_CHOICES,
+    NUMBERING_FUTURE_ONLY_SENTENCE,
     numberingCurrentDescriptor,
-    numberingFrozenSentence,
-    numberingSampleSentence,
     numberingSampleYear,
     numberingSavedSentence,
     numberingSchemeRefusal,
     numberingSchemesEqual,
-    numberingStartersFor,
     numberSegmentCellRefusal,
+    numberSegmentSampleValue,
     numberSegmentVocabularyFor,
     removeNumberSegment,
     replaceNumberSegment,
+    takesSeparator,
+    type NumberPartSeparator,
     type NumberingPurposeRecord,
     type NumberingSampleContext,
     type NumberSegment,
@@ -92,14 +100,12 @@
   const identifier = $props.id();
   const purpose = $derived(record.purpose);
   const vocabulary = $derived(numberSegmentVocabularyFor(record.segmentKinds));
-  const starters = $derived(numberingStartersFor(record));
 
   // What the server said is in force, as the listing carried it when this editor was drawn. Read
   // once on purpose: the editor owns the committed scheme from here (Save moves it), and the page
   // keys each editor by its purpose, so a record is never swapped under a mounted editor.
   const initial = untrack(() => record);
   let committed = $state<readonly NumberSegment[] | null>(initial.segments);
-  let usingDefault = $state(initial.usingDefault);
   /** The first number the sample renders under what is in force, as the server rendered it. */
   let example = $state<string | null>(initial.example);
   /** The list under edit. Starts as the committed scheme and is returned to it by Discard. */
@@ -153,20 +159,6 @@
     return () => clearTimeout(handle);
   });
 
-  /**
-   * The examples control holds nothing at rest: choosing one loads it into the list and the control
-   * empties again, because once a part has been changed the list is no longer that example, and a
-   * field still naming it would be claiming something the table above contradicts.
-   */
-  let starterChoice = $state("");
-
-  function chooseStarter(key: string): void {
-    const starter = starters.find((candidate) => candidate.key === key);
-    if (starter !== undefined) draft = [...starter.segments];
-    savedSentence = null;
-    starterChoice = "";
-  }
-
   function addPart(): void {
     // A first part is the counter every scheme needs; after that, the text that separates parts.
     const kind: NumberSegmentKind = draft.some((segment) => segment.kind === "counter")
@@ -193,9 +185,46 @@
     savedSentence = null;
   }
 
-  function movePart(index: number, delta: -1 | 1): void {
-    draft = moveNumberSegment(draft, index, delta);
+  const drag = new DragReorderController();
+  /** Each row's grip, so focus can follow a part the keyboard moved. */
+  const grips: (HTMLButtonElement | null)[] = $state([]);
+
+  /** A part dropped by the pointer at a new place; the ids are the parts' positions. */
+  function dropPart(id: string, toIndex: number): void {
+    draft = moveNumberSegmentTo(draft, Number(id), toIndex);
     savedSentence = null;
+  }
+
+  function beginDrag(event: PointerEvent): void {
+    const id = (event.currentTarget as HTMLElement | null)?.dataset.partIndex;
+    if (id === undefined || saving) return;
+    drag.start(
+      event,
+      id,
+      draft.map((_, index) => String(index)),
+      dropPart,
+    );
+  }
+
+  /**
+   * The keyboard half of the drag: Alt with Arrow Up or Arrow Down moves the focused grip's part one
+   * place, and focus follows the part to where it now sits, so a second press moves it again.
+   */
+  async function onGripKeydown(event: KeyboardEvent, index: number): Promise<void> {
+    if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    event.preventDefault();
+    const target = index + (event.key === "ArrowUp" ? -1 : 1);
+    if (target < 0 || target >= draft.length) return;
+    draft = moveNumberSegment(draft, index, event.key === "ArrowUp" ? -1 : 1);
+    savedSentence = null;
+    await tick();
+    grips[target]?.focus();
+  }
+
+  function setSeparator(index: number, separator: NumberPartSeparator): void {
+    const segment = draft[index];
+    if (segment === undefined || !takesSeparator(segment)) return;
+    update(index, { ...segment, separator });
   }
 
   function setScoping(index: number, scoping: boolean): void {
@@ -226,7 +255,6 @@
       return;
     }
     committed = outcome.value.segments;
-    usingDefault = false;
     draft = outcome.value.segments;
     // The preview rendered the saved list against the sample at its first value, which is exactly
     // what the Current row shows; the server rendered it, so nothing is composed here.
@@ -239,18 +267,19 @@
       value: entry.kind,
       label: entry.label,
       meaning: entry.description,
+      // What the part would put into the number, beside its name, so the choice is made seeing it.
+      aside: numberSegmentSampleValue(entry.kind, sample),
     })),
   );
-  // Every year these choices name is the sample's, which the server sets to today: an example and
-  // the digits picker never disagree with the preview beneath them in January.
+  // Every year these choices name is the sample's, which the server sets to today: the digits
+  // picker never disagrees with the preview above it in January.
   const sampleYear = $derived(numberingSampleYear(sample));
-  const STARTER_CHOICES = $derived(
-    starters.map((starter) => ({
-      value: starter.key,
-      label: starter.label,
-      aside: starter.exampleFor(sampleYear),
-    })),
-  );
+  const SEPARATOR_CHOICES = NUMBER_PART_SEPARATOR_CHOICES.map((choice) => ({
+    // The picker's value cannot be empty, so "no separator" travels as the word and back.
+    value: choice.value === "" ? "none" : choice.value,
+    label: choice.label,
+    aside: choice.value === "" ? undefined : choice.value,
+  }));
   // Named by the count, as the counter's own Digits field is, so the field fits the column; each
   // row carries what that count renders beside it, and the Value cell states the chosen one.
   const YEAR_DIGIT_CHOICES = $derived([
@@ -270,13 +299,13 @@
 
   // ---- the rows of the plate, as settings definitions ----------------------------------------
 
-  // Current answers with the number the sample renders, and its one line under it is the parts that
-  // render it — the built-in ones said to be so.
+  // Current answers with the number the sample renders, and nothing under its name unless nothing
+  // is in force, which is a consequence the reader must see.
   const CURRENT_DEFINITION = $derived<SettingDefinition>({
     id: `numbering.${purpose}.current`,
     sectionId: "numbering",
     label: "Current",
-    description: numberingCurrentDescriptor(record, committed, usingDefault),
+    description: numberingCurrentDescriptor(record, committed),
     kind: "text",
     defaultValue: "",
     sensitivity: "open",
@@ -286,7 +315,7 @@
     id: `numbering.${purpose}.preview`,
     sectionId: "numbering",
     label: "Preview",
-    description: numberingSampleSentence(sample, record),
+    description: "",
     kind: "text",
     defaultValue: "",
     sensitivity: "open",
@@ -302,8 +331,41 @@
   />
 
   {#if canManage}
-    <!-- The parts, as a table whose last row is where one is added and where an example is loaded:
-         an entry row is the last row of its list, under the same rule as every other row
+    <!-- The preview: the server's own rendering of the list against the sample record. -->
+    <SettingsRow definition={PREVIEW_DEFINITION}>
+      {#snippet control()}
+        {#if refusal !== null}
+          <p class="text-end text-sm text-status-danger-subtle-foreground">{refusal}</p>
+        {:else if previewFailure !== null}
+          <FailureNotice
+            failure={previewFailure.failure}
+            title="The Scheme Could Not Be Previewed"
+            fallback={previewFailure.fallback}
+            whenSilent={previewFailure.whenSilent}
+          />
+        {:else}
+          <LoadingRegion
+            loading={preview === null}
+            refreshing={previewPending}
+            label="Rendering the preview"
+            class="flex flex-col items-end gap-4"
+          >
+            {#snippet fixture()}
+              <p class="text-lg tabular-nums">2026-0001</p>
+            {/snippet}
+            {#if preview !== null}
+              <!-- An output, so the row's label names the number it labels. -->
+              <output id="settings-{PREVIEW_DEFINITION.id}" class="text-lg tabular-nums">
+                {preview.number}
+              </output>
+            {/if}
+          </LoadingRegion>
+        {/if}
+      {/snippet}
+    </SettingsRow>
+
+    <!-- The parts, as a table whose last row is the quiet line that adds one: an entry row is the
+         last row of its list, under the same rule as every other row
          (docs/conventions/design-corrections.md). -->
     <div class="py-12">
       <DataTable.Root>
@@ -314,30 +376,59 @@
                  it holds, Part takes whatever is left, and the one long heading may wrap: a
                  table sized from its content is what hid the row controls past the column's edge
                  behind a scrollbar of its own. -->
+            <!-- Heading cells like the rest, so the header band runs the table's full width; only
+                 their words are for a screen reader. -->
+            <DataTable.Head><span class="sr-only">Move</span></DataTable.Head>
             <DataTable.Head class="w-full">Part</DataTable.Head>
             <DataTable.Head>Value</DataTable.Head>
-            <DataTable.Head>Digits</DataTable.Head>
+            <DataTable.Head>Format</DataTable.Head>
             <DataTable.Head>Starts At</DataTable.Head>
-            <DataTable.Head class="whitespace-normal">Restarts the Count</DataTable.Head>
-            <!-- A heading cell like the rest, so the header band runs the table's full width; only
-                 its words are for a screen reader. -->
-            <DataTable.Head><span class="sr-only">Move and remove</span></DataTable.Head>
+            <DataTable.Head class="whitespace-normal">Separate Count</DataTable.Head>
+            <DataTable.Head><span class="sr-only">Remove</span></DataTable.Head>
           </DataTable.Row>
         </DataTable.Header>
         <DataTable.Body>
           {#if draft.length === 0}
-            <DataTable.EmptyRow columns={6} title="No parts yet" />
+            <DataTable.EmptyRow columns={7} title="No parts yet" />
           {/if}
           {#each draft as segment, index (index)}
             {@const valueRefusal = numberSegmentCellRefusal(segment.kind, "value")}
-            {@const digitsRefusal = numberSegmentCellRefusal(segment.kind, "digits")}
+            {@const formatRefusal = numberSegmentCellRefusal(segment.kind, "format")}
+            {@const dragging = drag.draggingId === String(index)}
+            {@const shift = dragging ? drag.offsetY : drag.rowShift(String(index))}
             {@const startRefusal = numberSegmentCellRefusal(segment.kind, "start")}
             {@const scopingRefusal = numberSegmentCellRefusal(
               segment.kind,
               "scoping",
               record.scopeSource,
             )}
-            <DataTable.Row>
+            <DataTable.Row
+              class={dragging
+                ? "relative z-sticky bg-surface-raised shadow-elevation-2"
+                : "transition-transform duration-fast ease-standard motion-reduce:transition-none"}
+              style="transform: translateY({shift}px)"
+              data-reorder-row
+            >
+              <DataTable.Cell>
+                <!-- THE GRIP moves the part: pressed and dragged by a pointer, or focused and moved
+                     with Alt and an arrow key. It is a real button so the keyboard path has a tab
+                     stop; the press starts the drag here rather than on the whole row, because the
+                     row's other cells are fields somebody presses to type into. -->
+                <button
+                  type="button"
+                  bind:this={grips[index]}
+                  class="flex size-24 cursor-grab touch-none select-none items-center justify-center rounded-sm text-text-muted hover:text-text-default focus-visible:outline-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed"
+                  data-part-index={index}
+                  aria-roledescription="Reorderable part"
+                  aria-label="Part {index + 1}. Drag, or press Alt with Arrow Up or Arrow Down, to move it"
+                  title="Drag to move"
+                  disabled={saving}
+                  onpointerdown={beginDrag}
+                  onkeydown={(event) => void onGripKeydown(event, index)}
+                >
+                  <GripVertical class="size-16" aria-hidden="true" />
+                </button>
+              </DataTable.Cell>
               <DataTable.Cell>
                 <!-- Part takes the table's spare width; the field stops at a width that holds
                      the longest part's name, so a wide window does not draw a field wider than
@@ -387,14 +478,35 @@
                       }
                     />
                   </div>
+                {:else if takesSeparator(segment)}
+                  <div class="w-96">
+                    <ChoicePicker
+                      options={SEPARATOR_CHOICES}
+                      inputId="{identifier}-separator-{index}"
+                      label="Separator of part {index + 1}"
+                      fillsCell
+                      disabled={saving}
+                      bind:value={
+                        () => ((segment.separator ?? "") === "" ? "none" : (segment.separator ?? "")),
+                        (next) =>
+                          setSeparator(
+                            index,
+                            (next === "none" ? "" : next) as NumberPartSeparator,
+                          )
+                      }
+                    />
+                  </div>
                 {:else if segment.kind === "counter"}
+                  <!-- The fewest digits the count is written with: padded up to it, never cut to
+                       it, so a width of one writes 1, 2 ... 10 and runs out never. -->
                   <Input
                     id="{identifier}-digits-{index}"
                     class="w-64 tabular-nums"
                     type="number"
                     min="1"
                     max="12"
-                    aria-label="Digits of part {index + 1}"
+                    title="The fewest digits the count is written with; 1 means no padding"
+                    aria-label="Minimum digits of part {index + 1}"
                     value={String(segment.padWidth)}
                     disabled={saving}
                     oninput={(event) =>
@@ -404,7 +516,7 @@
                       })}
                   />
                 {:else}
-                  <span class="text-sm text-text-muted" title={digitsRefusal ?? undefined}></span>
+                  <span class="text-sm text-text-muted" title={formatRefusal ?? undefined}></span>
                 {/if}
               </DataTable.Cell>
               <DataTable.Cell>
@@ -430,112 +542,45 @@
               <DataTable.Cell>
                 <Switch
                   id="{identifier}-scoping-{index}"
-                  aria-label="Part {index + 1} restarts the count"
+                  aria-label="Part {index + 1} keeps a separate count"
                   bind:checked={() => isScoping(segment), (checked) => setScoping(index, checked)}
                   disabled={saving || scopingRefusal !== null}
                   title={scopingRefusal ?? undefined}
                 />
               </DataTable.Cell>
-              <!-- What you do TO the row, at its end: move it, then remove it. -->
+              <!-- What you do TO the row, at its end: remove it. -->
               <DataTable.Cell class="text-end">
-                <span class="inline-flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="Move up"
-                    aria-label="Move part {index + 1} up"
-                    disabled={saving || index === 0}
-                    onclick={() => movePart(index, -1)}
-                  >
-                    <ArrowUp class="size-16" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="Move down"
-                    aria-label="Move part {index + 1} down"
-                    disabled={saving || index === draft.length - 1}
-                    onclick={() => movePart(index, 1)}
-                  >
-                    <ArrowDown class="size-16" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="Remove this part"
-                    aria-label="Remove part {index + 1}"
-                    disabled={saving}
-                    onclick={() => removePart(index)}
-                  >
-                    <Trash2 class="size-16" aria-hidden="true" />
-                  </Button>
-                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Remove this part"
+                  aria-label="Remove part {index + 1}"
+                  disabled={saving}
+                  onclick={() => removePart(index)}
+                >
+                  <Trash2 class="size-16" aria-hidden="true" />
+                </Button>
               </DataTable.Cell>
             </DataTable.Row>
           {/each}
           <DataTable.Row>
-            <DataTable.Cell colspan={6}>
-              <div class="flex flex-wrap items-center justify-between gap-12">
-                <Button variant="ghost" size="sm" disabled={saving} onclick={addPart}>
-                  <Plus class="size-16" aria-hidden="true" />
-                  Add Part
-                </Button>
-                <!-- Examples to start from, not a choice of what a number may be: the list above is
-                     the whole of that (owner ruling, 2026-09-19). -->
-                <ChoicePicker
-                  options={STARTER_CHOICES}
-                  inputId="{identifier}-example"
-                  label="Load an example"
-                  disabled={saving}
-                  bind:value={() => starterChoice, chooseStarter}
-                />
-              </div>
+            <DataTable.Cell colspan={7}>
+              <!-- A quiet line rather than a button bar: adding a part is the list's next row. -->
+              <Button
+                variant="ghost"
+                size="sm"
+                class="text-text-muted"
+                disabled={saving}
+                onclick={addPart}
+              >
+                <Plus class="size-16" aria-hidden="true" />
+                Add Part
+              </Button>
             </DataTable.Cell>
           </DataTable.Row>
         </DataTable.Body>
       </DataTable.Root>
     </div>
-
-    <!-- The preview: the server's own rendering of the list against the sample record. -->
-    <SettingsRow definition={PREVIEW_DEFINITION}>
-      {#snippet control()}
-        {#if refusal !== null}
-          <p class="text-end text-sm text-status-danger-subtle-foreground">{refusal}</p>
-        {:else if previewFailure !== null}
-          <FailureNotice
-            failure={previewFailure.failure}
-            title="The Scheme Could Not Be Previewed"
-            fallback={previewFailure.fallback}
-            whenSilent={previewFailure.whenSilent}
-          />
-        {:else}
-          <LoadingRegion
-            loading={preview === null}
-            refreshing={previewPending}
-            label="Rendering the preview"
-            class="flex flex-col items-end gap-4"
-          >
-            {#snippet fixture()}
-              <p class="text-lg tabular-nums">2026-0001</p>
-              <p class="text-end text-xs text-text-muted">One count across the whole firm.</p>
-            {/snippet}
-            {#if preview !== null}
-              <!-- An output, so the row's label names the number it labels. -->
-              <output id="settings-{PREVIEW_DEFINITION.id}" class="text-lg tabular-nums">
-                {preview.number}
-              </output>
-              <p class="text-end text-xs text-text-muted">
-                {record.scopeSource === "owner"
-                  ? `The count restarts for each ${record.subject === "time entry" ? "matter" : "letterhead"}.`
-                  : preview.scopeKey === ""
-                    ? "One count across the whole firm."
-                    : `The count restarts for each ${preview.scopeKey.split(":").length === 1 ? "value" : "combination"} of the parts that restart it; this sample counts under "${preview.scopeKey}".`}
-              </p>
-            {/if}
-          </LoadingRegion>
-        {/if}
-      {/snippet}
-    </SettingsRow>
 
     {#if saveFailure !== null}
       <FailureNotice
@@ -552,7 +597,7 @@
 
     <!-- The plate's exit: the consequence beside the act, and the act itself. -->
     <div class="flex flex-wrap items-center justify-between gap-12 py-12">
-      <p class="text-sm text-text-muted">{numberingFrozenSentence(record)}</p>
+      <p class="text-sm text-text-muted">{NUMBERING_FUTURE_ONLY_SENTENCE}</p>
       <div class="flex gap-8">
         <Button variant="secondary" size="sm" disabled={saving || !changed} onclick={discard}>
           Discard

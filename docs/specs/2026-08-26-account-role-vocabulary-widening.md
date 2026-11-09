@@ -18,7 +18,7 @@ check("firm_account_role_role_check",
 The `CHECK` is load-bearing, not decorative. `packages/billing/test/account-roles.test.ts` inserts
 `petty_cash` directly and asserts the database refuses it — the TypeScript `ACCOUNT_ROLES` array is a
 type, and this is the constraint. A firm can populate the table today:
-`PUT /api/v1/billing/account-roles` is live in `apps/api-worker/src/routes/billing.ts`.
+`PUT /api/v1/billing/account-roles` is live in `apps/api-worker/src/http/routes/billing/billing.ts`.
 
 SQLite cannot widen a `CHECK` in place. Adding a role is a table rebuild with a data copy.
 

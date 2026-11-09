@@ -103,6 +103,10 @@ describe("schema conformance (fitness functions)", () => {
       // One professional profile per member, and the member IS the row — a second handle would let
       // two profiles exist for one person, and every read already arrives holding the user id.
       member_professional_profile: "member_user_id",
+      // One destruction date per matter's paper file, and the matter IS the row — a second handle
+      // would let two dates exist for one file, which is exactly the ambiguity a date somebody
+      // destroys a file on must never carry.
+      matter_file_retention: "matter_id",
       // One picture per member, and the member IS the row — a second handle would let two pictures
       // exist for one person, which is exactly the state a roster must never have to choose between.
       // Deliberately NOT keyed by the bytes' hash the way firm_brand_image is: two members may
@@ -166,8 +170,11 @@ describe("schema conformance (fitness functions)", () => {
     // file_version_participant is the many-to-many join between a version and the members who were
     // in the editing session when it was cut — the pair (version_id, member_user_id) is the natural
     // key, same idiom as directory_entity_category; no handle is warranted.
+    // file_version_change is one tracked change of a version, keyed by (version_id, sequence): its
+    // document order within the version IS its identity, and nothing references a change row.
     const compositeKeyTables = new Set([
       "file_version_participant",
+      "file_version_change",
       "ai_search_feed_object",
       "magnus_conversation_attachment",
       "storage_meter",
@@ -198,6 +205,9 @@ describe("schema conformance (fitness functions)", () => {
     // the same integer the file entry and index_split already carry, so spelling it as text here would
     // make the membership disagree with the split row it describes.
     const integerCompositeKeyColumns = new Set([
+      // A change's place in its version's document order is a count, and ORDER BY on it must sort
+      // numerically: '10' before '2' would read a document backwards.
+      "file_version_change.sequence",
       "matter_number_allocation.drawn_value",
       "custody_number_allocation.drawn_value",
       "invoice_number_allocation.drawn_value",

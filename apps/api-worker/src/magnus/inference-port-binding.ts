@@ -1,7 +1,7 @@
 import { createGatewayInferencePort } from "@magna-carta/inference/gateway";
 import type { InferencePort } from "@magna-carta/inference/port";
 import { createStubInferencePort } from "@magna-carta/inference/stub";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 // Resolve the active inference implementation for the assistant.
 //

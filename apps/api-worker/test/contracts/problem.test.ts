@@ -3,8 +3,8 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import type { ZodError } from "zod";
 import { describe, expect, it } from "vitest";
-import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
-import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
+import { Problem, defaultHook, problemJson } from "../../src/http/contracts/problem";
+import { PROBLEM_TYPES, problemType } from "../../src/http/contracts/problem-types";
 
 // A minimal Context stub whose .json mirrors Hono's: serializes the body and stamps status +
 // headers. .get returns undefined (no telemetry middleware ran off the request lifecycle, so there
@@ -45,6 +45,7 @@ describe("problem-type URI registry", () => {
         "self-administration",
         "last-administrator",
         "unknown-role",
+        "role-family",
         "conflict",
         "custody-approver-must-differ",
         "custody-destruction-not-actionable",

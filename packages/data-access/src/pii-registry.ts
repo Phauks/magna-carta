@@ -121,6 +121,10 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // chain-of-custody — that SOMEBODY was in the document at this time — so it is pseudonymized,
   // never deleted.
   { table: "file_version_participant", subjectKey: "member_user_id", action: "pseudonymize-keep" },
+  // A version's tracked changes: who wrote or removed which words. The member reference is
+  // pseudonymized on the same terms as the participant row; the author's name as the DOCUMENT
+  // holds it stays on the row, because it stays in the document the row was read from.
+  { table: "file_version_change", subjectKey: "author_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
@@ -956,6 +960,13 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
   { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
+  // The date a matter's paper file may be destroyed after, and the member who stated it. The date is
+  // the matter's record; who stated it is an actor reference, pseudonymized on the audit_log terms.
+  {
+    table: "matter_file_retention",
+    subjectKey: "recorded_by_user_id",
+    action: "pseudonymize-keep",
+  },
   // Matter staffing: which firm member carried a matter, in which role, over which dates. Retained
   // as the matter's record on the same line time_entry.timekeeper_user_id sits on — who worked a
   // file is that file's history, not current operational state.
@@ -978,7 +989,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // holding the bytes, so deleting it and stopping leaves a photograph of a person in the firm's
   // bucket that nothing can ever find again to delete. The object key has to be read off the row
   // before the row goes. The route that removes a picture does exactly that
-  // (apps/api-worker/src/routes/me-photo.ts).
+  // (apps/api-worker/src/http/routes/session/me-photo.ts).
   {
     table: "member_photo",
     subjectKey: "member_user_id",

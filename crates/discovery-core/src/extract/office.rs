@@ -133,8 +133,8 @@ fn workbook_lines(
     };
     let mut sheet_names: Vec<String> = package
         .file_names()
+        .filter_map(|name| name.ok().map(std::borrow::Cow::into_owned))
         .filter(|name| name.starts_with("xl/worksheets/sheet") && name.ends_with(".xml"))
-        .map(str::to_owned)
         .collect();
     sheet_names.sort_by_key(|name| trailing_number(name));
     let mut lines = Vec::new();
@@ -242,8 +242,8 @@ fn presentation_pages(
 ) -> Result<Vec<Page>, DiscoveryError> {
     let mut slide_names: Vec<String> = package
         .file_names()
+        .filter_map(|name| name.ok().map(std::borrow::Cow::into_owned))
         .filter(|name| name.starts_with("ppt/slides/slide") && name.ends_with(".xml"))
-        .map(str::to_owned)
         .collect();
     slide_names.sort_by_key(|name| trailing_number(name));
     let mut pages = Vec::new();

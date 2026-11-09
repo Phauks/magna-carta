@@ -743,14 +743,14 @@ Firm-admin endpoint, RBAC-gated, accepting only `{stable, beta}`, requiring a co
 
 **Files:**
 
-- Create: `apps/worker/src/routes/release-channel.ts`
+- Create: `apps/worker/src/routes/firm/release-channel.ts`
 - Modify: `apps/worker/src/app.ts` (register the route)
 - Test: `apps/worker/test/release-channel.test.ts`
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`
 
 **Interfaces:**
 
-- Consumes: `writeFirmReleaseChannelStatement` (Task 5); `insertAuditLogStatement` from `@magna-carta/data-access` (per-firm `audit_log`); `RELEASE_CHANNELS`/`isReleaseChannel` from `@magna-carta/feature-flags`; the chokepoint context accessors and `defineOpenAPIRoute`/`RouteMeta` (see `apps/worker/src/routes/members.ts`).
+- Consumes: `writeFirmReleaseChannelStatement` (Task 5); `insertAuditLogStatement` from `@magna-carta/data-access` (per-firm `audit_log`); `RELEASE_CHANNELS`/`isReleaseChannel` from `@magna-carta/feature-flags`; the chokepoint context accessors and `defineOpenAPIRoute`/`RouteMeta` (see `apps/worker/src/routes/session/members.ts`).
 - Produces: `registerReleaseChannelRoute(app, chokepoint, authForEnv)` (match the registration signature `members.ts` uses).
 
 - [ ] **Step 1: Write the failing route tests**
@@ -775,7 +775,7 @@ Expected: FAIL — 404 (route not registered).
 
 - [ ] **Step 3: Implement the route**
 
-Create `apps/worker/src/routes/release-channel.ts`. Mirror `members.ts` structure. The request schema:
+Create `apps/worker/src/routes/firm/release-channel.ts`. Mirror `members.ts` structure. The request schema:
 
 ```typescript
 const SetReleaseChannelRequest = z
@@ -845,7 +845,7 @@ Expected: PASS. (A mutating `PUT` with a permission and idempotency needs no all
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/release-channel.ts apps/worker/src/app.ts apps/worker/test/release-channel.test.ts apps/worker/openapi/openapi.json packages/api-client/src
+git add apps/worker/src/routes/firm/release-channel.ts apps/worker/src/app.ts apps/worker/test/release-channel.test.ts apps/worker/openapi/openapi.json packages/api-client/src
 git commit -m "feat(release-channels): beta door — PUT /api/v1/firm/release-channel"
 ```
 
@@ -853,18 +853,18 @@ git commit -m "feat(release-channels): beta door — PUT /api/v1/firm/release-ch
 
 ### Task 8: Alpha door — secret-guarded platform endpoint
 
-Platform-only endpoint to set any firm's channel (including `alpha`), mirroring the firm-provisioning guard in `apps/worker/src/routes/firms.ts`.
+Platform-only endpoint to set any firm's channel (including `alpha`), mirroring the firm-provisioning guard in `apps/worker/src/routes/platform/firms.ts`.
 
 **Files:**
 
-- Create: `apps/worker/src/routes/platform-release-channel.ts`
+- Create: `apps/worker/src/routes/platform/platform-release-channel.ts`
 - Modify: `apps/worker/src/app.ts` (register the route)
 - Test: `apps/worker/test/platform-release-channel.test.ts`
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`
 
 **Interfaces:**
 
-- Consumes: `platformAdminGuard` from `apps/worker/src/routes/firms.ts` (export it if not already exported); `writeFirmReleaseChannelStatement` (Task 5); `insertAuthAuditStatement` from `@magna-carta/data-access`; `isReleaseChannel`/`RELEASE_CHANNELS`.
+- Consumes: `platformAdminGuard` from `apps/worker/src/routes/platform/firms.ts` (export it if not already exported); `writeFirmReleaseChannelStatement` (Task 5); `insertAuthAuditStatement` from `@magna-carta/data-access`; `isReleaseChannel`/`RELEASE_CHANNELS`.
 - Produces: `registerPlatformReleaseChannelRoute(app, chokepoint)`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -888,7 +888,7 @@ Expected: FAIL — 404.
 
 - [ ] **Step 3: Implement the route**
 
-Create `apps/worker/src/routes/platform-release-channel.ts`, mirroring the `provisionFirm` registration in `firms.ts`: `surface: "public"`, `permission: "firm:provision"` (nominal — public routes skip the RBAC gate; the `platformAdminGuard` is the real guard), `audited: true`, `idempotency: "required"`, `rateLimit: "auth"`. Request body `{ channel: z.enum(["stable", "beta", "alpha"]) }`; `firmId` from the path. Handler: validate the firm exists (404 problem if not), write the column via `writeFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId, channel)`, write a control-plane auth-audit row:
+Create `apps/worker/src/routes/platform/platform-release-channel.ts`, mirroring the `provisionFirm` registration in `firms.ts`: `surface: "public"`, `permission: "firm:provision"` (nominal — public routes skip the RBAC gate; the `platformAdminGuard` is the real guard), `audited: true`, `idempotency: "required"`, `rateLimit: "auth"`. Request body `{ channel: z.enum(["stable", "beta", "alpha"]) }`; `firmId` from the path. Handler: validate the firm exists (404 problem if not), write the column via `writeFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId, channel)`, write a control-plane auth-audit row:
 
 ```typescript
 insertAuthAuditStatement(c.env.DB_CONTROL, {
@@ -935,7 +935,7 @@ Expected: PASS. If conformance flags the public route, mirror exactly the allow-
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/platform-release-channel.ts apps/worker/src/routes/firms.ts apps/worker/src/app.ts apps/worker/test/platform-release-channel.test.ts apps/worker/test/conformance.test.ts apps/worker/openapi/openapi.json packages/api-client/src
+git add apps/worker/src/routes/platform/platform-release-channel.ts apps/worker/src/routes/platform/firms.ts apps/worker/src/app.ts apps/worker/test/platform-release-channel.test.ts apps/worker/test/conformance.test.ts apps/worker/openapi/openapi.json packages/api-client/src
 git commit -m "feat(release-channels): alpha door — secret-guarded platform endpoint"
 ```
 
@@ -945,7 +945,7 @@ git commit -m "feat(release-channels): alpha door — secret-guarded platform en
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/me.ts`
+- Modify: `apps/worker/src/routes/session/me.ts`
 - Test: `apps/worker/test/me.test.ts`
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`
 
@@ -972,7 +972,7 @@ Expected: FAIL — `channel`/`flags` undefined.
 
 - [ ] **Step 3: Extend the route**
 
-In `apps/worker/src/routes/me.ts`:
+In `apps/worker/src/routes/session/me.ts`:
 
 Add to the `MeResponse` schema:
 
@@ -1016,7 +1016,7 @@ Expected: PASS across the monorepo.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/me.ts apps/worker/test/me.test.ts apps/worker/openapi/openapi.json packages/api-client/src
+git add apps/worker/src/routes/session/me.ts apps/worker/test/me.test.ts apps/worker/openapi/openapi.json packages/api-client/src
 git commit -m "feat(release-channels): deliver channel + flags via /me"
 ```
 

@@ -24,6 +24,7 @@ function run(overrides: Partial<RunSummary> = {}): RunSummary {
     finishedAt: null,
     failure: null,
     hitCount: null,
+    subjectParties: [],
     ...overrides,
   };
 }

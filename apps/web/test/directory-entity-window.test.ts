@@ -8,8 +8,8 @@
  * matter, a capacity inferred from a role.
  */
 import { describe, expect, it } from "vitest";
+import { formatDate } from "@magna-carta/design-system/formatters";
 import {
-  entityWindowFacts,
   entityWindowHeading,
   entityWindowSubtitle,
   UNREAD_RECORD_HEADING,
@@ -112,25 +112,18 @@ describe("the window's header", () => {
   });
 });
 
-describe("the record's own facts", () => {
-  it("lists only what the record holds", () => {
-    expect(entityWindowFacts(person())).toEqual([{ label: "Kind", value: "Person" }]);
-    expect(entityWindowFacts(organization())).toEqual([{ label: "Kind", value: "Organization" }]);
-  });
-
-  it("adds the dates a person has, and says when a death has no date", () => {
+describe("the record's own facts, in the header", () => {
+  it("adds the dates a person has after the pronouns, and says when a death has no date", () => {
     expect(
-      entityWindowFacts(person({ pronouns: SHE, dateOfBirth: "1961-04-02", deceased: true })),
-    ).toEqual([
-      { label: "Kind", value: "Person" },
-      { label: "Pronouns", value: "she/her" },
-      { label: "Born", value: "1961-04-02" },
-      { label: "Died", value: "Date not recorded" },
-    ]);
-    expect(entityWindowFacts(person({ dateOfDeath: "2024-01-09", deceased: true }))).toEqual([
-      { label: "Kind", value: "Person" },
-      { label: "Died", value: "2024-01-09" },
-    ]);
+      entityWindowSubtitle(person({ pronouns: SHE, dateOfBirth: "1961-04-02", deceased: true })),
+    ).toEqual({
+      reference: { kind: "Person", number: null },
+      facts: ["she/her", `Born ${formatDate("1961-04-02")}`, "Deceased"],
+    });
+    expect(entityWindowSubtitle(person({ dateOfDeath: "2024-01-09", deceased: true }))).toEqual({
+      reference: { kind: "Person", number: null },
+      facts: [`Died ${formatDate("2024-01-09")}`],
+    });
   });
 });
 

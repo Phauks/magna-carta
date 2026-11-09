@@ -17,6 +17,12 @@ ADR-0059, ADR-0068, ADR-0051.)
 
 ## Key files / entry points
 
+- `src/contract.ts` — **what the calendar's API accepts and returns**, as plain zod: every request
+  body and response shape, each named with `.meta({ id })`, which the contract emitter reads as the
+  component name. The route module in `apps/api-worker` declares routes over these and restates no
+  field; path and query parameters stay with the routes (addressing, not shape). Rule and reasoning:
+  `docs/conventions/api.md` (_Where a contract shape lives_). A change here changes the committed
+  contract — re-emit the snapshot and the client in the same commit.
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and
@@ -198,7 +204,7 @@ One entry in `TIMELINE_SOURCES`, and nothing else anywhere:
    hit.
 3. **A projection** — through `projectRow`, with the deep link into the owning subsystem's own read.
 4. **A label decision** — a genuinely non-privileged summary, or `declaresLabel: false` and `NULL AS
-label` in the SQL. There is no third option.
+   label` in the SQL. There is no third option.
 5. **A permission** — the read capability a DESCRIPTION of these rows sits behind (`notes:read`,
    `custody:read`), or `null` where every member may read the record. It gates `describe` only: the
    entry itself carries no content and is never withheld.
@@ -220,7 +226,7 @@ pairs every key here with an `ActivityContribution` beside the owning subsystem'
   the same registry matter-search names its capabilities from). It depends on no other domain
   package: every source reads its rows by table name, which the schema-name-sync fitness test pins
   to `@magna-carta/database`.
-- The route layer (`apps/api-worker/src/routes/calendar.ts`) hands every service the firm-scoped database,
+- The route layer (`apps/api-worker/src/http/routes/calendar/calendar.ts`) hands every service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 
 ## Gotchas

@@ -124,6 +124,9 @@
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "catalog:",
     "@fontsource-variable/fraunces": "catalog:",
+    "@fontsource-variable/lexend": "catalog:",
+    "@fontsource-variable/literata": "catalog:",
+    "@fontsource/opendyslexic": "catalog:",
     "@fontsource/unifrakturmaguntia": "catalog:",
     "@internationalized/date": "catalog:",
     "@lucide/svelte": "catalog:",
@@ -152,6 +155,7 @@
     "@sveltejs/vite-plugin-svelte": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "happy-dom": "catalog:",
     "storybook": "catalog:",
     "svelte": "catalog:",

@@ -76,7 +76,7 @@ Root: `docs/research/wellbeing-resources/`
 - `profiles/profiles.json` — **the dataset.** Per jurisdiction: a **list of resources**; every
   field carries provenance `{ value, confidence, sourceUrl, sourceTier, verifiedOn }`.
   `confidence ∈ HIGH | MEDIUM | LOW | NA`; `sourceTier ∈ primary-official | corroborated |
-secondary`. Each profile references its `sources/` manifest entry.
+  secondary`. Each profile references its `sources/` manifest entry.
 - `profiles/viewer.html` — the verify / needs-fix / fix coverage map, driven by `profiles.json`
   (lifted from the `government-links` and trust-rules viewers). **Generated — never hand-edited;**
   edit the dataset via `extract/*.json` inputs + a regenerable pipeline.

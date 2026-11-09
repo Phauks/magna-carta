@@ -14,7 +14,7 @@ import type {
   MeetingQuestionSnapshot,
 } from "@magna-carta/meeting-protocol/types";
 import { isMeetingMedium } from "@magna-carta/meetings/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { relayMessage, relayMessageRedaction } from "./room/room-chat.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";

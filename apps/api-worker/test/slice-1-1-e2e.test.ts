@@ -2,8 +2,8 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { firmResourceName } from "../src/firm-resource-provider.ts";
-import { runScheduledSweep } from "../src/scheduled.ts";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { runScheduledSweep } from "../src/background/scheduled.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -172,7 +172,7 @@ describe("slice 1·1 end-to-end", () => {
     ownerCookie = liveCookie(setCookies(signInResponse), "session_token")?.pair ?? "";
     expect(ownerCookie).not.toBe("");
 
-    // The sweep mirrors the owner into the firm database as an active Owner/Admin member — the member
+    // The sweep mirrors the owner into the firm database as an active Admin member — the member
     // row every firm-scoped route resolves the session against.
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);

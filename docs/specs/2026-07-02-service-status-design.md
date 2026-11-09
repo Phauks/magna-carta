@@ -61,7 +61,7 @@ dropped on later without rework.
   the model for authoring global status. See "Relationship to `platform_staff`" under
   Authorization for why this builds a separate `platform_operator` axis rather than reusing it.
 - **The only global (cross-firm) auth gate that exists** is the `PLATFORM_ADMIN_KEY`
-  shared-secret header guarding firm-provisioning (`apps/worker/src/routes/firms.ts`), which is
+  shared-secret header guarding firm-provisioning (`apps/worker/src/routes/platform/firms.ts`), which is
   self-labeled as a placeholder until a real platform-admin principal model is built. This
   design does **not** reuse it — see "Authorization" for why a shared secret is the wrong fit
   for a repeated, attributed human action, and builds the minimal principal that secret's own
@@ -69,7 +69,7 @@ dropped on later without rework.
 - **RBAC is strictly per-firm** — there is no global role to hang status-authoring on, which is
   why this introduces a platform-level principal rather than a per-firm permission.
 - **No KV namespace is bound in the repo yet** — `STATUS_KV` is the first.
-- **Naming collision:** `apps/worker/src/routes/incidents.ts` and the per-firm `incident` table
+- **Naming collision:** `apps/worker/src/routes/platform/incidents.ts` and the per-firm `incident` table
   are **diagnostic bug reports**, unrelated to status. This design uses **"service event"** for
   operator-declared disruptions so nothing conflates.
 
@@ -234,7 +234,7 @@ So this slice builds the small, real thing that firm-provisioning's own comment 
 anticipated ("a real platform-admin principal model is a later seam"):
 
 - **`platform_operator` table** in the **control-plane** D1 — `{ user_id, granted_at,
-granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
+  granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
   separate from per-firm RBAC (which stays per-firm). `expires_at` mirrors the per-firm
   `direct_grant` time-boxing pattern: `NULL` = standing membership, a timestamp = a grant that
   lapses automatically. Membership is **seeded by hand** (SQL) for the operating firm's owner —

@@ -11,7 +11,7 @@
   slices: 4-2-custodian
   adrs: ADR-0014
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: packages/custodian + thirty-eight routes in apps/api-worker/src/routes/custody.ts, over thirteen per-firm tables. The matter section registry reserves a "custodian" slug (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
+  evidence: packages/custodian + thirty-eight routes in apps/api-worker/src/http/routes/custody/custody.ts, over thirteen per-firm tables. The matter section registry reserves a "custodian" slug (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
   audience: public
   public-name: Safe custody register
   public-summary: Record every original will, deed and physical item the firm holds, where it is kept, and who has it now.
@@ -31,10 +31,10 @@
   name: Physical location hierarchy
   scope: Recursive container tree rooted at a Location (office), default safe > box > position, arbitrary depth.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: custody_location + packages/custodian/src/location-service.ts (cycle walk, depth cap, occupied-close refusal). Backend only.
+  evidence: custody_location + packages/custodian/src/location-service.ts (cycle walk, depth cap, occupied-close refusal). Containers are added from the New Packet form's Container field (apps/web/src/lib/custodian/container-picker.svelte); renaming, moving and closing a container still have no screen.
   notes: A root optionally binds a firm Location; an offsite or bank root binds none, so a vault never becomes an office row.
 
 - id: custodian.custody-ledger

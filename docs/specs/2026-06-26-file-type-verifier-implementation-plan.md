@@ -41,7 +41,7 @@
 - `apps/worker/src/per-firm-migrations.ts` — register the migration.
 - `apps/scan-worker/src/index.ts` — dispatch `POST /identify`.
 - `apps/scan-worker/src/forward-identify.ts` — new proxy; `apps/scan-worker/test/forward-identify.test.ts` — new test.
-- `apps/worker/src/routes/file-type.ts` — new route module; `apps/worker/test/routes/file-type.test.ts` — new test.
+- `apps/worker/src/routes/files/file-type.ts` — new route module; `apps/worker/test/routes/file-type.test.ts` — new test.
 - `apps/worker/src/app.ts` — register the route; update the scan stub in `apps/worker/vitest.config.ts`.
 - `apps/worker/openapi/openapi.json` — regenerated.
 - `containers/scan/Cargo.toml` — add the `magika` crate.
@@ -851,7 +851,7 @@ git commit -m "feat(scan-worker): /identify proxy route to the scan Container"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/file-type.ts`, `apps/worker/test/routes/file-type.test.ts`
+- Create: `apps/worker/src/routes/files/file-type.ts`, `apps/worker/test/routes/file-type.test.ts`
 - Modify: `apps/worker/src/app.ts` (register the route), `apps/worker/vitest.config.ts` (extend the scan stub to answer `/identify`)
 
 **Interfaces:**
@@ -925,7 +925,7 @@ Note: adjust the imports/helpers to whatever `apps/worker/test/routes/file-integ
 Run: `pnpm --filter @magna-carta/worker run test file-type`
 Expected: FAIL (route not registered → 404).
 
-- [ ] **Step 4: Implement `apps/worker/src/routes/file-type.ts`**
+- [ ] **Step 4: Implement `apps/worker/src/routes/files/file-type.ts`**
 
 ```typescript
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -1056,12 +1056,12 @@ export function registerFileTypeRoutes(
 }
 ```
 
-Note: confirm the exact import paths for `requireChokepointFirmContext`, `problemJson`, `defineOpenAPIRoute`, and `readInspectableSizeCap` against `apps/worker/src/routes/file-integrity.ts` (they are the same symbols that file uses) before running.
+Note: confirm the exact import paths for `requireChokepointFirmContext`, `problemJson`, `defineOpenAPIRoute`, and `readInspectableSizeCap` against `apps/worker/src/routes/files/file-integrity.ts` (they are the same symbols that file uses) before running.
 
 - [ ] **Step 5: Register the route** — in `apps/worker/src/app.ts`, import and call `registerFileTypeRoutes(app, chokepoint)` alongside the other `register*Routes` calls (search for `registerFileIntegrityRoutes` and mirror it).
 
 ```typescript
-import { registerFileTypeRoutes } from "./routes/file-type.ts";
+import { registerFileTypeRoutes } from "./routes/files/file-type.ts";
 // ... where the other routes are registered:
 registerFileTypeRoutes(app, chokepoint);
 ```
@@ -1074,7 +1074,7 @@ Expected: PASS (mismatch happy path + 403 gate).
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/file-type.ts apps/worker/src/app.ts apps/worker/vitest.config.ts apps/worker/test/routes/file-type.test.ts
+git add apps/worker/src/routes/files/file-type.ts apps/worker/src/app.ts apps/worker/vitest.config.ts apps/worker/test/routes/file-type.test.ts
 git commit -m "feat(worker): POST /api/v1/file-type/verify route"
 ```
 

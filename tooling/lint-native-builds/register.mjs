@@ -239,6 +239,18 @@ export const NATIVE_BINARY_FAMILIES = new Map([
     { status: "memory-safe", language: "Rust, prebuilt", reason: "The CSS transformer Vite uses" },
   ],
   [
+    "@yuku-core/binding",
+    {
+      status: "surfaced",
+      language: "Zig, prebuilt",
+      reason:
+        "The per-platform native core of the Yuku JavaScript parser, which Vite+ 1.5's core pulls " +
+        "in through yuku-parser. Zig is not C or C++, but it is not memory-safe either, so it is " +
+        "surfaced for the owner rather than filed as memory-safe. It runs at build and dev time " +
+        "over this repository's own source and never ships to production",
+    },
+  ],
+  [
     "fsevents",
     {
       status: "surfaced",

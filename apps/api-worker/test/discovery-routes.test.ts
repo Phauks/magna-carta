@@ -13,7 +13,7 @@ import {
   seedFirmKey,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The discovery surface, driven through the chokepoint over real Miniflare bindings: a firm opens a
 // matter, creates a review set, names whose records are in it, declares a load, and pulls its own

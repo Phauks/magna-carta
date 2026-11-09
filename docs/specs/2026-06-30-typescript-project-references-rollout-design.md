@@ -59,7 +59,7 @@ its own `.d.ts`). So references live in a **parallel `tsconfig.build.json` graph
   `include` drops `test/**` deliberately: the reference graph type-checks the package's public surface
   and its cross-package contracts. Test type-checking stays with `vp check` on the main `tsconfig.json`.
 - **Root `tsconfig.build.json`** — a solution file (`{ "files": [], "references": [ ...every package/app
-build config... ] }`) so one `tsc -b` builds the whole graph in dependency order, incrementally.
+  build config... ] }`) so one `tsc -b` builds the whole graph in dependency order, incrementally.
 - **`.gitignore`** gains `.tsbuild/` (the emitted `.d.ts` + `.tsbuildinfo` are regenerable build output).
 
 ### The type-check task
@@ -148,9 +148,9 @@ the available tasks are inert until the gate is turned on.
 - `packages/file-manager/src/queries.ts:177` — TS2322: a value with `scanVerdict: "infected"` assigned
   to `CleanVersion` (whose `scanVerdict` excludes it). **Real** (confirmed under plain `noEmit`). Needs
   a domain call: widen `CleanVersion`, or fix the producer.
-- `apps/worker/src/routes/time-entries.ts:603,904,975,1057` — TS2345: `ProxyBatchDatabase` passed where
+- `apps/worker/src/routes/timekeeping/time-entries.ts:603,904,975,1057` — TS2345: `ProxyBatchDatabase` passed where
   `D1Database` is expected (missing `exec`/`withSession`/`dump`). Real-class assignability errors.
-- `apps/worker/src/routes/file-type.ts:88` — TS2345 (`readonly string[]` → mutable `string[]`);
+- `apps/worker/src/routes/files/file-type.ts:88` — TS2345 (`readonly string[]` → mutable `string[]`);
   `:114,129` — TS2820: `"engine-unavailable"` is not a member of the Problem `type` union
   (`"service-unavailable"`?).
 - `apps/worker/src/app.ts:527` — TS2883: `buildOpenAPIDocument`'s inferred type is not nameable in the

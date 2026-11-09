@@ -1,5 +1,5 @@
 import type { MeetingValidationCode } from "@magna-carta/meetings/validation";
-import type { GuestLaneRefusal } from "../chokepoint/chokepoint.ts";
+import type { GuestLaneRefusal } from "../http/chokepoint/chokepoint.ts";
 
 // WHAT A GUEST HOLDING A SIGNED LINK IS TOLD WHEN IT CANNOT BE USED — one table, read by the
 // chokepoint's guest lane on every request and by the guest routes for a refusal the arrival itself

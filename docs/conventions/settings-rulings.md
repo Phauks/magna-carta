@@ -60,7 +60,7 @@ with the reason.
 - **Dropdown alignment is set at the call site, ninety-five times.** `align="end"` appears 95 times
   across the app and `align="start"` 10 times. The design-system contents set no default of their
   own: `select-content.svelte` and `combobox-content.svelte` both pin `min-width:
-var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI, so a caller that
+  var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI, so a caller that
   omits it gets the primitive's default. `settings-row.svelte` is one of those callers — its
   `Select.Content` carries no `align`, and its control column is pinned to the right of the row at
   `--mc-size-popover`, which is the exact geometry that sends a listbox wider than its trigger off
@@ -88,6 +88,19 @@ var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI,
   actually opens is whether firm branding is firm-wide, per-office, or firm-wide with a per-office
   override — not whether an upload path has to be built from nothing.
 
+| #   | Ruling (2026-11-09)                                                                                                                                                                                                | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| F3  | **Offices come off Firm Profile, and the marks get a Firm Brand page of their own.** The offices plate repeated the Offices register one link away; the owner removed it to remove the duplication. Supersedes F1. | settled |
+| F4  | **Rooms and Resources sits under Firm, not Practice**, and its row acts (Change, Retire, Restore) are one `...` menu so the actions column never reflows.                                                          | settled |
+
+How it landed: Firm Profile holds the name alone (`apps/web/src/routes/(app)/settings/firm-profile/+page.svelte`);
+the brand-images plate moved to `apps/web/src/routes/(app)/settings/firm-brand/`, a new section in
+the Firm group of `apps/web/src/lib/settings/settings-sections.ts`, behind the same
+`firm:manageProfile` the brand-image routes enforce. The Rooms and Resources section moved to the
+Firm group in the same registry, and `apps/web/src/routes/(app)/settings/resources/+page.svelte`
+draws one `DropdownMenu` per row from an icon-sized trigger. Event Types and Users still draw a
+button per act; the ruling names Rooms and Resources only.
+
 ### Offices
 
 | #   | Ruling                                                                                                                                                                                                                      | Status  |
@@ -95,7 +108,7 @@ var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI,
 | O1  | **Offices are settable, from Settings, and there can be several.** Each carries its address, its contact information and its location. There is no way to do this in the product today, which is why it could not be found. | settled |
 
 **What the code says today.** The whole subsystem is built except the screen. `packages/locations/`
-owns validation and the service; `apps/api-worker/src/routes/locations.ts` exposes create, update,
+owns validation and the service; `apps/api-worker/src/http/routes/matters/locations.ts` exposes create, update,
 close, set-addresses, member assignment and the letterhead logo, with reads open to any firm member
 and writes behind `locations:manage`. A location carries a name, jurisdiction, IANA time zone,
 numbering code, letterhead address block, footer and remit-to; each of its addresses carries kind,
@@ -136,7 +149,7 @@ first is what lets both stop being free text.
   `settings/versions/+page.svelte` states that "the backend components ... have no aggregated
   versions endpoint yet" and works around it by decomposing the scan-policy histogram's composite
   `engine/<code>+yara-rules/<tag>+clamav-db/<db>` string behind `firm:manageScanPolicy`, leaving
-  em-dash seams for everything else. Meanwhile `apps/api-worker/src/routes/meta-versions.ts` serves
+  em-dash seams for everything else. Meanwhile `apps/api-worker/src/http/routes/platform/meta-versions.ts` serves
   `GET /api/v1/meta/versions` — "what is running, across the whole deployment" — and the version
   chip in the app shell (`apps/web/src/lib/versions/`) already reads it, renders a row per
   Cloudflare Worker, folds the fleet, flags an API/web sync mismatch, notices an upstream deploy,

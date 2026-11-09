@@ -3,6 +3,7 @@ import {
   closeMatterDeadline,
   createMatterDeadline,
   satisfyMatterDeadline,
+  updateMatterDeadline,
 } from "../src/deadline-service.ts";
 import { readMatterDeadline, readOpenDeadlineTimeZones } from "../src/deadline-statements.ts";
 import { createMatterEvent } from "../src/event-service.ts";
@@ -69,6 +70,40 @@ describe("recording a deadline", () => {
     await expect(
       createMatterDeadline(database, { ...DEADLINE, triggerEventId: eventId }, options),
     ).rejects.toThrow(/different matter/);
+  });
+});
+
+describe("a deadline's time of day", () => {
+  it("refuses a time that is not a wall-clock time, on recording and on editing", async () => {
+    const { database, raw } = migratedDatabase();
+    seedMatters(raw);
+    await Promise.all(
+      ["5pm", "24:00", "17:60", "9:30", ""].map((dueAtTime) =>
+        expect(
+          createMatterDeadline(database, { ...DEADLINE, dueAtTime }, options),
+          dueAtTime,
+        ).rejects.toMatchObject({ code: "calendar-invalid-time" }),
+      ),
+    );
+
+    const { deadlineId, effect } = await createMatterDeadline(database, DEADLINE, options);
+    await commit(database, effect);
+    await expect(
+      updateMatterDeadline(database, deadlineId, { dueAtTime: "half past five" }, options),
+    ).rejects.toMatchObject({ code: "calendar-invalid-time" });
+  });
+
+  it("records no time as the end of the day rather than refusing it", async () => {
+    const { database, raw } = migratedDatabase();
+    seedMatters(raw);
+    const { deadlineId, effect } = await createMatterDeadline(
+      database,
+      { ...DEADLINE, dueAtTime: null },
+      options,
+    );
+    await commit(database, effect);
+    const stored = await readMatterDeadline(database, deadlineId, visibility);
+    expect(stored?.due_at_time).toBeNull();
   });
 });
 

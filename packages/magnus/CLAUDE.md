@@ -112,8 +112,8 @@ registered there; this file states what they mean for the code, not where they w
 
 - Depends on `@magna-carta/data-access` (effect batches, the audit builder, cursor pagination, the
   firm-setting accessor), `@magna-carta/identifiers`, and `zod`. Nothing else.
-- Consumed by `apps/api-worker/src/routes/magnus.ts` (the surface), `apps/api-worker/src/magnus/` (consent,
-  the queue consumer, the push object), and `apps/api-worker/src/costs/recoverable-charge-consumer.ts`
+- Consumed by `apps/api-worker/src/http/routes/magnus/magnus.ts` (the surface), `apps/api-worker/src/magnus/` (consent,
+  the queue consumer, the push object), and `apps/api-worker/src/background/costs/recoverable-charge-consumer.ts`
   (the outbox topic hand-off).
 - Produces statements; the caller commits them. This package holds no database handle and crosses no
   firm.
@@ -139,9 +139,9 @@ registered there; this file states what they mean for the code, not where they w
   (`apps/api-worker/src/progress/job-progress-protocol.ts`); only the attachment differs.
 - **Both surfaces exist now: the member's and the firm's.** A member reaches the assistant from the
   sidebar destination and from a matter's own section, and accepts the disclosure there. A firm opens
-  the two consent settings at **Settings · AI and the Assistant** — `apps/web/src/routes/(app)/settings/ai`
-  over `GET`/`PATCH /api/v1/firm/ai/settings` (`apps/api-worker/src/routes/firm-ai-settings.ts`), behind
-  `firm:manageAiSettings`, which is Owner/Admin alone by seed and is deliberately NOT `magnus:converse`:
+  the two consent settings at **Settings · AI** — `apps/web/src/routes/(app)/settings/ai`
+  over `GET`/`PATCH /api/v1/firm/ai/settings` (`apps/api-worker/src/http/routes/firm/firm-ai-settings.ts`), behind
+  `firm:manageAiSettings`, which is Admin alone by seed and is deliberately NOT `magnus:converse`:
   asking the assistant a question is ordinary work, deciding for the whole firm that privileged content
   may leave for a third-party provider is not. That route is the only writer of the pair
   `consent.ts` reads, and its own test asserts the seam — a screen that wrote settings the resolver did
@@ -167,7 +167,7 @@ registered there; this file states what they mean for the code, not where they w
   (`apps/api-worker/src/magnus/attachment-text.ts`; plain text directly), and `buildConversationWindow`
   lays it ahead of the newest member turn under a heading naming the file within
   `ATTACHMENT_TEXT_MAX_BYTES`, cutting and marking the cut. The row records `sent | cut | unreadable |
-pending`. A stored extraction would be a second copy of privileged content outside the file's own
+  pending`. A stored extraction would be a second copy of privileged content outside the file's own
   erasure path; the per-question extraction is the cost paid to keep exactly one. Because what Magnus
   can SEE changed, `MAGNUS_DISCLOSURE_VERSION` is 2, and the disclosure statement and the system prompt
   describe the same thing.

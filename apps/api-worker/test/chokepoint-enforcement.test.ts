@@ -1,7 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { BUCKETS } from "../src/chokepoint/rate-limiter.ts";
+import { BUCKETS } from "../src/http/chokepoint/rate-limiter.ts";
 
 // Slice 0·5b Task 8b: the chokepoint wired into the REAL app, proven through the Miniflare HTTP
 // surface (SELF) — metadata-DRIVEN enforcement, not per-handler discipline. The me/members/firms

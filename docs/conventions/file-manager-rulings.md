@@ -619,7 +619,7 @@ The owner's words this round: "the file manager area is really good."
   time but the reservation itself: it answered `Content-Type` beside the presigner's `content-type`,
   the browser merged the two into one doubled value, and the signature no longer matched. The
   development route never checks the signature, which is why the test pool had been green. The fix and
-  its test are in `apps/api-worker/src/routes/uploads.ts` and `apps/api-worker/test/uploads.test.ts`.
+  its test are in `apps/api-worker/src/http/routes/files/uploads.ts` and `apps/api-worker/test/uploads.test.ts`.
 - A22 rests on a small extension to the one grid: `orderRows` on the grid state and the exported
   `gridRowComparator`, so a hierarchy sorts by exactly the rule the flat table uses.
 - Harness: `tooling/file-manager-rulings/` pins the retired mockup and cannot see this dialog, so
@@ -1010,7 +1010,7 @@ work is end their session or make them retype a name — never quietly replace t
   and structural keywords by gate, and `calc()` is neither — the recipe names the four metrics as
   the tokens they already were, and the component writes the scaled lengths over them inline.
 - **The scale no longer drives the density.** It used to be `scalePercent < 100 ? compact :
-comfortable`, which is the whole reason nine of the ten steps did nothing: the control's only
+  comfortable`, which is the whole reason nine of the ten steps did nothing: the control's only
   effect in list view was that one flip. Density is a separate axis and the file manager simply
   takes the default; the scale does the work continuously across the whole range.
 - **`frame="flush"` replaces the `rounded-none border-0` incantation** that four file-manager grids

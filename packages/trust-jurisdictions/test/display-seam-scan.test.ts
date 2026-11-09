@@ -113,7 +113,7 @@ describe("unreviewed jurisdiction values are rendered, never acted on", () => {
     const files = scannedSourceFiles();
     // Non-vacuity floor: the walk actually saw the app surface most likely to grow a consumer.
     expect(files.length).toBeGreaterThan(0);
-    expect(files.some((file) => file.endsWith(join("routes", "trust.ts")))).toBe(true);
+    expect(files.some((file) => file.endsWith(join("routes", "trust", "trust.ts")))).toBe(true);
 
     const offenders = files.flatMap((file) => offendersIn(file, readFileSync(file, "utf8")));
     expect(

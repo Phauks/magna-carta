@@ -328,7 +328,7 @@ correlation-id seam applies unchanged.
 - **Subject:** fixed and matter-free. `Magna Carta — 6 items need your attention`. The count varies;
   nothing else does.
 - **Body:** per-category counts and one deep link into the in-app feed. `Deadlines 3 · Trust 1 ·
-Documents 2 — open your notifications: <link>`.
+  Documents 2 — open your notifications: <link>`.
 - **Not in the body:** matter titles, matter numbers, client or party names, document or file names,
   email subject lines, deadline descriptions or dates, custody numbers or item descriptions, dollar
   amounts, invoice numbers, and the identity of anyone involved.

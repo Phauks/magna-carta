@@ -12,7 +12,7 @@ import type {
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import {
   mirrorMemberWithOwnerRole,
   mirrorMemberWithRole,

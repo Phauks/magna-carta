@@ -1,0 +1,2 @@
+{"type": "Feature", "properties": {"hash": "", "number": "1402", "street": "Lawson Avenue", "unit": "", "city": "Bronx", "district": "", "region": "", "postcode": "10461", "id": ""}, "geometry": {"type": "Point", "coordinates": [-73.8401, 40.8501]}}
+{"type": "Feature", "properties": {"hash": "", "number": "123-45", "street": "Queens Boulevard", "unit": "", "city": "Queens", "district": "", "region": "", "postcode": "11375", "id": ""}, "geometry": {"type": "Point", "coordinates": [-73.8401, 40.7201]}}

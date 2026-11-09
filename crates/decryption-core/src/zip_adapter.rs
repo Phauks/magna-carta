@@ -41,7 +41,12 @@ impl ZipAdapter {
                 other => DecryptError::Malformed(other.to_string()),
             })?;
 
-        let filename_hint = Some(entry.name().to_owned());
+        let filename_hint = Some(
+            entry
+                .name()
+                .map(std::borrow::Cow::into_owned)
+                .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned()),
+        );
         let mut plaintext = Vec::new();
         entry
             .read_to_end(&mut plaintext)
@@ -537,7 +542,9 @@ mod tests {
     fn make_zipcrypto_zip(password: &[u8]) -> Vec<u8> {
         let buffer = Cursor::new(Vec::new());
         let mut writer = ZipWriter::new(buffer);
-        let options = SimpleFileOptions::default().with_deprecated_encryption(password);
+        let options = SimpleFileOptions::default()
+            .with_deprecated_encryption(password)
+            .expect("zipcrypto options");
         writer.start_file("hello.txt", options).expect("start_file");
         writer.write_all(b"hello\n").expect("write");
         writer.finish().expect("finish").into_inner()

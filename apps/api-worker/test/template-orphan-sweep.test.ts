@@ -3,7 +3,7 @@ import { TEMPLATE_STAGING_PREFIX } from "@magna-carta/document-assembly/template
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { runTemplateOrphanSweep } from "../src/assemblies/template-orphan-sweep.ts";
+import { runTemplateOrphanSweep } from "../src/background/assemblies/template-orphan-sweep.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle } from "./support/firm-database-handle.ts";
 

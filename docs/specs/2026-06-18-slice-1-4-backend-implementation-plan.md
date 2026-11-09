@@ -61,7 +61,7 @@ Every task's requirements implicitly include this section. Values copied from th
 - `packages/database/drizzle/per-firm/0013_custom-fields.sql` (new) + `meta/_journal.json` — the migration.
 - `apps/worker/src/per-firm-migrations.ts` — register `0013`.
 - `packages/directory/src/merge.ts`, `packages/directory/src/fitness.ts` — the merge extension.
-- `apps/worker/src/routes/custom-fields.ts` (new) + `apps/worker/src/app.ts` — the route surface.
+- `apps/worker/src/routes/firm/custom-fields.ts` (new) + `apps/worker/src/app.ts` — the route surface.
 - `packages/fixtures/src/load-profile/*` — the volume profile + measurements.
 - `apps/worker/package.json` — add the package dependency.
 
@@ -2389,7 +2389,7 @@ git commit -m "feat(custom-fields): purge seam (refuses until a real erasure obl
 
 **Files:**
 
-- Create: `apps/worker/src/routes/custom-fields.ts`
+- Create: `apps/worker/src/routes/firm/custom-fields.ts`
 - Modify: `apps/worker/src/app.ts` (call `registerCustomFieldsRoutes(app, chokepoint)`)
 - Modify: `apps/worker/openapi/openapi.json` (regenerated, committed)
 - Modify: `packages/api-client/src/*` (regenerated client, committed)
@@ -2459,15 +2459,15 @@ describe("custom-fields routes", () => {
 Run: `pnpm test -- custom-fields`
 Expected: FAIL (route module not found / 404).
 
-- [ ] **Step 3: Implement the route module** (follow the `routes/locations.ts` pattern exactly — one `RouteMeta` + `defineOpenAPIRoute` per endpoint, `chokepointMiddleware`, `runIdempotentEffect`, a `customFieldErrorResponse` mapping `CustomFieldError.code` → status)
+- [ ] **Step 3: Implement the route module** (follow the `routes/matters/locations.ts` pattern exactly — one `RouteMeta` + `defineOpenAPIRoute` per endpoint, `chokepointMiddleware`, `runIdempotentEffect`, a `customFieldErrorResponse` mapping `CustomFieldError.code` → status)
 
 ```typescript
-// apps/worker/src/routes/custom-fields.ts (representative endpoint — repeat the shape for each operation)
+// apps/worker/src/routes/firm/custom-fields.ts (representative endpoint — repeat the shape for each operation)
 import { z } from "@hono/zod-openapi";
 import { defineCustomField } from "@magna-carta/custom-fields/custom-field-service";
 import { setCustomFieldValue } from "@magna-carta/custom-fields/custom-field-value-service";
 import { CustomFieldError } from "@magna-carta/custom-fields/types";
-// chokepoint + problem imports as in routes/directory.ts. The service wraps idempotency internally
+// chokepoint + problem imports as in routes/directory/directory.ts. The service wraps idempotency internally
 // (the matters/directory pattern), so the route imports NEITHER runIdempotentEffect NOR canonicalJsonStringify.
 
 const FieldRequest = z
@@ -2584,7 +2584,7 @@ export function registerCustomFieldsRoutes(app: AppType, chokepoint: ChokepointT
 }
 ```
 
-> **Idempotency wrapping (verified):** follow `apps/worker/src/routes/directory.ts` / `routes/matters.ts`, NOT `routes/locations.ts`. The custom-fields **service** wraps `runIdempotentEffect` internally (Task 4's `runCustomFieldEffect`), so the route calls the service, reads `result.idempotentReplay`, and serializes the plain value with `c.json()`. Do **not** call `runIdempotentEffect` in the handler — that would double-wrap.
+> **Idempotency wrapping (verified):** follow `apps/worker/src/routes/directory/directory.ts` / `routes/matters/matters.ts`, NOT `routes/matters/locations.ts`. The custom-fields **service** wraps `runIdempotentEffect` internally (Task 4's `runCustomFieldEffect`), so the route calls the service, reads `result.idempotentReplay`, and serializes the plain value with `c.json()`. Do **not** call `runIdempotentEffect` in the handler — that would double-wrap.
 
 - [ ] **Step 4: Mount the routes**
 
@@ -2607,7 +2607,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/custom-fields.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/custom-fields-routes.test.ts
+git add apps/worker/src/routes/firm/custom-fields.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/custom-fields-routes.test.ts
 git commit -m "feat(custom-fields): /v1/custom-fields worker routes and OpenAPI contract"
 ```
 

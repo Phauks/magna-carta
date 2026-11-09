@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 
 // A deterministic epoch-ms clock: each read advances 5ms, so a request's duration is exactly 5.
 function steppingClock(startMs = 1_700_000_000_000) {

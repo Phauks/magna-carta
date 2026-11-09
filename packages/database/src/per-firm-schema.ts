@@ -262,7 +262,7 @@ export const member = sqliteTable("member", {
 // and keying on content would make one member's upload silently become the other's row.
 //
 // WHY THE FIRM'S DATABASE AND NOT THE ACCOUNT'S. A member's own name is an ACCOUNT fact and lives
-// on the control-plane user row (apps/api-worker/src/routes/me-name.ts says why). A picture is not
+// on the control-plane user row (apps/api-worker/src/http/routes/session/me-name.ts says why). A picture is not
 // the same kind of fact: it is what this firm's colleagues see beside this person's work, it is
 // stored in this firm's bucket under this firm's key, and a person who leaves takes their name to
 // their next account and leaves the firm's roster photograph behind. Better Auth's `user.image`
@@ -293,11 +293,21 @@ export const memberPhoto = sqliteTable(
   ],
 );
 
-// A named bundle of permissions. Five defaults are seeded by migration — the seeded handles are
-// committed literals; see drizzle/per-firm/0002_member-rbac.sql.
+// A named bundle of permissions. The defaults are seeded by migration, and the seeded handles are
+// committed literals.
+//
+// A role with a parent is a SUB-ROLE of it: Partner and Associate under Attorney. A member who holds
+// a sub-role also holds its parent, as a second member_role row, so every read that joins member_role
+// to role_permission sees the parent's permissions without knowing sub-roles exist; the sub-role's
+// own role_permission rows are only what it ADDS. Sub-roles add and never subtract, because a member
+// can do what any of their roles allows and nothing narrows that. One level deep: a sub-role's parent
+// has no parent. The set-roles route holds both rules and the at-most-one-sub-role-per-parent rule.
 export const role = sqliteTable("role", {
   id: text("id").primaryKey().$type<RoleId>(), // role_ handle
   name: text("name").notNull().unique(),
+  parentRoleId: text("parent_role_id")
+    .$type<RoleId>()
+    .references((): AnySQLiteColumn => role.id), // null = a top-level role
   createdAt: text("created_at").notNull(),
 });
 
@@ -868,6 +878,40 @@ export const matter = sqliteTable(
   ],
 );
 
+// The date on or after which the firm may destroy its own PAPER file for a matter, as the firm
+// recorded it. A date a person entered, never one this platform derived: retention periods are
+// jurisdictional, and a date invented here is a date somebody destroys a client's file on. Nothing
+// reads this to delete anything — it is a reminder on the matter and on the firm calendar, and the
+// destruction itself stays a person's act.
+//
+// A table of its own rather than a column on `matter` for two reasons. A date column carries the
+// shared shape guard, and adding a CHECK to `matter` is a rebuild of the table most of the schema
+// points at. And the retention record will grow — the basis a firm states, the policy a date came
+// from — without each arrival widening the matter row. One row per matter, keyed by the matter, so
+// two dates for one file are unrepresentable; clearing the date deletes the row, and the audit log
+// keeps every date the matter has carried.
+export const matterFileRetention = sqliteTable(
+  "matter_file_retention",
+  {
+    matterId: text("matter_id")
+      .primaryKey()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    destroyOn: text("destroy_on").notNull(),
+    recordedByUserId: text("recorded_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    check("matter_file_retention_destroy_on_shape_check", civilDateShape(table.destroyOn)),
+    // The firm calendar's window reads these by date across every matter; the matter id rides along
+    // so the keyset cursor seeks rather than sorts.
+    index("matter_file_retention_destroy_on_matter_id_index").on(table.destroyOn, table.matterId),
+  ],
+);
+
 // Every counter value a number draw actually consumed, one row per {scope_key, drawn_value}. The
 // guarded increment alone cannot keep concurrent draws distinct: when the active scheme carries a
 // variable segment that is NOT marked scoping (a client code, staff initials, a matter-type code),
@@ -1230,6 +1274,42 @@ export const fileVersionParticipant = sqliteTable(
     memberUserId: text("member_user_id").notNull().$type<UserId>(),
   },
   (table) => [primaryKey({ columns: [table.versionId, table.memberUserId] })],
+);
+
+// One tracked change a version carries that no earlier version of the file carried: who wrote or
+// removed which words, and where. Read from the document itself when the version's export copy is
+// made (the marks are the document's own record; the platform never re-derives them from a text
+// comparison), one row per mark, the author resolved to a member at that moment. The author's name
+// is kept as the document holds it beside the resolution, so a mark whose name resolves to nobody
+// is kept rather than dropped. Not a foreign key to the member row, on the same terms as
+// `uploaded_by`. The words are capped (`text_truncated`), since a row is a record of a change and
+// not a second copy of the document.
+export const fileVersionChange = sqliteTable(
+  "file_version_change",
+  {
+    versionId: text("version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    // Document order within the version, from zero.
+    sequence: integer("sequence").notNull(),
+    kind: text("kind", { enum: ["insertion", "deletion", "formatting"] }).notNull(),
+    authorName: text("author_name").notNull(),
+    authorUserId: text("author_user_id").$type<UserId>(),
+    changedAt: text("changed_at"),
+    text: text("text").notNull(),
+    textTruncated: integer("text_truncated").notNull().default(0),
+    // The package part the change sits in, and the paragraph within it, counted from zero.
+    part: text("part").notNull(),
+    paragraphIndex: integer("paragraph_index").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.sequence] }),
+    check(
+      "file_version_change_kind_check",
+      sql`${table.kind} IN ('insertion', 'deletion', 'formatting')`,
+    ),
+  ],
 );
 
 export const documentCheckout = sqliteTable(

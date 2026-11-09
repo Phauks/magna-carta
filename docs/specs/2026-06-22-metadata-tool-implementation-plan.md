@@ -1910,13 +1910,13 @@ git commit -m "feat(tools): catalog the Metadata Inspector & Scrubber"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/metadata.ts`
+- Create: `apps/worker/src/routes/files/metadata.ts`
 - Modify: `apps/worker/src/app.ts` (import + register, beside the other tool routes)
 - Test: `apps/worker/test/metadata-route.test.ts`
 
 **Interfaces:**
 
-- Consumes: `createMetadataPort`, `SCRUB_ALL`, `ScrubOptions` from `@magna-carta/metadata`; the chokepoint + route-meta helpers (see `routes/safe-browse.ts` for the exact imports).
+- Consumes: `createMetadataPort`, `SCRUB_ALL`, `ScrubOptions` from `@magna-carta/metadata`; the chokepoint + route-meta helpers (see `routes/tools/safe-browse.ts` for the exact imports).
 - Produces: `registerMetadataRoutes(app, chokepoint)`. Two operations:
   - `POST /api/v1/metadata/inspect` — body `{ filename: string, contentBase64: string }` → `200 { format, findings, clean }` or `400` problem (`too-large`/`unsupported-format`/`corrupt`/`decompression-bomb`).
   - `POST /api/v1/metadata/scrub` — body `{ filename: string, contentBase64: string, options?: ScrubOptions }` (default `SCRUB_ALL`) → `200 { mediaType, filename, cleanedBase64, report }` or `400` problem.
@@ -1953,8 +1953,9 @@ function docxFixture(): Uint8Array {
 
 describe("POST /api/v1/metadata/inspect", () => {
   it("returns findings for a docx with an author", async () => {
-    const app =
-      createApp(/* test bindings — copy the arrangement from safe-browse-route.test.ts */);
+    const app = createApp(
+      /* test bindings — copy the arrangement from safe-browse-route.test.ts */
+    );
     const res = await authedRequest(app, "POST", "/api/v1/metadata/inspect", {
       filename: "a.docx",
       contentBase64: base64(docxFixture()),
@@ -1988,7 +1989,7 @@ Expected: FAIL (route not registered).
 - [ ] **Step 3: Implement the route**
 
 ```ts
-// apps/worker/src/routes/metadata.ts
+// apps/worker/src/routes/files/metadata.ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { createMetadataPort, SCRUB_ALL, type ScrubOptions } from "@magna-carta/metadata";
 import type { Bindings } from "../app.ts";
@@ -2191,7 +2192,7 @@ export function registerMetadataRoutes(
 }
 ```
 
-In `apps/worker/src/app.ts`: add `import { registerMetadataRoutes } from "./routes/metadata.ts";` beside the other route imports, and call `registerMetadataRoutes(app, chokepoint);` in the `/api/v1` registration block next to `registerSafeBrowseRoute(...)`.
+In `apps/worker/src/app.ts`: add `import { registerMetadataRoutes } from "./routes/files/metadata.ts";` beside the other route imports, and call `registerMetadataRoutes(app, chokepoint);` in the `/api/v1` registration block next to `registerSafeBrowseRoute(...)`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -2201,7 +2202,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/worker/src/routes/metadata.ts apps/worker/src/app.ts apps/worker/package.json apps/worker/test/metadata-route.test.ts pnpm-lock.yaml
+git add apps/worker/src/routes/files/metadata.ts apps/worker/src/app.ts apps/worker/package.json apps/worker/test/metadata-route.test.ts pnpm-lock.yaml
 git commit -m "feat(worker): /api/v1/metadata inspect + scrub routes"
 ```
 
@@ -2346,7 +2347,7 @@ git commit -m "feat(database): seed tools:metadataScrubber to default roles"
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/dev-web-tools-demo.ts` (add a Metadata section)
+- Modify: `apps/worker/src/routes/developer/dev-web-tools-demo.ts` (add a Metadata section)
 
 **Interfaces:**
 
@@ -2428,7 +2429,7 @@ Run: `vp run worker-dev` with `DEV_DEMO_TOOLS=1`, open `/__dev/web-tools`, sign 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add apps/worker/src/routes/dev-web-tools-demo.ts
+git add apps/worker/src/routes/developer/dev-web-tools-demo.ts
 git commit -m "chore(worker): add metadata tool to the throwaway dev demo page"
 ```
 
