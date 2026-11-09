@@ -671,7 +671,7 @@ describe("the date the matter's paper file may be destroyed", () => {
     return `${String(today.getUTCFullYear() + years)}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
   }
 
-  it("reads the firm's minimum, which is none until the firm sets one, and only Owner/Admin sets it", async () => {
+  it("reads the firm's minimum, which is none until the firm sets one, and only Admin sets it", async () => {
     await setMinimum(0);
     const read = (await (await get("/api/v1/matters/settings", readOnlyCookie)).json()) as {
       fileRetentionMinimumYears: number;

@@ -293,11 +293,21 @@ export const memberPhoto = sqliteTable(
   ],
 );
 
-// A named bundle of permissions. Five defaults are seeded by migration — the seeded handles are
-// committed literals; see drizzle/per-firm/0002_member-rbac.sql.
+// A named bundle of permissions. The defaults are seeded by migration, and the seeded handles are
+// committed literals.
+//
+// A role with a parent is a SUB-ROLE of it: Partner and Associate under Attorney. A member who holds
+// a sub-role also holds its parent, as a second member_role row, so every read that joins member_role
+// to role_permission sees the parent's permissions without knowing sub-roles exist; the sub-role's
+// own role_permission rows are only what it ADDS. Sub-roles add and never subtract, because a member
+// can do what any of their roles allows and nothing narrows that. One level deep: a sub-role's parent
+// has no parent. The set-roles route holds both rules and the at-most-one-sub-role-per-parent rule.
 export const role = sqliteTable("role", {
   id: text("id").primaryKey().$type<RoleId>(), // role_ handle
   name: text("name").notNull().unique(),
+  parentRoleId: text("parent_role_id")
+    .$type<RoleId>()
+    .references((): AnySQLiteColumn => role.id), // null = a top-level role
   createdAt: text("created_at").notNull(),
 });
 

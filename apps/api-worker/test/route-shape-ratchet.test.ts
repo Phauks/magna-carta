@@ -117,7 +117,8 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "platform/meta-versions.ts": { lines: 330, shapes: 5 },
   "platform/platform-status.ts": { lines: 407, shapes: 6 },
   "session/me.ts": { lines: 300, shapes: 6 },
-  "session/member-administration.ts": { lines: 605, shapes: 5 },
+  // Raised from 605 lines when the sub-role rules (a sub-role needs its parent, one per parent) landed.
+  "session/member-administration.ts": { lines: 659, shapes: 5 },
   "session/registrations.ts": { lines: 794, shapes: 4 },
   "support/support-grants.ts": { lines: 386, shapes: 6 },
   "timekeeping/fees.ts": { lines: 976, shapes: 5 },

@@ -55,7 +55,7 @@ describe("POST /api/v1/reports/exports", () => {
     expect(response.status).toBe(403);
   });
 
-  it("renders a word-processing package for an Owner/Admin member", async () => {
+  it("renders a word-processing package for an Admin member", async () => {
     const { userId } = await seedCredentialedUser("export-ok@example.com", {
       userName: "Export OK",
       firmId: poolFirmId,

@@ -51,7 +51,7 @@ export const membersInvite = <ThrowOnError extends boolean = false>(options: Opt
 export const rolesList = <ThrowOnError extends boolean = false>(options?: Options<RolesListData, ThrowOnError>): RequestResult<RolesListResponses, RolesListErrors, ThrowOnError> => (options?.client ?? client).get<RolesListResponses, RolesListErrors, ThrowOnError>({ url: '/api/v1/roles', ...options });
 
 /**
- * Sets the roles a member holds, as a whole set. Refused when the actor is the subject, and refused when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.
+ * Sets the roles a member holds, as a whole set. Refused when the actor is the subject, when the set names a sub-role without its parent role or two sub-roles of one parent, and when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.
  */
 export const membersSetRoles = <ThrowOnError extends boolean = false>(options: Options<MembersSetRolesData, ThrowOnError>): RequestResult<MembersSetRolesResponses, MembersSetRolesErrors, ThrowOnError> => (options.client ?? client).put<MembersSetRolesResponses, MembersSetRolesErrors, ThrowOnError>({
     url: '/api/v1/members/{userId}/roles',
@@ -216,7 +216,7 @@ export const metaVersions = <ThrowOnError extends boolean = false>(options?: Opt
 export const metaDatabaseHealth = <ThrowOnError extends boolean = false>(options?: Options<MetaDatabaseHealthData, ThrowOnError>): RequestResult<MetaDatabaseHealthResponses, MetaDatabaseHealthErrors, ThrowOnError> => (options?.client ?? client).get<MetaDatabaseHealthResponses, MetaDatabaseHealthErrors, ThrowOnError>({ url: '/api/v1/meta/database-health', ...options });
 
 /**
- * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
+ * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
  */
 export const firmsProvision = <ThrowOnError extends boolean = false>(options: Options<FirmsProvisionData, ThrowOnError>): RequestResult<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError> => (options.client ?? client).post<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError>({
     url: '/api/v1/firms',

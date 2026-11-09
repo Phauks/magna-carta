@@ -4,6 +4,9 @@ Setup and administration for the firm owner / administrator: onboarding, users &
 
 Plain language, task-oriented — same pattern as the end-user guides ([`../README.md`](../README.md)), aimed at the person configuring the firm rather than using day-to-day features.
 
+- [Roles and sub-roles](roles-and-sub-roles.md) — the roles a firm starts with, Admin for whoever
+  administers the firm, Partner and Associate as kinds of Attorney, giving someone a sub-role, and
+  how a rate card prices them.
 - [Firm Profile](firm-profile.md) — the name clients read on invoices, in the portal and on
   generated documents.
 - [Firm Brand](firm-brand.md) — the firm's primary mark and the images kept beside it, and why an

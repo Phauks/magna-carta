@@ -120,7 +120,7 @@ describe("GET /api/v1/members", () => {
 
   it("carries the roles a member holds, and an empty list where they hold none", async () => {
     const roster = await rosterBody(ownerCookie);
-    expect(memberIn(roster, ownerUserId).roleNames).toEqual(["Owner/Admin"]);
+    expect(memberIn(roster, ownerUserId).roleNames).toEqual(["Admin"]);
     expect(memberIn(roster, readOnlyUserId).roleNames).toEqual(["Read-only"]);
     // Not `[""]`: a member holding no role reads as holding no role, never as holding one with no
     // name — which is what an unguarded split of an empty packed column would produce.

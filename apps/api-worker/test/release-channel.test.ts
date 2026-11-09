@@ -39,7 +39,7 @@ async function putReleaseChannel(
   });
 }
 
-// Seeds a credentialed user on the resolvable pool firm, grants Owner/Admin (which carries
+// Seeds a credentialed user on the resolvable pool firm, grants Admin (which carries
 // firm:manageReleaseChannel), and signs in — the acting principal for the happy paths.
 async function signInAsOwner(email: string): Promise<string> {
   const { userId } = await seedCredentialedUser(email, { firmId: poolFirmId });

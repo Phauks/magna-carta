@@ -23,7 +23,7 @@ import {
 // another member's lock — auditing both the actor and the displaced holder, and freeing the document.
 //
 // Every member here holds nothing but a seeded role, and the two seats are exactly the split the
-// force-release seed draws: an Owner/Admin may displace a colleague's hold, and a Paralegal — who
+// force-release seed draws: an Admin may displace a colleague's hold, and a Paralegal — who
 // may edit, may take the copy offline, and may hold the exclusive lock — may not.
 
 const ISO = "2026-06-20T00:00:00.000Z";
@@ -33,7 +33,7 @@ let matterId: MatterId;
 let ownerUserId: UserId;
 let holderUserId: UserId;
 let revokedUserId: UserId;
-let ownerCookie: string; // Owner/Admin: edit + checkout + forceReleaseLock
+let ownerCookie: string; // Admin: edit + checkout + forceReleaseLock
 let holderCookie: string; // Paralegal: edit + checkout, no force-release
 let editorBCookie: string; // Paralegal: edit + checkout, no force-release
 let revokedCookie: string; // Paralegal: checkout (then deactivated)

@@ -350,7 +350,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // The firm's minimum retention for a closed matter's paper file (owner ruling 2026-11-09):
     // closing a matter asks for a destruction date at least this many years out, a later one, or
     // none. Server-backed from the start — GET/PATCH /api/v1/matters/settings — and its edit right
-    // is `matters:manageRetention`, Owner/Admin alone, checked against the session on the page.
+    // is `matters:manageRetention`, Admin alone, checked against the session on the page.
     id: "file-retention",
     label: "File Retention",
     href: "/settings/file-retention",

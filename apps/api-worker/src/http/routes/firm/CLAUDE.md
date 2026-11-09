@@ -4,7 +4,7 @@
 
 ## Firm scan-policy settings API
 
-`src/http/routes/firm/scan-policy.ts` exposes `GET /api/v1/firm/scan-policy` (returns the resolved `{scanPolicy, flaggedTreatment, stepUpReauthOnFlagged}`) and `PATCH /api/v1/firm/scan-policy` (writes any subset). Both require `firm:manageScanPolicy` (Owner + Admin). The route reads/writes via the `scan-policy-settings.ts` helpers in `@magna-carta/file-manager`; the ingest consumer (`src/files/`) calls those same helpers at queue-consume time, so ingest and the API always agree on defaults. The `downloads.ts` route reads `flaggedTreatment` at access time — a policy change takes effect on the next request without re-ingest.
+`src/http/routes/firm/scan-policy.ts` exposes `GET /api/v1/firm/scan-policy` (returns the resolved `{scanPolicy, flaggedTreatment, stepUpReauthOnFlagged}`) and `PATCH /api/v1/firm/scan-policy` (writes any subset). Both require `firm:manageScanPolicy` (Admin). The route reads/writes via the `scan-policy-settings.ts` helpers in `@magna-carta/file-manager`; the ingest consumer (`src/files/`) calls those same helpers at queue-consume time, so ingest and the API always agree on defaults. The `downloads.ts` route reads `flaggedTreatment` at access time — a policy change takes effect on the next request without re-ingest.
 
 ## Release channels — the two doors and the flag catalog
 

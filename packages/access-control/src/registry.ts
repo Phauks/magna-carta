@@ -23,7 +23,7 @@ export const PERMISSIONS = [
   "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
   // Whether every document opened in the browser editor records its changes. The firm's act, on
   // the firm:manageScanPolicy reasoning: it decides what the firm's documents carry inside them
-  // for their whole life, which is not a member's preference. Owner/Admin only by seed.
+  // for their whole life, which is not a member's preference. Admin only by seed.
   "firm:manageEditingPolicy", // read and update the firm's editing policy: whether documents record their changes
   "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
   // The firm's notification POLICY, which is a different act from a member's own preferences. The
@@ -32,14 +32,14 @@ export const PERMISSIONS = [
   // the firm's mail lands. None of those is a personal setting, so none of them may ride
   // notifications:read — that key is seeded to EVERY default role including Read-only precisely
   // because reading one's own feed is not a privilege, and reusing it here would let any member lower
-  // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
+  // the floor and shorten retention for everybody. Admin only, mirroring firm:manageScanPolicy.
   "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
   "firm:manageReportPolicy", // read and update the firm's report policy: what its trust-compliance document lists
   // The firm's own identity as it is PRINTED — the name on an invoice, in the client portal, and on
   // every generated document. Its own key rather than a corner of firm:manageMembers, on the
   // reasoning the three policy keys above already carry: administering who works here and deciding
   // what the firm is called to a client are different acts, and the second one reaches paper that
-  // has already left the building. Owner/Admin only by seed.
+  // has already left the building. Admin only by seed.
   "firm:manageProfile", // read and update the firm's identity: the name it is known to clients by
   // The member acting on their OWN record — today their name, and the natural home for the
   // per-member analytics opt-out and self-service professional profile that sit in the same gap.
@@ -57,7 +57,7 @@ export const PERMISSIONS = [
   // things that may send it. Deliberately NOT magnus:converse: that key says a member may hold a
   // conversation, and it seeds to the seats that do firm work — reusing it here would let any of them
   // decide, for the whole firm, that privileged content may leave for a third-party provider. Consent
-  // to that is the firm's act and nobody else's, so this seeds to Owner/Admin alone, the
+  // to that is the firm's act and nobody else's, so this seeds to Admin alone, the
   // firm:manageScanPolicy bracket. It also covers the assistant's daily ceiling, which is a spend
   // control on the same traffic and belongs with the decision that opened it.
   "firm:manageAiSettings", // read and update the firm's AI settings: the third-party processing gate, the assistant gate, and its daily ceiling
@@ -305,7 +305,7 @@ export const PERMISSIONS = [
   // work, Billing included, because the retainer arriving and the fee being agreed are a billing
   // clerk's own facts to record. Waiving a REQUIRED step is a different act — it is the recorded
   // override of an opening gate, under a named member's rationale — so it is its own key and stops at
-  // Owner/Admin and Attorney. Authoring the procedure is the firm's statement of how it takes work on,
+  // Admin and Attorney. Authoring the procedure is the firm's statement of how it takes work on,
   // the matter plan's argument, and stops at the same two seats. Authoring binds resource: "firm";
   // the three matter-side keys bind resource: "matter", because a record IS one matter's record.
   "intake:read", // read a matter's intake checklist: the steps its procedure requires and where each stands

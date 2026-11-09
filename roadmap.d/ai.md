@@ -184,7 +184,7 @@
   scope: The one screen a firm opens both consent gates from, and the only writer of the pair the assistant's resolver reads. Carries the assistant's daily question ceiling beside them, states the model in force with its pinned snapshot and both confidentiality facts, and states the EFFECTIVE answer over the staged values, so an assistant switched on above a closed processing gate never reads as working.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/(app)/settings/ai over GET/PATCH /api/v1/firm/ai/settings (apps/api-worker/src/http/routes/firm/firm-ai-settings.ts), behind firm:manageAiSettings — Owner/Admin alone by 20260909T000000_seed-ai-settings-permission, deliberately not magnus:converse. apps/api-worker/test/firm-ai-settings-routes.test.ts asserts the seam that matters: what the screen writes is what resolveMagnusFirmGates reads.
+  evidence: apps/web/src/routes/(app)/settings/ai over GET/PATCH /api/v1/firm/ai/settings (apps/api-worker/src/http/routes/firm/firm-ai-settings.ts), behind firm:manageAiSettings — Admin alone by 20260909T000000_seed-ai-settings-permission, deliberately not magnus:converse. apps/api-worker/test/firm-ai-settings-routes.test.ts asserts the seam that matters: what the screen writes is what resolveMagnusFirmGates reads.
   audience: public
   public-name: Turning AI on for your firm
   public-summary: Decide whether your firm's content may be sent to a model at all, and whether the assistant is one of the things that may send it. Both are off until you turn them on.
