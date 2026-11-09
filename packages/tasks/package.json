@@ -17,7 +17,8 @@
     "./sync-service": "./src/sync-service.ts",
     "./organisation-statements": "./src/organisation-statements.ts",
     "./organisation-service": "./src/organisation-service.ts",
-    "./subtask-statements": "./src/subtask-statements.ts"
+    "./subtask-statements": "./src/subtask-statements.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -28,7 +29,8 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/matters": "workspace:*"
+    "@magna-carta/matters": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

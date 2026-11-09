@@ -22,6 +22,22 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- How the firm organises its task work -----------------------------------------------------
+  "tasks.listTaskLists":
+    "The firm's live task lists with their statuses and flow. createTaskList in " +
+    "packages/tasks/src/organisation-service.ts refuses a list past MAX_TASK_LISTS (100), and " +
+    "addTaskListStatus refuses a status past MAX_TASK_LIST_STATUSES (20) per list, both in " +
+    "packages/tasks/src/types.ts; the settings screen shows every list at once to arrange them.",
+  "tasks.listTaskTeams":
+    "The firm's live teams with their members. createTaskTeam in " +
+    "packages/tasks/src/organisation-service.ts refuses a team past MAX_TASK_TEAMS (100) and a " +
+    "team past MAX_TASK_TEAM_MEMBERS (200), both in packages/tasks/src/types.ts.",
+  "tasks.readSubtaskTrees":
+    "The sub-tasks under at most MAX_TASK_PAGE_SIZE root tasks (the handler in " +
+    "apps/api-worker/src/http/routes/notes-and-tasks/task-organisation.ts slices the roots), each " +
+    "tree at most MAX_SUBTASK_DEPTH (5) deep, which the write paths in " +
+    "packages/tasks/src/task-service.ts hold. It completes a page the list already bounded, so a " +
+    "page boundary never splits a parent from its sub-tasks.",
   // --- The changes ONE version carries -----------------------------------------------------------
   "files.versionChanges":
     "What changed in one version, read from the document's own tracked changes: only the marks " +

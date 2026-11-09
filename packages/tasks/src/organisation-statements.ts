@@ -186,7 +186,7 @@ export async function liveTaskListNameTaken(
 ): Promise<boolean> {
   const { results } = await database
     .prepare(
-      `SELECT 1 AS present FROM ${TASK_LIST_TABLE} WHERE retired_at IS NULL AND name = ? ` +
+      `SELECT 1 AS present FROM ${TASK_LIST_TABLE} WHERE retired_at IS NULL AND name = ? COLLATE NOCASE ` +
         `AND id IS NOT ? LIMIT 1`,
     )
     .bind(name, exceptId)
@@ -400,7 +400,7 @@ export async function liveTaskTeamNameTaken(
 ): Promise<boolean> {
   const { results } = await database
     .prepare(
-      `SELECT 1 AS present FROM ${TASK_TEAM_TABLE} WHERE retired_at IS NULL AND name = ? ` +
+      `SELECT 1 AS present FROM ${TASK_TEAM_TABLE} WHERE retired_at IS NULL AND name = ? COLLATE NOCASE ` +
         `AND id IS NOT ? LIMIT 1`,
     )
     .bind(name, exceptId)

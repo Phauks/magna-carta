@@ -1,13 +1,8 @@
 import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
-import { WALL_CLOCK_TIME_PATTERN } from "@magna-carta/civil-time/wall-clock";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
-import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
   FileId,
   MatterDeadlineId,
@@ -16,6 +11,9 @@ import type {
   MatterTaskDocumentId,
   MatterTaskExternalLinkId,
   MatterTaskId,
+  TaskListId,
+  TaskListStatusId,
+  TaskTeamId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
@@ -33,13 +31,10 @@ import {
   decodeTaskCursor,
   encodeTaskSortKey,
   readMatterTask,
-  readMatterTaskDocuments,
   selectMatterTasksStatement,
   selectMyTasksStatement,
-  type MatterTaskDocumentRow,
   type MatterTaskRow,
 } from "@magna-carta/tasks/task-statements";
-import { readTaskTimeSummaries, NO_TIME_LOGGED } from "@magna-carta/timekeeping/task-time";
 import {
   linkTaskToExternalSystem,
   recordExternalSync,
@@ -47,29 +42,20 @@ import {
 } from "@magna-carta/tasks/sync-service";
 import {
   MAX_TASK_CHANGE_PAGE_SIZE,
-  readExternalLinksForTasks,
   readTaskChanges,
   readTaskIdForExternalId,
-  type MatterTaskExternalLinkRow,
 } from "@magna-carta/tasks/sync-statements";
 import {
   MAX_ARCHIVE_REASON_LENGTH,
-  MAX_TASK_BODY_LENGTH,
   MAX_TASK_PAGE_SIZE,
-  MAX_TASK_TITLE_LENGTH,
   TASK_PRIORITIES,
   TASK_RUNGS,
-  rungOf,
 } from "@magna-carta/tasks/types";
-import { TaskValidationError } from "@magna-carta/tasks/validation";
-import type { Context } from "hono";
-import type { Permission } from "@magna-carta/access-control/registry";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointIdempotency,
-  requireChokepointPermissions,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
@@ -77,9 +63,23 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
-import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
-import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
-import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
+import { problemJson } from "../../contracts/problem.ts";
+import { defineOpenAPIRoute } from "../../contracts/route-meta.ts";
+import { CreateTaskRequest, EditTaskRequest, TaskDetail } from "@magna-carta/tasks/contract";
+import {
+  ASSIGN,
+  AcknowledgedResponse,
+  CreatedResponse,
+  authErrors,
+  commitTaskEffect,
+  hasPermission,
+  projectTasks,
+  readMeta,
+  seesFirmTime,
+  serviceOptions,
+  taskIdParam,
+  writeMeta,
+} from "./task-route-support.ts";
 
 // The task's HTTP surface over @magna-carta/tasks.
 //
@@ -88,56 +88,15 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // with one set of routes, because "what is on my plate" spans both and nobody wants two lists.
 //
 // WHO MAY SEE WHAT is decided in the domain, by one predicate every read composes: a task on a
-// matter is visible to whoever can see that matter, and a task on none is private to its assignee
-// and whoever created it. No route re-states that rule.
+// matter is visible to whoever can see that matter, and a task on none is visible to the whole
+// firm, because a firm runs its own work in the open. No route re-states that rule.
 //
 // Assignment is its own route with its own permission. Putting work in a colleague's name is a
 // different act from fixing a due date, and a firm may reserve it without reserving the rest.
 
-const READ = "tasks:read" as const;
-// Not this route file's own permission — the task routes are gated on the three above. This one is
-// read in the time handler to decide WHOSE time the summary counts, which is the same line My Day
-// draws: with it, the task's whole time; without it, the reader's own and nobody else's.
-const VIEW_FIRM_TIME = "time:viewFirm" as const;
-const WRITE = "tasks:write" as const;
-const ASSIGN = "tasks:assign" as const;
-
 const CIVIL_DATE = CIVIL_DATE_PATTERN;
-const WALL_CLOCK_TIME = WALL_CLOCK_TIME_PATTERN;
 
 // ---- request/response contracts ----
-
-// When a task is due, as a caller supplies it. All three are optional together — a task with no due
-// date is ordinary — and the shape rules are enforced in the domain rather than here: a time needs a
-// date, and a date needs the zone it is read in, because a task due "Friday" falls at two different
-// moments in Reno and Boston.
-const dueFields = {
-  dueOn: z.string().regex(CIVIL_DATE).nullable().optional(),
-  dueAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
-  timeZone: z.string().min(1).max(120).nullable().optional(),
-};
-
-const taskContentFields = {
-  title: z.string().min(1).max(MAX_TASK_TITLE_LENGTH),
-  body: z.string().max(MAX_TASK_BODY_LENGTH).nullable().optional(),
-  priority: z.enum(TASK_PRIORITIES).nullable().optional(),
-  blockedByTaskId: identifierField("matterTask").nullable().optional(),
-  triggerEventId: identifierField("matterEvent").nullable().optional(),
-  deadlineId: identifierField("matterDeadline").nullable().optional(),
-  ...dueFields,
-};
-
-const CreateTaskRequest = z
-  .object({
-    // Explicitly nullable rather than omitted: a task on no matter is a decision the caller makes,
-    // not a field they forgot.
-    matterId: identifierField("matter").nullable(),
-    assigneeUserId: identifierField("user").nullable().optional(),
-    ...taskContentFields,
-  })
-  .openapi("CreateMatterTaskRequest");
-
-const EditTaskRequest = z.object(taskContentFields).openapi("EditMatterTaskRequest");
 
 const ReassignTaskRequest = z
   .object({ assigneeUserId: identifierField("user").nullable() })
@@ -156,90 +115,9 @@ const AttachDocumentRequest = z
   .object({ fileId: identifierField("file") })
   .openapi("AttachMatterTaskDocumentRequest");
 
-const TaskDocument = z
-  .object({
-    id: z.string(),
-    fileId: z.string(),
-    fileName: z.string(),
-    contentType: z.string().nullable(),
-    linkedAt: z.string(),
-    linkedBy: z.string().nullable(),
-  })
-  .openapi("MatterTaskDocument");
-
-const TaskDetail = z
-  .object({
-    id: z.string(),
-    // Null on a task that belongs to no client file.
-    matterId: z.string().nullable(),
-    title: z.string(),
-    body: z.string().nullable(),
-    // Null on a task nobody has picked up, which is a real state rather than a defect.
-    assigneeUserId: z.string().nullable(),
-    createdBy: z.string(),
-    priority: z.enum(TASK_PRIORITIES),
-    dueOn: z.string().nullable(),
-    dueAtTime: z.string().nullable(),
-    timeZone: z.string().nullable(),
-    // WHERE THE TASK STANDS, as the one vocabulary a reader has. The two columns behind it are the
-    // platform's problem and never a consumer's: nothing outside the server needs to know that
-    // three rungs live in one column and the fourth in another.
-    rung: z.enum(TASK_RUNGS),
-    completedAt: z.string().nullable(),
-    completedBy: z.string().nullable(),
-    // PUT AWAY, KEPT. Orthogonal to the rung — a task is archived FROM wherever it stood, and
-    // unarchiving puts it back there. The reason is optional and usually absent.
-    archivedAt: z.string().nullable(),
-    archivedBy: z.string().nullable(),
-    archiveReason: z.string().nullable(),
-    // The one task this one waits on, where there is one. It GATES NOTHING: a blocked task may still
-    // be completed, because a firm's real sequence has exceptions constantly.
-    blockedByTaskId: z.string().nullable(),
-    triggerEventId: z.string().nullable(),
-    deadlineId: z.string().nullable(),
-    documents: z.array(TaskDocument),
-    // How long this task has actually taken, from the time entries that name it. Minutes only —
-    // what a task COST is a billing question with a different audience and a different permission.
-    // The scope rides WITH the numbers rather than once per page on purpose: the same two totals
-    // mean "what this task cost the firm" under `firm` and "what I have put into it" under `own`,
-    // and a consumer must not be able to render one without the other.
-    // Who touched it last, and null on a row nothing has edited since it was written. A mirror
-    // reads this to tell its OWN writes from a person's; without it a two-way sync pushes back
-    // everything it just pulled and the two sides oscillate.
-    updatedBy: z.string().nullable(),
-    // Where else this task is written down. Empty on nearly every task: the platform integrates
-    // with nothing and ships no adapter, so a row here exists only because an addon put it there.
-    externalLinks: z.array(
-      z
-        .object({
-          id: z.string(),
-          system: z.string(),
-          externalId: z.string(),
-          externalUrl: z.string().nullable(),
-          remoteRevision: z.string().nullable(),
-          lastSyncedAt: z.string().nullable(),
-        })
-        .openapi("MatterTaskExternalLink"),
-    ),
-    timeLogged: z
-      .object({
-        billableMinutes: z.number().int(),
-        nonBillableMinutes: z.number().int(),
-        entryCount: z.number().int(),
-        scope: z.enum(["firm", "own"]),
-      })
-      .openapi("MatterTaskTimeLogged"),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  })
-  .openapi("MatterTaskDetail");
-
 const TaskPage = paginated(TaskDetail).openapi("MatterTaskPage");
-const CreatedResponse = z.object({ id: z.string() }).openapi("CreatedMatterTask");
-const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("MatterTaskAcknowledged");
 
 const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
-const taskIdParam = z.object({ taskId: identifierPathParam("matterTask", "taskId") });
 const attachmentIdParam = z.object({
   attachmentId: identifierPathParam("matterTaskDocument", "attachmentId"),
 });
@@ -266,6 +144,30 @@ const listTasksQuery = cursorQuery.extend({
   dueFrom: z.string().regex(CIVIL_DATE).optional(),
   dueTo: z.string().regex(CIVIL_DATE).optional(),
   search: z.string().min(1).max(200).optional(),
+  listId: z.string().optional().openapi({
+    description: "Comma-separated task list ids to include. Absent, every list.",
+  }),
+  topLevel: z
+    .enum(["true", "false"])
+    .optional()
+    .openapi({
+      description:
+        "Only tasks that are nobody's sub-task. A list screen pages these and reads each one's " +
+        "sub-tasks from the subtask-trees route, so a page boundary never splits a parent from " +
+        "its sub-tasks.",
+    }),
+  mine: z
+    .enum(["assigned", "watching", "both"])
+    .optional()
+    .openapi({
+      description:
+        "Narrow to the reader's own work: tasks assigned to them, directly or through a team " +
+        "they are on; tasks they watch; or either.",
+    }),
+  completed: z
+    .enum(["true", "false"])
+    .optional()
+    .openapi({ description: "Only completed tasks, or only open ones. Absent, both." }),
 });
 
 const myTasksQuery = listTasksQuery.extend({
@@ -279,117 +181,6 @@ const myTasksQuery = listTasksQuery.extend({
         "reopening the matter brings them back with no backfill.",
     }),
 });
-
-const authErrors = {
-  400: {
-    description: "Missing Idempotency-Key (this operation requires one)",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  401: {
-    description: "No valid session",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  403: {
-    description: "The session member lacks the required permission",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  404: {
-    description: "The firm is unreachable, the member is deactivated, or the task is unknown",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  409: {
-    description: "A request with this Idempotency-Key is still in progress",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  422: {
-    description: "The request body is not a shape this operation accepts",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  429: {
-    description: "Rate limited",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-} as const;
-
-// ---- error mapping ----
-
-function taskErrorResponse(
-  c: Context,
-  caught: TaskValidationError,
-): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  switch (caught.code) {
-    case "task-unknown":
-    case "task-unknown-file":
-    case "task-unknown-predecessor":
-    // 404 and not 403: which matter a task or a document belongs to is itself a fact about the
-    // firm's work, and a distinguishable refusal would let a caller probe for either.
-    case "task-matter-mismatch":
-    case "task-file-matter-mismatch":
-    case "task-predecessor-matter-mismatch":
-      return problemJson(c, {
-        type: "not-found",
-        title: "Not found",
-        status: 404,
-        detail: caught.message,
-      });
-    // Where the task stands is not where this move applies. A conflict rather than a validation
-    // failure: the request was well-formed and the record moved under it, which is what a second
-    // person completing the same task looks like.
-    case "task-not-open":
-    case "task-not-done":
-    case "task-already-archived":
-    case "task-not-archived":
-      return problemJson(c, {
-        type: "conflict",
-        title: "That task is not where this change applies",
-        status: 409,
-        detail: caught.message,
-      });
-    default:
-      return problemJson(c, {
-        type: "validation",
-        title: "Task request invalid",
-        status: 422,
-        detail: caught.message,
-      });
-  }
-}
-
-// ---- route metas ----
-
-// Every task route binds resource: "firm" rather than "matter", including the matter-scoped list.
-// A task's matter is nullable, so a matter cannot be the tenancy root of a record that need not have
-// one — the firm is. What the matter-scoped list narrows by is a filter, and the visible-matter
-// predicate still decides what it may return.
-function readMeta(action: string): RouteMeta {
-  return {
-    operationId: `tasks.${action}`,
-    surface: "app",
-    authenticated: true,
-    permission: READ,
-    resource: "firm",
-    audited: false,
-    idempotency: "optional",
-    rateLimit: "default",
-  };
-}
-
-function writeMeta(action: string, permission: typeof WRITE | typeof ASSIGN = WRITE): RouteMeta {
-  return {
-    operationId: `tasks.${action}`,
-    surface: "app",
-    authenticated: true,
-    permission,
-    resource: "firm",
-    audited: true,
-    // Required. A retried create must not put a second copy of the same task on somebody's list,
-    // and a duplicate task is worse than a duplicate read: two identical obligations, one of which
-    // somebody will complete and the other of which will sit there looking undone.
-    idempotency: "required",
-    idempotencyStore: "firm",
-    rateLimit: "default",
-  };
-}
 
 // ---- routes ----
 
@@ -887,76 +678,6 @@ const detachDocumentRoute = defineOpenAPIRoute(
 );
 
 // ---- shared handler plumbing ----
-
-function serviceOptions(userId: UserId) {
-  return {
-    clock: { now: () => new Date().toISOString() },
-    actorUserId: userId,
-    randomSource: cryptoRandomSource,
-    visibility: visibleMatterPredicate(),
-  };
-}
-
-function taskDetail(
-  row: MatterTaskRow,
-  documents: readonly MatterTaskDocumentRow[],
-  externalLinks: readonly MatterTaskExternalLinkRow[],
-  timeLogged: z.infer<typeof TaskDetail>["timeLogged"],
-): z.infer<typeof TaskDetail> {
-  return {
-    id: row.id,
-    matterId: row.matter_id,
-    title: row.title,
-    body: row.body,
-    assigneeUserId: row.assignee_user_id,
-    createdBy: row.created_by,
-    priority: row.priority,
-    dueOn: row.due_on,
-    dueAtTime: row.due_at_time,
-    timeZone: row.time_zone,
-    rung: rungOf({ state: row.state, progress: row.progress }),
-    completedAt: row.completed_at,
-    completedBy: row.completed_by,
-    archivedAt: row.archived_at,
-    archivedBy: row.archived_by,
-    archiveReason: row.archive_reason,
-    blockedByTaskId: row.blocked_by_task_id,
-    triggerEventId: row.trigger_event_id,
-    deadlineId: row.deadline_id,
-    documents: documents
-      .filter((document) => document.task_id === row.id)
-      .map((document) => ({
-        id: document.id,
-        fileId: document.file_id,
-        fileName: document.file_name,
-        contentType: document.content_type,
-        linkedAt: document.linked_at,
-        linkedBy: document.linked_by,
-      })),
-    externalLinks: externalLinks
-      .filter((link) => link.task_id === row.id)
-      .map((link) => ({
-        id: link.id,
-        system: link.system,
-        externalId: link.external_id,
-        externalUrl: link.external_url,
-        remoteRevision: link.remote_revision,
-        lastSyncedAt: link.last_synced_at,
-      })),
-    timeLogged,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    updatedBy: row.updated_by,
-  };
-}
-
-// Whether this reader may see other timekeepers' time. Not one of this file's own permissions — the
-// task routes ride the three above — and it gates nothing: it decides WHOSE time the page counts,
-// so a member without it gets their own entries rather than an error or a blank.
-function seesFirmTime(c: Context): boolean {
-  return requireChokepointPermissions(c).has(VIEW_FIRM_TIME as unknown as Permission);
-}
-
 // A comma-separated query value narrowed to a closed vocabulary. Anything the vocabulary does not
 // contain is dropped rather than refused: a filter is a narrowing, and a caller that names a state
 // this platform does not have gets the states it does rather than a 422 about a query string.
@@ -972,8 +693,17 @@ function closedList<T extends string>(
   return chosen.length === 0 ? undefined : chosen;
 }
 
-function filtersFrom(query: z.infer<typeof listTasksQuery>) {
+function filtersFrom(query: z.infer<typeof listTasksQuery>, viewerUserId: UserId) {
+  const listIds = query.listId
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0) as TaskListId[] | undefined;
   return {
+    listIds: listIds === undefined || listIds.length === 0 ? undefined : listIds,
+    topLevelOnly: query.topLevel === "true",
+    assignedToUserId: query.mine === "assigned" || query.mine === "both" ? viewerUserId : undefined,
+    watchedByUserId: query.mine === "watching" || query.mine === "both" ? viewerUserId : undefined,
+    completed: query.completed === undefined ? undefined : query.completed === "true",
     rungs: closedList(query.rung, TASK_RUNGS),
     includeArchived: query.includeArchived === "true",
     priorities: closedList(query.priority, TASK_PRIORITIES),
@@ -995,33 +725,8 @@ async function pageFrom(
   const hasMore = results.length > MAX_TASK_PAGE_SIZE;
   const rows = hasMore ? results.slice(0, MAX_TASK_PAGE_SIZE) : results;
   const last = rows.at(-1);
-  const taskIds = rows.map((row) => row.id);
-  // The page's attachments in ONE bounded read keyed by the tasks on it, never one read per task.
-  const documents = await readMatterTaskDocuments(
-    database,
-    taskIds,
-    visibleMatterPredicate(),
-    viewerUserId,
-  );
-  // The page's time on the same terms, and for the same reason. Whose time it counts is the
-  // reader's `time:viewFirm` answer, which is the line My Day already draws: with it, what the task
-  // cost the firm; without it, what this member put into it and nobody else's.
-  const timeByTask = await readTaskTimeSummaries(database, {
-    taskIds,
-    onlyTimekeeperUserId: seesFirmTime ? null : viewerUserId,
-  });
-  // And the page's external identities on the same terms. Empty for every firm that has connected
-  // nothing, which is every firm the platform ships to — an IN over an indexed column against no
-  // rows costs nothing, and the alternative is a surface that cannot say a task is mirrored.
-  const externalLinks = await readExternalLinksForTasks(database, taskIds);
-  const scope = seesFirmTime ? ("firm" as const) : ("own" as const);
   return {
-    data: rows.map((row) =>
-      taskDetail(row, documents, externalLinks, {
-        ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED),
-        scope,
-      }),
-    ),
+    data: await projectTasks(database, rows, viewerUserId, seesFirmTime),
     // Keyed on the same composite the list is ordered by, so the walk cannot skip or repeat.
     nextCursor:
       hasMore && last !== undefined ? encodeCursor(encodeTaskSortKey(last), last.id) : null,
@@ -1031,48 +736,6 @@ async function pageFrom(
 function cursorFrom(cursor: string | undefined) {
   const decoded = decodeCursor(cursor);
   return decoded === undefined ? undefined : decodeTaskCursor(decoded.createdAt, decoded.id);
-}
-
-type TaskEffectOutcome =
-  | { ok: true; id: string; replayed: boolean }
-  | { ok: false; problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> };
-
-async function commitTaskEffect(
-  c: Context,
-  database: BatchDatabase,
-  idempotency: { key: string | undefined; fingerprint: string },
-  responseCode: number,
-  call: () => Promise<{ id: string; effect: EffectWrite }>,
-): Promise<TaskEffectOutcome> {
-  const now = () => new Date().toISOString();
-  let result;
-  try {
-    result = await runIdempotentEffect({
-      database,
-      key: idempotency.key,
-      fingerprint: idempotency.fingerprint,
-      now,
-      effect: async () => {
-        const { id, effect } = await call();
-        return {
-          write: effect,
-          responseCode,
-          // The stored body IS the wire body: the idempotency gate replays it verbatim.
-          responseBody: canonicalJsonStringify({ id }),
-        };
-      },
-    });
-  } catch (caught) {
-    if (caught instanceof TaskValidationError) {
-      return { ok: false, problem: taskErrorResponse(c, caught) };
-    }
-    throw caught;
-  }
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
-    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
-  }
-  const stored = JSON.parse(result.responseBody ?? "{}") as { id: string };
-  return { ok: true, id: stored.id, replayed: result.kind === "replayed" };
 }
 
 export function registerTasksRoutes(
@@ -1095,7 +758,7 @@ export function registerTasksRoutes(
           limit: MAX_TASK_PAGE_SIZE + 1,
           visibility: visibleMatterPredicate(),
           viewerUserId: userId,
-          filters: filtersFrom(query),
+          filters: filtersFrom(query, userId),
         },
       ).all<TaskListRow>();
       return c.json(await pageFrom(firm.firmDatabase, userId, seesFirmTime(c), results), 200);
@@ -1114,7 +777,7 @@ export function registerTasksRoutes(
         limit: MAX_TASK_PAGE_SIZE + 1,
         visibility: visibleMatterPredicate(),
         viewerUserId: userId,
-        filters: filtersFrom(query),
+        filters: filtersFrom(query, userId),
         includeClosedMatters: query.includeClosedMatters === "true",
       }).all<TaskListRow>();
       return c.json(await pageFrom(firm.firmDatabase, userId, seesFirmTime(c), results), 200);
@@ -1138,30 +801,9 @@ export function registerTasksRoutes(
       // The changed tasks are projected exactly as a list projects them — same shape, same links,
       // same time — because a sync reading a different shape from the screen would be a second
       // definition of what a task is.
-      const documents = await readMatterTaskDocuments(
-        firm.firmDatabase,
-        page.changed.map((row) => row.id),
-        visibleMatterPredicate(),
-        userId,
-      );
-      const externalLinks = await readExternalLinksForTasks(
-        firm.firmDatabase,
-        page.changed.map((row) => row.id),
-      );
-      const firmTime = seesFirmTime(c);
-      const timeByTask = await readTaskTimeSummaries(firm.firmDatabase, {
-        taskIds: page.changed.map((row) => row.id),
-        onlyTimekeeperUserId: firmTime ? null : userId,
-      });
-      const scope = firmTime ? ("firm" as const) : ("own" as const);
       return c.json(
         {
-          changed: page.changed.map((row) =>
-            taskDetail(row, documents, externalLinks, {
-              ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED),
-              scope,
-            }),
-          ),
+          changed: await projectTasks(firm.firmDatabase, page.changed, userId, seesFirmTime(c)),
           deleted: page.deleted.map((row) => ({
             taskId: row.task_id,
             matterId: row.matter_id,
@@ -1285,11 +927,16 @@ export function registerTasksRoutes(
       // write one. Checked here rather than by splitting the route, because "create a task" and
       // "create a task for Sarah" are one act with one shape and two authorizations.
       const assigneeUserId = (request.assigneeUserId ?? null) as UserId | null;
-      if (
-        assigneeUserId !== null &&
-        assigneeUserId !== userId &&
-        !requireChokepointPermissions(c).has(ASSIGN as unknown as Permission)
-      ) {
+      const assignees = request.assignees?.map((assignee) =>
+        "teamId" in assignee
+          ? { teamId: assignee.teamId as TaskTeamId }
+          : { userId: assignee.userId as UserId },
+      );
+      // Naming a team, or any person but oneself, is putting work in somebody else's name.
+      const namesSomebodyElse =
+        (assigneeUserId !== null && assigneeUserId !== userId) ||
+        (assignees ?? []).some((assignee) => assignee.userId !== userId);
+      if (namesSomebodyElse && !hasPermission(c, ASSIGN)) {
         return problemJson(c, {
           type: "permission-denied",
           title: "Forbidden",
@@ -1307,6 +954,11 @@ export function registerTasksRoutes(
             blockedByTaskId: (request.blockedByTaskId ?? null) as MatterTaskId | null,
             triggerEventId: (request.triggerEventId ?? null) as MatterEventId | null,
             deadlineId: (request.deadlineId ?? null) as MatterDeadlineId | null,
+            listId: (request.listId ?? null) as TaskListId | null,
+            statusId: (request.statusId ?? null) as TaskListStatusId | null,
+            parentTaskId: (request.parentTaskId ?? null) as MatterTaskId | null,
+            assignees,
+            watcherUserIds: request.watcherUserIds as UserId[] | undefined,
           },
           serviceOptions(userId),
         );

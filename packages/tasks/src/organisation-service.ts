@@ -272,7 +272,7 @@ export async function addTaskListStatus(
       `a list holds at most ${String(MAX_TASK_LIST_STATUSES)} statuses`,
     );
   }
-  if (siblings.some((sibling) => sibling.name === name)) {
+  if (siblings.some((sibling) => sibling.name.toLowerCase() === name.toLowerCase())) {
     throw new TaskValidationError("task-status-name-taken", "this list already has that status");
   }
   const now = options.clock.now();
@@ -306,7 +306,11 @@ export async function updateTaskListStatus(
   const name = normalizeTaskStatusName(input.name);
   const colour = normalizeTaskStatusColour(input.colour);
   const { siblings } = await requireStatus(database, statusId);
-  if (siblings.some((sibling) => sibling.id !== statusId && sibling.name === name)) {
+  if (
+    siblings.some(
+      (sibling) => sibling.id !== statusId && sibling.name.toLowerCase() === name.toLowerCase(),
+    )
+  ) {
     throw new TaskValidationError("task-status-name-taken", "this list already has that status");
   }
   return effectOf([
