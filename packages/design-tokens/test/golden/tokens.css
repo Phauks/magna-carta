@@ -171,6 +171,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -458,6 +460,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -745,6 +749,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1032,6 +1038,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1319,6 +1327,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1606,6 +1616,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1893,6 +1905,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -2180,6 +2194,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -2467,6 +2483,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -2754,6 +2772,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -3041,6 +3061,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -3328,6 +3350,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
