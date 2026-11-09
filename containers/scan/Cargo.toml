@@ -47,7 +47,7 @@ serde_json = "1"
 memmap2 = "0.9"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # Pure-Rust YARA engine (the heuristic-rule scanner); no libyara C dependency.
-yara-x = "1.18"
+yara-x = "1.22"
 # Structural-heuristic parsers (all pure Rust). zip uses the lean deflate-flate2 feature set so it
 # pulls no bzip2/zstd/lzma C deps (Windows-clean); encrypted-entry detection still works without AES.
 lopdf = "0.44"

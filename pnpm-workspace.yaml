@@ -8,6 +8,10 @@ packages:
 # unavailable in CI). workerd ships a pre-built binary via the platform-specific
 # optional dep (@cloudflare/workerd-<platform>), so it only needs this for the
 # workerd wrapper postinstall; esbuild and sharp similarly ship native binaries.
+#
+# Anything not listed stays blocked, and pnpm names it after every install. @scarf/scarf is the one it
+# names today: install-time download telemetry that @stoplight/spectral-cli pulls in from 6.17. Its
+# postinstall only reports the install, so it is deliberately left off this list.
 onlyBuiltDependencies:
   - workerd
   - esbuild
@@ -34,7 +38,7 @@ catalog:
   vite-plus: 0.1.24
   # Network Speed Test tool (apps/web). Cloudflare's own client-side measurement engine, on their
   # default ladder, so the numbers are comparable to speed.cloudflare.com.
-  "@cloudflare/speedtest": 1.13.0
+  "@cloudflare/speedtest": 1.16.0
   # Browser Sessions for the safe website viewer's interactive mode (apps/api-worker). The quick
   # actions reached through env.BROWSER cannot hold a session across requests; this fork of
   # puppeteer-core speaks CDP to the same binding and can. Apache-2.0.
@@ -44,26 +48,26 @@ catalog:
   # point for the TypeScript 7 native compiler (tsgo) later. See docs/conventions/build-performance.md.
   typescript: 6.0.3
   # Cloudflare
-  wrangler: 4.110.0
-  "@cloudflare/workers-types": 5.20260713.1
+  wrangler: 4.158.0
+  "@cloudflare/workers-types": 5.20261106.1
   # Bump in lockstep with wrangler: this pin hard-depends on an exact (wrangler, miniflare) pair, and
   # the bundled miniflare is what pulls undici/ws into the dev/test graph — moving wrangler alone
   # leaves the old miniflare (and its vulnerable undici/ws) resolved under this package. workers-types
   # tracks the same compatibility date as wrangler; keep all three aligned.
-  "@cloudflare/vitest-pool-workers": 0.18.4
+  "@cloudflare/vitest-pool-workers": 0.23.0
   # The Container base class + getContainer helper for the scan Container (slice 2·1 Plan 2).
   "@cloudflare/containers": 0.3.7
   # vitest is declared by apps/api-worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
-  vitest: 4.1.8
+  vitest: 4.1.12
   # API / Worker (apps/api-worker)
   # 4.12.34 fixed four security defects reachable from a Worker: JSX cross-request data disclosure,
   # a whitespace-tolerant CORS origin regex (ReDoS), a Language-middleware algorithmic-complexity DoS,
   # and response-header leakage in the proxy helper. Stay at or above it. 4.13.5 fixed three more:
   # unbounded dot-notation nesting in `parseBody()` (memory DoS on any form body), the query parser
   # reading past a `#` fragment, and `toSSG()` writing outside its output directory.
-  hono: 4.13.5
-  "@hono/zod-openapi": 1.5.1
-  zod: 4.4.3
+  hono: 4.13.16
+  "@hono/zod-openapi": 1.6.3
+  zod: 4.6.7
   # API contract pipeline. Hey API generates the typed client (packages/api-client) from the
   # OpenAPI document; Spectral lints the document (apps/api-worker devDeps). The Prism mock server
   # is deliberately NOT a dependency: nothing in the repository ran it, and its HTTP layer dragged in
@@ -71,17 +75,17 @@ catalog:
   # reach (the fixed line is a different major that the carrier cannot load). Run it on demand with
   # `pnpm dlx` when a consumer wants a mock (docs/conventions/api.md).
   "@hey-api/openapi-ts": 0.98.2
-  "@stoplight/spectral-cli": 6.16.3
-  "@tanstack/svelte-query": 6.1.38
+  "@stoplight/spectral-cli": 6.17.1
+  "@tanstack/svelte-query": 6.3.11
   # Auth (apps/api-worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
   # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
-  better-auth: 1.6.22
-  otpauth: 9.5.1
+  better-auth: 1.7.18
+  otpauth: 9.6.0
   # Incremental SHA-256 for the browser (apps/web): the upload dialog streams a file through it to
   # ask whether the firm already holds the bytes before sending any. WebCrypto has no incremental
   # digest, so a whole-file buffer was the only native path; this is audited, pure TypeScript, and
   # already in the graph under better-auth's utilities, so it is the same pin.
-  "@noble/hashes": 2.2.0
+  "@noble/hashes": 2.4.0
   # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
   # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
   "dinero.js": 2.0.2
@@ -98,52 +102,52 @@ catalog:
   double-metaphone: 2.0.1
   # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
   # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
-  drizzle-orm: 0.45.2
-  drizzle-kit: 0.31.10
+  drizzle-orm: 0.45.4
+  drizzle-kit: 0.31.11
   # File Manager — uploads & bulk download (packages/file-manager, apps/api-worker).
   # aws4fetch: SigV4 presigning of R2's S3-compatible endpoint (single-key, single-method, short-TTL
   # signed URLs; bytes never transit the Worker). client-zip 2.x: streaming store-mode ZIP64 (no
   # buffering, >4 GiB bundles). file-type 22.x: magic-byte sniffing over the head bytes — the
   # Uint8Array API (no Node streams), so it runs unchanged in the Workers runtime.
   aws4fetch: 1.0.20
-  client-zip: 2.5.0
-  file-type: 22.0.1
+  client-zip: 2.5.1
+  file-type: 22.3.0
   # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
-  "@faker-js/faker": 10.5.0
+  "@faker-js/faker": 10.6.0
   # Web (apps/web)
-  "@types/node": 26.1.2
-  svelte: 5.56.2
-  svelte-check: 4.6.0
+  "@types/node": 26.6.6
+  svelte: 5.57.3
+  svelte-check: 4.7.8
   # Floor is 2.70.2: earlier 2.x negotiates the `Accept` header in quadratic time, so a long crafted
   # header burns CPU without authentication. The shipped SPA is prerendered by adapter-static and
   # serves no SvelteKit request handler, so the reachable surface is the local dev server — but this
   # is also the version the fix landed in, and there is no cost to being on it.
-  "@sveltejs/kit": 2.70.2
-  "@sveltejs/adapter-static": 3.0.10
-  "@sveltejs/vite-plugin-svelte": 7.1.2
+  "@sveltejs/kit": 2.70.4
+  "@sveltejs/adapter-static": 3.0.11
+  "@sveltejs/vite-plugin-svelte": 7.3.1
   # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
   # Emscripten; runs in Node for the conversion test suite and in Workers for small raster jobs.
-  wasm-vips: 0.0.18
+  wasm-vips: 0.0.19
   # Design tokens (packages/design-tokens)
-  "@terrazzo/cli": 2.3.0
-  "@terrazzo/plugin-css": 2.3.0
-  "@terrazzo/plugin-tailwind": 2.3.0
+  "@terrazzo/cli": 2.10.0
+  "@terrazzo/plugin-css": 2.10.0
+  "@terrazzo/plugin-tailwind": 2.10.0
   "@types/culori": 4.0.1
   culori: 4.0.2
   # Design system (packages/design-system)
-  bits-ui: 2.18.1
+  bits-ui: 2.20.6
   clsx: 2.1.1
-  formsnap: 2.0.1
+  formsnap: 2.1.0
   paneforge: 1.0.2
-  svelte-sonner: 1.1.1
-  sveltekit-superforms: 2.30.2
-  tailwind-merge: 3.6.0
-  tailwindcss: 4.3.0
-  "@tailwindcss/vite": 4.3.0
+  svelte-sonner: 1.2.3
+  sveltekit-superforms: 2.31.0
+  tailwind-merge: 3.7.0
+  tailwindcss: 4.3.5
+  "@tailwindcss/vite": 4.3.5
   "@tanstack/table-core": 8.21.3
-  "@internationalized/date": 3.12.3
-  "@lucide/svelte": 1.28.0
-  virtua: 0.49.1
+  "@internationalized/date": 3.12.4
+  "@lucide/svelte": 1.70.0
+  virtua: 0.49.3
   # The QR encoder behind the design system's QrCode (an authenticator app scans the two-factor
   # secret from it). Pure TypeScript with no dependencies, and it hands back the module matrix rather
   # than markup, so the component draws its own SVG from design tokens.
@@ -160,26 +164,27 @@ catalog:
   # site — gated). MIT; supersedes the GSAP+DrawSVG+SplitText plan (ADR with the first consumer).
   animejs: 4.5.0
   # Catalog / stories (packages/design-system Storybook + Playwright VRT)
-  storybook: 10.4.3
-  "@storybook/addon-a11y": 10.4.3
-  "@storybook/addon-docs": 10.4.3
-  "@storybook/addon-svelte-csf": 5.1.2
-  "@storybook/addon-vitest": 10.4.3
-  "@storybook/svelte-vite": 10.4.3
-  "@chromatic-com/storybook": 5.2.1
-  # Pinned to 1.60: the gate's browser-install step locates the CLI by a `playwright@1.60` path glob and
-  # exits non-zero if it is absent, so this version and .github/workflows/gate.yml move together.
-  "@playwright/test": 1.60.0
+  storybook: 10.6.6
+  "@storybook/addon-a11y": 10.6.6
+  "@storybook/addon-docs": 10.6.6
+  "@storybook/addon-svelte-csf": 5.1.6
+  "@storybook/addon-vitest": 10.6.6
+  "@storybook/svelte-vite": 10.6.6
+  "@chromatic-com/storybook": 5.6.0
+  # Exact pin like everything else here. It used to be held at 1.60 because the hosted gate workflow
+  # found the CLI by a version-specific path glob; that workflow left with the Actions budget and
+  # nothing in the repository globs for a Playwright version any more.
+  "@playwright/test": 1.65.0
   # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
   # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
   # pragma so everything else stays in the default node pool.
-  happy-dom: 20.11.1
+  happy-dom: 20.14.6
   # PAdES e-signature CMS (the platform seal). pkijs builds the detached CMS/PKCS#7 over WebCrypto —
   # the firm key stays a non-extractable CryptoKey in the Worker, never extractable, never client-side.
   # Pure JS (memory-safe, golden rule 14); the Rust pdf-core engine owns the PDF structure and takes
   # the CMS as an opaque blob. asn1js is pkijs's ASN.1 layer, used directly to build signed attributes.
-  pkijs: 3.4.0
-  asn1js: 3.0.10
+  pkijs: 3.4.3
+  asn1js: 3.1.0
 
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
@@ -191,24 +196,24 @@ overrides:
   # not what is worth fixing. Range-scoped where a line must not be dragged across a boundary
   # (js-yaml, brace-expansion, esbuild). Direct/catalog carriers (better-auth, fast-xml-parser,
   # nanoid, @sveltejs/kit) are bumped at their source in the catalog above, not here.
-  "brace-expansion@1": 1.1.18
+  "brace-expansion@1": 1.1.21
   "js-yaml@3": 3.15.2
   "js-yaml@4": 4.3.2
-  undici: 7.29.0
+  undici: 7.30.2
   # fast-uri floor is 3.1.6: below it four host-confusion / SSRF defects in URI normalization (IPv6
   # handling, repeated percent-decoding of the host, percent-encoded scheme, skipped IDN
   # canonicalization on scheme-relative references) each score CVSS 7.5, over the gate's fail
   # threshold. It reaches the tree only through ajv, whose ^3 range already admits this line.
-  fast-uri: 3.1.7
+  fast-uri: 3.1.9
   # sharp floor is 0.35.4: the libheif it bundles below that decodes a crafted HEIF out of bounds.
   # Reached only through miniflare, the local Workers simulator the test pool runs on.
-  sharp: 0.35.4
+  sharp: 0.35.5
   # postcss floor is 8.5.23, which stops an attacker-controlled `sourceMappingURL` reading arbitrary
   # .map files when `from` is unset. 8.5.26 is taken rather than the bare floor because it is the
   # first release to require nanoid ^3.3.17 — the postcss dependency was the ONLY thing holding a
   # nanoid 3.3.12 in the tree, and that line's infinite-loop advisories score CVSS 4.0 8.2, over the
   # gate's fail threshold. One bump therefore clears three advisories, and no nanoid@3 pin is needed.
-  postcss: 8.5.26
+  postcss: 8.5.32
   # tsx asks for esbuild ~0.28.0 and the lockfile had settled on 0.28.0, which reads arbitrary files
   # through the dev server on Windows. Scoped to the 0.28 line on purpose: the other esbuild in the
   # tree is a 0.18 that @esbuild-kit/core-utils hard-pins, and dragging that ten minor versions
@@ -222,11 +227,11 @@ overrides:
   lodash: 4.18.1
   # devalue floor is 5.9.2, which stops a malformed payload exhausting the parser. It reaches the web
   # app through svelte, @sveltejs/kit and sveltekit-superforms, all of whose ^5 ranges admit it.
-  devalue: 5.9.2
+  devalue: 5.9.4
   # joi arrives only as sveltekit-superforms' optional validator adapter. 17.13.8 closes prototype
   # pollution through a `__proto__` language key and `rename()` targets reaching the validated
   # object's prototype. Scoped to 17 so a future carrier on the 18 line is not dragged back.
-  "joi@17": 17.13.8
+  "joi@17": 17.13.9
   # Removed rather than pinned: @puppeteer/browsers 2.2.4 is what brings extract-zip, and no
   # extract-zip release fixes its two symlink-traversal advisories (2.0.1 is the last, and affected).
   # @cloudflare/puppeteer hard-pins that 2.2.4 for its Node launcher, which downloads and starts a
@@ -236,4 +241,4 @@ overrides:
   # Node launcher is ever reached, the missing module fails the import loudly.
   "@cloudflare/puppeteer>@puppeteer/browsers": "-"
 patchedDependencies:
-  bits-ui@2.18.1: patches/bits-ui@2.18.1.patch
+  bits-ui@2.20.6: patches/bits-ui@2.20.6.patch

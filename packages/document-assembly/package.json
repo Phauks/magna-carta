@@ -54,7 +54,7 @@
     "@magna-carta/export-document": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/money": "workspace:*",
-    "fast-xml-parser": "^5.10.1",
+    "fast-xml-parser": "^5.12.0",
     "fflate": "^0.8.3"
   },
   "devDependencies": {
