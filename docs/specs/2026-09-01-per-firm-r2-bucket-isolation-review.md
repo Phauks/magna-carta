@@ -43,7 +43,7 @@ first task.
 ### 2.1 Blast radius: not "at least one firm" — structurally, every firm
 
 `firm-provisioner.ts:181` is the only production write to `firm.bucket_name`
-(`routes/dev-seed.ts` is the other, and is development-only), and it always writes
+(`routes/developer/dev-seed.ts` is the other, and is development-only), and it always writes
 `firmResourceName(firmId)`. That value can never equal the bound platform bucket name. So
 wherever the real R2 S3 credential set is configured, **every firm that completed
 provisioning fails the guard**, not one. The log shows one firm because one firm was using
@@ -57,15 +57,15 @@ whole tenant base, not a single account.
 - 21 modules reference `env.R2`.
 - Of those, 18 **never** touch the seam.
 - 3 use **both**: `files/firm-bucket.ts` (the seam itself, correctly), plus
-  `routes/dev-r2-upload.ts` and `routes/downloads.ts`.
+  `routes/developer/dev-r2-upload.ts` and `routes/files/downloads.ts`.
 
 So "a further 20 modules reach the binding directly" is really 18 exclusively-direct modules
 plus 2 mixed ones. The 2 mixed modules are the dangerous ones and the module-level framing
 files them under "goes through the seam".
 
-### 2.3 The failure mode is per call site, and `routes/downloads.ts` already has it
+### 2.3 The failure mode is per call site, and `routes/files/downloads.ts` already has it
 
-`routes/downloads.ts` is in the brief's list of 27. It is also broken in the exact way
+`routes/files/downloads.ts` is in the brief's list of 27. It is also broken in the exact way
 `firm-bucket.ts` exists to prevent:
 
 | line | what it does                                           | which bucket    |
@@ -85,11 +85,11 @@ route serves a 200 with a presigned URL pointing at an object that is not there.
 silent failure introduced _by_ the fix, in a module the inventory marks safe.
 
 The same discard-the-handle pattern appears at `editing/checkout-routes.ts` (×2),
-`routes/files.ts` (×2), `routes/bundle-status.ts` (×2), and `routes/uploads.ts` (×4). Those
+`routes/files/files.ts` (×2), `routes/files/bundle-status.ts` (×2), and `routes/files/uploads.ts` (×4). Those
 are all presign-only modules and therefore correct — but only a call-site read distinguishes
-them from `routes/downloads.ts`. **The audit unit is the call site, not the module.**
+them from `routes/files/downloads.ts`. **The audit unit is the call site, not the module.**
 
-The handoff has the same split: `routes/downloads.ts` passes `bucketName: bucket` (the firm
+The handoff has the same split: `routes/files/downloads.ts` passes `bucketName: bucket` (the firm
 bucket) to `BundleBuildCoordinator`, which at `bundle-coordinator.ts:101,105` heads
 `this.env.R2`, and `bundle-consumer.ts:115` reads inputs and writes the artifact through
 `env.R2`. One job, firm name on the routing key, platform bucket for every byte.
@@ -98,7 +98,7 @@ bucket) to `BundleBuildCoordinator`, which at `bundle-coordinator.ts:101,105` he
 
 Some modules never mention `env.R2` or `resolveFirmBucket`; they take `bucket: R2Bucket` as a
 parameter — `files/object-stamping.ts`, `downloads/download-register.ts`,
-`editing/wopi-routes.ts`, `search/natural-language-feed-writer.ts`, `routes/locations.ts`,
+`editing/wopi-routes.ts`, `search/natural-language-feed-writer.ts`, `routes/matters/locations.ts`,
 and helper functions inside `files/ingest-consumer.ts` and `discovery/load-artifacts.ts`.
 
 Architecturally this is the _right_ pattern — the caller decides, so these inherit
@@ -176,7 +176,7 @@ confirmed against R2's `CompleteMultipartUpload`.
 The brief's five steps are right. Two amendments:
 
 1. **Step 1 becomes a call-site audit, not a module sort.** Sorting 18 modules into two piles
-   leaves `routes/downloads.ts` and its coordinator/consumer chain misclassified, because they
+   leaves `routes/files/downloads.ts` and its coordinator/consumer chain misclassified, because they
    are mixed within a single module. Fix that chain as part of step 1 — it is a live
    correctness bug that outlives whichever option lands, and it is the endpoint in the
    production log.

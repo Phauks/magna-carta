@@ -2,7 +2,7 @@ use crate::{
     DecryptError, DecryptedFile, ExtractError, Format, FormatAdapter, KdfParams, RecoveryJob,
 };
 use aes::cipher::block_padding::NoPadding;
-use aes::cipher::{BlockEncryptMut, KeyIvInit};
+use aes::cipher::{BlockModeEncrypt, KeyIvInit};
 use lopdf::{Document, Object};
 use md5::Md5;
 use sha2::{Digest, Sha256, Sha384, Sha512};
@@ -417,7 +417,7 @@ fn hash_2b(password: &[u8], salt: &[u8], udata: &[u8]) -> [u8; 32] {
         let length = buffer.len();
         Aes128CbcEnc::new_from_slices(&k[0..16], &k[16..32])
             .expect("16-byte AES-128 key and IV")
-            .encrypt_padded_mut::<NoPadding>(&mut buffer, length)
+            .encrypt_padded::<NoPadding>(&mut buffer, length)
             .expect("buffer is block-aligned");
         let e = buffer;
 

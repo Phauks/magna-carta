@@ -4,7 +4,7 @@
    *
    * PROVISIONING IS NOT INSTANT AND THIS SCREEN DOES NOT PRETEND IT IS. Creating a firm makes a
    * bucket, mints a key, activates the firm and writes the owner's membership, none of which happens
-   * inside the request that asked for it (apps/api-worker/src/firm-provision-consumer.ts). So the
+   * inside the request that asked for it (apps/api-worker/src/background/firm-provision-consumer.ts). So the
    * answer to "is it ready" comes from asking again — and the screen NAMES THE STEPS it is waiting
    * on rather than showing a spinner that could mean anything. Each of them leaves its own mark on
    * the firm's record, so the sequence is read from the server rather than guessed at here, and a

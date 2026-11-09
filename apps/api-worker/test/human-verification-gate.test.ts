@@ -1,12 +1,12 @@
 import { env } from "cloudflare:test";
 import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import type {
   HumanVerificationOutcome,
   HumanVerificationPort,
-} from "../src/human-verification/human-verification-port.ts";
-import { HUMAN_VERIFICATION_TOKEN_HEADER } from "../src/human-verification/human-verification-gate.ts";
+} from "../src/http/human-verification/human-verification-port.ts";
+import { HUMAN_VERIFICATION_TOKEN_HEADER } from "../src/http/human-verification/human-verification-gate.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // The password a registering visitor now chooses on the form. Registration commits it with the

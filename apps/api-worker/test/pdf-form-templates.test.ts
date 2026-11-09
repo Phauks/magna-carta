@@ -2,9 +2,9 @@ import { env } from "cloudflare:test";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import formFixtures from "virtual:document-assembly-form-fixtures";
 import { beforeAll, describe, expect, it } from "vitest";
-import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
+import { documentAssemblyQueue } from "../src/background/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -45,7 +45,7 @@ async function post(
   sessionCookie: string,
   environmentOverride: Record<string, unknown> = {},
 ): Promise<Response> {
-  const { createApp } = await import("../src/app.ts");
+  const { createApp } = await import("../src/http/app.ts");
   return createApp().request(
     path,
     {
@@ -62,12 +62,12 @@ async function post(
 }
 
 async function get(path: string, sessionCookie: string): Promise<Response> {
-  const { createApp } = await import("../src/app.ts");
+  const { createApp } = await import("../src/http/app.ts");
   return createApp().request(path, { headers: { cookie: sessionCookie } }, env);
 }
 
 async function put(path: string, body: unknown, sessionCookie: string): Promise<Response> {
-  const { createApp } = await import("../src/app.ts");
+  const { createApp } = await import("../src/http/app.ts");
   return createApp().request(
     path,
     {

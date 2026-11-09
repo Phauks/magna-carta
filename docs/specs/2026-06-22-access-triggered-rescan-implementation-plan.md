@@ -27,7 +27,7 @@
 - `packages/file-manager/src/queries.ts` — extend the committed-version read to carry `content_sha256`; add a non-pending loader by `r2_key`.
 - `packages/file-manager/src/scan-cache.ts` — (reader already exists) add an infected-verdict record helper if not covered.
 - `apps/worker/src/files/ingest-consumer.ts` — the status-branch dispatch + the in-place re-scan path.
-- `apps/worker/src/routes/files.ts` — the access trigger on open/preview/download + the informed-access download gate.
+- `apps/worker/src/routes/files/files.ts` — the access trigger on open/preview/download + the informed-access download gate.
 - `apps/worker/src/scheduled.ts` — remove the proactive `runRescanSweep`.
 - `packages/telemetry/src/events.ts` — a `rescan.verdict` event (verdict + outcome only).
 - Tests beside each.
@@ -133,7 +133,7 @@ it("reads the configured scan engine version, null when unset", async () => {
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/files.ts`
+- Modify: `apps/worker/src/routes/files/files.ts`
 - Test: `apps/worker/test/files-routes.test.ts`
 
 **Interfaces:**
@@ -149,7 +149,7 @@ it("reads the configured scan engine version, null when unset", async () => {
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/files.ts`, the download read mediation; `packages/file-manager/src/queries.ts` (download eligibility); add the notification emit.
+- Modify: `apps/worker/src/routes/files/files.ts`, the download read mediation; `packages/file-manager/src/queries.ts` (download eligibility); add the notification emit.
 - Test: `apps/worker/test/files-routes.test.ts`
 - Docs: amend `docs/conventions/security.md` (the accepted/mitigated posture of serving a flagged file behind the gate).
 

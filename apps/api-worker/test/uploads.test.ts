@@ -116,7 +116,7 @@ describe("POST /api/v1/uploads — initiate", () => {
     expect(body["method"]).toBe("PUT");
     // Off production (no real R2 S3 credential set) the presigner reroutes the upload leg to the
     // Worker itself so `wrangler dev` and the test pool run the identical ceremony against a
-    // resolvable, same-origin target — the development R2 upload route (routes/dev-r2-upload.ts).
+    // resolvable, same-origin target — the development R2 upload route (routes/developer/dev-r2-upload.ts).
     expect(body["url"] as string).toContain("/api/__dev/r2/object");
     expect(body["headers"]).toMatchObject({ "content-type": "application/pdf" });
   });

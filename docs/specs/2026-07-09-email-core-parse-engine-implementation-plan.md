@@ -45,7 +45,7 @@ Every task's requirements implicitly include this section.
 | `crates/email-core/fuzz/`                                                       | `cargo-fuzz` targets, one per lane                                                       |
 | `crates/email-core/tests/fixtures/`                                             | Committed corpus                                                                         |
 | `packages/email/`                                                               | TypeScript wrapper (`package.json`, `tsconfig.json`, `vitest.config.ts`, `src/index.ts`) |
-| `apps/worker/src/routes/email-inspector.ts`                                     | The Inspector route                                                                      |
+| `apps/worker/src/routes/email/email-inspector.ts`                               | The Inspector route                                                                      |
 | `apps/worker/test/seed-tools-email-inspector.test.ts`                           | Seed guard                                                                               |
 | `packages/database/drizzle/per-firm/<timestamp>_seed-tools-email-inspector.sql` | Role seed                                                                                |
 
@@ -1441,7 +1441,7 @@ git commit -m "feat(tools): register the Email Inspector permission and catalog 
 
 **Files:**
 
-- Create: `apps/worker/src/routes/email-inspector.ts`
+- Create: `apps/worker/src/routes/email/email-inspector.ts`
 - Modify: `apps/worker/package.json`, `apps/worker/wasm-modules.d.ts`, `apps/worker/src/app.ts`
 
 **Interfaces:**
@@ -1464,7 +1464,7 @@ declare module "@magna-carta/email/src/pkg/email_core_bg.wasm" {
 
 - [ ] **Step 2: Write the route**
 
-Create `apps/worker/src/routes/email-inspector.ts`, modelled on `apps/worker/src/routes/file-type.ts`. Key points: import the wasm module and pass it to `ensureReady`; cap the body with `readInspectableSizeCap`; return `413` when over cap after `body.cancel()`; map `EmailError` codes onto Problem responses (`unsupported` → 415, `limitExceeded` → 413, `malformed` → 422).
+Create `apps/worker/src/routes/email/email-inspector.ts`, modelled on `apps/worker/src/routes/files/file-type.ts`. Key points: import the wasm module and pass it to `ensureReady`; cap the body with `readInspectableSizeCap`; return `413` when over cap after `body.cancel()`; map `EmailError` codes onto Problem responses (`unsupported` → 415, `limitExceeded` → 413, `malformed` → 422).
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -1530,7 +1530,7 @@ Never log the file bytes or a filename into telemetry, and never use `console.*`
 `apps/worker/src/app.ts` — add the import beside the sibling tool routes (near lines 53-59):
 
 ```ts
-import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
+import { registerEmailInspectorRoutes } from "./routes/email/email-inspector.ts";
 ```
 
 and the registration inside `createApp()` (near lines 412-421), in the same block:

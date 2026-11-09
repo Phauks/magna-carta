@@ -552,7 +552,7 @@ function matchKeyPlanStatement(
   );
 }
 
-// The GET-path hit read (routes/conflicts.ts readHitRows): a check's hits by check_id. Walks the
+// The GET-path hit read (routes/directory/conflicts.ts readHitRows): a check's hits by check_id. Walks the
 // conflicts_hit check_id index.
 function hitsByCheckPlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
   return captured(

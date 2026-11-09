@@ -119,7 +119,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094, ADR-0095
   spec: docs/specs/2026-06-16-shipping-easypost-design.md
-  evidence: packages/shipping + apps/api-worker/src/routes/shipping.ts on main; credential read and the four surfaces built 2026-09-18; webhook ingress deferred.
+  evidence: packages/shipping + apps/api-worker/src/http/routes/communications/shipping.ts on main; credential read and the four surfaces built 2026-09-18; webhook ingress deferred.
   audience: public
   public-name: Postage and shipping
   public-summary: Buy a label, track the package, and have the cost land on the matter.
@@ -153,7 +153,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0156
-  evidence: handleShipmentPurchased in apps/api-worker/src/costs/recoverable-charge-consumer.ts subscribes to shipment.purchased on the transactional outbox and posts the charge through packages/costs/src/recoverable-charge.ts against the firm's recovery policy — a built consumer rather than a named seam.
+  evidence: handleShipmentPurchased in apps/api-worker/src/background/costs/recoverable-charge-consumer.ts subscribes to shipment.purchased on the transactional outbox and posts the charge through packages/costs/src/recoverable-charge.ts against the firm's recovery policy — a built consumer rather than a named seam.
 
 - id: integrations.shipping.ui
   name: Shipping UI
@@ -180,7 +180,7 @@
   surface: internal
   slices: tools-area
   adrs: ADR-0101
-  evidence: packages/tools/src/catalog.ts + apps/api-worker/src/routes/tools-connection.ts.
+  evidence: packages/tools/src/catalog.ts + apps/api-worker/src/http/routes/tools/tools-connection.ts.
 
 - id: integrations.tools-area.listing-page
   name: Tools listing page
@@ -213,7 +213,7 @@
   surface: screen
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
-  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen built over apps/web/src/lib/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
+  evidence: apps/api-worker/src/http/routes/firm/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen built over apps/web/src/lib/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
   notes: It left the tool catalog on 2026-09-16 and is a Firm destination at /firm-usage beside Reports, keeping the tools:firmUsage key that gates it — a tool is a utility a member RUNS, and this runs nothing; it is the firm reading its own records. Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings report per office through @magna-carta/custodian/usage (external roots on a Held Offsite row); per-firm compute stays a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral).
 
 - id: integrations.tools-area.network-speed-test
@@ -258,7 +258,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0120, ADR-0121
-  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/api-worker/src/routes/whois.ts, with its own page in the app's tools section over apps/web/src/lib/tools/whois/.
+  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/api-worker/src/http/routes/tools/whois.ts, with its own page in the app's tools section over apps/web/src/lib/tools/whois/.
   notes: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.safe-browse
@@ -267,7 +267,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0119, ADR-0120
-  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha). Verified against the deployed service 2026-09-18 — a capture returns a screenshot.
+  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/http/routes/tools/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha). Verified against the deployed service 2026-09-18 — a capture returns a screenshot.
   notes: Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119.
 
 - id: integrations.tools.safe-browse-live
@@ -276,7 +276,7 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-09-20-interactive-browsing-design.md
-  evidence: apps/api-worker/src/safe-browse/ (live-stream.ts, puppeteer-live-browser.ts, safe-browse-session.ts) + apps/api-worker/src/routes/safe-browse-live.ts + apps/web/src/lib/tools/safe-browse/live-screen.svelte. The earlier screenshot-per-step Live was confirmed against the deployed service by the owner on 2026-09-24 (a redirect chain followed in a held session).
+  evidence: apps/api-worker/src/safe-browse/ (live-stream.ts, puppeteer-live-browser.ts, safe-browse-session.ts) + apps/api-worker/src/http/routes/tools/safe-browse-live.ts + apps/web/src/lib/tools/safe-browse/live-screen.svelte. The earlier screenshot-per-step Live was confirmed against the deployed service by the owner on 2026-09-24 (a redirect chain followed in a held session).
   notes: Partial until the streamed Live is confirmed against the deployed service — frames arriving, a click and a keystroke landing, the guard refusing an inward navigation. Miniflare has no browser binding, so the CDP adapter has no automated test; the stream's decisions around it are tested with a fake browser.
 
 - id: integrations.tools.metadata
@@ -286,7 +286,7 @@
   surface: awaiting-screen
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
-  evidence: packages/metadata + apps/api-worker/src/routes/metadata.ts.
+  evidence: packages/metadata + apps/api-worker/src/http/routes/files/metadata.ts.
   notes: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-integrity
@@ -296,7 +296,7 @@
   surface: awaiting-screen
   slices: file-hash-integrity
   adrs: ADR-0143
-  evidence: packages/file-integrity + apps/api-worker/src/routes/file-integrity.ts.
+  evidence: packages/file-integrity + apps/api-worker/src/http/routes/files/file-integrity.ts.
   notes: Backend only — no screen yet. All five digests verified byte-identical to md5sum/sha1sum/sha256sum on 2026-08-15 (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-type
@@ -306,7 +306,7 @@
   surface: awaiting-screen
   slices: file-type-verifier
   adrs: ADR-0160
-  evidence: packages/file-type + apps/api-worker/src/routes/file-type.ts (POST /api/v1/file-type/verify).
+  evidence: packages/file-type + apps/api-worker/src/http/routes/files/file-type.ts (POST /api/v1/file-type/verify).
   notes: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md.
 
 - id: integrations.tools.ssrf-guard
