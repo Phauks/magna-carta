@@ -15,7 +15,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // Corrections after a bill has gone out, over HTTP: the credit note, the client credit it opens, the
 // write-off, and the reversal. What this proves beyond the domain suite is the wiring — the

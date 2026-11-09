@@ -31,7 +31,7 @@ import {
 } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveNaturalLanguageProvisioningPort } from "./natural-language-binding.ts";

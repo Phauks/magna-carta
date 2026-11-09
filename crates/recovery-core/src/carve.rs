@@ -243,8 +243,12 @@ fn validate_run(sig: &Signature, run: &[u8]) -> bool {
                 .decode_headers()
                 .is_ok()
         }
-        // zune-png 0.4's `PngDecoder` reads via `ZReaderTrait`, implemented for `&[u8]`.
-        "image/png" => zune_png::PngDecoder::new(run).decode_headers().is_ok(),
+        // zune-png 0.5 reads via `ZByteReaderTrait` too, so it takes the same `ZCursor` wrapper.
+        "image/png" => {
+            zune_png::PngDecoder::new(zune_png::zune_core::bytestream::ZCursor::new(run))
+                .decode_headers()
+                .is_ok()
+        }
         // A real archive opens (central directory present and consistent).
         "application/zip" => zip::ZipArchive::new(Cursor::new(run)).is_ok(),
         // A real PDF loads (a findable, parseable cross-reference + trailer).

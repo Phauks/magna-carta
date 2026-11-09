@@ -29,7 +29,7 @@
 //     drops the five real Tools cases and keeps all three false ones. The `surface: "public"`
 //     routes are the whole problem — POST /api/v1/firms and the platform status and release-channel
 //     endpoints — and they are false by construction rather than by accident: the chokepoint
-//     (apps/api-worker/src/chokepoint/chokepoint.ts) skips its session, authn and RBAC steps entirely
+//     (apps/api-worker/src/http/chokepoint/chokepoint.ts) skips its session, authn and RBAC steps entirely
 //     for a public surface, so their `permission:` never gates anything and a firm role that
 //     carried it would gain nothing.
 //

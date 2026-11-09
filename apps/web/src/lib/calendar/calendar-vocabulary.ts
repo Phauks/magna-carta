@@ -52,6 +52,14 @@ export const CALENDAR_LAYERS: readonly CalendarLayer[] = [
       itemReviewDue: "Item review due",
     },
   },
+  {
+    key: "fileDestruction",
+    label: "File Destruction Dates",
+    sources: ["matterFileDestruction"],
+    kindLabels: {
+      fileDestruction: "Destroy after",
+    },
+  },
 ];
 
 /** The layer a key names, where one does. */

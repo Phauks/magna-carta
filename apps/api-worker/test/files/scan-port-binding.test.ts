@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
-import type { Bindings } from "../../src/app.ts";
+import type { Bindings } from "../../src/bindings.ts";
 import { resolveScanPort } from "../../src/files/scan-port-binding.ts";
 
 // resolveScanPort selects the remote scan adapter when SCAN_SERVICE is present and falls back

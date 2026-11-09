@@ -13,8 +13,8 @@ import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointUserId,
-} from "../../src/chokepoint/context-accessors";
-import type { AppVariables, FirmContext } from "../../src/chokepoint/ports";
+} from "../../src/http/chokepoint/context-accessors";
+import type { AppVariables, FirmContext } from "../../src/http/chokepoint/ports";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 
 type AppContext = Context<{ Variables: AppVariables }>;

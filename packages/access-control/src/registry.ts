@@ -73,6 +73,7 @@ export const PERMISSIONS = [
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
   "matters:manageNumbering", // edit the firm's numbering schemes
+  "matters:manageRetention", // set the firm's minimum retention for a closed matter's paper file
   // Seeded to EVERY default role, Read-only included: how the firm's numbers are shaped is a fact
   // every member reads off every record, so seeing the register is not a privilege — changing it
   // is, and that stays matters:manageNumbering.

@@ -1,0 +1,17 @@
+{
+  "$description": "Typeface axis — SYSTEM: the operating system's own interface face. Instant and zero-load: no web font is fetched at all. Re-points font.sans ONLY.",
+  "font": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": [
+        "system-ui",
+        "-apple-system",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ]
+    }
+  }
+}

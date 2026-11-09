@@ -4,7 +4,7 @@ import {
   inferenceJobDedupKey,
   tokenUsageKeyForDay,
   type InferenceJob,
-} from "../src/inference/inference-consumer.ts";
+} from "../src/background/inference/inference-consumer.ts";
 
 describe("firmRateGate (the back-pressure seam)", () => {
   it("is a pass-through no-op at launch — never throws, returns nothing", () => {

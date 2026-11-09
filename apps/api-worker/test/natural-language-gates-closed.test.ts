@@ -21,7 +21,10 @@ import {
 import { createMemoryLogger } from "@magna-carta/telemetry/logger";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { searchIndexQueue, type SearchIndexPorts } from "../src/search/index-consumer.ts";
+import {
+  searchIndexQueue,
+  type SearchIndexPorts,
+} from "../src/background/search/index-consumer.ts";
 import { searchIndexJobName, type SearchIndexMessage } from "../src/search/index-types.ts";
 import type { SearchIndexJob } from "../src/search/index-coordinator.ts";
 import {
@@ -29,7 +32,7 @@ import {
   resolveNaturalLanguageSearchPort,
 } from "../src/search/natural-language-binding.ts";
 import { provisionNaturalLanguageInstance } from "../src/search/natural-language-lifecycle.ts";
-import { runNaturalLanguageKeepAliveSweep } from "../src/search/natural-language-keep-alive.ts";
+import { runNaturalLanguageKeepAliveSweep } from "../src/background/search/natural-language-keep-alive.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirmRow } from "./support/test-auth.ts";
 

@@ -17,6 +17,18 @@
    *
    * THE KEYS ARE MINTED PER ATTEMPT, one per write, kept while nothing answered so a retry after a
    * dropped connection repeats the same write, and dropped once the server has answered.
+   *
+   * THE TIME IS A TIME FIELD, as it is on the event form (record-timing-fields.svelte): a text box
+   * hoping for `HH:MM` accepted anything typed into it and said nothing until the commit refused.
+   * A half-typed time reports an empty value, so the control's own `badInput` is read on every
+   * input and handed to the draft, which refuses it rather than recording "end of day".
+   *
+   * A FIELD THAT IS WRONG SAYS SO BENEATH ITSELF, once the reader has left it: the same sentence
+   * the commit bar shows, from the draft, with `aria-invalid` on the control (shortfall.ts states
+   * the convention). Nothing is marked before the reader has been in the field.
+   *
+   * THERE IS NO "NO MATTER" HERE. A deadline is recorded on a matter and nowhere else, so the
+   * matter picker leaves that row out rather than offering an answer the commit then refuses.
    */
   import DaySchedule from "./day-schedule.svelte";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
@@ -41,8 +53,8 @@
     type DeadlineSource,
   } from "./calendar-api.ts";
   import {
+    DEADLINE_FIELDS,
     deadlineDraftFrom,
-    deadlineDraftReady,
     deadlineDraftRequest,
     deadlineDraftShortfalls,
     deadlineDraftStarted,
@@ -51,6 +63,8 @@
     type DeadlineDraft,
   } from "./deadline-draft.ts";
   import { civilDateValue } from "./draft-text.ts";
+  import FieldRefusal from "./field-refusal.svelte";
+  import { shortfallFor } from "./shortfall.ts";
   import TimeZonePicker from "./time-zone-picker.svelte";
   import { civilDateText } from "$lib/dates";
 
@@ -98,6 +112,10 @@
   let createdId: string | null = null;
   let createKey: string | null = null;
   let supersedeKey: string | null = null;
+  /** The time control holds a partial entry its empty value does not show. */
+  let timeEntryUnfinished = $state(false);
+  /** The reader has left the time field, so a refusal about it may be shown beneath it. */
+  let timeVisited = $state(false);
 
   const superseding = $derived(supersedes !== null);
   const targetMatterId = $derived(supersedes?.matterId ?? matterId ?? chosenMatterId);
@@ -108,11 +126,18 @@
     label: deadlineSourceLabel(source),
   }));
 
-  const shortfalls = $derived(deadlineDraftShortfalls(draft));
+  const shortfalls = $derived(deadlineDraftShortfalls(draft, { timeEntryUnfinished }));
+  const timeRefusal = $derived(
+    timeVisited ? shortfallFor(shortfalls, DEADLINE_FIELDS.dueAtTime) : undefined,
+  );
+
+  function readTimeEntry(event: Event & { currentTarget: HTMLInputElement }): void {
+    timeEntryUnfinished = event.currentTarget.validity.badInput;
+  }
 
   const refusal = $derived.by(() => {
     if (targetMatterId === null) return "A matter is needed.";
-    if (!deadlineDraftReady(draft)) return shortfalls[0]?.sentence;
+    if (shortfalls.length > 0) return shortfalls[0]?.sentence;
     if (superseding && reason.trim() === "") return "A reason is needed.";
     return undefined;
   });
@@ -162,6 +187,8 @@
     createdId = null;
     createKey = null;
     supersedeKey = null;
+    timeEntryUnfinished = false;
+    timeVisited = false;
   }
 
   async function submit(): Promise<ActionOutcome> {
@@ -257,6 +284,7 @@
             capped={mattersCapped}
             reading={mattersReading}
             value={chosenMatterId}
+            offerNoMatter={false}
             disabled={busy}
             onpick={(picked) => (chosenMatterId = picked)}
           />
@@ -276,11 +304,19 @@
           <Label for="{idPrefix}-due-at-time">Time</Label>
           <Input
             id="{idPrefix}-due-at-time"
-            inputmode="numeric"
+            type="time"
             autocomplete="off"
+            aria-invalid={timeRefusal === undefined ? undefined : "true"}
             disabled={busy}
             bind:value={draft.dueAtTime}
+            oninput={readTimeEntry}
+            onchange={readTimeEntry}
+            onblur={(event: FocusEvent & { currentTarget: HTMLInputElement }) => {
+              readTimeEntry(event);
+              timeVisited = true;
+            }}
           />
+          <FieldRefusal refusal={timeRefusal} />
         </div>
       </div>
 

@@ -7,9 +7,10 @@ import {
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { EmailMessageId, FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
-import { problemType } from "../src/contracts/problem-types.ts";
+import { problemType } from "../src/http/contracts/problem-types.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { handleCaptureMessage, type EmailsCaptureMessage } from "../src/emails/capture-consumer.ts";
+import { handleCaptureMessage } from "../src/background/emails/capture-consumer.ts";
+import type { EmailsCaptureMessage } from "../src/emails/capture-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,

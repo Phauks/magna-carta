@@ -30,7 +30,7 @@ describe("the fixtures the gate self-tests against", () => {
 
 describe("what counts as first-party source", () => {
   it("takes code under the four roots that ship", () => {
-    expect(isShippingSource("apps/api-worker/src/routes/billing.ts")).toBe(true);
+    expect(isShippingSource("apps/api-worker/src/http/routes/billing/billing.ts")).toBe(true);
     expect(isShippingSource("apps/web/src/routes/matters/+page.svelte")).toBe(true);
     expect(isShippingSource("packages/design-system/src/lib/button.ts")).toBe(true);
     expect(isShippingSource("crates/pdf-core/src/lib.rs")).toBe(true);

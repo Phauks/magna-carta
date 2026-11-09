@@ -53,7 +53,7 @@ http-body-util = "0.1"
 # extracts text with, at the same pinned version, so this reuses the repository's PDF reader rather
 # than introducing a second one — and taking it directly instead of through pdf-core keeps hayro and
 # the image codecs out of this workspace's test build.
-lopdf = "0.44"
+lopdf = "0.46"
 # Loopback HTTP client for the full-app tests, matching containers/file-repair. default-features off
 # + rustls keeps the TLS backend pure Rust; a test binary never ships.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { doSqliteMigrationTarget } from "@magna-carta/database/do-sqlite-migration-target";
 import { doSqliteBatchDatabase } from "@magna-carta/database/do-sqlite-batch-database";
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { perFirmMigrations } from "../per-firm-migrations.ts";
 import { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
 import { uniqueConstraintColumns, type CommitOutcome, type RpcStatement } from "./rpc-types.ts";

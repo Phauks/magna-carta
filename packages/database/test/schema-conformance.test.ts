@@ -103,6 +103,10 @@ describe("schema conformance (fitness functions)", () => {
       // One professional profile per member, and the member IS the row — a second handle would let
       // two profiles exist for one person, and every read already arrives holding the user id.
       member_professional_profile: "member_user_id",
+      // One destruction date per matter's paper file, and the matter IS the row — a second handle
+      // would let two dates exist for one file, which is exactly the ambiguity a date somebody
+      // destroys a file on must never carry.
+      matter_file_retention: "matter_id",
       // One picture per member, and the member IS the row — a second handle would let two pictures
       // exist for one person, which is exactly the state a roster must never have to choose between.
       // Deliberately NOT keyed by the bytes' hash the way firm_brand_image is: two members may

@@ -18,7 +18,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";

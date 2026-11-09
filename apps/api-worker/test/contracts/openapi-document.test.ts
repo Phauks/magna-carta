@@ -2,7 +2,7 @@
 // getOpenAPI31Document is pure (no request, no env), so the offline emitter and the in-pool snapshot
 // guard share one builder. These assertions pin the extraction (app.ts) the emitter depends on.
 import { describe, expect, it } from "vitest";
-import { buildOpenAPIDocument, serializeOpenAPIDocument } from "../../src/app.ts";
+import { buildOpenAPIDocument, serializeOpenAPIDocument } from "../../src/http/app.ts";
 
 describe("buildOpenAPIDocument — the contract document, no bindings", () => {
   it("emits a 3.1 document with the configured info, servers, and every registered route path", () => {

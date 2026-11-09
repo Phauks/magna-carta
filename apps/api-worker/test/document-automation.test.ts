@@ -4,7 +4,7 @@ import type { EngineResolver } from "@magna-carta/conversion/execute";
 import type { ConversionResult } from "@magna-carta/conversion/port";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
+import { documentAssemblyQueue } from "../src/background/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -14,7 +14,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The document-automation surface end to end under Miniflare: register a template, assemble it against
 // a matter, and confirm the produced document reached the matter's File Manager THROUGH THE INGEST

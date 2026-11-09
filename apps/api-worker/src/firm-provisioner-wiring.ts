@@ -1,4 +1,4 @@
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import {
   createCloudflareRestFirmResourceProvider,
   createDevFirmResourceProvider,
@@ -6,7 +6,7 @@ import {
 } from "./firm-resource-provider.ts";
 
 // The env → FirmResourceProvider factory: how the worker wires the provisioner's resource port to
-// real bindings. Lives beside the provisioner so routes/firms.ts stays at route altitude. The
+// real bindings. Lives beside the provisioner so routes/platform/firms.ts stays at route altitude. The
 // firm's per-firm database needs no wiring — it is the firmId-addressed FirmDatabase Durable
 // Object, which self-migrates on first access.
 
