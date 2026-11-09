@@ -48,6 +48,9 @@ env:
   # A stalled cache download gives up after 2 minutes instead of the default 10 and the job carries on
   # uncached, rather than spending paid minutes waiting on the cache service.
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
+  # `tsc -b` over both root solutions outgrows node's default heap (about 2 GB) and dies with "heap out
+  # of memory"; the 2-core runner has 16 GB.
+  NODE_OPTIONS: --max-old-space-size=8192
 
 jobs:
   gate:
