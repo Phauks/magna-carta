@@ -147,7 +147,7 @@ and select different vendors:
 A recovery is a long-running job, so it uses the conversion/timekeeping precedent:
 
 - **Durable Object per job** = the state machine + scheduler: `queued → running → (progress %) → found |
-exhausted | cancelled`. It holds job state in its SQLite, advances via alarms, and **dispatches** work — it
+  exhausted | cancelled`. It holds job state in its SQLite, advances via alarms, and **dispatches** work — it
   never cracks (a Durable Object caps at 5 minutes CPU per invocation).
 - **Queue** shards the wordlist keyspace across **`recovery-worker` Container** instances (Cloudflare's lever
   is horizontal fan-out, not a bigger box). Each shard runs the `verify_guess` loop and reports candidates

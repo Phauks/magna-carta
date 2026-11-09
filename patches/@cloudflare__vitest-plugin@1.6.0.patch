@@ -1,0 +1,33 @@
+diff --git a/dist/pool/index.mjs b/dist/pool/index.mjs
+index e1a1ec4b06caf34cfcd1425dcec9dbd32afa9c3a..da714fa5dc41fe58e3b9e8c56eedf87aea494af9 100644
+--- a/dist/pool/index.mjs
++++ b/dist/pool/index.mjs
+@@ -70791,6 +70791,7 @@ var CloudflarePoolWorker = class {
+ 	name = "cloudflare-pool";
+ 	debug = util.debuglog("vitest-plugin");
+ 	moduleFetchRequestIds = /* @__PURE__ */ new Set();
++	warmModuleRequestIds = /* @__PURE__ */ new Set();
+ 	mf;
+ 	socket;
+ 	parsedPoolOptions;
+@@ -70863,6 +70864,11 @@ var CloudflarePoolWorker = class {
+ 			}
+ 		};
+ 		const rpcResponse = message;
++		if (rpcResponse.t === "s" && typeof rpcResponse.i === "string" && this.warmModuleRequestIds.delete(rpcResponse.i)) {
++			this.moduleFetchRequestIds.delete(rpcResponse.i);
++			this.socket.send(structuredSerializableStringify({ ...message, r: {} }));
++			return;
++		}
+ 		if (rpcResponse.t === "s" && typeof rpcResponse.i === "string" && this.moduleFetchRequestIds.delete(rpcResponse.i) && rpcResponse.r !== void 0) {
+ 			const inlined = inlineCachedModules(rpcResponse.r);
+ 			if (inlined !== rpcResponse.r) toSend = {
+@@ -70899,7 +70905,7 @@ var CloudflarePoolWorker = class {
+ 						}));
+ 					}
+ 				}
+-				if (d$1 && typeof d$1 === "object" && "t" in d$1 && d$1.t === "q" && "m" in d$1 && (d$1.m === "fetch" || d$1.m === "fetchWarmModules") && "i" in d$1 && typeof d$1.i === "string") this.moduleFetchRequestIds.add(d$1.i);
++				if (d$1 && typeof d$1 === "object" && "t" in d$1 && d$1.t === "q" && "m" in d$1 && (d$1.m === "fetch" || d$1.m === "fetchWarmModules") && "i" in d$1 && typeof d$1.i === "string") { this.moduleFetchRequestIds.add(d$1.i); if (d$1.m === "fetchWarmModules") this.warmModuleRequestIds.add(d$1.i); };
+ 				callback(d$1);
+ 			};
+ 			this.messageListener = messageWrapper;

@@ -978,19 +978,11 @@ import type { JurisdictionProfile } from "../types.ts";
 export const US_NV: JurisdictionProfile = {
   jurisdictionCode: "US-NV",
   name: "Nevada",
-  sourceDocument: {
-    /* ... */
-  },
+  sourceDocument: {/* ... */},
   attorneyReview: null,
-  typed: {
-    /* ... */
-  },
-  invariant: {
-    /* ... */
-  },
-  prose: {
-    /* ... */
-  },
+  typed: {/* ... */},
+  invariant: {/* ... */},
+  prose: {/* ... */},
 };
 ```
 

@@ -111,7 +111,7 @@ const SELF_TEST = [
   },
   {
     name: "another package's import is not a finding",
-    text: 'import type { Thing } from "@cloudflare/vitest-pool-workers";',
+    text: 'import type { Thing } from "@cloudflare/vitest-plugin";',
     expect: [],
   },
 ];

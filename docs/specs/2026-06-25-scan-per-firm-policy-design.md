@@ -78,7 +78,7 @@ bounds the custom range to where the `_SUSP_` score histogram is meaningful (emi
   all three Forge packages and diffing rule identifiers (nested: core ⊂ extended ⊂ full) — robust, no
   dependence on an internal meta field. No rules are dropped at build time.
 - **`build-yara-rules`** bakes the full compiled blob **plus** a side map `ruleId → {tier, score,
-isSuspicious}`, and emits the `_SUSP_` score histogram for the UI range.
+  isSuspicious}`, and emits the `_SUSP_` score histogram for the UI range.
 - **`Dockerfile`** fetches all three tier packages (still build-time only; `enableInternet = false`
   unchanged) and resolves the same `yara-rules/<tag>` engine-version component.
 - **Concurrent engines** in `lib.rs`: `tokio::join!` the clamd scan with the yara `spawn_blocking`
