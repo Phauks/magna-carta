@@ -117,10 +117,26 @@ export const SEVERITY_BADGE: Readonly<Record<NotificationSeverity, BadgeVariant>
   critical: "danger",
 });
 
-export const SEVERITY_LABEL: Readonly<Record<NotificationSeverity, string>> = Object.freeze({
-  informational: "For information",
-  attention: "Needs attention",
+/**
+ * What a severity is called where a reader sees it: the Priority column, its filter, and the bell's
+ * badge. INFORMATIONAL HAS NO WORD, by the owner's ruling of 2026-11-09 ("remove for information,
+ * priority only if a priority actually occurs"): most of a feed is informational, and a label on
+ * every ordinary row is noise that hides the two rows that carry one. The wire field keeps its name.
+ */
+export const PRIORITY_LABEL: Readonly<Record<NotificationSeverity, string | null>> = Object.freeze({
+  informational: null,
+  attention: "Needs Attention",
   critical: "Urgent",
+});
+
+/** The priorities that carry a word, most pressing first — the filter's own vocabulary. */
+export const PRIORITY_WORDS: readonly string[] = Object.freeze(["Urgent", "Needs Attention"]);
+
+/** How pressing a severity is, for putting the most pressing first. Lower is more pressing. */
+export const PRIORITY_RANK: Readonly<Record<NotificationSeverity, number>> = Object.freeze({
+  critical: 0,
+  attention: 1,
+  informational: 2,
 });
 
 type Facts = Readonly<Record<string, string | number | boolean>> | null;
@@ -200,7 +216,9 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
     detail: (facts) =>
       text(facts, "divergedFrom") === null ? null : "Another version was checked in first",
   },
-  "email.filed": { title: "Email filed to a matter" },
+  // "Saved", never "filed": filed means filed with a court (docs/conventions/design-corrections.md,
+  // the Copy rulings). The kind key is a wire contract and keeps its word.
+  "email.filed": { title: "Email saved to a matter" },
   "system.matter.closed": { title: "Matter closed" },
   "system.matter.reopened": { title: "Matter reopened" },
   "system.matter.held": { title: "Matter placed on hold" },

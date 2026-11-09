@@ -3402,3 +3402,29 @@ at most 5. think we need to find a better way to showcase the date above the cal
   _(built 2026-11-09)_
 - **A deadline's Source reads Court Order or Firm.** The stored values are unchanged.
   _(built 2026-11-09)_
+
+### 2026-11-09 — the notification centre: one grid, read and dismissed kept apart, and a priority only where one occurs
+
+The owner, reviewing mockups of the notification centre beside the task screen's (the two were
+designed together on his instruction). What was said, and what each part generalizes to:
+
+- **The task screen's "A is the basis, but should be able to group", applied to both.** The feed
+  became the one grid; its Everything/Unread toggle and category select were removed, not moved,
+  because the Status and Category columns already answer both. Already covered by _A list of
+  records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
+  the notification centre was the last register still hand-built as a list. Grouping arrives with the
+  grid's own group-by, which the task stream builds once for every register.
+- **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
+  ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
+  among them** — after them whatever the sort, quieter, with the act that undoes setting it aside
+  (Restore) where the act that did it (Dismiss) was.
+- **"The seen versus delete is interesting" — the owner chose to keep both.** Reading and dismissing
+  stay two acts: seen, and finished with. Neither deletes; the retention clock ages every row out
+  whatever its state. Generalizes: **"finished with" is a state with a way back, not a deletion**,
+  so the control that sets it can be pressed without a confirmation.
+- **"What happened -> Notification", "severity -> Priority".** A column is named for the thing its
+  rows are, and for the word a reader uses, not the platform's field name. The wire field stays
+  `severity`; what a reader sees is decided at the presentation layer.
+- **"Remove for information, priority only if a priority actually occurs."** Generalizes: **a column
+  whose ordinary value is "nothing in particular" is blank in the ordinary case.** A word on every
+  routine row is noise that hides the few rows that carry one.
