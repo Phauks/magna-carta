@@ -44,6 +44,19 @@
         }
         if (contrast === "standard") delete root.dataset.contrast;
         else root.dataset.contrast = contrast;
+        // The reading face: without it a person who chose OpenDyslexic sees the whole boot in
+        // Atkinson and then watches every line reflow when the application mounts.
+        var typeface = localStorage.getItem("magna-carta.typeface");
+        if (
+          typeface !== "lexend" &&
+          typeface !== "opendyslexic" &&
+          typeface !== "serif" &&
+          typeface !== "system"
+        ) {
+          typeface = "atkinson";
+        }
+        if (typeface === "atkinson") delete root.dataset.typeface;
+        else root.dataset.typeface = typeface;
       })();
     </script>
     %sveltekit.head%

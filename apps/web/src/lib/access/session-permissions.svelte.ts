@@ -11,7 +11,11 @@
  * NOT cached across sign-ins or refreshed on a timer: a permission changes when an administrator
  * changes it, which is a page-load-scale event.
  */
-import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+import {
+  readSession,
+  type SessionBootstrap,
+  type SessionReadOptions,
+} from "$lib/matters/matters-api.ts";
 
 export class SessionPermissions {
   /** Null until the read lands — distinct from a session that holds no permission at all. */
@@ -34,8 +38,20 @@ export class SessionPermissions {
     await this.#inFlight;
   }
 
-  async #read(fetchImpl: typeof fetch): Promise<void> {
-    const outcome = await readSession(fetchImpl);
+  /**
+   * Ask the server again, past the cache. For a caller that has just changed what the session says —
+   * moving the firm's release channel changes the flags the session carries — so the answer it holds
+   * is known to be out of date rather than merely old.
+   */
+  async reread(fetchImpl: typeof fetch): Promise<void> {
+    if (this.#inFlight !== null) await this.#inFlight;
+    this.settled = false;
+    this.#inFlight = this.#read(fetchImpl, { fresh: true });
+    await this.#inFlight;
+  }
+
+  async #read(fetchImpl: typeof fetch, options: SessionReadOptions = {}): Promise<void> {
+    const outcome = await readSession(fetchImpl, options);
     this.session = outcome.kind === "ok" ? outcome.value : null;
     this.failed = outcome.kind !== "ok";
     this.settled = true;

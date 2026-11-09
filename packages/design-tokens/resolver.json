@@ -57,6 +57,17 @@
       },
       "default": "full"
     },
+    "typeface": {
+      "description": "The user typeface axis (design language: the reading font is a user accessibility choice — Atkinson Hyperlegible Next by default, Lexend, OpenDyslexic, a serif reading profile, or the system face). atkinson is the primitive truth; each other context re-points font.sans ONLY (a font stack is theme-, mode- and density-invariant), emitted as one small :root[data-typeface=…] overlay block after the theme x mode permutations so it wins the variable at equal specificity. Recipes read the reading face through var(--mc-font-sans) — that consumption IS the axis compliance.",
+      "contexts": {
+        "atkinson": [],
+        "lexend": [{ "$ref": "tokens/typeface/lexend.json" }],
+        "opendyslexic": [{ "$ref": "tokens/typeface/opendyslexic.json" }],
+        "serif": [{ "$ref": "tokens/typeface/serif.json" }],
+        "system": [{ "$ref": "tokens/typeface/system.json" }]
+      },
+      "default": "atkinson"
+    },
     "contrast": {
       "description": "Reserved high-contrast axis (design language §6; the home for stronger boundaries + OS prefers-contrast / forced-colors). Unpopulated at launch — only the no-op 'standard' context exists; a future 'high' context strengthens borders and drops subtle shadows. The plugin permutations (terrazzo.config.mjs) emit theme x mode only, so this resolves to its default and adds no output until populated.",
       "contexts": {
@@ -72,6 +83,7 @@
     { "$ref": "#/modifiers/mode" },
     { "$ref": "#/modifiers/density" },
     { "$ref": "#/modifiers/motion" },
+    { "$ref": "#/modifiers/typeface" },
     { "$ref": "#/modifiers/contrast" }
   ]
 }

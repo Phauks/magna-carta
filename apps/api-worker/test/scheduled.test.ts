@@ -124,13 +124,13 @@ describe("runScheduledSweep — member.provision consumption", () => {
   });
 
   it("assigns the named seeded role and dedups a redelivery (at-least-once contract)", async () => {
-    // The firm-provisioner payload shape: the owner arrives with the Owner/Admin role by name.
+    // The firm-provisioner payload shape: the owner arrives with the Admin role by name.
     const userId = await directInsertUser("sweep-role-owner@example.com", "Role Owner");
     const outboxId = await insertMemberProvisionOutboxRow(env.DB_CONTROL, {
       userId,
       firmId: poolFirmId,
       displayName: "Role Owner",
-      roleName: "Owner/Admin",
+      roleName: "Admin",
     });
 
     await runScheduledSweep(env);
@@ -141,7 +141,7 @@ describe("runScheduledSweep — member.provision consumption", () => {
 
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
     const { results: roleResults } = await firmDatabase
-      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .prepare("SELECT id FROM role WHERE name = 'Admin'")
       .all<{ id: string }>();
     const seededRole = roleResults[0];
     const roleRows = await firmDatabase
@@ -316,7 +316,7 @@ describe("runScheduledSweep — the founding cascade", () => {
       )
       .bind(founderUserId)
       .all<{ status: string; role_name: string | null }>();
-    expect(memberResults.results).toEqual([{ status: "active", role_name: "Owner/Admin" }]);
+    expect(memberResults.results).toEqual([{ status: "active", role_name: "Admin" }]);
   });
 });
 

@@ -278,6 +278,34 @@ first drain after activation to be a bulk pass rather than a trickle. What a rev
 still owes the index is visible before you start:
 `GET /api/v1/review-sets/{reviewSetId}/index-status`.
 
+## Address engine activation — a bucket, a new worker, one binding (2026-10-02)
+
+`apps/address-worker` (`magna-carta-address`) and `containers/address` now exist: the
+platform's own US address index, built monthly from OpenAddresses. Nothing about them is
+live until the app worker has an `ADDRESS_SERVICE` binding; until then US lookups go to
+Smarty if its pair is set and to nothing otherwise. The full runbook is
+[`operations.md`](conventions/operations.md) §20; the account steps, in order:
+
+1. **Create the R2 bucket `magna-carta-addresses`** — private, no CORS. The worker binds it
+   as `ADDRESS_INDEX`; a deploy fails while it is missing.
+2. **Connect `magna-carta-address` to Workers Builds** — production branch `main`, deploy
+   command filtered to `@magna-carta/address-worker`, watch paths `apps/address-worker/*`,
+   `containers/address/*`, `crates/*`. One image (`containers/address/Dockerfile`, build
+   context = repository root) runs as two Container classes: `AddressIndexContainer`
+   (`basic`) and `AddressBuildContainer` (`standard-4`), migration tag `v1`. No secret, no
+   queue.
+3. **Add `ADDRESS_SERVICE`** (`"service": "magna-carta-address"`) to the app worker's
+   `services` in a pull request, after step 2 has deployed — a binding to a worker that
+   does not exist fails the app worker's deploy (§14 of the runbook).
+4. **Nothing to trigger.** The daily cron builds the first index the morning after step 2
+   (or trigger it from the dashboard). Expect about an hour of `standard-4` time and about
+   10–12 GB in the bucket per build; two builds are kept.
+
+**One ruling is the owner's.** Sources whose only recorded licence is an indemnification
+clause (26 US layers, among them San Diego County, Fulton County and San Antonio) are
+included; share-alike, non-commercial and bespoke-agreement layers are excluded. Reversing
+the indemnification call is an edit to `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`.
+
 ## Split compaction — done: the queues exist and the worker shipped (API-confirmed 2026-08-24)
 
 Both `magna-carta-production-search-compaction` and its deadletter exist, and the app

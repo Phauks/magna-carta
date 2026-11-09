@@ -36,7 +36,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-preferences.svelte.ts` — which calendars THIS reader has open and what colour they gave
   each, per browser, on the shared persisted-preference primitive. Stores only the DEPARTURES from
   the catalog's defaults, so a calendar shipped later arrives at its own
-- `calendar-month-picker.svelte` — the little month pinned under the rail: where the reader is,
+- `calendar-month-picker.svelte` — the little month pinned under the rail (the design system's compact
+  `Calendar`, which names its month and jumps through `MonthJump`): where the reader is,
   and one press to be somewhere else
 - `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
   checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
@@ -124,12 +125,14 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   a month, a week and a day, which are tables that scroll nothing of their own; the AGENDA is
   already a named, focusable scrolling region by its own recipe, so there the wrapper stands aside
   rather than nesting a second bar around it. The month fills the height it is given (`h-full`) over
-  a cell MINIMUM rather than a fixed cell, so six weeks share the column and only a short screen
-  makes it scroll. The row fits by measure rather than by wrapping: the window's name takes the
-  slack the other groups leave up to its old cap, Show Everything is the Kinds menu's own last item
-  so narrowing cannot widen the row, and the glyph controls are the small square the rest of the row
-  already stands at. `flex-wrap` survives as the fallback below the width the groups themselves
-  need. The RAIL's own scrollbar is not one of these: the two columns scroll independently by the
+  a cell MINIMUM rather than a fixed cell, so its weeks (four to six, only the ones the month
+  touches) share the column and only a short screen makes it scroll. Its caption is drawn for
+  assistive technology only when the screen passes no empty sentence: a caption sits OUTSIDE the
+  table's box, so a blank one made the month the region's height plus a line, and the region
+  scrolled on every screen (owner, 2026-11-09). The row is two ends (owner, 2026-11-09): the arrows
+  and the window's name as the heading, which opens `MonthJump`; then Today and the ONE View menu,
+  whose sections are the views, the concurrency choice where there is an hour axis, and Hide
+  settled on the agenda. `flex-wrap` survives as the fallback below the width the two ends need. The RAIL's own scrollbar is not one of these: the two columns scroll independently by the
   layout's design, and what is ours there is the row height, not the bar.
 - **A folder in the rail FOLDS, and the month picker under it does not scroll.** A firm with twenty
   rooms scrolled past all twenty to reach the folder beneath them. The disclosure is the folder's
@@ -289,16 +292,12 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   design system's own `mc-form-errors`, so a refused field here and a refused field on a validated
   form read the same; it renders nothing when there is nothing to say, so the form's spacing never
   moves as answers arrive.
-- **The rail says WHOSE calendar; the Kinds control says WHAT KIND.** Two halves of one question, and
-  the second had nothing on the screen asking it (`schedule-narrowing.ts`). It narrows what was
-  already read and makes no request — so it reaches exactly as far as the window on screen, which is
-  why it sits beside the window's own navigation rather than beside a search that would imply the
-  whole record. **A narrowing is never a read**: turning a calendar off in the rail stops a request,
-  turning a kind off does not, and keeping them apart is what stops a reader thinking they have made
-  the screen cheaper when they have made it shorter. An untouched control means EVERY kind, so the
-  first press removes one rather than isolating one; turning every kind off shows the whole window
-  rather than an empty grid, because the one thing a calendar must not do is look empty when it is
-  not.
+- **The rail says WHOSE calendar AND WHAT KIND.** The firm's own records are three calendars —
+  Case Settings, Deadlines, Firm Events — each with its own read, row and colour, beside the Dates
+  folder. A separate Kinds menu narrowed the same entries by kind on the client; it went when the
+  records were split (owner, 2026-11-09), because two controls answering one question is the thing
+  this screen has removed twice already. What it cost: a colleague's calendar can no longer be
+  narrowed to one kind; turning a firm calendar off is a read not made, which is cheaper anyway.
 - **SCHEDULING A MEETING IS RECORDING AN EVENT WITH A MEDIUM ON IT.** The form's Where tab asks one
   more question — Meeting: None, Video meeting, Audio call — and the save writes the meeting row
   beside the event, in the same batch, so the entry window offers Join from the moment the event

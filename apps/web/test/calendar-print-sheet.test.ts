@@ -135,7 +135,7 @@ describe("a deadline's sheet", () => {
           kind: "fields",
           fields: [
             { label: "Authority", value: "Not recorded" },
-            { label: "Source", value: "Recorded by the firm" },
+            { label: "Source", value: "Firm" },
             { label: "Priority", value: "None" },
             { label: "State", value: "Open" },
           ],
@@ -169,7 +169,7 @@ describe("a deadline's sheet", () => {
     expect(sheet.sections[1]).toMatchObject({
       fields: [
         { label: "Authority", value: "Fed. R. Civ. P. 33" },
-        { label: "Source", value: "Set by a court order" },
+        { label: "Source", value: "Court Order" },
         { label: "Priority", value: "1" },
         { label: "State", value: "Open, past due" },
       ],
@@ -185,7 +185,7 @@ describe("a deadline's sheet", () => {
     expect(facts).toMatchObject({
       fields: [
         { label: "Authority", value: "Not recorded" },
-        { label: "Source", value: "Recorded by the firm" },
+        { label: "Source", value: "Firm" },
         { label: "Priority", value: "None" },
         { label: "State", value: "Vacated" },
         { label: "Reason", value: "Motion withdrawn" },

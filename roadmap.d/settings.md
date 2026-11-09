@@ -91,11 +91,11 @@
 
 - id: settings.area-ui.personal-preferences
   name: Personal preferences (Theme, Accessibility, Text)
-  scope: Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast and Scroll Edge Markers axes.
+  scope: Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast, Scroll Edge Markers and reading-typeface axes.
   status: shipped
   surface: screen
-  evidence: The settings/theme, /accessibility and /text pages over apps/web/src/lib/preferences/persisted-preference.svelte.ts, which syncs across tabs on the storage event, and apps/web/src/lib/settings/appearance-axes.svelte.ts, whose values are the same storage the no-flash boot script reads. Scroll Edge Markers is the newest axis on that seam and the one axis the boot script deliberately does not mirror - nothing paints a scroll-edge rule before the application mounts, so there is no flash to end.
-  notes: Scroll Edge Markers turns off the gilt rule the sidebar and every register draw at a scroll edge, suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers and everything after them. The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one.
+  evidence: The settings/theme, /accessibility and /text pages over apps/web/src/lib/preferences/persisted-preference.svelte.ts, which syncs across tabs on the storage event, and apps/web/src/lib/settings/appearance-axes.svelte.ts, whose values are the same storage the no-flash boot script reads. Scroll Edge Markers is the newest axis on that seam and the one axis the boot script deliberately does not mirror - nothing paints a scroll-edge rule before the application mounts, so there is no flash to end. The reading typeface (Settings · Text, Font Family) is the newest: five faces through the data-typeface overlays in packages/design-tokens/tokens/typeface/, which re-point --mc-font-sans alone, with the boot script applying the stored face before first paint.
+  notes: Scroll Edge Markers turns off the gilt rule the sidebar and every register draw at a scroll edge, suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers and everything after them. The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one. Text Size on the same page is still a Soon seam, waiting on a text-scale overlay.
 
 - id: settings.area-ui.firm-band
   name: Firm settings band
@@ -109,7 +109,7 @@
   scope: How the firm measures the time it bills - the increment a captured duration rounds to, and the direction it rounds in.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/(app)/settings/billing/ over GET/PATCH /api/v1/firm/time-policy (apps/api-worker/src/http/routes/firm/firm-time-policy.ts) behind time:manageSettings, Owner/Admin by seed, staged through the shared server-backed draft. The rounding engine was already live - the timer, the quick-add preview and every capture resolve these two keys - so what was missing was the firm's own door to the firm tier.
+  evidence: apps/web/src/routes/(app)/settings/billing/ over GET/PATCH /api/v1/firm/time-policy (apps/api-worker/src/http/routes/firm/firm-time-policy.ts) behind time:manageSettings, Admin by seed, staged through the shared server-backed draft. The rounding engine was already live - the timer, the quick-add preview and every capture resolve these two keys - so what was missing was the firm's own door to the firm tier.
   notes: The route reads and writes the FIRM tier only; a matter, client, timekeeper or location override stands above it and is left alone, which the page states rather than leaving somebody to discover. The server takes any whole number of minutes up to an hour and the select offers the seven firms actually bill at, so a firm holding something else has its value stated rather than a control that cannot express it.
 
 - id: settings.area-ui.file-safety
@@ -125,7 +125,7 @@
   scope: The firm's editing policy — whether every document opened in the browser editor records its changes, with the recording control kept out of members' reach and the marks hidden until somebody asks to see them.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/(app)/settings/editing/ over GET/PATCH /api/v1/firm/editing-policy (apps/api-worker/src/http/routes/firm/editing-policy.ts) through apps/web/src/lib/documents/editing-policy-draft.svelte.ts, gated on firm:manageEditingPolicy from the session, Owner/Admin by seed. The WOPI host reads the same policy on every CheckFileInfo (DisableChangeTrackingRecord), and the launch carries it so the screen framing the editor hides the marks once the document is up.
+  evidence: apps/web/src/routes/(app)/settings/editing/ over GET/PATCH /api/v1/firm/editing-policy (apps/api-worker/src/http/routes/firm/editing-policy.ts) through apps/web/src/lib/documents/editing-policy-draft.svelte.ts, gated on firm:manageEditingPolicy from the session, Admin by seed. The WOPI host reads the same policy on every CheckFileInfo (DisableChangeTrackingRecord), and the launch carries it so the screen framing the editor hides the marks once the document is up.
   notes: On by default. The stored document keeps every mark; accepting them on every copy that leaves the platform is the conversion container's work and is not built yet, so until it lands a download carries the redlines — the decision is recorded and the export step is the next layer of the history spec.
 
 - id: settings.area-ui.firm-profile
@@ -133,7 +133,7 @@
   scope: What the firm is called to its clients — the name on an invoice, in the portal, and on every generated document.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/(app)/settings/firm-profile/ over PUT /api/v1/firm/profile (apps/api-worker/src/http/routes/firm/firm-profile.ts) behind firm:manageProfile, Owner/Admin by seed. The read is the session bootstrap, which resolves the firm's display name for every request already, so the page has one write and no read of its own; the session is re-read after a save because the name is on the chrome around the page too.
+  evidence: apps/web/src/routes/(app)/settings/firm-profile/ over PUT /api/v1/firm/profile (apps/api-worker/src/http/routes/firm/firm-profile.ts) behind firm:manageProfile, Admin by seed. The read is the session bootstrap, which resolves the firm's display name for every request already, so the page has one write and no read of its own; the session is re-read after a save because the name is on the chrome around the page too.
   notes: The write reaches firm.display_name and never firm.name, which is the UNIQUE provisioning handle a crashed provisioning run resumes by. Instant with its own Save rather than the firm scope's draft footer — one field, and the staged-count-and-recap anatomy over a single row is more machinery than the act. An address, a telephone number and a letterhead root belong to an office and stay under Offices rather than becoming a second firm-wide answer no letterhead reads. The page no longer summarises the offices or carries the marks: each has its own page under Firm (Offices, Firm Brand), and a copy here was the duplication the owner removed.
 
 - id: settings.area-ui.firm-brand
@@ -141,7 +141,7 @@
   scope: How the firm looks - its primary mark, which every office's letterhead prints unless the office has a logo of its own, and the additional images kept beside it.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/(app)/settings/firm-brand/ (the page and brand-images-plate.svelte) over GET, PUT, PATCH and DELETE on /api/v1/firm/profile/brand-images (apps/api-worker/src/http/routes/firm/firm-profile.ts) behind firm:manageProfile, Owner/Admin by seed; every act commits at once, so nothing is staged.
+  evidence: apps/web/src/routes/(app)/settings/firm-brand/ (the page and brand-images-plate.svelte) over GET, PUT, PATCH and DELETE on /api/v1/firm/profile/brand-images (apps/api-worker/src/http/routes/firm/firm-profile.ts) behind firm:manageProfile, Admin by seed; every act commits at once, so nothing is staged.
   notes: Split out of Firm Profile so the name and the marks each have one home. The office's own letterhead logo stays on the office's record under Offices.
 
 - id: settings.area-ui.member-administration
@@ -150,7 +150,7 @@
   status: shipped
   surface: screen
   evidence: apps/web/src/routes/(app)/settings/users/ and /roles/ over GET /api/v1/roles, PUT /api/v1/members/{userId}/roles and POST /api/v1/members/{userId}/deactivation|reactivation (apps/api-worker/src/http/routes/session/member-administration.ts), with the invite route accepting a role by name so a member arrives holding something. Permission keys are said in the firm's words by apps/web/src/lib/members/permission-language.ts, which derives the phrasing from the key rather than transcribing two hundred sentences that would go stale.
-  notes: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.
+  notes: Sub-roles are built - role.parent_role_id with Partner and Associate seeded under Attorney; a member holding one also holds the parent, the set-roles route refuses a sub-role without its parent or two of one parent, and both screens list a sub-role under its parent (apps/web/src/lib/members/role-families.ts). Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.
 
 - id: settings.area-ui.platform-band
   name: Platform band (AI and the Assistant, Beta Access, Versions, Developer)

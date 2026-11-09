@@ -202,8 +202,7 @@
   surface: screen
   spec: docs/specs/2026-09-20-meetings-media-effects-design.md
   evidence: Slice one built — apps/web/src/lib/meetings/client/media-effects.ts asks the browser for noise suppression, echo cancellation and gain control as plain booleans (never exact, so a device that cannot honour one is not a member with no microphone), reads back what the track reports as true, false or not reported, probes the platform's own background blur and draws no control that cannot act, and the MediaEffects seam sits between capture and publish with a pass-through stage; the remembered preference in meeting-effects-preference.svelte.ts and the Effects popover in the control bar. Slices two and three, the picture and the sound in Rust, are not started. The design sequences three slices: the browser's own capture constraints and the media-effects seam first, then a Rust-to-WASM segmentation path measured against a TypeScript-and-WebGL fallback, then nnnoiseless in an AudioWorklet. The research behind it is docs/research/2026-09-20-browser-media-effects.md.
-  awaiting-owner: Asked only if both memory-safe segmentation runtimes miss the frame budget. Every off-the-shelf way of blurring a background in a browser — MediaPipe, ONNX Runtime Web, Transformers.js, the TensorFlow.js wasm backend — is C++ compiled to WebAssembly, which golden rule 14 says needs explicit consent. Do we adopt MediaPipe for background blur alone if the Rust and the TypeScript-and-WebGL paths both fall short, or ship without background blur and keep the audio effects, which need no such dependency? Media effects design, flag M1.
-  notes: The noise-suppression half raises no such question: nnnoiseless is RNNoise's network in safe Rust, on the same Rust-to-WASM precedent the PDF, decryption, email and seven-zip cores already take.
+  notes: The owner's rulings of 2026-11-09 — blur is built memory-safely, Rust first, TensorFlow.js on WebGL second, and MediaPipe (C++ compiled to WebAssembly) comes back as a consent question only if both miss the frame budget; image backgrounds are built alongside blur on the same mask. The first measurement (docs/research/2026-09-20-browser-media-effects.md, amendment of 2026-11-09) ran the model in tract compiled to WebAssembly at a p95 of 13.3 ms per inference, exact against the reference, once one custom operator was added; the module is over its size budget. The noise-suppression half raises no such question: nnnoiseless is RNNoise's network in safe Rust, on the same Rust-to-WASM precedent the PDF, decryption, email and seven-zip cores already take.
 
 - id: meetings.webinars
   name: Webinars
@@ -254,14 +253,15 @@
   scope: A room a member always has, joined by a stable link, not tied to a calendar event.
   status: not-started
   evidence: No code.
-  awaiting-owner: Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
+  notes: The owner's ruling of 2026-11-09 — personal rooms are allowed. The design still has to say how a meeting held in one reaches the record, since every other meeting hangs from a calendar event.
 
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
   scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
   status: not-started
   evidence: No code; researched 2026-09-24 in docs/research/2026-09-24-meetings-end-to-end-encryption.md (research, not yet a design) — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
-  awaiting-owner: Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
+  notes: The owner's ruling of 2026-11-09 — build it; deferring is off the table.
+  awaiting-owner: Opt-in fixed at the meeting's start, or on by default; whether a firm may forbid it; whether it waits for recording and dial-in and the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty); and the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
 
 - id: meetings.usage-reporting
   name: Meetings usage and quality

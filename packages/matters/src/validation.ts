@@ -27,6 +27,11 @@ export type MatterValidationCode =
   // Staffing validity window: each bound is a civil date (YYYY-MM-DD) and the window must be
   // ordered — an arbitrary string would silently mis-window the staffing read's comparison.
   | "invalid-validity-window"
+  // The paper file's destruction date: a real calendar day (YYYY-MM-DD), because the route's
+  // pattern alone accepts a day that does not exist and a reminder dated 2026-02-30 never falls due.
+  | "invalid-file-destruction-date"
+  // ...and no earlier than the firm's minimum retention after the close.
+  | "file-destruction-date-before-minimum"
   // Court-case and estate records: a Directory reference that names no live record is refused up
   // front rather than resolving to silent absences forever.
   | "unknown-entity";

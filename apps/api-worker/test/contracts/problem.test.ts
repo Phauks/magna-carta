@@ -45,6 +45,7 @@ describe("problem-type URI registry", () => {
         "self-administration",
         "last-administrator",
         "unknown-role",
+        "role-family",
         "conflict",
         "custody-approver-must-differ",
         "custody-destruction-not-actionable",

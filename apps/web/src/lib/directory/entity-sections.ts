@@ -16,7 +16,7 @@ import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import type { DirectoryEntityKind } from "./directory-api.ts";
 
 export interface EntitySection {
-  /** Stable identity; the tab's value. */
+  /** Stable identity; the section's anchor on the record. */
   id: string;
   label: string;
   stage: MaturityStage;
@@ -32,8 +32,9 @@ export const ENTITY_SECTIONS: readonly EntitySection[] = [
   // Beside Contact rather than inside it: an address is a form whose shape is the country's, not a
   // one-line value like an email or a number, and the two read as one list when they are not one.
   { id: "address", label: "Address", stage: "alpha", appliesTo: "both" },
-  { id: "pronouns", label: "Pronouns", stage: "alpha", appliesTo: "person" },
-  { id: "dates", label: "Dates", stage: "alpha", appliesTo: "person" },
+  // The pronouns a person stated and their life dates, together: each is one answer, and a section
+  // of one answer is a stop on the rail that holds almost nothing.
+  { id: "about", label: "About", stage: "alpha", appliesTo: "person" },
   { id: "identifiers", label: "Identifiers", stage: "alpha", appliesTo: "both" },
   { id: "duplicates", label: "Duplicates", stage: "alpha", appliesTo: "both" },
   { id: "relationships", label: "Relationships", stage: "alpha", appliesTo: "both" },

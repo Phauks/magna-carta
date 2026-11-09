@@ -22,7 +22,7 @@ beforeAll(async () => {
 });
 
 // Mirrors a member with no role but a single direct-grant permission — no seeded role carries
-// tools:speedTest (unlike tools:firmUsage/tools:whois, which Owner/Admin holds), so a direct
+// tools:speedTest (unlike tools:firmUsage/tools:whois, which Admin holds), so a direct
 // grant is the only way to seed a member who holds it.
 async function mirrorMemberWithDirectGrant(
   userId: UserId,

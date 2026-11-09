@@ -1,6 +1,12 @@
-import { todayInUtc } from "@magna-carta/civil-time/civil-date";
+import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
+import {
+  readFirmSetting,
+  writeFirmSettingStatement,
+} from "@magna-carta/data-access/setting-statements";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import {
   closeMatter,
@@ -37,7 +43,11 @@ import {
   readMatterClientEntityId,
   readMatterClientEntityIds,
 } from "@magna-carta/matters/matter-party";
-import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
+import {
+  FILE_RETENTION_MINIMUM_YEARS_MAXIMUM,
+  fileRetentionMinimumYearsDefinition,
+  staleConsultationAgeDaysDefinition,
+} from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import {
   selectMatterDetailStatement,
@@ -189,6 +199,9 @@ const MatterDetail = z
     matterTypeName: z.string().nullable(),
     locationName: z.string().nullable(),
     physicalFileLocationName: z.string().nullable(),
+    // The civil date on or after which the firm may destroy its own paper file for this matter, as
+    // a person at the firm recorded it. Null where nobody has: the platform never derives one.
+    fileDestructionDate: z.string().nullable(),
     responsibleMemberName: z.string().nullable(),
   })
   .openapi("MatterDetail");
@@ -244,6 +257,50 @@ const StatusAck = z.object({ matterId: z.string() }).openapi("MatterActionAck");
 // a refusal: a close that produced notices still closed, and there is no arm of this contract on
 // which a notice prevents one. Its own component rather than an extra field on the shared ack so a
 // notice cannot leak onto open, reopen, or renumber, none of which run advisories.
+const CloseMatterRequest = z
+  .object({
+    fileDestroyOn: z
+      .string()
+      .regex(CIVIL_DATE_PATTERN)
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The date (YYYY-MM-DD) the matter's paper file may be destroyed after, stated by the " +
+          "person closing it — no earlier than the firm's minimum retention after the close " +
+          "(GET /api/v1/matters/settings) — or null for none. Absent records nothing. A reminder " +
+          "only: nothing is deleted when the date arrives.",
+      }),
+  })
+  .openapi("CloseMatterRequest");
+
+const MatterSettingsResponse = z
+  .object({
+    fileRetentionMinimumYears: z
+      .number()
+      .int()
+      .min(0)
+      .max(FILE_RETENTION_MINIMUM_YEARS_MAXIMUM)
+      .openapi({
+        description:
+          "The firm's minimum retention for a closed matter's paper file, in whole years after the " +
+          "close. 0 means the firm states no minimum; the platform never picks a period.",
+      }),
+  })
+  .openapi("MatterSettingsResponse");
+
+const PatchMatterSettingsRequest = z
+  .object({
+    // Sparse: an absent field is unchanged, and an empty patch writes nothing and audits nothing.
+    fileRetentionMinimumYears: z
+      .number()
+      .int()
+      .min(0)
+      .max(FILE_RETENTION_MINIMUM_YEARS_MAXIMUM)
+      .optional(),
+  })
+  .openapi("PatchMatterSettingsRequest");
+
 const CloseAck = z
   .object({
     matterId: z.string(),
@@ -508,6 +565,29 @@ const listConsultationsMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+const getMatterSettingsMeta: RouteMeta = {
+  operationId: "matters.getSettings",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+const updateMatterSettingsMeta: RouteMeta = {
+  operationId: "matters.updateSettings",
+  surface: "app",
+  authenticated: true,
+  permission: "matters:manageRetention",
+  resource: "matter",
+  audited: true,
+  idempotency: "required",
+  idempotencyStore: "firm",
+  rateLimit: "default",
+};
+
 const getMatterMeta: RouteMeta = {
   operationId: "matters.get",
   surface: "app",
@@ -685,6 +765,54 @@ const listMattersRoute = defineOpenAPIRoute(listMattersMeta, {
     },
     401: authErrors[401],
     404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getMatterSettingsRoute = defineOpenAPIRoute(getMatterSettingsMeta, {
+  method: "get",
+  path: "/api/v1/matters/settings",
+  description:
+    "The firm's matter settings: the minimum retention for a closed matter's paper file, in whole " +
+    "years after the close (0 for none). Read by everybody who closes a matter, since the close " +
+    "asks for a destruction date no earlier than it.",
+  responses: {
+    200: {
+      description: "The firm's matter settings",
+      content: { "application/json": { schema: MatterSettingsResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const updateMatterSettingsRoute = defineOpenAPIRoute(updateMatterSettingsMeta, {
+  method: "patch",
+  path: "/api/v1/matters/settings",
+  description:
+    "Updates the firm's matter settings. Sparse: an absent field is left alone, and an empty patch " +
+    "changes nothing and records nothing. A new minimum governs dates stated from now on; dates " +
+    "already recorded stand. Returns the settings after the write.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: {
+      content: { "application/json": { schema: PatchMatterSettingsRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The firm's matter settings after the write",
+      content: { "application/json": { schema: MatterSettingsResponse } },
+    },
+    400: idempotencyErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: idempotencyErrors[409],
+    422: idempotencyErrors[422],
     429: authErrors[429],
   },
 });
@@ -886,8 +1014,16 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
     "close and never becomes a refusal; the matter in the response is closed. A consultation " +
     "closes the same way: the firm decided against it. It keeps its tentative number and draws " +
     "no matter number, and the same preconditions run, which a consultation with nothing on its " +
-    "ledgers passes.",
-  request: { headers: idempotencyKeyHeader, params: matterParam },
+    "ledgers passes. The body states the paper file's destruction date, no earlier than the " +
+    "firm's minimum after the close, or none; a date under the minimum refuses the close.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterParam,
+    body: {
+      content: { "application/json": { schema: CloseMatterRequest } },
+      required: false,
+    },
+  },
   responses: {
     200: {
       description: "The matter was closed, with any advisory notices",
@@ -1109,6 +1245,91 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     },
   );
 
+  // GET /api/v1/matters/settings
+  app.openapi(
+    {
+      ...getMatterSettingsRoute,
+      middleware: chokepointMiddleware(chokepoint, getMatterSettingsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      return c.json(
+        {
+          fileRetentionMinimumYears: await readFirmSetting(
+            firm.firmDatabase,
+            fileRetentionMinimumYearsDefinition,
+          ),
+        },
+        200,
+      );
+    },
+  );
+
+  // PATCH /api/v1/matters/settings
+  app.openapi(
+    {
+      ...updateMatterSettingsRoute,
+      middleware: chokepointMiddleware(chokepoint, updateMatterSettingsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { fileRetentionMinimumYears } = c.req.valid("json");
+      if (fileRetentionMinimumYears === undefined) {
+        // An empty patch changes nothing and must not add an audit row a redelivery would repeat.
+        return c.json(
+          {
+            fileRetentionMinimumYears: await readFirmSetting(
+              firm.firmDatabase,
+              fileRetentionMinimumYearsDefinition,
+            ),
+          },
+          200,
+        );
+      }
+      const idempotency = requireChokepointIdempotency(c);
+      const clock = serviceClock();
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        effect: () =>
+          Promise.resolve({
+            write: {
+              statements: [
+                writeFirmSettingStatement(
+                  firm.firmDatabase,
+                  fileRetentionMinimumYearsDefinition,
+                  fileRetentionMinimumYears,
+                  clock.now(),
+                ),
+                domainAuditStatement(firm.firmDatabase, {
+                  event: "matters.settings.updated",
+                  // The setting's own key is the subject: there is no row to name, and the key is
+                  // what a later reader of the trail searches for.
+                  subjectId: fileRetentionMinimumYearsDefinition.key,
+                  actorUserId: userId,
+                  clock,
+                  metadata: { fileRetentionMinimumYears },
+                }),
+              ],
+              outboxMessages: [],
+            },
+            responseCode: 200,
+            responseBody: canonicalJsonStringify({ fileRetentionMinimumYears }),
+          }),
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof MatterSettingsResponse>,
+        200,
+      );
+    },
+  );
+
   // GET /api/v1/matters/consultations — the per-attorney Consultations view
   app.openapi(
     {
@@ -1166,6 +1387,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         matter_type_name: string | null;
         location_name: string | null;
         physical_file_location_name: string | null;
+        file_destroy_on: string | null;
         responsible_member_name: string | null;
       }>();
       const row = results[0];
@@ -1202,6 +1424,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           matterTypeName: row.matter_type_name,
           locationName: row.location_name,
           physicalFileLocationName: row.physical_file_location_name,
+          fileDestructionDate: row.file_destroy_on,
           responsibleMemberName: row.responsible_member_name,
         } as z.infer<typeof MatterDetail>,
         200,
@@ -1494,13 +1717,29 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       try {
-        const result = await closeMatter(firm.firmDatabase, id, {
-          clock: serviceClock(),
-          actorUserId: userId,
-          idempotency,
-          closePreconditions: CLOSE_PRECONDITIONS,
-          closeAdvisories: CLOSE_ADVISORIES,
-        });
+        // The body is optional on the wire: a close with none records no destruction date.
+        const body = (await c.req.json().catch(() => ({}))) as unknown;
+        const parsed = CloseMatterRequest.safeParse(body ?? {});
+        if (!parsed.success) {
+          return problemJson(c, {
+            type: "validation",
+            title: "Matter request invalid",
+            status: 422,
+            detail: "The file destruction date must be a date written YYYY-MM-DD, or null.",
+          });
+        }
+        const result = await closeMatter(
+          firm.firmDatabase,
+          id,
+          {
+            clock: serviceClock(),
+            actorUserId: userId,
+            idempotency,
+            closePreconditions: CLOSE_PRECONDITIONS,
+            closeAdvisories: CLOSE_ADVISORIES,
+          },
+          { fileDestroyOn: parsed.data.fileDestroyOn },
+        );
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json(
           { matterId: id, notices: [...result.notices] } as z.infer<typeof CloseAck>,

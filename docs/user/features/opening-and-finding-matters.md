@@ -185,13 +185,23 @@ against another of this client's bills.
 An unpaid bill does **not** stop a close. An uncollectable receivable is an ordinary business
 outcome, and writing it off is its lawful exit.
 
+**Closing a matter asks about its paper file.** The close step's right side has a **Paper File**
+section with two choices. **Destroy After** takes the date from which the firm's paper file for the
+matter may be destroyed; **No Destruction Date** records that there is none. If your firm has set a
+minimum retention (an administrator sets it under **Settings**, **Practice**, **File Retention**),
+the date opens at the earliest it may be, the close date plus that many years, and an earlier date
+is refused with the earliest one named. A later date is always allowed. The firm's minimum is never
+a reason to keep a date at all: **No Destruction Date** is always a choice. Nothing is destroyed
+when the date arrives; it is a reminder on the calendar.
+
 **Completing an intake** draws the consultation number once every required step of your intake
 procedure is answered; the panel lists what is outstanding under **Requirements To Complete
 Intake**, with a way through to the Intake section where they are answered. **Opening a consultation** draws your firm's next matter number, which then stays with the
 matter for good, and moves it into the working docket. **Reopening a matter** returns it to the
 status it held before it closed — On Hold if it was on hold, Active if it carries a matter number,
 Consultation if it carries a consultation number, and Intake if it carries neither — and clears the
-recorded close date.
+recorded close date. It also clears the paper file's destruction date, since a reopened file is a
+working file again; the cleared date stays in the audit history, and the next close asks again.
 
 **The matter's number** sits under **Number** in the same window, with the consultation number
 beside it where the matter had one. On a matter that has been active it is a field holding the
@@ -234,17 +244,24 @@ the matter nor anything else about it.
 Setting it needs the permission your firm grants for editing a matter's details. Without it the
 button is greyed, with the line saying which permission to ask for.
 
-**Held in** and **destroy after** are not recorded in Magna Carta yet, so each reads "Not recorded"
-and carries the Soon mark rather than being left off the screen that ought to answer for them.
+**Destroy after** is the date your firm's retention of the folder ends: the day from which the
+paper file may be destroyed. It is first answered when the matter closes (see **Closing a matter
+asks about its paper file** above), and on a closed matter it can be changed here afterwards: pick
+the date in the field and press **Record**; **Clear** removes it. The date is not saved as you type,
+so a half-typed year never becomes a recorded date. A matter that is not closed reads "Set when the
+matter closes", because the firm's minimum is counted from the close. Magna Carta never works the
+date out for you, because retention periods depend on your jurisdiction and your firm's own policy,
+and it never destroys or deletes anything when the date arrives. The date appears on the firm
+calendar under **File Destruction Dates**, and every change to it is kept in the matter's audit
+history with the date it replaced. Recording it needs the same permission as the location.
+
+**Held in** is not recorded in Magna Carta yet, so it reads "Not recorded" and carries the Soon mark
+rather than being left off the screen that ought to answer for it.
 
 **Held in** does not assume a box. Firms keep files in boxes, in cabinet drawers, in safes, on
 shelves; what holds a file will be a record in its own right, carrying what kind of thing it is, and
 a matter will point at it. That is also why it is not simply part of the location: one container
 holds several matters' folders at once.
-
-**Destroy after** waits on something more than a screen. Magna Carta runs no retention timer, and a
-date invented here would be the date somebody destroys a client's file on. It stays empty until your
-firm's own retention rules are something the product can read.
 
 The panel sits beside the status rather than under the close because closing a matter does not move
 its file. A folder stays where it is whatever the matter's status is.

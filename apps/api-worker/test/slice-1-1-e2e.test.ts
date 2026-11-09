@@ -172,7 +172,7 @@ describe("slice 1·1 end-to-end", () => {
     ownerCookie = liveCookie(setCookies(signInResponse), "session_token")?.pair ?? "";
     expect(ownerCookie).not.toBe("");
 
-    // The sweep mirrors the owner into the firm database as an active Owner/Admin member — the member
+    // The sweep mirrors the owner into the firm database as an active Admin member — the member
     // row every firm-scoped route resolves the session against.
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);

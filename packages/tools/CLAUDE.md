@@ -52,7 +52,7 @@ Depends only on `@magna-carta/access-control` (the `Permission` type + validatio
   public-record lookup goes to every default role (`tools:whois`, `tools:safeBrowse`,
   `tools:attorneyLicense` and the rest) — it reads nothing of the firm's and stores nothing, so
   holding it reveals nothing the member could not already reach. A manifest backed by a connected
-  vendor account matches the key that gates its operations instead: `tools:shipping` is Owner/Admin
+  vendor account matches the key that gates its operations instead: `tools:shipping` is Admin
   because `shipping:manage` is, and a wider tile would be a tool whose every button the holder's role
   refuses.
 
