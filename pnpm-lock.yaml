@@ -332,6 +332,9 @@ importers:
       '@magna-carta/calendar':
         specifier: workspace:*
         version: link:../../packages/calendar
+      '@magna-carta/caller-lookup':
+        specifier: workspace:*
+        version: link:../../packages/caller-lookup
       '@magna-carta/civil-time':
         specifier: workspace:*
         version: link:../../packages/civil-time
@@ -1228,6 +1231,22 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/caller-lookup:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
@@ -2761,6 +2780,21 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/segmentation:
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.5.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(playwright@1.65.0)(vitest@5.1.0))(@vitest/ui@5.1.0(vitest@5.1.0))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)

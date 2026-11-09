@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";

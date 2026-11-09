@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // @repo-wide-fitness — scans every route module for the three shapes a route may not take; a diff
 // that adds a route elsewhere in the tree is exactly the one this has to see.
 import { describe, expect, it } from "vitest";

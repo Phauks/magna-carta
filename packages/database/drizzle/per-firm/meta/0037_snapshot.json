@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "94bf2ff6-4f92-4fdf-b87d-6b9206805b70",
+  "id": "af56de18-f49c-49a2-9624-de013a9be936",
   "prevId": "8549b78c-48da-40cd-a577-0223256a8e13",
   "tables": {
     "account_balance": {
@@ -670,6 +670,85 @@
         }
       }
     },
+    "caller_identity": {
+      "name": "caller_identity",
+      "columns": {
+        "country_calling_code": {
+          "name": "country_calling_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "national_number": {
+          "name": "national_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "caller_name": {
+          "name": "caller_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "line_type": {
+          "name": "line_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "carrier_name": {
+          "name": "carrier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "looked_up_by_user_id": {
+          "name": "looked_up_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "looked_up_at": {
+          "name": "looked_up_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "caller_identity_country_calling_code_national_number_pk": {
+          "columns": [
+            "country_calling_code",
+            "national_number"
+          ],
+          "name": "caller_identity_country_calling_code_national_number_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "caller_identity_number_digits_check": {
+          "name": "caller_identity_number_digits_check",
+          "value": "length(\"caller_identity\".\"country_calling_code\") > 0 AND \"caller_identity\".\"country_calling_code\" NOT GLOB '*[^0-9]*' AND length(\"caller_identity\".\"national_number\") > 0 AND \"caller_identity\".\"national_number\" NOT GLOB '*[^0-9]*'"
+        }
+      }
+    },
     "client_credit": {
       "name": "client_credit",
       "columns": {
@@ -924,34 +1003,6 @@
         },
         "disposition": {
           "name": "disposition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "caller_id_name": {
-          "name": "caller_id_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "spam_kind": {
-          "name": "spam_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "message_task_id": {
-          "name": "message_task_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { createMemoryLogger } from "@magna-carta/telemetry/logger";
 import { describe, expect, it } from "vitest";
 import {

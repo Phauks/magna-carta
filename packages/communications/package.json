@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./caller-identity": "./src/caller-identity.ts",
     "./communication-service": "./src/communication-service.ts",
     "./communication-statements": "./src/communication-statements.ts",
     "./contract": "./src/contract.ts",

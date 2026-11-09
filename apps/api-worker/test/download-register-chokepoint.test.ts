@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 /*
  * The one place a register row is made, and the rules it derives rather than trusts.
  *

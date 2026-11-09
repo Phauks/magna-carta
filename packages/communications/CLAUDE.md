@@ -20,6 +20,9 @@ _Directory_ as the surrounding context —
   place the nullable-matter problem is expressed
 - `src/communication-service.ts` — log, file onto a matter, take off a matter, each one batch with
   its audit row
+- `src/caller-identity.ts` — the kept answer to a paid caller-ID lookup (`caller_identity`), keyed by
+  the number's two parts; read free, written only when a member pays to ask. Its audit row never
+  carries the number or the name. Asking the network is `@magna-carta/caller-lookup`'s
 - `src/numbering.ts` — the reference number's counter tables, the UTC day it counts under
   (`communicationNumberDate`), and the conflict its rendered-number index raises. The SHAPE is not
   here: it is the `communication` purpose on the register in `@magna-carta/sequence-numbering`

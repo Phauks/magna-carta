@@ -264,6 +264,13 @@
     {
       "idx": 37,
       "version": "6",
+      "when": 1794260036973,
+      "tag": "20261109T213357_a-looked-up-caller-identity-is-kept",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
       "when": 1794263965274,
       "tag": "20261109T223925_a-call-records-what-happened-on-the-line",
       "breakpoints": true

@@ -29,6 +29,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import { chooseContact, clearContact, contactSelectionOf } from "./communication-contact.ts";
   import { readNumberHistory, spamMarks } from "./number-history.ts";
+  import CallerLookup from "./caller-lookup.svelte";
   import type { LogDraft } from "./log-draft.ts";
 
   let {
@@ -193,6 +194,21 @@
     {/if}
     <section class="flex flex-col gap-8" aria-labelledby="{identity}-who">
       <FieldLabel as="h3" id="{identity}-who">This Number Belongs To</FieldLabel>
+      <!-- What the number itself says: a Directory contact holding it, the area code's region, and
+           the network's caller ID once somebody has paid to ask. Silent until the number is whole,
+           and silent again if the read fails. -->
+      <CallerLookup
+        region={draft.region}
+        number={draft.counterpartyNumber}
+        hasContact={contact !== null}
+        disabled={busy}
+        onUseContact={(match) =>
+          chooseContact(draft, {
+            identifier: match.entityId,
+            name: match.displayName ?? "This contact",
+            kind: match.entityKind,
+          })}
+      />
       {#if contact !== null}
         <div
           class="flex items-center gap-12 rounded-md border border-border-default bg-surface-default p-12"

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The dev-only response validator: a dev-only response-validation middleware parses outgoing
 // payloads against the route's response schema to catch handler/contract divergence before it
 // reaches a client. Enabled only when c.env.ENVIRONMENT === "development" (Miniflare / wrangler

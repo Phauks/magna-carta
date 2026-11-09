@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -134,10 +135,19 @@ export default defineConfig({
   // vitest.config.ts must be added here (`pnpm run lint:test-registration` audits that). The standalone
   // sibling workers below run default-pool unit tests (faked container/R2 bindings — no Miniflare).
   test: {
+    // A ceiling on concurrent test workers for every project that does not set its own (the Workers
+    // projects cap their VMs separately). Vitest's default is one worker per CPU less one, so memory
+    // grows with the core count rather than with the work: each fork measured 130 to 410 MB, plus
+    // about 2 GB for the main process, so a 16-core box ran fifteen of them. Eight keeps a full run
+    // within about 5 GB; MC_TEST_MAX_WORKERS raises or lowers it for one machine.
+    maxWorkers: Number(
+      process.env.MC_TEST_MAX_WORKERS ?? Math.max(1, Math.min(availableParallelism() - 1, 8)),
+    ),
     projects: [
       "apps/web/vitest.config.ts",
       "apps/api-worker/vitest.config.ts",
       "apps/address-worker/vitest.config.ts",
+      "apps/api-worker/vitest.node.config.ts",
       "apps/status-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
@@ -246,7 +256,11 @@ export default defineConfig({
       // package's tests and their dependency closure. The pdf package's build needs its wasm artifact
       // present (`vp run rust-wasm-build`), same as any type-check of pdf.
       typecheck: {
-        command: "tsc -b tsconfig.build.json tsconfig.test.json",
+        // An explicit heap, so whether this passes does not depend on the machine's RAM. Node sizes its
+        // default heap from system memory: 2,096 MB on a 15 GB cloud sandbox, against a measured cold
+        // peak of 1,943 MB (the api-worker program alone holds 1.8 GB). 4 GB leaves room to grow.
+        command:
+          "node --max-old-space-size=4096 node_modules/typescript/bin/tsc -b tsconfig.build.json tsconfig.test.json",
       },
       // Regenerate the reference graph from package.json workspace deps. Run after adding a package or
       // changing a package's @magna-carta/* dependencies; `--check` (used by the future gate) fails if
@@ -302,6 +316,13 @@ export default defineConfig({
       "rust-wasm-build-seven-zip": {
         command:
           "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
+      },
+      // The meeting's person segmentation, for background blur and image backgrounds. Its own task and
+      // not yet in the composite above, because nothing deployed imports it until the meeting client's
+      // effects Worker does; that change adds it to the chain.
+      "rust-wasm-build-segmentation": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/segmentation/src/pkg -f crates/segmentation-core/wasm.Dockerfile crates",
       },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
