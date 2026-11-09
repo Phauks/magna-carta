@@ -168,7 +168,7 @@ Claude programmers who read it." Three additions to the design above, all shippe
   data instead of parsing a padded table. Dev fields live in fragments + JSON; the human matrix in
   `STATUS.md` is unchanged (they are additive, not new columns).
 - **Two guards.** The CI **drift gate** is adopted now (regenerate, then `git diff --exit-code
-STATUS.md STATUS.json`, the code-as-contract idiom) rather than deferred; alongside it a
+  STATUS.md STATUS.json`, the code-as-contract idiom) rather than deferred; alongside it a
   `pnpm run lint:status` fitness function validates schema, unique `(group, order)` slot, and link
   existence. `blocked-by` is an optional field, not required.
 

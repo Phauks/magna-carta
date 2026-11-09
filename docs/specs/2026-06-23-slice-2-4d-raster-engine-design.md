@@ -55,7 +55,7 @@ A lib (router + conversion logic, unit-testable) + a thin binary serving `:8080`
     **Raise the body limit** off axum's 2 MiB default to the convertible-size cap (mirror scan's
     `MAX_SCAN_BODY_BYTES` ← `fileManager` cap) via `DefaultBodyLimit`.
 - **`src/convert.rs`** — the pure conversion: `convert(bytes, source_format, target_format, recipe) ->
-Result<(Vec<u8>, mime: &'static str), ConvertError>`.
+  Result<(Vec<u8>, mime: &'static str), ConvertError>`.
   - Parse `source_format`/`target_format` strings (`png`/`jpeg`/`jpg`/`webp`/`tiff`/`gif`/`bmp`) →
     `image::ImageFormat`; unknown → `ConvertError::UnsupportedFormat` (→ 4xx).
   - Decode with **explicit `image::Limits`** (max allocation + max dimensions) so a pixel/decompression
@@ -93,7 +93,7 @@ Result<(Vec<u8>, mime: &'static str), ConvertError>`.
 ## Worker changes (the rename + pointing at the real image)
 
 - `apps/convert-worker/src/raster-engine-container.ts` (renamed) — `class RasterEngineContainer extends
-Container` (`enableInternet=false`, `defaultPort=8080`, `pingEndpoint="ready"`, the 2·4c
+  Container` (`enableInternet=false`, `defaultPort=8080`, `pingEndpoint="ready"`, the 2·4c
   scale-to-zero `sleepAfter`).
 - `apps/convert-worker/src/index.ts` — rename the import/binding/instance; route `POST /convert` →
   `forwardConvert(getContainer(env.RASTER_ENGINE, "raster"))`.

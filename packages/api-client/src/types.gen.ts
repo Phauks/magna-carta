@@ -724,6 +724,7 @@ export type NumberSegment = {
     scoping?: boolean;
 } | {
     kind: 'date_opened';
+    separator?: '-' | '.' | '_' | '~' | '';
     scoping?: boolean;
 } | {
     kind: 'matter_number';
@@ -742,6 +743,7 @@ export type NumberSegment = {
     scoping?: boolean;
 } | {
     kind: 'client_name';
+    separator?: '-' | '.' | '_' | '~' | '';
     scoping?: boolean;
 };
 

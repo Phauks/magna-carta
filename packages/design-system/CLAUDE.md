@@ -611,7 +611,7 @@ one and the rows are not.
   will demand merge cases — follow its messages. Never hand-invent utility names outside the
   generated theme; unregistered ones fail silently.
 - **No `vite.config.ts` in this package on purpose** — `svelte()` is registered in `.storybook/
-main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compiled output). A
+  main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compiled output). A
   package `svelte.config.js` exists for svelte-check. Root-cwd runs log a harmless
   "no Svelte config found" warning three times.
 - **Story class strings must be literal** — Tailwind's scanner cannot see computed classes.
@@ -622,12 +622,10 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
 - **Storybook coverage toggle errors ("Cannot find package '@vitest/coverage-v8'") — flagged for
   Fable, deferred.** Tests run fine (CLI `vp test` green, and the Storybook test panel runs without
   the coverage toggle); only the addon's coverage feature fails, because Vite+'s test runner
-  lazy-imports `@vitest/coverage-v8`, which isn't installed. Wiring it is non-trivial: catalog pins
-  `vitest: 4.1.8` but an `overrides` block aliases `vitest` to Vite+'s own dist
-  (`@voidzero-dev/vite-plus-test`), and coverage providers hook deep into vitest internals — so a
-  stock `@vitest/coverage-v8@4.1.8` must be verified against the aliased runtime (fork/upstream
-  identity mismatch is the risk). To enable: add `@vitest/coverage-v8` (matching 4.1.8) to the
-  catalog + root devDeps, install, and confirm coverage actually runs under the alias.
+  lazy-imports `@vitest/coverage-v8`, which isn't installed. Vite+ now runs upstream Vitest (the
+  catalog `vitest` pin equals the version vite-plus depends on), so no fork stands in the way: to
+  enable, add `@vitest/coverage-v8` at that same version to the catalog + root devDeps, install,
+  and confirm coverage runs.
 - **Node 25 ships a dead `localStorage` global that happy-dom cannot replace** — stub storage via
   `vi.stubGlobal` (see `theme-preference.test.ts`).
 - **CSP (`test/csp-spike/VERDICT.md`):** Floating UI positioning is CSP-clean; Bits' scroll-lock
@@ -807,7 +805,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   sub-pixel **paint seam**. Fix: the collapsed-state widths/tracks now change **instantly** and the
   collapse is composited via the **View Transitions API** — the Trigger flips state through
   `runViewTransition` (`internal/view-transition.ts`), `.mc-sidebar` carries `view-transition-name:
-mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
+  mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
   it morphs rather than ghosting. The browser tweens before/after layouts on the GPU, so the seam is
   sampled, never re-rasterized → no tear. Reduced-motion / unsupported browsers fall back to an instant
   collapse. **The UX principle this establishes platform-wide: animate only compositor properties

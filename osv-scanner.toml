@@ -74,6 +74,8 @@
 # (RUSTSEC-2026-0253) once tantivy 0.27 moved it to 0.18; and nine zip advisories, several CRITICAL,
 # once every consumer moved to zip 9.4.
 #
-# Not listed because it does not pass: the vite-plus 0.1.24 / vite 8.0.16 records (GHSA-587h-7wmj-h5pm,
-# 7.5, and four lower). The fix is vite-plus 1.1 or later, which brings Vitest 5, and that move is a
-# toolchain change made on its own (the Workers test pool becomes @cloudflare/vitest-plugin).
+# Cleared on 2026-11-09 by the move to vite-plus 1.5.0 rather than accepted: the vite-plus 0.1.24 /
+# vite 8.0.16 records (GHSA-587h-7wmj-h5pm, 7.5, and four lower). That move brought Vitest 5, so the
+# Workers test pool became @cloudflare/vitest-plugin. The upstream vite 8.0.16 was in the tree only
+# because pnpm auto-installed it for `vite` peers the override alias could not satisfy; the root
+# package.json now declares the alias, so no upstream Vite resolves at all.

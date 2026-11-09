@@ -62,7 +62,7 @@ The standing shape, worked in `apps/api-worker/src/index.ts` + `src/event-dispat
   the first event instead of at validation. The dynamic import is cached per isolate, so the cost
   is paid once per cold start, off the validated budget.
 - **Measure before shipping an entrypoint change:** `pnpm --filter @magna-carta/api-worker exec
-wrangler check startup` writes a local CPU profile and total. The split took the app worker from
+  wrangler check startup` writes a local CPU profile and total. The split took the app worker from
   roughly 1.5 s to 0.24 s of local startup work. Local CPU is not Cloudflare CPU; treat the number
   as a trend, not the deployed truth.
 - **The gate measures it on every code change.** The `startup` dimension of `pnpm gate`
