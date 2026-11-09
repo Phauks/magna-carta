@@ -224,6 +224,9 @@
       "path": "packages/search/tsconfig.test.json"
     },
     {
+      "path": "packages/segmentation/tsconfig.test.json"
+    },
+    {
       "path": "packages/sequence-numbering/tsconfig.test.json"
     },
     {
