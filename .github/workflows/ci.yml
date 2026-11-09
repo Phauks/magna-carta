@@ -59,7 +59,7 @@ jobs:
     # pnpm-workspace.yaml) has no Chromium build for ubuntu 26.04, which ubuntu-latest now is. Move
     # this with that pin.
     runs-on: ubuntu-24.04
-    # The full test battery alone took about 52 minutes on this runner on 2026-11-09 and the first
+    # The full test battery alone took about 52 minutes in a 4-core cloud session on 2026-11-09, and the first
     # hosted run hit a 60-minute ceiling, so the job gets room past the slowest honest run.
     timeout-minutes: 120
     steps:
