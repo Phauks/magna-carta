@@ -4,9 +4,11 @@
  * sparse write against GET/PATCH /api/v1/firm/ai/settings, both behind `firm:manageAiSettings`.
  *
  * THE ROSTER IS THE PLATFORM'S VERIFIED CATALOG. Neither the model gateway nor the AI binding lists
- * models at runtime, and a list that did could not carry what the catalog carries: a person's
+ * models at runtime, and the provider's own list cannot carry what the catalog carries: a person's
  * recorded finding that the model keeps nothing and trains on nothing. So the roster is as current
- * as the catalog, the response says which catalog that is, and the page states it.
+ * as the catalog, the response says which catalog that is, and the page states it. Where the
+ * platform can read the provider's live list, the response also says whether each roster entry is
+ * still published and which published models await verification — information, never choices.
  *
  * THE FIRM EITHER FOLLOWS THE PLATFORM OR HAS CHOSEN. A firm that has never chosen moves forward
  * with the platform's current model; a firm that has chosen keeps its choice until it chooses
@@ -26,8 +28,13 @@ export interface AiModelFacts {
 }
 
 /** One model the firm may choose, with the facts a choice is made on. */
+/** The provider's effort control, lowest to highest. */
+export type AiReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
 export interface AiModelChoice {
   modelId: string;
+  /** The provider's own name for the model, e.g. "Claude Opus 5.5". */
+  displayName: string;
   snapshotId: string;
   zeroDataRetention: boolean;
   noTraining: boolean;
@@ -37,8 +44,23 @@ export interface AiModelChoice {
   availabilityVerifiedOn: string;
   retirementNotBefore: string | null;
   tier: string | null;
+  /** The effort levels the provider accepts for this model, lowest first. */
+  effortLevels: AiReasoningEffort[];
+  /** The effort the provider applies when a request names none. */
+  defaultEffort: AiReasoningEffort | null;
   /** True on the entry an unconfigured firm resolves to. */
   platformDefault: boolean;
+  /** Whether the provider's live list includes it; null when the list was not read. */
+  published: boolean | null;
+}
+
+/** What the provider's live model list said, beside the roster. */
+export interface AiProviderRoster {
+  status: "live" | "not-configured" | "unreachable";
+  /** When the list was last read; null when it never was. */
+  checkedAt: string | null;
+  /** Published models the roster does not carry yet. Shown, never offered. */
+  awaitingVerification: Array<{ modelId: string; displayName: string }>;
 }
 
 export interface FirmAiSettings {
@@ -47,6 +69,7 @@ export interface FirmAiSettings {
   model: AiModelFacts | null;
   models: AiModelChoice[];
   catalog: { version: number; effectiveDate: string };
+  provider: AiProviderRoster;
   magnus: { enabled: boolean; dailyTurnCeiling: number };
 }
 

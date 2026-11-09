@@ -36,8 +36,8 @@ The search reads the file names as well as the matter, so a file you sent last w
 away even when you have forgotten which matter it went to.
 
 **This list is kept by the browser you uploaded from**, so it follows the computer rather than your
-account — a batch you sent from the office will not appear on your laptop at home. **Clear History**
-empties it, and **Clear** empties one batch. Neither removes anything from a matter: the files stay
+account — a batch you sent from the office will not appear on your laptop at home. **Clear History**,
+in the menu beside the page's title, empties it, and **Clear** empties one batch. Neither removes anything from a matter: the files stay
 exactly where they landed.
 
 ## Files that did not go

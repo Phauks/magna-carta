@@ -68,6 +68,7 @@ export const OPERATIONS: readonly string[] = [
   "matters.endAssignment",
   "matters.estate",
   "matters.get",
+  "matters.getSettings",
   "matters.graduate",
   "matters.graduateReadiness",
   "matters.hold",
@@ -81,5 +82,7 @@ export const OPERATIONS: readonly string[] = [
   "matters.reopen",
   "matters.setCourtCase",
   "matters.setEstate",
+  "matters.setFileDestructionDate",
   "matters.update",
+  "matters.updateSettings",
 ];

@@ -14,12 +14,21 @@
    * data rather than a flag on the shell so the shell keeps a single shape and the decision stays
    * with the address that made it; the session guard still runs, because the group's load runs
    * before any page's.
+   *
+   * THE SHELL READS THE MEMBER'S PERMISSIONS ONCE. The rail and the palette gate rows on them
+   * (`$lib/tools/tool-permissions.ts`), and neither may wait for some screen to happen to ask first;
+   * the read is shared and single-flight, so a screen that asks again is answered from it.
    */
   import { page } from "$app/state";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import AppShell from "$lib/components/app-shell.svelte";
   import PlatformNotice from "$lib/diagnostics/platform-notice.svelte";
 
   let { children } = $props();
+
+  $effect(() => {
+    void sessionPermissions.load(fetch);
+  });
 
   const shellless = $derived((page.data as { shell?: string }).shell === "none");
 </script>

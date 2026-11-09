@@ -24,8 +24,10 @@ Press **New Office**. The record opens with its fields ready, in three tabs:
   code, its time zone and its email address.
 - **Addresses**: the street address, and a mailing address where post goes somewhere else. The
   country comes first because it decides what the rest of the form asks for: an Irish address has an
-  Eircode and no state, a German one puts the postal code before the town. Each address carries its
-  own telephone, grouped the way that country writes numbers, with an extension beside it.
+  Eircode and no state, a German one puts the postal code before the town. Where address
+  suggestions are available, the street box offers real addresses as you type, and choosing one
+  fills in the rest — exactly as it does on a Directory record. Each address carries its own
+  telephone, grouped the way that country writes numbers, with an extension beside it.
 - **Letterhead**: the address block, the footer and the remit-to text the office's letterhead and
   bills print.
 

@@ -12,3 +12,19 @@ export const staleConsultationAgeDaysDefinition: FirmSettingDefinition<number> =
   schema: z.number().int().positive(),
   defaultValue: 365,
 };
+
+// THE FIRM'S MINIMUM RETENTION FOR A CLOSED MATTER'S PAPER FILE, in whole years after the close.
+//
+// When a matter closes, the person closing it states the date its paper file may be destroyed
+// after, or that it has none; this is the floor under that date. The firm sets it, because the
+// period is its jurisdiction's and its own policy's. 0 — the value a firm that has never opened the
+// setting holds — means the firm has stated NO minimum, never a period this platform chose: a
+// default retention period would be a date somebody destroys a client's file on without anybody
+// having decided it. A hundred years is the ceiling only so the field is bounded.
+export const FILE_RETENTION_MINIMUM_YEARS_MAXIMUM = 100;
+
+export const fileRetentionMinimumYearsDefinition: FirmSettingDefinition<number> = {
+  key: "matters.fileRetentionMinimumYears",
+  schema: z.number().int().min(0).max(FILE_RETENTION_MINIMUM_YEARS_MAXIMUM),
+  defaultValue: 0,
+};

@@ -4,6 +4,9 @@ Setup and administration for the firm owner / administrator: onboarding, users &
 
 Plain language, task-oriented — same pattern as the end-user guides ([`../README.md`](../README.md)), aimed at the person configuring the firm rather than using day-to-day features.
 
+- [Roles and sub-roles](roles-and-sub-roles.md) — the roles a firm starts with, Admin for whoever
+  administers the firm, Partner and Associate as kinds of Attorney, giving someone a sub-role, and
+  how a rate card prices them.
 - [Firm Profile](firm-profile.md) — the name clients read on invoices, in the portal and on
   generated documents.
 - [Firm Brand](firm-brand.md) — the firm's primary mark and the images kept beside it, and why an
@@ -27,6 +30,9 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [The first day of the week](calendar-week-start.md) — the day every calendar in the firm begins
   its week on, why it is the firm's setting and not each member's, who can change it, and what a
   change does and does not move.
+- [File retention](file-retention.md) — the fewest years a closed matter's paper file is kept, which
+  sets the earliest destruction date a close accepts; why the firm starts with no minimum, who may
+  change it, and why nothing is destroyed when a date arrives.
 - [Turning AI on for your firm](ai-and-the-assistant.md) — the two separate switches (whether your
   firm's content may reach a model at all, and whether the assistant is one of the things that may
   send it), why one does not follow from the other, the model your content reaches and the two facts

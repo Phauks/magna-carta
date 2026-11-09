@@ -75,7 +75,7 @@ describe("gatewayOptions", () => {
 
 describe("assertZdrEligible (the fail-closed ZDR guard)", () => {
   it("returns null for a ZDR-eligible catalog model", () => {
-    expect(assertZdrEligible("anthropic/claude-opus-4-8")).toBeNull();
+    expect(assertZdrEligible("anthropic/claude-opus-5-5")).toBeNull();
   });
 
   it("returns a non-null problem for a model not in the catalog", () => {

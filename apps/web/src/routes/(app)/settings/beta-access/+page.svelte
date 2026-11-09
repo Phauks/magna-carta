@@ -86,8 +86,7 @@
 
   /** Re-reads the session, because the flag set the new channel resolves to is what changed. */
   async function rereadSession(): Promise<void> {
-    sessionPermissions.settled = false;
-    await sessionPermissions.load(fetch);
+    await sessionPermissions.reread(fetch);
   }
 
   async function move(next: "stable" | "beta"): Promise<boolean> {

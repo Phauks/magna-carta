@@ -45,7 +45,7 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // reaches every member and no member may switch it back off. The retention window decides how long
 // every member's pointers survive. The digest hour decides when the firm's summary mail lands. All
 // three are firm-administration acts that bind people other than the actor, so they sit behind
-// `firm:manageNotificationPolicy` (Owner/Admin by seed) rather than the member key `notifications:read`,
+// `firm:manageNotificationPolicy` (Admin by seed) rather than the member key `notifications:read`,
 // which every default role including Read-only carries because reading one's own feed is not a
 // privilege. The two channels still compose in opposite directions — a firm may raise the in-app
 // floor and may never raise a member's email cadence — and that composition is decided in exactly

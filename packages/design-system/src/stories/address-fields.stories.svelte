@@ -15,6 +15,10 @@
     AddressCountry,
     AddressParts,
   } from "../lib/components/address-fields/types.ts";
+  import type {
+    AddressLookup,
+    AddressOffer,
+  } from "../lib/components/address-fields/street-lookup.ts";
 
   const COUNTRIES: readonly AddressCountry[] = [
     { code: "US", name: "United States" },
@@ -54,6 +58,62 @@
     { code: "NY", name: "New York" },
   ];
 
+  /*
+   * A lookup with nothing behind it but this list — so the catalog shows the street box offering
+   * addresses without any service provisioned, which is also the one place the behaviour can be
+   * reviewed before anybody pays for a service. One plain address and one building with units, the
+   * two shapes every real service answers in.
+   */
+  const ROSEWOOD: AddressOffer = {
+    identifier: "rosewood",
+    label: "14 Rosewood Dr, Reno, NV 89501",
+    kind: "address",
+  };
+  const CENTER_STREET: AddressOffer = {
+    identifier: "center-street",
+    label: "1042 W Center St, Orem, UT 84057",
+    kind: "group",
+    count: 2,
+  };
+  const CATALOG_LOOKUP: AddressLookup = {
+    suggest: (_country, query) =>
+      Promise.resolve({
+        kind: "offers",
+        offers: [ROSEWOOD, CENTER_STREET].filter((offer) =>
+          offer.label.toLowerCase().includes(query.trim().toLowerCase().slice(0, 4)),
+        ),
+      }),
+    resolve: (identifier) => {
+      if (identifier === "rosewood") {
+        return Promise.resolve({
+          kind: "address",
+          parts: { street: "14 Rosewood Dr", city: "Reno", region: "NV", postal: "89501", country: "US" },
+        });
+      }
+      if (identifier === "center-street") {
+        return Promise.resolve({
+          kind: "group",
+          offers: [
+            { identifier: "unit-108", label: "1042 W Center St Apt 108", kind: "address" },
+            { identifier: "unit-109", label: "1042 W Center St Apt 109", kind: "address" },
+          ],
+        });
+      }
+      const unit = identifier === "unit-108" ? "Apt 108" : "Apt 109";
+      return Promise.resolve({
+        kind: "address",
+        parts: {
+          street: "1042 W Center St",
+          streetTwo: unit,
+          city: "Orem",
+          region: "UT",
+          postal: "84057",
+          country: "US",
+        },
+      });
+    },
+  };
+
   function americanZipNote(_country: string | undefined, value: string): string | null {
     if (value.trim() === "" || /^\d{5}(?:-\d{4})?$/.test(value.trim())) return null;
     return "This does not look like a postal code for the chosen country — expected something like 95014 or 22162-1010.";
@@ -69,6 +129,7 @@
   let corrected = $state<AddressParts>({ country: "ZZ", dependentLocality: "Copacabana" });
   let mistyped = $state<AddressParts>({ country: "US", postal: "9501" });
   let offered = $state<AddressParts>({ country: "US" });
+  let looked = $state<AddressParts>({ country: "US" });
 </script>
 
 {#snippet american_({ countries, ...rest }: AddressStoryArgs)}
@@ -254,6 +315,35 @@
     await step("A value no list carries is still accepted and kept", async () => {
       await userEvent.type(canvas.getByLabelText("State"), "Kernow");
       expect(canvas.getByLabelText("State")).toHaveValue("Kernow");
+    });
+  }}
+/>
+
+{#snippet looked_({ countries, ...rest }: AddressStoryArgs)}
+  <div class="w-lg">
+    <AddressFields bind:value={looked} {countries} lookup={CATALOG_LOOKUP} {...rest} />
+  </div>
+{/snippet}
+
+<Story
+  name="StreetAddressOffered"
+  template={looked_}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const street = canvas.getByLabelText("Street Address");
+
+    // What is typed is the street line. The list is a shortcut to the rest of the form, never a
+    // gate on this box.
+    await step("Typing offers real addresses, and a building shows how many it holds", async () => {
+      await userEvent.type(street, "14 Ro");
+      expect(await body.findByRole("option", { name: /14 Rosewood Dr/ })).toBeInTheDocument();
+    });
+
+    await step("Choosing one fills the rest of the form", async () => {
+      await userEvent.click(body.getByRole("option", { name: /14 Rosewood Dr/ }));
+      await waitFor(() => expect(canvas.getByLabelText("City")).toHaveValue("Reno"));
+      expect(canvas.getByLabelText("ZIP Code")).toHaveValue("89501");
+      expect(street).toHaveValue("14 Rosewood Dr");
     });
   }}
 />

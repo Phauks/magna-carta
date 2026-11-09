@@ -12,7 +12,12 @@
  * the string "undefined" on the screen.
  */
 import { describe, expect, it } from "vitest";
-import { readMatterOffices, updateMatter } from "../src/lib/matters/matters-api.ts";
+import {
+  closeMatter,
+  readMatterOffices,
+  setMatterFileDestructionDate,
+  updateMatter,
+} from "../src/lib/matters/matters-api.ts";
 
 interface Recorded {
   path: string;
@@ -127,5 +132,49 @@ describe("recording where the paper file is kept", () => {
     await updateMatter(stub.fetchImpl, "matter_x", { physicalFileLocationId: null }, "key-2");
 
     expect(stub.calls[0]?.body).toEqual({ physicalFileLocationId: null });
+  });
+});
+
+describe("the date the paper file may be destroyed", () => {
+  it("reads the recorded date beside the offices, and absent as not recorded", async () => {
+    const recorded = stubFetch({ id: "matter_x", fileDestructionDate: "2033-11-09" });
+    const withDate = await readMatterOffices(recorded.fetchImpl, "matter_x");
+    expect(withDate.kind === "ok" && withDate.value.fileDestructionDate).toBe("2033-11-09");
+
+    // A Worker deployed before the date landed answers without the key at all.
+    const older = stubFetch({ id: "matter_x" });
+    const withoutDate = await readMatterOffices(older.fetchImpl, "matter_x");
+    expect(withoutDate.kind === "ok" && withoutDate.value.fileDestructionDate).toBeNull();
+  });
+
+  it("writes only the date, to its own route, and sends null to clear it", async () => {
+    const stub = stubFetch({
+      matterId: "matter_x",
+      destroyOn: "2033-11-09",
+      recordedByUserId: "user_a",
+      recordedAt: "2026-11-09T12:00:00.000Z",
+    });
+
+    await setMatterFileDestructionDate(stub.fetchImpl, "matter_x", "2033-11-09", "key-3");
+    await setMatterFileDestructionDate(stub.fetchImpl, "matter_x", null, "key-4");
+
+    expect(stub.calls.map((call) => [call.method, call.path, call.body])).toEqual([
+      ["PUT", "/api/v1/matters/matter_x/file-destruction-date", { destroyOn: "2033-11-09" }],
+      ["PUT", "/api/v1/matters/matter_x/file-destruction-date", { destroyOn: null }],
+    ]);
+  });
+});
+
+describe("the close carries the destruction date", () => {
+  it("sends the date, or null for none, and nothing at all when the caller states neither", async () => {
+    const stub = stubFetch({ matterId: "matter_x", notices: [] });
+    await closeMatter(stub.fetchImpl, "matter_x", "key-5", "2033-11-09");
+    await closeMatter(stub.fetchImpl, "matter_x", "key-6", null);
+    await closeMatter(stub.fetchImpl, "matter_x", "key-7");
+    expect(stub.calls.map((call) => call.body)).toEqual([
+      { fileDestroyOn: "2033-11-09" },
+      { fileDestroyOn: null },
+      undefined,
+    ]);
   });
 });

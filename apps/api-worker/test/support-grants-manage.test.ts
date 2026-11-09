@@ -20,7 +20,7 @@ let mgrCookie: string;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   poolFirmId = (await seedFirm({ name: "Support Manage Test Firm" })).firmId;
-  // Seed the member who will manage grants. Owner/Admin carries support:manage and support:cosign
+  // Seed the member who will manage grants. Admin carries support:manage and support:cosign
   // (seeded to every default role in the per-firm migrations). The FirmDatabase DO self-migrates
   // on first mirrorMemberWithOwnerRole access, applying those role_permission rows automatically.
   const seeded = await seedCredentialedUser("mgr@example.com", { firmId: poolFirmId });

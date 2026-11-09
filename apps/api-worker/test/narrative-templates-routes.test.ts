@@ -48,7 +48,7 @@ beforeAll(async () => {
   await mirrorMemberWithOwnerRole(owner.userId, "NT Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("nt-owner@example.com");
 
-  // A second timekeeper with time:track (Owner/Admin role) — used to assert that a time:track user
+  // A second timekeeper with time:track (Admin role) — used to assert that a time:track user
   // cannot read another timekeeper's recent narratives.
   const secondTimekeeper = await seedCredentialedUser("nt-second@example.com", {
     userName: "NT Second",
@@ -135,7 +135,7 @@ describe("narrative template lifecycle", () => {
   });
 
   it("refuses a time:track member reading another timekeeper's narratives (403)", async () => {
-    // secondTimekeeperCookie belongs to a time:track user (Owner/Admin). Requesting ownerUserId's
+    // secondTimekeeperCookie belongs to a time:track user (Admin). Requesting ownerUserId's
     // narratives from that session must be refused — recent narratives are personal autocomplete,
     // not cross-user readable, so the timekeeperUserId param must match the session user.
     const response = await get(

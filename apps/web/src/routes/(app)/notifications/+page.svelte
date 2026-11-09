@@ -28,6 +28,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { formatDate } from "@magna-carta/design-system/formatters";
   import Check from "@lucide/svelte/icons/check";
@@ -313,15 +314,14 @@
         <CheckCheck class="size-16" aria-hidden="true" />
         Mark All Read
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        href="/settings/notifications"
-        title="Notification Settings"
-        aria-label="Notification Settings"
-      >
-        <Settings2 class="size-16" aria-hidden="true" />
-      </Button>
+    {/snippet}
+    {#snippet pageMenu()}
+      <!-- Where to change what arrives here: a hand-off to Settings rather than work on this list,
+           so it lives in the page menu and the row keeps the search and Mark All Read. -->
+      <DropdownMenu.Item onSelect={() => void goto("/settings/notifications")}>
+        <Settings2 class="size-16 shrink-0" aria-hidden="true" />
+        What You Hear About
+      </DropdownMenu.Item>
     {/snippet}
   </ScreenHeader>
 

@@ -104,7 +104,8 @@ export interface SettingsSection {
     | "integrations"
     | "calendar"
     | "reports"
-    | "ai";
+    | "ai"
+    | "retention";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -187,8 +188,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
-    // Text preferences (typeface, size). Its rows are honest Soon seams until the type system
-    // grows the machinery (font tokens / a text-scale overlay) — see the page.
+    // Text preferences: the reading typeface (live) and text size (a Soon seam until the type
+    // system grows a text-scale overlay) — see the page.
     id: "text",
     label: "Text",
     href: "/settings/text",
@@ -343,6 +344,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "draft",
     editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
+    // The firm's minimum retention for a closed matter's paper file (owner ruling 2026-11-09):
+    // closing a matter asks for a destruction date at least this many years out, a later one, or
+    // none. Server-backed from the start — GET/PATCH /api/v1/matters/settings — and its edit right
+    // is `matters:manageRetention`, Admin alone, checked against the session on the page.
+    id: "file-retention",
+    label: "File Retention",
+    href: "/settings/file-retention",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "retention",
     shipped: true,
   },
   {
@@ -556,7 +571,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // privileged client content leaving for a third party, which is not a decision anybody should
     // make by brushing a switch.
     id: "ai",
-    label: "AI and the Assistant",
+    label: "AI",
     href: "/settings/ai",
     group: "data-platform",
     scope: "firm",

@@ -77,7 +77,8 @@ the record — is exactly where it was; only the pointer is gone.
 
 ## Deciding what you hear about
 
-**Settings · Notifications** has one row per category, with both channels on it:
+**Settings · Notifications** has one row per category, with both channels on it. From the
+Notifications page, **What You Hear About** in the menu beside the title takes you there.
 
 - **In app** — whether it appears in this list at all.
 - **Email** — whether it joins a daily summary, a weekly one, or none.

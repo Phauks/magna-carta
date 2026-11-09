@@ -23,6 +23,7 @@
     readDirectoryEntityMatterParties,
     type DirectoryEntityMatterParty,
   } from "./directory-api.ts";
+  import { heldBackRows, visibleRows } from "./record-sections.ts";
 
   let { entityId }: { entityId: string } = $props();
 
@@ -100,6 +101,10 @@
     reloadToken += 1;
   }
 
+  let expanded = $state(false);
+  const listedParties = $derived(visibleRows(parties ?? [], expanded));
+  const heldBackParties = $derived(heldBackRows(parties ?? [], expanded));
+
   async function loadMore(): Promise<void> {
     const cursor = nextCursor;
     if (cursor === null || loadingMore) return;
@@ -113,8 +118,6 @@
 </script>
 
 <section class="flex flex-col gap-16">
-  <h3 class="text-sm font-semibold">Matters</h3>
-
   <LoadingRegion
     loading={parties === null}
     {refreshing}
@@ -138,9 +141,17 @@
       {@render partyTable(PARTY_FIXTURE)}
     {/snippet}
 
-    {@render partyTable(parties ?? [])}
+    {@render partyTable(listedParties)}
 
-    {#if nextCursor !== null}
+    {#if heldBackParties > 0}
+      <!-- The record is one scrolling page, so a long list stops at its first few rows rather
+           than pushing every section after it out of reach. -->
+      <div>
+        <Button variant="secondary" onclick={() => (expanded = true)}>
+          Show All {(parties ?? []).length}{nextCursor === null ? "" : "+"}
+        </Button>
+      </div>
+    {:else if nextCursor !== null}
       <div>
         <Button variant="secondary" disabled={loadingMore} onclick={loadMore}>
           {loadingMore ? "Reading" : "Show more"}

@@ -98,7 +98,7 @@
 </script>
 
 <section class="flex flex-col gap-16">
-  <h3 class="text-sm font-semibold">Dates</h3>
+  <h4 class="text-sm font-semibold">Dates</h4>
 
   <!-- The reason editing is refused sits on the WRAPPER, not on the field: the picker's spread lands
        on a root element that renders no DOM, so a `title` written on it would say nothing to anyone.

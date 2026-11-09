@@ -94,7 +94,7 @@
   audience: public
   public-name: Your calendars
   public-summary: Turn each colleague's, each room's and each kind of date's calendar on or off, and give any of them a colour.
-  notes: The folders are the FIRM'S vocabulary — a folder is a role it handed out — so nothing in the product decides who counts as support staff; a member holding two roles is filed under the first. What is on and what colour it wears is personal and per browser, unlike the week start, which is the firm's and lives on the server. File-destruction dates are listed, marked Soon and refused until a retention schedule exists.
+  notes: The folders are the FIRM'S vocabulary — a folder is a role it handed out — so nothing in the product decides who counts as support staff; a member holding two roles is filed under the first. What is on and what colour it wears is personal and per browser, unlike the week start, which is the firm's and lives on the server. File-destruction dates are a served date calendar, reading the date each matter's paper file may be destroyed after as the firm recorded it.
   evidence: The catalog in apps/web/src/lib/calendar/calendar-sources.ts and the preference in calendar-preferences.svelte.ts, rendered by calendar-rail.svelte; the read plan per calendar in calendar-reads.ts (readOneCalendar, one arm per CalendarSourceKind), with every entry tagged and mergeByRecord unioning a record that arrives from two; asserted in apps/web/test/calendar-sources.test.ts and calendar-entries.test.ts.
 
 - id: calendar.surface.day-view

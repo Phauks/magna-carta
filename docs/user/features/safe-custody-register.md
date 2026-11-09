@@ -29,10 +29,13 @@ can never be returned to its owner and never be destroyed.
 
 1. Open the register and press **New Packet**, at the top of the screen beside the search.
 2. Give it a name you would recognize on a shelf ("Smith family deeds").
-3. Choose the **container** it is going into — the safe, box, or shelf it will live in. Containers you
-   have closed are not offered.
-4. Link at least one **owner** from the directory. You can add more than one — a joint will packet has
+3. Link at least one **owner** from the directory. You can add more than one — a joint will packet has
    two — and you can give each a short role: owner, joint owner, life tenant, trustee, executor.
+4. Choose the **container** it is going into — the safe, box, or shelf it will live in. Type any part
+   of its name to narrow the list. Containers you have closed are not offered. If the one you need is
+   not there yet, type its name and choose **Add**: say what kind of container it is and what it is
+   inside, then press **Add Container**. The first time your firm logs a packet, the form opens
+   straight onto this.
 5. Record who **handed it over** if it was not the owner, and when. A son depositing his mother's
    will, or a former solicitor transferring a file on a practice closure, is a fact about the deposit
    that should not be lost when ownership later changes. The date is the day the firm actually took
@@ -43,6 +46,7 @@ can never be returned to its owner and never be destroyed.
    the property — and then closes the matter anyway. It never blocks, because holding a client's will
    long after their last matter closed is what a safe-custody register is for. Pressing **New Packet** from
    inside a matter's Custodian section fills this in for you and asks you everything else.
+7. Press **Save**. The register draws the packet's custody number.
 
 The form will not let you record a packet without a name, an owner and a container, and it tells you
 which of the three is missing rather than leaving a button greyed out with no reason.
@@ -71,6 +75,9 @@ what stops an original from ever being destroyed on a schedule, so set it honest
 Your storage is described as a tree: an office holds rooms, a room holds safes, a safe holds boxes, a
 box holds positions. You choose how deep to go — a firm with one safe and numbered pigeonholes needs
 two levels.
+
+You add a container from the **Container** field of the New Packet form, at the moment you need it.
+Put it inside one of your offices, inside another container, or on its own.
 
 **Not everything is in your office.** A bank safe-deposit box, an offsite records vendor, or a
 co-trustee's premises can each be added as its own top-level location with its own address. These are

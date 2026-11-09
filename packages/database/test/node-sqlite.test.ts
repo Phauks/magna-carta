@@ -36,17 +36,23 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     }
   });
 
-  it("the role seeds actually execute: five default roles with their default grants", () => {
+  it("the role seeds actually execute: the default roles with their default grants", () => {
     const raw = freshPerFirmDatabase();
-    const roles = raw.prepare("SELECT id, name FROM role ORDER BY name").all() as {
+    const roles = raw.prepare("SELECT id, name, parent_role_id FROM role ORDER BY name").all() as {
       id: string;
       name: string;
+      parent_role_id: string | null;
     }[];
+    // A sub-role reaches its parent's grants through the parent's own member_role row, so "every
+    // role carries X" is a claim about the top-level roles.
+    const topLevelRoles = roles.filter((row) => row.parent_role_id === null);
     expect(roles.map((row) => row.name)).toEqual([
+      "Admin",
+      "Associate",
       "Attorney",
       "Billing",
-      "Owner/Admin",
       "Paralegal",
+      "Partner",
       "Read-only",
     ]);
     const grants = raw.prepare("SELECT role_id, permission FROM role_permission").all() as {
@@ -57,13 +63,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       const roleId = roles.find((row) => row.name === name)?.id;
       return grants.filter((grant) => grant.role_id === roleId).map((grant) => grant.permission);
     };
-    const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
-    // firm:manageMembers is seeded onto Owner/Admin ONLY.
+    const ownerAdmin = roles.find((row) => row.name === "Admin");
+    // firm:manageMembers is seeded onto Admin ONLY.
     expect(grants.filter((grant) => grant.permission === "firm:manageMembers")).toEqual([
       { role_id: ownerAdmin?.id, permission: "firm:manageMembers" },
     ]);
     expect(grantsFor("Attorney")).not.toContain("firm:manageMembers");
-    // firm:manageProfile is Owner/Admin ONLY, and separately from firm:manageMembers: what the firm
+    // firm:manageProfile is Admin ONLY, and separately from firm:manageMembers: what the firm
     // is called reaches every invoice and every generated document, so administering who works here
     // does not carry it.
     expect(grants.filter((grant) => grant.permission === "firm:manageProfile")).toEqual([
@@ -77,7 +83,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .filter((grant) => grant.permission === "firm:reportIncident")
         .map((grant) => grant.role_id)
         .toSorted(),
-    ).toEqual(roles.map((row) => row.id).toSorted());
+    ).toEqual(topLevelRoles.map((row) => row.id).toSorted());
     // notifications:read is likewise seeded onto EVERY default role, Read-only included — the
     // deliberate contrast with trust:read, which stops short of that seat. A member reading their
     // own feed is not a privilege: the read is scoped to the session's own user id and every row is
@@ -88,18 +94,18 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .filter((grant) => grant.permission === "notifications:read")
         .map((grant) => grant.role_id)
         .toSorted(),
-    ).toEqual(roles.map((row) => row.id).toSorted());
+    ).toEqual(topLevelRoles.map((row) => row.id).toSorted());
     // matters:viewNumbering joins that universal set: how the firm's numbers are shaped is a fact
     // every member reads off every record they open, so seeing the register is not a privilege.
-    // Changing it is, and stays matters:manageNumbering (Owner/Admin).
+    // Changing it is, and stays matters:manageNumbering (Admin).
     expect(
       grants
         .filter((grant) => grant.permission === "matters:viewNumbering")
         .map((grant) => grant.role_id)
         .toSorted(),
-    ).toEqual(roles.map((row) => row.id).toSorted());
+    ).toEqual(topLevelRoles.map((row) => row.id).toSorted());
     // firm:readMembers joins that universal set, and is the deliberate opposite of
-    // firm:manageMembers above. Adding a person to the firm is Owner/Admin's; knowing who is
+    // firm:manageMembers above. Adding a person to the firm is Admin's; knowing who is
     // already in it is every seat's, because a screen that cannot name a colleague prints a raw
     // handle or prints nothing.
     expect(
@@ -107,7 +113,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .filter((grant) => grant.permission === "firm:readMembers")
         .map((grant) => grant.role_id)
         .toSorted(),
-    ).toEqual(roles.map((row) => row.id).toSorted());
+    ).toEqual(topLevelRoles.map((row) => row.id).toSorted());
     // firm:editOwnProfile joins that universal set on the same reasoning, and is the platform's one
     // self-scoped mutation: it exists because the chokepoint refuses an authenticated write naming
     // no permission, and every statement behind it is scoped to the session's own user id. Writing
@@ -118,31 +124,31 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .filter((grant) => grant.permission === "firm:editOwnProfile")
         .map((grant) => grant.role_id)
         .toSorted(),
-    ).toEqual(roles.map((row) => row.id).toSorted());
+    ).toEqual(topLevelRoles.map((row) => row.id).toSorted());
     // The matters/locations/files grants extend the seed per the role distribution.
-    expect(grantsFor("Owner/Admin")).toContain("matters:create");
+    expect(grantsFor("Admin")).toContain("matters:create");
     // Configuring the machine that files mail is narrower than filing mail: the two roles that own
     // the correspondence decision carry it by seed, and a paralegal receives it only by an explicit
     // firm grant. It is therefore absent from the Paralegal set asserted exhaustively below.
-    expect(grantsFor("Owner/Admin")).toContain("emails:manageAutoFileRules");
+    expect(grantsFor("Admin")).toContain("emails:manageAutoFileRules");
     expect(grantsFor("Attorney")).toContain("emails:manageAutoFileRules");
     expect(grantsFor("Paralegal")).not.toContain("emails:manageAutoFileRules");
     // Reading every member's assistant conversation is a supervision capability and a separate grant
-    // from being able to hold one, so it stops at Owner/Admin by seed.
-    expect(grantsFor("Owner/Admin")).toContain("magnus:readAllConversations");
+    // from being able to hold one, so it stops at Admin by seed.
+    expect(grantsFor("Admin")).toContain("magnus:readAllConversations");
     expect(grantsFor("Attorney")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Paralegal")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Attorney")).toContain("magnus:converse");
     // The authority to act on client money — what the firm's authorization policy can require of
     // whoever lets a disbursement or an earned-fee application go, and the key that changes that
-    // policy. Owner/Admin and Attorney by seed, deliberately narrower than trust:manage (which also
+    // policy. Admin and Attorney by seed, deliberately narrower than trust:manage (which also
     // reaches Billing): holding it does nothing until a firm turns the approver-authority option
     // on, and a firm that wants its billing manager to carry authority grants the key.
-    expect(grantsFor("Owner/Admin")).toContain("trust:authorize");
+    expect(grantsFor("Admin")).toContain("trust:authorize");
     expect(grantsFor("Attorney")).toContain("trust:authorize");
     expect(grantsFor("Paralegal")).not.toContain("trust:authorize");
     // Putting the FIRM'S own money into a client trust account is the one deliberate exception to
-    // no-commingling, and it is seeded onto Owner/Admin alone — narrower than every other trust key,
+    // no-commingling, and it is seeded onto Admin alone — narrower than every other trust key,
     // including trust:authorize. An attorney who may release a client's money still may not open the
     // bank-charge carve-out or fund it; a firm that wants that reaches for a direct grant, which
     // leaves a record.
@@ -151,30 +157,56 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     ]);
     expect(grantsFor("Attorney")).not.toContain("trust:firmFunds");
     expect(grantsFor("Billing")).not.toContain("trust:firmFunds");
-    // Every reports key is seeded onto Owner/Admin alone, including the two that read money a
-    // Billing seat already sees per matter. The narrowness is the point: an aggregate across every
-    // matter and client is a different exposure from a per-matter read, and reports:productivity is
-    // a supervision surface over people rather than a financial read at all. A firm that wants its
-    // bookkeeper to run reconciliation packs reaches for a direct grant, which leaves a record.
-    for (const key of [
-      "reports:trustCompliance",
-      "reports:financial",
-      "reports:productivity",
-      "reports:operational",
-      "reports:produce",
-    ]) {
+    // The reports keys are seeded onto Admin, and two of them onto Partner too, including the two
+    // that read money a Billing seat already sees per matter. The narrowness is the point: an
+    // aggregate across every matter and client is a different exposure from a per-matter read, and
+    // reports:productivity is a supervision surface over people rather than a financial read at all.
+    // Partners are the people who supervise and own the firm, so those two reach them; a firm that
+    // wants its bookkeeper to run reconciliation packs reaches for a direct grant, which leaves a
+    // record.
+    const partner = roles.find((row) => row.name === "Partner");
+    for (const key of ["reports:trustCompliance", "reports:operational", "reports:produce"]) {
       expect(grants.filter((grant) => grant.permission === key)).toEqual([
         { role_id: ownerAdmin?.id, permission: key },
       ]);
     }
+    for (const key of ["reports:financial", "reports:productivity"]) {
+      expect(
+        grants
+          .filter((grant) => grant.permission === key)
+          .map((grant) => grant.role_id)
+          .toSorted(),
+      ).toEqual([ownerAdmin?.id, partner?.id].toSorted());
+    }
+    // Partner and Associate are sub-roles of Attorney: each names Attorney as its parent, and each
+    // carries only what it adds, because a member holding one also holds Attorney itself.
+    const attorneyId = roles.find((row) => row.name === "Attorney")?.id;
+    expect(partner?.parent_role_id).toBe(attorneyId);
+    expect(roles.find((row) => row.name === "Associate")?.parent_role_id).toBe(attorneyId);
+    expect(grantsFor("Partner").toSorted()).toEqual(
+      [
+        "costs:approve",
+        "matters:reopen",
+        "reports:financial",
+        "reports:productivity",
+        "time:approve",
+        "time:viewFirm",
+      ].toSorted(),
+    );
+    expect(grantsFor("Associate")).toEqual([]);
+    for (const key of grantsFor("Partner")) expect(grantsFor("Attorney")).not.toContain(key);
+    expect(roles.filter((row) => row.parent_role_id !== null).map((row) => row.name)).toEqual([
+      "Associate",
+      "Partner",
+    ]);
     // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
     // a matter reaches no review set on it. Billing and Read-only carry none of the five keys —
     // material produced by another party may be attorney's-eyes-only under a protective order.
     // Intake: reading a checklist and recording a step reach every working seat, Billing included
     // (the retainer arriving is a clerk's own fact to record); waiving a required step and authoring
-    // the procedure stop at Owner/Admin and Attorney; Read-only carries none.
+    // the procedure stop at Admin and Attorney; Read-only carries none.
     for (const key of ["intake:read", "intake:record"]) {
-      expect(grantsFor("Owner/Admin")).toContain(key);
+      expect(grantsFor("Admin")).toContain(key);
       expect(grantsFor("Attorney")).toContain(key);
       expect(grantsFor("Paralegal")).toContain(key);
       expect(grantsFor("Billing")).toContain(key);
@@ -188,7 +220,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
           .toSorted(),
       ).toEqual(
         [
-          roles.find((row) => row.name === "Owner/Admin")?.id,
+          roles.find((row) => row.name === "Admin")?.id,
           roles.find((row) => row.name === "Attorney")?.id,
         ].toSorted(),
       );
@@ -207,7 +239,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // egress.
     // conflicts:read and conflicts:run are broad, everyday capabilities (any member may screen a
     // consultation or read back a completed check) and are likewise seeded to every role;
-    // conflicts:dispose is narrower (adjudicating a hit) and stays limited to Owner/Admin and
+    // conflicts:dispose is narrower (adjudicating a hit) and stays limited to Admin and
     // Attorney, so it is absent here.
     expect(grantsFor("Paralegal").toSorted()).toEqual(
       [
@@ -270,7 +302,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "intake:record",
         // The assistant reaches the seats that do legal work. Seeding the key turns nothing on:
         // both firm-level consent settings default closed and every route reads them first.
-        // magnus:readAllConversations is Owner/Admin only, so it is absent here.
+        // magnus:readAllConversations is Admin only, so it is absent here.
         "magnus:converse",
         // Logging what an estate owns is the paralegal's job, so this role carries both asset keys.
         // Unlike custody:read and calendar:read, neither reaches Billing or Read-only by seed: the
@@ -280,7 +312,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:read",
         "matters:create",
         // How the firm's numbers are shaped is a fact every seat reads off every record, so the
-        // register's read reaches every role; changing it stays Owner/Admin.
+        // register's read reaches every role; changing it stays Admin.
         "matters:viewNumbering",
         // Meetings follow the call log: a paralegal convenes the settlement conference and is in it,
         // so this seat carries both keys, where Billing joins and does not host.
@@ -324,7 +356,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
-        // store nothing. tools:shipping is the contrast and is Owner/Admin alone, matching the
+        // store nothing. tools:shipping is the contrast and is Admin alone, matching the
         // shipping:manage key that gates every operation behind the tile.
         "tools:attorneyLicense",
         "tools:businessLookup",
@@ -398,7 +430,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
-        // store nothing. tools:shipping is the contrast and is Owner/Admin alone, matching the
+        // store nothing. tools:shipping is the contrast and is Admin alone, matching the
         // shipping:manage key that gates every operation behind the tile.
         "tools:attorneyLicense",
         "tools:businessLookup",
@@ -447,7 +479,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
-        // store nothing. tools:shipping is the contrast and is Owner/Admin alone, matching the
+        // store nothing. tools:shipping is the contrast and is Admin alone, matching the
         // shipping:manage key that gates every operation behind the tile.
         "tools:attorneyLicense",
         "tools:businessLookup",

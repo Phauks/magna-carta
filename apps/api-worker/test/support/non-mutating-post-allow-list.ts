@@ -56,6 +56,10 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure recognition over the uploaded PDF — returns the same document with an invisible searchable text layer; nothing is stored, no firm data is written.",
   "emailInspector.inspect":
     "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
+  "addressLookup.suggest":
+    "Read-shaped POST: asks the address service for addresses matching what has been typed (the typed text is a client's address, so it rides the body rather than a logged URL) — no write, nothing kept.",
+  "addressLookup.resolve":
+    "Read-shaped POST: turns a chosen address offer into its parts, or a building into its units — no write; the caller's form stores the result through its own audited route.",
   "aiDetection.detect":
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
   "trust.previewStatementImport":

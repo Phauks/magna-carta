@@ -41,7 +41,7 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
           writeFirmSettingStatement(
             firmOne,
             primaryReasoningModelDefinition,
-            "anthropic/claude-sonnet-4-6",
+            "anthropic/claude-sonnet-5-5",
             now(),
           ),
         ],
@@ -58,7 +58,7 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
       .prepare("SELECT value FROM setting WHERE key = ?1")
       .bind(primaryReasoningModelDefinition.key)
       .all<{ value: string }>();
-    expect(JSON.parse(one[0]!.value)).toBe("anthropic/claude-sonnet-4-6");
+    expect(JSON.parse(one[0]!.value)).toBe("anthropic/claude-sonnet-5-5");
     expect(two).toHaveLength(0); // firm two carries no row — its read would return the default
   });
 
@@ -70,7 +70,7 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
       {
         statements: tokenUsageCommitStatements(
           firmOne,
-          { day: "2026-06-18", slot: "reasoning", modelId: "anthropic/claude-opus-4-8" },
+          { day: "2026-06-18", slot: "reasoning", modelId: "anthropic/claude-opus-5-5" },
           100,
           200,
         ),
@@ -86,7 +86,7 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
     expect(firmOneUsage).toEqual([
       {
         slot: "reasoning",
-        modelId: "anthropic/claude-opus-4-8",
+        modelId: "anthropic/claude-opus-5-5",
         inputTokens: 100,
         outputTokens: 200,
         requestCount: 1,
@@ -110,7 +110,7 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
       AI: fakeAi,
     } as unknown as Bindings;
 
-    // Firm one's setting was written to anthropic/claude-sonnet-4-6 in test 1. handleInferenceJob
+    // Firm one's setting was written to anthropic/claude-sonnet-5-5 in test 1. handleInferenceJob
     // reads that setting, calls fakeAi.run, then meters the response into the firm's database.
     await handleInferenceJob(fakeEnv, {
       firmId: firmOneId,
@@ -122,10 +122,10 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
     // Firm one now has two usage rows: the opus row from test 2, and a sonnet row from this run.
     // Assert the sonnet row carries the exact token counts from the fake AI response.
     const firmOneUsage = await readTokenUsage(firmDatabaseFor(env.FIRM_DATABASE, firmOneId));
-    const sonnetRow = firmOneUsage.find((row) => row.modelId === "anthropic/claude-sonnet-4-6");
+    const sonnetRow = firmOneUsage.find((row) => row.modelId === "anthropic/claude-sonnet-5-5");
     expect(sonnetRow).toEqual({
       slot: "reasoning",
-      modelId: "anthropic/claude-sonnet-4-6",
+      modelId: "anthropic/claude-sonnet-5-5",
       inputTokens: 7,
       outputTokens: 13,
       requestCount: 1,
@@ -156,10 +156,10 @@ describe("inference consumer resilience", () => {
       AI: throwingAi,
     } as unknown as Bindings;
 
-    // The firm setting is already anthropic/claude-sonnet-4-6 (written in Part A test 1).
+    // The firm setting is already anthropic/claude-sonnet-5-5 (written in Part A test 1).
     // Read the sonnet row before the failing call so the delta can be checked.
     const usageBefore = await readTokenUsage(firmDatabaseFor(env.FIRM_DATABASE, firmOneId));
-    const sonnetBefore = usageBefore.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+    const sonnetBefore = usageBefore.find((r) => r.modelId === "anthropic/claude-sonnet-5-5");
 
     await expect(
       handleInferenceJob(fakeEnv, {
@@ -173,7 +173,7 @@ describe("inference consumer resilience", () => {
     // The failed run must not have written any new metering tokens — the throw exits before the
     // commitEffectBatch call, so the row is unchanged.
     const usageAfter = await readTokenUsage(firmDatabaseFor(env.FIRM_DATABASE, firmOneId));
-    const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+    const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-5-5");
     expect(sonnetAfter?.requestCount ?? 0).toBe(sonnetBefore?.requestCount ?? 0);
     expect(sonnetAfter?.inputTokens ?? 0).toBe(sonnetBefore?.inputTokens ?? 0);
     expect(sonnetAfter?.outputTokens ?? 0).toBe(sonnetBefore?.outputTokens ?? 0);
@@ -256,7 +256,7 @@ describe("inference consumer resilience", () => {
 
     // Read the sonnet row baseline before either call so we measure only this test's contribution.
     const usageBefore = await readTokenUsage(firmDatabaseFor(env.FIRM_DATABASE, firmOneId));
-    const sonnetBefore = usageBefore.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+    const sonnetBefore = usageBefore.find((r) => r.modelId === "anthropic/claude-sonnet-5-5");
     const baseRequestCount = sonnetBefore?.requestCount ?? 0;
     const baseInputTokens = sonnetBefore?.inputTokens ?? 0;
     const baseOutputTokens = sonnetBefore?.outputTokens ?? 0;
@@ -275,7 +275,7 @@ describe("inference consumer resilience", () => {
     await expect(handleInferenceJob(fakeEnv, job)).rejects.toThrow();
 
     const usageAfter = await readTokenUsage(firmDatabaseFor(env.FIRM_DATABASE, firmOneId));
-    const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+    const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-5-5");
 
     // Only one delivery metered — the dedup guard prevented the second increment.
     expect(sonnetAfter?.requestCount).toBe(baseRequestCount + 1);
