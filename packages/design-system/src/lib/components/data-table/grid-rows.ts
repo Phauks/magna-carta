@@ -128,7 +128,9 @@ export function bandedGridRows<TRow>(
     else band.push(row);
   }
   const seen = [...byKey.keys()];
-  const named = grouping.order ? grouping.order(seen, direction).filter((key) => byKey.has(key)) : [];
+  const named = grouping.order
+    ? grouping.order(seen, direction).filter((key) => byKey.has(key))
+    : [];
   const ordered = [...new Set([...named, ...seen])];
   return ordered.map((key) => ({
     key,
