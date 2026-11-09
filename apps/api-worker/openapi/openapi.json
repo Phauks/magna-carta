@@ -12004,6 +12004,12 @@
               "integer",
               "null"
             ]
+          },
+          "subjectParties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsSubjectParty"
+            }
           }
         },
         "required": [
@@ -12021,7 +12027,45 @@
           "actorUserId",
           "strictness",
           "floorRaised",
-          "hitCount"
+          "hitCount",
+          "subjectParties"
+        ]
+      },
+      "ConflictsSubjectParty": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "party": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "person",
+                  "organization"
+                ]
+              },
+              "displayName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "displayName"
+            ]
+          }
+        },
+        "required": [
+          "entityId",
+          "party"
         ]
       },
       "ConflictsPolicyResponse": {
@@ -12258,6 +12302,12 @@
               "integer",
               "null"
             ]
+          },
+          "subjectParties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsSubjectParty"
+            }
           }
         },
         "required": [
@@ -12273,7 +12323,8 @@
           "startedAt",
           "finishedAt",
           "failure",
-          "hitCount"
+          "hitCount",
+          "subjectParties"
         ]
       },
       "ConflictsRunProgress": {

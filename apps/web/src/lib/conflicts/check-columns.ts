@@ -28,7 +28,7 @@
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { personName } from "@magna-carta/design-system/formatters";
-import type { ConflictsCheckSummary } from "./conflicts-api.ts";
+import type { ConflictsCheckSummary, SubjectParty } from "./conflicts-api.ts";
 import {
   NAME_MATCHING_LABEL,
   RUN_STATUS_VOCABULARY,
@@ -79,6 +79,21 @@ export function checkActorText(
   });
 }
 
+/**
+ * How one party a check was asked about reads. Never blank: an entity the Directory no longer
+ * resolves and a record with no name are each said to be what they are.
+ */
+export function subjectPartyText(subject: SubjectParty): string {
+  if (subject.party === null) return "Entity not resolved";
+  const name = subject.party.displayName?.trim() ?? "";
+  return name.length > 0 ? name : "Unnamed record";
+}
+
+/** Who a check searched, as one line: the names, in the order they were asked about. */
+export function subjectPartiesText(parties: readonly SubjectParty[]): string | null {
+  return parties.length === 0 ? null : parties.map(subjectPartyText).join(", ");
+}
+
 /** Where a check's latest run is, as a word. Null on a check with no run recorded, which sorts last. */
 export function checkRunStateText(check: ConflictsCheckSummary): string | null {
   return check.runStatus === null ? null : runStatusVocabulary(check.runStatus).label;
@@ -103,6 +118,12 @@ export function conflictsCheckColumns(
       label: "Check",
       anchored: true,
       value: (check) => check.checkNumber,
+    },
+    {
+      id: "parties",
+      label: "Parties",
+      // Who the check is about is how a log is searched by eye, so it stands next to the number.
+      value: (check) => subjectPartiesText(check.subjectParties),
     },
     {
       id: "createdAt",

@@ -208,6 +208,14 @@ export interface ConflictsCheckSummary {
   /** True when the firm's floor raised the scope above what was asked for — it searched WIDER. */
   floorRaised: boolean | null;
   hitCount: number | null;
+  /** Who the latest run searches, by name. */
+  subjectParties: SubjectParty[];
+}
+
+/** One party a check was asked about. `party` is null where the Directory no longer resolves it. */
+export interface SubjectParty {
+  entityId: string;
+  party: HitParty | null;
 }
 
 export interface ConflictsCheckPage {
@@ -369,6 +377,8 @@ export interface RunSummary {
   failure: string | null;
   /** How many candidates this run's record holds. Null while it has no record. */
   hitCount: number | null;
+  /** Who this run searches, by name, from the moment it is queued. */
+  subjectParties: SubjectParty[];
 }
 
 /** The numbered check itself: what a person refers to. */
