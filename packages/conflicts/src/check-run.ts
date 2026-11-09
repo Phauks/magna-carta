@@ -51,6 +51,31 @@ export const CONFLICTS_CHECK_RUN_TABLE = "conflicts_check_run";
 export const RUN_STATUSES = ["queued", "running", "completed", "failed"] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
 
+// The statuses a READ reports. A cancelled run is stored as failed with `cancelled_at` set (see the
+// schema note on the column), and is told apart from a failure everywhere a person reads it.
+export const REPORTED_RUN_STATUSES = [...RUN_STATUSES, "cancelled"] as const;
+export type ReportedRunStatus = (typeof REPORTED_RUN_STATUSES)[number];
+
+export function reportedRunStatus(run: {
+  readonly status: RunStatus;
+  readonly cancelled_at: string | null;
+}): ReportedRunStatus {
+  return run.status === "failed" && run.cancelled_at !== null ? "cancelled" : run.status;
+}
+
+// The same, for a read that may hold no run at all (the firm's log, for a check with no run yet).
+export function reportedStatusOrNull(
+  status: string | null,
+  cancelledAt: string | null,
+): ReportedRunStatus | null {
+  if (status === null) return null;
+  return reportedRunStatus({ status: status as RunStatus, cancelled_at: cancelledAt });
+}
+
+// The sentence a cancelled run carries in its failure column. A person reads "Cancelled" on the
+// screen; this is what the row says to anybody reading it raw.
+export const CANCELLED_RUN_FAILURE = "A member stopped the search before it finished.";
+
 // Where a running search is, in the order the engine actually works: it resolves what to search,
 // walks the graph, matches the closure, then bounds and writes what surfaced.
 export const RUN_STAGES = ["sources", "walking", "matching", "candidates"] as const;
@@ -125,6 +150,37 @@ export function parseStoredRunRequest(json: string): StoredRunRequest | null {
   };
 }
 
+// Who a run searches, from its stored request: readable from the moment it is queued.
+export function subjectEntityIdsOf(requestJson: string | null): readonly string[] {
+  if (requestJson === null) return [];
+  return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
+}
+
+// The parties a run was asked about, named from one set-valued Directory read.
+export function subjectPartiesOf(
+  entityIds: readonly string[],
+  names: ReadonlyMap<
+    string,
+    { readonly kind: "person" | "organization"; readonly displayName: string | null }
+  >,
+) {
+  return entityIds.map((entityId) => {
+    const name = names.get(entityId);
+    return {
+      entityId,
+      party: name === undefined ? null : { kind: name.kind, displayName: name.displayName },
+    };
+  });
+}
+
+// What a run was asked to search, from its stored request, before the firm's floor is applied.
+export function askedScopeOf(
+  requestJson: string,
+): { readonly sources: readonly string[]; readonly strictness: string } | null {
+  const scope = parseStoredRunRequest(requestJson)?.scope;
+  return scope === undefined ? null : { sources: [...scope.sources], strictness: scope.strictness };
+}
+
 // ---- the rows -----------------------------------------------------------------------------------
 
 export interface NumberedCheckRow {
@@ -153,13 +209,15 @@ export interface CheckRunRow {
   readonly heartbeat_at: string | null;
   readonly finished_at: string | null;
   readonly failure: string | null;
+  readonly cancelled_at: string | null;
+  readonly cancelled_by_user_id: string | null;
   readonly created_at: string;
 }
 
 const NUMBERED_CHECK_COLUMNS =
   "id, check_sequence, check_number, subject_matter_id, latest_run_id, created_by_user_id, created_at, updated_at";
 const RUN_COLUMNS =
-  "id, numbered_check_id, ordinal, status, stage, progress_json, request_json, trigger, trigger_source, requested_by_user_id, started_at, heartbeat_at, finished_at, failure, created_at";
+  "id, numbered_check_id, ordinal, status, stage, progress_json, request_json, trigger, trigger_source, requested_by_user_id, started_at, heartbeat_at, finished_at, failure, cancelled_at, cancelled_by_user_id, created_at";
 
 export async function readNumberedCheck(
   database: SqlDatabase,
@@ -382,6 +440,23 @@ export function failRunStatement(
       `UPDATE ${CONFLICTS_CHECK_RUN_TABLE} SET status = 'failed', stage = NULL, progress_json = NULL, failure = ?2, heartbeat_at = ?3, finished_at = ?3 WHERE id = ?1 AND status IN ('queued', 'running')`,
     )
     .bind(runId, failure, now);
+}
+
+// Stops a run that has not settled. Guarded on the status, so a run that finished a moment before
+// the press is left exactly as it finished and the caller can say so. The executor notices at its
+// next progress report, which finds no running row to write to, and stops without recording.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
+export function cancelRunStatement(
+  database: SqlDatabase,
+  runId: ConflictsCheckId,
+  cancelledByUserId: UserId | null,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${CONFLICTS_CHECK_RUN_TABLE} SET status = 'failed', stage = NULL, progress_json = NULL, failure = ?2, cancelled_at = ?3, cancelled_by_user_id = ?4, heartbeat_at = ?3, finished_at = ?3 WHERE id = ?1 AND status IN ('queued', 'running')`,
+    )
+    .bind(runId, CANCELLED_RUN_FAILURE, now, cancelledByUserId);
 }
 
 // ---- staleness ------------------------------------------------------------------------------------

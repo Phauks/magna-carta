@@ -169,7 +169,7 @@ test("a source that cannot run records as unavailable, never as clean", async ()
   expect(scope.party).toBe("searched");
 });
 
-test("imputation in scope with no matter recorded as unavailable, since it never ran", async () => {
+test("imputation in scope with no matter still searches, over the entities the check reached", async () => {
   const { ctx, options } = await conflictsTestContext("imputation-no-matter");
   const checkId = await runConflictsCheck(
     ctx,
@@ -182,7 +182,7 @@ test("imputation in scope with no matter recorded as unavailable, since it never
   );
   const row = await readCheck(ctx.database, checkId);
   const scope = JSON.parse(row.scope_json) as Record<string, string>;
-  expect(scope.imputation).toBe("unavailable");
+  expect(scope.imputation).toBe("searched");
   expect(scope.party).toBe("searched");
 });
 

@@ -2,14 +2,13 @@
  * What the New Check panel composes, asserted over plain values.
  *
  * The panel has two panes on one draft, and every claim it makes — what the commit will send, why
- * it cannot be sent yet, and the sentences that tell a reader what pressing Run will do — is one
- * function away from those values. That is the whole reason the composition lives outside the
+ * it cannot be sent yet, and whether there is anything to lose — is one function away from those
+ * values. That is the whole reason the composition lives outside the
  * components: these are the assertions that would otherwise need a browser and a mounted dialog.
  */
 import { describe, expect, it } from "vitest";
 import {
   OPENING_DRAFT,
-  checkPlan,
   chosenMatterLine,
   composeCheck,
   sourcesFor,
@@ -92,25 +91,30 @@ describe("the trigger is derived, never asked", () => {
 
 describe("what is searched", () => {
   it("always asks for the party class, which is the firm-wide floor", () => {
-    expect(
-      sourcesFor(draft({ searchRelationships: false, searchOwnPeople: false }), surface()),
-    ).toEqual(["party"]);
+    expect(sourcesFor(draft({ searchRelationships: false, searchOwnPeople: false }))).toEqual([
+      "party",
+    ]);
   });
 
-  it("asks for the firm's own people only where there is a matter to join them against", () => {
-    expect(sourcesFor(draft(), surface())).not.toContain("imputation");
-    expect(sourcesFor(draft(), surface({ matterId: "matter-1" }))).toContain("imputation");
+  it("asks for Firm Employees whether or not a matter is named", () => {
+    // With no matter the engine looks for the firm's own people among everyone the check reached.
+    expect(sourcesFor(draft())).toContain("imputation");
+    expect(composeCheck(draft(), surface()).request?.scope.sources).toContain("imputation");
+    expect(sourcesFor(draft({ searchOwnPeople: false }))).not.toContain("imputation");
   });
 
   it("drops the relationship walk when it is turned off", () => {
-    expect(sourcesFor(draft({ searchRelationships: false }), surface())).not.toContain("graph");
+    expect(sourcesFor(draft({ searchRelationships: false }))).not.toContain("graph");
   });
 });
 
 describe("nothing limits the search", () => {
   it("sends where to search and how to compare names, and no number at all", () => {
     const { request } = composeCheck(draft(), surface());
-    expect(request?.scope).toEqual({ sources: ["party", "graph"], strictness: "balanced" });
+    expect(request?.scope).toEqual({
+      sources: ["party", "graph", "imputation"],
+      strictness: "balanced",
+    });
     expect(Object.keys(OPENING_DRAFT)).toEqual([
       "subjectEntityIds",
       "searchRelationships",
@@ -132,38 +136,5 @@ describe("the close guard's answer", () => {
   it("has something to lose when only a setting was moved", () => {
     const moved = { ...OPENING_DRAFT, nameMatching: "over_inclusive" } as const;
     expect(composeCheck(moved, surface()).started).toBe(true);
-  });
-});
-
-describe("what the panel says the check will do", () => {
-  it("says relationships are followed as far as they go, with no number to read back", () => {
-    const sentences = checkPlan(draft(), surface()).join(" ");
-    expect(sentences).toContain("as far as the chain goes");
-    expect(sentences).not.toMatch(/\d+ hops?/);
-  });
-
-  it("says the firm's own people cannot be reached when no matter is named", () => {
-    expect(checkPlan(draft(), surface()).join(" ")).toContain("no matter is named");
-  });
-
-  it("says which trigger the check goes into the log under", () => {
-    expect(checkPlan(draft(), surface()).join(" ")).toContain("preliminary check");
-    expect(
-      checkPlan(draft(), surface({ matterId: "matter-1", matterEngaged: true })).join(" "),
-    ).toContain("comprehensive check");
-  });
-
-  it("says sound-alike matching runs, which is what the setting's name never did", () => {
-    expect(checkPlan(draft(), surface()).join(" ")).toContain("sound alike");
-  });
-
-  it("names the places it cannot search, as not searched rather than left out", () => {
-    const sentences = checkPlan(draft(), surface()).join(" ");
-    expect(sentences).toContain("Files, Messaging and Magnus as not searched");
-  });
-
-  it("describes the search that will actually run, not the one the defaults describe", () => {
-    const off = checkPlan(draft({ searchRelationships: false }), surface()).join(" ");
-    expect(off).toContain("Does not follow recorded relationships");
   });
 });
