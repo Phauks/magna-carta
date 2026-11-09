@@ -143,11 +143,12 @@
 
 - id: directory.addresses.lookup
   name: Address autocomplete
-  scope: Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores.
-  status: partial
-  surface: internal
-  evidence: packages/address-lookup holds the port and the deferred implementation — AddressLookupPort with suggest/resolve, typed outcomes that never throw, and deferredAddressLookupPort() answering engine-not-implemented to everything, the same wired-but-dormant shape resolveSearchIndexPort takes. No engine.
-  notes: Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly.
+  scope: Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores — the United States from the platform's own OpenAddresses index, every other country from Smarty.
+  status: shipped
+  surface: screen
+  awaiting-owner: Create the magna-carta-addresses R2 bucket, connect apps/address-worker to Workers Builds, then add the ADDRESS_SERVICE binding to the app worker (runbook, operations.md section 20; deploy-queue.md). Smarty for other countries stays optional — SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN (section 19).
+  evidence: crates/address-core (cleaning, de-duplication, four census-region partitions, the Tantivy schema, query, groups with exact counts, units) and containers/address (the query and build service over range-read R2) behind apps/address-worker (two Container classes, the intercepted object and OpenAddresses hosts, the daily staleness cron); packages/address-lookup (the port with groups, a bias region and coordinates; selfHostedAddressLookupPort, smartyAddressLookupPort, and routedAddressLookupPort composing them by country); apps/api-worker/src/http/routes/directory/address-lookup.ts (two read-shaped POSTs gated on directory:edit, the bias filled from the form or the caller's primary office, engines chosen by address-lookup/address-lookup-engine.ts, counted as addresses.lookup); packages/design-system address-fields street-suggestion-field.svelte behind AddressFields' optional lookup prop; apps/web/src/lib/addresses/address-lookup-source.ts on the Directory's Address pane and the office window. Held by the crates' and container's cargo tests, packages/address-lookup/test, apps/address-worker/test, apps/api-worker/test/address-lookup-routes.test.ts and apps/web/test/address-fields-street-lookup.test.ts.
+  notes: Dormant until provisioned — with neither engine every answer is unavailable and the street box stays a plain text box. Coordinates come back with every US address and are not stored by any screen yet. A suggestion is not a deliverability check.
 
 - id: directory.duplicates
   name: Duplicate detection

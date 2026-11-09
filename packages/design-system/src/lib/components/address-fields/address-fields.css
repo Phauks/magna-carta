@@ -1,0 +1,42 @@
+@layer components {
+  /*
+   * AddressFields — the street box's offers, when the form is handed a lookup.
+   *
+   * A WORK SURFACE, like every form. The box is the Combobox input and the list is the Combobox
+   * listbox, both unchanged; what is dressed here is only the row — an offer's line, with a group's
+   * size beside it — and the sentences the list says instead of rows.
+   */
+  .mc-address-fields-offer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    min-inline-size: var(--mc-space-0);
+  }
+  /* A group's size rides the row's end and never wraps under the line it qualifies. */
+  .mc-address-fields-offer-aside {
+    flex: none;
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+  }
+  /*
+   * What the list says when it has no offers to show: that it is looking, that nothing matched, that
+   * the country cannot be looked up, that the service did not answer. A row nobody can pick, so it
+   * reads as a sentence rather than an option.
+   */
+  .mc-address-fields-note {
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-sm);
+  }
+  .mc-address-fields-note[data-disabled] {
+    cursor: default;
+    color: var(--mc-text-muted);
+  }
+  /* Trying again is the one enabled sentence, so it reads as the thing to press. */
+  .mc-address-fields-retry {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-medium);
+  }
+}
