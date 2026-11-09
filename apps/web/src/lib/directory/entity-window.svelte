@@ -40,6 +40,12 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import { toast } from "@magna-carta/design-system/toast";
+  import Download from "@lucide/svelte/icons/download";
+  import Link from "@lucide/svelte/icons/link";
+  import Mail from "@lucide/svelte/icons/mail";
+  import { saveExport } from "$lib/export/tabular-export.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
@@ -47,12 +53,18 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import {
+    readDirectoryContactPoints,
     readDirectoryEntity,
     DIRECTORY_EDIT_PERMISSION,
     VIEW_SENSITIVE_IDENTIFIERS_PERMISSION,
     type DirectoryEntityDetail,
   } from "./directory-api.ts";
-  import { directoryEntityName, entityMergedIntoIdentifier } from "./entity-presentation.ts";
+  import {
+    directoryEntityName,
+    entityMergedIntoIdentifier,
+    entityRecordHref,
+  } from "./entity-presentation.ts";
+  import { CONTACT_CARD_CONTENT_TYPE, contactCard, contactCardFilename } from "./contact-card.ts";
   import { entitySectionsFor, type EntitySection } from "./entity-sections.ts";
   import {
     entityWindowHeading,
@@ -203,6 +215,44 @@
   const name = $derived(entity === null ? "" : directoryEntityName(entity));
   const mergedInto = $derived(entity === null ? null : entityMergedIntoIdentifier(entity));
   const hasStanding = $derived(standing !== null && standing.lines.length > 0);
+
+  // ---- what can be done with the record ---------------------------------------------------------
+
+  /** The record's own address, whole, so it opens the same record wherever it is pasted. */
+  function recordLink(): string {
+    return new URL(entityRecordHref(entityId), window.location.origin).href;
+  }
+
+  async function copyLink(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(recordLink());
+      toast.success("Link copied");
+    } catch {
+      toast.error("The link could not be copied. The browser refused the clipboard.");
+    }
+  }
+
+  /** A message with the link already in it, in the reader's own mail program. */
+  function emailLink(): void {
+    const subject = encodeURIComponent(name);
+    const body = encodeURIComponent(`${name}\n${recordLink()}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }
+
+  /**
+   * The record as a contact card. The contact points are read at the moment of the press rather
+   * than kept from the contact section, so the card carries what the record holds now.
+   */
+  async function downloadContactCard(): Promise<void> {
+    const shown = entity;
+    if (shown === null) return;
+    const outcome = await readDirectoryContactPoints(fetch, entityId);
+    if (outcome.kind !== "ok") {
+      toast.error("The contact card could not be made, because the contact details could not be read.");
+      return;
+    }
+    await saveExport(contactCard(shown, outcome.value), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
+  }
   const sections = $derived(entity === null ? [] : entitySectionsFor(entity.kind));
 </script>
 
@@ -257,6 +307,22 @@
   </DataTable.Root>
 {/snippet}
 
+{#snippet recordMenu()}
+  <DropdownMenu.Item onSelect={() => void copyLink()}>
+    <Link class="size-16" aria-hidden="true" />
+    Copy Link
+  </DropdownMenu.Item>
+  <DropdownMenu.Item onSelect={emailLink}>
+    <Mail class="size-16" aria-hidden="true" />
+    Email Link
+  </DropdownMenu.Item>
+  <DropdownMenu.Separator />
+  <DropdownMenu.Item onSelect={() => void downloadContactCard()}>
+    <Download class="size-16" aria-hidden="true" />
+    Download Contact Card
+  </DropdownMenu.Item>
+{/snippet}
+
 <ActionDialog
   bind:open
   kind="reading"
@@ -264,6 +330,7 @@
   {subtitle}
   width="record"
   context={hasStanding ? standingPane : undefined}
+  menu={entity !== null ? recordMenu : undefined}
   {onDismiss}
 >
   {#snippet notice()}

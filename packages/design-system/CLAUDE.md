@@ -203,6 +203,12 @@ is still an `ActionDialog` inside it, not a panel of its own.
   gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
   question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
   design; the caller's binding wins over the memory.
+- **Both shells take an optional `menu` snippet, drawn first in the header as the "More"
+  dropdown.** The record window calls it the kind's menu; `ActionDialog` draws it only on the kinds
+  that show the corner controls, because a question is answered, never browsed. It holds what is
+  done WITH the thing shown (copy its link, download a copy), and it follows the "a menu earns its
+  glyph" ruling in `docs/conventions/design-corrections.md`: a caller with fewer than two live items
+  passes no menu.
 - **Where a modal panel sits on the screen is one module, in four named parts, and no panel
   touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
   (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:
