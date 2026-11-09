@@ -133,7 +133,12 @@ describe("the free answers", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       directoryMatches: [{ entityId: personId, entityKind: "person", displayName: "Rosa Pell" }],
-      areaCode: { areaCode: "702", region: "Nevada" },
+      areaCode: {
+        areaCode: "702",
+        region: "Nevada",
+        place: null,
+        timeZone: "America/Los_Angeles",
+      },
       callerIdentity: null,
       paidLookup: "unavailable",
     });
