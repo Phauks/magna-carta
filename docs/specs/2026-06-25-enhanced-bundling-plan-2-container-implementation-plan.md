@@ -126,7 +126,11 @@ axum = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # ZIP: Deflate + ZIP64 + AES write. Lean features — no bzip2/zstd/xz C deps (Windows-clean dev host).
-zip = { version = "8.6", default-features = false, features = ["deflate-flate2", "aes-crypto", "time"] }
+zip = { version = "8.6", default-features = false, features = [
+  "deflate-flate2",
+  "aes-crypto",
+  "time",
+] }
 # 7z: LZMA2 + AES-256 + header encryption, pure Rust.
 sevenz-rust2 = "0.7"
 # R2 transport: GET inputs / PUT output volumes against R2_BASE_URL (the outbound-Workers virtual host

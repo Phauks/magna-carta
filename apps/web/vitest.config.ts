@@ -60,9 +60,15 @@ export default defineConfig({
       // used during component initialisation" — a misleading name for a duplicated module. A
       // path pattern rather than three names: a module specifier naming bits-ui outside the design
       // system is what the bits-ui boundary gate forbids, and this is a test-loader setting, not an
-      // import.
+      // import. @tanstack/svelte-query is the same case: its root entry re-exports
+      // HydrationBoundary.svelte, so any page that imports the query client reaches raw Svelte
+      // source; Vitest 5 externalizes it like any other package unless it is named here.
       deps: {
-        inline: ["@lucide/svelte", /[\\/]node_modules[\\/](?:bits-ui|runed|svelte-toolbelt)[\\/]/],
+        inline: [
+          "@lucide/svelte",
+          "@tanstack/svelte-query",
+          /[\\/]node_modules[\\/](?:bits-ui|runed|svelte-toolbelt)[\\/]/,
+        ],
       },
     },
   },

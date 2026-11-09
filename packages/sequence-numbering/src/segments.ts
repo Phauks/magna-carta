@@ -12,13 +12,24 @@ export type NumberSegment =
   | { kind: "year"; digits: 2 | 4; scoping?: boolean }
   | { kind: "month"; scoping?: boolean } // two digits
   | { kind: "day"; scoping?: boolean } // two digits
-  | { kind: "date_opened"; scoping?: boolean } // YYYYMMDD
+  | { kind: "date_opened"; separator?: NumberPartSeparator; scoping?: boolean } // YYYY?MM?DD
   | { kind: "matter_number"; scoping?: boolean }
   | { kind: "location_code"; scoping?: boolean }
   | { kind: "matter_type_code"; scoping?: boolean }
   | { kind: "client_code"; scoping?: boolean }
   | { kind: "staff_initials"; scoping?: boolean }
-  | { kind: "client_name"; scoping?: boolean };
+  | { kind: "client_name"; separator?: NumberPartSeparator; scoping?: boolean };
+
+/**
+ * What stands between the pieces of a part that has more than one: the year, month and day of the
+ * date numbered, the words of a client's name. Only the URL-safe punctuation — a number rides in
+ * links, so a slash or a space can never be one — plus nothing at all. ABSENT means nothing: that is
+ * how both parts rendered before a firm could choose (20261111, AshcombeMercantile), and a scheme
+ * saved before the choice existed must keep drawing the numbers it always drew.
+ */
+export type NumberPartSeparator = "-" | "." | "_" | "~" | "";
+
+export const NUMBER_PART_SEPARATORS: readonly NumberPartSeparator[] = ["-", ".", "_", "~", ""];
 
 export type NumberSegmentKind = NumberSegment["kind"];
 
@@ -44,6 +55,7 @@ export const NUMBER_SEGMENT_KINDS: readonly NumberSegmentKind[] = [
 export const URL_SAFE_PATTERN = /^[A-Za-z0-9._~-]+$/;
 
 const scoping = z.boolean().optional();
+const separator = z.enum(["-", ".", "_", "~", ""]).optional();
 
 const segmentSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("literal"), text: z.string().regex(URL_SAFE_PATTERN) }),
@@ -55,13 +67,13 @@ const segmentSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("year"), digits: z.union([z.literal(2), z.literal(4)]), scoping }),
   z.object({ kind: z.literal("month"), scoping }),
   z.object({ kind: z.literal("day"), scoping }),
-  z.object({ kind: z.literal("date_opened"), scoping }),
+  z.object({ kind: z.literal("date_opened"), separator, scoping }),
   z.object({ kind: z.literal("matter_number"), scoping }),
   z.object({ kind: z.literal("location_code"), scoping }),
   z.object({ kind: z.literal("matter_type_code"), scoping }),
   z.object({ kind: z.literal("client_code"), scoping }),
   z.object({ kind: z.literal("staff_initials"), scoping }),
-  z.object({ kind: z.literal("client_name"), scoping }),
+  z.object({ kind: z.literal("client_name"), separator, scoping }),
 ]);
 
 // Exactly one counter: a scheme with none has nothing to increment; two would race for one counter

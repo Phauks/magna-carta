@@ -267,21 +267,17 @@ function dateFolder(
     key: DATES_FOLDER_KEY,
     name: "Dates",
     sources: [
-      ...layers.map(
-        (layer): CalendarSource => ({
-          key: layerSourceKey(layer.key),
-          name: layer.label,
-          kind: { kind: "layer", layerKey: layer.key },
-        }),
-      ),
-      ...unservedDates.map(
-        (unserved): CalendarSource => ({
-          key: layerSourceKey(unserved.key),
-          name: unserved.name,
-          kind: { kind: "layer", layerKey: unserved.key },
-          soonReason: unserved.soonReason,
-        }),
-      ),
+      ...layers.map((layer): CalendarSource => ({
+        key: layerSourceKey(layer.key),
+        name: layer.label,
+        kind: { kind: "layer", layerKey: layer.key },
+      })),
+      ...unservedDates.map((unserved): CalendarSource => ({
+        key: layerSourceKey(unserved.key),
+        name: unserved.name,
+        kind: { kind: "layer", layerKey: unserved.key },
+        soonReason: unserved.soonReason,
+      })),
     ],
   };
 }

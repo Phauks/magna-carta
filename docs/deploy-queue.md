@@ -631,7 +631,7 @@ blank" should now fill.
 - **A discovery load's manifest and exception report must never be given a
   lifecycle rule.** They land in the already-bound `R2` bucket under
   `discovery/<reviewSetId>/loads/`, stamped `object_class:
-review-load-record` — deliberately a different class from the
+  review-load-record` — deliberately a different class from the
   `review-extracted-text` and `review-document-metadata` objects beside them,
   which ARE a derived cache and are released when a review set closes. If an
   expiry rule is ever added under the `discovery/` prefix (there is none today),
@@ -867,7 +867,7 @@ Do them in this order; each one is inert without the ones before it.
 
    **It is also Better Auth's `baseURL`, and that makes it worth setting on its own**, ahead of and
    independently of anything about mail. Unset, the library logs `Base URL is not set … callbacks and
-redirects may not work correctly` on every cold start and derives the origin from each incoming
+   redirects may not work correctly` on every cold start and derives the origin from each incoming
    request — which is exactly what a background pass has no way to do. `createAuth` reads it when
    present and falls back to the request-derived default when absent (`apps/api-worker/src/auth.ts`),
    so local development and the test pool, which are reached at whatever host serves them, keep
@@ -909,7 +909,7 @@ them the same day. Everything the section held is now confirmed, with one new fa
 - `magna-carta-convert`: **confirmed real.** Connected to Workers Builds on `release`, root
   `apps/convert-worker`, watch paths covering both container images; latest build green
   (2026-08-21, from `19d02cf`); the deployed script carries `RASTER_ENGINE ->
-RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
+  RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
   `v2`. **The `conversions/` R2 lifecycle rule is NOT there** — the platform files bucket carries
   exactly two rules (`bundles/` at seven days, incomplete-multipart abort at seven days), so that
   dashboard step moves back to open, on the LibreOffice entry above. Nothing expires under

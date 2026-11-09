@@ -65,7 +65,7 @@ flags come back.
    and `separateFeeAccount` are the two the trust rail branches on.
 3. **`payment` and `payment_event` schema.** Append-only triggers on both, including the
    `no_replace` BEFORE INSERT guard the other financial tables carry. `UNIQUE (adapter_id,
-remote_event_id)` on `payment_event`. No status column on either.
+   remote_event_id)` on `payment_event`. No status column on either.
 4. **Identifiers.** `payment` and `paymentEvent` in `packages/identifiers/src/registry.ts`, spelled
    in full.
 5. **Fitness and a source scan.** No file in `@magna-carta/payments` composes a `trust_*` statement.
@@ -81,7 +81,7 @@ remote_event_id)` on `payment_event`. No status column on either.
    `runIdempotentEffect` keyed `payments:{adapterId}:{remoteEventId}`. It does **not** mount
    `idempotencyMiddleware` — that middleware consumes the raw stream the signature is computed over.
 3. **The clearing-account posting pair.** Capture posts `Dr Payments Clearing / Cr Accounts
-Receivable`; settlement posts `Dr Operating Bank` plus `Dr Merchant Fees` against
+   Receivable`; settlement posts `Dr Operating Bank` plus `Dr Merchant Fees` against
    `Cr Payments Clearing`. One settlement entry per bank line.
 4. **The scheduled settlement pull** on the existing daily cron pass, re-asserting the processor's
    truth over stored events. Not optional: webhooks are lost.

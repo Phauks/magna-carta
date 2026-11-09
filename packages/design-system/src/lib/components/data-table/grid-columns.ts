@@ -138,9 +138,15 @@ export function gridDateInstant(value: GridColumnValue): number | null {
   return Number.isNaN(time) ? null : time;
 }
 
+/** Locale-aware text order that reads a run of digits as the number it is. */
+const TEXT_COLLATOR = new Intl.Collator(undefined, { numeric: true });
+
 /**
  * Type-aware comparison of two rows under one column: numeric for number/money, instant for date,
- * locale-aware text otherwise. Empty values sort LAST in either direction (an absent value is not
+ * locale-aware text otherwise. Text compares runs of digits AS NUMBERS, so a client's matters read
+ * 3333-1, 3333-2 ... 3333-9, 3333-10 rather than 3333-10 landing between 3333-1 and 3333-2, and
+ * "Exhibit 2" sorts before "Exhibit 10" (owner ruling, 2026-11-09: a number is never written with
+ * padding just so it sorts). Empty values sort LAST in either direction (an absent value is not
  * "smallest", it is "no answer").
  */
 export function compareGridRows<TRow>(column: GridColumn<TRow>, left: TRow, right: TRow): number {
@@ -158,7 +164,7 @@ export function compareGridRows<TRow>(column: GridColumn<TRow>, left: TRow, righ
     case "date":
       return (gridDateInstant(a) ?? 0) - (gridDateInstant(b) ?? 0);
     default:
-      return String(a).localeCompare(String(b));
+      return TEXT_COLLATOR.compare(String(a), String(b));
   }
 }
 

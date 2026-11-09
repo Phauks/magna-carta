@@ -47,12 +47,17 @@ A scheme is an ordered list of parts. Each part is one of:
 - **Text**: a fixed piece, such as a dash or a prefix. Letters, digits and `. _ ~ -` only, so the
   number can stand in a link.
 - **Counter**: the part that ticks up with each number drawn. Every scheme has exactly one. Choose
-  how many digits it is padded to and what it starts at. The digits are a floor, not a ceiling: a
-  run that passes its width grows a digit rather than stopping, so no sequence ever runs out.
-- **Year**, as four digits or two, or **Date Numbered** as eight digits, taken from the day the
-  record was numbered.
+  the fewest digits it is written with and what it starts at. A new counter is written with one
+  digit, which means no padding at all: `3333-9` is followed by `3333-10`. Set it to 4 for
+  `0001`-style numbers. The digits are a floor, not a ceiling: a run that passes its width grows a
+  digit rather than stopping, so no sequence ever runs out.
+- **Year**, as four digits or two, or **Date Numbered**, taken from the day the record was numbered.
+  Date Numbered is the year, month and day joined by the separator you choose: `2026.11.11` with a
+  period, `2026-11-11` with a dash, or `20261111` with none.
 - **Office Code**, **Practice Area Code**, **Client Code**, **Attorney Initials** or **Client
-  Name**, taken from the matter. Only the matter, consultation and intake sequences offer these: a
+  Name**, taken from the matter. A client code can be letters or digits: `ASH` or `3333`. A client
+  name has its accents folded out and its words joined by the separator you choose, so Ashford
+  Holdings reads `Ashford-Holdings` with a dash. Only the matter, consultation and intake sequences offer these: a
   conflicts check or a custody packet carries none of them at the moment it is numbered. A matter
   that lacks the value a scheme needs cannot open under that scheme; the window that opens it says
   which part has no value.
@@ -61,35 +66,42 @@ A scheme is an ordered list of parts. Each part is one of:
   an invoice number prints it, every bill has to be issued under a letterhead, and a bill that
   names none is refused with a message saying so.
 
-Where a sequence already counts within something — a time entry within its matter, an invoice
-within the letterhead it was issued on — no part restarts the count, and the column says so.
-Everywhere else, any part taken from the record can be set to **restart the count**: the counter then begins again
-for each distinct value of that part, so a year that restarts the count gives `2026-0001`,
-`2026-0002` and then `2027-0001`, and a practice area that restarts it gives each practice its own
-run.
+Where a sequence already counts within something (a time entry within its matter, an invoice
+within the letterhead it was issued on) no part can take a separate count, and the column says so.
+Everywhere else, any part taken from the record can be given a **Separate Count**: each distinct
+value of that part then keeps its own run. With **Client Code**, **Text** `-` and a **Counter**,
+and Separate Count on for the client code, client 3333's matters are `3333-1`, `3333-2`, `3333-3`
+while client 4444's start again at `4444-1`. With it off there is one count across the firm, and the
+client code is only a label in front of it: `3333-1`, `4444-2`, `3333-3`. A year with a separate
+count gives `2026-0001`, `2026-0002` and then `2027-0001` in January.
 
-**Current** states the scheme the firm is numbering under today, or says that nothing is set and
-what that means; a sequence numbering from its built-in shape says so.
+Numbers like these sort the way you read them everywhere in the product: `3333-2` comes before
+`3333-10`, so there is no need to pad a count with zeros just to keep a list in order.
 
-The parts are a table, one row per part, in the order they appear in the number. The **Part**
-column chooses what kind of part it is, from a list in alphabetical order. **Value** holds the text
-of a fixed piece, and for every other kind states what that part will put into the number.
-**Digits**, **Starts At** and **Restarts the Count** hold the facts that kind takes, and a column a
-part has no fact for is empty with the reason shown when you hover it. A year's **Digits** offers 4
-or 2, each listed beside the year it would print. At the end of the row are the controls that act
-on it: move it up, move it down, remove it. The table fits beside the settings list on any screen
-1220 pixels wide or wider; on a narrower window, collapsing the main sidebar gives it room.
+**Current** shows the number the firm is issuing today, and **Preview** directly under it shows the
+number your edit would issue, so the two can be compared at a glance. Where nothing is set, Current
+says so and what that means.
 
-The last row of the table is where you add: **Add Part** adds one at the end, and **Load an
-example** fills the whole list with a common shape you can then change part by part.
+The parts are a table under the preview, one row per part, in the order they appear in the
+number. To move a part, drag it by the grip at the start of its row; from the keyboard, focus the
+grip and press Alt with Arrow Up or Arrow Down. The **Part** column chooses what kind of part it is,
+from a list in alphabetical order that shows beside each choice what that part would put into the
+number. **Value** holds the text of a fixed piece, and for every other kind states what that part
+will put into the number. **Format** holds the counter's fewest digits, a year's 4 or 2 digits, and
+the separator for Date Numbered and Client Name (Dash, Period, Underscore, Tilde or None; a slash
+cannot be used because the number has to stand in a link). **Starts At** and **Separate Count** hold
+the rest, and a column a part has no fact for is empty with the reason shown when you hover it. The
+control at the end of the row removes the part. The table fits beside the settings list on any
+screen 1220 pixels wide or wider; on a narrower window, collapsing the main sidebar gives it room.
 
-The **Preview** row is rendered by the same machinery that draws real numbers, against a sample
-record whose values are printed under it, so what you see is what the next record will get. **Save
-Scheme** replaces the firm's scheme in one audited step; **Discard** returns the parts to the scheme
-in force.
+Under the last part, **Add Part** adds one at the end.
 
-**A number already drawn is frozen.** Saving a scheme reaches only the records numbered from then
-on. Nothing already numbered is renumbered, and nothing here changes a single record's number. A
+The preview is rendered by the same machinery that draws real numbers, against a sample record, so
+what you see is what the next record will get. **Save Scheme** replaces the firm's scheme in one
+audited step; **Discard** returns the parts to the scheme in force.
+
+**Numbering Scheme only affects future generation.** Saving a scheme reaches only the records
+numbered from then on. Nothing already numbered is renumbered, and nothing here changes a single record's number. A
 conflicts check numbered `CC-0042` before the firm's checks joined this page keeps that number.
 
 ## Setting one matter's number by hand

@@ -724,6 +724,7 @@ export type NumberSegment = {
     scoping?: boolean;
 } | {
     kind: 'date_opened';
+    separator?: '-' | '.' | '_' | '~' | '';
     scoping?: boolean;
 } | {
     kind: 'matter_number';
@@ -742,6 +743,7 @@ export type NumberSegment = {
     scoping?: boolean;
 } | {
     kind: 'client_name';
+    separator?: '-' | '.' | '_' | '~' | '';
     scoping?: boolean;
 };
 
@@ -40971,7 +40973,7 @@ export type NotificationsListData = {
     query?: {
         cursor?: string;
         category?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
-        state?: 'unread' | 'read' | 'dismissed';
+        state?: 'unread' | 'read' | 'dismissed' | Array<'unread' | 'read' | 'dismissed'>;
         kinds?: string | Array<string>;
         searchCategories?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system' | Array<'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system'>;
         search?: string;
@@ -41120,6 +41122,45 @@ export type NotificationsDismissResponses = {
 };
 
 export type NotificationsDismissResponse = NotificationsDismissResponses[keyof NotificationsDismissResponses];
+
+export type NotificationsRestoreData = {
+    body?: never;
+    path: {
+        notificationRecipientId: string;
+    };
+    query?: never;
+    url: '/api/v1/notifications/{notificationRecipientId}/restore';
+};
+
+export type NotificationsRestoreErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks notifications:read
+     */
+    403: Problem;
+    /**
+     * No such notification for this member
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationsRestoreError = NotificationsRestoreErrors[keyof NotificationsRestoreErrors];
+
+export type NotificationsRestoreResponses = {
+    /**
+     * The notification's settled state
+     */
+    200: NotificationMarkResponse;
+};
+
+export type NotificationsRestoreResponse = NotificationsRestoreResponses[keyof NotificationsRestoreResponses];
 
 export type NotificationsMarkAllReadData = {
     body: NotificationMarkAllReadRequest;

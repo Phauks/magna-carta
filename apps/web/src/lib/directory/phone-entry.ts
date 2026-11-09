@@ -49,13 +49,11 @@ function countryName(region: string): string {
 /** Every country the formatter knows, named and sorted, the firm's own first. */
 export function phoneCountries(): readonly PhoneCountry[] {
   if (countries !== null) return countries;
-  const listed = getCountries().map(
-    (region): PhoneCountry => ({
-      region,
-      name: countryName(region),
-      callingCode: getCountryCallingCode(region),
-    }),
-  );
+  const listed = getCountries().map((region): PhoneCountry => ({
+    region,
+    name: countryName(region),
+    callingCode: getCountryCallingCode(region),
+  }));
   listed.sort((left, right) =>
     left.region === DEFAULT_PHONE_REGION
       ? -1
