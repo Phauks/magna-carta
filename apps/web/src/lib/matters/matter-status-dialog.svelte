@@ -878,7 +878,7 @@
       <p class="text-xs text-text-subtle">
         Destroy After is set when the matter closes, no earlier than the firm's minimum retention,
         and can be moved later or cleared here once it is closed. It appears on the calendar under
-        File destruction dates; nothing is destroyed when it arrives.
+        File Destruction Dates; nothing is destroyed when it arrives.
       </p>
     {/if}
     {#if physicalFileFailure !== null}

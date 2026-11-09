@@ -31,8 +31,10 @@ setting and deadline on every matter you can see, and the firm's own events besi
   and tick it again to take them all off. A folder with only some of its calendars on shows a dash
   rather than a tick, and pressing it turns the rest on.
 
-  Two are on when you first arrive — the firm's matters and deadlines, and the firm's events — and
-  everything else is yours to add. What you have open is **yours**: it follows you between screens
+  Three are on when you first arrive, under **The Firm**: **Case Settings** (every matter's
+  hearings, depositions and conferences), **Deadlines**, and **Firm Events**. Each has its own
+  colour and its own tick, so you can read only the deadlines, or everything but them. Everything
+  else is yours to add. What you have open is **yours**: it follows you between screens
   and visits on this browser, and changes nothing for anybody else.
 
   **Fold a folder you are not using.** Press its name and it closes up, so a firm with twenty
@@ -43,7 +45,9 @@ setting and deadline on every matter you can see, and the firm's own events besi
 
 - **A small month sits under the list, and it stays there.** It shows where you are and takes you
   somewhere else in one press, and it does not scroll away when you scroll the calendars above it.
-  Pressing a day moves the calendar to that day **without changing your view** — press a Thursday
+  Its arrows look at the months either side without moving the calendar; press the month's name to
+  pick any month from a grid of twelve, with arrows for the year. Pressing a day moves the calendar
+  to that day **without changing your view** — press a Thursday
   while you are reading a week and you get that Thursday's week, not a day view of it. Its week
   begins on the day your firm chose, so its columns and the grid's are the same seven days.
 
@@ -51,10 +55,10 @@ setting and deadline on every matter you can see, and the firm's own events besi
   stripe down the edge of every entry from that calendar, and heads that calendar's column on the
   day view, so one person's day is told from another's at a glance. Calendars you have not coloured
   are given colours to start with, so eight of them turned on are still eight you can tell apart.
-- **Custody dates**, under **Dates**, adds the safe custody register's dates to the calendar: when
+- **Custody Dates**, under **Dates**, adds the safe custody register's dates to the calendar: when
   an original checked out is due back, and when a packet or an item is due for review. Each shows
   its custody number and opens the register.
-- **File destruction dates**, under **Dates** beside it, shows the day each matter's paper file may
+- **File Destruction Dates**, under **Dates** beside it, shows the day each matter's paper file may
   be destroyed after, as your firm recorded it on the matter's status window. Each entry shows the
   matter's number and opens the matter. It is a reminder only: nothing is destroyed when the day
   arrives.
@@ -62,18 +66,16 @@ setting and deadline on every matter you can see, and the firm's own events besi
   calendar on and the others off; to read a colleague's, turn theirs on. A colleague's calendar
   shows the settings they are a participant at or the responsible attorney for, over the matters
   you can see, and every firm event whose audience is everyone.
-- **Kinds.** The list on the left says whose calendars you are looking at; **Kinds**, at the top,
-  says what sort of thing — case settings, deadlines, firm events, or the dates from the register.
-  Not every week needs all four at once. Every kind is shown until you say otherwise, so the first
-  press takes one away rather than leaving you with only it. **Show Everything** puts them back and
-  appears only while something is being held back. Turning all four off shows you everything rather
-  than an empty calendar. It narrows what is on screen and asks the server for nothing, so it
-  answers as fast as you press it — and it reaches exactly as far as the window you are looking at.
-- **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
-  settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
-  The month and the week always show them, struck through.
-- **Month, week, day, agenda.** Four views of the same calendar, chosen directly above the calendar
-  itself, with the arrows and **Today** that move you through time. The screen's name runs across
+- **What sort of thing is the list on the left too.** Case settings, deadlines, firm events and the
+  register's dates are each their own calendar, so turning one kind off is unticking it.
+- **The date is the heading over the calendar.** The month you are reading (or the week, or the
+  day) is written large at the top left, with the arrows just before it. Press the heading to jump
+  to any month from a grid of twelve, with arrows for the year.
+- **Hide settled.** On the agenda, open **View** and tick it to leave out what is no longer coming:
+  cancelled settings and satisfied, vacated or superseded deadlines. The agenda says how many it
+  left out. The month and the week always show them, struck through.
+- **Month, week, day, agenda.** Four views of the same calendar, chosen from the **View** menu at
+  the top right, with **Today** beside it. The screen's name runs across
   the top of the whole page, above both the list of calendars and the calendar, with the search and
   **New** on its line. The month grid shows a few
   entries per day and says how many more there are; press that and the agenda opens on that day.
@@ -90,7 +92,7 @@ setting and deadline on every matter you can see, and the firm's own events besi
   hours. The agenda is a fortnight as a list. The view and the date live in the address.
 - **Side by side, or overlapping.** On the week and the day, two things at the same hour can either
   divide their column between them, so neither hides the other, or lie over one another so each
-  keeps more of its width. Press whichever you want at the top of the screen; the choice is yours
+  keeps more of its width. Choose it from the **View** menu on those two views; the choice is yours
   and follows you on this browser. Something too short to hold its own name is still drawn tall
   enough to read, so a fifteen-minute call is never a sliver.
 - **Double-click an empty day, or an empty hour on the day view, to start recording an event on
@@ -107,6 +109,8 @@ setting and deadline on every matter you can see, and the firm's own events besi
 - **Cancelled settings stay on the calendar, struck through.** A setting that was called off and one
   that never existed are different facts.
 - **New** at the top right records an event, a deadline on a matter, or a firm event.
+- **The month shows only its own weeks.** Four, five or six rows, as the month needs, sharing the
+  height of the screen, so the calendar does not scroll when there is nothing more to see.
 - **An empty month says nothing.** A month with nothing on it is a month with nothing on it; the
   agenda, which would otherwise be a blank space, says so in words.
 

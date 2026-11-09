@@ -32,7 +32,7 @@ same page.
 - **It does not reach back.** Dates already recorded stay as they are. The minimum applies the next
   time a date is stated: at a close, or when a closed matter's date is changed on its status window.
 - **Nothing is destroyed or deleted when a date arrives.** The date is a reminder on the matter's
-  status window and on the firm calendar under **File destruction dates**. Destroying the file is
+  status window and on the firm calendar under **File Destruction Dates**. Destroying the file is
   still a person's act.
 - **It is recorded.** Every change to the setting is written to the firm's audit trail, with who
   made it and when.

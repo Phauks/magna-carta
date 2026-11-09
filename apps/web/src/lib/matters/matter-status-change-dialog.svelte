@@ -485,7 +485,7 @@
             <p class="text-xs text-status-danger-subtle-foreground">{destructionRefusal}</p>
           {/if}
           <p class="text-xs text-text-subtle">
-            A reminder on the calendar under File destruction dates. Nothing is destroyed when it
+            A reminder on the calendar under File Destruction Dates. Nothing is destroyed when it
             arrives.
           </p>
         </div>
