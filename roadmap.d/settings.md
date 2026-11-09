@@ -102,7 +102,7 @@
   scope: Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
   status: partial
   surface: screen
-  evidence: Every page in the band is real end to end - Users and Roles and Permissions (settings.area-ui.member-administration), File Safety & Scanning (settings.area-ui.file-safety), Firm Profile (settings.area-ui.firm-profile) and Billing (settings.area-ui.billing-time-policy). Matter Numbering has its own dedicated section under Practice.
+  evidence: Every page in the band is real end to end - Users and Roles and Permissions (settings.area-ui.member-administration), File Safety & Scanning (settings.area-ui.file-safety), Firm Profile (settings.area-ui.firm-profile), Firm Brand (settings.area-ui.firm-brand) and Billing (settings.area-ui.billing-time-policy). Matter Numbering has its own dedicated section under Practice.
 
 - id: settings.area-ui.billing-time-policy
   name: Billing (time capture)
@@ -134,7 +134,15 @@
   status: shipped
   surface: screen
   evidence: apps/web/src/routes/(app)/settings/firm-profile/ over PUT /api/v1/firm/profile (apps/api-worker/src/routes/firm-profile.ts) behind firm:manageProfile, Owner/Admin by seed. The read is the session bootstrap, which resolves the firm's display name for every request already, so the page has one write and no read of its own; the session is re-read after a save because the name is on the chrome around the page too.
-  notes: The write reaches firm.display_name and never firm.name, which is the UNIQUE provisioning handle a crashed provisioning run resumes by. Instant with its own Save rather than the firm scope's draft footer — one field, and the staged-count-and-recap anatomy over a single row is more machinery than the act. An address, a telephone number and a letterhead root belong to an office and stay under Offices rather than becoming a second firm-wide answer no letterhead reads.
+  notes: The write reaches firm.display_name and never firm.name, which is the UNIQUE provisioning handle a crashed provisioning run resumes by. Instant with its own Save rather than the firm scope's draft footer — one field, and the staged-count-and-recap anatomy over a single row is more machinery than the act. An address, a telephone number and a letterhead root belong to an office and stay under Offices rather than becoming a second firm-wide answer no letterhead reads. The page no longer summarises the offices or carries the marks: each has its own page under Firm (Offices, Firm Brand), and a copy here was the duplication the owner removed.
+
+- id: settings.area-ui.firm-brand
+  name: Firm Brand
+  scope: How the firm looks - its primary mark, which every office's letterhead prints unless the office has a logo of its own, and the additional images kept beside it.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/firm-brand/ (the page and brand-images-plate.svelte) over GET, PUT, PATCH and DELETE on /api/v1/firm/profile/brand-images (apps/api-worker/src/routes/firm-profile.ts) behind firm:manageProfile, Owner/Admin by seed; every act commits at once, so nothing is staged.
+  notes: Split out of Firm Profile so the name and the marks each have one home. The office's own letterhead logo stays on the office's record under Offices.
 
 - id: settings.area-ui.member-administration
   name: Users and Roles and Permissions
