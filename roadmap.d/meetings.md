@@ -261,7 +261,7 @@
   status: designed
   spec: docs/specs/2026-11-09-meetings-end-to-end-encryption-design.md
   evidence: No code. Designed 2026-11-09 over the research in docs/research/2026-09-24-meetings-end-to-end-encryption.md; four experiments (simulcast with encrypted VP8, Opus clear prefix, encrypted H.264 from Safari, MLS cost at 300) come before any code.
-  notes: The owner's rulings of 2026-11-09 — build it; MLS rather than sender keys so the room keeps its 300; on by default, fixed at Start; recordings stay in the cloud and live captions stay available, and dial-in is allowed, each pausing end-to-end encryption under a banner everyone sees, signed into the group so the server cannot fake a pause, and resuming with fresh keys. ledger-staleness:allow — E1 to E4 in the design are experiments run before code, not owner questions.
+  notes: The owner's rulings of 2026-11-09 — build it; MLS rather than sender keys so the room keeps its 300; on by default, fixed at Start; recordings stay in the cloud and live captions stay available, and dial-in is allowed, each pausing end-to-end encryption under a banner everyone sees, signed into the group so the server cannot fake a pause, and resuming with fresh keys.
 - id: meetings.usage-reporting
   name: Meetings usage and quality
   scope: How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.

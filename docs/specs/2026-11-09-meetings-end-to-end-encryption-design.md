@@ -94,10 +94,10 @@ As in the research note (section 6.4): each browser hashes the group's member li
 
 | Experiment | Question                                                                     | Pass                                                                                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **E1**     | Does simulcast layer switching survive encrypted VP8 on the routing service? | Every switch lands within one keyframe interval with no decode errors                                                                                                                       |
-| **E2**     | Does Opus need any clear prefix?                                             | Audio plays with the whole frame encrypted                                                                                                                                                  |
-| **E3**     | Does encrypted H.264 from Safari arrive whole?                               | No split frames over a 5-minute call                                                                                                                                                        |
-| **E4**     | What does MLS cost at 300?                                                   | An admission and a removal at 300 each finish under 1 second in a mid-range laptop browser; the WebAssembly bundle is at most 1 MB gzipped, loaded only when an encrypted meeting is joined |
+| E1         | Does simulcast layer switching survive encrypted VP8 on the routing service? | Every switch lands within one keyframe interval with no decode errors                                                                                                                       |
+| E2         | Does Opus need any clear prefix?                                             | Audio plays with the whole frame encrypted                                                                                                                                                  |
+| E3         | Does encrypted H.264 from Safari arrive whole?                               | No split frames over a 5-minute call                                                                                                                                                        |
+| E4         | What does MLS cost at 300?                                                   | An admission and a removal at 300 each finish under 1 second in a mid-range laptop browser; the WebAssembly bundle is at most 1 MB gzipped, loaded only when an encrypted meeting is joined |
 
 ## 11. Files touched, in shape
 
