@@ -18,8 +18,8 @@ import {
   normalizeLastName,
   UNMATCHABLE_VERIFIER_HASH,
 } from "../src/joining-secrets.ts";
-import { INVITATION_ATTEMPT_LIMIT } from "../src/invitation-redemption.ts";
-import { ATTEMPT_LIMIT } from "../src/auth-attempt-budget.ts";
+import { INVITATION_ATTEMPT_LIMIT } from "../src/http/invitation-redemption.ts";
+import { ATTEMPT_LIMIT } from "../src/http/auth-attempt-budget.ts";
 
 // The password a registering visitor now chooses on the form. Registration commits it with the
 // account at confirmation, so every body that opens an account-creating door carries one.

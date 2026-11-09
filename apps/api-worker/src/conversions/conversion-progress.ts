@@ -6,7 +6,7 @@
 // state that still says `done` after the reap must report `expired` rather than hand out a signed URL
 // that resolves to nothing. The URL is minted per call and never stored — it is short-lived by
 // design, and storing one would outlive the reason the caller was allowed to have it.
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { FirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import type { ConversionJobState } from "./conversion-types.ts";

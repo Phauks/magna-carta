@@ -314,7 +314,7 @@ Expected: PASS.
 <script lang="ts">
   /*
    * The account shell — a two-column arrangement inside the work canvas, mirroring the settings
-   * shell (src/routes/(app)/settings/+layout.svelte): a section rail on the left rendered from
+   * shell (src/http/routes/(app)/settings/+layout.svelte): a section rail on the left rendered from
    * the account section registry (one canonical list, so adding a section is a registry entry +
    * a page, never a nav edit), and the active section's page on the right.
    *
@@ -400,7 +400,7 @@ Expected: PASS.
 
 - [ ] **Step 6: Format + typecheck**
 
-Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint "src/routes/(app)/account/+layout.svelte" "src/routes/(app)/account/+page.ts" test/account-redirect.test.ts` then `pnpm --filter @magna-carta/web check`
+Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint "src/http/routes/(app)/account/+layout.svelte" "src/http/routes/(app)/account/+page.ts" test/account-redirect.test.ts` then `pnpm --filter @magna-carta/web check`
 Expected: no errors.
 
 - [ ] **Step 7: Commit** (coordinator)
@@ -528,7 +528,7 @@ The row seams use page-local `SettingDefinition` objects (the established patter
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint "src/routes/(app)/account/profile/+page.svelte"` then `pnpm --filter @magna-carta/web check`
+Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint "src/http/routes/(app)/account/profile/+page.svelte"` then `pnpm --filter @magna-carta/web check`
 Expected: no errors. (`Button`'s `ButtonVariant` union is `"primary" | "accent" | "secondary" | "destructive" | "ghost"` — `"secondary"` is valid.)
 
 - [ ] **Step 3: Commit** (coordinator; browser verification happens in Task 7)
@@ -644,7 +644,7 @@ EOF
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint "src/routes/(app)/account/security/+page.svelte"` then `pnpm --filter @magna-carta/web check`
+Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint "src/http/routes/(app)/account/security/+page.svelte"` then `pnpm --filter @magna-carta/web check`
 Expected: no errors.
 
 - [ ] **Step 3: Commit** (coordinator)
@@ -693,8 +693,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const PAGES = [
-  "src/routes/(app)/account/profile/+page.svelte",
-  "src/routes/(app)/account/security/+page.svelte",
+  "src/http/routes/(app)/account/profile/+page.svelte",
+  "src/http/routes/(app)/account/security/+page.svelte",
 ];
 
 function read(relativePath: string): string {

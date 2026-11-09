@@ -60,11 +60,11 @@ export const ALLOWLIST = new Map([
   [
     "createMemoryLogger",
     "a test double — the in-memory logger every package's tests assert against, and production wires" +
-      " the real one in apps/api-worker/src/app.ts",
+      " the real one in apps/api-worker/src/http/app.ts",
   ],
   [
     "createDocumentAssemblyPort",
-    "a port factory over `assemble`, which apps/api-worker/src/assemblies/assembly-consumer.ts imports" +
+    "a port factory over `assemble`, which apps/api-worker/src/background/assemblies/assembly-consumer.ts imports" +
       " directly; the capability is fully reachable and only this wrapper is unused",
   ],
   [

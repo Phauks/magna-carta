@@ -97,4 +97,4 @@ Extends **ADR-0044** (display-name-only identity — this supersedes its forced-
 eligibility, the firm dimension, the ranking rule and the voter-list prohibition); reuses the self-serve
 provisioning and free tier of 2026-08-10 as the eligibility gate, and the client portal's distinct
 external-principal auth surface as the structural exclusion. Spec:
-[`docs/specs/2026-08-11-community-surfaces-design.md`](../../specs/2026-08-11-community-surfaces-design.md).
+[`docs/specs/2026-08-11-community-surfaces-design.md`](../specs/2026-08-11-community-surfaces-design.md).

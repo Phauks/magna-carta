@@ -16,13 +16,13 @@ import {
   type SplitQueryTarget,
 } from "@magna-carta/search/port";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { searchCompactionQueue } from "../src/search/compaction-consumer.ts";
+import { searchCompactionQueue } from "../src/background/search/compaction-consumer.ts";
 import type { SearchCompactionJob } from "../src/search/compaction-coordinator.ts";
 import {
   searchCompactionJobName,
   type SearchCompactionMessage,
 } from "../src/search/compaction-types.ts";
-import { runSearchCompactionSweep } from "../src/search/compaction-sweep.ts";
+import { runSearchCompactionSweep } from "../src/background/search/compaction-sweep.ts";
 import { runKeywordSearch } from "../src/search/keyword-search.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";

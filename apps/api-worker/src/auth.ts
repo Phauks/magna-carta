@@ -10,7 +10,7 @@ import type { EntityType } from "@magna-carta/identifiers/registry";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import type { SendEmail } from "./email-port.ts";
 import { passwordResetEmailText, passwordResetScreenLink } from "./password-reset-link.ts";
 
@@ -191,7 +191,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       //
       // IT IS NO LONGER HOW SOMEBODY GETS THEIR FIRST PASSWORD, on the door most people arrive
       // through: a person registering chooses their password then, and confirming the emailed token
-      // commits the credential with the account (routes/registrations.ts). Reset is back to being
+      // commits the credential with the account (routes/session/registrations.ts). Reset is back to being
       // what its name says — replacing a password you already have.
       //
       // It IS still the activation link on the two doors that cannot collect a password: invitation
@@ -218,7 +218,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       // so spending one proves possession of the address — the same proof a mailed sign-in link
       // rests on, and a stronger one than the password the next screen would otherwise ask for. This
       // is what lets registration end inside the product instead of at the front door:
-      // routes/registrations.ts spends a freshly minted token the moment a confirmed registration's
+      // routes/session/registrations.ts spends a freshly minted token the moment a confirmed registration's
       // account is committed, and forwards the session cookie this sets onto its own response.
       //
       // It changes nothing for a person who is ALREADY signed in when they verify — the endpoint

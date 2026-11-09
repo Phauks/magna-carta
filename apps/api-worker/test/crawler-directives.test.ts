@@ -1,6 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { X_ROBOTS_TAG_NOINDEX } from "../src/crawler-directives.ts";
+import { X_ROBOTS_TAG_NOINDEX } from "../src/http/crawler-directives.ts";
 
 // Magna Carta is a private, authenticated product: every surface this Worker serves (the SPA shell,
 // the API, Better Auth, and every branded per-firm subdomain) must stay out of search indexes. This

@@ -71,4 +71,4 @@ artifact schema in `@magna-carta/community`** (that package is the board — con
 cross-firm, its own worker; the changelog shares none of that and would inherit a boundary it does
 not need). Extends the product-updates decision (the bundled artifact and version-accuracy by
 construction are unchanged) and implements the public-changelog audience-and-source decision. Spec:
-[`docs/specs/2026-08-11-community-surfaces-design.md`](../../specs/2026-08-11-community-surfaces-design.md).
+[`docs/specs/2026-08-11-community-surfaces-design.md`](../specs/2026-08-11-community-surfaces-design.md).

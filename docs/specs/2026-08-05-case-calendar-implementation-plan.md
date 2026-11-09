@@ -150,7 +150,7 @@ so the timeline in this slice covers exactly the two recorded sources.
 
 ## Task 7 — The first two routes
 
-- [ ] `apps/worker/src/routes/calendar.ts`: `GET /api/v1/matters/{matterId}/events` and the write
+- [ ] `apps/worker/src/routes/calendar/calendar.ts`: `GET /api/v1/matters/{matterId}/events` and the write
       routes from the design's section 10.2, all declaring route metadata (`permission`, `audited`,
       `idempotency`, `resource`).
 - [ ] Emit the OpenAPI snapshot and regenerate the typed client.

@@ -109,7 +109,7 @@ verdict. No schema change beyond none; no new matching; no new firing.
 - [ ] Add `tooling/lint-conflicts-vocabulary.mjs`, modelled on the shipped
       `tooling/lint-custodian-vocabulary.mjs`, wired as `pnpm run lint:conflicts-vocabulary` and into
       the governance job of `.github/workflows/gate.yml`.
-- [ ] Scan `packages/conflicts/`, `apps/worker/src/routes/conflicts.ts`, the generated OpenAPI
+- [ ] Scan `packages/conflicts/`, `apps/worker/src/routes/directory/conflicts.ts`, the generated OpenAPI
       snapshot's conflicts paths, conflicts surfaces under `apps/web/`, and `docs/user/`.
 - [ ] Ban, case-insensitively: `conflict-free`, `conflict free`, `no conflicts`, `clear of conflicts`,
       `conflicts cleared`, `conflict check passed`, `all clear`, `no conflict found`.

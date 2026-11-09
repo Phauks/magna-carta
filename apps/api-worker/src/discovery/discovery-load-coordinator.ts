@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import {
   UNKNOWN_LOAD_JOB,
   type DiscoveryLoadCoordinatorRpc,

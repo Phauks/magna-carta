@@ -2,9 +2,9 @@
 
 **Status:** Accepted (owner direction, 2026-08-31) · **Area:** Reports / Documents
 **Builds on:** the export seam decision
-([`a-data-export-is-one-document-and-a-format-is-a-renderer`](../decisions/pending/a-data-export-is-one-document-and-a-format-is-a-renderer.md))
+([`a-data-export-is-one-document-and-a-format-is-a-renderer`](../decisions/0411-a-data-export-is-one-document-and-a-format-is-a-renderer.md))
 and the accepted rule that an assembled PDF rides the existing conversion edge
-([`assembled-pdf-goes-through-the-existing-conversion-edge`](../decisions/pending/assembled-pdf-goes-through-the-existing-conversion-edge.md)).
+([`assembled-pdf-goes-through-the-existing-conversion-edge`](../decisions/0285-assembled-pdf-goes-through-the-existing-conversion-edge.md)).
 
 ## What this is
 

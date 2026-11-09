@@ -26,7 +26,7 @@ const packagesDirectory = join(repositoryRoot, "packages");
 const COMPOSITION_ROOTS = new Set(
   [
     ["inference", "call-site.ts"],
-    ["inference", "inference-consumer.ts"],
+    ["background", "inference", "inference-consumer.ts"],
     ["magnus", "inference-port-binding.ts"],
   ].map((segments) => join(workerSource, ...segments)),
 );

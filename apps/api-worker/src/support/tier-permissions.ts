@@ -2,7 +2,7 @@ import { type Permission, permissionsForNamespace } from "@magna-carta/access-co
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { SupportGrantTier } from "@magna-carta/data-access/support-access-statements";
 import type { UserId } from "@magna-carta/identifiers/types";
-import { loadEffectivePermissions } from "../session-context.ts";
+import { loadEffectivePermissions } from "../effective-permissions.ts";
 
 // The whole diagnostics namespace — the fixed allow-list a diagnostic support session carries. It holds
 // no view*/decrypt key, so the audited-decrypt gates never open from a diagnostic session.
