@@ -7260,6 +7260,16 @@
                   "date_opened"
                 ]
               },
+              "separator": {
+                "type": "string",
+                "enum": [
+                  "-",
+                  ".",
+                  "_",
+                  "~",
+                  ""
+                ]
+              },
               "scoping": {
                 "type": "boolean"
               }
@@ -7360,6 +7370,16 @@
                 "type": "string",
                 "enum": [
                   "client_name"
+                ]
+              },
+              "separator": {
+                "type": "string",
+                "enum": [
+                  "-",
+                  ".",
+                  "_",
+                  "~",
+                  ""
                 ]
               },
               "scoping": {

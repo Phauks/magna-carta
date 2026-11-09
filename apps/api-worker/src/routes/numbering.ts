@@ -68,13 +68,21 @@ const NumberSegmentSchema = z
     }),
     z.object({ kind: z.literal("month"), scoping: optionalScoping }),
     z.object({ kind: z.literal("day"), scoping: optionalScoping }),
-    z.object({ kind: z.literal("date_opened"), scoping: optionalScoping }),
+    z.object({
+      kind: z.literal("date_opened"),
+      separator: z.enum(["-", ".", "_", "~", ""]).optional(),
+      scoping: optionalScoping,
+    }),
     z.object({ kind: z.literal("matter_number"), scoping: optionalScoping }),
     z.object({ kind: z.literal("location_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("matter_type_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("client_code"), scoping: optionalScoping }),
     z.object({ kind: z.literal("staff_initials"), scoping: optionalScoping }),
-    z.object({ kind: z.literal("client_name"), scoping: optionalScoping }),
+    z.object({
+      kind: z.literal("client_name"),
+      separator: z.enum(["-", ".", "_", "~", ""]).optional(),
+      scoping: optionalScoping,
+    }),
   ])
   .openapi("NumberSegment");
 
