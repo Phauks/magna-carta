@@ -22,6 +22,11 @@
    * filters narrow the rows in hand, as on every other paged register, which is why the footer says
    * how many of how many are showing.
    *
+   * GROUPED BY DAY UNLESS THE READER SAYS OTHERWISE. The Group By menu offers Day, Category,
+   * Priority, Matter and Read State, or a flat list; what each one does is on
+   * $lib/notifications/notification-grouping.ts. Opened, the dismissed shelf is the last band
+   * whatever the grouping, and in a flat list it is the quieted run at the foot.
+   *
    * EVERY COUNT COMES FROM THE SERVER. The badge is the shared count the bell reads, settled from
    * the server's answer after a write, never a tally of rows that left this view.
    */
@@ -47,6 +52,13 @@
     notificationColumns,
     orderNotificationRows,
   } from "$lib/notifications/notification-columns.ts";
+  import {
+    NOTIFICATION_DEFAULT_GROUP_BY,
+    NOTIFICATION_GROUP_BY_OPTIONS,
+    notificationGrouping,
+    readerCalendar,
+    type NotificationGroupBy,
+  } from "$lib/notifications/notification-grouping.ts";
   import {
     categoriesMatching,
     describeNotification,
@@ -132,6 +144,11 @@
   // second count that could disagree with the one above it.
   $effect(() => unreadNotificationCount.watch(fetch));
 
+  let groupBy = $state<NotificationGroupBy>(NOTIFICATION_DEFAULT_GROUP_BY);
+  // Read once when the screen opens: "Today" is the reader's today as they arrived, and a band that
+  // relabelled itself at midnight under a reader's eyes would be a list moving on its own.
+  const calendar = readerCalendar();
+
   const rows = $derived([...(live.items ?? []), ...(showDismissed ? (shelf.items ?? []) : [])]);
 
   const grid = DataTable.createDataTableGrid<NotificationItem>({
@@ -142,6 +159,7 @@
     itemNoun: { singular: "notification", plural: "notifications" },
     rowMark: (item) => (item.state === "dismissed" ? { quiet: true } : undefined),
     orderRows: orderNotificationRows,
+    grouping: () => notificationGrouping(groupBy, calendar),
     onActivate: (item) => void follow(item),
   });
 
@@ -296,6 +314,10 @@
     {#snippet actions()}
       <!-- Clear Filters comes and goes, so it leads rather than ending the row. -->
       <DataTable.ClearFilters {grid} />
+      <DataTable.GroupByMenu
+        options={NOTIFICATION_GROUP_BY_OPTIONS}
+        bind:value={() => groupBy, (next) => (groupBy = next as NotificationGroupBy)}
+      />
       <ScreenSearch
         bind:value={searchText}
         label="Search your notifications"

@@ -82,6 +82,7 @@
   } from "$lib/meetings/client/questions.svelte.ts";
   import type { MediaEffectSettings } from "$lib/meetings/client/media-effects.ts";
   import { meetingEffectsPreference } from "$lib/meetings/meeting-effects-preference.svelte.ts";
+  import { keepBackgroundImage } from "$lib/meetings/effects/background-image-store.ts";
   import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
   import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
@@ -141,6 +142,22 @@
   function changeEffects(settings: MediaEffectSettings): void {
     effectsPreference.set(settings);
     void client.changeEffects(settings);
+  }
+
+  /**
+   * Stand the member in front of a picture from their computer. It is cut down and kept in this
+   * browser, so the next meeting here starts with it, and it is never uploaded.
+   */
+  async function chooseBackgroundImage(file: File): Promise<void> {
+    let image: ImageBitmap;
+    try {
+      image = await keepBackgroundImage(file);
+    } catch {
+      client.noteEffectsRefusal("That file is not a picture this browser can show.");
+      return;
+    }
+    effectsPreference.set({ ...effectsPreference.current, background: "image" });
+    await client.chooseBackgroundImage(image);
   }
 
   /** The join's refusal, where joining is what failed. Null while nothing has. */
@@ -1294,6 +1311,7 @@
         pollsWaiting={myRole === null ? polls.waitingForAnswer : 0}
         questionsWaiting={questions.waiting}
         onChangeEffects={changeEffects}
+        onChooseBackgroundImage={(file) => void chooseBackgroundImage(file)}
         onOpenPolls={() => (pollsOpen = true)}
         onOpenQuestions={() => (questionsOpen = true)}
         onToggleMicrophone={() => client.toggleMicrophone()}

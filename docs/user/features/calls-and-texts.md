@@ -4,9 +4,10 @@ _You can record calls and texts that happened, open one to read or correct it, r
 firm or on one matter, file one onto a matter, set one aside as something that belongs to no matter,
 and start an intake from a call — either from the call's record or straight from the form as you
 write it down. Every call and text carries a reference number you can read back to whoever is on the
-line, and the number is on screen before you save. The firm has no phone number connected yet, so nothing is sent or
-received from Magna Carta — every row is written down by whoever made or took the call. Call
-recording and transcripts are not built._
+line, and the number is on screen before you save. A number you type is matched to your directory,
+its area code is placed, and its caller ID can be looked up. The firm has no phone number connected
+yet, so nothing is sent or received from Magna Carta — every row is written down by whoever made or
+took the call. Calls are not recorded._
 
 ## What it does
 
@@ -83,6 +84,32 @@ Email is not here. Mail lives in your own mailbox and is filed onto a matter fro
 12. Press **Save**. If the call is somebody wanting the firm to act, press **Save And Start An
     Intake** instead: it records the call and opens the intake in one step, so the account of the
     first contact ends up on the file it started.
+
+## Who is calling
+
+Once the number you type is a whole number, the form says what it knows about it, under the number:
+
+- **A contact who has this number.** If anybody in your directory has the number on their record,
+  they are named there. Press **Use This Contact** to put them on the call; it is offered only while
+  the record has no contact yet.
+- **Where the number was issued.** For a United States or Canadian number, the area code's state or
+  province and, where the numbering records hold it, the town the number's exchange (the three
+  digits after the area code) was given to, such as "702 · Henderson, Nevada number". This is where
+  the number was handed out, not where the caller is: a mobile number keeps its area code and
+  exchange when its owner moves.
+- **The time there.** The current time in the number's time zone, such as "3:19 PM PST there", so you
+  can tell whether it is a reasonable hour to call back. It is left out for the few area codes that
+  span two time zones, where the number alone cannot say which.
+- **Caller ID.** Press **Look Up Caller ID** to ask the telephone network what name it holds for the
+  number, and whether it is a mobile, a landline or an internet phone. The name is shown exactly as
+  the network holds it, usually in capitals, and for a mobile it is often just a city or "WIRELESS
+  CALLER". Each lookup costs the firm a fraction of a cent, which is why it is a button rather than
+  automatic. Once anybody at the firm has looked a number up, the answer is kept and shown for that
+  number from then on without asking again.
+
+The caller ID button only appears once your firm has turned caller ID lookups on, and only for United
+States and Canadian numbers, because the network keeps no caller names for other countries. If
+nothing is known about a number, nothing is shown, and you record the call exactly as before.
 
 ## Reading a row without opening it
 
@@ -173,12 +200,12 @@ file it where it belongs.
 
 - **Sending and receiving.** Nothing leaves or arrives through Magna Carta. Connecting the firm's
   number needs a carrier account and a registration that takes weeks, and that is a separate step.
-- **Call recording and transcripts.** Recording a call is not simply a feature to switch on: about a
-  dozen US states require every person on the call to consent, and Nevada is not one of them. The
-  machinery that knows which rule applies where is still being designed, and recording will not ship
-  before it.
-- **Matching an incoming number to your directory by itself.** You can name the contact when you
-  record a call. When the carrier connects, an incoming number will be matched automatically.
+- **Call recording and transcripts.** Magna Carta does not record calls. Nevada, like about a dozen
+  other states, requires every person on a call to agree before it is recorded. To keep what was
+  said, write your own account of it into the description.
+- **Matching an incoming number by itself.** A number you type is matched to your directory as you
+  type it (see **Who is calling**). When the firm's phone line is connected, a call that rings will be
+  matched the same way without anybody typing.
 - **Reporting on what the phone actually carries.** The set-aside reasons make that answerable, and
   nothing reads them back yet.
 - **Text messages to and from the client portal.** That is a different feature and lives elsewhere.

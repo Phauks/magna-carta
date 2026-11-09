@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { type AadContext, serializeAad } from "@magna-carta/encryption/aad";
 import { computeBlindIndex, type BlindIndexSpec } from "@magna-carta/encryption/blind-index";

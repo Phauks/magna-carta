@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // THE MAIL A MEETING GUEST RECEIVES, and the instant a link's life is measured from. The mail says who,
 // what and when, and carries the link twice — once as an address, once as a code to type — and says
 // nothing about the matter behind the meeting.

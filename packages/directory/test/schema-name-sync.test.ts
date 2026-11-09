@@ -11,6 +11,7 @@ import {
   directoryEdge,
   directoryEmail,
   directoryEntityCategory,
+  directoryEntityPhoto,
   directoryIdentifier,
   directoryName,
   directoryNamePhoneticCode,
@@ -31,6 +32,7 @@ import {
   DIRECTORY_ORGANIZATION_TABLE,
   DIRECTORY_PERSON_TABLE,
 } from "../src/statements.ts";
+import { DIRECTORY_ENTITY_PHOTO_TABLE } from "../src/entity-photo.ts";
 
 // Fitness function (the ledger/data-access source-scan pattern): every SQL identifier the directory
 // package hand-writes must track @magna-carta/database's schema — the single source of truth. The
@@ -73,6 +75,8 @@ const TOUCHED_TABLES: readonly SQLiteTable[] = [
   // values to history (target_row_id), and the fitness probe scans both — so this table's name and
   // columns are now hand-written in directory SQL and must track the schema.
   customFieldValue,
+  // A record's picture (entity-photo.ts): the row naming the object that holds the bytes.
+  directoryEntityPhoto,
 ];
 
 const tableNames = new Set(TOUCHED_TABLES.map((table) => getTableConfig(table).name));
@@ -230,6 +234,7 @@ describe("schema name sync (directory SQL pinned to @magna-carta/database)", () 
     expect(DIRECTORY_NAME_TABLE).toBe(getTableConfig(directoryName).name);
     expect(DIRECTORY_NAME_PHONETIC_CODE_TABLE).toBe(getTableConfig(directoryNamePhoneticCode).name);
     expect(DIRECTORY_IDENTIFIER_TABLE).toBe(getTableConfig(directoryIdentifier).name);
+    expect(DIRECTORY_ENTITY_PHOTO_TABLE).toBe(getTableConfig(directoryEntityPhoto).name);
   });
 
   it("the scan found prepared SQL across the package (non-vacuity floor)", () => {

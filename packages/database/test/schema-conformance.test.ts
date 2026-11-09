@@ -113,6 +113,9 @@ describe("schema conformance (fitness functions)", () => {
       // legitimately hold the same image, and keying on content would make one member's upload
       // silently become the other's row.
       member_photo: "member_user_id",
+      // One picture per directory record, and the record IS the row: the member_photo reasoning, for
+      // a person's photograph or an organization's logo.
+      directory_entity_photo: "entity_id",
       // One running tally per member of how many notifications aged out of their feed while still
       // unread. The MEMBER is the row: it is a count and two instants updated in place, never an
       // event anybody appends, and a handle would let two tallies exist for one person — which is
@@ -172,7 +175,11 @@ describe("schema conformance (fitness functions)", () => {
     // key, same idiom as directory_entity_category; no handle is warranted.
     // file_version_change is one tracked change of a version, keyed by (version_id, sequence): its
     // document order within the version IS its identity, and nothing references a change row.
+    // caller_identity is keyed by (country_calling_code, national_number) — the network's answer
+    // about one number, and the number IS the row. A handle would let two answers exist for one
+    // number, and the write is an upsert on this key so a second paid lookup replaces the first.
     const compositeKeyTables = new Set([
+      "caller_identity",
       "file_version_participant",
       "file_version_change",
       "ai_search_feed_object",

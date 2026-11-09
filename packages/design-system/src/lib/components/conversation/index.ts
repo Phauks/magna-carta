@@ -12,8 +12,16 @@ import Turn from "./conversation-turn.svelte";
 import TurnBody from "./conversation-turn-body.svelte";
 import TurnNote from "./conversation-turn-note.svelte";
 import TurnSpeaker from "./conversation-turn-speaker.svelte";
+import TurnMark from "./conversation-turn-mark.svelte";
+import TurnContent from "./conversation-turn-content.svelte";
+import TurnActions from "./conversation-turn-actions.svelte";
 
-export type { ConversationNoteTone, ConversationSpeaker, ConversationTurnState } from "./types.ts";
+export type {
+  ConversationArrangement,
+  ConversationNoteTone,
+  ConversationSpeaker,
+  ConversationTurnState,
+} from "./types.ts";
 
 export {
   Root,
@@ -23,6 +31,9 @@ export {
   TurnBody,
   TurnNote,
   TurnSpeaker,
+  TurnMark,
+  TurnContent,
+  TurnActions,
   //
   Root as Conversation,
   Composer as ConversationComposer,
@@ -31,4 +42,7 @@ export {
   TurnBody as ConversationTurnBody,
   TurnNote as ConversationTurnNote,
   TurnSpeaker as ConversationTurnSpeaker,
+  TurnMark as ConversationTurnMark,
+  TurnContent as ConversationTurnContent,
+  TurnActions as ConversationTurnActions,
 };

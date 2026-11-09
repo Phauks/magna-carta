@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { resolveEnginePort } from "../src/conversions/conversion-engine.ts";
 import type { Bindings } from "../src/bindings.ts";

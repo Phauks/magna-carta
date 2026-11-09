@@ -13,14 +13,16 @@
  * one download seam (apps/web/src/lib/export/tabular-export.ts).
  */
 import { isCivilDate } from "@magna-carta/civil-time/civil-date";
-import type {
-  DirectoryAddressEntry,
-  DirectoryAddressUse,
-  DirectoryContactPoints,
-  DirectoryContactUse,
-  DirectoryEmailEntry,
-  DirectoryEntityDetail,
-  DirectoryPhoneEntry,
+import {
+  entityPhotoHref,
+  readDirectoryEntityPhoto,
+  type DirectoryAddressEntry,
+  type DirectoryAddressUse,
+  type DirectoryContactPoints,
+  type DirectoryContactUse,
+  type DirectoryEmailEntry,
+  type DirectoryEntityDetail,
+  type DirectoryPhoneEntry,
 } from "./directory-api.ts";
 import { directoryEntityName } from "./entity-presentation.ts";
 
@@ -145,10 +147,42 @@ function cardDate(date: string): string | null {
   return isCivilDate(date) ? date.replaceAll("-", "") : null;
 }
 
+/** The record's picture, ready to embed: its media type and its bytes as base64. */
+export interface ContactCardPhoto {
+  readonly contentType: string;
+  readonly base64: string;
+}
+
+/**
+ * The record's picture for its card, or null where it holds none or the bytes could not be read. A
+ * card without its picture is still the card, so a failed read leaves the picture off rather than
+ * refusing the download.
+ */
+export async function readContactCardPhoto(
+  fetchImpl: typeof fetch,
+  entityId: string,
+): Promise<ContactCardPhoto | null> {
+  const facts = await readDirectoryEntityPhoto(fetchImpl, entityId);
+  if (facts.kind !== "ok" || facts.value.photo === null) return null;
+  try {
+    const response = await fetchImpl(entityPhotoHref(entityId, facts.value.photo));
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    for (let start = 0; start < bytes.length; start += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(start, start + 0x8000));
+    }
+    return { contentType: facts.value.photo.contentType, base64: btoa(binary) };
+  } catch {
+    return null;
+  }
+}
+
 /** The card's text, every line folded and ended with CRLF as the format requires. */
 export function contactCard(
   entity: DirectoryEntityDetail,
   contactPoints: DirectoryContactPoints | null,
+  photo: ContactCardPhoto | null = null,
 ): string {
   const lines = ["BEGIN:VCARD", "VERSION:4.0"];
   lines.push(`FN:${escapeValue(directoryEntityName(entity))}`);
@@ -165,6 +199,8 @@ export function contactCard(
     const legal = organization.legalName?.trim() ?? "";
     lines.push(`ORG:${escapeValue(legal === "" ? directoryEntityName(entity) : legal)}`);
   }
+  // The picture as a data address, the form version 4.0 takes, so the card stands on its own.
+  if (photo !== null) lines.push(`PHOTO:data:${photo.contentType};base64,${photo.base64}`);
   if (contactPoints !== null) {
     for (const entry of contactPoints.emails.filter(usable)) lines.push(emailLine(entry));
     for (const entry of contactPoints.phones.filter(usable)) lines.push(phoneLine(entry));
@@ -176,8 +212,11 @@ export function contactCard(
 
 /** The file a card is saved as: the record's name, stripped of what a file system refuses. */
 export function contactCardFilename(entity: DirectoryEntityDetail): string {
-  const name = directoryEntityName(entity)
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+  // Control characters (below a space) are refused as well as the punctuation a file system reserves.
+  const name = Array.from(directoryEntityName(entity), (character) =>
+    character.charCodeAt(0) < 0x20 || '\\/:*?"<>|'.includes(character) ? " " : character,
+  )
+    .join("")
     .replace(/\s+/g, " ")
     .trim();
   return `${name === "" ? "Contact" : name}.vcf`;

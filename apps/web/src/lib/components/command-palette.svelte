@@ -290,7 +290,17 @@
                    registry yet — it gains one, or a live route, when accounts ship). -->
               <Command.Item disabled>Account Settings — soon</Command.Item>
               {#each ECOSYSTEM_SITES as site (site.id)}
-                {#if site.href === null && site.route !== undefined}
+                {#if site.href === null && site.opensWindow !== undefined}
+                  {@const opensWindow = site.opensWindow}
+                  <Command.Item
+                    onSelect={() => {
+                      open = false;
+                      opensWindow();
+                    }}
+                  >
+                    Website: {site.label}
+                  </Command.Item>
+                {:else if site.href === null && site.route !== undefined}
                   {@const siteRoute = site.route}
                   <Command.Item onSelect={() => navigateTo(siteRoute)}>
                     Website: {site.label}

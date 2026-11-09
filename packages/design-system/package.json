@@ -85,6 +85,7 @@
     "./resizable": "./src/lib/components/resizable/index.ts",
     "./screen-search": "./src/lib/components/screen-search/index.ts",
     "./scroll-edge-hint": "./src/lib/components/scroll-edge-hint/index.ts",
+    "./source-quote": "./src/lib/components/source-quote/index.ts",
     "./select": "./src/lib/components/select/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
     "./service-marks": "./src/lib/components/service-marks/index.ts",

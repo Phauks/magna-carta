@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The chokepoint middleware — the single ordered enforcement point for
 // tenancy/authn/RBAC/idempotency/rate-limit. These tests prove each gate's reply AND the fixed
 // order: a request failing an earlier gate must never touch a later port. The ports are injected

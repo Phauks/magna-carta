@@ -1567,6 +1567,24 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
+
+The owner, reviewing in-app About pages and then About windows:
+
+- **Three page layouts that described the product, and a plainer rewrite of the best of them, were
+  all turned down: "so much of the stuff is weirdly written."** Somebody signed in already knows
+  what Magna Carta is, and a tagline and principles written to fill a page read as marketing. The
+  in-app About states facts about the copy in front of the reader and carries no product prose;
+  describing the product is the public site's job.
+- **It is a window, opened from Websites > About Magna Carta**, standing in for the public site
+  until that has an address, as the Changelog screen does for its own site.
+- **"Two columns with links on right and other stuff on left."** The owner chose the variant whose
+  left column is the chrome-register ink panel carrying the brand mark and the facts (version,
+  released, signed in as, firm, environment, browser) with Copy Version Details at its foot, and
+  whose right column groups the links under What's New, Help and Legal.
+- **"You can remove the up to date part."** The version row states the commit and nothing about
+  whether a newer build is live; the version chip already says that.
+
 ### 2026-11-09 — the numbering editor: preview beside current, parts that drag, and counts that need no padding
 
 The owner, reviewing client and matter numbering over a mockup of Settings, Numbering:
@@ -3453,8 +3471,12 @@ designed together on his instruction). What was said, and what each part general
   became the one grid; its Everything/Unread toggle and category select were removed, not moved,
   because the Status and Category columns already answer both. Already covered by _A list of
   records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
-  the notification centre was the last register still hand-built as a list. Grouping arrives with the
-  grid's own group-by, which the task stream builds once for every register.
+  the notification centre was the last register still hand-built as a list. Grouping is the grid's
+  own group-by (`DataTable.GroupByMenu` and the state's `grouping`): Day by default, then Category,
+  Priority, Matter, Read State and No Grouping. Day bands are the reader's own calendar days, read
+  "Today" and "Yesterday" and then the date, and their order flips with the table's sort direction.
+  Opened, the dismissed shelf is always the last band, whatever the grouping; in a flat list it stays
+  the quieted run at the foot. Home: `apps/web/src/lib/notifications/notification-grouping.ts`.
 - **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
   ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
   among them** — after them whatever the sort, quieter, with the act that undoes setting it aside
