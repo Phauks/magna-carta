@@ -50,11 +50,16 @@ holds what you can do with the record as a whole:
 
 - **Copy Link** copies the record's address, ready to paste.
 - **Email Link** starts a message in your mail program with the record's name and address in it.
-- **Download Contact Card** saves the record as a `.vcf` file that phones, Outlook and other
-  address books open. It carries the name, a person's date of birth, and the email addresses,
-  numbers and postal addresses the person allows the firm to use. A contact point marked as former,
-  or one the person asked the firm not to use, is left off, and so are identifiers, matters and
-  relationships, because a contact card is meant to be handed on.
+- **Download** saves the record as a file, in one of three formats:
+  - **PDF**, a printout of the record: its names, dates, every way to reach the person (with the
+    ones they asked the firm not to use marked), addresses, relationships and matters. Sealed
+    identifiers are never on it. Making a PDF needs the permission to export reports.
+  - **Plain Text**, the same printout as a `.txt` file that pastes into an email.
+  - **Contact Card (.vcf)**, a file that phones, Outlook and other address books open. It carries
+    the name, a person's date of birth, and the email addresses, numbers and postal addresses the
+    person allows the firm to use. A contact point marked as former, or one the person asked the
+    firm not to use, is left off, and so are identifiers, matters and relationships, because a
+    contact card is meant to be handed on.
 
 A record answers the questions the firm keeps an answer to:
 
