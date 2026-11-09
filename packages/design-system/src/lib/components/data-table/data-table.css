@@ -720,7 +720,7 @@
    */
   .mc-table-grid-band-cell {
     position: sticky;
-    inset-block-start: var(--mc-table-grid-head-block-size, var(--mc-space-0));
+    inset-block-start: var(--mc-table-grid-head-block-size);
     z-index: var(--mc-z-sticky);
     padding-block: var(--mc-space-8);
     padding-inline: var(--mc-space-16);
