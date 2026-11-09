@@ -1,3 +1,4 @@
+import { civilDateParts, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { findCaliforniaCode } from "./california-codes.ts";
 import { hasDifference, UNIFORM_FORMAT, type CitationFormat } from "./formats.ts";
 import { abbreviateCaseName, findReporter, shortCaseName } from "./reporters.ts";
@@ -107,12 +108,10 @@ const MONTHS = [
 
 /** "2024-03-01" as "Mar. 1, 2024"; any other text unchanged. */
 export function citationDate(date: string): string {
-  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (parts === null) return date;
-  const [, year, month, day] = parts;
-  const monthName = MONTHS[Number(month) - 1];
-  if (monthName === undefined) return date;
-  return `${monthName} ${Number(day)}, ${year}`;
+  if (!isCivilDate(date)) return date;
+  const { year, month, day } = civilDateParts(date);
+  const monthName = MONTHS[month - 1];
+  return monthName === undefined ? date : `${monthName} ${day}, ${year}`;
 }
 
 /* ------------------------------------------------------------------ uniform system */
@@ -224,7 +223,7 @@ function uniformUnpublishedCase(
   if (nevada) {
     citation.text(" (unpublished disposition)").rule("NRAP 36(c)(3)");
     const citableFrom = NEVADA_CITABLE_FROM.get(court);
-    if (citableFrom !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(decided) && decided < citableFrom) {
+    if (citableFrom !== undefined && isCivilDate(decided) && decided < citableFrom) {
       citation.notices.push({
         severity: "error",
         message: `Unpublished dispositions of this court may be cited only from ${citationDate(citableFrom)}.`,

@@ -61,7 +61,7 @@
 </script>
 
 <div class={mergeClasses("mc-formatted-citation", className)} data-incomplete={incomplete || undefined} {...restProps}>
-  <p class="mc-formatted-citation-text">
+  <p class="mc-formatted-citation-text min-w-0 flex-1">
     {#each runs as run, index (index)}{#if run.italic}<i>{run.text}</i>{:else}{run.text}{/if}{/each}
   </p>
   {#if copyable}

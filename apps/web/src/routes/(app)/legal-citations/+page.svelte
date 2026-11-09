@@ -124,8 +124,8 @@
   {/snippet}
 </ScreenHeader>
 
-<div class="grid grid-cols-1 gap-24 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-  <section class="flex flex-col gap-16" aria-label="Source">
+<div class="grid grid-cols-1 gap-24 lg:grid-cols-5">
+  <section class="flex min-w-0 flex-col gap-16 lg:col-span-2" aria-label="Source">
     <div class="flex flex-col gap-8">
       <div class="flex items-center gap-4">
         <Label for="citation-pasted">Paste a Link or a Citation</Label>
@@ -252,7 +252,7 @@
     </div>
   </section>
 
-  <section class="flex flex-col gap-16" aria-label="Citation">
+  <section class="flex min-w-0 flex-col gap-16 lg:col-span-3" aria-label="Citation">
     {#each FORMS as entry (entry.form)}
       {@const result = formatCitation(draft.kind, values, format, entry.form)}
       <Card.Root>

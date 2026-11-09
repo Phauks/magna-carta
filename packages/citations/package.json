@@ -16,6 +16,9 @@
   "scripts": {
     "test": "vp test run"
   },
+  "dependencies": {
+    "@magna-carta/civil-time": "workspace:*"
+  },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
