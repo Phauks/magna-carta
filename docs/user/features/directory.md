@@ -45,7 +45,16 @@ everywhere. Opened from a matter, a column on the right lists the roles this rec
 matter.
 
 A record has an address you can paste into a message. Following it opens the Directory with that
-record's window already open.
+record's window already open. The **More** button (the three dots at the top right of the window)
+holds what you can do with the record as a whole:
+
+- **Copy Link** copies the record's address, ready to paste.
+- **Email Link** starts a message in your mail program with the record's name and address in it.
+- **Download Contact Card** saves the record as a `.vcf` file that phones, Outlook and other
+  address books open. It carries the name, a person's date of birth, and the email addresses,
+  numbers and postal addresses the person allows the firm to use. A contact point marked as former,
+  or one the person asked the firm not to use, is left off, and so are identifiers, matters and
+  relationships, because a contact card is meant to be handed on.
 
 A record answers the questions the firm keeps an answer to:
 
