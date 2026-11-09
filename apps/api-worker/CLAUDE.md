@@ -511,7 +511,7 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
 
 - A declared queue **consumer** with no exported handler fails the deploy; a declared **producer** does
   not. The DO binding likewise needs its class exported from `src/index.ts`.
-- Tests run in `@cloudflare/vitest-pool-workers` (Miniflare) with real bindings from `wrangler.jsonc`; a
+- Tests run in `@cloudflare/vitest-plugin` (Miniflare) with real bindings from `wrangler.jsonc`; a
   DO test uses `runInDurableObject`. R2 `put` of an unknown-length stream stores nothing — confirmed
   against Miniflare — which is why the bundle build uses multipart.
 - **Fire-and-forget work goes through `src/background.ts`** — `runInBackground` from a handler,

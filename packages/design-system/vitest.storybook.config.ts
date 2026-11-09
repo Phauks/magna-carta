@@ -1,9 +1,8 @@
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { defineConfig } from "vite-plus";
-// The Playwright browser provider ships INSIDE the Vite+ test distribution (the repo-wide
-// `vitest` override resolves to @voidzero-dev/vite-plus-test, which bundles what upstream
-// publishes separately as @vitest/browser-playwright) — no extra provider package to pin.
-import { playwright } from "vitest/browser-playwright";
+// The Playwright browser provider is upstream Vitest's own package, pinned in the catalog at the
+// same version as vitest (a provider from another Vitest release does not load).
+import { playwright } from "@vitest/browser-playwright";
 
 /*
  * The Storybook story-test project: every story in .storybook's glob runs as a browser-mode

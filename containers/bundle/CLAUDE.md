@@ -17,7 +17,7 @@ R2 mediation, coordinator/queue/routes):** `apps/api-worker/src/downloads/` and 
 - `src/lib.rs` — the axum router + `AppState { r2_base_url, http }`; routes `/ready` and `POST /build`.
 - `src/contract.rs` — the Rust⇄TS wire contract: `BuildRequest` (manifest) and `BuildResponse`. The
   per-entry `source` discriminator is **flattened** onto the entry (`{ archivePath, mtimeEpochSecs,
-source:"r2", r2Key }` / `{ …, source:"inline", bytesBase64 }`) to byte-match the worker's
+  source:"r2", r2Key }` / `{ …, source:"inline", bytesBase64 }`) to byte-match the worker's
   `BundleManifestEntry` (`packages/file-manager/src/bundle-manifest.ts`).
 - `src/r2.rs` — credential-free R2 I/O: streaming `GET`/`PUT` against `{R2_BASE_URL}/{key}`. The PUT
   carries an explicit `Content-Length` (the spooled file's size) — R2 rejects an unknown-length body.
@@ -70,7 +70,7 @@ bash tests/acceptance.sh                            # build the image + R2-stub 
 
 ## Gotchas
 
-- The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there), so the
+- The engine **cannot run under `@cloudflare/vitest-plugin`** (containers unsupported there), so the
   worker binding is a **deploy-time activation**. Two verifications: the local Docker acceptance gate
   (`tests/acceptance.sh`, in the pre-push hook when `containers/bundle/` changed and Docker is available)
   and — the more faithful one — the bundle worker's guarded **`POST /self-test`** run against the live

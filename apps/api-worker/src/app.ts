@@ -146,7 +146,7 @@ import { createUsageConsentResolver } from "./usage/consent.ts";
 import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
-// worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
+// worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the @cloudflare/vitest-plugin harness types `env` as.
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;

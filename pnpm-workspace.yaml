@@ -35,7 +35,10 @@ minimumReleaseAge: 4320
 # Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
 catalog:
   # Toolchain
-  vite-plus: 0.1.24
+  # Vite+ 1.x runs upstream Vitest directly (a plain dependency of vite-plus, pinned exactly), so the
+  # `vitest` pin below must be the version this vite-plus release depends on. Bump the two together.
+  vite-plus: 1.5.0
+  vite: "npm:@voidzero-dev/vite-plus-core@1.5.0"
   # Network Speed Test tool (apps/web). Cloudflare's own client-side measurement engine, on their
   # default ladder, so the numbers are comparable to speed.cloudflare.com.
   "@cloudflare/speedtest": 1.16.0
@@ -50,15 +53,23 @@ catalog:
   # Cloudflare
   wrangler: 4.158.0
   "@cloudflare/workers-types": 5.20261106.1
-  # Bump in lockstep with wrangler: this pin hard-depends on an exact (wrangler, miniflare) pair, and
-  # the bundled miniflare is what pulls undici/ws into the dev/test graph — moving wrangler alone
-  # leaves the old miniflare (and its vulnerable undici/ws) resolved under this package. workers-types
-  # tracks the same compatibility date as wrangler; keep all three aligned.
-  "@cloudflare/vitest-pool-workers": 0.23.0
+  # The Workers test integration (the `cloudflareTest()` Vite plugin and the `cloudflare:test` module):
+  # tests run inside workerd through Miniflare with the real bindings from each worker's wrangler
+  # config. It is the renamed successor of @cloudflare/vitest-pool-workers, whose last line peered
+  # only Vitest 4. Bump in lockstep with wrangler: each release hard-depends on an exact (wrangler,
+  # miniflare) pair, and that miniflare is what pulls undici/ws into the dev/test graph — moving
+  # wrangler alone leaves an older miniflare resolved under this package. workers-types tracks the
+  # same compatibility date as wrangler; keep all three aligned.
+  "@cloudflare/vitest-plugin": 1.6.0
   # The Container base class + getContainer helper for the scan Container (slice 2·1 Plan 2).
   "@cloudflare/containers": 0.3.7
-  # vitest is declared by apps/api-worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
-  vitest: 4.1.12
+  # Upstream Vitest, the exact version vite-plus depends on, so every package's `import ... from
+  # "vitest"` and the runner `vp test` starts resolve to one copy. The worker packages also need it
+  # declared so @cloudflare/vitest-plugin can resolve `vitest/worker` into the workerd VM.
+  vitest: 5.1.0
+  # The Playwright browser provider for the design-system story tests. Upstream Vitest publishes it
+  # as its own package, versioned in lockstep with vitest; keep the two pins equal.
+  "@vitest/browser-playwright": 5.1.0
   # API / Worker (apps/api-worker)
   # 4.12.34 fixed four security defects reachable from a Worker: JSX cross-request data disclosure,
   # a whitespace-tolerant CORS origin regex (ReDoS), a Language-middleware algorithmic-complexity DoS,
@@ -187,8 +198,9 @@ catalog:
   asn1js: 3.1.0
 
 overrides:
-  vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
-  vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24"
+  # Every `vite` in the tree (Storybook, Tailwind, the Svelte plugin, Vitest) resolves to the Vite+
+  # core build, so one Vite runs the dev server, the build and the tests. Keep it equal to vite-plus.
+  vite: "npm:@voidzero-dev/vite-plus-core@1.5.0"
   # Security remediation: pin transitive carriers to the versions that fix a known advisory. The
   # original entries were the ones the CI audit fails on (CVSS >= 7); the later ones also clear
   # moderate and low findings, because a carrier that has to be pinned anyway costs nothing extra to
@@ -232,14 +244,6 @@ overrides:
   # pollution through a `__proto__` language key and `rename()` targets reaching the validated
   # object's prototype. Scoped to 17 so a future carrier on the 18 line is not dragged back.
   "joi@17": 17.13.9
-  # tinypool floor is 2.1.2: below it a prototype-pollution gadget in the worker and run() options
-  # reaches code execution (two CRITICAL records). It arrives through oxfmt inside vite-plus, which
-  # hard-pins 2.1.0; scoped to the 2 line so a carrier on a later major is not dragged back.
-  "tinypool@2": 2.1.2
-  # zod floor is 4.6.6, which stops a constrained collection exhausting memory during validation (CVSS
-  # 7.5). The catalog already carries the fixed line; this override reaches the copy that
-  # @cloudflare/vitest-pool-workers hard-pins at 4.4.3.
-  zod: 4.6.7
   # Removed rather than pinned: @puppeteer/browsers 2.2.4 is what brings extract-zip, and no
   # extract-zip release fixes its two symlink-traversal advisories (2.0.1 is the last, and affected).
   # @cloudflare/puppeteer hard-pins that 2.2.4 for its Node launcher, which downloads and starts a
@@ -248,5 +252,9 @@ overrides:
   # Removing the carrier takes the advisories out of the tree rather than baselining them; if the
   # Node launcher is ever reached, the missing module fails the import loudly.
   "@cloudflare/puppeteer>@puppeteer/browsers": "-"
+peerDependencyRules:
+  allowedVersions:
+    vite: "1"
+    "storybook>vite-plus": "1"
 patchedDependencies:
   bits-ui@2.20.6: patches/bits-ui@2.20.6.patch
