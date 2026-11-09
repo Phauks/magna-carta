@@ -9,6 +9,8 @@ import type {
   MatterPlanTemplateId,
   MatterTaskDocumentId,
   MatterTaskId,
+  TaskListId,
+  TaskListStatusId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
@@ -44,9 +46,10 @@ export const MATTER_TASK_DOCUMENT_TABLE = "matter_task_document";
 //   - A task ON A MATTER is firm-visible within that matter, screened by the same visible-matter
 //     predicate every calendar source composes. Not narrowed to the assignee: a colleague covering a
 //     file needs to see what is outstanding on it, and an assignee is not an access grant.
-//   - A task with NO MATTER is private to its assignee and whoever created it. There is no matter to
-//     screen it by, and a firm-wide default would put "review the associate's performance" in front
-//     of the associate.
+//   - A task with NO MATTER is visible to every member. It used to be private to its assignee and
+//     creator; the owner ruled on 2026-11-09 that every member sees every task, and that narrowing
+//     the screen to your own work is the reader's Me Mode rather than a property of the task. Work
+//     that must not be seen firm-wide belongs on a matter, where the matter's own access decides.
 export const MATTERLESS_TASK_MARKER = `${MATTER_TASK_TABLE}.matter_id IS NULL`;
 
 export interface TaskVisibility {
@@ -54,16 +57,17 @@ export interface TaskVisibility {
   readonly bindings: readonly unknown[];
 }
 
+// The viewer is still taken, though neither rule reads it today: every caller already has one, and a
+// rule that narrows by viewer again is one line here rather than a signature change at every read.
 export function taskVisibilityFragment(
   visibility: VisibleMatterPredicate,
-  viewerUserId: UserId,
+  _viewerUserId: UserId,
 ): TaskVisibility {
   return {
     condition:
-      `((${MATTERLESS_TASK_MARKER} AND (${MATTER_TASK_TABLE}.assignee_user_id = ? ` +
-      `OR ${MATTER_TASK_TABLE}.created_by = ?)) OR (${MATTER_TASK_TABLE}.matter_id IS NOT NULL AND ` +
+      `(${MATTERLESS_TASK_MARKER} OR (${MATTER_TASK_TABLE}.matter_id IS NOT NULL AND ` +
       `${visibility.fragmentFor(`${MATTER_TASK_TABLE}.matter_id`)}))`,
-    bindings: [viewerUserId, viewerUserId, ...visibility.bindings],
+    bindings: [...visibility.bindings],
   };
 }
 
@@ -108,6 +112,14 @@ export interface MatterTaskRow {
   // this to tell its own writes from a person's; without it a two-way sync pushes back what it just
   // pulled and the two sides oscillate.
   readonly updated_by: UserId | null;
+  // Which list the task is on and where it stands on that list's own statuses. Null only on a row a
+  // fixture wrote straight into the table; every write path fills both.
+  readonly list_id: TaskListId | null;
+  readonly status_id: TaskListStatusId | null;
+  // The task this one is a sub-task of, if any.
+  readonly parent_task_id: MatterTaskId | null;
+  readonly starts_on: string | null;
+  readonly location: string | null;
 }
 
 export interface MatterTaskDocumentRow {
@@ -153,6 +165,11 @@ export const TASK_COLUMNS = [
   "created_at",
   "updated_at",
   "updated_by",
+  "list_id",
+  "status_id",
+  "parent_task_id",
+  "starts_on",
+  "location",
 ]
   .map((column) => `${MATTER_TASK_TABLE}.${column}`)
   .join(", ");
@@ -192,6 +209,14 @@ export interface InsertMatterTaskInput {
   // "came off a plan" answerable by the column's presence rather than by a join.
   readonly planTemplateId?: MatterPlanTemplateId | null;
   readonly planTaskTemplateId?: MatterPlanTaskTemplateId | null;
+  // The list and status. Omitted, the task lands on the firm's default list at that list's first
+  // status, resolved inside the INSERT so no path (a plan acceptance, a fixture) can leave either
+  // empty. A status given without a list is read against the list the row lands on.
+  readonly listId?: TaskListId | null;
+  readonly statusId?: TaskListStatusId | null;
+  readonly parentTaskId?: MatterTaskId | null;
+  readonly startsOn?: string | null;
+  readonly location?: string | null;
   readonly now: string;
 }
 
@@ -205,7 +230,8 @@ export function insertMatterTaskStatement(
         `priority, due_on, due_at_time, time_zone, state, completed_at, completed_by, cancelled_at, ` +
         `cancelled_by, cancellation_reason, progress, archived_at, archived_by, archive_reason, ` +
         `blocked_by_task_id, trigger_event_id, deadline_id, ` +
-        `plan_template_id, plan_task_template_id, created_at, updated_at, updated_by) ` +
+        `plan_template_id, plan_task_template_id, created_at, updated_at, updated_by, ` +
+        `list_id, status_id, parent_task_id, starts_on, location) ` +
         // updated_by is the CREATOR on a fresh row: "who touched it last" at creation is whoever
         // wrote it, and a feed where some rows have an actor and some do not would make echo
         // suppression a special case at exactly the moment a sync first sees a task.
@@ -214,7 +240,12 @@ export function insertMatterTaskStatement(
         // nobody should have written.
         `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'open', NULL, NULL, NULL, NULL, NULL, ` +
         `'to_do', NULL, NULL, NULL, ` +
-        `?11, ?12, ?13, ?14, ?15, ?16, ?16, ?6)`,
+        `?11, ?12, ?13, ?14, ?15, ?16, ?16, ?6, ` +
+        `COALESCE(?17, (SELECT id FROM task_list WHERE is_default = 1 AND retired_at IS NULL)), ` +
+        `COALESCE(?18, (SELECT task_list_status.id FROM task_list_status WHERE task_list_status.list_id = ` +
+        `COALESCE(?17, (SELECT id FROM task_list WHERE is_default = 1 AND retired_at IS NULL)) ` +
+        `ORDER BY task_list_status.position ASC, task_list_status.id ASC LIMIT 1)), ` +
+        `?19, ?20, ?21)`,
     )
     .bind(
       input.id,
@@ -233,6 +264,11 @@ export function insertMatterTaskStatement(
       input.planTemplateId ?? null,
       input.planTaskTemplateId ?? null,
       input.now,
+      input.listId ?? null,
+      input.statusId ?? null,
+      input.parentTaskId ?? null,
+      input.startsOn ?? null,
+      input.location ?? null,
     );
 }
 
@@ -256,6 +292,8 @@ export function updateMatterTaskStatement(
     readonly blockedByTaskId: MatterTaskId | null;
     readonly triggerEventId: MatterEventId | null;
     readonly deadlineId: MatterDeadlineId | null;
+    readonly startsOn: string | null;
+    readonly location: string | null;
     readonly now: string;
     readonly actor: UserId | null;
   },
@@ -264,7 +302,8 @@ export function updateMatterTaskStatement(
     .prepare(
       `UPDATE ${MATTER_TASK_TABLE} SET title = ?1, body = ?2, priority = ?3, due_on = ?4, ` +
         `due_at_time = ?5, time_zone = ?6, blocked_by_task_id = ?7, trigger_event_id = ?8, ` +
-        `deadline_id = ?9, updated_at = ?10, updated_by = ?11 WHERE id = ?12`,
+        `deadline_id = ?9, updated_at = ?10, updated_by = ?11, starts_on = ?13, location = ?14 ` +
+        `WHERE id = ?12`,
     )
     .bind(
       input.title,
@@ -279,6 +318,8 @@ export function updateMatterTaskStatement(
       input.now,
       input.actor,
       input.id,
+      input.startsOn,
+      input.location,
     );
 }
 
@@ -489,6 +530,17 @@ export interface TaskListFilters {
   // a civil date rather than an instant. An undated task matches no window.
   readonly dueFrom?: string;
   readonly dueTo?: string;
+  // Which of the firm's lists to show. Absent, every list.
+  readonly listIds?: readonly TaskListId[];
+  // Only tasks that are nobody's sub-task: the rows a list screen draws at its top level, with each
+  // one's sub-tasks read separately so a page boundary never splits a tree.
+  readonly topLevelOnly?: boolean;
+  // ME MODE, as two independent narrowings the reader combines: work assigned to this member
+  // (directly, or through a team they are on), and work they are watching. Both set means EITHER.
+  readonly assignedToUserId?: UserId;
+  readonly watchedByUserId?: UserId;
+  // Completed work only, or open work only. Absent, the rung filter above decides.
+  readonly completed?: boolean;
 }
 
 interface TaskListConditions {
@@ -538,6 +590,40 @@ function filterConditions(filters: TaskListFilters): TaskListConditions {
     conditions.push(`${MATTER_TASK_TABLE}.due_on <= ?`);
     bindings.push(filters.dueTo);
   }
+  if (filters.listIds !== undefined && filters.listIds.length > 0) {
+    conditions.push(
+      `${MATTER_TASK_TABLE}.list_id IN (${filters.listIds.map(() => "?").join(", ")})`,
+    );
+    bindings.push(...filters.listIds);
+  }
+  if (filters.topLevelOnly === true) {
+    conditions.push(`${MATTER_TASK_TABLE}.parent_task_id IS NULL`);
+  }
+  if (filters.completed !== undefined) {
+    conditions.push(`${MATTER_TASK_TABLE}.state = ?`);
+    bindings.push(filters.completed ? "done" : "open");
+  }
+  const mine: string[] = [];
+  if (filters.assignedToUserId !== undefined) {
+    // Directly, or through any live team the member is on. Read from the assignee rows rather than
+    // `assignee_user_id`, which only ever holds the first person named.
+    mine.push(
+      `EXISTS (SELECT 1 FROM matter_task_assignee WHERE matter_task_assignee.task_id = ` +
+        `${MATTER_TASK_TABLE}.id AND (matter_task_assignee.user_id = ? OR ` +
+        `matter_task_assignee.team_id IN (SELECT task_team_member.team_id FROM task_team_member ` +
+        `JOIN task_team ON task_team.id = task_team_member.team_id ` +
+        `WHERE task_team_member.user_id = ? AND task_team.retired_at IS NULL)))`,
+    );
+    bindings.push(filters.assignedToUserId, filters.assignedToUserId);
+  }
+  if (filters.watchedByUserId !== undefined) {
+    mine.push(
+      `EXISTS (SELECT 1 FROM matter_task_watcher WHERE matter_task_watcher.task_id = ` +
+        `${MATTER_TASK_TABLE}.id AND matter_task_watcher.user_id = ?)`,
+    );
+    bindings.push(filters.watchedByUserId);
+  }
+  if (mine.length > 0) conditions.push(`(${mine.join(" OR ")})`);
   const search = searchConditionFor(filters.search);
   if (search !== undefined) {
     conditions.push(search.condition);
@@ -884,4 +970,150 @@ export async function countMatterTaskDocuments(
     .bind(taskId)
     .all<{ count: number }>();
   return results[0]?.count ?? 0;
+}
+
+// EVERY SUB-TASK UNDER THE GIVEN TASKS, at any depth, in one read. A list screen pages its top-level
+// rows and then asks for their trees here, so a page boundary never splits a parent from its
+// children. The walk is bounded by the depth sub-tasks may nest to, which the write paths hold.
+export function selectSubtaskTreesStatement(
+  database: SqlDatabase,
+  rootIds: readonly MatterTaskId[],
+  options: {
+    readonly visibility: VisibleMatterPredicate;
+    readonly viewerUserId: UserId;
+    readonly includeArchived?: boolean;
+    readonly maxDepth: number;
+  },
+): SqlStatement {
+  const placeholders = rootIds.map(() => "?").join(", ");
+  const reach = taskVisibilityFragment(options.visibility, options.viewerUserId);
+  return database
+    .prepare(
+      `WITH RECURSIVE tree(id, depth) AS (` +
+        `SELECT id, 1 FROM ${MATTER_TASK_TABLE} WHERE parent_task_id IN (${placeholders}) ` +
+        `UNION ALL SELECT child.id, tree.depth + 1 FROM ${MATTER_TASK_TABLE} AS child ` +
+        `JOIN tree ON child.parent_task_id = tree.id WHERE tree.depth < ?) ` +
+        `SELECT ${TASK_COLUMNS}, ${PRIORITY_RANK_EXPRESSION} AS priority_rank ` +
+        `FROM ${MATTER_TASK_TABLE} JOIN tree ON tree.id = ${MATTER_TASK_TABLE}.id ` +
+        `WHERE ${reach.condition}` +
+        (options.includeArchived === true ? "" : ` AND ${MATTER_TASK_TABLE}.archived_at IS NULL`) +
+        ` ORDER BY ${TASK_ORDER}`,
+    )
+    .bind(...rootIds, options.maxDepth, ...reach.bindings);
+}
+
+export async function readSubtaskTrees(
+  database: SqlDatabase,
+  rootIds: readonly MatterTaskId[],
+  options: {
+    readonly visibility: VisibleMatterPredicate;
+    readonly viewerUserId: UserId;
+    readonly includeArchived?: boolean;
+    readonly maxDepth: number;
+  },
+): Promise<readonly MatterTaskRow[]> {
+  if (rootIds.length === 0) return [];
+  const { results } = await selectSubtaskTreesStatement(
+    database,
+    rootIds,
+    options,
+  ).all<MatterTaskRow>();
+  return results;
+}
+
+// How deep a task sits: 0 for a top-level task, 1 for its sub-task, and so on. Walks up the parent
+// chain, bounded, so a corrupted chain costs a few reads rather than a request handler.
+export async function taskDepth(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+  limit: number,
+): Promise<number> {
+  const { results } = await database
+    .prepare(
+      `WITH RECURSIVE up(id, parent, depth) AS (` +
+        `SELECT id, parent_task_id, 0 FROM ${MATTER_TASK_TABLE} WHERE id = ? ` +
+        `UNION ALL SELECT ${MATTER_TASK_TABLE}.id, ${MATTER_TASK_TABLE}.parent_task_id, up.depth + 1 ` +
+        `FROM ${MATTER_TASK_TABLE} JOIN up ON ${MATTER_TASK_TABLE}.id = up.parent WHERE up.depth < ?) ` +
+        `SELECT MAX(depth) AS depth FROM up`,
+    )
+    .bind(taskId, limit + 1)
+    .all<{ depth: number | null }>();
+  return results[0]?.depth ?? 0;
+}
+
+// How deep the tree under a task goes: 0 for a task with no sub-tasks.
+export async function subtreeHeight(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+  limit: number,
+): Promise<number> {
+  const { results } = await database
+    .prepare(
+      `WITH RECURSIVE down(id, depth) AS (` +
+        `SELECT id, 1 FROM ${MATTER_TASK_TABLE} WHERE parent_task_id = ? ` +
+        `UNION ALL SELECT ${MATTER_TASK_TABLE}.id, down.depth + 1 FROM ${MATTER_TASK_TABLE} ` +
+        `JOIN down ON ${MATTER_TASK_TABLE}.parent_task_id = down.id WHERE down.depth < ?) ` +
+        `SELECT MAX(depth) AS depth FROM down`,
+    )
+    .bind(taskId, limit + 1)
+    .all<{ depth: number | null }>();
+  return results[0]?.depth ?? 0;
+}
+
+// Whether `candidateId` sits anywhere under `taskId`, so a task is never made a sub-task of its own
+// descendant.
+export async function isDescendantOf(
+  database: SqlDatabase,
+  candidateId: MatterTaskId,
+  taskId: MatterTaskId,
+  limit: number,
+): Promise<boolean> {
+  const { results } = await database
+    .prepare(
+      `WITH RECURSIVE down(id, depth) AS (` +
+        `SELECT id, 1 FROM ${MATTER_TASK_TABLE} WHERE parent_task_id = ? ` +
+        `UNION ALL SELECT ${MATTER_TASK_TABLE}.id, down.depth + 1 FROM ${MATTER_TASK_TABLE} ` +
+        `JOIN down ON ${MATTER_TASK_TABLE}.parent_task_id = down.id WHERE down.depth < ?) ` +
+        `SELECT 1 AS present FROM down WHERE id = ? LIMIT 1`,
+    )
+    .bind(taskId, limit + 1, candidateId)
+    .all<{ present: number }>();
+  return results.length > 0;
+}
+
+// Moves a task and its whole subtree onto one list and matter together. A sub-task shares its
+// parent's list and matter, so they move as one or not at all.
+export function moveSubtreeStatement(
+  database: SqlDatabase,
+  input: {
+    readonly rootId: MatterTaskId;
+    readonly listId: TaskListId;
+    readonly statusIdForMoved: TaskListStatusId | null;
+    readonly matterId: MatterId | null;
+    readonly maxDepth: number;
+    readonly now: string;
+    readonly actor: UserId;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `WITH RECURSIVE down(id, depth) AS (` +
+        `SELECT id, 1 FROM ${MATTER_TASK_TABLE} WHERE parent_task_id = ?1 ` +
+        `UNION ALL SELECT ${MATTER_TASK_TABLE}.id, down.depth + 1 FROM ${MATTER_TASK_TABLE} ` +
+        `JOIN down ON ${MATTER_TASK_TABLE}.parent_task_id = down.id WHERE down.depth < ?2) ` +
+        `UPDATE ${MATTER_TASK_TABLE} SET matter_id = ?3, ` +
+        // A task changing lists lands on the new list's first status; one staying keeps its own.
+        `status_id = CASE WHEN list_id = ?4 THEN status_id ELSE ?5 END, list_id = ?4, ` +
+        `updated_at = ?6, updated_by = ?7 ` +
+        `WHERE id = ?1 OR id IN (SELECT id FROM down)`,
+    )
+    .bind(
+      input.rootId,
+      input.maxDepth,
+      input.matterId,
+      input.listId,
+      input.statusIdForMoved,
+      input.now,
+      input.actor,
+    );
 }

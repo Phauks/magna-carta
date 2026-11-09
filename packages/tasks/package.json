@@ -14,7 +14,10 @@
     "./plan-statements": "./src/plan-statements.ts",
     "./plan-service": "./src/plan-service.ts",
     "./sync-statements": "./src/sync-statements.ts",
-    "./sync-service": "./src/sync-service.ts"
+    "./sync-service": "./src/sync-service.ts",
+    "./organisation-statements": "./src/organisation-statements.ts",
+    "./organisation-service": "./src/organisation-service.ts",
+    "./subtask-statements": "./src/subtask-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

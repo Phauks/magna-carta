@@ -8,7 +8,16 @@ import {
   MAX_PLAN_NAME_LENGTH,
   MAX_PLAN_OFFSET_DAYS,
   MAX_TASK_BODY_LENGTH,
+  MAX_TASK_CHECKLIST_ITEM_LENGTH,
+  MAX_TASK_LINK_LABEL_LENGTH,
+  MAX_TASK_LINK_URL_LENGTH,
+  MAX_TASK_LIST_NAME_LENGTH,
+  MAX_TASK_LOCATION_LENGTH,
+  MAX_TASK_STATUS_NAME_LENGTH,
+  MAX_TASK_TEAM_NAME_LENGTH,
   MAX_TASK_TITLE_LENGTH,
+  TASK_STATUS_COLOURS,
+  type TaskStatusColour,
   PLAN_DUE_ANCHORS,
   TASK_PRIORITIES,
   TASK_RUNGS,
@@ -86,7 +95,42 @@ export type TaskValidationCode =
   // an identity in that system.
   | "external-object-already-linked"
   | "task-already-linked"
-  | "external-link-not-found";
+  | "external-link-not-found"
+  // Lists, statuses and the flow.
+  | "task-list-unknown"
+  | "task-list-name-invalid"
+  | "task-list-name-taken"
+  | "task-list-is-default"
+  | "task-list-too-many"
+  | "task-status-unknown"
+  | "task-status-name-invalid"
+  | "task-status-name-taken"
+  | "task-status-unknown-colour"
+  | "task-status-in-use"
+  | "task-status-last"
+  | "task-status-too-many"
+  | "task-status-move-not-in-flow"
+  // Teams, assignees and watchers.
+  | "task-team-unknown"
+  | "task-team-name-invalid"
+  | "task-team-name-taken"
+  | "task-team-too-many"
+  | "task-team-too-many-members"
+  | "task-too-many-assignees"
+  | "task-too-many-watchers"
+  // Sub-tasks.
+  | "task-parent-unknown"
+  | "task-parent-cycle"
+  | "task-parent-too-deep"
+  // A task's start date, location, checklist and links.
+  | "task-start-after-due"
+  | "task-location-too-long"
+  | "task-checklist-item-invalid"
+  | "task-checklist-item-unknown"
+  | "task-checklist-too-long"
+  | "task-link-invalid"
+  | "task-link-unknown"
+  | "task-too-many-links";
 
 export class TaskValidationError extends Error {
   constructor(
@@ -322,3 +366,123 @@ export function normalizePlanDue(input: {
 // this will happily land a task on a Sunday or on Christmas Day. A person moves that date in a
 // second. A template cannot know to.
 export { addCalendarDays } from "@magna-carta/civil-time/civil-date";
+
+// ---- lists, statuses, teams, and what a task carries besides its words ----
+
+// A short name a reader sees in a menu, trimmed and bounded. One helper for the three kinds of name
+// so a list, a status and a team cannot disagree about what an acceptable name is.
+function normalizeShortName(
+  name: string,
+  limit: number,
+  code: "task-list-name-invalid" | "task-status-name-invalid" | "task-team-name-invalid",
+  noun: string,
+): string {
+  const normalized = name.trim().replace(/\s+/gu, " ");
+  if (normalized.length === 0) refuse(code, `a ${noun} needs a name`);
+  if (normalized.length > limit) {
+    refuse(code, `a ${noun} name is at most ${String(limit)} characters`);
+  }
+  return normalized;
+}
+
+export function normalizeTaskListName(name: string): string {
+  return normalizeShortName(name, MAX_TASK_LIST_NAME_LENGTH, "task-list-name-invalid", "list");
+}
+
+export function normalizeTaskStatusName(name: string): string {
+  return normalizeShortName(
+    name,
+    MAX_TASK_STATUS_NAME_LENGTH,
+    "task-status-name-invalid",
+    "status",
+  );
+}
+
+export function normalizeTaskTeamName(name: string): string {
+  return normalizeShortName(name, MAX_TASK_TEAM_NAME_LENGTH, "task-team-name-invalid", "team");
+}
+
+export function normalizeTaskStatusColour(colour: string): TaskStatusColour {
+  if (!(TASK_STATUS_COLOURS as readonly string[]).includes(colour)) {
+    refuse(
+      "task-status-unknown-colour",
+      `${colour} is not a status colour; the colours are ${TASK_STATUS_COLOURS.join(", ")}`,
+    );
+  }
+  return colour as TaskStatusColour;
+}
+
+// The start date: a civil date or nothing, and never after the due date when both are set. It is
+// compared as text, which is exactly right for the YYYY-MM-DD shape and needs no arithmetic.
+export function normalizeTaskStart(
+  startsOn: string | null | undefined,
+  dueOn: string | null,
+): string | null {
+  if (startsOn === null || startsOn === undefined) return null;
+  if (!CIVIL_DATE_PATTERN.test(startsOn) || !isCivilDate(startsOn)) {
+    refuse("task-invalid-date", `${startsOn} is not a date on the calendar`);
+  }
+  if (dueOn !== null && startsOn > dueOn) {
+    refuse("task-start-after-due", "a task cannot start after the day it is due");
+  }
+  return startsOn;
+}
+
+// Where the work happens. Empty is the same as none.
+export function normalizeTaskLocation(location: string | null | undefined): string | null {
+  if (location === null || location === undefined) return null;
+  const normalized = location.trim();
+  if (normalized.length === 0) return null;
+  if (normalized.length > MAX_TASK_LOCATION_LENGTH) {
+    refuse(
+      "task-location-too-long",
+      `a location is at most ${String(MAX_TASK_LOCATION_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+export function normalizeChecklistItemText(text: string): string {
+  const normalized = text.trim();
+  if (normalized.length === 0)
+    refuse("task-checklist-item-invalid", "a checklist line needs words");
+  if (normalized.length > MAX_TASK_CHECKLIST_ITEM_LENGTH) {
+    refuse(
+      "task-checklist-item-invalid",
+      `a checklist line is at most ${String(MAX_TASK_CHECKLIST_ITEM_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+/**
+ * A link a task points at: an http or https address, and an optional label. Any other scheme is
+ * refused, because a link on a task is something a person clicks, and a `javascript:` address on a
+ * shared record is a way to run code in a colleague's session.
+ */
+export function normalizeTaskLink(
+  url: string,
+  label: string | null | undefined,
+): { url: string; label: string | null } {
+  const trimmed = url.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_TASK_LINK_URL_LENGTH) {
+    refuse("task-link-invalid", "a link needs an address of a sensible length");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    refuse("task-link-invalid", "that is not a web address");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    refuse("task-link-invalid", "a link must be a web address starting with https:// or http://");
+  }
+  const normalizedLabel = label?.trim() ?? "";
+  if (normalizedLabel.length > MAX_TASK_LINK_LABEL_LENGTH) {
+    refuse(
+      "task-link-invalid",
+      `a link label is at most ${String(MAX_TASK_LINK_LABEL_LENGTH)} characters`,
+    );
+  }
+  return { url: trimmed, label: normalizedLabel.length === 0 ? null : normalizedLabel };
+}
