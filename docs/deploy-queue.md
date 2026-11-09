@@ -13,6 +13,59 @@ What this document is for now: **the account-side actions that no session can pe
 
 **The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and since 2026-09-16 that verification is `pnpm gate` on the branch, run by whoever made the change, with nothing hosted repeating it. The first two entries below record why there is no second run on the exact tree that lands, and the one repository setting that still has to change.
 
+## Stand up the `beta` Worker Preview — staging resources, preview secrets, branch gating (2026-11-09)
+
+**What it is for.** A place to see a change running on Cloudflare before it reaches `main`, which is production. `apps/api-worker/wrangler.jsonc` now carries a `previews` block for the app Worker (`magna-carta`). A Worker Preview reads that block and nothing else for its bindings, so every storage binding in it names a **staging** resource; the comment above the block says what the preview runs as and what it cannot do. Wrangler 4.135.0 or later is required, and the catalog now pins 4.158.0. Platform reference: [Worker Previews](https://developers.cloudflare.com/workers/previews/), [Configuration](https://developers.cloudflare.com/workers/previews/configuration/), [Resources and isolation](https://developers.cloudflare.com/workers/previews/resources/).
+
+**The order matters.** Until steps 1 and 2 are done the `previews` block names resources that do not exist, so a preview is expected to fail to deploy rather than to run half-bound. Step 4 is the one that keeps every other branch from building a preview.
+
+1. **Create the staging resources** (one account, names exactly as the `previews` block spells them):
+
+   ```bash
+   npx wrangler d1 create magna-carta-staging-platform-control
+   npx wrangler r2 bucket create magna-carta-staging-platform-files
+   npx wrangler kv namespace create magna-carta-staging-status
+   for q in platform-jobs files-ingest files-ingest-bulk bundle-build inference conversion \
+            recovery-shard emails-capture search-index search-compaction discovery-process \
+            document-assembly magnus; do
+     npx wrangler queues create "magna-carta-staging-$q"
+   done
+   ```
+
+   Give **no** staging queue a consumer and attach **no** event notification to the staging bucket. Previews cannot consume queue messages, and the production Worker must never be the consumer of a staging queue, because that would run beta's jobs against production bindings. The Analytics Engine dataset `magna-carta-staging-telemetry` needs no step: the first write creates it.
+
+2. **Put the two identifiers into the `previews` block** in `apps/api-worker/wrangler.jsonc`: the D1 `database_id` that step 1 printed, the KV namespace `id`, and `APP_BASE_URL` set to the beta Preview URL, which the dashboard shows after the first preview deploys. Each placeholder reads `SET-BEFORE-FIRST-PREVIEW`. A session can make this edit if you paste the three values into the thread; they are identifiers, not secrets.
+
+3. **Set the preview secrets on the Previews base configuration**, never on the Worker itself (`wrangler secret put` without `preview` writes production):
+
+   ```bash
+   cd apps/api-worker
+   npx wrangler preview base-config secret put AUTH_SECRET          # a NEW value, not production's
+   npx wrangler preview base-config secret put ROOT_KEK             # a NEW key encryption key, not production's
+   npx wrangler preview base-config secret put PLATFORM_ADMIN_KEY   # a NEW value
+   npx wrangler preview base-config secret put CLOUDFLARE_ACCOUNT_ID
+   ```
+
+   Generate each value the way [`operations.md`](conventions/operations.md) describes for its production twin (`openssl rand -base64 32` serves for all three). A beta `ROOT_KEK` that equalled production's would let beta unwrap production firm keys if a production row were ever copied in.
+
+   **Leave `R2_S3_ACCESS_KEY_ID`, `R2_S3_SECRET_ACCESS_KEY` and `CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` unset in the preview.** Without them the Worker selects its development adapters: uploads go back through the Worker into the staging bucket, registering a firm creates no Cloudflare bucket, and the control-plane schema is applied on the first request (previews never receive the cron that applies it in production). With them, beta would mint credentials for, and create buckets in, the production account. If `wrangler preview` refuses because those three are listed under `secrets.required`, set each one to an empty value instead; the code treats an empty value as absent. Secrets on the base configuration reach a preview when it is **created**; a later change needs `npx wrangler preview secret put <NAME> --name beta` as well.
+
+4. **Gate preview builds to the `beta` branch** on the `magna-carta` Worker (**Workers & Pages → magna-carta → Settings → Builds**). Accept the _Set up Worker Previews_ banner if it shows. Under **Branch control** keep the production branch as `main` and tick **Enable Preview Builds**, then set the non-production (Preview) command to:
+
+   ```bash
+   if [ "$WORKERS_CI_BRANCH" = beta ]; then pnpm --filter @magna-carta/api-worker exec wrangler preview --name beta; else echo "Skipped: only beta gets a preview"; fi
+   ```
+
+   Cloudflare's [build branches](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/) page says a custom Preview command "must invoke `npx wrangler preview`". If the dashboard rejects the `pnpm --filter … exec` form, use `npx wrangler preview --name beta` with the same branch test. The branch test matters for more than tidiness: every preview gets its own Durable Object namespaces, and a paid account allows 500 previews per Worker before the oldest are deleted.
+
+   **On every other Worker, leave Enable Preview Builds unticked.** The engine Workers have no `previews` block and carry Containers. A preview of one would start its own container fleet for nothing, because the beta app Worker's service bindings reach the production siblings anyway.
+
+5. **Put beta behind Cloudflare Access** before anyone uses it. Preview URLs are public by default, and the preview runs the development adapters, which also switch on the `/__dev/*` routes. Protect the `magna-carta` Worker's previews with an Access policy for your own identity ([Cloudflare Access for Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)).
+
+6. **Create the `beta` branch from `main` and push it.** That push builds the first preview. Open the Preview URL, register a firm, and confirm in the dashboard that the rows landed in `magna-carta-staging-platform-control` and **not** in production.
+
+**What beta does not do.** Queue consumers, cron triggers and routes are production-only for every preview. In beta, ingest, search indexing, conversion, the outbox relay and every other queue- or cron-driven job do not run, and the bundle, document-edit and status features are not bound. Beta is for screens and request-path behaviour, not for the background pipeline.
+
 ## Remove the `gate` status from the `main` ruleset — the workflow that reported it is gone (2026-09-16)
 
 **What to do.** Settings → Rules → Rulesets → the ruleset on `main` → _Require status checks to pass_: remove `gate` from the required checks (or turn the requirement off if it was the only one). Leave _Require a pull request before merging_ and the rest as they are.

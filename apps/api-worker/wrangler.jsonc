@@ -8,7 +8,8 @@
   // (node:async_hooks) — without Node.js compatibility every auth route 500s at runtime.
   "compatibility_flags": ["nodejs_compat"],
   // Explicit so deploys stop defaulting them: workers.dev serving stays on; per-version preview URLs
-  // stay off (previews are disabled until a staging environment exists — ADR-0075).
+  // stay off. These are the older per-version URLs, which serve production bindings; the beta
+  // preview at the end of this file is the staging route instead.
   //
   // workers.dev is NOT the whole of where this Worker answers, and this comment used to claim it was
   // ("the current public URL until magnacarta.esq attaches") on no evidence but the absence of a
@@ -555,5 +556,99 @@
   // in the system applies them — not the deploy, not any request path.
   "triggers": {
     "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *"],
+  },
+  // THE BETA PREVIEW. `wrangler preview --name beta` (Workers Builds runs it for the `beta` branch
+  // only; owner steps in docs/deploy-queue.md) reads this block and NOTHING above it except `assets`,
+  // `compatibility_*`, `placement`, the Durable Object classes and their migrations. Bindings are not
+  // inherited: a binding left out here is simply absent in the preview, never the production one. So
+  // every storage binding below names a STAGING resource, and the one way to make the preview touch
+  // production data is to type a production name into this block — which is the review to watch for.
+  //
+  // What the preview runs as, and why: the R2 S3 key pair and the firm provisioner token are left
+  // UNSET in the preview, so it selects the development adapters — uploads route back through this
+  // Worker into the staging bucket bound below, provisioning a firm creates no Cloudflare bucket, and
+  // the control-plane schema is brought to head on the first request (src/dev-control-plane-bootstrap.ts)
+  // because a preview never receives the cron that does it in production. The same "not production"
+  // signal turns on the /__dev/* routes, which is one reason the preview must sit behind Cloudflare
+  // Access rather than on a public URL.
+  //
+  // What a preview cannot do, by the platform's own rules: queue consumers, cron triggers and routes
+  // stay production-only, so messages sent to the staging queues wait unconsumed and background work
+  // (ingest, search indexing, conversion, the outbox relay) does not run in beta; Durable Objects get
+  // a fresh namespace per preview; service bindings reach the PRODUCTION sibling Workers. Only the
+  // stateless engines are bound for that reason. The bundle, edit and status Workers each hold a
+  // production binding of their own (a bucket, a callback to this Worker, a namespace), so they are
+  // left out; all three are typed optional in src/app.ts, so their absence is a state the code
+  // already handles rather than a new one.
+  //
+  // The two `SET-BEFORE-FIRST-PREVIEW` values are the identifiers of resources the owner creates; a
+  // preview fails to deploy until they are real, which is the intended failure.
+  "previews": {
+    "vars": {
+      "FILES_ORIGIN": "files.example.com",
+      "R2_BUCKET_NAME": "magna-carta-staging-platform-files",
+      "HUMAN_VERIFICATION_POSTURE": "fail-open",
+      "EMAIL_FROM": "no-reply@magnacarta.esq",
+      "APP_BASE_URL": "SET-BEFORE-FIRST-PREVIEW",
+    },
+    "d1_databases": [
+      {
+        "binding": "DB_CONTROL",
+        "database_name": "magna-carta-staging-platform-control",
+        "database_id": "SET-BEFORE-FIRST-PREVIEW",
+      },
+    ],
+    "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-staging-platform-files" }],
+    "kv_namespaces": [{ "binding": "STATUS_KV", "id": "SET-BEFORE-FIRST-PREVIEW" }],
+    "ai": { "binding": "AI" },
+    "browser": { "binding": "BROWSER" },
+    "queues": {
+      "producers": [
+        { "binding": "QUEUE", "queue": "magna-carta-staging-platform-jobs" },
+        { "binding": "FILES_INGEST", "queue": "magna-carta-staging-files-ingest" },
+        { "binding": "FILES_INGEST_BULK", "queue": "magna-carta-staging-files-ingest-bulk" },
+        { "binding": "BUNDLE_BUILD", "queue": "magna-carta-staging-bundle-build" },
+        { "binding": "INFERENCE", "queue": "magna-carta-staging-inference" },
+        { "binding": "CONVERSION", "queue": "magna-carta-staging-conversion" },
+        { "binding": "RECOVERY_QUEUE", "queue": "magna-carta-staging-recovery-shard" },
+        { "binding": "EMAILS_CAPTURE", "queue": "magna-carta-staging-emails-capture" },
+        { "binding": "SEARCH_INDEX", "queue": "magna-carta-staging-search-index" },
+        { "binding": "SEARCH_COMPACTION", "queue": "magna-carta-staging-search-compaction" },
+        { "binding": "DISCOVERY_PROCESS", "queue": "magna-carta-staging-discovery-process" },
+        { "binding": "DOCUMENT_ASSEMBLY", "queue": "magna-carta-staging-document-assembly" },
+        { "binding": "MAGNUS", "queue": "magna-carta-staging-magnus" },
+      ],
+    },
+    "services": [
+      { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
+      { "binding": "CONVERT", "service": "magna-carta-convert" },
+      { "binding": "FILE_REPAIR_SERVICE", "service": "magna-carta-file-repair" },
+      { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
+      { "binding": "OCR_SERVICE", "service": "magna-carta-ocr" },
+      { "binding": "SIGN_SERVICE", "service": "magna-carta-sign" },
+      { "binding": "DISCOVERY_SERVICE", "service": "magna-carta-discovery" },
+      { "binding": "WEB_SERVICE", "service": "magna-carta-web" },
+    ],
+    "durable_objects": {
+      "bindings": [
+        { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
+        { "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" },
+        { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+        { "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" },
+        { "name": "FIRM_DATABASE", "class_name": "FirmDatabase" },
+        { "name": "SAFE_BROWSE_SESSION", "class_name": "SafeBrowseSession" },
+        { "name": "RECOVERY_JOB", "class_name": "RecoveryJobCoordinator" },
+        { "name": "SEARCH_INDEX_JOB", "class_name": "SearchIndexJob" },
+        { "name": "SEARCH_COMPACTION_JOB", "class_name": "SearchCompactionJob" },
+        { "name": "DOCUMENT_ASSEMBLY_JOB", "class_name": "DocumentAssemblyJob" },
+        { "name": "MAGNUS_CONVERSATION", "class_name": "MagnusConversation" },
+        { "name": "DISCOVERY_LOAD_JOB", "class_name": "DiscoveryLoadCoordinator" },
+        { "name": "MEETING_ROOM", "class_name": "MeetingRoom" },
+      ],
+    },
+    "analytics_engine_datasets": [
+      { "binding": "TELEMETRY", "dataset": "magna-carta-staging-telemetry" },
+    ],
+    "send_email": [{ "name": "SEND_EMAIL" }],
   },
 }
