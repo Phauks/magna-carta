@@ -14,7 +14,7 @@ own rather than through a widening of the session path.**
 members of the firm, and a participant in a meeting was, until this, somebody holding a session. The
 client portal's `PortalGrant` is the real answer to "somebody outside the firm may reach this", and
 it is not started. The design is
-[`docs/specs/2026-09-20-meetings-external-guests-design.md`](../../specs/2026-09-20-meetings-external-guests-design.md).
+[`docs/specs/2026-09-20-meetings-external-guests-design.md`](../specs/2026-09-20-meetings-external-guests-design.md).
 
 **Decision — six rulings, and the rest follows from them.**
 

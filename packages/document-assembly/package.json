@@ -32,6 +32,7 @@
     "./ooxml-image": "./src/ooxml/image.ts",
     "./ooxml-package": "./src/ooxml/package.ts",
     "./ooxml-parts": "./src/ooxml/parts.ts",
+    "./ooxml-read-tracked-changes": "./src/ooxml/read-tracked-changes.ts",
     "./ooxml-xml": "./src/ooxml/xml.ts",
     "./pdf-form": "./src/pdf-form.ts",
     "./protected-bindings": "./src/protected-bindings.ts",

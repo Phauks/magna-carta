@@ -87,4 +87,4 @@ unchanged either way, which is why the benchmark does not move.
 Builds on **ADR-0207** (splits in per-firm R2 as a stateful service) and **ADR-0167** (dedicated
 Container workers); serves **ADR-0003** (firm-scoped data access) by keeping bucket resolution in its one
 home. Spec:
-[`docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md`](../../specs/2026-07-17-discovery-search-index-stateful-service-design.md).
+[`docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md`](../specs/2026-07-17-discovery-search-index-stateful-service-design.md).

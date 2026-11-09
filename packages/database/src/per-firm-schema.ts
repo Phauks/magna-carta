@@ -1232,6 +1232,42 @@ export const fileVersionParticipant = sqliteTable(
   (table) => [primaryKey({ columns: [table.versionId, table.memberUserId] })],
 );
 
+// One tracked change a version carries that no earlier version of the file carried: who wrote or
+// removed which words, and where. Read from the document itself when the version's export copy is
+// made (the marks are the document's own record; the platform never re-derives them from a text
+// comparison), one row per mark, the author resolved to a member at that moment. The author's name
+// is kept as the document holds it beside the resolution, so a mark whose name resolves to nobody
+// is kept rather than dropped. Not a foreign key to the member row, on the same terms as
+// `uploaded_by`. The words are capped (`text_truncated`), since a row is a record of a change and
+// not a second copy of the document.
+export const fileVersionChange = sqliteTable(
+  "file_version_change",
+  {
+    versionId: text("version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    // Document order within the version, from zero.
+    sequence: integer("sequence").notNull(),
+    kind: text("kind", { enum: ["insertion", "deletion", "formatting"] }).notNull(),
+    authorName: text("author_name").notNull(),
+    authorUserId: text("author_user_id").$type<UserId>(),
+    changedAt: text("changed_at"),
+    text: text("text").notNull(),
+    textTruncated: integer("text_truncated").notNull().default(0),
+    // The package part the change sits in, and the paragraph within it, counted from zero.
+    part: text("part").notNull(),
+    paragraphIndex: integer("paragraph_index").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.sequence] }),
+    check(
+      "file_version_change_kind_check",
+      sql`${table.kind} IN ('insertion', 'deletion', 'formatting')`,
+    ),
+  ],
+);
+
 export const documentCheckout = sqliteTable(
   "document_checkout",
   {
