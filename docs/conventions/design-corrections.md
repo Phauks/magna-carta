@@ -702,6 +702,19 @@ is usually the fastest way to understand the rule.
   the directory's, carrying which record to open, so a pasted link still lands on it. Chosen over an
   origin-aware way back ("hard to keep track of over time") and over a breadcrumb trail. _(the
   directory record, 2026-09-05)_
+- **A directory record is one scrolling document, entered and read alike.** Every section of a
+  person stands on one page that scrolls, on the New Person screen and in the entity window both;
+  the side rail is a table of contents that jumps to a section and lights the one the reader is in,
+  never a switch that swaps one section in at a time. A pane-at-a-time rail put a person's phone
+  number and address two presses from their name and left Tab unable to walk the record. A section
+  holding one answer is folded into a neighbour (pronouns and life dates are one About section);
+  the record's own facts stand in the header under its name; the right-hand pane holds only what
+  the host knows (a matter's roles for a party) and is absent otherwise; a long list shows its
+  first rows and Show All, so it cannot bury the sections after it. The New Person screen's right
+  side reads the entry back as values, never counts. Chosen over tabs and over an Overview page
+  that summarised the sections in cards. Supersedes the "chosen section beside it" half of the side
+  rail and one-window rulings above; the rail itself stands. Composed through
+  `apps/web/src/lib/directory/record-sections.svelte`. _(the person screen, 2026-11-09)_
 - **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
   panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
   icon control the file manager uses, reading its state through its glyph, and it sits last among a

@@ -60,6 +60,7 @@
     type EdgePaneFilter,
   } from "./edge-draft.ts";
   import { entityRecordHref, UNNAMED_ENTITY } from "./entity-presentation.ts";
+  import { heldBackRows, visibleRows } from "./record-sections.ts";
 
   let {
     entityId,
@@ -218,6 +219,9 @@
 
   /** The rows this pane lists: everything, or the membership family with a far end of its kind. */
   const shown = $derived((edges ?? []).filter((edge) => paneShowsEdge(filter, edge)));
+  let expanded = $state(false);
+  const listedEdges = $derived(visibleRows(shown, expanded));
+  const heldBackEdges = $derived(heldBackRows(shown, expanded));
   const listIsReadable = $derived(edges !== null && readFailure === null);
 
   function entryOf(edgeType: string): EdgeTypeEntry | null {
@@ -344,8 +348,6 @@
 </script>
 
 <section class="flex flex-col gap-16">
-  <h3 class="text-sm font-semibold">{words.heading}</h3>
-
   <LoadingRegion
     loading={edges === null}
     {refreshing}
@@ -368,10 +370,18 @@
     {#snippet fixture()}
       {@render edgeTable(EDGE_FIXTURE)}
     {/snippet}
-    {@render edgeTable(shown)}
+    {@render edgeTable(listedEdges)}
   </LoadingRegion>
 
-  {#if listIsReadable && nextCursor !== null}
+  {#if listIsReadable && heldBackEdges > 0}
+    <!-- The record is one scrolling page, so a long list stops at its first few rows rather than
+         pushing every section after it out of reach. -->
+    <div>
+      <Button variant="secondary" onclick={() => (expanded = true)}>
+        Show All {shown.length}{nextCursor === null ? "" : "+"}
+      </Button>
+    </div>
+  {:else if listIsReadable && nextCursor !== null}
     <div>
       <Button variant="secondary" disabled={loadingMore} onclick={loadMore}>
         {loadingMore ? "Reading" : "Show more"}
