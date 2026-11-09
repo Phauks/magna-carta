@@ -23,8 +23,8 @@ import {
   gridSetFilterCounts,
   rowPassesGridFilters,
 } from "./grid-filters.ts";
-import type { GridRowGrouping, GridRowMark } from "./grid-rows.ts";
-import { groupedGridRows } from "./grid-rows.ts";
+import type { GridGrouping, GridRowBand, GridRowGrouping, GridRowMark } from "./grid-rows.ts";
+import { bandedGridRows, groupedGridRows } from "./grid-rows.ts";
 import type { GridClickModifiers, GridSelection } from "./grid-selection.ts";
 import {
   emptyGridSelection,
@@ -88,6 +88,12 @@ export interface DataTableGridOptions<TRow> {
     rows: readonly TRow[],
     compare: (left: TRow, right: TRow) => number,
   ) => readonly TRow[];
+  /**
+   * How the rows split into bands, each under a heading row with its count. A thunk so the reader
+   * can change the grouping (a Group By menu) and the table follows; null or undefined renders the
+   * list flat. Pinned rows stay above every band.
+   */
+  grouping?: () => GridGrouping<TRow> | null | undefined;
 }
 
 /** Per-column default sort direction: dates read newest-first, everything else ascending. */
@@ -172,7 +178,46 @@ export class DataTableGridState<TRow> {
     groupedGridRows(this.sortedRows, this.options.pinnedRowKeys?.() ?? [], this.options.rowKey),
   );
 
-  rowsInView = $derived.by((): readonly TRow[] => this.rowGrouping.rows);
+  /**
+   * The unpinned rows split into bands, or null when the list is not grouped. Rows are sorted
+   * before they are split, so each band keeps the reader's order.
+   */
+  bands = $derived.by((): readonly GridRowBand<TRow>[] | null => {
+    const grouping = this.options.grouping?.();
+    if (grouping === null || grouping === undefined) return null;
+    const direction = this.sortColumnId === null ? null : this.sortDirection;
+    return bandedGridRows(
+      this.rowGrouping.rows.slice(this.rowGrouping.pinnedCount),
+      grouping,
+      direction,
+    );
+  });
+
+  /**
+   * The rows in render order. Grouped, that is the pinned block and then each band's rows in band
+   * order, so keyboard movement and range selection walk the rows exactly as the reader sees them.
+   */
+  rowsInView = $derived.by((): readonly TRow[] => {
+    const bands = this.bands;
+    if (bands === null) return this.rowGrouping.rows;
+    return [
+      ...this.rowGrouping.rows.slice(0, this.rowGrouping.pinnedCount),
+      ...bands.flatMap((band) => band.rows),
+    ];
+  });
+
+  /** The band that starts at each row index in view, for the grid to render its heading row. */
+  bandStarts = $derived.by((): ReadonlyMap<number, GridRowBand<TRow>> => {
+    const starts = new Map<number, GridRowBand<TRow>>();
+    const bands = this.bands;
+    if (bands === null) return starts;
+    let index = this.rowGrouping.pinnedCount;
+    for (const band of bands) {
+      starts.set(index, band);
+      index += band.rows.length;
+    }
+    return starts;
+  });
   /** How many leading rows are pinned; 0 when nothing is pinned and no rule renders. */
   pinnedRowCount = $derived.by((): number => this.rowGrouping.pinnedCount);
 

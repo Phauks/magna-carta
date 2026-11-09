@@ -49,6 +49,11 @@
      * column the second line keeps an empty pinned cell so that column's hairline runs unbroken.
      */
     rowDetail?: Snippet<[TRow]>;
+    /**
+     * Renders what a band heading carries after its label and count, when the state groups rows
+     * into bands — a muted date range, an action that applies to the band. Given the band's key.
+     */
+    bandDetail?: Snippet<[string]>;
     /** Placeholder rows stand in for data until it arrives. */
     loading?: boolean;
     placeholderCount?: number;
@@ -96,6 +101,7 @@
     caption,
     cell,
     rowDetail,
+    bandDetail,
     loading = false,
     placeholderCount = 8,
     density = "comfortable",
@@ -107,6 +113,27 @@
   }: Props = $props();
 
   let scrollElement = $state<HTMLDivElement | null>(null);
+  let headElement = $state<HTMLTableSectionElement | null>(null);
+
+  /*
+   * THE HEADER'S HEIGHT, PUBLISHED TO CSS, so a band heading sticks directly beneath the sticky
+   * header instead of sliding under it. Measured rather than assumed: the header grows with the
+   * reader's scale and with a wrapped label, and a guessed offset leaves a gap or an overlap.
+   */
+  $effect(() => {
+    const frame = scrollElement;
+    const head = headElement;
+    if (frame === null || head === null || grid.bands === null) return;
+    const publish = (): void => {
+      frame.style.setProperty("--mc-table-grid-head-block-size", `${String(head.offsetHeight)}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(head);
+    return () => {
+      observer.disconnect();
+    };
+  });
   let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
 
   /*
@@ -478,7 +505,7 @@
       data-totals={showTotals ? "on" : undefined}
     >
       <caption class="sr-only">{caption}</caption>
-      <thead class="mc-table-header">
+      <thead class="mc-table-header" bind:this={headElement}>
         <tr class="mc-table-row">
           {#each grid.visibleColumns as column (column.id)}
             {@const pinned = pinnedAttributes(column.id)}
@@ -651,11 +678,28 @@
             {@const key = rowKeyOf(row)}
             {@const mark = grid.markFor(row)}
             {@const stripe = rowIndex % 2 === 1 ? ("even" as const) : undefined}
-            {#if grid.pinnedRowCount > 0 && rowIndex === grid.pinnedRowCount}
+            {@const band = grid.bandStarts.get(rowIndex)}
+            {#if grid.pinnedRowCount > 0 && rowIndex === grid.pinnedRowCount && band === undefined}
               <!-- The rule that separates the pinned block from the list: pinned items sit above
-                   EVERYTHING, not above their own kind, and the rule is what says so. -->
+                   EVERYTHING, not above their own kind, and the rule is what says so. A band
+                   heading does the same job when the list is grouped, so the rule gives way. -->
               <tr class="mc-table-grid-pin-rule">
                 <td colspan={grid.visibleColumns.length}></td>
+              </tr>
+            {/if}
+            {#if band !== undefined}
+              <!-- A band heading: the group's name and how many rows are in it. A row of its own
+                   so it scrolls with the list and sticks beneath the header while its rows pass. -->
+              <tr class="mc-table-grid-band" data-grid-band={band.key}>
+                <th class="mc-table-grid-band-cell" colspan={grid.visibleColumns.length} scope="colgroup">
+                  <span class="mc-table-grid-band-inner">
+                    <span class="mc-table-grid-band-label">{band.label}</span>
+                    <span class="mc-table-grid-band-count">{band.rows.length}</span>
+                    {#if bandDetail}
+                      {@render bandDetail(band.key)}
+                    {/if}
+                  </span>
+                </th>
               </tr>
             {/if}
             <tr
