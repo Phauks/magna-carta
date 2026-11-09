@@ -421,6 +421,9 @@ function moneyIdempotencyViolations(
   for (const { path, method, operation, namespace } of operations(document)) {
     if (!moneyNamespaces.has(namespace)) continue;
     if (!isMutatingMethod(method)) continue;
+    // A POST that writes nothing has nothing a retry could repeat, so the same allow-list that
+    // exempts it from auditing exempts it here (communications.callerLookup is the read-shaped one).
+    if (NON_MUTATING_POST_ALLOW_LIST[operationIdOf(operation)] !== undefined) continue;
     if (operation["x-mc-idempotency"] !== "required") {
       violations.push(
         `${method.toUpperCase()} ${path}: ${namespace} is a money subsystem — x-mc-idempotency must be "required"`,
