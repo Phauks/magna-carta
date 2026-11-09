@@ -426,12 +426,12 @@ served as the test oracle only and is not in the artefact.
 **Speed (bar 1 of the design).** Over 100 runs after 5 warm-ups, headless Chromium 153 ran
 `wasm32` with SIMD128 on one thread, on a 4-vCPU cloud Xeon at 2.10 GHz:
 
-| Measure                    | Result   | Bar        |
-| -------------------------- | -------- | ---------- |
-| Inference p50, 256 × 144   | 8.4 ms   |            |
-| Inference p95, 256 × 144   | 13.3 ms  | ≤ 20 ms    |
-| Inference max              | 16.3 ms  |            |
-| Model load and plan        | 302 ms   | once, when the effect is turned on |
+| Measure                  | Result  | Bar                                |
+| ------------------------ | ------- | ---------------------------------- |
+| Inference p50, 256 × 144 | 8.4 ms  |                                    |
+| Inference p95, 256 × 144 | 13.3 ms | ≤ 20 ms                            |
+| Inference max            | 16.3 ms |                                    |
+| Model load and plan      | 302 ms  | once, when the effect is turned on |
 
 A cloud server is not the reference laptop that `docs/conventions/performance.md` names, so this
 is evidence that bar 1 is reachable rather than a pass. Bars 2 to 5 (24 fps published at 720p,
