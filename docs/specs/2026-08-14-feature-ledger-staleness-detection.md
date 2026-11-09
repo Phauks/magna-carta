@@ -363,7 +363,7 @@ checkouts** — and because they found three further stale nodes nobody had noti
 ### Instance 3 — the blind spot rule 7 was added for
 
 `financial.trust.reconciliation` and `financial.trust.close-rule` both read `not-started` while
-`packages/trust` held sixteen modules, `apps/worker/src/routes/trust-reconciliation.ts` held twelve
+`packages/trust` held sixteen modules, `apps/worker/src/routes/trust/trust-reconciliation.ts` held twelve
 routes, and the close gate was registered in the matter composition root. Rules 1–6 were silent by
 construction and it is worth being precise about why, because it is the same reason both times:
 

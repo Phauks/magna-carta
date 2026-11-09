@@ -1,0 +1,18 @@
+{
+  "$description": "Typeface axis — LEXEND: the reading face engineered for reading proficiency, the endurance-forward alternate to the Atkinson default. Re-points font.sans ONLY; the display serif, the blackletter mark and the monospace face never follow the reading face.",
+  "font": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": [
+        "Lexend Variable",
+        "Lexend",
+        "system-ui",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ]
+    }
+  }
+}

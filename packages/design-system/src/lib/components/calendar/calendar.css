@@ -175,4 +175,132 @@
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
   }
+
+  /*
+   * COMPACT: the month a column pins under a list. No frame and no padding of its own (the column
+   * already frames it), and days one rung smaller, so seven of them make exactly the navigation
+   * measure (size.popover = 7 x control.sm) instead of overflowing it as the framed picker did.
+   */
+  .mc-calendar-compact {
+    display: block;
+    padding: var(--mc-space-0);
+    border-style: none;
+    background-color: transparent;
+  }
+  /* The day table shares its class name with CalendarGrid's month table, whose recipe frames it;
+     the compact month is unframed all the way down. */
+  .mc-calendar-compact .mc-calendar-grid {
+    border-style: none;
+    background-color: transparent;
+  }
+  .mc-calendar-compact .mc-calendar-header {
+    margin-block-end: var(--mc-space-4);
+  }
+  .mc-calendar-compact .mc-calendar-day {
+    inline-size: var(--mc-density-control-sm);
+    block-size: var(--mc-density-control-sm);
+    font-size: var(--mc-font-size-xs);
+  }
+  .mc-calendar-compact .mc-calendar-nav {
+    inline-size: var(--mc-density-control-sm);
+    block-size: var(--mc-density-control-sm);
+  }
+  /* The month named in words, as a quiet button that opens MonthJump. */
+  .mc-calendar-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    block-size: var(--mc-density-control-sm);
+    padding-inline: var(--mc-space-4);
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-calendar-heading:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-calendar-heading:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-calendar-heading .mc-calendar-nav-icon {
+    color: var(--mc-text-subtle);
+  }
+  .mc-calendar-steps {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /*
+   * MonthJump: a year heading between two arrows, then twelve months three to a row. The month the
+   * reader is on is filled the way a selected day is; the month holding today wears today's ring.
+   */
+  .mc-month-jump {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    inline-size: var(--mc-size-popover);
+  }
+  .mc-month-jump-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mc-month-jump-year {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+  .mc-month-jump-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--mc-space-4);
+  }
+  .mc-month-jump-month {
+    block-size: var(--mc-density-control-md);
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-month-jump-month:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-month-jump-month:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-month-jump-month[data-today] {
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-border-strong);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-month-jump-month[data-selected] {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-month-jump-month[data-today][data-selected] {
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-action-primary-foreground);
+  }
 }

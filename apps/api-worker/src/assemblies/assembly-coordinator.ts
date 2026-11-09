@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { DOCUMENT_ASSEMBLY_COMPLETED_EMISSION_POINT } from "@magna-carta/notifications/emission-points";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { notifyJobCompletion } from "../jobs/job-completion-notification.ts";
 import type {
   DocumentAssemblyCoordinator,

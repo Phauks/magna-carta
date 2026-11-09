@@ -13,6 +13,7 @@ export const DIMENSIONS = [
   "wasm",
   "typecheck",
   "contracts",
+  "startup",
   "lint",
   "rust",
   "containers",
@@ -21,7 +22,14 @@ export const DIMENSIONS = [
 ];
 
 /** Dimensions that stand up the WASM artefacts' consumers, and so cannot run when `wasm` failed. */
-export const NEEDS_WASM = new Set(["typecheck", "contracts", "lint", "test-collection", "tests"]);
+export const NEEDS_WASM = new Set([
+  "typecheck",
+  "contracts",
+  "startup",
+  "lint",
+  "test-collection",
+  "tests",
+]);
 
 export function parseList(argv, flag) {
   const names = [];

@@ -138,7 +138,7 @@ describe("MagnusConversation push", () => {
         conversationId,
         magnusTurnId,
         content: "an answer",
-        modelId: "anthropic/claude-opus-4-8",
+        modelId: "anthropic/claude-opus-5-5",
         snapshotId: "stub",
         inputTokens: 3,
         outputTokens: 4,

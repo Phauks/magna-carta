@@ -33,7 +33,6 @@
   --radius-md: 7px;
   --radius-none: 0px;
   --radius-sm: 2px;
-  --font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -41,6 +40,7 @@
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --text-3xl: 2rem;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -53,11 +53,14 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
   --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
   --ease-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --transition-duration-fast: 120ms;
   --transition-duration-instant: 0ms;
   --transition-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
   --transition-duration-signature: 500ms;
   --transition-duration-slow: 300ms;
   --z-index-anchored: 1350;
@@ -81,6 +84,13 @@
    * theme key), or two `max-w-*` classes would both survive the merge.
    */
   --container-record-window: var(--mc-size-record-window);
+  /*
+   * The reading face. Inline (a var() reference, not the resolved stack) because it is a user
+   * axis: the :root[data-typeface=…] overlays in tokens.css re-point --mc-font-sans, and every
+   * font-sans utility — and the document default Tailwind's base layer derives from --font-sans —
+   * has to follow that choice.
+   */
+  --font-sans: var(--mc-font-sans);
   /* Elevation: dark themes may later override --mc-elevation-* per mode; the wiring already permits it. */
   --shadow-elevation-0: var(--mc-elevation-0);
   --shadow-elevation-1: var(--mc-elevation-1);

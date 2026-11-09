@@ -16,6 +16,9 @@
       "path": "../../packages/access-control/tsconfig.build.json"
     },
     {
+      "path": "../../packages/address-lookup/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/ai-detection/tsconfig.build.json"
     },
     {

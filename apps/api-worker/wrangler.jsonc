@@ -42,7 +42,7 @@
   //   /search-objects/* — the keyword engine's ranged-read surface
   //                       (apps/api-worker/src/search/split-object-host.ts), cookieless for the same
   //                       reason: the caller is a Container holding no session.
-  //   /__dev/*          — the throwaway local demo page (apps/api-worker/src/routes/dev-web-tools-demo.ts),
+  //   /__dev/*          — the throwaway local demo page (apps/api-worker/src/http/routes/developer/dev-web-tools-demo.ts),
   //                       which answers 404 unless DEV_DEMO_TOOLS is set.
   // It stays an explicit list rather than inverting to `true` with exceptions so the SPA's own files
   // keep being served by the asset server — free, and off this Worker's CPU and invocation count.
@@ -87,7 +87,7 @@
     // TURNSTILE_SECRET_KEY is set — from then on a missing or bad solution is refused either way.
     "HUMAN_VERIFICATION_POSTURE": "fail-open",
     // The switch that selects the Cloudflare Email Service adapter over the logging one
-    // (src/app.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, and the send
+    // (src/auth-instance.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, and the send
     // paths are guarded now: a refusal answers a retryable 503 carrying an Error ID rather than
     // failing its route, and the sends Better Auth owns are caught at the port and counted. While
     // Email Sending is in beta a destination may still need verifying in the account before it will
@@ -211,7 +211,7 @@
     // ingest handler; the lane separation is entirely in queue topology and max_concurrency.
     "consumers": [
       // The shared per-firm job queue: everything the per-firm outbox relay sweeps crosses this one
-      // queue, firmId-tagged, and the dispatch table in src/costs/recoverable-charge-consumer.ts
+      // queue, firmId-tagged, and the dispatch table in src/background/costs/recoverable-charge-consumer.ts
       // routes each message to the handler that owns its topic (unowned topics are acked and
       // ignored). Declaring it a consumer is what makes a per-firm outbox row actually reach its
       // effect — email capture-address minting depends on it to write the control-plane routing row,
@@ -512,7 +512,7 @@
   // docs/conventions/operations.md). Until then the binding is present but unused and production
   // keeps the logging adapter, so no send fails against an un-onboarded domain.
   "send_email": [{ "name": "SEND_EMAIL" }],
-  // The scheduled work (src/scheduled.ts): the */5 sweep runs the outbox relay over the control-plane
+  // The scheduled work (src/background/scheduled.ts): the */5 sweep runs the outbox relay over the control-plane
   // + per-firm lineages, the idempotency TTL purge, and the stale-pending upload sweep; the daily
   // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
   // every five minutes); the weekly 04:00 UTC Sunday pass re-enqueues committed versions still
@@ -550,7 +550,7 @@
   // an empty array is truthy, so it PUTs an empty set and DELETES every schedule the Worker has.
   //
   // `*/5 * * * *` is the one that must never be traded away. It is the SOLE applier of control-plane
-  // migrations (src/scheduled.ts runs them as the pass's first action), single-flight by construction
+  // migrations (src/background/scheduled.ts runs them as the pass's first action), single-flight by construction
   // because a cron fires once per tick and the migration runner is not concurrency-safe. Nothing else
   // in the system applies them — not the deploy, not any request path.
   "triggers": {

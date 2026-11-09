@@ -4,9 +4,12 @@ import {
   addressCountryNotCovered,
   addressEngineNotImplemented,
   deferredAddressLookupPort,
-  resolved,
+  resolutionExpired,
+  resolvedAddress,
+  resolvedGroup,
   suggested,
   type AddressLookupPort,
+  type AddressSuggestion,
 } from "../src/port.ts";
 
 describe("the deferred port", () => {
@@ -30,10 +33,8 @@ describe("the deferred port", () => {
 
 describe("the failure model", () => {
   it("keeps no-coverage apart from a search that simply matched nothing", () => {
-    // The distinction this port exists to preserve. An empty list says "that country is covered and
-    // nothing matched", which invites a correction; no-coverage says "nobody has published that
-    // country's addresses", which invites nothing at all. Folding them together tells somebody
-    // their client's address is wrong when it is not.
+    // An empty list says "that country is covered and nothing matched", which invites a correction;
+    // no-coverage says "nobody has published that country's addresses", which invites nothing.
     const nothingMatched = suggested([]);
     const notCovered = addressCountryNotCovered("ER");
 
@@ -43,13 +44,12 @@ describe("the failure model", () => {
   });
 
   it("keeps an expired offer apart from a failure", () => {
-    // The index was rebuilt between the offer and the choice. Nothing went wrong; ask again.
-    expect(resolved(undefined)).toEqual({ ok: true, parts: undefined });
+    // The data moved between the offer and the choice. Nothing went wrong; ask again.
+    expect(resolutionExpired()).toEqual({ ok: true, resolution: "expired" });
     expect(addressAdapterError("socket closed").ok).toBe(false);
   });
 
   it("makes every failure assignable to either result union", () => {
-    // One failure shape across both operations is what lets an implementation `return` it directly.
     const failure = addressEngineNotImplemented();
     const asSuggest: Awaited<ReturnType<AddressLookupPort["suggest"]>> = failure;
     const asResolve: Awaited<ReturnType<AddressLookupPort["resolve"]>> = failure;
@@ -57,51 +57,52 @@ describe("the failure model", () => {
   });
 });
 
-describe("a stub engine", () => {
-  it("carries the parts a record stores, and an opaque handle back to them", async () => {
+describe("a group", () => {
+  const building: AddressSuggestion = {
+    suggestionId: "opaque-building",
+    label: "1042 W Center St, Orem UT 84057 (24 units)",
+    parts: {
+      street: "1042 W Center St",
+      city: "Orem",
+      region: "UT",
+      postal: "84057",
+      country: "US",
+    },
+    kind: "group",
+    count: 24,
+  };
+  const unit: AddressSuggestion = {
+    suggestionId: "opaque-unit",
+    label: "1042 W Center St Apt 108, Orem UT 84057",
+    parts: { ...building.parts, streetTwo: "Apt 108" },
+    kind: "address",
+  };
+
+  it("resolves to the addresses inside it rather than to an address", async () => {
+    // A group is not an address a record can hold. Writing the building's line into a record whose
+    // client lives in one unit is a letter that does not arrive.
     const port: AddressLookupPort = {
-      suggest: (input) =>
-        Promise.resolve(
-          input.country === "US"
-            ? suggested([
-                {
-                  suggestionId: "opaque-1",
-                  label: "14 Rosewood Drive, Reno, NV 89501",
-                  parts: {
-                    street: "14 Rosewood Drive",
-                    city: "Reno",
-                    region: "NV",
-                    postal: "89501",
-                    country: "US",
-                  },
-                },
-              ])
-            : addressCountryNotCovered(input.country),
-        ),
+      suggest: () => Promise.resolve(suggested([building])),
       resolve: (input) =>
         Promise.resolve(
-          input.suggestionId === "opaque-1"
-            ? resolved({
-                street: "14 Rosewood Drive",
-                city: "Reno",
-                region: "NV",
-                postal: "89501",
-                country: "US",
-              })
-            : resolved(undefined),
+          input.suggestionId === building.suggestionId
+            ? resolvedGroup([unit])
+            : input.suggestionId === unit.suggestionId
+              ? resolvedAddress(unit.parts)
+              : resolutionExpired(),
         ),
     };
 
-    const offers = await port.suggest({ query: "14 Rose", country: "US" });
-    expect(offers.ok).toBe(true);
-    if (offers.ok) {
-      expect(offers.suggestions[0]?.parts.region).toBe("NV");
-      const chosen = await port.resolve({ suggestionId: offers.suggestions[0]!.suggestionId });
-      expect(chosen.ok && chosen.parts?.city).toBe("Reno");
+    const offers = await port.suggest({ query: "1042 W Cen", country: "US" });
+    expect(offers.ok && offers.suggestions[0]?.kind).toBe("group");
+
+    const opened = await port.resolve({ suggestionId: building.suggestionId });
+    expect(opened).toMatchObject({ ok: true, resolution: "group" });
+    if (opened.ok && opened.resolution === "group") {
+      const chosen = await port.resolve({ suggestionId: opened.suggestions[0]!.suggestionId });
+      expect(chosen).toEqual({ ok: true, resolution: "address", parts: unit.parts });
     }
 
-    expect(await port.suggest({ query: "anything", country: "ER" })).toMatchObject({
-      reason: "no-coverage",
-    });
+    expect(await port.resolve({ suggestionId: "gone" })).toEqual(resolutionExpired());
   });
 });

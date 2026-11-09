@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { BUCKETS } from "../src/chokepoint/rate-limiter.ts";
+import { BUCKETS } from "../src/http/chokepoint/rate-limiter.ts";
 import { PASSWORD, seedCredentialedUser, seedFirm } from "./support/test-auth.ts";
 import {
   ATTEMPTS_REMAINING_HEADER,
@@ -12,7 +12,7 @@ import {
   LOCKOUT_SECONDS_HEADER,
   createAttemptLadder,
   isCredentialAttemptPath,
-} from "../src/auth-attempt-budget.ts";
+} from "../src/http/auth-attempt-budget.ts";
 
 // The gap this closes, stated as the screens state it: the sign-in surface renders a
 // remaining-attempts line and a lockout countdown, and until now the server published neither, so

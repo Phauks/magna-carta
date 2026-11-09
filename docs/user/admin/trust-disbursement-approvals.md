@@ -20,7 +20,7 @@ every change since.
 
 ## Who has the authority
 
-The **authority to act on client money** is a capability you grant to people. Owner/Admin and
+The **authority to act on client money** is a capability you grant to people. Admin and
 Attorney roles carry it out of the box; you can grant it to anyone else, or take it away, so "who
 counts as having authority" is exactly who your firm says it is.
 

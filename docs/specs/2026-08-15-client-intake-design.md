@@ -37,7 +37,7 @@ trigger." That is false in both halves of the sentence that matters.** `packages
 `src/report-text.ts`), the four blocking channels through the Directory corpus, the append-only
 three-table log plus the disposition stream, the event-driven re-check ledger, its two queue
 consumers, and the scheduled backstop. There is a conflicts check to trigger, it has a public
-surface at `apps/worker/src/routes/conflicts.ts`, and it has been callable since conflicts slice 1.
+surface at `apps/worker/src/routes/directory/conflicts.ts`, and it has been callable since conflicts slice 1.
 
 **Better than that: the trigger vocabulary intake needs already shipped, and it is already live.**
 `CONFLICTS_TRIGGERS` in `packages/conflicts/src/types.ts` opens with `"preliminary"` and

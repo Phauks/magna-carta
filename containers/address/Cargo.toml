@@ -1,0 +1,78 @@
+[package]
+name = "magna-carta-address"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A lib (the router, the object and source clients, the index holder and the build job, all testable)
+# plus a thin binary that serves it on :8080. One image runs as both Container classes: the query class
+# only ever calls the query routes, the build class only the build routes.
+[lib]
+name = "magna_carta_address"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-address"
+path = "src/main.rs"
+
+[dependencies]
+# The address index itself: cleaning, partitions, the split build and the query engine. Everything
+# about addresses is that crate; this one gives it a request surface, storage and a build loop.
+address-core = { path = "../../crates/address-core" }
+# For the `RangeReader` seam the cached object reader implements, and nothing else.
+search-core = { path = "../../crates/search-core" }
+
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The blocking HTTP client behind the range reader, the object writes and the source downloads. Pure
+# Rust, and built with NO TLS backend and no compression feature: the only hosts this process can reach
+# are the two non-routable names the address worker intercepts, so the request never leaves the sandbox
+# and a TLS stack would be dead weight carrying a transitive C dependency for nothing. Blocking because
+# the RangeReader trait is synchronous, which is why every engine operation runs on a blocking task.
+ureq = { version = "3", default-features = false }
+# Decompressing the OpenAddresses `.geojson.gz` sources. The default backend is `miniz_oxide`, pure
+# Rust; the zlib and zlib-ng backends (C) are features this manifest does not turn on.
+flate2 = "1"
+# Build scratch: one directory per partition, removed after its upload.
+tempfile = "3"
+
+[dev-dependencies]
+# A minimal in-process HTTP server for the object-host and source-host fakes, so the clients are
+# exercised over a real socket rather than against a trait double.
+tiny_http = "0.12"
+
+# The lint floor. Same rules as crates/Cargo.toml, stated here because every container is its own Cargo
+# workspace and a workspace lint table reaches nothing outside its own tree. This workspace holds one
+# package, so the tables sit on the package directly and there is no `workspace = true` opt-in to forget.
+# The print/exit restrictions that crates/Cargo.toml denies are deliberately not here: a container's
+# binary IS the process, so writing a diagnostic to stderr and exiting non-zero on a fatal boot failure
+# is the correct behaviour rather than a smell.
+[lints.rust]
+unsafe_code = "forbid"
+non_ascii_idents = "forbid"
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+trivial_numeric_casts = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+panic = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+mem_forget = "deny"
+dbg_macro = "deny"

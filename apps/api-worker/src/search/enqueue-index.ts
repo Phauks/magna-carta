@@ -3,7 +3,7 @@ import { readReviewDocument } from "@magna-carta/discovery/review-document-state
 import { readReviewSet } from "@magna-carta/discovery/review-set-statements";
 import type { FileVersionId, ReviewDocumentId } from "@magna-carta/identifiers/types";
 import { readSearchIndexingEnabled } from "@magna-carta/search/settings";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { searchEngineGeneration } from "./engine-generation.ts";
 import {

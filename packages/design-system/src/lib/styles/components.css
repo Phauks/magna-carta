@@ -123,6 +123,7 @@
    organization — the two identity marks sit together so the pair is read together. */
 @import "../components/record-reference/record-reference.css";
 @import "../components/entity-picker/entity-picker.css";
+@import "../components/address-fields/address-fields.css";
 @import "../components/record-parties/record-parties.css";
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
    the two meet. */

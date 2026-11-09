@@ -39,12 +39,12 @@ describe("GET /api/v1/firm-usage", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 
-  it("returns the composed snapshot for an Owner/Admin member", async () => {
+  it("returns the composed snapshot for an Admin member", async () => {
     const { userId } = await seedCredentialedUser("usage-ok@example.com", {
       userName: "Usage OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Usage OK", poolFirmId); // Owner/Admin carries tools:firmUsage (0006)
+    await mirrorMemberWithOwnerRole(userId, "Usage OK", poolFirmId); // Admin carries tools:firmUsage (0006)
     const t = "2026-01-01T00:00:00.000Z";
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
     await firmDatabase

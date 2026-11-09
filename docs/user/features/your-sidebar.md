@@ -62,6 +62,16 @@ what your sidebar calls it.
 Favorites are kept in the browser you saved them in, so they do not follow you to another computer
 yet.
 
+## The page menu
+
+**Beside the star is a menu (the three dots)** with what you can do with the page itself:
+
+- **Copy Link** puts the page's address on your clipboard, ready to paste to a colleague.
+- **Open in New Tab** opens the same page again in a second tab, so you can keep your place here.
+
+Some pages add their own entries beneath those, such as **What You Hear About** on Notifications,
+**Postage Account** on Shipping & Postage and **Clear History** on Uploads.
+
 ## Changing what you see
 
 **Customize** is the sliders icon at the foot of the sidebar. While it is on, each group shows two

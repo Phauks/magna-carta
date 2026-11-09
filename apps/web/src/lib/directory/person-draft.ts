@@ -10,8 +10,9 @@
 import type { DirectoryEdgeType, DirectoryNameRole, PronounSet } from "./directory-api.ts";
 import type { CreateDirectoryPersonRequest } from "./directory-api.ts";
 import type { ContactDraft } from "./contact-draft.ts";
-import { contactRequestsFrom } from "./contact-draft.ts";
-import { EDGE_TYPES } from "./directory-vocabulary.ts";
+import { contactKindLabel, contactRequestsFrom, contactRowFromDraft } from "./contact-draft.ts";
+import { EDGE_TYPES, nameRoleLabel } from "./directory-vocabulary.ts";
+import { formatDate } from "@magna-carta/design-system/formatters";
 import { recordIsOrigin } from "./edge-draft.ts";
 import type { IdentifierDraft } from "./identifier-draft.ts";
 import { identifierRequestFrom } from "./identifier-draft.ts";
@@ -145,8 +146,7 @@ export type PersonSectionId =
   | "names"
   | "contact"
   | "address"
-  | "pronouns"
-  | "dates"
+  | "about"
   | "identifiers"
   | "organizations";
 
@@ -166,11 +166,15 @@ export function personSectionCounts(draft: PersonDraft): readonly PersonSectionC
     { id: "names", label: "Names", count: currentName + draft.otherNames.length },
     { id: "contact", label: "Contact", count: draft.contacts.length - addresses },
     { id: "address", label: "Address", count: addresses },
-    { id: "pronouns", label: "Pronouns", count: null },
+    // Pronouns and the life dates share one section: each is a single answer, and a section of one
+    // control is a stop on the rail that holds almost nothing.
     {
-      id: "dates",
-      label: "Dates",
-      count: (draft.dateOfBirth === "" ? 0 : 1) + (draft.dateOfDeath === "" ? 0 : 1),
+      id: "about",
+      label: "About",
+      count:
+        (draft.pronouns === null ? 0 : 1) +
+        (draft.dateOfBirth === "" ? 0 : 1) +
+        (draft.dateOfDeath === "" ? 0 : 1),
     },
     { id: "identifiers", label: "Identifiers", count: draft.identifiers.length },
     { id: "organizations", label: "Organizations", count: draft.organizations.length },
@@ -200,37 +204,25 @@ function plural(count: number, one: string, many: string): string {
 }
 
 export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLine[] {
+  /*
+   * THE VALUES, NOT HOW MANY. This pane is where somebody checks the entry before saving it, and
+   * "1 email" cannot be checked — the email can. So every line is what the record will hold, in
+   * the order the sections are entered. The one exception is an identifier: it is sealed, and a
+   * sealed number is never printed back, so it is counted.
+   */
   const lines: PersonSummaryLine[] = [];
   const name = displayName(draft.name);
-  if (name !== "") {
-    lines.push({
-      label: "Names",
-      value:
-        draft.otherNames.length === 0
-          ? name
-          : `${name} · ${plural(draft.otherNames.length, "other name", "other names")}`,
-    });
+  if (name !== "") lines.push({ label: "Name", value: name });
+  for (const other of draft.otherNames) {
+    const otherName = displayName(other);
+    if (otherName !== "") lines.push({ label: nameRoleLabel(other.nameRole), value: otherName });
   }
-  const emails = draft.contacts.filter((contact) => contact.kind === "email").length;
-  const numbers = draft.contacts.filter(
-    (contact) => contact.kind === "telephone" || contact.kind === "fax",
-  ).length;
-  const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
-  // Two lines, because they are two sections of the panel. A summary that folded them together
-  // would name a section the rail does not have and leave both of the ones it does have unnamed.
-  if (emails > 0 || numbers > 0) {
-    lines.push({
-      label: "Contact",
-      value: [
-        emails > 0 ? plural(emails, "email", "emails") : null,
-        numbers > 0 ? plural(numbers, "number", "numbers") : null,
-      ]
-        .filter((part): part is string => part !== null)
-        .join(" · "),
-    });
-  }
-  if (addresses > 0) {
-    lines.push({ label: "Address", value: plural(addresses, "address", "addresses") });
+  // Ways to reach them first and addresses after, because that is the order of the sections.
+  const reach = draft.contacts.filter((contact) => contact.kind !== "address");
+  const addresses = draft.contacts.filter((contact) => contact.kind === "address");
+  for (const contact of [...reach, ...addresses]) {
+    const row = contactRowFromDraft(contact, contact.id);
+    if (row.value !== "") lines.push({ label: contactKindLabel(contact.kind), value: row.value });
   }
   if (draft.pronouns !== null) {
     lines.push({
@@ -238,27 +230,18 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
       value: `${draft.pronouns.subject} / ${draft.pronouns.object} / ${draft.pronouns.possessivePronoun}`,
     });
   }
-  if (draft.dateOfBirth !== "" || draft.dateOfDeath !== "") {
-    lines.push({
-      label: "Dates",
-      value: [
-        draft.dateOfBirth === "" ? null : `Born ${draft.dateOfBirth}`,
-        draft.dateOfDeath === "" ? null : `Died ${draft.dateOfDeath}`,
-      ]
-        .filter((part): part is string => part !== null)
-        .join(" · "),
-    });
-  }
+  if (draft.dateOfBirth !== "") lines.push({ label: "Born", value: formatDate(draft.dateOfBirth) });
+  if (draft.dateOfDeath !== "") lines.push({ label: "Died", value: formatDate(draft.dateOfDeath) });
   if (draft.identifiers.length > 0) {
     lines.push({
       label: "Identifiers",
       value: plural(draft.identifiers.length, "sealed", "sealed"),
     });
   }
-  if (draft.organizations.length > 0) {
+  for (const organization of draft.organizations) {
     lines.push({
-      label: "Organizations",
-      value: draft.organizations.map((organization) => organization.organizationName).join(", "),
+      label: organization.role.trim() === "" ? "Organization" : organization.role.trim(),
+      value: organization.organizationName,
     });
   }
   return lines;

@@ -39,7 +39,7 @@ export interface UploadReadinessReport {
   checks: UploadReadinessCheck[];
 }
 
-/** The permission the check names — the Owner/Admin key the firm's file-safety settings ride. */
+/** The permission the check names — the Admin key the firm's file-safety settings ride. */
 export const CHECK_UPLOAD_READINESS_PERMISSION = "firm:manageScanPolicy";
 
 export function checkUploadReadiness(

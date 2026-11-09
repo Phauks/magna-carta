@@ -64,7 +64,7 @@
   public-name: Your photo
   public-summary: Put a face beside your name — your colleagues see it across the firm.
   slices: 0-7b-auth-ui-deferred-surfaces
-  evidence: apps/api-worker/src/routes/me-photo.ts (me.photo / me.setPhoto / me.removePhoto and the content route), member_photo in packages/database per-firm schema, apps/web/src/lib/account/components/member-photo-plate.svelte; apps/api-worker/test/me-photo-routes.test.ts covers the bytes deciding what they are, the row and object replacing together, one row per member, and removal taking the object with it.
+  evidence: apps/api-worker/src/http/routes/session/me-photo.ts (me.photo / me.setPhoto / me.removePhoto and the content route), member_photo in packages/database per-firm schema, apps/web/src/lib/account/components/member-photo-plate.svelte; apps/api-worker/test/me-photo-routes.test.ts covers the bytes deciding what they are, the row and object replacing together, one row per member, and removal taking the object with it.
   notes: FIRM data rather than account data, which is the recorded decision: a name follows a person between accounts, a photograph is what this firm's colleagues see beside this person's work and is already firm-keyed by its storage. Keyed by the member rather than by the bytes, unlike the firm's brand images, because two members may legitimately hold the same image.
 
 - id: auth.two-factor
@@ -123,7 +123,7 @@
   status: partial
   surface: internal
   slices: 0-5a-api-contract-foundation
-  evidence: apps/api-worker/src/chokepoint/rate-limiter.ts holds four named buckets as data (default, auth, expensive, incident-report) and an in-memory sliding-window log behind an async-capable RateLimiter interface; every route declares its bucket as meta.rateLimit in apps/api-worker/src/contracts/route-meta.ts and the chokepoint checks it before the handler, publishing limit and remaining on every verdict so a client can warn before it is refused.
+  evidence: apps/api-worker/src/http/chokepoint/rate-limiter.ts holds four named buckets as data (default, auth, expensive, incident-report) and an in-memory sliding-window log behind an async-capable RateLimiter interface; every route declares its bucket as meta.rateLimit in apps/api-worker/src/http/contracts/route-meta.ts and the chokepoint checks it before the handler, publishing limit and remaining on every verdict so a client can warn before it is refused.
   notes: Partial because of WHERE the state lives, not because nothing enforces: the limiter is per Workers isolate, so it resets on eviction or redeploy and the effective global ceiling is the bucket limit times the number of live isolates. That is an abuse backstop rather than a limit. A distributed adapter over Durable Objects or KV swaps in behind the same interface with no route or contract change, which is why the signature is sync-or-promise.
 
 - id: auth.hardening.human-verification
@@ -131,7 +131,7 @@
   scope: A bot check ahead of the platform's anonymous writes — server-side verification of a Cloudflare Turnstile challenge solution, with a typed absence when no verifier is provisioned.
   status: partial
   surface: internal
-  evidence: apps/api-worker/src/human-verification/ — the port with its three-valued outcome, the siteverify adapter (single-use tokens, retry under one idempotency key), and the gate called by POST /api/v1/registrations and POST /api/v1/invitations/redemptions; apps/api-worker/test/turnstile-verifier.test.ts and apps/api-worker/test/human-verification-gate.test.ts cover a valid solution, a rejected one, a replayed one, both unconfigured postures and an unreachable verifier.
+  evidence: apps/api-worker/src/http/human-verification/ — the port with its three-valued outcome, the siteverify adapter (single-use tokens, retry under one idempotency key), and the gate called by POST /api/v1/registrations and POST /api/v1/invitations/redemptions; apps/api-worker/test/turnstile-verifier.test.ts and apps/api-worker/test/human-verification-gate.test.ts cover a valid solution, a rejected one, a replayed one, both unconfigured postures and an unreachable verifier.
   notes: PARTIAL, and specifically: the server half exists and enforces nothing today. No Turnstile widget has been created, so no secret is provisioned, so every environment resolves the not-configured verifier and the protected endpoints serve exactly as before — counting each unprotected pass as human_verification.decided/unenforced. Two things are outstanding and neither is server work: the owner creating the widget and setting TURNSTILE_SECRET_KEY (queued in docs/deploy-queue.md), and a client that renders the challenge and mints a token, which is UI reserved to the owner. The Better Auth credential endpoints are deliberately NOT gated — their shipped sign-in screen mints no token, so gating them would break a working surface; that mounting belongs to the identity slice that owns them.
 
 - id: auth.access-control
@@ -176,7 +176,7 @@
   scope: Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant.
   status: partial
   surface: awaiting-screen
-  evidence: The denial half and the grant READ are both built — apps/api-worker/src/chokepoint/chokepoint.ts answers a within-firm denial with 403 plus the requestAccess flag on the problem body, and packages/access-control/src/resolver.ts already unions direct grants into a member's effective permissions off the direct_grant table.
+  evidence: The denial half and the grant READ are both built — apps/api-worker/src/http/chokepoint/chokepoint.ts answers a within-firm denial with 403 plus the requestAccess flag on the problem body, and packages/access-control/src/resolver.ts already unions direct grants into a member's effective permissions off the direct_grant table.
   notes: What is missing is the middle: nothing writes a direct_grant row. The table already carries the time box (expires_at, null meaning none) and who granted it, and the resolver already honours expiry in code rather than in SQL, so what a build has to add is the request record and the approver route rather than the model. The separate support-access framework (support_grant) covers platform staff, not member grants.
 
 - id: auth.access-control.cross-firm-404

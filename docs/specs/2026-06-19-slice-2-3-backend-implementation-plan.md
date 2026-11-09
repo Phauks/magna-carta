@@ -289,7 +289,7 @@ Steps:
   - In `listCleanVersionsStatement` SELECT, add `inline_playable`: `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`.
   - Add to `CleanVersionListItem`: `readonly inlinePlayable: "playable" | "download-only" | "indeterminate" | null;`.
   - In the `.all<{...}>()` generic add `inline_playable: "playable" | "download-only" | "indeterminate" | null;` and in the `.map` add `inlinePlayable: row.inline_playable,`.
-- [ ] **Verify no FileVersionItem leak.** Confirm `apps/worker/src/routes/files.ts` line ~471-481 maps each `CleanVersionListItem` with EXPLICIT fields (`id`, `versionNumber`, `sizeBytes`, `sniffedContentType`, `contentSha256`, `committedAt`) and never object-spreads `...version`. (Confirmed at plan time — the handler picks fields explicitly, so `inlinePlayable` cannot leak into the `FileVersionItem` response or the OpenAPI snapshot.) If a future spread is found, leave it explicit.
+- [ ] **Verify no FileVersionItem leak.** Confirm `apps/worker/src/routes/files/files.ts` line ~471-481 maps each `CleanVersionListItem` with EXPLICIT fields (`id`, `versionNumber`, `sizeBytes`, `sniffedContentType`, `contentSha256`, `committedAt`) and never object-spreads `...version`. (Confirmed at plan time — the handler picks fields explicitly, so `inlinePlayable` cannot leak into the `FileVersionItem` response or the OpenAPI snapshot.) If a future spread is found, leave it explicit.
 - [ ] **Run green:** `pnpm --filter @magna-carta/file-manager exec vitest run` → all file-manager tests pass (the status-gate fitness function still passes — the new read keeps `status = 'clean'`).
 - [ ] **Commit:**
 
@@ -1165,7 +1165,7 @@ Steps:
 
 **Files**
 
-- Modify: `apps/worker/src/routes/files.ts`
+- Modify: `apps/worker/src/routes/files/files.ts`
 - Modify (test): `apps/worker/test/files-routes.test.ts` (append a minimal grant happy-path RED test; the full e2e block lands in Task 13). Requires the `seedCleanFile` overrides from Task 10 — **do Task 10 before this task's red step** (resequenced from the original order so the red test can seed a `playable` version).
 
 **Interfaces**
@@ -1191,7 +1191,7 @@ Steps:
   });
   ```
 - [ ] **Run it red:** `pnpm --filter @magna-carta/worker exec vitest run test/files-routes.test.ts` → fails (the `/api/v1/files/{id}/preview` route is not registered, so the chokepoint/router returns a 404, not a 200).
-- [ ] **Add imports** to `apps/worker/src/routes/files.ts`:
+- [ ] **Add imports** to `apps/worker/src/routes/files/files.ts`:
   - Extend the `@magna-carta/file-manager/queries` import to add `getCurrentCleanVersionForPreview`.
   - Add `import { decidePreview } from "@magna-carta/file-manager/preview-policy";`.
   - Add `import { mintPreviewDeliveryToken } from "../files/preview-token.ts";`.

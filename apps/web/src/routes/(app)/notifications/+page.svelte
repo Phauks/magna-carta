@@ -20,6 +20,8 @@
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import { goto } from "$app/navigation";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import * as Select from "@magna-carta/design-system/select";
@@ -201,10 +203,14 @@
       <CheckCheck class="size-16" aria-hidden="true" />
       Mark all read
     </Button>
-    <Button variant="ghost" size="sm" href="/settings/notifications">
-      <Settings2 class="size-16" aria-hidden="true" />
-      What you hear about
-    </Button>
+  {/snippet}
+  {#snippet pageMenu()}
+    <!-- Where to change what arrives here: a hand-off to Settings rather than work on this list,
+         so it lives in the page menu and the row keeps the search and Mark all read. -->
+    <DropdownMenu.Item onSelect={() => void goto("/settings/notifications")}>
+      <Settings2 class="size-16 shrink-0" aria-hidden="true" />
+      What You Hear About
+    </DropdownMenu.Item>
   {/snippet}
 </ScreenHeader>
 

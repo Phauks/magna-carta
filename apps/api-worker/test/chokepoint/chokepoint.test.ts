@@ -13,9 +13,9 @@ import {
   createChokepoint,
   type ChokepointPorts,
   type ResolvedSession,
-} from "../../src/chokepoint/chokepoint";
-import { defineOpenAPIRoute, type RouteMeta } from "../../src/contracts/route-meta";
-import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
+} from "../../src/http/chokepoint/chokepoint";
+import { defineOpenAPIRoute, type RouteMeta } from "../../src/http/contracts/route-meta";
+import { BUCKETS, createInMemoryRateLimiter } from "../../src/http/chokepoint/rate-limiter";
 
 // Branded-identifier fixtures: the chokepoint never validates these (the session resolver did), it
 // only scopes keys with them, so opaque branded values are enough.

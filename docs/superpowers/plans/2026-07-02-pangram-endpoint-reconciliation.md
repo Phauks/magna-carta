@@ -35,7 +35,7 @@ Every task's requirements implicitly include this section.
 - `packages/ai-detection/src/adapters/pangram.ts` (rewrite) — add `mode` + `sleep` + poll config to `PangramAdapterConfig`; extract shared HTTP + mapping helpers; implement the sync and async flows; fix provenance.
 - `packages/ai-detection/test/pangram-response.test.ts` (extend) — submit + task-status parse tests.
 - `packages/ai-detection/test/pangram.test.ts` (extend/adjust) — sync flow (adapt existing), async submit/poll flow, provenance, timeout.
-- `apps/worker/src/routes/ai-detection.ts` (modify) — construct the adapter with `mode`, per-mode default base URL, and an injected real `sleep`.
+- `apps/worker/src/routes/files/ai-detection.ts` (modify) — construct the adapter with `mode`, per-mode default base URL, and an injected real `sleep`.
 - `apps/worker/src/app.ts` (modify) — add `PANGRAM_MODE?` binding.
 - `apps/worker/wrangler.jsonc` (modify) — default `PANGRAM_BASE_URL` to the async external-api host; document the sync alternative.
 - Docs: `changelog.d/pangram-endpoint.md`, `docs/decisions/pending/pangram-endpoint-dual-mode.md`.
@@ -528,7 +528,7 @@ git commit -m "feat(ai-detection): dual-mode Pangram adapter (async task-poll + 
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/ai-detection.ts`, `apps/worker/src/app.ts`, `apps/worker/wrangler.jsonc`
+- Modify: `apps/worker/src/routes/files/ai-detection.ts`, `apps/worker/src/app.ts`, `apps/worker/wrangler.jsonc`
 
 **Interfaces:**
 
@@ -558,7 +558,7 @@ In `apps/worker/src/app.ts` `Bindings`, beside `PANGRAM_API_KEY` / `PANGRAM_BASE
 
 - [ ] **Step 2: Wire mode + per-mode base URL + a real sleep in the route**
 
-In `apps/worker/src/routes/ai-detection.ts`, replace the adapter construction with:
+In `apps/worker/src/routes/files/ai-detection.ts`, replace the adapter construction with:
 
 ```typescript
 const mode = c.env.PANGRAM_MODE === "sync" ? ("sync" as const) : ("async-task" as const);
@@ -596,7 +596,7 @@ Expected: PASS — the three existing route tests are unaffected (consent-off �
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/worker/src/routes/ai-detection.ts apps/worker/src/app.ts apps/worker/wrangler.jsonc
+git add apps/worker/src/routes/files/ai-detection.ts apps/worker/src/app.ts apps/worker/wrangler.jsonc
 git commit -m "feat(worker): select Pangram mode + base URL; inject the poll sleep"
 ```
 

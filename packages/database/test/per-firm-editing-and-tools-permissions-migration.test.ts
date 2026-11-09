@@ -6,8 +6,8 @@ const MIGRATION_TAG = "20260819T220000_seed-document-editing-and-tools-permissio
 
 // The five default roles the baseline seeds. Read by name so the test says which SEAT it means
 // rather than restating a committed handle.
-const ALL_SEATS = ["Owner/Admin", "Attorney", "Paralegal", "Billing", "Read-only"] as const;
-const CONTENT_WRITING_SEATS = ["Owner/Admin", "Attorney", "Paralegal"] as const;
+const ALL_SEATS = ["Admin", "Attorney", "Paralegal", "Billing", "Read-only"] as const;
+const CONTENT_WRITING_SEATS = ["Admin", "Attorney", "Paralegal"] as const;
 
 // The grant this migration is FOR, permission by permission, as seat names. This table is the
 // assertion: a change to the seed that nobody meant shows up here as a diff, and a seat quietly
@@ -15,13 +15,13 @@ const CONTENT_WRITING_SEATS = ["Owner/Admin", "Attorney", "Paralegal"] as const;
 const EXPECTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["documents:edit", CONTENT_WRITING_SEATS],
   ["documents:checkout", CONTENT_WRITING_SEATS],
-  ["documents:reconcile", ["Owner/Admin", "Attorney"]],
-  ["documents:forceReleaseLock", ["Owner/Admin"]],
+  ["documents:reconcile", ["Admin", "Attorney"]],
+  ["documents:forceReleaseLock", ["Admin"]],
   ["tools:propertyListings", ALL_SEATS],
   ["tools:propertyRecords", ALL_SEATS],
   ["tools:businessLookup", ALL_SEATS],
   ["tools:attorneyLicense", ALL_SEATS],
-  ["tools:shipping", ["Owner/Admin"]],
+  ["tools:shipping", ["Admin"]],
 ];
 
 // Seat names holding `permission`, sorted, straight out of the applied database.
