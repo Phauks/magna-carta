@@ -254,14 +254,15 @@
   scope: A room a member always has, joined by a stable link, not tied to a calendar event.
   status: not-started
   evidence: No code.
-  awaiting-owner: Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
+  notes: The owner's ruling of 2026-11-09 — personal rooms are allowed. The design still has to say how a meeting held in one reaches the record, since every other meeting hangs from a calendar event.
 
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
   scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
   status: not-started
   evidence: No code; researched 2026-09-24 in docs/research/2026-09-24-meetings-end-to-end-encryption.md (research, not yet a design) — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
-  awaiting-owner: Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
+  notes: The owner's ruling of 2026-11-09 — build it; deferring is off the table.
+  awaiting-owner: Opt-in fixed at the meeting's start, or on by default; whether a firm may forbid it; whether it waits for recording and dial-in and the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty); and the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
 
 - id: meetings.usage-reporting
   name: Meetings usage and quality
