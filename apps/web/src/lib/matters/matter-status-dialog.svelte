@@ -85,7 +85,7 @@
   import MatterStatusChangeDialog from "./matter-status-change-dialog.svelte";
   import { renumberMatter, RENUMBER_MATTER_PERMISSION } from "./numbering-api.ts";
   import { matterNumberRefusal } from "./numbering-scheme.ts";
-  import type { MatterRecord } from "./matter-record.ts";
+  import { forgetMatterRecord, type MatterRecord } from "./matter-record.ts";
   import { matterStatusLabel, matterStatusPresentation } from "./matter-status.ts";
   import {
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
@@ -313,6 +313,8 @@
     );
     physicalFileSaving = false;
     if (outcome.kind === "ok") {
+      // The record this screen opened on still names the old office; the next arrival must not.
+      forgetMatterRecord(matter.id);
       await readOffices();
       return;
     }

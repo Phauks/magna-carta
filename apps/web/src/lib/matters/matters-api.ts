@@ -15,7 +15,9 @@
  *     as a consultation and opened months later has two dates, and only the detail read carries the
  *     second. The column that shows it therefore says "Created" and means it.
  */
+import { meGetQueryKey } from "@magna-carta/api-client";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
+import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
 import type { MatterStatus } from "./matter-status.ts";
 
 /** One matter as the firm's listing answers it. */
@@ -286,9 +288,65 @@ export function listLocations(
   return requestJson(fetchImpl, "/api/v1/locations");
 }
 
-/** Who is asking, and what they are allowed to do. */
-export function readSession(fetchImpl: typeof fetch): Promise<ApiOutcome<SessionBootstrap>> {
-  return requestJson(fetchImpl, "/api/v1/me");
+/** How a caller asks for the session: from the cache when it is current, or from the server now. */
+export interface SessionReadOptions {
+  /**
+   * Skip the cache and ask the server, then refresh the cache with the answer. For the one kind of
+   * caller that knows the session has just changed under it — a write that moves the firm's release
+   * channel, whose flag set is part of the session — and nobody else.
+   */
+  readonly fresh?: boolean;
+}
+
+/**
+ * Who is asking, and what they are allowed to do — answered from the one query cache when it holds
+ * a current answer, and from the server when it does not.
+ *
+ * WHY THE CACHE. Forty-odd surfaces read the session for themselves on mount, and each of those
+ * reads used to be its own request: a control-plane read, a firm Durable Object wake, a permissions
+ * join, the channel and flags. The (app) guard has already read the same answer into the cache on
+ * the way in, so a screen asking a moment later was paying a full round trip, in series in front of
+ * its own data, for something it already had. That serial round trip is a large part of why a
+ * screen's loading shape showed at all. The answer is held at the session-stable ceiling the guard
+ * itself uses (`SESSION_STABLE`, src/lib/api/screen-data.ts): a permission or a channel changes when
+ * an administrator changes it, which is a page-load-scale event.
+ *
+ * The outcome stays the `ApiOutcome` every caller already branches on. A refusal is never cached as
+ * an answer: the cache keeps only a session that was read, and a failed read is asked again by the
+ * next caller. When the cache joins a read somebody else started and that read fails, the failure
+ * arrives without the outcome this function promises, so it asks once more for itself to report it
+ * in the shape the caller reads.
+ */
+export async function readSession(
+  fetchImpl: typeof fetch,
+  options: SessionReadOptions = {},
+): Promise<ApiOutcome<SessionBootstrap>> {
+  let refused: ApiOutcome<SessionBootstrap> | null = null;
+  try {
+    const value = await queryClient.fetchQuery({
+      // The generated key, so this read and the guard's `meGetOptions()` read are one cache entry.
+      queryKey: meGetQueryKey() as readonly unknown[],
+      staleTime: options.fresh === true ? 0 : SESSION_STABLE,
+      queryFn: async (): Promise<SessionBootstrap> => {
+        const outcome = await requestJson<SessionBootstrap>(fetchImpl, "/api/v1/me");
+        if (outcome.kind === "ok") return outcome.value;
+        refused = outcome;
+        throw new Error("The session could not be read.");
+      },
+    });
+    return { kind: "ok", value };
+  } catch {
+    return refused ?? requestJson(fetchImpl, "/api/v1/me");
+  }
+}
+
+/**
+ * Drop the cached session, so the next reader asks the server. For a caller that has just learned
+ * the cached answer no longer describes the person — the (app) guard sending somebody with no firm
+ * to the joining screen, who will come back with one.
+ */
+export function forgetSession(): void {
+  queryClient.removeQueries({ queryKey: meGetQueryKey() as readonly unknown[], exact: true });
 }
 
 /** The permission the create endpoint names. A member without it is refused server-side. */
