@@ -77,6 +77,10 @@ import {
 } from "./numbering/counter-statements.ts";
 import type { RenderContext } from "@magna-carta/sequence-numbering/render";
 import { URL_SAFE_PATTERN } from "@magna-carta/sequence-numbering/segments";
+import {
+  composeClearFileDestructionDateOnReopen,
+  composeFileDestructionDateAtClose,
+} from "./matter-file-retention.ts";
 import { MatterValidationError } from "./validation.ts";
 
 // The matter shell on the ledger pattern, extended for number allocation: where a number is drawn,
@@ -733,10 +737,21 @@ export async function openMatter(
   return drawn;
 }
 
+/**
+ * What the person closing a matter states as they close it. `fileDestroyOn` is the date the
+ * matter's paper file may be destroyed after — no earlier than the firm's minimum retention after
+ * the close — or null for none. Absent writes nothing, which is what a caller with no person behind
+ * it (a fixture, an import) means.
+ */
+export interface CloseMatterInput {
+  readonly fileDestroyOn?: string | null;
+}
+
 export async function closeMatter(
   database: BatchDatabase,
   matterId: MatterId,
   options: MatterServiceOptions,
+  input: CloseMatterInput = {},
 ): Promise<{ matterId: MatterId; notices: readonly CloseAdvisoryNotice[] } & ReplayFlag> {
   const matter = await loadMatter(database, matterId);
   if (matter === undefined) {
@@ -771,6 +786,18 @@ export async function closeMatter(
   // notice that went stale between this read and the commit was still true of the matter the person
   // was looking at, and the subsystem it came from is where the state actually lives.
   const notices = await collectCloseAdvisories(context, options.closeAdvisories);
+  // Validated against the instant the close is about to stamp, and written in the close's own batch
+  // so a refused date refuses the close rather than closing a matter whose date was lost.
+  const destructionDate =
+    input.fileDestroyOn === undefined || matter.status === "closed"
+      ? []
+      : await composeFileDestructionDateAtClose(
+          database,
+          matterId,
+          input.fileDestroyOn,
+          options.clock.now(),
+          options,
+        );
   try {
     return await runMatterEffect<{
       matterId: MatterId;
@@ -782,6 +809,7 @@ export async function closeMatter(
           ...guards,
           closeMatterStatement(database, matterId, now),
           auditStatement(database, options, "matter.closed", matterId),
+          ...destructionDate,
         ],
         outboxMessages: [{ topic: MATTER_CLOSED_TOPIC, payload: { matterId } }],
         value: { matterId, notices },
@@ -950,12 +978,20 @@ export async function reopenMatter(
         : matter.consultationNumber !== null
           ? "consultation"
           : "intake";
+  // The paper file is a working file again, so the date it could be destroyed after goes with the
+  // close it was stated at (matter-file-retention.ts); the next close asks for one again.
+  const clearDestructionDate = await composeClearFileDestructionDateOnReopen(
+    database,
+    matterId,
+    options,
+  );
   return runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
     const now = options.clock.now();
     return {
       statements: [
         reopenMatterStatement(database, matterId, status, now),
         auditStatement(database, options, "matter.reopened", matterId),
+        ...clearDestructionDate,
       ],
       outboxMessages: [{ topic: MATTER_REOPENED_TOPIC, payload: { matterId } }],
       value: { matterId },

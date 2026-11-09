@@ -46,7 +46,7 @@ const HEALTHY: DatabaseHealthValue = {
     outOfOrderArrivals: [],
     restorePoint: null,
   },
-  membership: { state: "active", roles: ["Owner/Admin"], permissionCount: 84 },
+  membership: { state: "active", roles: ["Admin"], permissionCount: 84 },
   provisioning: { state: "read", pending: 0, deadLettered: 0 },
   fileStorage: {
     uploadPath: "direct-to-storage",

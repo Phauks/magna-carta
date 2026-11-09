@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
@@ -11,7 +11,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The Owner/Admin role id is a committed literal from 0002_member-rbac.sql.
+// The Admin role id is a committed literal from 0002_member-rbac.sql.
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 
 const app = createApp();

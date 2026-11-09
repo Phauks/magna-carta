@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
@@ -11,7 +11,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The Owner/Admin role id is a committed literal from 0002_member-rbac.sql.
+// The Admin role id is a committed literal from 0002_member-rbac.sql.
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 
 // pdf_userpw_test.pdf — a minimal RC4-40 password-protected PDF (password: "test"). This fixture
@@ -45,7 +45,7 @@ beforeAll(async () => {
   poolFirmId = (
     await seedFirm({ name: "Decryption Route Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
-  // tools:decryption is already seeded onto Owner/Admin by the baseline migration; granting it
+  // tools:decryption is already seeded onto Admin by the baseline migration; granting it
   // here directly is an idempotent belt so this suite does not depend on migration ordering.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")

@@ -47,19 +47,19 @@ serde_json = "1"
 memmap2 = "0.9"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # Pure-Rust YARA engine (the heuristic-rule scanner); no libyara C dependency.
-yara-x = "1.18"
+yara-x = "1.22"
 # Structural-heuristic parsers (all pure Rust). zip uses the lean deflate-flate2 feature set so it
 # pulls no bzip2/zstd/lzma C deps (Windows-clean); encrypted-entry detection still works without AES.
-lopdf = "0.44"
-cfb = "0.14"
-zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+lopdf = "0.46"
+cfb = "0.16"
+zip = { version = "9.4", default-features = false, features = ["deflate-flate2"] }
 # Inflate `/Type /ObjStm` object-stream bodies in the PDF abort guard so the structural depth pre-check
 # also covers the recursion lopdf drives over decompressed object streams (same engine `zip` uses).
 flate2 = "1"
 # The prefilter's file-hash leg: MD5 + SHA1 + SHA256 over each buffer, looked up in the baked hash sets.
-md-5 = "0.10"
-sha1 = "0.10"
-sha2 = "0.10"
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11"
 # The PORTABLE prefilter matcher backend (default): aho-corasick multi-literal scanning for the escaped
 # atoms and the `regex` engine for the residual PCREs. It builds with no C toolchain, so the crate (and
 # its full test suite) compiles on every dev host. The production container swaps in the `vectorscan`

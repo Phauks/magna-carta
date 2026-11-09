@@ -10,7 +10,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
+import { documentAssemblyQueue } from "../src/background/assemblies/assembly-consumer.ts";
 import { ASSEMBLY_ENGINE_VERSION } from "../src/assemblies/assembly-engine.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";

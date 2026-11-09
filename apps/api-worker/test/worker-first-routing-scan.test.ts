@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import wranglerConfigText from "../wrangler.jsonc?raw";
 
 // Fitness function (the twin of r2-object-dimension-scan.ts, one instrument up): every path family
@@ -16,7 +16,7 @@ import wranglerConfigText from "../wrangler.jsonc?raw";
 //
 // The rule the config states and this test enforces: EVERY top-level path family registered on the
 // Hono app is worker-first. Only two paths are not — the global middleware wildcard and the
-// asset fallthrough at the end of src/app.ts, which IS the asset server's own door. The arrangement
+// asset fallthrough at the end of src/http/app.ts, which IS the asset server's own door. The arrangement
 // deliberately keeps the array explicit rather than inverting to worker-first-everything: the SPA's
 // own files (scripts, styles, fonts, the shell) stay on the asset server, off the Worker's CPU and
 // off its invocation count, which is the whole reason the assets are bound this way.
@@ -128,7 +128,7 @@ function probePathnameFor(honoPath: string): string {
 
 // The wildcard entries are the two things in the table that are NOT a surface of their own: the
 // app-wide middleware (telemetry, usage, the noindex header) and the asset fallthrough that ends
-// src/app.ts. Everything else is a path this Worker answers on and therefore has to reach it.
+// src/http/app.ts. Everything else is a path this Worker answers on and therefore has to reach it.
 function isGlobalWildcard(honoPath: string): boolean {
   return honoPath === "*" || honoPath === "/*" || honoPath === "/";
 }

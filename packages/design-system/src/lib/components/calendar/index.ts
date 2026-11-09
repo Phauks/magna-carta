@@ -4,3 +4,4 @@
  * own calendar against the date-picker context, so it does not reuse this component directly.
  */
 export { default as Calendar } from "./calendar.svelte";
+export { default as MonthJump } from "./month-jump.svelte";

@@ -3,7 +3,7 @@ import { insertMemberStatement } from "@magna-carta/data-access/member-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { buildOpenAPIDocument } from "../src/app.ts";
+import { buildOpenAPIDocument } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
@@ -17,7 +17,7 @@ import {
 // check (its first run queued, the search running after the response), reading it back with its runs
 // and the selected run's record, running it again, filing it on a matter, and recording a reviewer's
 // disposition of a hit. conflicts:run and conflicts:read are seeded broadly (every default role,
-// including Owner/Admin); a caller with neither gets refused before any check runs. Mutations require
+// including Admin); a caller with neither gets refused before any check runs. Mutations require
 // an Idempotency-Key (the chokepoint gate), and a repeated key replays the first opening rather than
 // opening a second.
 

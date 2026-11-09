@@ -21,6 +21,7 @@
   import { createQuery } from "@tanstack/svelte-query";
   import { shippingReadConnectionOptions } from "@magna-carta/api-client";
   import { buttonClasses } from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -90,11 +91,15 @@
         <Plus class="size-16" aria-hidden="true" />
         New Shipment
       </a>
-      <a href="/settings/shipping" class={buttonClasses({ variant: "ghost", size: "default" })}>
-        <Settings class="size-16" aria-hidden="true" />
-        Postage Account
-      </a>
       <DataTable.ClearFilters {grid} />
+    {/snippet}
+    {#snippet pageMenu()}
+      <!-- The postage account is set up once and then left alone, so it is a hand-off to Settings
+           in the page menu rather than a control on the row beside New Shipment. -->
+      <DropdownMenu.Item onSelect={() => void goto("/settings/shipping")}>
+        <Settings class="size-16 shrink-0" aria-hidden="true" />
+        Postage Account
+      </DropdownMenu.Item>
     {/snippet}
   </ScreenHeader>
 

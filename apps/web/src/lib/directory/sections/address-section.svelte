@@ -26,6 +26,7 @@
   import { administrativeAreasFor } from "@magna-carta/address-formats/administrative-areas";
   import { postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
   import AddressFields from "@magna-carta/design-system/address-fields";
+  import { addressLookup } from "$lib/addresses/address-lookup-source.ts";
   import type { AddressParts } from "@magna-carta/design-system/address-fields";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -86,6 +87,10 @@
     code: country.region,
     name: country.name,
   }));
+
+  // Real addresses offered from the street box as it is typed into. With no address service
+  // provisioned the lookup answers "unavailable" and the box stays the plain box it always was.
+  const streetLookup = addressLookup();
 
   function blank(): AddressDraft {
     return emptyContactDraft("address") as AddressDraft;
@@ -261,6 +266,7 @@
       countries={countryItems}
       administrativeAreas={administrativeAreasFor(parts.country)}
       postalCodeNote={postalCodeNoteFor}
+      lookup={streetLookup}
       disabled={!canEdit}
     />
 

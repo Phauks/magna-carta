@@ -52,6 +52,11 @@ interface AiSettings {
     platformDefault: boolean;
   }>;
   catalog: { version: number; effectiveDate: string };
+  provider: {
+    status: "live" | "not-configured" | "unreachable";
+    checkedAt: string | null;
+    awaitingVerification: Array<{ modelId: string; displayName: string }>;
+  };
   magnus: { enabled: boolean; dailyTurnCeiling: number };
 }
 
@@ -210,6 +215,20 @@ describe("the firm's AI settings", () => {
     expect(isCivilDate(body.catalog.effectiveDate)).toBe(true);
     // A firm that has never chosen follows the platform.
     expect(body.model?.selection).toBe("platform");
+  });
+
+  it("without a provider key, says the live check is not configured and still offers the whole roster", async () => {
+    // The test environment holds no ANTHROPIC_MODELS_API_KEY, which is the shipped default: the
+    // screen must work, and must say what it did not check rather than claim a model is published.
+    const body = (await (await readSettings(ownerCookie)).json()) as AiSettings & {
+      models: Array<{ published: boolean | null }>;
+    };
+    expect(body.provider).toEqual({
+      status: "not-configured",
+      checkedAt: null,
+      awaitingVerification: [],
+    });
+    for (const choice of body.models) expect(choice.published).toBeNull();
   });
 
   it("refuses a model that is not on the roster, and pins a chosen one until the firm chooses again", async () => {

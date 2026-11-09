@@ -22,8 +22,8 @@ import {
   createChokepoint,
   type ChokepointPorts,
   type GuestLaneRefusal,
-} from "../src/chokepoint/chokepoint.ts";
-import { defineOpenAPIRoute, type RouteMeta } from "../src/contracts/route-meta.ts";
+} from "../src/http/chokepoint/chokepoint.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../src/http/contracts/route-meta.ts";
 import {
   GUEST_CREDENTIAL_HEADER,
   GUEST_CREDENTIAL_QUERY_PARAMETER,

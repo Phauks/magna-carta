@@ -14,6 +14,7 @@ export {
   formatDate,
   formatDateRange,
   formatMonth,
+  formatMonthName,
   type CivilDateInput,
   type CivilDateOptions,
 } from "./civil-date.ts";

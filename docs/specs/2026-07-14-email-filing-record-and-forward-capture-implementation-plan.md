@@ -46,7 +46,7 @@ apps/email-worker/                             NEW — the Cloudflare Email Work
   wrangler.jsonc  src/index.ts (email handler)  src/routing.ts (address -> firm/matter)  test/
 
 apps/worker/src/
-  routes/emails.ts                             NEW — POST /matters/{id}/emails, GET reads, already-filed
+  routes/email/emails.ts                             NEW — POST /matters/{id}/emails, GET reads, already-filed
   emails/capture-consumer.ts                   NEW — the ingest Queue consumer calling captureEmail
   app.ts                                        register the routes + consumer
   wrangler.jsonc                                + the capture queue + (dev) the email-worker service binding
@@ -121,7 +121,7 @@ In the consumer, for each real attachment `PartDescriptor` (disposition `attachm
 
 ### Task 7: The API entrance — `POST /api/v1/matters/{matterId}/emails`
 
-`apps/worker/src/routes/emails.ts`, registered through the chokepoint with full `RouteMeta` (`permission: "emails:file"`, `resource: "matter"`, `rateLimit: "expensive"`, `idempotency: "optional"`), body `application/octet-stream` (raw `.eml`/`.msg` bytes). The handler stages the bytes to R2 and enqueues an `emails-capture` job scoped to `{ firmId, matterId, capturedVia: "api" }`; returns `202 { emailMessageId?, jobId, dedupState }` (or `200` with the existing message when the dedup probe hits synchronously). Problem responses reuse the Email Inspector's mapping of `EmailError` codes (`unsupported`/`malformed` → 422, `limitExceeded` → 413) plus 401/403/404/413/429. This is the endpoint the **add-in slice** will post "Save & File" / "Send & File" to — a forward-looking dependency, named here.
+`apps/worker/src/routes/email/emails.ts`, registered through the chokepoint with full `RouteMeta` (`permission: "emails:file"`, `resource: "matter"`, `rateLimit: "expensive"`, `idempotency: "optional"`), body `application/octet-stream` (raw `.eml`/`.msg` bytes). The handler stages the bytes to R2 and enqueues an `emails-capture` job scoped to `{ firmId, matterId, capturedVia: "api" }`; returns `202 { emailMessageId?, jobId, dedupState }` (or `200` with the existing message when the dedup probe hits synchronously). Problem responses reuse the Email Inspector's mapping of `EmailError` codes (`unsupported`/`malformed` → 422, `limitExceeded` → 413) plus 401/403/404/413/429. This is the endpoint the **add-in slice** will post "Save & File" / "Send & File" to — a forward-looking dependency, named here.
 
 Read routes in the same module: `GET /api/v1/matters/{matterId}/emails` (a matter's threads, `emails:read`), `GET /api/v1/emails/{emailMessageId}` (one message with its "also on …" list filtered to the caller, `emails:read`), and `GET /api/v1/emails/already-filed` (by `messageId` or content hash; the wall-safe signal, `emails:read`).
 

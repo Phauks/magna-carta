@@ -26,8 +26,8 @@ do), ADR-0017 / ADR-0038 (audit and redaction), ADR-0064 (the transactional outb
 suggestion ranking in `packages/email-filing/src/matter-suggestion.ts`; the shipped seams in
 `packages/email-filing/src/seams.ts`; the shipped verifier in `packages/email-filing/src/dkim.ts`;
 the shipped capture consumer in `apps/worker/src/emails/capture-consumer.ts`; the shipped
-accept/unlink routes in `apps/worker/src/routes/emails.ts`; the shipped add-in client API in
-`apps/worker/src/routes/email-add-in.ts`; the per-firm schema in
+accept/unlink routes in `apps/worker/src/routes/email/emails.ts`; the shipped add-in client API in
+`apps/worker/src/routes/email/email-add-in.ts`; the per-firm schema in
 `packages/database/src/per-firm-schema.ts`; and the two prior email-filing designs
 ([`2026-06-16-email-filing-design.md`](2026-06-16-email-filing-design.md),
 [`2026-07-14-email-filing-record-and-forward-capture-design.md`](2026-07-14-email-filing-record-and-forward-capture-design.md)),
@@ -636,7 +636,7 @@ review are all named and none is built.
 Run `vp run worktrees` before the build slice; at design time the overlaps are:
 
 - **The email add-in client API stream** owns `packages/email-filing/src/matter-suggestion.ts` and
-  `apps/worker/src/routes/email-add-in.ts`, and lands an index-only per-firm migration. This design
+  `apps/worker/src/routes/email/email-add-in.ts`, and lands an index-only per-firm migration. This design
   adds no change to either file — the rule engine gathers its own evidence — but the build slice's
   migration ordinal reconciles against whatever that stream lands.
 - **The case calendar design** registers `email_matter_link` as a federated timeline source. An

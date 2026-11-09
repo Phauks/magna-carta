@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * Settings · Firm Profile — what the firm IS, under Firm: its name, its marks, and its offices.
+   * Settings · Firm Profile — what the firm IS, under Firm: the name its clients read.
    *
    * THE NAME reaches invoices, the client portal and every generated document; documents already
    * produced keep the name they were produced under, which is the sentence the page says out loud
@@ -8,31 +8,19 @@
    * page's own — every request already resolves the firm's display name — and after a save the
    * session is re-read rather than patched locally, because the name is on the chrome too.
    *
-   * THE MARKS are the firm's own: a primary mark, and the images the firm keeps beside it. An
-   * office's letterhead prints the primary mark unless that office has set a logo of its own, which
-   * is what lets a single-office firm set its identity here once. They live on their own plate,
-   * each act committed at once.
+   * NOTHING ELSE IS REPEATED HERE. The firm's marks are on Firm Brand and its offices on Offices,
+   * each the one home of its own register; a summary of either on this page was a second copy of a
+   * screen one link away (owner ruling, docs/conventions/settings-rulings.md).
    *
-   * THE OFFICES are read here and managed on their own screen: an address, a telephone number and
-   * a letterhead belong to an office, and a firm has one per place it practises. This page states
-   * which offices there are and links to each, so the identity page is complete without repeating
-   * the register.
-   *
-   * INSTANT, WITH ITS OWN SAVE ON THE NAME, not the shared draft footer: the name is one field, and
-   * the marks and offices are acts against their own routes. The masthead states the posture.
+   * INSTANT, WITH ITS OWN SAVE, not the shared draft footer: the name is one field. The masthead
+   * states the posture.
    */
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import { firmOffices } from "$lib/offices/firm-offices.svelte.ts";
-  import OfficeLink from "$lib/offices/office-link.svelte";
-  import { officeStatusKey } from "$lib/offices/office-vocabulary.ts";
   import {
     MANAGE_FIRM_PROFILE_PERMISSION,
     MAX_FIRM_DISPLAY_NAME_LENGTH,
@@ -44,7 +32,6 @@
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
-  import BrandImagesPlate from "./brand-images-plate.svelte";
 
   const NAME_DEFINITION: SettingDefinition = {
     id: "firm-profile.display-name",
@@ -66,7 +53,6 @@
 
   $effect(() => {
     void sessionPermissions.load(fetch);
-    void firmOffices.load(fetch);
   });
 
   // Seeded from the session, and re-seeded whenever it answers again — never while somebody types.
@@ -112,8 +98,6 @@
       "Nothing answered, so the name is unchanged; pressing Save again tries once more.",
     );
   }
-
-  const offices = $derived(firmOffices.offices);
 </script>
 
 <svelte:head>
@@ -129,8 +113,8 @@
 
 <SettingsScrollRegion>
     <SettingsDescription>
-      Who the firm is: the name its clients read, the marks its documents carry, and the offices
-      it practises from.
+      Who the firm is: the name its clients read on every invoice, in the portal, and on every
+      generated document.
     </SettingsDescription>
 
     {#if failure !== null}
@@ -190,69 +174,6 @@
           </div>
         {:else}
           <SettingsRow definition={NAME_DEFINITION} value={committed ?? ""} />
-        {/if}
-      </LoadingRegion>
-    </SettingsPlate>
-
-    <BrandImagesPlate {canEdit} />
-
-    <SettingsPlate heading="Offices">
-      <LoadingRegion
-        loading={offices === null}
-        failed={firmOffices.failure !== null}
-        empty={offices !== null && offices.length === 0}
-        label="Reading the firm's offices"
-        onRetry={() => void firmOffices.reload(fetch)}
-        class="flex flex-col"
-      >
-        {#snippet failure()}
-          <p class="py-12 text-sm text-text-muted">{firmOffices.failure}</p>
-        {/snippet}
-        {#snippet emptyState()}
-          <div class="flex flex-col gap-12 py-12">
-            <EmptyState title="No offices yet">
-              An office carries the firm's address, its telephone and the letterhead its documents
-              print on. The first one is opened on the Offices screen.
-            </EmptyState>
-            <div class="flex justify-end">
-              <Button variant="secondary" size="sm" href="/settings/offices">Open the Offices Screen</Button>
-            </div>
-          </div>
-        {/snippet}
-        {#snippet fixture()}
-          <div class="flex items-center gap-16 py-12">
-            <span class="text-md">Downtown</span>
-            <span class="text-sm text-text-muted">Reno, NV · RENO</span>
-          </div>
-        {/snippet}
-
-        {#each offices ?? [] as office (office.id)}
-          <div class="flex items-center gap-16 py-12">
-            <div class="flex min-w-0 grow flex-col gap-4">
-              <span class="text-md">
-                <OfficeLink officeId={office.id} name={office.name} />
-              </span>
-              <span class="text-sm text-text-muted">
-                {office.members === 1 ? "1 member" : `${office.members} members`}
-                {#if office.email !== null}
-                  &middot; {office.email}
-                {/if}
-              </span>
-            </div>
-            <span class="flex shrink-0 items-center gap-4">
-              {#if office.firmDefault}
-                <Badge variant="accent">Firm default</Badge>
-              {/if}
-              <Badge {...statusBadgeAttributes(officeStatusKey(office.status))}>
-                {statusEntry(officeStatusKey(office.status)).label}
-              </Badge>
-            </span>
-          </div>
-        {/each}
-        {#if (offices ?? []).length > 0}
-          <div class="flex items-center justify-end gap-8 py-12">
-            <Button variant="secondary" size="sm" href="/settings/offices">Manage Offices</Button>
-          </div>
         {/if}
       </LoadingRegion>
     </SettingsPlate>

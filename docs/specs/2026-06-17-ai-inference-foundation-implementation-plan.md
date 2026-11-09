@@ -59,9 +59,9 @@ Copy these into every task's mental checklist; they bind the whole plan.
 
 **Modified `apps/worker/`:**
 
-- Modify `src/app.ts` — `AI: Ai` + `INFERENCE: Queue` bindings on `Bindings`.
+- Modify `src/http/app.ts` — `AI: Ai` + `INFERENCE: Queue` bindings on `Bindings`.
 - Create `src/inference/call-site.ts` — the firm-scoped read + port construction helper.
-- Create `src/inference/inference-consumer.ts` — the Queue consumer + `firmRateGate` pass-through hook + the metering write.
+- Create `src/background/inference/inference-consumer.ts` — the Queue consumer + `firmRateGate` pass-through hook + the metering write.
 - Modify `src/index.ts` — route the inference queue.
 - Modify `src/per-firm-migrations.ts` — register 0007 **and** 0008 in the `migrationsFromJournal` map.
 - Modify `wrangler.jsonc` — the `INFERENCE` producer/consumer + the `ai` binding.
@@ -1958,7 +1958,7 @@ In `apps/worker/src/app.ts`, inside `export type Bindings = { … }`, after `QUE
 ```ts
 QUEUE: Queue;
 // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
-// (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
+// (src/background/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
 // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
 INFERENCE: Queue;
 // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw

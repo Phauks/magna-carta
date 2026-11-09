@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { RecoveryBackend, RecoveryShardMessage, ShardOutcome } from "./recovery-types.ts";
 
 // The recovery container's JSON reply — mirrors the Rust ShardOutcome. The response is validated

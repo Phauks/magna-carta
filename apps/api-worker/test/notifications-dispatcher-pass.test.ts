@@ -7,7 +7,7 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   perFirmQueue,
   type PerFirmQueueMessage,
-} from "../src/costs/recoverable-charge-consumer.ts";
+} from "../src/background/costs/recoverable-charge-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // The SECOND, NON-EXCLUSIVE PASS on the per-firm bus, driven through the real queue consumer with a

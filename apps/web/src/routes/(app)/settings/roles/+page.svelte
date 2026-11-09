@@ -12,6 +12,11 @@
    * The permission key is shown beside the words, always. A person deciding who may move client
    * money should be able to see exactly which capability they are handing over, and a humanized
    * phrase is a summary of a key rather than a replacement for one.
+   *
+   * A sub-role (Partner, Associate) is listed straight after the role it sits under, indented, and
+   * lists only what it ADDS: a member who holds it also holds the parent, so the parent's list is
+   * the rest of what they may do. Its line says so, rather than repeating the parent's keys and
+   * leaving the reader to work out which ones are the difference.
    */
   import * as Accordion from "@magna-carta/design-system/accordion";
   import Badge from "@magna-carta/design-system/badge";
@@ -22,6 +27,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { listFirmRoles, type FirmRole } from "$lib/members/members-api.ts";
   import { permissionActionPhrase, permissionsByArea } from "$lib/members/permission-language.ts";
+  import { orderRolesByFamily } from "$lib/members/role-families.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
@@ -51,6 +57,12 @@
     if (role.memberCount === 0) return "Nobody holds this";
     return role.memberCount === 1 ? "1 member" : `${role.memberCount} members`;
   }
+
+  function permissionLine(role: FirmRole, parent: FirmRole | null): string {
+    const count = role.permissions.length;
+    if (parent !== null) return `${parent.name} + ${count}`;
+    return count === 1 ? "1 permission" : `${count} permissions`;
+  }
 </script>
 
 <svelte:head>
@@ -62,7 +74,7 @@
 <SettingsScrollRegion>
     <SettingsDescription>
       What each role allows. A member holds any number of roles and can do what any of them allows.
-      Roles are given to people under Users.
+      A sub-role adds to the role it sits under. Roles are given to people under Users.
     </SettingsDescription>
 
     <SettingsPlate heading="The Firm's Roles">
@@ -87,32 +99,41 @@
         {/snippet}
         {#snippet emptyState()}
           <EmptyState title="No roles">
-            A firm is created with five roles. This one has none, which means nobody can be given
+            A firm is created with its default roles. This one has none, which means nobody can be given
             anything — an administrator should be asked to look at it.
           </EmptyState>
         {/snippet}
-        {@const shown = roles ?? []}
+        {@const shown = orderRolesByFamily(roles ?? [])}
         <Accordion.Root type="multiple" class="flex flex-col">
-          {#each shown as role (role.id)}
-            <Accordion.Item value={role.id}>
+          {#each shown as { role, parent } (role.id)}
+            <Accordion.Item value={role.id} class={parent === null ? undefined : "ps-24"}>
               <Accordion.Trigger>
                 <span class="flex min-w-0 flex-col gap-4 text-start">
                   <span class="flex flex-wrap items-center gap-8">
                     <span>{role.name}</span>
-                    {#if role.permissions.length === 0}
+                    {#if parent !== null}
+                      <Badge variant="neutral">Sub-role of {parent.name}</Badge>
+                    {:else if role.permissions.length === 0}
                       <Badge variant="warning">Allows nothing</Badge>
                     {/if}
                   </span>
                   <span class="text-xs text-text-muted">
-                    {memberLine(role)} · {role.permissions.length}
-                    {role.permissions.length === 1 ? "permission" : "permissions"}
+                    {memberLine(role)} · {permissionLine(role, parent)}
                   </span>
                 </span>
               </Accordion.Trigger>
               <Accordion.Content>
+                {#if parent !== null}
+                  <p class="mb-12 text-sm text-text-muted">
+                    Includes everything {parent.name} allows. Whoever holds {role.name} also holds
+                    {parent.name}, and the list below is what {role.name} adds.
+                  </p>
+                {/if}
                 {#if role.permissions.length === 0}
                   <p class="text-sm text-text-muted">
-                    This role carries no permissions, so holding it allows nothing at all.
+                    {parent === null
+                      ? "This role carries no permissions, so holding it allows nothing at all."
+                      : `${role.name} adds nothing to ${parent.name} yet.`}
                   </p>
                 {:else}
                   <div class="flex flex-col gap-12">

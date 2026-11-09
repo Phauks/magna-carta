@@ -13,7 +13,7 @@ import {
   findUnprovisionedMembers,
   listReachableActiveFirms,
   runScheduledSweep,
-} from "../src/scheduled.ts";
+} from "../src/background/scheduled.ts";
 import { controlPlaneHeadSchemaVersion } from "../src/control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -41,7 +41,7 @@ async function directInsertUser(email: string, name: string): Promise<UserId> {
 }
 
 // Inserts a pending outbox row the way the effect batch does (member.provision payload shape from
-// routes/members.ts + firm-provisioner.ts), returning its id for status assertions.
+// routes/session/members.ts + firm-provisioner.ts), returning its id for status assertions.
 async function insertMemberProvisionOutboxRow(
   database: D1Database,
   payload: { userId: string; firmId: string; displayName: string; roleName: string | null },
@@ -80,7 +80,7 @@ async function outboxRowState(
 
 describe("runScheduledSweep — member.provision consumption", () => {
   it("mirrors an invited user's outbox row into the firm database, idempotently", async () => {
-    // The invite write as routes/members.ts commits it — the control-plane user row plus the
+    // The invite write as routes/session/members.ts commits it — the control-plane user row plus the
     // pending member.provision row (roleName null). Inserted DIRECTLY here, not through the invite
     // endpoint: POST /api/v1/members now fires its own best-effort request-path sweep on commit
     // (the R1 latency optimization), which would mirror the invitee before this test could observe
@@ -124,13 +124,13 @@ describe("runScheduledSweep — member.provision consumption", () => {
   });
 
   it("assigns the named seeded role and dedups a redelivery (at-least-once contract)", async () => {
-    // The firm-provisioner payload shape: the owner arrives with the Owner/Admin role by name.
+    // The firm-provisioner payload shape: the owner arrives with the Admin role by name.
     const userId = await directInsertUser("sweep-role-owner@example.com", "Role Owner");
     const outboxId = await insertMemberProvisionOutboxRow(env.DB_CONTROL, {
       userId,
       firmId: poolFirmId,
       displayName: "Role Owner",
-      roleName: "Owner/Admin",
+      roleName: "Admin",
     });
 
     await runScheduledSweep(env);
@@ -141,7 +141,7 @@ describe("runScheduledSweep — member.provision consumption", () => {
 
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
     const { results: roleResults } = await firmDatabase
-      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .prepare("SELECT id FROM role WHERE name = 'Admin'")
       .all<{ id: string }>();
     const seededRole = roleResults[0];
     const roleRows = await firmDatabase
@@ -316,7 +316,7 @@ describe("runScheduledSweep — the founding cascade", () => {
       )
       .bind(founderUserId)
       .all<{ status: string; role_name: string | null }>();
-    expect(memberResults.results).toEqual([{ status: "active", role_name: "Owner/Admin" }]);
+    expect(memberResults.results).toEqual([{ status: "active", role_name: "Admin" }]);
   });
 });
 

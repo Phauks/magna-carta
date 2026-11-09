@@ -14,7 +14,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { z } from "zod";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 

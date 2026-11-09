@@ -63,7 +63,7 @@ in.
 
 **The composition lives at the route, not in the register.** `@magna-carta/matter-assets` depends on
 no other domain package; the asset detail's `customFields` array is assembled in
-`apps/worker/src/routes/matter-assets.ts` from `readCustomFieldValuesForScope`, one read whatever the
+`apps/worker/src/routes/matters/matter-assets.ts` from `readCustomFieldValuesForScope`, one read whatever the
 field count, with the asset's class as the attachment.
 
 **Consequences.** A firm can define, scope, value, rename, archive, and read its own fields on an

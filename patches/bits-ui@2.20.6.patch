@@ -1,0 +1,27 @@
+diff --git a/dist/bits/utilities/dismissible-layer/use-dismissable-layer.svelte.js b/dist/bits/utilities/dismissible-layer/use-dismissable-layer.svelte.js
+--- a/dist/bits/utilities/dismissible-layer/use-dismissable-layer.svelte.js
++++ b/dist/bits/utilities/dismissible-layer/use-dismissable-layer.svelte.js
+@@ -82,7 +82,11 @@
+             if (!this.opts.ref.current || this.#isTargetWithinLayer(event.target))
+                 return;
+             if (event.target && !this.#isFocusInsideDOMTree) {
+-                this.#onFocusOutside.current?.(event);
++                // Magna Carta patch: a FocusEvent is not cancelable, so a consumer's
++                // `event.preventDefault()` in `onFocusOutside` — the documented way to keep
++                // the layer open — was a no-op and `defaultPrevented` stayed false. Wrap it
++                // the way pointer events already are, so the prevented state is tracked.
++                this.#onFocusOutside.current?.(createWrappedEvent(event));
+             }
+         });
+     };
+@@ -272,6 +276,10 @@
+     if (e instanceof PointerEvent) {
+         newEvent = new PointerEvent(e.type, e);
+     }
++    else if (e instanceof FocusEvent) {
++        // Magna Carta patch: see #handleFocus above.
++        newEvent = new FocusEvent(e.type, e);
++    }
+     else {
+         newEvent = new PointerEvent("pointerdown", e);
+     }

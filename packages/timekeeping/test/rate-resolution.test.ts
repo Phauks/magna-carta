@@ -4,7 +4,11 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { appendRate, createRateCard } from "../src/rate-service.ts";
-import { resolveRate, type RateResolutionContext } from "../src/rate-resolution.ts";
+import {
+  readTimekeeperRateRole,
+  resolveRate,
+  type RateResolutionContext,
+} from "../src/rate-resolution.ts";
 import type { RateCardId } from "@magna-carta/identifiers/types";
 
 const clock = { now: () => "2026-06-22T12:00:00.000Z" };
@@ -89,6 +93,49 @@ describe("resolveRate precedence", () => {
     ).toMatchObject({
       rateSource: "role",
       rateE4: 3_200_000,
+    });
+  });
+
+  it("a sub-role with no rate of its own falls back to its parent's rate, before the card default", async () => {
+    const database = freshDatabase();
+    const rateCardId = await makeCard(database);
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: null,
+      rateE4: 3_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: "role_attorney",
+      rateE4: 3_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    const partner = {
+      ...baseContext(rateCardId),
+      roleId: "role_partner",
+      parentRoleId: "role_attorney",
+    };
+    expect(await resolveRate(database, partner)).toMatchObject({
+      rateSource: "role",
+      rateE4: 3_500_000,
+    });
+
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: "role_partner",
+      rateE4: 4_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    expect(await resolveRate(database, partner)).toMatchObject({
+      rateSource: "role",
+      rateE4: 4_500_000,
     });
   });
 
@@ -302,5 +349,54 @@ describe("resolveRate no-rate path", () => {
     expect(
       ((await resolveRate(database, baseContext(rateCardId))) as { noRate?: true }).noRate,
     ).toBeUndefined();
+  });
+});
+
+describe("readTimekeeperRateRole", () => {
+  const ATTORNEY = "role_gEyJ_YqL1_RI_yDqSa28Y";
+  const PARTNER = "role_attorneyPartner000000";
+  const ADMIN = "role_Gw-zKO8hOHQuNv2bWokMp";
+
+  async function holding(roleIds: readonly string[]): Promise<BatchDatabase> {
+    const database = freshDatabase();
+    await database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_ada', 'Ada', 'active', ?1)",
+      )
+      .bind(clock.now())
+      .run();
+    for (const [index, roleId] of roleIds.entries()) {
+      await database
+        .prepare(
+          "INSERT INTO member_role (id, member_user_id, role_id) VALUES (?1, 'user_ada', ?2)",
+        )
+        .bind(`memberRole_${index}`, roleId)
+        .run();
+    }
+    return database;
+  }
+
+  it("prices a Partner by Partner, with Attorney as the fallback, whatever else they hold", async () => {
+    const database = await holding([ADMIN, ATTORNEY, PARTNER]);
+    expect(await readTimekeeperRateRole(database, "user_ada")).toEqual({
+      roleId: PARTNER,
+      parentRoleId: ATTORNEY,
+    });
+  });
+
+  it("prices a plain Attorney who is also Admin by Attorney, not by whichever row comes first", async () => {
+    const database = await holding([ADMIN, ATTORNEY]);
+    expect(await readTimekeeperRateRole(database, "user_ada")).toEqual({
+      roleId: ATTORNEY,
+      parentRoleId: null,
+    });
+  });
+
+  it("answers no role for a member who holds none", async () => {
+    const database = await holding([]);
+    expect(await readTimekeeperRateRole(database, "user_ada")).toEqual({
+      roleId: null,
+      parentRoleId: null,
+    });
   });
 });

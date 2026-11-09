@@ -7,7 +7,7 @@ import {
   converted,
   engineNotImplemented,
 } from "@magna-carta/conversion/port";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 // The engine ids the convert worker can execute today. Both raster-served paths (raster
 // interconversion and image-to-PDF) run in its RasterEngineContainer; the office edges run in its

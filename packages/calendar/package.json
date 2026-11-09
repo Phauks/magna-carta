@@ -30,7 +30,8 @@
     "./notifications": "./src/notifications.ts",
     "./sources/registry": "./src/sources/registry.ts",
     "./sources/all": "./src/sources/all.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"

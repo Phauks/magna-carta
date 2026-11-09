@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "address-core",
   "engine-host",
   "ocr-core",
   "pdf-core",
@@ -21,7 +22,7 @@ publish = false
 [workspace.dependencies]
 hayro = "0.7"
 image = "0.25"
-lopdf = "0.44"
+lopdf = "0.46"
 
 # The lint floor for every crate in this workspace.
 #

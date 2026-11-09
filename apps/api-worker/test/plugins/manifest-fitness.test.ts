@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isPermission } from "@magna-carta/access-control/registry";
 import { isWellFormedManifest } from "@magna-carta/integrations/manifest";
 import { listManifests } from "../../src/plugins/registry.ts";
-import appSource from "../../src/app.ts?raw";
+import appSource from "../../src/http/app.ts?raw";
 
 describe("plugin manifest fitness", () => {
   const manifests = listManifests();

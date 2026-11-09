@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { formatDate } from "@magna-carta/design-system/formatters";
+import { contactRowFromDraft, emptyContactDraft } from "../src/lib/directory/contact-draft.ts";
 import {
   emptyPersonDraft,
   personCreateRequest,
@@ -64,24 +66,47 @@ function filled() {
 }
 
 describe("the draft knows what it holds", () => {
-  it("counts each section for the rail and summarizes the whole for the context pane", () => {
+  it("counts each section for the rail and reads the whole back for the context pane", () => {
     const draft = filled();
     expect(personSectionCounts(draft).map((section) => [section.id, section.count])).toEqual([
       ["names", 2],
       ["contact", 2],
       ["address", 0],
-      ["pronouns", null],
-      ["dates", 1],
+      // Pronouns and the date of birth: the About section holds both answers.
+      ["about", 2],
       ["identifiers", 1],
       ["organizations", 1],
     ]);
+    // The values themselves, so the entry can be checked before it is saved; the sealed number is
+    // the one thing counted rather than printed.
     expect(personDraftSummary(draft)).toEqual([
-      { label: "Names", value: "Dr. Margaret Okafor Ph.D., Esq. · 1 other name" },
-      { label: "Contact", value: "1 email · 1 number" },
+      { label: "Name", value: "Dr. Margaret Okafor Ph.D., Esq." },
+      { label: "Maiden", value: "Margaret Adeyemi" },
+      { label: "Email", value: "m.okafor@example.com" },
+      { label: "Telephone", value: contactRowFromDraft(draft.contacts[1]!, "c2").value },
       { label: "Pronouns", value: "she / her / hers" },
-      { label: "Dates", value: "Born 1978-03-14" },
+      { label: "Born", value: formatDate("1978-03-14") },
       { label: "Identifiers", value: "1 sealed" },
-      { label: "Organizations", value: "Okafor Actuarial LLC" },
+      { label: "Principal", value: "Okafor Actuarial LLC" },
+    ]);
+  });
+
+  it("reads an address back after the ways to reach them, whatever order they were entered in", () => {
+    const draft = emptyPersonDraft();
+    draft.name.given = "Ada";
+    draft.contacts.push(
+      {
+        ...emptyContactDraft("address"),
+        id: "a1",
+        street: "410 Harbor Street",
+        city: "Portland",
+      } as never,
+      { id: "c1", kind: "email", address: "ada@example.com", use: "work" },
+    );
+    expect(personDraftSummary(draft).map((line) => line.label)).toEqual([
+      "Name",
+      "Email",
+      "Address",
     ]);
   });
 
