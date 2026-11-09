@@ -13,7 +13,7 @@
    * and it is worth reading before somebody 'finishes' it. The address is the account's SIGN-IN
    * IDENTITY and the key the joining surface resolves a person by: a pending registration, an
    * invitation, and the firm-provision message that makes somebody a member are all addressed to it
-   * (apps/api-worker/src/routes/me.ts reads the joining state from the address, and
+   * (apps/api-worker/src/http/routes/session/me.ts reads the joining state from the address, and
    * routes/invitations.ts matches on it). Changing it is therefore not one field write — it is a
    * proof of the new mailbox, a decision about what happens to anything still addressed to the old
    * one, and a moment where the person cannot sign in with either. None of that is hard; all of it

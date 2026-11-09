@@ -10,7 +10,7 @@ import type {
   SearchQueryResult,
   SplitQueryTarget,
 } from "@magna-carta/search/port";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 

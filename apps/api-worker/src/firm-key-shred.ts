@@ -2,7 +2,7 @@ import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-st
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 
 // Crypto-shred: the irreversible destruction of a firm's data key. Nulling the wrapped firm key in

@@ -564,7 +564,7 @@ test("re-running the migration is idempotent", async () => {
 
 **Files:**
 
-- Create: `apps/worker/src/routes/directory.ts`
+- Create: `apps/worker/src/routes/directory/directory.ts`
 - Modify: the worker route registry; Test: `apps/worker/test/directory-routes.test.ts`
 
 - [ ] **Step 1: Write failing test** (Miniflare) — `POST /api/v1/directory/persons` creates a person (idempotency-key required, the 0·2 middleware); `GET /api/v1/directory/persons/:id` returns it; `GET /api/v1/directory/search?q=` returns candidates; a sensitive-identifier read without `directory:viewSensitiveIdentifiers` is 403; the OpenAPI snapshot includes the new operations.

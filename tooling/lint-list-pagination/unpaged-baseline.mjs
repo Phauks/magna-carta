@@ -66,7 +66,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
   // and does not.
   // A matter plan is the same species as the six vocabularies below, with the same claim: a row
   // appears when a PERSON authors a plan through a route behind tasks:managePlans
-  // (apps/api-worker/src/routes/matter-plans.ts, createPlan), and by no other path. There is exactly
+  // (apps/api-worker/src/http/routes/matters/matter-plans.ts, createPlan), and by no other path. There is exactly
   // one insert statement in the workspace — insertPlanTemplateStatement in
   // packages/tasks/src/plan-statements.ts — and it is unreachable from a queue consumer, a cron
   // sweep, an import or the ingest pipeline. The platform seeds none, so the table starts empty and
@@ -77,7 +77,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
   // path.
   "matterPlans.listPlans":
     "The firm's matter plans. Rows come only from the createPlan route behind tasks:managePlans " +
-    "(apps/api-worker/src/routes/matter-plans.ts), whose one insert is " +
+    "(apps/api-worker/src/http/routes/matters/matter-plans.ts), whose one insert is " +
     "insertPlanTemplateStatement in packages/tasks/src/plan-statements.ts; no queue, sweep or " +
     "import reaches the table, and the platform seeds nothing into it.",
   "matterPlans.listOffered":
@@ -85,18 +85,18 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "bound to this matter's type or to no type), so it is bounded by the same insert path and is " +
     "strictly smaller than it.",
   // The intake procedure is the same species again: a row appears when a PERSON authors a procedure
-  // through a route behind intake:manageProcedures (apps/api-worker/src/routes/intake.ts,
+  // through a route behind intake:manageProcedures (apps/api-worker/src/http/routes/matters/intake.ts,
   // createProcedure), whose one insert is insertProcedureStatement in
   // packages/intake/src/procedure-statements.ts; no queue, sweep or import reaches the table, and
   // the platform seeds nothing into it. The read carries MAX_PROCEDURE_PAGE_SIZE as a backstop.
   "intake.listProcedures":
     "The firm's intake procedures. Rows come only from the createProcedure route behind " +
-    "intake:manageProcedures (apps/api-worker/src/routes/intake.ts), whose one insert is " +
+    "intake:manageProcedures (apps/api-worker/src/http/routes/matters/intake.ts), whose one insert is " +
     "insertProcedureStatement in packages/intake/src/procedure-statements.ts; no queue, sweep or " +
     "import reaches the table, and the platform seeds nothing into it.",
   "matterTypes.list":
     "The firm's matter-type vocabulary. Rows come only from the create route of the shared " +
-    "classification-type factory (apps/api-worker/src/routes/classification-type-routes.ts), " +
+    "classification-type factory (apps/api-worker/src/http/routes/firm/classification-type-routes.ts), " +
     "which is behind matters:manageTypes and writes through the single insert statement in " +
     "packages/matters/src/matter-type-statements.ts. A type is deactivated, never deleted, so the " +
     "row count is the number of kinds of matter the firm has ever decided it runs.",
@@ -114,7 +114,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
   "locations.list":
     "The firm's offices. Bounded by the physical thing it models, the way custody.listLocations " +
     "is: rows come only from locations.create (permission-gated in " +
-    "apps/api-worker/src/routes/locations.ts), and a firm opens offices one at a time. Read " +
+    "apps/api-worker/src/http/routes/matters/locations.ts), and a firm opens offices one at a time. Read " +
     "whole on purpose — a matter's number is scoped to its location, so a picker missing an " +
     "office says the office does not exist.",
   "rateCards.list":
@@ -140,7 +140,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "distinction the vocabularies above turn on, and checkable in the same way. The `member` " +
     "table has exactly ONE insert statement in the workspace (insertMemberStatement in " +
     "packages/data-access/src/member-statements.ts), reached from exactly one queue consumer " +
-    "(apps/api-worker/src/member-provision-consumer.ts, topic member.provision), whose only " +
+    "(apps/api-worker/src/background/member-provision-consumer.ts, topic member.provision), whose only " +
     "producers are the invite route, firm provisioning and onboarding — three deliberate acts of " +
     "adding a PERSON to the firm. No ingest path, cron sweep or import writes a member row, which " +
     "is what would make this grow with what the firm does rather than with who it employs. Read " +
@@ -188,29 +188,29 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "wording got to where it is, and a withdrawn note has none at all (the route refuses it).",
   "emails.autoFileDecisions":
     "The decisions recorded for ONE message, capped at MESSAGE_DECISION_LIMIT " +
-    "(apps/api-worker/src/routes/auto-file-rules.ts), with the response's `capped` flag saying " +
+    "(apps/api-worker/src/http/routes/email/auto-file-rules.ts), with the response's `capped` flag saying " +
     "when the message recorded more. The real bound is the rule set that could have matched that " +
     "message, and the cap is the belt on it. Not paged: a message's filing decisions are read as " +
     "one account of why it landed where it did.",
   "emails.listAutoFileRules":
     "One matter's auto-file rules, capped at MATTER_RULE_LIMIT " +
-    "(apps/api-worker/src/routes/auto-file-rules.ts) rather than trusting that a matter holds " +
+    "(apps/api-worker/src/http/routes/email/auto-file-rules.ts) rather than trusting that a matter holds " +
     "few. Rules are written by a person through the manage route; nothing derives one.",
   "emails.listCaptureAddresses":
     "The capture addresses minted for ONE matter. Each is minted deliberately and rotated rather " +
-    "than accumulated, through the routes in apps/api-worker/src/routes/capture-addresses.ts — " +
+    "than accumulated, through the routes in apps/api-worker/src/http/routes/email/capture-addresses.ts — " +
     "no path mints one in response to a message arriving, which is what would make this grow " +
     "with the matter's mail.",
   "narrativeTemplates.recentNarratives":
     "At most 50 rows, and the ceiling is on the REQUEST: the route's own query schema is " +
-    "z.number().int().positive().max(50) (apps/api-worker/src/routes/narrative-templates.ts), " +
+    "z.number().int().positive().max(50) (apps/api-worker/src/http/routes/timekeeping/narrative-templates.ts), " +
     "and recentNarrativesStatement binds it as the SQL LIMIT. It is the one-tap re-pick picker " +
     "over a timekeeper's own distinct narratives, not a walk through their time entries.",
 
   // --- Capped reads whose cap is real, and whose SILENCE about it is filed separately ----------
   "custody.listSightings":
     "Capped at the caller's `limit`, default 500 and schema-capped at 1000 " +
-    "(apps/api-worker/src/routes/custody.ts), with the response's `capped` flag saying when the " +
+    "(apps/api-worker/src/http/routes/custody/custody.ts), with the response's `capped` flag saying when the " +
     "count recorded more — readCustodyStocktakeSightings reads one row past the limit to learn " +
     "it. Not cursor-paged: a count's observations are read against the reconciliation of the same " +
     "count, and half a count reconciles to a wrong answer rather than a short one.",
@@ -224,7 +224,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
   "directory.entityNames":
     "Bounded by the CALLER'S OWN REQUEST and by nothing else: the answer names the ids asked for, " +
     "so it can never be longer than the id list, and the handler in " +
-    "apps/api-worker/src/routes/directory.ts REFUSES a list longer than " +
+    "apps/api-worker/src/http/routes/directory/directory.ts REFUSES a list longer than " +
     "MAX_ENTITY_DISPLAY_NAME_LOOKUP (100, packages/directory/src/entity-display.ts) with a 422 " +
     "rather than truncating it. A cursor is meaningless over a read whose page the caller wrote.",
   "directory.listCategories":
@@ -253,7 +253,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
   "folders.list":
     "A matter's folder tree is flat and small — the load profile models 2 to 6 folders per matter " +
     "(foldersPerMatter in packages/fixtures/src/load-profile/profile.ts). Deliberately NOT paged: " +
-    "one of the three callers is the ZIP builder in apps/api-worker/src/routes/downloads.ts, which " +
+    "one of the three callers is the ZIP builder in apps/api-worker/src/http/routes/files/downloads.ts, which " +
     "needs the whole tree to resolve paths, and half a tree is not a tree.",
   "custody.listStocktakes":
     "Capped at the caller's `limit` in readCustodyStocktakes " +

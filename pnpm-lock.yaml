@@ -1636,6 +1636,9 @@ importers:
       double-metaphone:
         specifier: 'catalog:'
         version: 2.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
@@ -2037,6 +2040,9 @@ importers:
       nanoid:
         specifier: 'catalog:'
         version: 5.1.16
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

@@ -2,8 +2,8 @@ import { createExecutionContext, env, SELF, waitOnExecutionContext } from "cloud
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
-import { consumeFirmProvision } from "../src/firm-provision-consumer.ts";
+import { createApp } from "../src/http/app.ts";
+import { consumeFirmProvision } from "../src/background/firm-provision-consumer.ts";
 import { confirmationTokenHash, generateConfirmationToken } from "../src/joining-secrets.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { liveCookie, setCookies } from "./support/test-auth.ts";
