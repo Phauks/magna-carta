@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import type { MatterId } from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import { describe, expect, it } from "vitest";

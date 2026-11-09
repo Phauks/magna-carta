@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // RouteMeta + defineOpenAPIRoute — the route-metadata model. Every assertion that matters runs
 // over the EMITTED OpenAPI document, not the route object: the document is what the conformance
 // fitness functions, Spectral, Prism, and the generated clients consume.

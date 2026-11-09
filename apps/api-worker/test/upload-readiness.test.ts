@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { DataRegion } from "@magna-carta/database/data-region";
 import { newIdentifier } from "@magna-carta/identifiers/generate";

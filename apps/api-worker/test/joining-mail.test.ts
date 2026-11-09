@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { passwordResetEmailText, passwordResetScreenLink } from "../src/password-reset-link.ts";
 import { confirmationEmailText } from "../src/http/routes/session/registrations.ts";

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { shouldCutVersion } from "../../src/editing/version-cut-trigger.ts";
 

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // Slice 0·5: shared contract fragments — the idempotency-key header and identifier path params.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
