@@ -83,7 +83,9 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "files/file-integrity.ts": { lines: 370, shapes: 5 },
   "files/file-repair.ts": { lines: 711, shapes: 10 },
   "files/file-scans.ts": { lines: 324, shapes: 5 },
-  "files/files.ts": { lines: 2161, shapes: 21 },
+  // Raised from 2161 lines and 21 shapes when main brought in the version-changes route and its
+  // three response shapes, which were written before this ledger existed.
+  "files/files.ts": { lines: 2293, shapes: 24 },
   "files/folders.ts": { lines: 437, shapes: 7 },
   "files/metadata.ts": { lines: 235, shapes: 5 },
   "files/ocr.ts": { lines: 320, shapes: 6 },
