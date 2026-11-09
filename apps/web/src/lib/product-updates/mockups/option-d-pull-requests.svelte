@@ -8,6 +8,8 @@
   import Button from "@magna-carta/design-system/button";
   import { formatDate } from "@magna-carta/design-system/formatters";
   import X from "@lucide/svelte/icons/x";
+  import ChevronsDownUp from "@lucide/svelte/icons/chevrons-down-up";
+  import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import { parseChangelogText } from "../changelog-text.ts";
   import ChangelogInline from "../changelog-inline.svelte";
   import pullRequests from "./pull-requests.json";
@@ -73,6 +75,9 @@
   const dates = $derived([...new Set(visible.map((record) => record.date))]);
   const filtered = $derived(kinds.length > 0 || areas.length > 0 || audience !== "all");
   let open = $state<string[]>(records.slice(0, 1).map((record) => record.date));
+  // Every entry starts open; each folds away on its own caret, or all at once from the filter row.
+  let entriesOpen = $state<string[]>(records.map((record) => String(record.number)));
+  const allEntriesOpen = $derived(entriesOpen.length > 0);
 </script>
 
 <div class="flex flex-col gap-24">
@@ -141,8 +146,20 @@
         Clear
       </Button>
     {/if}
-    <span class="ms-auto text-sm text-text-muted tabular-nums">
-      {filtered ? `${visible.length} of ${records.length}` : records.length} pull requests
+    <span class="ms-auto flex items-center gap-12 text-sm text-text-muted tabular-nums">
+      <Button
+        variant="ghost"
+        size="sm"
+        onclick={() =>
+          (entriesOpen = allEntriesOpen ? [] : records.map((record) => String(record.number)))}
+      >
+        {#if allEntriesOpen}
+          <ChevronsDownUp class="size-16" aria-hidden="true" />Collapse entries
+        {:else}
+          <ChevronsUpDown class="size-16" aria-hidden="true" />Expand entries
+        {/if}
+      </Button>
+      <span>{filtered ? `${visible.length} of ${records.length}` : records.length} pull requests</span>
     </span>
   </div>
 
@@ -159,11 +176,18 @@
           </span>
         </Accordion.Trigger>
         <Accordion.Content>
-          <ul class="flex flex-col divide-y divide-border-default ps-24">
+          <Accordion.Root
+            type="multiple"
+            value={entriesOpen}
+            onValueChange={(value) => (entriesOpen = value)}
+            class="flex flex-col divide-y divide-border-default ps-24"
+          >
             {#each onDate as record (record.number)}
-              <li class="flex flex-col gap-8 py-16">
-                <p class="text-base font-semibold">{record.title}</p>
-                <div class="flex flex-wrap items-center gap-4">
+              <Accordion.Item value={String(record.number)} class="flex flex-col gap-8 border-none py-12">
+                <Accordion.Trigger chevron="start" class="py-4 text-start text-base font-semibold">
+                  {record.title}
+                </Accordion.Trigger>
+                <div class="flex flex-wrap items-center gap-4 ps-24">
                   <a
                     href={`${REPOSITORY}/pull/${record.number}`}
                     target="_blank"
@@ -191,18 +215,22 @@
                   {/each}
                 </div>
                 <!-- One body, always here: the pull request's changelog entry as written. -->
-                {#if record.developerParagraphs.length > 0}
-                  <div class="flex flex-col gap-8 text-sm text-text-default">
-                    {#each record.developerParagraphs as paragraph, index (index)}
-                      <p><ChangelogInline nodes={paragraph} /></p>
-                    {/each}
-                  </div>
-                {:else}
-                  <p class="text-sm text-text-muted">No changelog entry was written for this pull request.</p>
-                {/if}
-              </li>
+                <Accordion.Content>
+                  {#if record.developerParagraphs.length > 0}
+                    <div class="flex flex-col gap-8 ps-24 pt-4 text-sm text-text-default">
+                      {#each record.developerParagraphs as paragraph, index (index)}
+                        <p><ChangelogInline nodes={paragraph} /></p>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="ps-24 pt-4 text-sm text-text-muted">
+                      No changelog entry was written for this pull request.
+                    </p>
+                  {/if}
+                </Accordion.Content>
+              </Accordion.Item>
             {/each}
-          </ul>
+          </Accordion.Root>
         </Accordion.Content>
       </Accordion.Item>
     {/each}
