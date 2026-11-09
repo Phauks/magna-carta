@@ -14,7 +14,7 @@ import {
   setLocationAddresses,
   updateLocation,
 } from "../src/location-service.ts";
-import { readMemberLocations } from "../src/statements.ts";
+import { readMemberLocations, readMemberPrimaryOfficeRegion } from "../src/statements.ts";
 import { LocationValidationError } from "../src/validation.ts";
 
 const clock = { now: () => "2026-06-13T12:00:00.000Z" };
@@ -603,4 +603,67 @@ it("LocationValidationError carries a stable code", () => {
   const error = new LocationValidationError("empty-location-name", "x");
   expect(error).toBeInstanceOf(Error);
   expect(error.code).toBe("empty-location-name");
+});
+
+describe("readMemberPrimaryOfficeRegion", () => {
+  it("answers the region of the member's primary office from its physical address alone", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const vegas = await seedLocation(database, { name: "Vegas" });
+    for (const [locationId, region, mailingRegion] of [
+      [reno, "NV", "CA"],
+      [vegas, "AZ", "AZ"],
+    ] as const) {
+      const { effect } = await setLocationAddresses(
+        database,
+        locationId,
+        [
+          { kind: "mailing", street: "PO Box 9", region: mailingRegion, country: "US" },
+          { kind: "physical", street: "1 First St", region, country: "US" },
+        ],
+        options,
+      );
+      await commitEffectBatch(database, effect, { now });
+    }
+    await seedMember(database, "user_a");
+    const { effect } = await assignMemberLocations(
+      database,
+      "user_a" as UserId,
+      [
+        { locationId: vegas, isPrimary: false },
+        { locationId: reno, isPrimary: true },
+      ],
+      options,
+    );
+    await commitEffectBatch(database, effect, { now });
+
+    expect(await readMemberPrimaryOfficeRegion(database, "user_a" as UserId)).toEqual({
+      region: "NV",
+      country: "US",
+    });
+  });
+
+  it("answers null for a member with no primary office, or one whose address does not say", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const { effect: addressEffect } = await setLocationAddresses(
+      database,
+      reno,
+      [{ kind: "physical", street: "1 First St" }],
+      options,
+    );
+    await commitEffectBatch(database, addressEffect, { now });
+    await seedMember(database, "user_a");
+    await seedMember(database, "user_b");
+    const { effect } = await assignMemberLocations(
+      database,
+      "user_a" as UserId,
+      [{ locationId: reno, isPrimary: true }],
+      options,
+    );
+    await commitEffectBatch(database, effect, { now });
+
+    expect(await readMemberPrimaryOfficeRegion(database, "user_a" as UserId)).toBeNull();
+    expect(await readMemberPrimaryOfficeRegion(database, "user_b" as UserId)).toBeNull();
+  });
 });

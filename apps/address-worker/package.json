@@ -1,0 +1,24 @@
+{
+  "name": "@magna-carta/address-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../packages/build-identity/scripts/generate-build-identity.mjs && wrangler deploy --dry-run --outdir dist",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "catalog:",
+    "@magna-carta/build-identity": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
