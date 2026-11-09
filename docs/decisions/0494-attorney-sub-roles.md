@@ -1,8 +1,9 @@
 ---
+number: 494
 slug: attorney-sub-roles
 status: Accepted
-area: Auth & access control
 date: 2026-11-09
+area: Auth & access control
 summary: "A role can name a parent and so be a sub-role of it; Partner and Associate are seeded under Attorney. A member who holds a sub-role also holds the parent as its own member_role row, so every read that joins member_role to role_permission (the resolver, notification recipients, trust authority reads and triggers) sees the parent's permissions without knowing sub-roles exist, and a sub-role's own grants are only what it adds. Sub-roles add and never subtract, one level deep, at most one per parent per member; the set-roles route refuses a set that breaks either rule, and the invite path assigns the parent alongside. Time is priced by the sub-role's rate, then the parent's, then the card default, below the per-timekeeper rate. The Owner/Admin role is renamed Admin, handle unchanged."
 ---
 

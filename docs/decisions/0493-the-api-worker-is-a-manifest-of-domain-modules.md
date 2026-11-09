@@ -1,8 +1,9 @@
 ---
+number: 493
 slug: the-api-worker-is-a-manifest-of-domain-modules
 status: Proposed
-area: Platform / Workers API
 date: 2026-09-18
+area: Platform / Workers API
 summary: "The api worker's route surface is reorganized from 99 flat files registered by one 1,019-line composition root into about twenty domain modules, each a self-contained OpenAPIHono sub-app built by one shared constructor (so the 422 default hook cannot be omitted), registering its routes through the unchanged chokepoint and mounted at the root by a manifest in app.ts. A route's request and response shapes move to the domain package's contract module as plain zod, with the worker naming components at the route; the Bindings type leaves app.ts; and the tree splits into an HTTP side and a background side held apart by an import-boundary fitness test. Four repo-wide fitness checks stop the shape regrowing (a route table proving every operation resolves to its own handler, route hygiene, per-file size and schema caps with a shrinking allow-list, and the boundary), and wrangler check startup joins the gate as a trend. Lazy per-domain loading is deferred: Hono's router refuses additions after its first match and domains do not map to path prefixes, so it needs a second composition a measurement has not yet justified. The 2026-08-21 ruling that the background orchestration stays in this Worker is kept."
 ---
 
