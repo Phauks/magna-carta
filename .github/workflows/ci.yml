@@ -55,7 +55,10 @@ env:
 jobs:
   gate:
     name: gate
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest: the Playwright the browser suites run on (1.60, pinned in
+    # pnpm-workspace.yaml) has no Chromium build for ubuntu 26.04, which ubuntu-latest now is. Move
+    # this with that pin.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
