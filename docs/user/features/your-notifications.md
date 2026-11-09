@@ -44,6 +44,10 @@ worth stating (how many days overdue, how many matches a conflicts check found),
 - **The round check at the start of a row** is filled while the item is unread. Press it to mark the
   item read without leaving the list.
 - **Priority** shows **Urgent** or **Needs Attention** where an item has one, and is blank otherwise.
+- **Group By** (at the top of the list) — the list is grouped by **Day** to begin with, newest day
+  first, under headings such as Today and Yesterday. Choose **Category**, **Priority**, **Matter** or
+  **Read State** to group it another way, or **No Grouping** for one plain list. Each heading says
+  how many items are under it.
 - **Narrowing** — click or right-click a column heading to filter it: the Status heading for unread
   or read, Category for one kind of thing, Priority for the urgent ones. **Clear Filters** appears at
   the top while anything is narrowed.
@@ -53,7 +57,8 @@ worth stating (how many days overdue, how many matches a conflicts check found),
   Separate from marking it read, because _having seen_ something and _having dealt with_ it are
   different statements. Neither one deletes anything.
 - **Show Dismissed** (at the foot of the list) — brings your dismissed items back into view, below
-  everything else and in a quieter style. **Restore** puts one back in the list, as read. It never
+  everything else and in a quieter style, under their own **Dismissed** heading when the list is
+  grouped. **Restore** puts one back in the list, as read. It never
   shows a matter's name, a client's name, a filename or a subject line. Those live behind the link,
   where the software checks what you are entitled to see at the moment you look.
 

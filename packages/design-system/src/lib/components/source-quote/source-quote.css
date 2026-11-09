@@ -1,0 +1,137 @@
+@layer components {
+  /*
+   * SourceQuote — the citation card a claim's quoted passage is set in.
+   *
+   * Three hues, one per kind, and each kind uses its hue in exactly three places: the tab, the rule
+   * along the card's top edge, and the footer strip's tint. Everything inside the card is the
+   * ordinary text register, so the hue says WHAT the source is and never competes with what it says.
+   * A case's name is set in italics, as a case name is in every brief.
+   */
+  .mc-source-quote {
+    --mc-source-quote-hue: var(--mc-text-muted);
+    --mc-source-quote-hue-foreground: var(--mc-text-inverse);
+    --mc-source-quote-tint: var(--mc-surface-sunken);
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    margin: var(--mc-space-0);
+    max-inline-size: var(--mc-size-prose);
+  }
+  .mc-source-quote[data-kind="statute"] {
+    --mc-source-quote-hue: var(--mc-accent-strong);
+    --mc-source-quote-hue-foreground: var(--mc-accent-strong-foreground);
+    --mc-source-quote-tint: var(--mc-accent-subtle);
+  }
+  .mc-source-quote[data-kind="case"] {
+    --mc-source-quote-hue: var(--mc-status-info);
+    --mc-source-quote-hue-foreground: var(--mc-status-info-foreground);
+    --mc-source-quote-tint: var(--mc-status-info-subtle);
+  }
+  .mc-source-quote-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-start-start-radius: var(--mc-radius-md);
+    border-start-end-radius: var(--mc-radius-md);
+    background-color: var(--mc-source-quote-hue);
+    color: var(--mc-source-quote-hue-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-source-quote-number {
+    font-weight: var(--mc-weight-regular);
+  }
+  .mc-source-quote-card {
+    align-self: stretch;
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-block-start-color: var(--mc-source-quote-hue);
+    border-start-start-radius: var(--mc-radius-none);
+    border-start-end-radius: var(--mc-radius-lg);
+    border-end-start-radius: var(--mc-radius-lg);
+    border-end-end-radius: var(--mc-radius-lg);
+    background-color: var(--mc-surface-raised);
+    overflow: hidden;
+  }
+  .mc-source-quote-head {
+    display: flex;
+    align-items: start;
+    gap: var(--mc-space-8);
+    padding-block-start: var(--mc-space-12);
+    padding-inline: var(--mc-space-16);
+  }
+  .mc-source-quote-identity {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-source-quote-title {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-normal);
+    overflow-wrap: break-word;
+  }
+  .mc-source-quote[data-kind="case"] .mc-source-quote-title {
+    font-style: italic;
+  }
+  .mc-source-quote-location {
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    overflow-wrap: break-word;
+  }
+  .mc-source-quote-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+  /* The passage, in the display serif a reader recognises as quoted text, inside quotation marks
+     the component draws, so a caller never doubles them. */
+  .mc-source-quote-text {
+    margin-block: var(--mc-space-8) var(--mc-space-12);
+    margin-inline: var(--mc-space-16);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-display);
+    font-size: var(--mc-font-size-md);
+    line-height: var(--mc-leading-relaxed);
+    /* A passage's own line breaks (a statute's subdivisions, a clause's sub-paragraphs) are kept;
+       runs of spaces from extraction are not. */
+    white-space: pre-line;
+    overflow-wrap: break-word;
+  }
+  .mc-source-quote-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mc-space-4) var(--mc-space-12);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-16);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    background-color: var(--mc-source-quote-tint);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-source-quote-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    font-weight: var(--mc-weight-medium);
+  }
+  .mc-source-quote-check[data-tone="verified"] {
+    color: var(--mc-status-success-subtle-foreground);
+  }
+}

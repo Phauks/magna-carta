@@ -27141,7 +27141,15 @@
             "$ref": "#/components/schemas/CallerAreaCode"
           },
           "callerIdentity": {
-            "$ref": "#/components/schemas/CallerIdentity"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallerIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A caller ID the firm already paid for, or null when it has none for the number."
           },
           "paidLookup": {
             "type": "string",
@@ -27207,10 +27215,7 @@
         ]
       },
       "CallerIdentity": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": "object",
         "properties": {
           "callerName": {
             "type": [
@@ -27251,7 +27256,7 @@
           "carrierName",
           "lookedUpAt"
         ],
-        "description": "A caller ID the firm already paid for, or null."
+        "description": "A caller ID the firm already paid for."
       },
       "CallerLookupRequest": {
         "type": "object",
