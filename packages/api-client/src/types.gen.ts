@@ -6336,7 +6336,10 @@ export type MyDayResponse = {
 export type CallerLookup = {
     directoryMatches: Array<CallerDirectoryMatch>;
     areaCode: CallerAreaCode;
-    callerIdentity: CallerIdentity;
+    /**
+     * A caller ID the firm already paid for, or null when it has none for the number.
+     */
+    callerIdentity: CallerIdentity | null;
     /**
      * Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country.
      */
@@ -6361,7 +6364,7 @@ export type CallerAreaCode = {
 } | null;
 
 /**
- * A caller ID the firm already paid for, or null.
+ * A caller ID the firm already paid for.
  */
 export type CallerIdentity = {
     /**
@@ -6371,7 +6374,7 @@ export type CallerIdentity = {
     lineType: 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other' | null;
     carrierName: string | null;
     lookedUpAt: string;
-} | null;
+};
 
 export type CallerLookupRequest = {
     /**
