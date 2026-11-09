@@ -56,6 +56,7 @@
   import { checkReportSheet } from "$lib/conflicts/conflicts-report.ts";
   import { downloadReport } from "$lib/conflicts/report-download.ts";
   import { runProgressSteps } from "$lib/conflicts/run-progress.ts";
+  import { subjectPartiesText } from "$lib/conflicts/check-columns.ts";
   import type { ChosenMatter } from "$lib/conflicts/check-request.ts";
   import {
     fileConflictsCheckOnMatter,
@@ -429,11 +430,11 @@
           <Card.Content class="flex flex-col gap-16">
             <dl class="flex flex-col gap-4 text-sm">
               <div class="flex items-baseline justify-between gap-16">
-                <dt class="text-text-muted">Subject Parties</dt>
+                <dt class="text-text-muted">Parties</dt>
                 <dd class="text-right">
-                  {record === null
-                    ? "Read once the run has finished"
-                    : String(record.check.subjectEntityIds.length)}
+                  <!-- The run stores who it searches from the moment it is queued, so the names
+                       stand here while it runs as well as after. -->
+                  {subjectPartiesText(run.subjectParties) ?? "None named"}
                 </dd>
               </div>
               <div class="flex items-baseline justify-between gap-16">
@@ -452,7 +453,7 @@
                       Where the matter stands
                     </a>
                   {:else}
-                    <span class="text-text-muted">Not filed on a matter</span>
+                    <span class="text-text-muted">No Matter</span>
                   {/if}
                 </dd>
               </div>

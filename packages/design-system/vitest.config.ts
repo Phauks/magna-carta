@@ -25,12 +25,9 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     projects: [
       {
-        // The base Svelte compiler plugin (not SvelteKit's), for the same reason apps/web's own
-        // vitest config carries it: a `.svelte.ts` module is runes source, and without a transform
-        // for it `$state` reaches Node as a bare identifier and throws. The package has no
-        // vite.config.ts on purpose — that note is about the Storybook pipeline's plugin ORDER, and
-        // this is a plugin on the unit project alone, which never runs a dev server or a build.
-        plugins: [svelte()],
+        // No `plugins` here: an inline project extends the config that declares it, so the Svelte
+        // compiler plugin above already applies. Listing it again compiles each `.svelte.ts` module
+        // twice, and the second pass rejects the `$` import the first one emitted.
         test: {
           name: "unit",
           root: import.meta.dirname,

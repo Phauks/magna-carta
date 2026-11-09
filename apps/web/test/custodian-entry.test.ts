@@ -64,7 +64,7 @@ describe("the packet form", () => {
     expect(shortfalls).toEqual([
       "Name what the firm is holding.",
       "Name at least one person or organization this is held for.",
-      "Say where it is being kept.",
+      "Choose a container, or add one.",
     ]);
   });
 

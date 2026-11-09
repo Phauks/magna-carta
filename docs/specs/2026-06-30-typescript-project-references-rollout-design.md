@@ -59,7 +59,7 @@ its own `.d.ts`). So references live in a **parallel `tsconfig.build.json` graph
   `include` drops `test/**` deliberately: the reference graph type-checks the package's public surface
   and its cross-package contracts. Test type-checking stays with `vp check` on the main `tsconfig.json`.
 - **Root `tsconfig.build.json`** — a solution file (`{ "files": [], "references": [ ...every package/app
-build config... ] }`) so one `tsc -b` builds the whole graph in dependency order, incrementally.
+  build config... ] }`) so one `tsc -b` builds the whole graph in dependency order, incrementally.
 - **`.gitignore`** gains `.tsbuild/` (the emitted `.d.ts` + `.tsbuildinfo` are regenerable build output).
 
 ### The type-check task

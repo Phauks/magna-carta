@@ -67,7 +67,7 @@ per-area findings below.
    share one root: the `matter_number` UNIQUE backstop is render-accurate, not scope-accurate,
    so a scheme with a non-scoping variable segment lets two concurrent draws commit the same
    counter value. Option A: a `matter_number_allocation` table with `UNIQUE(scope_key,
-counter_value)` + `UNIQUE(matter_id)` inserted inside the draw batch (the codebase's own
+   counter_value)` + `UNIQUE(matter_id)` inserted inside the draw batch (the codebase's own
    assert-inside-the-batch idiom; closes both highs regardless of rendered string). Option B:
    require every variable segment to be scoping — changes product semantics (a firm can no
    longer put a non-scoping token in a number).
@@ -231,7 +231,7 @@ numeric boundary with no input validation.
 - `F-001` **Medium (CONFIRMED, downgraded from high)** — financial — `packages/money/src/allocate.ts:7` —
   `allocate()` documents a largest-remainder split but dinero.js 2.0.2 assigns leftover minor
   units to the largest weight, not the largest fractional remainder. Failure: `allocate($0.09,
-[3,4])` returns [3¢, 6¢] where true largest-remainder gives [4¢, 5¢] (reproduced); weighted
+  [3,4])` returns [3¢, 6¢] where true largest-remainder gives [4¢, 5¢] (reproduced); weighted
   settlement splits systematically favor the larger party and the split cannot be defended as
   "largest remainder" under audit. Fix: implement the distribution in-house at the seam
   (floor shares + remainder by descending fractional remainder), or document the actual rule
@@ -612,7 +612,7 @@ both highs with the codebase's own assert-inside-the-batch idiom.
   closed_at and emits a second matter.closed outbox event. Failure: a June re-close moves a
   January close date — the date driving retention clocks — five months with no trace. Fix:
   refuse status 'closed' with a 409-mapped validation code plus an in-batch `AND status !=
-'closed'` belt.
+  'closed'` belt.
 - `F-046` **Medium (CONFIRMED)** — correctness — `packages/matters/src/close-preconditions.ts:18` —
   the close-precondition seam is check-then-act: preconditions run as reads before the commit
   batch and their contract cannot contribute an in-batch guard. Failure: when Phase 3 registers
@@ -666,7 +666,7 @@ as raw 500s.
   number_code into fresh matter numbers, and takes new primary-office assignments — and its
   number_code occupies the unique index forever. Fix: enforce close semantics where new
   references are created; free the code on close or scope the unique index `WHERE status =
-'active'`.
+  'active'`.
 - `F-053` **Medium (CONFIRMED)** — correctness — `packages/locations/src/settings.ts:9` — the
   firm-default-Location machinery is half-built: no production write path for the setting
   exists, so the close-refusal guard never fires (an admin can close every office), and the
@@ -688,7 +688,7 @@ as raw 500s.
   `packages/database/drizzle/per-firm/0004_matters-locations-file-manager.sql:162` — the
   exactly-one-primary-per-member invariant has no schema backstop, unlike the module's other
   invariants. Fix: partial unique index `ON member_location (member_user_id) WHERE is_primary
-= 1` in the next per-firm migration.
+  = 1` in the next per-firm migration.
 - `F-057` **Low (CONFIRMED)** — reuse — `apps/worker/src/routes/matters/locations.ts:520` — the GET
   detail/list handlers inline raw location SQL duplicating selectLocationStatement, invisible
   to the schema-name-sync fitness test that pins every other location statement. Fix: move the
@@ -887,7 +887,7 @@ non-negotiable. All three are cheap, localized fixes.
   references to a merged-away subordinate through the ordinary API. Failure: a stale tab adds
   a matter party pointing at the archived subordinate — immediately flagged dangling by the
   fitness probe, invisible in search, resolving to the master nowhere. Fix: `AND status !=
-'merged_into'` in the guard with a distinct error; regression tests per write path.
+  'merged_into'` in the guard with a distinct error; regression tests per write path.
 - `F-082` **Medium (CONFIRMED)** — correctness — `packages/directory/src/name-history.ts:70` —
   changeName is missing the assertEntityExists guard its sibling addName has: renaming a
   nonexistent entity inserts an orphan current-flagged name row plus phonetic codes into the
@@ -1052,7 +1052,7 @@ repairable without redesign.
   loadProfileSnapshot and thread it through, recording a single manifest-level firmId.
 - `F-104` **Low (CONFIRMED)** — reuse —
   `packages/fixtures/src/load-profile/protected-generate.ts:136` — the raw `INSERT INTO
-incident` duplicates the identical literal in the incidents route — a raw business-table
+  incident` duplicates the identical literal in the incidents route — a raw business-table
   INSERT the package's own CLAUDE.md declares a bug. Fix: extract an insertIncidentStatement
   builder into data-access and use it from both.
 - `F-105` **Low (CONFIRMED)** — quality —
@@ -1124,7 +1124,7 @@ wiring.
   standard-1 instance — OOM risk plus CPU serialization; a scan exceeding the 11-minute adapter
   timeout re-queues, so sustained load backs the queue up indefinitely, contradicting the
   engine's own horizontal-throughput design. Fix: distribute via `getRandom(env.SCAN_CONTAINER,
-N)` or sharded ids with a warm-poke per instance, or lower `max_instances` to 1 and document
+  N)` or sharded ids with a warm-poke per instance, or lower `max_instances` to 1 and document
   single-instance scanning as intent. (Owner decision #3.)
 - `F-110` **Medium (CONFIRMED)** — correctness — `containers/scan/src/main.rs:11` — `engineVersion` is
   `clamav+yara-x/{yara_x lib}+heuristics/1`: the `clamav` token is unversioned and the
@@ -1297,7 +1297,7 @@ inflation actually happens.
   `TargetMode != External`).
 - `F-134` **Medium (CONFIRMED)** — correctness — `packages/metadata/src/image/jpeg.ts:25` — when
   `walkSegments` loses sync (fill bytes, wrong length, truncation) it returns `scanStart =
-bytes.length`, and `scrubJpeg` emits a header-only image with an appended EOI — silently
+  bytes.length`, and `scrubJpeg` emits a header-only image with an appended EOI — silently
   destroying the picture instead of failing `corrupt`. Fix: track whether SOS was reached and
   throw if not; skip spec-legal `0xFF` fill padding.
 - `F-135` **Low (CONFIRMED)** — correctness — `packages/metadata/src/ooxml/scrub.ts:85` — dropping
@@ -1336,7 +1336,7 @@ nonfunctional whois IP path — none undermine the architecture.
   purchased — direct malpractice exposure on lost original documents. Fix: send EasyPost's
   `insurance` buy parameter; until wired, 422 requests that set it.
 - `F-140` **High (CONFIRMED)** — tenancy — `apps/worker/src/routes/communications/shipping.ts:573` — `GET
-/shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no
+  /shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no
   firm-ownership check, so any member of any firm with `shipping:manage` can stream another
   firm's label (client name + address) by id — the sole R2 route that skips the firm DB. Fix:
   select the shipment from `firm.firmDatabase`, serve only its stored key, prefix keys with firm
@@ -1461,7 +1461,7 @@ dormant inference pipeline, to fix before the first AI feature's producer lands.
   make `emitUsage` never-throw. (Counted once across the two areas; owner decision #8.)
 - `F-158` **Medium (CONFIRMED)** — correctness — `packages/inference/src/gateway.ts:218` —
   `generateStream` is written against a binding shape that does not exist: real `env.AI.run(...,
-stream:true)` returns a ReadableStream of SSE bytes, so `String(delta)` yields comma-joined
+  stream:true)` returns a ReadableStream of SSE bytes, so `String(delta)` yields comma-joined
   byte numbers and `extractUsage` on a stream handle returns `{0,0}` — streaming output is
   garbage and streaming runs are never metered; the same gap applies to `generate`'s `{prompt}`
   body for anthropic/\* models. The deferred "composition-root translation" the comments promise
@@ -1603,9 +1603,9 @@ Findings:
   (`crates/recovery-core` for file repair next to decryption-tool's `crates/decryption-core` +
   `apps/recovery-worker` + `containers/recovery` for password recovery), guaranteeing a merge
   path collision and eroding name clarity (golden rule 12). No guard reserves the path; `vp run
-worktrees` is advisory. Fix: reconcile now in the active-work notes — give the file-repair
+  worktrees` is advisory. Fix: reconcile now in the active-work notes — give the file-repair
   container a domain-specific path (e.g. `containers/file-repair`) and reserve `containers/
-recovery` + `apps/recovery-worker` for decryption (or rename decryption's artifacts
+  recovery` + `apps/recovery-worker` for decryption (or rename decryption's artifacts
   `password-recovery`). (Owner decision — see roadmap in-flight streams.)
 - `F-173` **Low (CONFIRMED)** — correctness — `apps/worker/src/routes/files/decryption.ts:373`
   (decryption-tool) — a failed unlock (wrong password / unreadable) returns 400 without writing

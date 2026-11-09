@@ -62,7 +62,7 @@ The standing shape, worked in `apps/api-worker/src/index.ts` + `src/event-dispat
   the first event instead of at validation. The dynamic import is cached per isolate, so the cost
   is paid once per cold start, off the validated budget.
 - **Measure before shipping an entrypoint change:** `pnpm --filter @magna-carta/api-worker exec
-wrangler check startup` writes a local CPU profile and total. The split took the app worker from
+  wrangler check startup` writes a local CPU profile and total. The split took the app worker from
   roughly 1.5 s to 0.24 s of local startup work. Local CPU is not Cloudflare CPU; treat the number
   as a trend, not the deployed truth.
 - **The gate measures it on every code change.** The `startup` dimension of `pnpm gate`
@@ -628,9 +628,11 @@ files that were already correct); pin them like any other build input.
 
 **`pnpm gate`** ([`tooling/gate/index.mjs`](../../tooling/gate/index.mjs)) is the gate of record and
 the merge bar. It runs every check the change can reach, from one command, on the worktree that holds
-the change, and prints a summary a pull request pastes into its _Verification_ section. There is no
-hosted check between a pull request and its merge, and by design nothing in the repository's
-verification depends on a runner.
+the change, and prints a summary a pull request pastes into its _Verification_ section. Since
+2026-11-09 the same command also runs hosted, as the `gate` job of
+[`ci.yml`](../../.github/workflows/ci.yml), on every pull request into `main` or `beta` and every push
+that lands on them (_The hosted run_ below). The command stays the gate of record: the workflow adds no
+check of its own, so a local run and the hosted run answer the same question.
 
 **Why it left the runner (2026-09-16).** From 2026-07-13 the same checks ran as a GitHub Actions
 workflow, required on every pull request into `main` through the aggregate `gate` status. The
@@ -643,9 +645,14 @@ budget is not a gate (the repo-wide tier above learned the same lesson one level
 workflow is gone and the checks are not: the same dimensions, the same commands and the same
 classification of the change, run here.
 
-**One repository setting goes with it, and only the owner can change it:** the `main` ruleset's
-_Require status checks to pass_ must no longer name `gate`. Until it is removed, GitHub keeps waiting
-for a check nothing will ever report. That step is on the [deploy queue](../deploy-queue.md).
+**Why it came back hosted (2026-11-09).** Work resumed with several Claude threads running in
+parallel, each opening pull requests against a `main` that deploys on merge. A gate that only runs when
+its author remembers to run it, on a branch that may be behind `main`, ships exactly the untested
+interleavings the deploy model can least afford. The 2026-09-16 failure was the budget, not the idea of
+a hosted check, so the owner funded Actions with a spending cap and the hosted run returned as a thin
+wrapper around this command. The repository settings that go with it (the spending cap, `gate` back in
+the `main` ruleset's required checks, workflow permission to open pull requests, auto-merge) are on the
+[deploy queue](../deploy-queue.md).
 
 **The dimensions, in the order they run** — cheap and certain first, the battery last:
 
@@ -720,9 +727,9 @@ which does not return until the group is confirmed empty and says what it had to
   dimension; here the dimensions run in series, so the wall-clock is the sum. The type-aware lint
   (below) and the test battery dominate it, and the classification is what keeps it proportionate: a
   few-package change lints in seconds, and a docs change runs in about a minute.
-- _A status on the pull request._ Nothing on GitHub reports the gate now. The pull-request template
-  asks for the summary block, and a merge to `main` is a deploy, so a pull request without one is a
-  pull request whose verification is unknown.
+- _A status on the pull request._ Restored on 2026-11-09 as the `gate` check (below). The
+  pull-request template still asks for the local summary block: the hosted run proves the change on
+  GitHub's merge of the branch, and the local run is what the author saw before pushing.
 - _The nightly sweep and the merge-time proof of the exact tree._ The sweep is `pnpm gate --all` after
   a batch of merges. The merge-time proof was never available (no merge queue for a user-owned
   repository; the [deploy queue](../deploy-queue.md) records the decision), so the habit stands: one
@@ -732,10 +739,38 @@ which does not return until the group is confirmed empty and says what it had to
   still takes `CONTAINER_BUILD_CACHE` for a hosted build that wants an external layer cache, and is a
   plain `docker build` when it is unset.
 
-The one workflow left, [`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml), still needs
-Actions minutes and still folds fragments into the rendered trackers on every push to `main`; while
-the budget is out it does not run, nothing waits on it, and the weekly docs-sync routine or a session
-runs the same assemblers by hand ([`docs/maintenance/README.md`](../maintenance/README.md)).
+### The hosted run — `ci.yml`, and the two workflows beside it
+
+[`ci.yml`](../../.github/workflows/ci.yml) is one job, named `gate` (the name the `main` ruleset
+requires). It checks out the full history, resolves the diff base (a pull request is measured from the
+first parent of GitHub's merge commit, a push from the commit it replaced), asks `pnpm gate --plan`
+what will run, installs only what that plan needs, and runs `pnpm gate --base <that base>`. The
+summary lands on the run's page. Minutes are paid, so it spends them carefully: one job rather than a
+fan-out, a newer push cancels a pull request's stale run (a run on `main` or `beta` is never
+cancelled, so every landed push gets a verdict), and the slow inputs are cached (the pnpm store and
+linked workspace through [`.github/actions/setup`](../../.github/actions/setup/action.yml), the WASM
+artefacts keyed on their Rust sources, the cargo registry, the Playwright browser). `wasm-pack`, the
+browser and the container disk clean-up are skipped outright when the plan does not reach them.
+
+[`pr-upkeep.yml`](../../.github/workflows/pr-upkeep.yml) runs every 30 minutes and after every push to
+`main` or `beta`. A pull request that conflicts with its base gets no `pull_request` workflows at all,
+so its `gate` never reports and auto-merge never fires; the upkeep labels it `merge conflict` and
+comments once per head commit, which wakes the thread that owns it. It also comments on a green pull
+request with auto-merge off, or one green for 30 minutes that has not merged. It only comments and
+labels: a push or merge made with the workflow token would start no CI.
+
+[`preview-cleanup.yml`](../../.github/workflows/preview-cleanup.yml) deletes every Worker Preview except
+`beta`'s, every six hours and when a pull request closes, because each Preview holds its own Durable
+Object namespaces and nothing else deletes them
+([`tooling/preview-cleanup/index.mjs`](../../tooling/preview-cleanup/index.mjs)). It is dormant until
+a `beta` Preview exists and the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets are set.
+
+[`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) folds fragments into the rendered
+trackers on every push to `main` and delivers them as an auto-merging pull request. That pull request
+is opened with the workflow token, which fires no `pull_request` events, so it dispatches `ci.yml` onto
+its branch to produce the `gate` check. When the Actions budget is exhausted none of these run: remove
+`gate` from the required checks until it resets, and the weekly docs-sync routine or a session runs the
+assemblers by hand ([`docs/maintenance/README.md`](../maintenance/README.md)).
 
 ## To formalize (later)
 

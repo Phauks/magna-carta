@@ -60,15 +60,13 @@ export function archiveLevelRows(entries: readonly ArchiveEntry[], prefix: strin
   return [
     ...[...directories.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(
-        ([name, held]): ArchiveDirectoryRow => ({
-          kind: "directory",
-          path: prefix + name + "/",
-          name,
-          fileCount: held.fileCount,
-          totalBytes: held.totalBytes,
-        }),
-      ),
+      .map(([name, held]): ArchiveDirectoryRow => ({
+        kind: "directory",
+        path: prefix + name + "/",
+        name,
+        fileCount: held.fileCount,
+        totalBytes: held.totalBytes,
+      })),
     ...files.sort((left, right) => left.name.localeCompare(right.name)),
   ];
 }

@@ -60,7 +60,7 @@ with the reason.
 - **Dropdown alignment is set at the call site, ninety-five times.** `align="end"` appears 95 times
   across the app and `align="start"` 10 times. The design-system contents set no default of their
   own: `select-content.svelte` and `combobox-content.svelte` both pin `min-width:
-var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI, so a caller that
+  var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI, so a caller that
   omits it gets the primitive's default. `settings-row.svelte` is one of those callers — its
   `Select.Content` carries no `align`, and its control column is pinned to the right of the row at
   `--mc-size-popover`, which is the exact geometry that sends a listbox wider than its trigger off

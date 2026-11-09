@@ -78,9 +78,6 @@
     if (!session.permissions.includes(MANAGE_CUSTODY_PERMISSION)) {
       return permissionRefusal("Logging a packet", "custody:manage");
     }
-    if (locations.length > 0 && !locations.some((location) => location.status === "active")) {
-      return "A packet is logged into a container, and the firm has no open one to put it in.";
-    }
     return undefined;
   });
 
@@ -151,6 +148,7 @@
   {locations}
   matterId={matter.id}
   onCreated={() => rereadRegister()}
+  onLocationsAdded={(added) => (locations = [...locations, ...added])}
 />
 
 <PacketWindow

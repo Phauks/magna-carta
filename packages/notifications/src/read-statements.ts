@@ -41,6 +41,12 @@ export interface VisibleNotificationScope {
   readonly category?: NotificationCategory;
   readonly state?: NotificationRecipientState;
   /**
+   * Several states at once, OR-ed: the feed asks for `unread` and `read` together so a dismissed row
+   * stays off it without the page coming back short. Composed with `state` when both are given,
+   * which narrows to their overlap rather than widening.
+   */
+  readonly states?: readonly NotificationRecipientState[];
+  /**
    * What a member's search reaches, and it has an unusual shape for a good reason.
    *
    * THERE IS NO SENTENCE IN THIS SUBSYSTEM TO SEARCH. A notification row carries identifiers,
@@ -93,6 +99,13 @@ function visibleNotificationScope(scope: VisibleNotificationScope): {
   if (scope.state !== undefined) {
     conditions.push(`${NOTIFICATION_RECIPIENT_TABLE}.state = ?`);
     bindings.push(scope.state);
+  }
+  const states = scope.states ?? [];
+  if (states.length > 0) {
+    conditions.push(
+      `${NOTIFICATION_RECIPIENT_TABLE}.state IN (${states.map(() => "?").join(", ")})`,
+    );
+    bindings.push(...states);
   }
 
   /*
@@ -192,7 +205,7 @@ export function selectNotificationFeedStatement(
 // the exact existence oracle the 404-not-403 posture exists to prevent.
 export function selectUnreadNotificationCountStatement(
   database: SqlDatabase,
-  scope: Omit<VisibleNotificationScope, "state">,
+  scope: Omit<VisibleNotificationScope, "state" | "states">,
 ): SqlStatement {
   const { from, conditions, bindings } = visibleNotificationScope({ ...scope, state: "unread" });
   return database

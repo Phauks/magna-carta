@@ -87,7 +87,7 @@ engines bind C runtimes), but this engine will remain host-testable.
 
 ## Gotchas
 
-- The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there),
+- The engine **cannot run under `@cloudflare/vitest-plugin`** (containers unsupported there),
   so the worker binding is a deploy-time activation; route the acceptance gate through a container
   CI job rather than the local worker suite.
 - `image::ImageFormat::WebP` encoding is supported in `image` 0.25 (lossless, pure Rust). Lossy

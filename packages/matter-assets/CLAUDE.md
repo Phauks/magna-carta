@@ -66,7 +66,7 @@ ADR-0008, ADR-0081.)
   write path refuses a request that names one BY NAME, with its own code, before anything is sealed,
   and the refusal message names the correct home — a sealed envelope in the custody register.
 - **A full identifier has exactly one read path and it audits.** `matter_asset_identifier.value_
-ciphertext` is a registered protected column; the only reader is `readMatterAssetIdentifierValue`
+  ciphertext` is a registered protected column; the only reader is `readMatterAssetIdentifierValue`
   delegating to the data-access chokepoint, which gates the permission (absent → a named refusal, no
   decrypt, no audit), commits the audit row BEFORE any plaintext, and decrypts under the row-bound
   AAD. Every other read projects `display_suffix`, and the ordinary row shape carries no field a full
@@ -87,7 +87,7 @@ ciphertext` is a registered protected column; the only reader is `readMatterAsse
 - **No money as a float.** Every amount is `amount_minor` plus a currency, the schema refuses one
   without the other, and no total is computed across two currencies.
 - **An encumbrance's balance is a valuation row naming it, never a column.** `matter_asset_valuation.
-encumbrance_id`, set, means the row is that charge's balance as of a date — one append-only table,
+  encumbrance_id`, set, means the row is that charge's balance as of a date — one append-only table,
   one trigger set, one as-of shape, and net equity as one read with a sign flip. A
   `balance_amount_minor` column would be a second, mutable, undated number answering the same
   question worse. The write path refuses a balance naming a charge on a DIFFERENT asset, because that
@@ -179,7 +179,7 @@ is on the asset, so Custodian never grows a matter-scoped column and never learn
   remember to write in the same shape as the eight before it. The class-mismatch refusal falls out of
   the same loop, so it cannot be forgotten for the new class.
 - **A schedule is read WHOLE and refuses past its bound rather than paging.** `MAX_MATTER_ASSET_
-SCHEDULE` is a refusal, not a page size: a firm that filed the first five hundred rows of an inventory
+  SCHEDULE` is a refusal, not a page size: a firm that filed the first five hundred rows of an inventory
   could not tell that from an inventory of five hundred. The register list is what pages.
 - **`ORDER BY` does the selecting in every batched as-of read.** `readMatterAssetValuationsAsOf` and
   `readEncumbranceBalancesAsOf` order so the winning row per subject sorts first and take the first

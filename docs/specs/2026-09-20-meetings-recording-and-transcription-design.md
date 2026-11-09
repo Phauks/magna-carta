@@ -354,7 +354,7 @@ per track. `MeetingRoom` stays exactly as it is.
 `ctx.storage`, all of it transient and deleted when the recording settles:
 
 - `track:<trackName> → { attendanceId, userId, adapterId, uploadId, stagingKey, partNumber,
-partsEtags[], carry, framesReceived, framesDropped, firstFrameAt, lastFrameAt, socketLostAt }`
+  partsEtags[], carry, framesReceived, framesDropped, firstFrameAt, lastFrameAt, socketLostAt }`
 - `recording → { meetingId, matterId, medium, startedAt, state, captionsOn }`
 
 ### Starting

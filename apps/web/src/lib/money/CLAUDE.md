@@ -48,7 +48,7 @@ frame.
 - **One bill has one address, and `billHref` is it.** Every surface that sends a reader to a bill —
   the cost and time ledgers from a billed row's menu, the invoice window's list of the matters a
   bill charges, the cost record window and its details panel — calls `billHref(matterId,
-invoiceId)`. It was spelled by hand in three files and one of them did not encode the identifier.
+  invoiceId)`. It was spelled by hand in three files and one of them did not encode the identifier.
   A bill opens on the matter it charges rather than at the firm's scale, because the acts against it
   are that matter's.
 - **The ledger keeps its own panel-open preference** (its key is unchanged) and hands the surface

@@ -45,6 +45,10 @@ function check(overrides: Partial<ConflictsCheckSummary> = {}): ConflictsCheckSu
     actorUserId: "user_one",
     triggerSource: "manual",
     hitCount: 3,
+    subjectParties: [
+      { entityId: "directoryPerson_a", party: { kind: "person", displayName: "Dana Whitfield" } },
+      { entityId: "directoryOrganization_b", party: null },
+    ],
     createdAt: "2026-09-08T12:00:00.000Z",
     ...overrides,
   };
@@ -138,5 +142,12 @@ describe("the register's columns", () => {
     for (const verdict of ["status", "outcome", "result", "conclusion"]) {
       expect(labels).not.toContain(verdict);
     }
+  });
+
+  it("names who each check searched, and never leaves an unresolved party blank", () => {
+    const parties = byIdentifier.get("parties");
+    expect(parties?.label).toBe("Parties");
+    expect(parties?.value(check())).toBe("Dana Whitfield, Entity not resolved");
+    expect(parties?.value(check({ subjectParties: [] }))).toBeNull();
   });
 });

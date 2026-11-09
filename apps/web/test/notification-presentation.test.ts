@@ -5,7 +5,7 @@ import {
   CATEGORY_PRESENTATION,
   PRESENTED_KINDS,
   SEVERITY_BADGE,
-  SEVERITY_LABEL,
+  PRIORITY_LABEL,
   describeNotification,
 } from "$lib/notifications/notification-presentation.ts";
 import { NOTIFICATION_CATEGORIES } from "$lib/notifications/category-vocabulary.ts";
@@ -161,6 +161,18 @@ describe("the notification presentation registry", () => {
     // A feed whose ordinary case is red is a feed nobody reads twice.
     expect(SEVERITY_BADGE.attention).toBe("warning");
     expect(SEVERITY_BADGE.critical).toBe("danger");
-    expect(SEVERITY_LABEL.critical.length).toBeGreaterThan(0);
+    expect(PRIORITY_LABEL.critical).toBe("Urgent");
+  });
+
+  it("gives an informational notification no priority word at all", () => {
+    // The owner's ruling: a priority shows only where one actually occurs.
+    expect(PRIORITY_LABEL.informational).toBeNull();
+  });
+
+  it("never says an email was filed", () => {
+    // Filed means filed with a court; an email arriving on a matter is saved to it.
+    expect(describeNotification(itemOf({ kind: "email.filed", category: "email" })).title).toBe(
+      "Email saved to a matter",
+    );
   });
 });

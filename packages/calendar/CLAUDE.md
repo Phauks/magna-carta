@@ -204,7 +204,7 @@ One entry in `TIMELINE_SOURCES`, and nothing else anywhere:
    hit.
 3. **A projection** — through `projectRow`, with the deep link into the owning subsystem's own read.
 4. **A label decision** — a genuinely non-privileged summary, or `declaresLabel: false` and `NULL AS
-label` in the SQL. There is no third option.
+   label` in the SQL. There is no third option.
 5. **A permission** — the read capability a DESCRIPTION of these rows sits behind (`notes:read`,
    `custody:read`), or `null` where every member may read the record. It gates `describe` only: the
    entry itself carries no content and is never withheld.
