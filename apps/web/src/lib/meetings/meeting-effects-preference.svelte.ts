@@ -37,7 +37,7 @@ export function readMeetingEffects(parsed: unknown): MediaEffectSettings {
   const reduceNoise: unknown = Reflect.get(parsed, "reduceNoise");
   return {
     background:
-      background === "blur" || background === "none"
+      background === "blur" || background === "none" || background === "image"
         ? background
         : DEFAULT_EFFECT_SETTINGS.background,
     reduceNoise:
