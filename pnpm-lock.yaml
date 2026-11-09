@@ -236,6 +236,9 @@ overrides:
   '@cloudflare/puppeteer>@puppeteer/browsers': '-'
 
 patchedDependencies:
+  '@cloudflare/vitest-plugin@1.6.0':
+    hash: 1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc
+    path: patches/@cloudflare__vitest-plugin@1.6.0.patch
   bits-ui@2.20.6:
     hash: 54c61defce0fe02cb0317072bdf9e328ccd6a794ed60ac68e4dccbd2c7faf679
     path: patches/bits-ui@2.20.6.patch
@@ -478,7 +481,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -530,7 +533,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -561,7 +564,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -589,7 +592,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -620,7 +623,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -676,7 +679,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -704,7 +707,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -732,7 +735,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -813,7 +816,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -850,7 +853,7 @@ importers:
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
-        version: 1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261106.1
@@ -7727,7 +7730,7 @@ snapshots:
     optionalDependencies:
       workerd: 1.20261104.1
 
-  '@cloudflare/vitest-plugin@1.6.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)':
+  '@cloudflare/vitest-plugin@1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)':
     dependencies:
       cjs-module-lexer: 1.2.3
       esbuild: 0.28.2

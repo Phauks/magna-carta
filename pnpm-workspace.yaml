@@ -257,4 +257,13 @@ peerDependencyRules:
     vite: "1"
     "storybook>vite-plus": "1"
 patchedDependencies:
+  # Vitest 5 asks the pool for a "warm modules" snapshot when each test file after the first starts, so
+  # a fresh worker can skip one fetch per module. workerd cannot read the host disk, so the plugin
+  # inlines every cached module's source into that one reply, and for the API worker that is about
+  # 65 MB across 4,254 modules in a single WebSocket message. workerd closes the socket with 1009
+  # "Message is too large", the runtime restarts, and the retries leak a Vite server each until the
+  # run reaches about 14 GB. The patch answers the snapshot request with an empty map, so the worker
+  # fetches modules one at a time exactly as it did under Vitest 4. Drop it when a plugin release
+  # bounds or chunks that reply (1.6.1 still has the same code).
+  "@cloudflare/vitest-plugin@1.6.0": patches/@cloudflare__vitest-plugin@1.6.0.patch
   bits-ui@2.20.6: patches/bits-ui@2.20.6.patch
