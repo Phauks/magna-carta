@@ -4351,6 +4351,9 @@
               "effectiveDate"
             ]
           },
+          "provider": {
+            "$ref": "#/components/schemas/AiProviderRoster"
+          },
           "magnus": {
             "type": "object",
             "properties": {
@@ -4372,6 +4375,7 @@
           "model",
           "models",
           "catalog",
+          "provider",
           "magnus"
         ]
       },
@@ -4415,6 +4419,9 @@
           "modelId": {
             "type": "string"
           },
+          "displayName": {
+            "type": "string"
+          },
           "snapshotId": {
             "type": "string"
           },
@@ -4442,12 +4449,46 @@
               "null"
             ]
           },
+          "effortLevels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ]
+            }
+          },
+          "defaultEffort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              null
+            ]
+          },
           "platformDefault": {
             "type": "boolean"
+          },
+          "published": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "required": [
           "modelId",
+          "displayName",
           "snapshotId",
           "zeroDataRetention",
           "noTraining",
@@ -4455,7 +4496,52 @@
           "availabilityVerifiedOn",
           "retirementNotBefore",
           "tier",
-          "platformDefault"
+          "effortLevels",
+          "defaultEffort",
+          "platformDefault",
+          "published"
+        ]
+      },
+      "AiProviderRoster": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "live",
+              "not-configured",
+              "unreachable"
+            ]
+          },
+          "checkedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "awaitingVerification": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "modelId": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "modelId",
+                "displayName"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "checkedAt",
+          "awaitingVerification"
         ]
       },
       "PatchFirmAiSettingsRequest": {

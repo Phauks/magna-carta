@@ -95,7 +95,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "files/uploads.ts": { lines: 1005, shapes: 15 },
   "firm/classification-type-routes.ts": { lines: 426, shapes: 6 },
   "firm/custom-fields.ts": { lines: 1302, shapes: 27 },
-  "firm/firm-ai-settings.ts": { lines: 494, shapes: 10 },
   "firm/firm-profile.ts": { lines: 713, shapes: 7 },
   "firm/firm-usage.ts": { lines: 261, shapes: 16 },
   "firm/numbering.ts": { lines: 617, shapes: 20 },

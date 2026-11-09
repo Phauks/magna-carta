@@ -294,6 +294,13 @@ export type Bindings = {
   // is an OPTIONAL override only: PANGRAM_MODE alone selects the correct default host (async-task ->
   // the external-api host, sync -> the /v3 host); set PANGRAM_BASE_URL only to point at something else.
   PANGRAM_API_KEY?: string;
+  // A read-only Anthropic API key used for one thing: listing the models the provider publishes, so
+  // the AI settings screen can say whether each curated model is still served and which newer ones
+  // await verification (src/inference/provider-roster-source.ts). Optional: absent, the screen shows
+  // the curated roster alone and says the live check is not configured. It never carries inference —
+  // that goes through the AI binding — and nothing it returns can make a model selectable. A platform
+  // secret: `wrangler secret put ANTHROPIC_MODELS_API_KEY`.
+  ANTHROPIC_MODELS_API_KEY?: string;
   PANGRAM_BASE_URL?: string;
   // Which Pangram surface the platform key is provisioned for: "async-task" (the external-api that
   // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not

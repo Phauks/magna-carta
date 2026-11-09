@@ -1110,6 +1110,7 @@ export type FirmAiSettingsResponse = {
         version: number;
         effectiveDate: string;
     };
+    provider: AiProviderRoster;
     magnus: {
         enabled: boolean;
         dailyTurnCeiling: number;
@@ -1126,6 +1127,7 @@ export type AiModelFacts = {
 
 export type AiModelChoice = {
     modelId: string;
+    displayName: string;
     snapshotId: string;
     zeroDataRetention: boolean;
     noTraining: boolean;
@@ -1133,7 +1135,19 @@ export type AiModelChoice = {
     availabilityVerifiedOn: string;
     retirementNotBefore: string | null;
     tier: string | null;
+    effortLevels: Array<'low' | 'medium' | 'high' | 'xhigh' | 'max'>;
+    defaultEffort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
     platformDefault: boolean;
+    published: boolean | null;
+};
+
+export type AiProviderRoster = {
+    status: 'live' | 'not-configured' | 'unreachable';
+    checkedAt: string | null;
+    awaitingVerification: Array<{
+        modelId: string;
+        displayName: string;
+    }>;
 };
 
 export type PatchFirmAiSettingsRequest = {
