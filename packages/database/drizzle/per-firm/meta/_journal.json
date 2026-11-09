@@ -271,8 +271,15 @@
     {
       "idx": 38,
       "version": "6",
+      "when": 1794265957034,
+      "tag": "20261109T231237_a-directory-record-carries-a-picture",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
       "when": 1794263965274,
-      "tag": "20261109T223925_a-call-records-what-happened-on-the-line",
+      "tag": "20261109T232753_a-call-records-what-happened-on-the-line",
       "breakpoints": true
     }
   ]

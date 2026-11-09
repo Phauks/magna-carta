@@ -48,7 +48,8 @@ import versionChangesSql from "@magna-carta/database/drizzle/per-firm/20261002T1
 import aMatterFileCarriesItsDestructionDateSql from "@magna-carta/database/drizzle/per-firm/20261109T180511_a-matter-file-carries-its-destruction-date.sql";
 import attorneySubRolesSql from "@magna-carta/database/drizzle/per-firm/20261109T192537_attorney-sub-roles.sql";
 import aLookedUpCallerIdentityIsKeptSql from "@magna-carta/database/drizzle/per-firm/20261109T213357_a-looked-up-caller-identity-is-kept.sql";
-import aCallRecordsWhatHappenedOnTheLineSql from "@magna-carta/database/drizzle/per-firm/20261109T223925_a-call-records-what-happened-on-the-line.sql";
+import aDirectoryRecordCarriesAPictureSql from "@magna-carta/database/drizzle/per-firm/20261109T231237_a-directory-record-carries-a-picture.sql";
+import aCallRecordsWhatHappenedOnTheLineSql from "@magna-carta/database/drizzle/per-firm/20261109T232753_a-call-records-what-happened-on-the-line.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -95,7 +96,8 @@ export function perFirmMigrations(): Migration[] {
       aMatterFileCarriesItsDestructionDateSql,
     "20261109T192537_attorney-sub-roles": attorneySubRolesSql,
     "20261109T213357_a-looked-up-caller-identity-is-kept": aLookedUpCallerIdentityIsKeptSql,
-    "20261109T223925_a-call-records-what-happened-on-the-line":
+    "20261109T231237_a-directory-record-carries-a-picture": aDirectoryRecordCarriesAPictureSql,
+    "20261109T232753_a-call-records-what-happened-on-the-line":
       aCallRecordsWhatHappenedOnTheLineSql,
   });
 }

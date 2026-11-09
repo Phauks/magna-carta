@@ -69,7 +69,12 @@
     entityMergedIntoIdentifier,
     entityRecordHref,
   } from "./entity-presentation.ts";
-  import { CONTACT_CARD_CONTENT_TYPE, contactCard, contactCardFilename } from "./contact-card.ts";
+  import {
+    CONTACT_CARD_CONTENT_TYPE,
+    contactCard,
+    contactCardFilename,
+    readContactCardPhoto,
+  } from "./contact-card.ts";
   import { readRecordPrintoutParts, recordPrintout } from "./record-printout.ts";
   import { entitySectionsFor, type EntitySection } from "./entity-sections.ts";
   import {
@@ -91,6 +96,7 @@
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import { RECORD_PANEL_BODY_STYLE } from "./record-panel.ts";
   import RecordSections from "./record-sections.svelte";
+  import EntityPhoto from "./entity-photo.svelte";
 
   let {
     open = $bindable(false),
@@ -252,12 +258,15 @@
   async function downloadContactCard(): Promise<void> {
     const shown = entity;
     if (shown === null) return;
-    const outcome = await readDirectoryContactPoints(fetch, entityId);
+    const [outcome, picture] = await Promise.all([
+      readDirectoryContactPoints(fetch, entityId),
+      readContactCardPhoto(fetch, entityId),
+    ]);
     if (outcome.kind !== "ok") {
       toast.error("The contact card could not be made, because the contact details could not be read.");
       return;
     }
-    await saveExport(contactCard(shown, outcome.value), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
+    await saveExport(contactCard(shown, outcome.value, picture), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
   }
 
   /**
@@ -340,6 +349,10 @@
   </DataTable.Root>
 {/snippet}
 
+{#snippet recordPhoto()}
+  <EntityPhoto {entityId} {name} {mayEdit} />
+{/snippet}
+
 {#snippet recordMenu()}
   <DropdownMenu.Item onSelect={() => void copyLink()}>
     <Link class="size-16" aria-hidden="true" />
@@ -381,6 +394,7 @@
   width="record"
   context={hasStanding ? standingPane : undefined}
   menu={entity !== null ? recordMenu : undefined}
+  leading={entity !== null ? recordPhoto : undefined}
   {onDismiss}
 >
   {#snippet notice()}

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "799bbdbc-838b-445e-8ee4-1315c0f0941d",
+  "id": "02d30af0-4361-48d8-bb2d-933940b52af5",
   "prevId": "af56de18-f49c-49a2-9624-de013a9be936",
   "tables": {
     "account_balance": {
@@ -1003,34 +1003,6 @@
         },
         "disposition": {
           "name": "disposition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "caller_id_name": {
-          "name": "caller_id_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "spam_kind": {
-          "name": "spam_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "message_task_id": {
-          "name": "message_task_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -5356,6 +5328,88 @@
       },
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "directory_entity_photo": {
+      "name": "directory_entity_photo",
+      "columns": {
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width_pixels": {
+          "name": "width_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height_pixels": {
+          "name": "height_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "directory_entity_photo_size_check": {
+          "name": "directory_entity_photo_size_check",
+          "value": "\"directory_entity_photo\".\"size_bytes\" > 0"
+        },
+        "directory_entity_photo_pixels_check": {
+          "name": "directory_entity_photo_pixels_check",
+          "value": "\"directory_entity_photo\".\"width_pixels\" > 0 AND \"directory_entity_photo\".\"height_pixels\" > 0"
+        }
+      }
     },
     "directory_identifier": {
       "name": "directory_identifier",
