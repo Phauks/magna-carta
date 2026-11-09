@@ -1,8 +1,9 @@
 ---
+number: 497
 slug: the-united-states-is-answered-from-the-platforms-own-address-index
 status: Accepted
-area: Directory
 date: 2026-10-02
+area: Directory
 summary: "Address autocomplete for the United States runs on an index the platform builds itself from OpenAddresses every month, stored in one platform R2 bucket as four census-region Tantivy splits and read by range from a Container that sleeps when nobody is typing; Smarty, unchanged, answers every other country when its key pair is set. A measured spike decided it: 62 bytes an address, one ranged read for a warm keystroke at the median, p90 under 220 ms even at 100 ms a read once result rows are fetched in parallel, and OpenStreetMap holding the house number for only 31 of 200 sampled US addresses. Sources with share-alike, non-commercial or bespoke-agreement licences are excluded; unrecorded and indemnification-only licences are included, and every build writes an attribution manifest. The engine is a dedicated address worker that, unlike the search worker, holds its own R2 binding, because address data belongs to no firm."
 ---
 
