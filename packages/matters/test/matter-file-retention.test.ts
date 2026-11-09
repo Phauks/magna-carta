@@ -1,5 +1,6 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { describe, expect, it } from "vitest";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { closeMatter, reopenMatter } from "../src/matter-service.ts";
@@ -222,7 +223,7 @@ async function setMinimum(database: Database, years: number): Promise<void> {
 }
 
 const serviceOptions = (now: string) => ({
-  clock: { now: () => now, today: () => now.slice(0, 10) },
+  clock: { now: () => now, today: () => civilDateOf(Date.parse(now)) },
   actorUserId: MEMBER_ID,
 });
 
