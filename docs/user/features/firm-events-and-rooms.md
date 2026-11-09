@@ -1,7 +1,8 @@
 # Firm events and rooms
 
 _Firm events are recorded and read on the firm calendar. Resources and bookings are built and are
-the room grid, the Rooms tab on an event, and the catalog under Settings are live._
+the room grid, the Rooms tab on an event, and the catalog under Settings › Firm › Rooms and
+Resources are live._
 
 ## What it does
 
@@ -95,7 +96,8 @@ rooms — a capacity. Capacity is shown when picking a room so a person can judg
 platform does not refuse a twelve-person meeting in a ten-seat room.
 
 Retire a resource when the room becomes storage: its history and its existing bookings stay, and it
-simply takes no new ones.
+simply takes no new ones. **Change**, **Retire** and **Restore** are in the **...** menu at the end
+of each resource's row.
 
 ## Tips and edge cases
 
