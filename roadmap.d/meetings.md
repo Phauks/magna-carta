@@ -257,12 +257,12 @@
 
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
-  scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
-  status: not-started
-  evidence: No code; researched 2026-09-24 in docs/research/2026-09-24-meetings-end-to-end-encryption.md (research, not yet a design) — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
-  notes: The owner's ruling of 2026-11-09 — build it; deferring is off the table.
-  awaiting-owner: Opt-in fixed at the meeting's start, or on by default; whether a firm may forbid it; whether it waits for recording and dial-in and the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty); and the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
-
+  scope: Media the routing service cannot read — keys agreed between browsers over MLS, frames encrypted with SFrame before they leave, at the room's full size, with recording made in the host's browser and dial-in allowed behind a warning.
+  status: designed
+  spec: docs/specs/2026-11-09-meetings-end-to-end-encryption-design.md
+  evidence: No code. Designed 2026-11-09 over the research in docs/research/2026-09-24-meetings-end-to-end-encryption.md; four experiments (simulcast with encrypted VP8, Opus clear prefix, encrypted H.264 from Safari, MLS cost at 300) come before any code.
+  notes: The owner's rulings of 2026-11-09 — build it; MLS rather than sender keys so the room keeps its 300; recording stays, made in the recording host's browser and filed through the untrusted-file pipeline, with transcripts and the summary after the meeting; dial-in stays, with a banner telling everyone a phone caller ends end-to-end encryption while connected. Only live captions, webinars and live streaming are given up.
+  awaiting-owner: On by default, or chosen at Start? Either way it is fixed for the meeting once started.
 - id: meetings.usage-reporting
   name: Meetings usage and quality
   scope: How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
