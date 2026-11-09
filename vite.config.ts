@@ -277,8 +277,9 @@ export default defineConfig({
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
       // each host package dir (the import paths packages/{pdf,decryption,email,seven-zip}/src
-      // expect). All four are built because build-all bundles all of the consumers: the SPA imports
-      // pdf-core (the in-browser PDF reader), and apps/api-worker imports pdf-core, decryption-core
+      // expect). All five are built because build-all bundles all of the consumers: the SPA imports
+      // pdf-core (the in-browser PDF reader) and segmentation-core (the meeting room's background
+      // Worker), and apps/api-worker imports pdf-core, decryption-core
       // (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess), email-core and
       // seven-zip-core (the archive browse route's 7z reader) — omitting any makes the worker
       // or SPA bundle fail with ENOENT on the missing .wasm. Build
@@ -289,7 +290,7 @@ export default defineConfig({
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
-      // often) needs pdf-core alone, and its build script asks for exactly that. The composite below is
+      // often) needs pdf-core and segmentation-core alone, and its build script asks for exactly those. The composite below is
       // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
       // crate keeps its own cache entry rather than one
       // all-or-nothing entry.
@@ -299,6 +300,7 @@ export default defineConfig({
           "vp run rust-wasm-build-decryption",
           "vp run rust-wasm-build-email",
           "vp run rust-wasm-build-seven-zip",
+          "vp run rust-wasm-build-segmentation",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -317,9 +319,9 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
       },
-      // The meeting's person segmentation, for background blur and image backgrounds. Its own task and
-      // not yet in the composite above, because nothing deployed imports it until the meeting client's
-      // effects Worker does; that change adds it to the chain.
+      // The meeting's person segmentation, for background blur and image backgrounds: the SPA's
+      // meeting room loads it in its background Worker, so both the composite above and the
+      // interface Worker's own build ask for it.
       "rust-wasm-build-segmentation": {
         command:
           "docker build --network=host --output type=local,dest=packages/segmentation/src/pkg -f crates/segmentation-core/wasm.Dockerfile crates",
