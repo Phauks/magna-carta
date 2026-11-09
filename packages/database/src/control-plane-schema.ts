@@ -128,7 +128,7 @@ export const user = sqliteTable("user", {
   // resolves what they are afterwards), so "no firm yet" has to be representable; NULL is the
   // honest representation, and it is the one that fails CLOSED. A surface that forgets to ask
   // resolves no firm and answers the reserved cross-firm 404 rather than resolving somebody else's
-  // firm — see the firmless-session admission in apps/api-worker/src/chokepoint/chokepoint.ts.
+  // firm — see the firmless-session admission in apps/api-worker/src/http/chokepoint/chokepoint.ts.
   firmId: text("firm_id")
     .$type<FirmId>()
     .references(() => firm.id),

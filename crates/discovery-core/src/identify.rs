@@ -208,7 +208,10 @@ fn identify_zip(bytes: &[u8], limits: &Limits) -> Identification {
             charset: None,
         };
     }
-    let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+    let names: Vec<String> = archive
+        .file_names()
+        .filter_map(|name| name.ok().map(std::borrow::Cow::into_owned))
+        .collect();
     let has = |part: &str| names.iter().any(|name| name == part);
     if has(OOXML_DOCUMENT_PART) {
         return certain(IdentifiedFormat::OfficeOpenXmlDocument);

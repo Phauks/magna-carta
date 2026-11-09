@@ -1,5 +1,5 @@
 import { unscannedAdapter, type MalwareScanPort } from "@magna-carta/file-manager/scan-port";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { containerScanAdapter } from "./container-scan-adapter.ts";
 
 // Resolve the active scan engine. The engine lives in the standalone scan-worker (magna-carta-scan),

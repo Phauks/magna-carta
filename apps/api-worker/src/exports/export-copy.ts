@@ -10,7 +10,9 @@ import {
   type VersionForExportCopy,
 } from "@magna-carta/file-manager/export-copy";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import { recordVersionChanges } from "./record-version-changes.ts";
 
 // Producing a version's export copy: the document with every tracked change accepted, written
 // beside the version and recorded on its row.
@@ -79,15 +81,30 @@ export async function produceExportCopy(
   }
 
   const bytes = new Uint8Array(await source.arrayBuffer());
+  // The document is in hand: its marks are read into history in the same batch that records the
+  // copy (./record-version-changes.ts), so a version's attribution and its copy arrive together.
+  const changes = await recordVersionChanges(database, version, bytes);
   const accepted = acceptTrackedChanges(bytes);
   if (!accepted.ok) {
-    await record(database, version, { state: "unavailable", r2Key: null, sizeBytes: null }, now);
+    await record(
+      database,
+      version,
+      { state: "unavailable", r2Key: null, sizeBytes: null },
+      now,
+      changes.statements,
+    );
     return { kind: "unavailable", reason: accepted.reason };
   }
 
   if (accepted.value.acceptedMarks === 0) {
     const sizeBytes = source.size;
-    await record(database, version, { state: "ready", r2Key: version.r2Key, sizeBytes }, now);
+    await record(
+      database,
+      version,
+      { state: "ready", r2Key: version.r2Key, sizeBytes },
+      now,
+      changes.statements,
+    );
     return { kind: "ready", r2Key: version.r2Key, sizeBytes };
   }
 
@@ -100,7 +117,7 @@ export async function produceExportCopy(
       matterId: version.matterId,
     }),
   });
-  await record(database, version, { state: "ready", r2Key, sizeBytes }, now);
+  await record(database, version, { state: "ready", r2Key, sizeBytes }, now, changes.statements);
   return { kind: "ready", r2Key, sizeBytes };
 }
 
@@ -113,6 +130,7 @@ async function record(
     readonly sizeBytes: number | null;
   },
   now: () => string,
+  alongside: readonly SqlStatement[] = [],
 ): Promise<void> {
   await commitEffectBatch(
     database,
@@ -124,6 +142,7 @@ async function record(
           exportR2Key: copy.r2Key,
           exportSizeBytes: copy.sizeBytes,
         }),
+        ...alongside,
       ],
       outboxMessages: [],
     },

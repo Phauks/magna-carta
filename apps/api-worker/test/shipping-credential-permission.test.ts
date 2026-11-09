@@ -8,7 +8,7 @@ import {
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {

@@ -45,7 +45,7 @@
 - `packages/database/src/per-firm-schema.ts` → `cost_entry` table; new per-firm migration + journal/snapshot; `packages/database/src/per-firm-schema.ts` UTBMS seed extended with E-series (or a seed migration).
 - `packages/identifiers/src/registry.ts` + `types.ts` → `costEntry` handle.
 - `packages/access-control/src/registry.ts` → `costs:track`, `costs:approve`.
-- `apps/worker/src/routes/costs.ts` (new) · `apps/worker/src/index.ts` (the per-firm QUEUE consumer) · `apps/worker/src/costs/recoverable-charge-consumer.ts` (new) · `apps/worker/src/costs/shipping-cost-recovery.ts` (the producer adapter, new).
+- `apps/worker/src/routes/billing/costs.ts` (new) · `apps/worker/src/index.ts` (the per-firm QUEUE consumer) · `apps/worker/src/costs/recoverable-charge-consumer.ts` (new) · `apps/worker/src/costs/shipping-cost-recovery.ts` (the producer adapter, new).
 - `apps/worker/openapi/openapi.json` (regenerated) · `apps/worker/test/conformance.test.ts`.
 - `packages/fixtures/src/load-profile/` → `CostVolume`.
 - Fitness: `apps/worker/test/timekeeping-wip-ledger-fitness.test.ts` + `timekeeping-freeze-fitness.test.ts` → generalize to cover `billing-core` + `costs` (rename to `billing-wip-ledger-fitness` / `billing-freeze-fitness`).
@@ -311,7 +311,7 @@ git commit -m "feat(costs): costEntry identifier + @magna-carta/costs scaffold +
 
 ## Task 7: cost routes — create / list / get / update + `costs:*` permissions
 
-**Files:** Create `apps/worker/src/routes/costs.ts` + `apps/worker/test/costs-routes.test.ts`. Modify `apps/worker/src/app.ts` (register the route bundle), `packages/access-control/src/registry.ts` (+ its test), the per-firm migration's seed (or the existing role-seed path — `git grep -n "time:track" packages/database` to find where 3·1 seeded its perms, mirror for `costs:track`/`costs:approve`). **Template:** `apps/worker/src/routes/time-entries.ts` (the `defineOpenAPIRoute` + chokepoint + `writeMeta` + error-mapping pattern).
+**Files:** Create `apps/worker/src/routes/billing/costs.ts` + `apps/worker/test/costs-routes.test.ts`. Modify `apps/worker/src/app.ts` (register the route bundle), `packages/access-control/src/registry.ts` (+ its test), the per-firm migration's seed (or the existing role-seed path — `git grep -n "time:track" packages/database` to find where 3·1 seeded its perms, mirror for `costs:track`/`costs:approve`). **Template:** `apps/worker/src/routes/timekeeping/time-entries.ts` (the `defineOpenAPIRoute` + chokepoint + `writeMeta` + error-mapping pattern).
 
 **Interfaces:**
 
@@ -328,7 +328,7 @@ git commit -m "feat(costs): costEntry identifier + @magna-carta/costs scaffold +
 
 ## Task 8: cost routes — batch (grid) + lifecycle transitions
 
-**Files:** Modify `apps/worker/src/routes/costs.ts` + `apps/worker/test/costs-routes.test.ts`.
+**Files:** Modify `apps/worker/src/routes/billing/costs.ts` + `apps/worker/test/costs-routes.test.ts`.
 
 **Interfaces:** Produces routes `costs.batch` (`POST /api/v1/costs/batch`), `costs.submit`/`costs.approve`/`costs.kickBack`/`costs.void`. `costs.approve`/`submit`/`kickBack` carry `costs:approve`; `void` carries `costs:track`. (Note: like time, `submit` is the author's action — but costs are matter-owned not user-owned; gate `submit` on `costs:track` and `approve`/`kickBack` on `costs:approve`. Confirm against the design's "no per-user self-scoping": submit = `costs:track`.)
 
@@ -342,7 +342,7 @@ git commit -m "feat(costs): costEntry identifier + @magna-carta/costs scaffold +
 
 ## Task 9: receipt attach / unlink routes
 
-**Files:** Modify `apps/worker/src/routes/costs.ts` + test; statements from Task 5 (`attachReceiptStatement`/`detachReceiptStatement`).
+**Files:** Modify `apps/worker/src/routes/billing/costs.ts` + test; statements from Task 5 (`attachReceiptStatement`/`detachReceiptStatement`).
 
 **Interfaces:** Produces `costs.attachReceipt` (`POST /api/v1/costs/{id}/receipt` body `{ fileId }`), `costs.detachReceipt` (`DELETE …/receipt`). `costs:track`.
 

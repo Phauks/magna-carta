@@ -17,7 +17,7 @@ import {
   type TextExtractionResult,
 } from "@magna-carta/search/extraction";
 import { z } from "zod";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveEnginePort } from "../conversions/conversion-engine.ts";
 
 // The text-extraction port: document bytes in, indexable passages out, COMPOSITE and decided per page.

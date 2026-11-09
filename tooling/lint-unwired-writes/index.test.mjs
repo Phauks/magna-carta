@@ -138,7 +138,9 @@ describe("test paths, which are the whole point of the scan", () => {
   });
 
   it("does not mistake production code for a test", () => {
-    expect(isTestPath("apps/api-worker/src/routes/firm-notification-policy.ts")).toBe(false);
+    expect(isTestPath("apps/api-worker/src/http/routes/firm/firm-notification-policy.ts")).toBe(
+      false,
+    );
     expect(isTestPath("packages/notifications/src/preferences.ts")).toBe(false);
     // A directory whose name merely starts with "test" is not the test directory.
     expect(isTestPath("packages/x/src/testing-utilities.ts")).toBe(false);

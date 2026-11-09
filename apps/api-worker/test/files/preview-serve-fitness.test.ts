@@ -1,6 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/app.ts";
+import { createApp } from "../../src/http/app.ts";
 import { buildSafeDeliveryHeaders } from "../../src/files/preview-headers.ts";
 import { mintPreviewDeliveryToken } from "../../src/files/preview-token.ts";
 

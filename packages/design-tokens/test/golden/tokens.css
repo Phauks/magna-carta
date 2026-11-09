@@ -133,9 +133,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -420,9 +420,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -707,9 +707,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -994,9 +994,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -1281,9 +1281,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -1568,9 +1568,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -1855,9 +1855,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -2142,9 +2142,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -2429,9 +2429,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -2716,9 +2716,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -3003,9 +3003,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -3290,9 +3290,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;

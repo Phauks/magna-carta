@@ -24,15 +24,15 @@
  */
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { ProtectedReadContext } from "@magna-carta/data-access/protected-fields";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointPermissions,
   requireChokepointUserId,
-} from "./chokepoint/context-accessors.ts";
+} from "./http/chokepoint/context-accessors.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
-import type { AppVariables } from "./chokepoint/ports.ts";
+import type { AppVariables } from "./http/chokepoint/ports.ts";
 
 // Declared structurally rather than as Hono's Context<E, P, I>, whose path/input generics differ per
 // route: a fully-parameterized route handler context would not match a fixed Context type. Mirrors
