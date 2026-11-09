@@ -3836,6 +3836,41 @@ export const communicationNumberCounter = sqliteTable(
   (table) => [check("communication_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
 );
 
+// What the telephone network said about a number, the one time the firm paid to ask.
+//
+// A caller-name lookup is a billed query against the carriers' database, so its answer is KEPT: one
+// row per number, written when a member presses for the lookup, and read back for free every time
+// the same number is typed again. Keyed by the number's two parts — the same pair directory_phone
+// indexes — so a lookup and a Directory match ask about one number in one vocabulary.
+//
+// It is the network's answer and never the firm's: a contact's name lives in the Directory, and this
+// row is shown beside it as what the caller ID would display. Every column but the key may be null,
+// because "the database holds no name for this number" is a real answer that was paid for.
+export const callerIdentity = sqliteTable(
+  "caller_identity",
+  {
+    countryCallingCode: text("country_calling_code").notNull(), // digits only, no leading '+'
+    nationalNumber: text("national_number").notNull(), // digits only
+    callerName: text("caller_name"),
+    // 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other'; enforced in
+    // packages/caller-lookup's CALLER_LINE_TYPES, open at rest so the vocabulary can grow without a
+    // rebuild (the directory_phone contact_system precedent).
+    lineType: text("line_type"),
+    carrierName: text("carrier_name"),
+    // Which engine answered, so a row can be told apart from one a different provider gave later.
+    source: text("source").notNull(),
+    lookedUpByUserId: text("looked_up_by_user_id").notNull().$type<UserId>(),
+    lookedUpAt: text("looked_up_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.countryCallingCode, table.nationalNumber] }),
+    check(
+      "caller_identity_number_digits_check",
+      sql`length(${table.countryCallingCode}) > 0 AND ${table.countryCallingCode} NOT GLOB '*[^0-9]*' AND length(${table.nationalNumber}) > 0 AND ${table.nationalNumber} NOT GLOB '*[^0-9]*'`,
+    ),
+  ],
+);
+
 // ---------------------------------------------------------------------------------------------
 // Document automation — the assembly-template catalogue and the provenance of what it produced.
 // ---------------------------------------------------------------------------------------------

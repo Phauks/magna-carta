@@ -10,7 +10,7 @@ ui: done
 load-profile: n/a
 tested: done
 branch: claude/modest-knuth-lvlzpt
-active-work: docs/active-work/claude/modest-knuth-lvlzpt.md
+active-work:
 next: The rail's order is the catalog's, not the reader's — dragging a calendar, and a saved arrangement, are the obvious next ask; file-destruction dates are listed and refused until a retention schedule exists; a member calendar carries settings and not deadlines, because the deadlines read has no member predicate
 link-spec: docs/specs/2026-09-02-calendar-interface-design.md
 link-plan:

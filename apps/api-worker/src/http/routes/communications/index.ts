@@ -1,5 +1,6 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerCallerLookupRoutes } from "./caller-lookup.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
 import { registerMeetingsRoutes } from "./meetings.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
@@ -23,6 +24,9 @@ export function mountCommunications(
   deps: DomainDeps = {},
 ): void {
   const domain = createDomainApp();
+  // Who is on the other end of a number, asked as one is typed into a call record. Ahead of the log's
+  // own routes so its literal paths are matched before the record-id pattern beside them.
+  registerCallerLookupRoutes(domain, chokepoint);
   registerCommunicationsRoutes(domain, chokepoint);
   // Meetings — the room a member opens on a calendar event, who was in it, and when each of them
   // arrived and left. Beside the call and text log because it is the same question about a

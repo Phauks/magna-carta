@@ -71,6 +71,9 @@
       "path": "packages/calendar/tsconfig.test.json"
     },
     {
+      "path": "packages/caller-lookup/tsconfig.test.json"
+    },
+    {
       "path": "packages/civil-time/tsconfig.test.json"
     },
     {
@@ -222,6 +225,9 @@
     },
     {
       "path": "packages/search/tsconfig.test.json"
+    },
+    {
+      "path": "packages/segmentation/tsconfig.test.json"
     },
     {
       "path": "packages/sequence-numbering/tsconfig.test.json"

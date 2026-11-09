@@ -177,8 +177,8 @@ the case, so it earns a `communication` timeline source owned by the Messaging s
 ## 6. Recording and transcription have a legal gate, not just a technical one
 
 The voice half carries a hard constraint the text half does not. ADR-0047 puts call-recording
-consent behind the jurisdiction-profile machinery — roughly a dozen states require all-party consent
-where Nevada requires one — and that machinery is itself still in design (`trust-jurisdictions` is
+consent behind the jurisdiction-profile machinery — roughly a dozen states require all-party consent,
+Nevada among them (NRS 200.620; corrected 2026-11-09, when the owner also ruled call recording out) — and that machinery is itself still in design (`trust-jurisdictions` is
 the package it reuses). **Recording must not ship ahead of the gate that decides whether it is
 lawful for a given call.** Text logging, manual call logging and carrier call _metadata_ logging
 carry no such gate; the audio does. Sequencing the build so recording arrives last is not caution,
