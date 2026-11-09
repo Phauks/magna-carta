@@ -59,8 +59,22 @@ export interface AddressSuggestion {
    * how an address reads in a list is a property of the country it is in.
    */
   readonly label: string;
-  /** What choosing this offer would put in the record. */
+  /**
+   * What is already known about this offer. For an `address` it is the whole address where the engine
+   * has it at hand; for a `group` it is only what every address in the group shares. Either way it is
+   * a preview: what a choice puts in the record is what `resolve` answers.
+   */
   readonly parts: SuggestedAddressParts;
+  /**
+   * One address, or a GROUP of them — a building whose units share one street line, the shape every
+   * real address service returns for an apartment block or an office tower. A group is not an
+   * address a record can hold: choosing it asks for the addresses inside it, which is why it is a
+   * kind and not a flag a caller can ignore. Folding it into `address` would write "123 Main St" into
+   * a record whose client lives in unit 4B, and a letter to that line does not arrive.
+   */
+  readonly kind: "address" | "group";
+  /** For a group, how many addresses it holds, where the engine says. Never present on an address. */
+  readonly count?: number;
 }
 
 export interface SuggestInput {
@@ -74,6 +88,22 @@ export interface SuggestInput {
   readonly country: string;
   /** How many offers to return at most. An engine may return fewer, never more. */
   readonly limit?: number;
+  /**
+   * The region the person is most likely entering an address in — the subdivision part of an ISO
+   * 3166-2 code without its country prefix ("NC", not "US-NC"). A BIAS, never a filter: an office in
+   * Nevada enters clients in Texas too, so an engine that honours this ranks nearby addresses first
+   * and still offers the rest. An engine that cannot use it ignores it.
+   */
+  readonly near?: string;
+}
+
+/**
+ * Where an address is, as the open corpus records it. A coordinate is what a map pin, a distance or a
+ * mileage figure needs; it is not a postal fact, and nothing should treat it as one.
+ */
+export interface AddressLocation {
+  readonly latitude: number;
+  readonly longitude: number;
 }
 
 export interface ResolveInput {
@@ -107,12 +137,28 @@ export type SuggestResult =
   | AddressLookupFailure;
 
 /**
- * `parts: undefined` is the offer having expired — a suggestion the engine no longer knows, because
- * the index was rebuilt between the offer and the choice. Distinct from a failure: nothing went
- * wrong, and the caller simply asks again.
+ * What choosing an offer comes to. Three answers, none of them a failure:
+ *
+ * - `address` — the parts a record stores.
+ * - `group` — the offer was a group, and these are the addresses inside it, offered in turn. A group
+ *   can hold a group, so a caller treats this exactly like a fresh `suggest` answer.
+ * - `expired` — an offer the engine no longer knows, because its data moved between the offer and
+ *   the choice. Nothing went wrong, and the caller simply asks again.
  */
 export type ResolveResult =
-  | { readonly ok: true; readonly parts: SuggestedAddressParts | undefined }
+  | {
+      readonly ok: true;
+      readonly resolution: "address";
+      readonly parts: SuggestedAddressParts;
+      /** Where the address is, when the engine knows. Optional because not every engine does. */
+      readonly location?: AddressLocation;
+    }
+  | {
+      readonly ok: true;
+      readonly resolution: "group";
+      readonly suggestions: readonly AddressSuggestion[];
+    }
+  | { readonly ok: true; readonly resolution: "expired" }
   | AddressLookupFailure;
 
 export interface AddressLookupPort {
@@ -126,8 +172,21 @@ export function suggested(suggestions: readonly AddressSuggestion[]): SuggestRes
   return { ok: true, suggestions };
 }
 
-export function resolved(parts: SuggestedAddressParts | undefined): ResolveResult {
-  return { ok: true, parts };
+export function resolvedAddress(
+  parts: SuggestedAddressParts,
+  location?: AddressLocation,
+): ResolveResult {
+  return location === undefined
+    ? { ok: true, resolution: "address", parts }
+    : { ok: true, resolution: "address", parts, location };
+}
+
+export function resolvedGroup(suggestions: readonly AddressSuggestion[]): ResolveResult {
+  return { ok: true, resolution: "group", suggestions };
+}
+
+export function resolutionExpired(): ResolveResult {
+  return { ok: true, resolution: "expired" };
 }
 
 /** The deferred state: no engine is reachable. Assignable to either result union. */

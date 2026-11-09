@@ -66,6 +66,9 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "communications/shipping.ts": { lines: 1390, shapes: 26 },
   "custody/custody.ts": { lines: 3145, shapes: 65 },
   "developer/dev-seed.ts": { lines: 516, shapes: 0 },
+  // Address lookup arrived with its request and offer shapes inline, written before this ledger
+  // existed; they belong in a contract module.
+  "directory/address-lookup.ts": { lines: 369, shapes: 13 },
   "directory/conflicts.ts": { lines: 1840, shapes: 40 },
   "directory/directory.ts": { lines: 2558, shapes: 5 },
   "discovery/discovery-coding.ts": { lines: 1347, shapes: 21 },
@@ -95,7 +98,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "files/uploads.ts": { lines: 1005, shapes: 15 },
   "firm/classification-type-routes.ts": { lines: 426, shapes: 6 },
   "firm/custom-fields.ts": { lines: 1302, shapes: 27 },
-  "firm/firm-ai-settings.ts": { lines: 494, shapes: 10 },
   "firm/firm-profile.ts": { lines: 713, shapes: 7 },
   "firm/firm-usage.ts": { lines: 261, shapes: 16 },
   "firm/numbering.ts": { lines: 617, shapes: 20 },
@@ -114,7 +116,8 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "notifications/notification-preferences.ts": { lines: 541, shapes: 8 },
   "notifications/notifications.ts": { lines: 630, shapes: 6 },
   "platform/meta-database-health.ts": { lines: 536, shapes: 9 },
-  "platform/meta-versions.ts": { lines: 330, shapes: 5 },
+  // Raised by one line when the address engine joined the versions it reports.
+  "platform/meta-versions.ts": { lines: 331, shapes: 5 },
   "platform/platform-status.ts": { lines: 407, shapes: 6 },
   "session/me.ts": { lines: 300, shapes: 6 },
   // Raised from 605 lines when the sub-role rules (a sub-role needs its parent, one per parent) landed.

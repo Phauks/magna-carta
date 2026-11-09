@@ -139,7 +139,7 @@ registered there; this file states what they mean for the code, not where they w
   (`apps/api-worker/src/progress/job-progress-protocol.ts`); only the attachment differs.
 - **Both surfaces exist now: the member's and the firm's.** A member reaches the assistant from the
   sidebar destination and from a matter's own section, and accepts the disclosure there. A firm opens
-  the two consent settings at **Settings · AI and the Assistant** — `apps/web/src/routes/(app)/settings/ai`
+  the two consent settings at **Settings · AI** — `apps/web/src/routes/(app)/settings/ai`
   over `GET`/`PATCH /api/v1/firm/ai/settings` (`apps/api-worker/src/http/routes/firm/firm-ai-settings.ts`), behind
   `firm:manageAiSettings`, which is Admin alone by seed and is deliberately NOT `magnus:converse`:
   asking the assistant a question is ordinary work, deciding for the whole firm that privileged content

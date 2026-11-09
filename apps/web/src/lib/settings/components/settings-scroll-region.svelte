@@ -13,13 +13,21 @@
    * accident and a correction to it was twenty-three edits. The rhythm between the things on a page
    * (the gap between plates, the inset from the edges) is decided here once; the rhythm INSIDE a
    * plate is the row's (settings-row.svelte), never the page's.
+   *
+   * IT IS THE CONTAINING BLOCK, NOT ONLY THE SCROLLER. `relative` is load-bearing: an absolutely
+   * positioned descendant is laid out against its nearest positioned ancestor, and without this that
+   * ancestor is the app shell's `<main>`, which scrolls too. The LoadingRegion's screen-reader
+   * announcer (`sr-only`, so `position: absolute`) sat at its static position near the foot of a long
+   * page, outside this box's clip, and stretched `<main>`'s scroll height past the viewport: Settings,
+   * AI showed a second scrollbar for exactly that reason. Positioned here, such a
+   * descendant scrolls with the page and is clipped by it, whatever component it belongs to.
    */
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
+<div class="mc-scrollbar relative min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
     {@render children()}
   </div>

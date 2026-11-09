@@ -571,7 +571,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // privileged client content leaving for a third party, which is not a decision anybody should
     // make by brushing a switch.
     id: "ai",
-    label: "AI and the Assistant",
+    label: "AI",
     href: "/settings/ai",
     group: "data-platform",
     scope: "firm",
