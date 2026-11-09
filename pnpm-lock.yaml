@@ -1654,8 +1654,8 @@ importers:
         specifier: 'catalog:'
         version: 2.0.1
       zod:
-        specifier: 'catalog:'
-        version: 4.4.3
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
@@ -2058,8 +2058,8 @@ importers:
         specifier: 'catalog:'
         version: 5.1.16
       zod:
-        specifier: 'catalog:'
-        version: 4.4.3
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
