@@ -37,8 +37,10 @@ import { CALENDAR_LAYERS, type CalendarLayer } from "./calendar-vocabulary.ts";
  * once (`calendar-reads.ts`) rather than each surface guessing from a key's shape.
  */
 export type CalendarSourceKind =
-  /** The firm's matters: their events and their deadlines. The calendar a firm opens on. */
-  | { readonly kind: "records" }
+  /** The firm's case settings: every matter's hearings, depositions and conferences. */
+  | { readonly kind: "caseSettings" }
+  /** The firm's deadlines, across every matter. */
+  | { readonly kind: "deadlines" }
   /** The firm's own events — meetings, closures, training, holidays. */
   | { readonly kind: "firmEvents" }
   /** One member's calendar: what they are a participant in, responsible for, or invited to. */
@@ -52,7 +54,7 @@ export type CalendarSourceKind =
 export interface CalendarSource {
   /** Stable across reads and across sessions: what a preference and an address remember. */
   readonly key: string;
-  /** What the row says: a person's name, a room's name, "Matters and deadlines". */
+  /** What the row says: a person's name, a room's name, "Case Settings". */
   readonly name: string;
   readonly kind: CalendarSourceKind;
   /**
@@ -85,25 +87,32 @@ export function layerSourceKey(layerKey: string): string {
   return `layer:${layerKey}`;
 }
 
-/** The firm's matters: the calendar every firm opens on, and the one that is never empty. */
-export const RECORDS_SOURCE_KEY = "records";
+/**
+ * The firm's case settings and the firm's deadlines: two calendars, each with its own row and its
+ * own colour. They were one row ("Matters and deadlines") until 2026-11-09, when the owner split
+ * them so a hearing and a filing deadline read differently at a glance and each can be turned off
+ * alone — which is also what let the toolbar's separate Kinds filter go.
+ */
+export const CASE_SETTINGS_SOURCE_KEY = "caseSettings";
+export const DEADLINES_SOURCE_KEY = "deadlines";
 /** The firm's own events. */
 export const FIRM_EVENTS_SOURCE_KEY = "firmEvents";
 
 /**
- * The calendars that are on when nobody has said otherwise: the firm's records and the firm's own
- * events, and nothing else.
+ * The calendars that are on when nobody has said otherwise: the firm's case settings, its deadlines
+ * and its own events, and nothing else.
  *
  * Deliberately not "everything". Turning on eleven attorneys and nine rooms is twenty reads a
  * reader never asked for, and a grid painted from twenty calendars at once is the undifferentiated
  * month this whole catalog exists to replace. The firm opens on its own record and adds people.
  */
 export const DEFAULT_ON_SOURCE_KEYS: readonly string[] = [
-  RECORDS_SOURCE_KEY,
+  CASE_SETTINGS_SOURCE_KEY,
+  DEADLINES_SOURCE_KEY,
   FIRM_EVENTS_SOURCE_KEY,
 ];
 
-/** The folder the firm's own two calendars sit in. */
+/** The folder the firm's own three calendars sit in. */
 const FIRM_FOLDER_KEY = "firm";
 /** The folder a member with no role at all falls into. */
 const OTHER_MEMBERS_FOLDER_KEY = "role:";
@@ -130,7 +139,7 @@ interface UnservedDateCalendar {
 const UNSERVED_DATE_CALENDARS: readonly UnservedDateCalendar[] = [
   {
     key: "fileDestruction",
-    name: "File destruction dates",
+    name: "File Destruction Dates",
     soonReason: "a retention schedule on a matter's files",
   },
 ];
@@ -146,6 +155,19 @@ export interface CalendarCatalogInput {
 }
 
 /**
+ * The firm's own calendars, in the order the rail lists them. Every rail name is Title Case (owner,
+ * 2026-11-09): a row names a calendar, and a calendar's name is a proper name.
+ *
+ * Also the plan an embedded host that drew no rail reads (calendar-reads.ts), so Home's Today card
+ * and the rail's defaults are one list rather than two that could drift.
+ */
+export const FIRM_OWN_CALENDARS: readonly CalendarSource[] = [
+  { key: CASE_SETTINGS_SOURCE_KEY, name: "Case Settings", kind: { kind: "caseSettings" } },
+  { key: DEADLINES_SOURCE_KEY, name: "Deadlines", kind: { kind: "deadlines" } },
+  { key: FIRM_EVENTS_SOURCE_KEY, name: "Firm Events", kind: { kind: "firmEvents" } },
+];
+
+/**
  * The whole catalog, in the order the rail draws it: the firm's own calendars, then the members
  * folder by folder in the firm's own role names, then the rooms, then the other bookable things,
  * then the dates. An empty folder is not drawn at all — a firm with no vehicles meets no
@@ -155,19 +177,8 @@ export function calendarFolders(input: CalendarCatalogInput): readonly CalendarF
   const folders: CalendarFolder[] = [
     {
       key: FIRM_FOLDER_KEY,
-      name: "The firm",
-      sources: [
-        {
-          key: RECORDS_SOURCE_KEY,
-          name: "Matters and deadlines",
-          kind: { kind: "records" },
-        },
-        {
-          key: FIRM_EVENTS_SOURCE_KEY,
-          name: "Firm events",
-          kind: { kind: "firmEvents" },
-        },
-      ],
+      name: "The Firm",
+      sources: FIRM_OWN_CALENDARS,
     },
     ...memberFolders(input.members),
     ...resourceFolders(input.resources),
@@ -209,7 +220,7 @@ function memberFolders(members: readonly FirmMemberSummary[]): readonly Calendar
     })
     .map(([role, sources]) => ({
       key: role === "" ? OTHER_MEMBERS_FOLDER_KEY : `role:${role}`,
-      name: role === "" ? "Other members" : pluralRole(role),
+      name: role === "" ? "Other Members" : pluralRole(role),
       sources,
     }));
 }
@@ -244,7 +255,7 @@ function resourceFolders(resources: readonly FirmResource[]): readonly CalendarF
     },
     {
       key: EQUIPMENT_FOLDER_KEY,
-      name: "Vehicles and equipment",
+      name: "Vehicles and Equipment",
       sources: active.filter((resource) => resource.kind !== "room").map(toSource),
     },
   ];

@@ -44,7 +44,7 @@ export interface CalendarLayer {
 export const CALENDAR_LAYERS: readonly CalendarLayer[] = [
   {
     key: "custody",
-    label: "Custody dates",
+    label: "Custody Dates",
     sources: ["custodyDueBack", "custodyReviewDue"],
     kindLabels: {
       dueBack: "Due back",

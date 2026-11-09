@@ -22,8 +22,9 @@ import {
   toggleFolder,
   toggleSource,
   DEFAULT_ON_SOURCE_KEYS,
+  CASE_SETTINGS_SOURCE_KEY,
+  DEADLINES_SOURCE_KEY,
   FIRM_EVENTS_SOURCE_KEY,
-  RECORDS_SOURCE_KEY,
 } from "$lib/calendar/calendar-sources.ts";
 import {
   isSourceOn,
@@ -74,11 +75,17 @@ function folderNamed(name: string) {
 }
 
 describe("the catalog's folders", () => {
-  it("leads with the firm's own two calendars", () => {
-    expect(folders[0]?.name).toBe("The firm");
+  it("leads with the firm's own three calendars, case settings and deadlines apart", () => {
+    expect(folders[0]?.name).toBe("The Firm");
     expect(folders[0]?.sources.map((source) => source.key)).toEqual([
-      RECORDS_SOURCE_KEY,
+      CASE_SETTINGS_SOURCE_KEY,
+      DEADLINES_SOURCE_KEY,
       FIRM_EVENTS_SOURCE_KEY,
+    ]);
+    expect(folders[0]?.sources.map((source) => source.name)).toEqual([
+      "Case Settings",
+      "Deadlines",
+      "Firm Events",
     ]);
   });
 
@@ -97,13 +104,13 @@ describe("the catalog's folders", () => {
       .filter((source) => source.kind.kind === "member");
     const keys = everyMemberRow.map((source) => source.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(folderNamed("Other members").sources.map((source) => source.name)).toEqual([
+    expect(folderNamed("Other Members").sources.map((source) => source.name)).toEqual([
       "Newly Hired",
     ]);
     const roleFolders = folders.filter((folder) =>
       folder.sources.some((source) => source.kind.kind === "member"),
     );
-    expect(roleFolders[roleFolders.length - 1]?.name).toBe("Other members");
+    expect(roleFolders[roleFolders.length - 1]?.name).toBe("Other Members");
   });
 
   it("leaves a departed colleague's calendar out", () => {
@@ -116,7 +123,7 @@ describe("the catalog's folders", () => {
       "Boardroom",
       "Small conference room",
     ]);
-    expect(folderNamed("Vehicles and equipment").sources.map((source) => source.name)).toEqual([
+    expect(folderNamed("Vehicles and Equipment").sources.map((source) => source.name)).toEqual([
       "Pool car",
     ]);
     expect(sourceByKey(folders, resourceSourceKey("resource_old"))).toBeUndefined();
@@ -125,14 +132,14 @@ describe("the catalog's folders", () => {
   it("draws no folder for something the firm has none of", () => {
     const withoutResources = calendarFolders({ members: ROSTER, resources: [] });
     expect(withoutResources.map((folder) => folder.name)).not.toContain("Rooms");
-    expect(withoutResources.map((folder) => folder.name)).not.toContain("Vehicles and equipment");
+    expect(withoutResources.map((folder) => folder.name)).not.toContain("Vehicles and Equipment");
   });
 
   it("lists the dates, including the one nothing serves yet, marked and refused", () => {
     const dates = folderNamed("Dates");
     expect(dates.sources.map((source) => source.name)).toEqual([
-      "Custody dates",
-      "File destruction dates",
+      "Custody Dates",
+      "File Destruction Dates",
     ]);
     const destruction = dates.sources[1]!;
     // Listed so a firm can see the shape of what is coming; refused so it can never be mistaken
@@ -202,15 +209,15 @@ describe("the colours a calendar wears", () => {
   });
 
   it("lets a chosen colour win over the dealt one", () => {
-    const colors = assignedColors(folders, { [RECORDS_SOURCE_KEY]: "purple" });
-    expect(colors.get(RECORDS_SOURCE_KEY)).toBe("purple");
+    const colors = assignedColors(folders, { [DEADLINES_SOURCE_KEY]: "purple" });
+    expect(colors.get(DEADLINES_SOURCE_KEY)).toBe("purple");
   });
 });
 
 describe("what a browser remembers", () => {
   const known = flattenSources(folders).map((source) => source.key);
 
-  it("opens on the firm's own two calendars and nothing else", () => {
+  it("opens on the firm's own three calendars and nothing else", () => {
     const fresh = normalizeCalendarPreferences(undefined);
     for (const key of known) {
       expect(isSourceOn(fresh, key)).toBe(DEFAULT_ON_SOURCE_KEYS.includes(key));
@@ -218,11 +225,12 @@ describe("what a browser remembers", () => {
   });
 
   it("stores only what DEPARTS from the default, so a new calendar arrives at its own", () => {
-    const on = new Set([RECORDS_SOURCE_KEY, memberSourceKey("user_ada")]);
+    const on = new Set([CASE_SETTINGS_SOURCE_KEY, memberSourceKey("user_ada")]);
     const overrides = overridesFor(on, known);
-    // Records agrees with the default and is not stored; the firm's events were turned off and the
-    // attorney was turned on, and both of those are departures.
+    // Case settings agree with the default and are not stored; the deadlines and the firm's events
+    // were turned off and the attorney was turned on, and all three are departures.
     expect(overrides).toEqual({
+      [DEADLINES_SOURCE_KEY]: false,
       [FIRM_EVENTS_SOURCE_KEY]: false,
       [memberSourceKey("user_ada")]: true,
     });
