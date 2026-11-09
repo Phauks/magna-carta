@@ -57,6 +57,7 @@
   } from "$lib/directory/directory-api.ts";
   import MatterPicker from "$lib/time/matter-picker.svelte";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
+  import CallerLookup from "./caller-lookup.svelte";
   import { DISPOSITION_CHOICES, durationText } from "./communication-vocabulary.ts";
   import type {
     CommunicationDirection,
@@ -297,6 +298,22 @@
     numberInputId="{identity}-number"
     extensionInputId="{identity}-extension"
     disabled={busy}
+  />
+
+  <!-- Who the number belongs to: a Directory contact, the area code's region, and the network's
+       caller ID once somebody has paid to ask. Help with the form rather than part of it, so it is
+       silent until the number is a whole one and silent again if the read fails. -->
+  <CallerLookup
+    region={draft.region}
+    number={draft.counterpartyNumber}
+    hasContact={draft.counterpartyEntityId !== null}
+    disabled={busy}
+    onUseContact={(match) =>
+      chooseContact({
+        identifier: match.entityId,
+        name: match.displayName ?? "This contact",
+        kind: match.entityKind,
+      })}
   />
 
   <div class="flex flex-col gap-4">

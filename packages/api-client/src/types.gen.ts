@@ -6333,6 +6333,65 @@ export type MyDayResponse = {
     unloggedDay: boolean;
 };
 
+export type CallerLookup = {
+    directoryMatches: Array<CallerDirectoryMatch>;
+    areaCode: CallerAreaCode;
+    callerIdentity: CallerIdentity;
+    /**
+     * Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country.
+     */
+    paidLookup: 'available' | 'unavailable' | 'not-covered';
+};
+
+export type CallerDirectoryMatch = {
+    entityId: string;
+    entityKind: 'person' | 'organization';
+    /**
+     * Null when the record holds no name at all; a reader shows the gap.
+     */
+    displayName: string | null;
+};
+
+export type CallerAreaCode = {
+    areaCode: string;
+    /**
+     * Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is.
+     */
+    region: string;
+} | null;
+
+/**
+ * A caller ID the firm already paid for, or null.
+ */
+export type CallerIdentity = {
+    /**
+     * The name the carriers' caller-name database holds, as it holds it. Null when it holds none.
+     */
+    callerName: string | null;
+    lineType: 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other' | null;
+    carrierName: string | null;
+    lookedUpAt: string;
+} | null;
+
+export type CallerLookupRequest = {
+    /**
+     * The number in E.164 — a plus, the country calling code and the national number, digits only. The form builds it from the number field and its country.
+     */
+    number: string;
+};
+
+/**
+ * `found` is the kept answer, which may hold no name. `not-covered` and `unavailable` are answers, not failures: nothing was asked and nothing was charged.
+ */
+export type CallerIdentityLookup = {
+    outcome: 'found';
+    callerIdentity: CallerIdentity;
+} | {
+    outcome: 'not-covered';
+} | {
+    outcome: 'unavailable';
+};
+
 export type CommunicationPage = {
     data: Array<CommunicationDetail>;
     nextCursor: string | null;
@@ -29967,6 +30026,103 @@ export type MyDayGetResponses = {
 };
 
 export type MyDayGetResponse = MyDayGetResponses[keyof MyDayGetResponses];
+
+export type CommunicationsCallerLookupData = {
+    body: CallerLookupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/caller-lookup';
+};
+
+export type CommunicationsCallerLookupErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks communications:log
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CommunicationsCallerLookupError = CommunicationsCallerLookupErrors[keyof CommunicationsCallerLookupErrors];
+
+export type CommunicationsCallerLookupResponses = {
+    /**
+     * What is known about the number
+     */
+    200: CallerLookup;
+};
+
+export type CommunicationsCallerLookupResponse = CommunicationsCallerLookupResponses[keyof CommunicationsCallerLookupResponses];
+
+export type CommunicationsCallerIdentityData = {
+    body: CallerLookupRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/caller-lookup/caller-identity';
+};
+
+export type CommunicationsCallerIdentityErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks communications:log
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The caller-name service did not answer, or refused. Nothing was kept; pressing again asks again.
+     */
+    502: Problem;
+};
+
+export type CommunicationsCallerIdentityError = CommunicationsCallerIdentityErrors[keyof CommunicationsCallerIdentityErrors];
+
+export type CommunicationsCallerIdentityResponses = {
+    /**
+     * The caller ID, or why there is none to ask for
+     */
+    200: CallerIdentityLookup;
+};
+
+export type CommunicationsCallerIdentityResponse = CommunicationsCallerIdentityResponses[keyof CommunicationsCallerIdentityResponses];
 
 export type CommunicationsListData = {
     body?: never;
