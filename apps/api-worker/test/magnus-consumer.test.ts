@@ -118,7 +118,7 @@ describe("the assistant queue consumer", () => {
     // the port rather than that something reached it.
     expect(turn?.content).toBe(`${STUB_RESPONSE_MARKER} can I still amend`);
     expect(turn?.snapshotId).toBe("stub");
-    expect(turn?.modelId).toBe("anthropic/claude-opus-4-8");
+    expect(turn?.modelId).toBe("anthropic/claude-opus-5-5");
     expect(turn?.inputTokens ?? 0).toBeGreaterThan(0);
     expect(turn?.outputTokens ?? 0).toBeGreaterThan(0);
   });

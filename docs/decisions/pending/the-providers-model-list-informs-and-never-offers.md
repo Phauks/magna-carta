@@ -3,7 +3,7 @@ slug: the-providers-model-list-informs-and-never-offers
 status: Accepted
 area: AI / inference
 date: 2026-11-09
-summary: "The catalog moves to the current Anthropic generation (version 4): Opus 5.5, Sonnet 5.5, Opus 5 and Sonnet 5 become selectable reasoning entries, Opus 4.8 and Sonnet 4.6 stay for firms that pinned them, and the utility slot moves from claude-haiku-4-5 (past its earliest published retirement) to claude-haiku-5-5. The platform may now read Anthropic's live GET /v1/models with an optional read-only key, cached, and the AI settings screen reports per roster entry whether it is still published and which published models are not yet curated. The live list is information beside the roster and never a source of choices: a model becomes selectable only through a catalog entry that records its retention facts."
+summary: "The catalog moves to the current Anthropic generation (version 4): Opus 5.5, Sonnet 5.5, Opus 5 and Sonnet 5 become selectable reasoning entries, Opus 4.8 and Sonnet 4.6 stay for firms that pinned them, and the utility slot moves from claude-haiku-4-5 (past its earliest published retirement) to claude-haiku-5-5. The platform may now read Anthropic's live GET /v1/models with an optional read-only key, cached, and the AI settings screen reports per roster entry whether it is still published and which published models are not yet curated. The live list is information beside the roster and never a source of choices: a model becomes selectable only through a catalog entry that records its retention facts. By the owner's decision of 2026-11-09 the most-capable tier moves to Opus 5.5 and the balanced tier to Sonnet 5.5; firms that pinned a model keep it."
 ---
 
 **What the provider publishes is stated beside the roster and decides nothing.**
@@ -38,6 +38,12 @@ retention and are not available under ZDR; no other current model is excepted.
    configured and the roster is unchanged.
 3. **The key is not an inference credential.** Inference still reaches the model only through the AI
    binding; the key lists models and nothing else.
+
+4. **The tiers move, by the owner's decision.** Asked on 2026-11-09 whether the platform default
+   should move from Opus 4.8 to Opus 5.5, the owner chose to move it. `most-capable` is now
+   `claude-opus-5-5` and `balanced` is `claude-sonnet-5-5`. A firm that never chose follows the
+   platform onto them when this merges; a firm that pinned a model keeps it, and every firm can pin
+   any roster model, which is how a firm keeps control as the provider's models keep changing.
 
 **Consequences:** The freshness gap named in 0315 is closed at request time for an administrator to
 read, while the gate itself stays offline and credential-free. Which model occupies each reasoning tier

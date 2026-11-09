@@ -43,10 +43,10 @@ const asDatabase = (database: ReturnType<typeof fakeDatabase>): SqlDatabase =>
   database as unknown as SqlDatabase;
 
 describe("primaryReasoningModelDefinition", () => {
-  it("defaults to anthropic/claude-opus-4-8 on a missing row", async () => {
+  it("defaults to anthropic/claude-opus-5-5 on a missing row", async () => {
     const database = fakeDatabase();
     expect(await readFirmSetting(asDatabase(database), primaryReasoningModelDefinition)).toBe(
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-5-5",
     );
   });
 
@@ -79,7 +79,7 @@ describe("primaryReasoningModelDefinition", () => {
     const database = fakeDatabase();
     database.rows.set("inference.primaryReasoningModel", JSON.stringify("garbage/model"));
     expect(await readFirmSetting(asDatabase(database), primaryReasoningModelDefinition)).toBe(
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-5-5",
     );
   });
 });

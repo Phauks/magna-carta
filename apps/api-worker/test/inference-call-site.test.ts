@@ -38,7 +38,7 @@ describe("resolveReasoningModel", () => {
 
   it("returns the safe default when no firm row is set", async () => {
     expect(await resolveReasoningModel(fakeFirmDatabase() as unknown as SqlDatabase)).toBe(
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-5-5",
     );
   });
 });

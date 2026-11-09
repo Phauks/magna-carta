@@ -240,7 +240,10 @@ export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 // every reasoning entry below is provider-dateless.
 const RAW_CATALOG: readonly CatalogEntry[] = [
   {
+    // The platform default from catalog version 4, by the owner's decision of 2026-11-09. A firm that
+    // follows the platform moves here; a firm that pinned another model stays where it is.
     slot: "reasoning",
+    tier: "most-capable",
     modelId: "anthropic/claude-opus-5-5",
     displayName: "Claude Opus 5.5",
     snapshotId: "claude-opus-5-5",
@@ -254,6 +257,7 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
   },
   {
     slot: "reasoning",
+    tier: "balanced",
     modelId: "anthropic/claude-sonnet-5-5",
     displayName: "Claude Sonnet 5.5",
     snapshotId: "claude-sonnet-5-5",
@@ -292,8 +296,9 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     retirementNotBefore: "2027-06-30",
   },
   {
+    // The platform default until catalog version 4. Kept so a firm that pinned it is not moved off
+    // it by a catalog edit: a firm's explicit choice is its own decision (./settings.ts says why).
     slot: "reasoning",
-    tier: "most-capable",
     modelId: "anthropic/claude-opus-4-8",
     displayName: "Claude Opus 4.8",
     snapshotId: "claude-opus-4-8",
@@ -307,7 +312,6 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
   },
   {
     slot: "reasoning",
-    tier: "balanced",
     modelId: "anthropic/claude-sonnet-4-6",
     displayName: "Claude Sonnet 4.6",
     snapshotId: "claude-sonnet-4-6",

@@ -14,8 +14,8 @@ describe("the curated model catalog", () => {
     expect(CATALOG_VERSION).toBeGreaterThanOrEqual(1);
   });
 
-  it("ships the default reasoning model anthropic/claude-opus-4-8 in the ZDR-eligible subset", () => {
-    expect(reasoningModelIds()).toContain("anthropic/claude-opus-4-8");
+  it("ships the default reasoning model anthropic/claude-opus-5-5 in the ZDR-eligible subset", () => {
+    expect(reasoningModelIds()).toContain("anthropic/claude-opus-5-5");
   });
 
   it("EXCLUDES claude-fable-5 — it mandates retention and is not ZDR-eligible", () => {
