@@ -18,10 +18,12 @@
   import type { HTMLAttributes } from "svelte/elements";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import type { ConversationArrangement } from "./types.ts";
 
   let {
     ref = $bindable(null),
     label,
+    arrangement = "record",
     class: className,
     children,
     ...restProps
@@ -32,6 +34,8 @@
      * is.
      */
     label?: string;
+    /** How the turns are laid out. Defaults to the single-edge record a meeting's chat reads as. */
+    arrangement?: ConversationArrangement;
   } = $props();
 </script>
 
@@ -45,6 +49,7 @@
   role="log"
   tabindex="0"
   aria-label={label}
+  data-arrangement={arrangement}
   class={mergeClasses("mc-conversation-transcript mc-scrollbar", className)}
   {...restProps}
 >
