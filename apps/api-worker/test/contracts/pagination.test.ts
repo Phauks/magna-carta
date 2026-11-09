@@ -1,7 +1,7 @@
-// The cursor-paginated list envelope and cursor query fragment.
+// The cursor-paginated list envelope and cursor query fragment (@magna-carta/data-access/pagination-contract), as they emit into this worker's contract.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { describe, expect, it } from "vitest";
-import { cursorQuery, paginated } from "../../src/contracts/pagination";
+import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 
 const Widget = z.object({ id: z.string(), label: z.string() });
 

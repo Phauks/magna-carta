@@ -1,0 +1,2 @@
+# The CPU profile `wrangler check startup` writes (the gate's startup dimension, tooling/gate/startup.mjs).
+worker-startup.cpuprofile

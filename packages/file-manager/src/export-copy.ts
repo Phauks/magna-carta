@@ -80,6 +80,7 @@ export interface VersionForExportCopy extends ExportCopyFacts {
   readonly name: string;
   readonly r2Key: string;
   readonly sizeBytes: number | null;
+  readonly versionNumber: number;
   readonly saveKind: VersionSaveKind | null;
 }
 
@@ -92,7 +93,7 @@ export function selectVersionForExportCopyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.file_id, f.matter_id, f.name, v.r2_key, v.size_bytes, v.save_kind, ` +
+      `SELECT v.id, v.file_id, f.matter_id, f.name, v.r2_key, v.size_bytes, v.version_number, v.save_kind, ` +
         `v.export_copy_state, v.export_r2_key, v.export_size_bytes ` +
         `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
         `WHERE v.id = ?1 AND v.status = 'clean'`,
@@ -111,6 +112,7 @@ export async function readVersionForExportCopy(
     name: string;
     r2_key: string;
     size_bytes: number | null;
+    version_number: number;
     save_kind: VersionSaveKind | null;
     export_copy_state: ExportCopyState | null;
     export_r2_key: string | null;
@@ -125,6 +127,7 @@ export async function readVersionForExportCopy(
     name: row.name,
     r2Key: row.r2_key,
     sizeBytes: row.size_bytes,
+    versionNumber: row.version_number,
     saveKind: row.save_kind,
     exportCopyState: row.export_copy_state,
     exportR2Key: row.export_r2_key,

@@ -40,6 +40,7 @@
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --text-3xl: 2rem;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -52,11 +53,14 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
   --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
   --ease-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --transition-duration-fast: 120ms;
   --transition-duration-instant: 0ms;
   --transition-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
   --transition-duration-signature: 500ms;
   --transition-duration-slow: 300ms;
   --z-index-anchored: 1350;

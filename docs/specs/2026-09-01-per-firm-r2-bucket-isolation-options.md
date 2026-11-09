@@ -157,14 +157,14 @@ a `firms/<firmId>/…` key prefix for separation.
 27 modules resolve through the seam:
 
 ```
-assemblies/assembly-consumer.ts        discovery/archive-expansion.ts     routes/conversions.ts
-assemblies/template-orphan-sweep.ts    discovery/load-artifacts.ts        routes/dev-r2-upload.ts
-conversions/conversion-consumer.ts     discovery/process-consumer.ts      routes/discovery.ts
-downloads/shelf-retention-sweep.ts     editing/checkout-routes.ts         routes/downloads-register.ts
-emails/attachment-extraction.ts        files/dimension-backfill-sweep.ts  routes/downloads.ts
-files/ingest-consumer.ts               routes/assemblies.ts               routes/file-repair.ts
-routes/bundle-status.ts                routes/files.ts                    routes/locations.ts
-routes/shipping.ts                     routes/templates.ts                routes/uploads.ts
+assemblies/assembly-consumer.ts        discovery/archive-expansion.ts     routes/documents/conversions.ts
+assemblies/template-orphan-sweep.ts    discovery/load-artifacts.ts        routes/developer/dev-r2-upload.ts
+conversions/conversion-consumer.ts     discovery/process-consumer.ts      routes/discovery/discovery.ts
+downloads/shelf-retention-sweep.ts     editing/checkout-routes.ts         routes/files/downloads-register.ts
+emails/attachment-extraction.ts        files/dimension-backfill-sweep.ts  routes/files/downloads.ts
+files/ingest-consumer.ts               routes/documents/assemblies.ts               routes/files/file-repair.ts
+routes/files/bundle-status.ts                routes/files/files.ts                    routes/matters/locations.ts
+routes/communications/shipping.ts                     routes/documents/templates.ts                routes/files/uploads.ts
 scheduled.ts                           search/split-object-host.ts        files/firm-bucket.ts
 ```
 
@@ -183,7 +183,7 @@ Method mix across the Worker (`bucket.*` = through the seam; `env.R2.*` = direct
 bypassing the seam entirely — among them `downloads/bundle-consumer.ts`,
 `emails/capture-consumer.ts`, `search/index-consumer.ts`, `search/compaction-sweep.ts`,
 `editing/document-session.ts`, `editing/wopi-host.ts`, `files/preview-serve.ts`,
-`routes/emails.ts`, `routes/file-integrity.ts`, `routes/discovery-coding.ts`. Each one is
+`routes/email/emails.ts`, `routes/files/file-integrity.ts`, `routes/discovery/discovery-coding.ts`. Each one is
 either (a) genuinely firm-scoped and must be routed through `resolveFirmBucket`, or (b)
 genuinely platform-scoped and must be _documented_ as such. **Sorting those 20 into the two
 piles is the first real task of this work**, ahead of writing the adapter — an S3 adapter
@@ -198,7 +198,7 @@ is the durable way to hold that line, and belongs in the same commit as the sort
 ## 6. Hard cases
 
 - **Multipart** — `discovery/load-artifacts.ts`, `downloads/bundle-consumer.ts`,
-  `routes/uploads.ts` (plus `files/presign.ts`, which already speaks S3). The binding's
+  `routes/files/uploads.ts` (plus `files/presign.ts`, which already speaks S3). The binding's
   `createMultipartUpload` returns a stateful `R2MultipartUpload` object; the S3 adapter
   returns an upload id and part ETags. These are not the same shape — the adapter needs a
   small stateful wrapper, or the three call sites move to an id-and-parts interface.

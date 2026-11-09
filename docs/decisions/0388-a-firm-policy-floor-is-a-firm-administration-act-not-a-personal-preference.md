@@ -25,7 +25,7 @@ every fan-out, the window by the nightly retention sweep, the hour by the hourly
 three read a default forever and nothing failed. The tests that covered the floor inserted the row
 themselves, which is the shape that makes this class of defect invisible to a suite.
 
-**Decision:** A separate route bundle, `apps/worker/src/routes/firm-notification-policy.ts`, behind a
+**Decision:** A separate route bundle, `apps/worker/src/routes/firm/firm-notification-policy.ts`, behind a
 new registry permission `firm:manageNotificationPolicy`, seeded to Owner/Admin only by
 `20260819T140000_seed-notification-policy-permission.sql`, mirroring `firm:manageScanPolicy`'s own
 admin-only seed.

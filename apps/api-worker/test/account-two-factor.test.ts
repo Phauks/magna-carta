@@ -143,18 +143,23 @@ describe("the two-factor facts the Security page relies on", () => {
     expect(await twoFactorEnabledInSession(jar)).toBe(true);
   });
 
-  // THE REASON THE PAGE NEVER OFFERS ADD WHILE TWO-FACTOR IS ON.
-  it("replaces a working secret, verified and with no code asked, when enable is called again", async () => {
+  // THE PAGE STILL NEVER OFFERS ADD WHILE TWO-FACTOR IS ON. Better Auth used to answer a second
+  // enable by replacing the working secret, verified, with no code asked; from 1.7 it refuses
+  // instead. This pins the refusal, so a version that went back to replacing the secret is caught.
+  it("refuses enable while a verified secret is in place, and leaves that secret alone", async () => {
     const { userId } = await seedCredentialedUser("account-2fa-re-enable@example.com");
     const jar = await signedInJar("account-2fa-re-enable@example.com");
     await setUp(jar);
     const before = await storedTwoFactor(userId);
 
     const again = await post(jar, "/api/auth/two-factor/enable", { password: PASSWORD });
-    expect(again.status).toBe(200);
+    expect(again.status).toBe(400);
+    expect(await readJson<{ code?: string }>(again)).toMatchObject({
+      code: "TOTP_ALREADY_ENABLED",
+    });
     const after = await storedTwoFactor(userId);
 
-    expect(after?.secret).not.toBe(before?.secret);
+    expect(after?.secret).toBe(before?.secret);
     expect(after?.verified).toBe(1);
   });
 

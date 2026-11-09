@@ -16,7 +16,7 @@ combinations, about half outside the announced region the primitive's own commen
 surfaces showed a sentence instead, two a static glyph. The owner had flagged the drift on
 2026-06-13 and asked for one generalized way to show that something is loading, ideally one that
 derives the placeholder from the finished screen. The research
-([`docs/research/2026-09-05-skeleton-loading-framework.md`](../../research/2026-09-05-skeleton-loading-framework.md))
+([`docs/research/2026-09-05-skeleton-loading-framework.md`](../research/2026-09-05-skeleton-loading-framework.md))
 found that the libraries which promise that, runtime measurement (phantom-ui, auto-skeleton) and
 build-time capture (boneyard-js), all hit one wall: a data-driven component has no shape until it
 has data, so every one of them needs a fixture anyway. Runtime measurement then pays a forced

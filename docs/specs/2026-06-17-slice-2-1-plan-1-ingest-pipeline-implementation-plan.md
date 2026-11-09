@@ -38,11 +38,11 @@
 
 **Modified `apps/worker/`:**
 
-- `src/files/ingest-consumer.ts` — inject the scan port via a worker seam; read the lane.
+- `src/background/files/ingest-consumer.ts` — inject the scan port via a worker seam; read the lane.
 - `src/files/scan-port-binding.ts` (new) — resolve the active `MalwareScanPort` from the environment (defaults to `unscannedAdapter`; the Container adapter swaps in here in Plan 2).
 - `src/firm-resource-provider.ts` — a second R2-event rule for the `bulk/` prefix → the bulk queue.
-- `src/routes/uploads.ts` — thread `uploadKind` from the initiate request.
-- `src/scheduled.ts` — the weekly re-scan sweep; reconciliation LISTs both prefixes.
+- `src/http/routes/files/uploads.ts` — thread `uploadKind` from the initiate request.
+- `src/background/scheduled.ts` — the weekly re-scan sweep; reconciliation LISTs both prefixes.
 - `src/index.ts` — bind the bulk consumer; route the new cron.
 - `wrangler.jsonc` — `FILES_INGEST_BULK` producer + consumer at lower `max_concurrency`; the weekly cron trigger.
 
@@ -594,7 +594,7 @@ git commit -m "feat(worker): inject the scan port + inspectable cap into the ing
 - Modify: `packages/file-manager/src/file-service.ts` (`fileVersionKey` accepts a prefix; `initiateUpload` accepts `uploadKind`)
 - Modify: `packages/file-manager/src/metering-statements.ts` (`reconciliationDiff` LISTs both prefixes) — and `apps/worker/src/scheduled.ts` (pass both prefixes)
 - Modify: `apps/worker/src/firm-resource-provider.ts` (second notification rule for `bulk/`)
-- Modify: `apps/worker/src/routes/uploads.ts` (thread `uploadKind` from the request body)
+- Modify: `apps/worker/src/routes/files/uploads.ts` (thread `uploadKind` from the request body)
 - Modify: `apps/worker/src/index.ts` + `apps/worker/wrangler.jsonc` (the `FILES_INGEST_BULK` queue + consumer at lower `max_concurrency`)
 - Test: `packages/file-manager/test/file-service.test.ts`, `apps/worker/test/uploads.test.ts`, `apps/worker/test/provisioning.test.ts`
 

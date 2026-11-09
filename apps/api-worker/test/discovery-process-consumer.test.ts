@@ -30,7 +30,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import type { ArchiveExpansionResult } from "../src/discovery/archive-expansion.ts";
 import { writeLoadRecordArtifacts } from "../src/discovery/load-artifacts.ts";
-import { processOne } from "../src/discovery/process-consumer.ts";
+import { processOne } from "../src/background/discovery/process-consumer.ts";
 import type { DiscoveryProcessMessage } from "../src/discovery/discovery-process-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 

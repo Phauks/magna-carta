@@ -189,7 +189,7 @@ firm has enabled it and the rule opted in, lands filed. Requires flags F1, F3, a
 
 ## Task 4 — The firm policy
 
-- [ ] The firm-level pair on the `apps/worker/src/routes/scan-policy.ts` precedent: read the resolved
+- [ ] The firm-level pair on the `apps/worker/src/routes/firm/scan-policy.ts` precedent: read the resolved
       policy (whether direct filing is permitted, whether `matterNumberInSubject` is enabled), and
       patch any subset. Owner/Admin only.
 - [ ] The policy is a **ceiling**: with direct filing off, a rule whose promotion is `file` still
@@ -201,7 +201,7 @@ firm has enabled it and the rule opted in, lands filed. Requires flags F1, F3, a
 
 - [ ] The circuit breaker in the consumer path: a bounded ledger read over the rolling window per
       flag F7; over threshold, the rule is suspended with `blastBound` and the capture stages.
-- [ ] `apps/worker/src/routes/emails.ts`: unlinking a link whose `auto_file_rule_id` is non-null also
+- [ ] `apps/worker/src/routes/email/emails.ts`: unlinking a link whose `auto_file_rule_id` is non-null also
       records a reversal in the ledger. The unlink route's contract is otherwise unchanged.
 - [ ] Undo-rate suspension on the same mechanism with the undo input.
 - [ ] Test: a burst of matching messages trips the breaker and subsequent captures stage; undoing

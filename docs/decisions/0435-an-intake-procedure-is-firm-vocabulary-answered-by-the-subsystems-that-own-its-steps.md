@@ -49,4 +49,4 @@ span several subsystems and a member's records and no single statement re-assert
 holds the door on it; a step whose subsystem is unbuilt is a member's word today and a system's
 answer later with no schema or procedure change; the intake and conflicts vocabulary discipline
 extends to the new surfaces by lint. Spec:
-[`docs/specs/2026-09-03-intake-procedure-design.md`](../../specs/2026-09-03-intake-procedure-design.md).
+[`docs/specs/2026-09-03-intake-procedure-design.md`](../specs/2026-09-03-intake-procedure-design.md).

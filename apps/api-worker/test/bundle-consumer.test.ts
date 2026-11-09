@@ -1,7 +1,7 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import type { Bindings } from "../src/app.ts";
-import { bundleBuildQueue } from "../src/downloads/bundle-consumer.ts";
+import type { Bindings } from "../src/bindings.ts";
+import { bundleBuildQueue } from "../src/background/downloads/bundle-consumer.ts";
 import type { BundleBuildCoordinator } from "../src/downloads/bundle-coordinator.ts";
 import type { BundleBuildMessage } from "../src/downloads/bundle-types.ts";
 

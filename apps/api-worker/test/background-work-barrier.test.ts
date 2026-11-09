@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { settleBackgroundWork } from "./support/settle-background-work.ts";
-import { backgroundWorkStatus } from "../src/background.ts";
+import { backgroundWorkStatus } from "../src/http/deferred-work.ts";
 import { confirmationTokenHash, generateConfirmationToken } from "../src/joining-secrets.ts";
 
 // The password a registering visitor now chooses on the form. Registration commits it with the

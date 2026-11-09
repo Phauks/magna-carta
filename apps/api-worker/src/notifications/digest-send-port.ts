@@ -1,7 +1,7 @@
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { createCloudflareEmailAdapter } from "../email-cloudflare.ts";
 import type { SendEmail } from "../email-port.ts";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 // THE DIGEST'S SEND SEAM, and why it does NOT reuse `emailAdapterForEnv`.
 //
