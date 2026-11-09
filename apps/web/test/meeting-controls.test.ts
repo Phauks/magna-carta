@@ -42,6 +42,9 @@ function applied(over: Partial<AppliedEffects> = {}): AppliedEffects {
     },
     blur: "unavailable",
     platformBlur: null,
+    background: "none",
+    backgroundByProduct: false,
+    imageChosen: false,
     refusal: null,
     ...over,
   };
@@ -159,6 +162,43 @@ describe("the Effects control", () => {
     buttonReading("Blur")?.click();
     flushSync();
     expect(changed).toEqual([{ background: "blur", reduceNoise: true }]);
+  });
+
+  it("offers None, Blur and Image where the product draws the background", () => {
+    instance = mount(Controls, {
+      target,
+      props: bar({
+        appliedEffects: applied({
+          backgroundByProduct: true,
+          background: "blur",
+          imageChosen: true,
+        }),
+      }),
+    });
+    flushSync();
+    openEffects();
+
+    expect(buttonReading("Blur")?.getAttribute("aria-pressed")).toBe("true");
+    expect(buttonReading("Image")?.getAttribute("aria-pressed")).toBe("false");
+
+    buttonReading("Image")?.click();
+    flushSync();
+    expect(changed).toEqual([{ background: "image", reduceNoise: true }]);
+  });
+
+  it("asks for a picture before standing anybody in front of nothing", () => {
+    instance = mount(Controls, {
+      target,
+      props: bar({ appliedEffects: applied({ backgroundByProduct: true, background: "none" }) }),
+    });
+    flushSync();
+    openEffects();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+
+    buttonReading("Image")?.click();
+    flushSync();
+    expect(changed).toEqual([]);
+    expect(document.querySelector('input[aria-label="Choose a picture"]')).not.toBeNull();
   });
 
   it("stands the noise switch where the track says, not where the preference does", () => {
