@@ -911,6 +911,9 @@ importers:
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
+      '@magna-carta/product-updates':
+        specifier: workspace:*
+        version: link:../../packages/product-updates
       '@magna-carta/safe-browse':
         specifier: workspace:*
         version: link:../../packages/safe-browse
