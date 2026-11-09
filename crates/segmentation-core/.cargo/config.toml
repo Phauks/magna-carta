@@ -1,0 +1,7 @@
+# WebAssembly SIMD for this crate's wasm build only. wasm-pack runs cargo from the crate directory, so
+# this file applies to `wasm-pack build crates/segmentation-core` (bootstrap, the dev build and the
+# Dockerfile alike) and to nothing else in the workspace. Without it the model runs at roughly twice the
+# time per frame and misses the meeting's frame budget; every browser the product supports, and every
+# engine the desktop shell embeds, executes SIMD128.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+simd128"]

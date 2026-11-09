@@ -110,7 +110,11 @@ export type FirmScopedObjectClass =
   // A member's own picture, as their colleagues see them. It belongs to the firm's roster rather
   // than to any matter, and stays firm-scoped for the same reason the member row does: it is what
   // THIS firm shows beside this person's work.
-  | "member-photo";
+  | "member-photo"
+  // A directory person's photograph or an organization's logo: what the firm recognises a client, a
+  // witness or a counterparty by. Firm-scoped rather than matter-scoped because one record stands on
+  // many matters and the picture is the record's, not any one matter's.
+  | "directory-photo";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -141,6 +145,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "shipping-label",
   "export-snapshot",
   "member-photo",
+  "directory-photo",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [

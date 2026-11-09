@@ -1,6 +1,7 @@
 // DEV-ONLY, Docker-free build of the WebAssembly artefacts the app consumes — pdf-core into
 // packages/pdf/src/pkg, decryption-core into packages/decryption/src/pkg, email-core into
-// packages/email/src/pkg, and seven-zip-core into packages/seven-zip/src/pkg —
+// packages/email/src/pkg, seven-zip-core into packages/seven-zip/src/pkg, and segmentation-core into
+// packages/segmentation/src/pkg —
 // using the host Rust toolchain + wasm-pack directly, no container.
 //
 // This exists for environments that cannot run the canonical Docker build (`rust-wasm-build` in
@@ -35,6 +36,7 @@ const CRATES = [
   { crate: "decryption-core", pkg: "decryption" },
   { crate: "email-core", pkg: "email" },
   { crate: "seven-zip-core", pkg: "seven-zip" },
+  { crate: "segmentation-core", pkg: "segmentation" },
 ];
 
 function run(command, args) {

@@ -13,6 +13,7 @@ members = [
   "search-eval",
   "discovery-core",
   "seven-zip-core",
+  "segmentation-core",
 ]
 
 [workspace.package]
@@ -150,6 +151,26 @@ exit = "deny"
 opt-level = "z"
 lto = true
 strip = true
+
+# Background segmentation runs once per camera frame in a meeting, against a frame budget, so it and
+# the inference runtime under it are built for speed rather than size. Measured in headless Chromium:
+# at the release profile's "z" the model takes about 26 ms a frame (p50); at 3, about 14 ms, inside the
+# design's 20 ms bar. The module, model included, grows from 0.75 MB to 1.16 MB gzipped, still inside
+# the design's 1.5 MB, and is loaded only when a member turns an effect on. Every other crate keeps "z".
+[profile.release.package.segmentation-core]
+opt-level = 3
+[profile.release.package.rten]
+opt-level = 3
+[profile.release.package.rten-base]
+opt-level = 3
+[profile.release.package.rten-gemm]
+opt-level = 3
+[profile.release.package.rten-simd]
+opt-level = 3
+[profile.release.package.rten-tensor]
+opt-level = 3
+[profile.release.package.rten-vecmath]
+opt-level = 3
 
 # Benchmarking profile. The release profile above optimizes for SIZE (`opt-level = "z"`), which is right
 # for a wasm artifact or a container image and wrong for a measurement: it produces code several tens of

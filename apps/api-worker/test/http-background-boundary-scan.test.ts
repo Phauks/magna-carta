@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // @repo-wide-fitness — scans every module on the Worker's HTTP side and background side for an
 // import across the seam between them; the crossing import lands in whichever file is edited.
 import { describe, expect, it } from "vitest";

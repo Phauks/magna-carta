@@ -27,6 +27,7 @@
     icon,
     class: className,
     children,
+    onclick,
     ...restProps
   }: WithElementRef<HTMLButtonAttributes, HTMLButtonElement> & {
     /** Whether the sub-menu this heads is showing its rows. */
@@ -49,6 +50,13 @@
     data-expanded={expanded ? "true" : "false"}
     {...restProps}
     {...triggerProps}
+    onclick={(event) => {
+      // Last, after the tooltip's own props: in the icon rail the tooltip trigger brings an onclick
+      // of its own, and spread after ours it replaced the fold's, so the cluster would not open or
+      // close there. Both run: the tooltip's first, then the fold's.
+      (triggerProps.onclick as ((event: MouseEvent) => void) | undefined)?.(event);
+      onclick?.(event as Parameters<NonNullable<typeof onclick>>[0]);
+    }}
   >
     {@render icon?.()}
     <span class="mc-sidebar-label">{@render children?.()}</span>

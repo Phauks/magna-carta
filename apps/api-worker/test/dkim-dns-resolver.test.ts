@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDkimKeyLookup, joinTextStrings } from "../src/emails/dkim-dns-resolver.ts";
 

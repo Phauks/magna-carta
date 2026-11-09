@@ -5220,6 +5220,26 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
+export type DirectoryEntityPhotoResponse = {
+    photo: DirectoryEntityPhoto;
+};
+
+export type DirectoryEntityPhoto = {
+    /**
+     * The SHA-256 of the bytes.
+     */
+    sha256: string;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type SetDirectoryEntityPhotoRequest = {
+    imageBase64: string;
+};
+
 /**
  * `suggestions` may be empty, which means the country is covered and nothing matched. `no-coverage` means the service holds no addresses for that country, which is not the same thing and must not be shown as though it were. `unavailable` means no address service is provisioned: a person types the address themselves, exactly as before.
  */
@@ -6331,6 +6351,76 @@ export type MyDayResponse = {
     targetDailyMinutes: number | null;
     shortfallMinutes: number | null;
     unloggedDay: boolean;
+};
+
+export type CallerLookup = {
+    directoryMatches: Array<CallerDirectoryMatch>;
+    areaCode: CallerAreaCode;
+    /**
+     * A caller ID the firm already paid for, or null when it has none for the number.
+     */
+    callerIdentity: CallerIdentity | null;
+    /**
+     * Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country.
+     */
+    paidLookup: 'available' | 'unavailable' | 'not-covered';
+};
+
+export type CallerDirectoryMatch = {
+    entityId: string;
+    entityKind: 'person' | 'organization';
+    /**
+     * Null when the record holds no name at all; a reader shows the gap.
+     */
+    displayName: string | null;
+};
+
+export type CallerAreaCode = {
+    areaCode: string;
+    /**
+     * Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is.
+     */
+    region: string;
+    /**
+     * The town the number's exchange was assigned to, as the numbering data writes it ("Las Vegas, NV"). Null where that data does not subdivide the area code.
+     */
+    place: string | null;
+    /**
+     * The IANA time zone the number was issued under. Null where the area code spans several.
+     */
+    timeZone: string | null;
+} | null;
+
+/**
+ * A caller ID the firm already paid for.
+ */
+export type CallerIdentity = {
+    /**
+     * The name the carriers' caller-name database holds, as it holds it. Null when it holds none.
+     */
+    callerName: string | null;
+    lineType: 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other' | null;
+    carrierName: string | null;
+    lookedUpAt: string;
+};
+
+export type CallerLookupRequest = {
+    /**
+     * The number in E.164 — a plus, the country calling code and the national number, digits only. The form builds it from the number field and its country.
+     */
+    number: string;
+};
+
+/**
+ * `found` is the kept answer, which may hold no name. `not-covered` and `unavailable` are answers, not failures: nothing was asked and nothing was charged.
+ */
+export type CallerIdentityLookup = {
+    outcome: 'found';
+    callerIdentity: CallerIdentity;
+} | {
+    outcome: 'not-covered';
+} | {
+    outcome: 'unavailable';
 };
 
 export type CommunicationPage = {
@@ -26191,6 +26281,184 @@ export type DirectorySetPersonLifeDatesResponses = {
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
 
+export type DirectoryRemoveEntityPhotoData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectoryRemoveEntityPhotoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryRemoveEntityPhotoError = DirectoryRemoveEntityPhotoErrors[keyof DirectoryRemoveEntityPhotoErrors];
+
+export type DirectoryRemoveEntityPhotoResponses = {
+    /**
+     * The record holds no picture
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectoryRemoveEntityPhotoResponse = DirectoryRemoveEntityPhotoResponses[keyof DirectoryRemoveEntityPhotoResponses];
+
+export type DirectoryEntityPhotoData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectoryEntityPhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityPhotoError = DirectoryEntityPhotoErrors[keyof DirectoryEntityPhotoErrors];
+
+export type DirectoryEntityPhotoResponses = {
+    /**
+     * The record's picture, or null
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectoryEntityPhotoResponse2 = DirectoryEntityPhotoResponses[keyof DirectoryEntityPhotoResponses];
+
+export type DirectorySetEntityPhotoData = {
+    body: SetDirectoryEntityPhotoRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectorySetEntityPhotoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySetEntityPhotoError = DirectorySetEntityPhotoErrors[keyof DirectorySetEntityPhotoErrors];
+
+export type DirectorySetEntityPhotoResponses = {
+    /**
+     * The record's picture after the write
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectorySetEntityPhotoResponse = DirectorySetEntityPhotoResponses[keyof DirectorySetEntityPhotoResponses];
+
+export type DirectoryEntityPhotoContentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo/content';
+};
+
+export type DirectoryEntityPhotoContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityPhotoContentError = DirectoryEntityPhotoContentErrors[keyof DirectoryEntityPhotoContentErrors];
+
+export type DirectoryEntityPhotoContentResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type DirectoryEntityPhotoContentResponse = DirectoryEntityPhotoContentResponses[keyof DirectoryEntityPhotoContentResponses];
+
 export type AddressLookupSuggestData = {
     body: AddressSuggestionsRequest;
     path?: never;
@@ -29967,6 +30235,103 @@ export type MyDayGetResponses = {
 };
 
 export type MyDayGetResponse = MyDayGetResponses[keyof MyDayGetResponses];
+
+export type CommunicationsCallerLookupData = {
+    body: CallerLookupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/caller-lookup';
+};
+
+export type CommunicationsCallerLookupErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks communications:log
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CommunicationsCallerLookupError = CommunicationsCallerLookupErrors[keyof CommunicationsCallerLookupErrors];
+
+export type CommunicationsCallerLookupResponses = {
+    /**
+     * What is known about the number
+     */
+    200: CallerLookup;
+};
+
+export type CommunicationsCallerLookupResponse = CommunicationsCallerLookupResponses[keyof CommunicationsCallerLookupResponses];
+
+export type CommunicationsCallerIdentityData = {
+    body: CallerLookupRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/caller-lookup/caller-identity';
+};
+
+export type CommunicationsCallerIdentityErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks communications:log
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The caller-name service did not answer, or refused. Nothing was kept; pressing again asks again.
+     */
+    502: Problem;
+};
+
+export type CommunicationsCallerIdentityError = CommunicationsCallerIdentityErrors[keyof CommunicationsCallerIdentityErrors];
+
+export type CommunicationsCallerIdentityResponses = {
+    /**
+     * The caller ID, or why there is none to ask for
+     */
+    200: CallerIdentityLookup;
+};
+
+export type CommunicationsCallerIdentityResponse = CommunicationsCallerIdentityResponses[keyof CommunicationsCallerIdentityResponses];
 
 export type CommunicationsListData = {
     body?: never;

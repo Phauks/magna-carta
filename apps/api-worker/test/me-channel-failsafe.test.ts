@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { Bindings } from "../src/bindings.ts";
 import { resolveChannelAndFlags } from "../src/http/routes/session/me.ts";

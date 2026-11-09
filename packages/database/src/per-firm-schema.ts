@@ -1946,6 +1946,39 @@ export const directoryEntityCategory = sqliteTable(
   (table) => [primaryKey({ columns: [table.entityId, table.categoryId] })],
 );
 
+// A DIRECTORY RECORD'S PICTURE — a person's photograph or an organization's logo. The member_photo
+// shape, for the member_photo reasons: a separate table rather than columns on the node rows, so the
+// reads that never draw a face never carry one, and one row per entity at most, keyed by the entity
+// itself, so "no picture" is the absence of a row. entity_id names a person OR an organization (the
+// handle's prefix says which), which is why it carries no foreign key, the same as every other
+// entity-generic directory table.
+//
+// THE BYTES LIVE IN THE FIRM'S BUCKET and this row names them. Unlike member_photo the object key is
+// scoped to the entity as well as to the bytes' hash, so two records holding the same image (a
+// firm's own placeholder) never share an object that removing one of them would delete.
+export const directoryEntityPhoto = sqliteTable(
+  "directory_entity_photo",
+  {
+    entityId: text("entity_id").primaryKey(),
+    sha256: text("sha256").notNull(),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // The intrinsic size, so a surface can reserve the space before the bytes arrive.
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("directory_entity_photo_size_check", sql`${table.sizeBytes} > 0`),
+    check(
+      "directory_entity_photo_pixels_check",
+      sql`${table.widthPixels} > 0 AND ${table.heightPixels} > 0`,
+    ),
+  ],
+);
+
 // Email addresses for a directory entity. Temporal and type-labelled; is_primary is enforced in the
 // write path (at most one primary per entity). `address` is stored as entered (trimmed);
 // `normalized_address` is the lowercased match key an address -> entity reverse lookup queries, so a
@@ -3828,6 +3861,41 @@ export const communicationNumberCounter = sqliteTable(
     nextValue: integer("next_value").notNull(),
   },
   (table) => [check("communication_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
+);
+
+// What the telephone network said about a number, the one time the firm paid to ask.
+//
+// A caller-name lookup is a billed query against the carriers' database, so its answer is KEPT: one
+// row per number, written when a member presses for the lookup, and read back for free every time
+// the same number is typed again. Keyed by the number's two parts — the same pair directory_phone
+// indexes — so a lookup and a Directory match ask about one number in one vocabulary.
+//
+// It is the network's answer and never the firm's: a contact's name lives in the Directory, and this
+// row is shown beside it as what the caller ID would display. Every column but the key may be null,
+// because "the database holds no name for this number" is a real answer that was paid for.
+export const callerIdentity = sqliteTable(
+  "caller_identity",
+  {
+    countryCallingCode: text("country_calling_code").notNull(), // digits only, no leading '+'
+    nationalNumber: text("national_number").notNull(), // digits only
+    callerName: text("caller_name"),
+    // 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other'; enforced in
+    // packages/caller-lookup's CALLER_LINE_TYPES, open at rest so the vocabulary can grow without a
+    // rebuild (the directory_phone contact_system precedent).
+    lineType: text("line_type"),
+    carrierName: text("carrier_name"),
+    // Which engine answered, so a row can be told apart from one a different provider gave later.
+    source: text("source").notNull(),
+    lookedUpByUserId: text("looked_up_by_user_id").notNull().$type<UserId>(),
+    lookedUpAt: text("looked_up_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.countryCallingCode, table.nationalNumber] }),
+    check(
+      "caller_identity_number_digits_check",
+      sql`length(${table.countryCallingCode}) > 0 AND ${table.countryCallingCode} NOT GLOB '*[^0-9]*' AND length(${table.nationalNumber}) > 0 AND ${table.nationalNumber} NOT GLOB '*[^0-9]*'`,
+    ),
+  ],
 );
 
 // ---------------------------------------------------------------------------------------------

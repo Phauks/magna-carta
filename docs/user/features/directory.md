@@ -50,11 +50,32 @@ holds what you can do with the record as a whole:
 
 - **Copy Link** copies the record's address, ready to paste.
 - **Email Link** starts a message in your mail program with the record's name and address in it.
-- **Download Contact Card** saves the record as a `.vcf` file that phones, Outlook and other
-  address books open. It carries the name, a person's date of birth, and the email addresses,
-  numbers and postal addresses the person allows the firm to use. A contact point marked as former,
-  or one the person asked the firm not to use, is left off, and so are identifiers, matters and
-  relationships, because a contact card is meant to be handed on.
+- **Download** saves the record as a file, in one of three formats:
+  - **PDF**, a printout of the record: its names, dates, every way to reach the person (with the
+    ones they asked the firm not to use marked), addresses, relationships and matters. Sealed
+    identifiers are never on it. Making a PDF needs the permission to export reports.
+  - **Plain Text**, the same printout as a `.txt` file that pastes into an email.
+  - **Contact Card (.vcf)**, a file that phones, Outlook and other address books open. It carries
+    the name, a person's date of birth, and the email addresses, numbers and postal addresses the
+    person allows the firm to use. A contact point marked as former, or one the person asked the
+    firm not to use, is left off, and so are identifiers, matters and relationships, because a
+    contact card is meant to be handed on. If the record has a picture, the card carries it too.
+
+A record can have a picture: a person's photograph or an organization's logo. It sits in the circle
+beside the name at the top of the window, and the record's initials stand in until there is one.
+
+- **Add a picture**: press the circle (it shows a small camera while it is empty), choose a PNG or
+  JPEG, and drag the picture, or use the arrow keys, until the face sits inside the ring. **Zoom In**
+  and **Zoom Out** enlarge it. Only the square you see is saved, so the rest of the photograph never
+  reaches the firm's storage.
+- **Change, view or remove it**: press the picture. **Change Photo** opens the same cropping window,
+  **View Full Size** opens the picture in a new tab, and **Remove Photo** takes it off the record.
+- When you record a new person, **Add Photo** above the name fields does the same before the person
+  is saved. If the person is saved but the picture is not, a message says so, and you can add it
+  from their record.
+
+Adding, changing and removing a picture needs the permission to edit the Directory. Somebody who
+may only read it sees the picture and can open it full size.
 
 A record answers the questions the firm keeps an answer to:
 

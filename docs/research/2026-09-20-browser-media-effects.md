@@ -449,6 +449,35 @@ stays the alternative if `tract` cannot get under the line.
 owns: upstream in `tract` (the preferred route, as one small pull request), or in a vendored
 patch under `crates/` until then. Either way it is safe Rust, and nothing here adds C or C++.
 
+## 7b. Amendment, 2026-11-09 (later the same day) — rten, not tract
+
+The tract result in section 7a needed one thing the owner would have had to consent to under golden
+rule 14: `tract-linalg`'s build script uses `cc` to assemble hand-written matrix kernels whenever it is
+built for a native target, as `cargo test` does. The browser module itself is pure Rust, but the
+native-build gate reads the lockfile, and the owner chose to measure the alternative instead.
+
+**`rten` 0.28 has no native build anywhere in its tree** (33 crates, no `cc`, no `-sys` crate). It reads
+ONNX, and no off-the-shelf converter takes this model because of the same custom operator, so the
+model was converted by a small script that writes the ONNX graph operator by operator. The script and
+the provenance are in [`crates/segmentation-core/model/`](../../crates/segmentation-core/model/README.md).
+The converted model matches the reference interpreter to 9 × 10⁻⁶ under ONNX Runtime and to 1.2 × 10⁻⁵
+under rten, with every pixel on the same side of 0.5.
+
+Measured the same way as section 7a (headless Chromium 153, one thread, SIMD128, 4-vCPU cloud Xeon):
+
+| Build                          | Download, gzipped, model included | Inference p50 | Inference p95 | Load    |
+| ------------------------------ | --------------------------------- | ------------- | ------------- | ------- |
+| tract, `opt-level "s"`         | 1.50 MB                           | 12.4 ms       | 16.3 ms       | ~300 ms |
+| rten, `opt-level 3`, SIMD128   | 1.16 MB                           | 14.2–14.9 ms  | 18.9–22.0 ms  | ~22 ms  |
+| rten, `opt-level "z"`, SIMD128 | 0.75 MB                           | 26 ms         | 30–34 ms      | ~28 ms  |
+| rten, `opt-level 3`, no SIMD   | —                                 | 21 ms         | 28 ms         | —       |
+
+**rten is taken**, built at `opt-level 3` with SIMD128: it ties tract on speed within this machine's
+noise, is smaller, loads an order of magnitude faster, and needs no consent.
+[`crates/segmentation-core`](../../crates/segmentation-core/CLAUDE.md) is the engine and
+[`packages/segmentation`](../../packages/segmentation/CLAUDE.md) its TypeScript seam. Bars 2 to 5 still
+wait on the Worker and the WebGL composite.
+
 ## 8. Sources
 
 Every source, with the date it carries and the date it was read (2026-09-20 throughout).

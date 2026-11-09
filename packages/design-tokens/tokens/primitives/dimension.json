@@ -73,6 +73,11 @@
       "$type": "dimension",
       "$value": { "value": 640, "unit": "px" }
     },
+    "record-form": {
+      "$description": "How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two.",
+      "$type": "dimension",
+      "$value": { "value": 832, "unit": "px" }
+    },
     "record-context": {
       "$description": "How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it.",
       "$type": "dimension",

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import {
   FIRM_SCOPED_OBJECT_CLASSES,
   MATTER_SCOPED_OBJECT_CLASSES,

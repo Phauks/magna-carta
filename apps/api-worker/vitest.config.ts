@@ -1,124 +1,12 @@
 import { cloudflareTest } from "@cloudflare/vitest-plugin";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { defineConfig, type Plugin } from "vite-plus";
-
-// The Vite-side half of the dual `.sql`-as-text bundling contract — full story in
-// src/sql-modules.d.ts (the wrangler-side half is the Text module rule in wrangler.jsonc).
-function sqlAsText(): Plugin {
-  return {
-    name: "magna-carta:sql-as-text",
-    enforce: "pre",
-    transform(code, id) {
-      if (!id.endsWith(".sql")) return null;
-      return { code: `export default ${JSON.stringify(code)};`, map: null };
-    },
-  };
-}
-
-// The composite text-extraction tests need real PDFs — a born-digital one, a scan, and one of each —
-// and workerd has no filesystem to read them from. The fixtures live with the engine that reads them
-// (crates/pdf-core/tests/fixtures), which is outside the Vite root, so this plugin inlines them as
-// base64 at build time. One copy of each fixture, asserted on by both the Rust tests and these: a
-// second committed copy under apps/api-worker could drift from the bytes the engine is tested against, and
-// nothing would notice.
-function pdfCoreFixtures(): Plugin {
-  const virtualModuleId = "virtual:pdf-core-fixtures";
-  const resolvedVirtualModuleId = "\0" + virtualModuleId;
-  const fixtureDir = path.resolve(import.meta.dirname, "../../crates/pdf-core/tests/fixtures");
-
-  return {
-    name: "magna-carta:pdf-core-fixtures",
-    resolveId(id) {
-      if (id === virtualModuleId) return resolvedVirtualModuleId;
-      return undefined;
-    },
-    load(id) {
-      if (id !== resolvedVirtualModuleId) return undefined;
-      const fixtures: Record<string, string> = {};
-      for (const entry of fs.readdirSync(fixtureDir)) {
-        if (!entry.endsWith(".pdf")) continue;
-        fixtures[entry] = fs.readFileSync(path.join(fixtureDir, entry)).toString("base64");
-      }
-      return `export default ${JSON.stringify(fixtures)};`;
-    },
-  };
-}
-
-// The form-template tests need the committed fillable-PDF fixture, and workerd has no filesystem to
-// read it from. The fixture lives with the package whose registration and fill logic it exercises
-// (packages/document-assembly/test/fixtures), which is outside the Vite root, so this plugin inlines it
-// as base64 at build time — one copy of the fixture, asserted on by both suites, on exactly the terms
-// pdfCoreFixtures() is on.
-function documentAssemblyFormFixtures(): Plugin {
-  const virtualModuleId = "virtual:document-assembly-form-fixtures";
-  const resolvedVirtualModuleId = "\0" + virtualModuleId;
-  const fixtureDir = path.resolve(
-    import.meta.dirname,
-    "../../packages/document-assembly/test/fixtures",
-  );
-
-  return {
-    name: "magna-carta:document-assembly-form-fixtures",
-    resolveId(id) {
-      if (id === virtualModuleId) return resolvedVirtualModuleId;
-      return undefined;
-    },
-    load(id) {
-      if (id !== resolvedVirtualModuleId) return undefined;
-      const fixtures: Record<string, string> = {};
-      for (const entry of fs.readdirSync(fixtureDir)) {
-        if (!entry.endsWith(".pdf")) continue;
-        fixtures[entry] = fs.readFileSync(path.join(fixtureDir, entry)).toString("base64");
-      }
-      return `export default ${JSON.stringify(fixtures)};`;
-    },
-  };
-}
-
-// The fitness scan tests (billing-wip-ledger-fitness, billing-freeze-fitness) need to scan the
-// package sources where the SQL statement strings actually live — packages/timekeeping/src,
-// packages/costs/src, and packages/billing-core/src — but import.meta.glob cannot resolve outside
-// the Vite root (apps/api-worker). This plugin provides a virtual module that inlines those sources at
-// build time, each file keyed under its own package prefix, so the scans cover all three packages
-// and each can be floored for non-vacuity independently.
-function billingPackageSources(): Plugin {
-  const virtualModuleId = "virtual:billing-package-sources";
-  const resolvedVirtualModuleId = "\0" + virtualModuleId;
-  const timekeepingSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
-  const costsSrcDir = path.resolve(import.meta.dirname, "../../packages/costs/src");
-  const billingCoreSrcDir = path.resolve(import.meta.dirname, "../../packages/billing-core/src");
-
-  function collectSources(dir: string, prefix: string): Record<string, string> {
-    const result: Record<string, string> = {};
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const fullPath = path.join(dir, entry.name);
-      const key = `${prefix}/${entry.name}`;
-      if (entry.isDirectory()) {
-        Object.assign(result, collectSources(fullPath, key));
-      } else if (entry.isFile() && entry.name.endsWith(".ts")) {
-        result[key] = fs.readFileSync(fullPath, "utf8");
-      }
-    }
-    return result;
-  }
-
-  return {
-    name: "magna-carta:billing-package-sources",
-    resolveId(id) {
-      if (id === virtualModuleId) return resolvedVirtualModuleId;
-      return undefined;
-    },
-    load(id) {
-      if (id !== resolvedVirtualModuleId) return undefined;
-      const sources: Record<string, string> = {};
-      Object.assign(sources, collectSources(timekeepingSrcDir, "packages/timekeeping/src"));
-      Object.assign(sources, collectSources(costsSrcDir, "packages/costs/src"));
-      Object.assign(sources, collectSources(billingCoreSrcDir, "packages/billing-core/src"));
-      return `export default ${JSON.stringify(sources)};`;
-    },
-  };
-}
+import { defineConfig } from "vite-plus";
+import { nodeRuntimeTestFiles } from "./vitest.node-runtime.ts";
+import {
+  billingPackageSources,
+  documentAssemblyFormFixtures,
+  pdfCoreFixtures,
+  sqlAsText,
+} from "./vitest.plugins.ts";
 
 // Stub for the magna-carta-scan service binding in tests — no real scan worker runs under the
 // local pool, so the service binding must resolve to something or workerd refuses to boot.
@@ -414,6 +302,10 @@ export default defineConfig({
     }),
   ],
   test: {
+    // Files that declare `@node-runtime` run in plain Node instead (vitest.node.config.ts): booting
+    // a workerd VM and preloading the whole app for a file that never reaches the Workers runtime
+    // cost about 25 s of setup per file, and that preload is most of this project's memory.
+    exclude: ["**/node_modules/**", "**/.git/**", ...nodeRuntimeTestFiles()],
     // Every file gets the background-work barrier: routes start work that outlives their response
     // (the request-path outbox sweep), and an environment torn down while that work is still talking
     // to the test host rejects its in-flight calls into nothing. The setup file's afterEach waits for

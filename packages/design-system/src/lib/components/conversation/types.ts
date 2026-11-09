@@ -28,3 +28,13 @@ export type ConversationTurnState = "settled" | "pending" | "failed";
  * on the answer, in the status register's SUBTLE trio, which is what a work surface takes.
  */
 export type ConversationNoteTone = "quiet" | "warning";
+
+/**
+ * How the transcript lays its turns out. `record` is the default and the reading a meeting's chat
+ * takes: every turn a label over a body down one edge, hairline-separated, with nothing about
+ * position carrying meaning. `exchange` is the reading a conversation between several members and
+ * the assistant takes: each turn carries a mark (initials, or the assistant's letter), the members'
+ * turns sit on the trailing side in a quiet panel and the assistant's on the leading side unboxed,
+ * so a reader who joined late can see at a glance who asked what and where each answer starts.
+ */
+export type ConversationArrangement = "record" | "exchange";

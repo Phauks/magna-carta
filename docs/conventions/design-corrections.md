@@ -3471,8 +3471,12 @@ designed together on his instruction). What was said, and what each part general
   became the one grid; its Everything/Unread toggle and category select were removed, not moved,
   because the Status and Category columns already answer both. Already covered by _A list of
   records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
-  the notification centre was the last register still hand-built as a list. Grouping arrives with the
-  grid's own group-by, which the task stream builds once for every register.
+  the notification centre was the last register still hand-built as a list. Grouping is the grid's
+  own group-by (`DataTable.GroupByMenu` and the state's `grouping`): Day by default, then Category,
+  Priority, Matter, Read State and No Grouping. Day bands are the reader's own calendar days, read
+  "Today" and "Yesterday" and then the date, and their order flips with the table's sort direction.
+  Opened, the dismissed shelf is always the last band, whatever the grouping; in a flat list it stays
+  the quieted run at the foot. Home: `apps/web/src/lib/notifications/notification-grouping.ts`.
 - **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
   ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
   among them** — after them whatever the sort, quieter, with the act that undoes setting it aside
