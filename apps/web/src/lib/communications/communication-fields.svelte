@@ -25,9 +25,13 @@
    * is the whole of the ruling. Where the two disagree the form says so in a line under them, so the
    * difference reads as a fact about the call rather than as a mistake nobody noticed.
    *
-   * EVERY CHOICE IS TYPED INTO. Type, direction, the country, where it belongs: each is a combobox
-   * over a closed set ($lib/components/choice-picker.svelte), never a select. A reader should not
-   * have to find out which lists accept typing.
+   * THE NUMBER LEADS (owner, 2026-11-09: "most of the information people get is the phone number,
+   * and maybe a caller ID"). Type and direction are two pressed buttons above it rather than lists
+   * ($lib/components/button-choice.svelte; owner, same day: "make the call text, incoming/outgoing as a
+   * toggle, makes it easier"), then the number, then what was said — which is where somebody still on
+   * the telephone is typing — and only then when it happened, which is folded to one line because it
+   * is almost always now. Every LIST that can grow (the country, where it belongs) is still a
+   * combobox over a closed set, typed into.
    *
    * THE NUMBER, ITS COUNTRY AND ITS EXTENSION ARE ONE FIELD, and it is the Directory's
    * ($lib/directory/phone-number-field.svelte) — the same field the firm's contact records are
@@ -44,17 +48,12 @@
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import type { CountryCode } from "libphonenumber-js/min";
-  import ChoicePicker from "$lib/components/choice-picker.svelte";
-  import type { ChoiceOption } from "$lib/components/choice-picker.ts";
+  import Button from "@magna-carta/design-system/button";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
+  import ButtonChoice, { type ButtonChoiceOption } from "$lib/components/button-choice.svelte";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import PhoneNumberField from "$lib/directory/phone-number-field.svelte";
-  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
-  import { formatPhoneAsTyped } from "$lib/directory/phone-entry.ts";
-  import {
-    entityKindFromIdentifier,
-    readDirectoryContactPoints,
-  } from "$lib/directory/directory-api.ts";
+  import { chooseContact, clearContact, contactSelectionOf } from "./communication-contact.ts";
   import MatterPicker from "$lib/time/matter-picker.svelte";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import { DISPOSITION_CHOICES, durationText } from "./communication-vocabulary.ts";
@@ -63,6 +62,7 @@
     CommunicationDisposition,
   } from "./communications-api.ts";
   import {
+    draftOccurredAt,
     draftSpanMinutes,
     isTextDraft,
     parseDurationMinutes,
@@ -80,6 +80,7 @@
     matterFixed = false,
     matterName = null,
     showAnchor = true,
+    showContact = true,
   }: {
     draft: LogDraft;
     busy?: boolean;
@@ -106,20 +107,41 @@
      * being made, because at that moment the anchor is simply one of the things being said.
      */
     showAnchor?: boolean;
+    /**
+     * Whether the form carries its own contact field.
+     *
+     * False while a record is being MADE: there the window's Identification panel looks the number
+     * up and owns who it was with, beside the form rather than inside it, so the form asks nothing
+     * the panel has already answered.
+     */
+    showContact?: boolean;
   } = $props();
 
   const identity = $props.id();
   const text = $derived(isTextDraft(draft));
 
-  const TYPE_OPTIONS: readonly ChoiceOption[] = [
+  const TYPE_OPTIONS: readonly ButtonChoiceOption<LogKind>[] = [
     { value: "call", label: "Call" },
     { value: "text", label: "Text" },
   ];
 
-  const DIRECTION_OPTIONS: readonly ChoiceOption[] = [
-    { value: "outbound", label: "Outgoing", keywords: ["out"] },
-    { value: "inbound", label: "Incoming", keywords: ["in"] },
+  const DIRECTION_OPTIONS: readonly ButtonChoiceOption<CommunicationDirection>[] = [
+    { value: "inbound", label: "Incoming", title: "The other person contacted the firm." },
+    { value: "outbound", label: "Outgoing", title: "The firm contacted them." },
   ];
+
+  /*
+   * WHEN IT HAPPENED, FOLDED. A new record starts at the moment it was opened, which is right for
+   * nearly every call somebody is still on — so the three fields sit behind one line that says what
+   * they hold, and open on a press for the call being written up after the fact.
+   */
+  let whenOpen = $state(false);
+  const whenSummary = $derived.by((): string => {
+    const at = draftOccurredAt(draft);
+    if (at === "") return "Not set";
+    const started = formatInstant(at);
+    return draft.endTime.trim() === "" || text ? started : `${started} to ${draft.endTime}`;
+  });
 
   /** The answers to "where does this belong" that are not matters. */
   const DISPOSITION_OPTIONS = DISPOSITION_CHOICES.map((choice) => ({
@@ -165,62 +187,7 @@
     if (span !== null) draft.durationText = String(span);
   }
 
-  /*
-   * The selection the contact field shows at rest.
-   *
-   * The kind comes from the handle's own prefix rather than from a read: a directory handle is minted
-   * `directoryPerson_…` or `directoryOrganization_…`, so the glyph beside the name is right without
-   * asking the server anything. The NAME does need a read, and the surface that opened this form owns
-   * it — until it lands the field says what it holds rather than printing the handle, which is not an
-   * answer anybody can use.
-   */
-  const contactSelection = $derived<PickableEntity | null>(
-    draft.counterpartyEntityId === null
-      ? null
-      : {
-          identifier: draft.counterpartyEntityId,
-          name: draft.counterpartyName ?? "This contact",
-          kind: entityKindFromIdentifier(draft.counterpartyEntityId) ?? "person",
-        },
-  );
-
-  /**
-   * The number the chosen contact answers on, where the field is still empty.
-   *
-   * It never OVERWRITES a number somebody typed: which number a call actually came from is a fact
-   * about the call, and a contact's record is a list of the ways they can be reached rather than a
-   * statement about this one. A read that fails leaves the field exactly as it was — the contact is
-   * still recorded, and the digits can be typed.
-   */
-  async function fillNumberFrom(entityId: string): Promise<void> {
-    if (draft.counterpartyNumber.trim() !== "") return;
-    const outcome = await readDirectoryContactPoints(fetch, entityId);
-    if (outcome.kind !== "ok") return;
-    const reachable = outcome.value.phones.filter(
-      (phone) => phone.contactSystem === "voice" || phone.contactSystem === "sms",
-    );
-    const chosen = reachable.find((phone) => phone.isPrimary) ?? reachable[0];
-    if (chosen === undefined) return;
-    // Still empty when the answer lands, or somebody has typed while it was in flight and theirs
-    // wins.
-    if (draft.counterpartyNumber.trim() !== "") return;
-    if (chosen.countryRegionCode !== null) draft.region = chosen.countryRegionCode;
-    draft.counterpartyNumber = formatPhoneAsTyped(draft.region as CountryCode, chosen.number);
-    // The contact's own extension comes with it. It is part of how they are reached, and a person
-    // who has to retype it beside a number the platform just filled in will not.
-    if (chosen.extension !== null) draft.counterpartyExtension = chosen.extension;
-  }
-
-  function chooseContact(entity: PickableEntity): void {
-    draft.counterpartyEntityId = entity.identifier;
-    draft.counterpartyName = entity.name;
-    void fillNumberFrom(entity.identifier);
-  }
-
-  function clearContact(): void {
-    draft.counterpartyEntityId = null;
-    draft.counterpartyName = null;
-  }
+  const contactSelection = $derived(contactSelectionOf(draft));
 
   /** A matter chosen, or the row that leaves it in the queue. Either clears a set-aside reason. */
   function anchorToMatter(matterId: string | null): void {
@@ -242,52 +209,22 @@
      match. The query is on the fields' own box rather than the viewport, which is what lets a narrow
      pane stack the paired fields without a second layout. -->
 <div class="@container flex flex-col gap-16">
-  <div class="grid gap-12 @sm:grid-cols-2">
-    <LabelledField label="Type" id="{identity}-type">
-      {#snippet children({ props })}
-        <ChoicePicker
-          inputId={props.id}
-          label="Type"
-          options={TYPE_OPTIONS}
-          disabled={busy}
-          bind:value={() => draft.kind, (chosen) => (draft.kind = chosen as LogKind)}
-        />
-      {/snippet}
-    </LabelledField>
-
-    <LabelledField label="Direction" id="{identity}-direction">
-      {#snippet children({ props })}
-        <ChoicePicker
-          inputId={props.id}
-          label="Direction"
-          options={DIRECTION_OPTIONS}
-          disabled={busy}
-          bind:value={
-            () => draft.direction,
-            (chosen) => (draft.direction = chosen as CommunicationDirection)
-          }
-        />
-      {/snippet}
-    </LabelledField>
+  <div class="flex flex-wrap gap-12">
+    <ButtonChoice
+      label="Type"
+      options={TYPE_OPTIONS}
+      value={draft.kind}
+      disabled={busy}
+      onchange={(chosen) => (draft.kind = chosen)}
+    />
+    <ButtonChoice
+      label="Direction"
+      options={DIRECTION_OPTIONS}
+      value={draft.direction}
+      disabled={busy}
+      onchange={(chosen) => (draft.direction = chosen)}
+    />
   </div>
-
-  <LabelledField label="Contact" id="{identity}-contact">
-    {#snippet children({ props })}
-      <!-- The Directory record at the other end. Optional: a number nobody has recorded is exactly
-           the case the queue exists for, and demanding a contact first would put a lookup in front
-           of the one act this form exists to make quick. A record that is not there yet is made
-           from inside the list, which is why no New control stands beside the field. -->
-      <DirectoryEntityPicker
-        inputId={props.id}
-        label="Contact"
-        disabled={busy}
-        createBeside={false}
-        value={contactSelection}
-        onSelect={chooseContact}
-        onClear={clearContact}
-      />
-    {/snippet}
-  </LabelledField>
 
   <PhoneNumberField
     bind:region={draft.region}
@@ -299,58 +236,123 @@
     disabled={busy}
   />
 
-  <div class="flex flex-col gap-4">
-    <div class="grid gap-12 @sm:grid-cols-2 @lg:grid-cols-4">
-      <!-- The wall clock, read in the reader's own zone in both directions: the person typing it is
-           saying what their own clock said. The day is its own field, because changing the day of a
-           call recorded this morning must not mean stepping through a combined control. -->
-      <!-- The picker renders its own label, so it takes a track of its own rather than a
-           LabelledField: its label and its field are siblings and a grid would split them. -->
-      <div class="flex flex-col gap-8">
-        <DatePicker
-          label="Date"
-          value={civilDateValue(draft.occurredDate)}
-          onValueChange={(next) => (draft.occurredDate = civilDateTextOrEmpty(next))}
+  {#if showContact}
+    <LabelledField label="Contact" id="{identity}-contact">
+      {#snippet children({ props })}
+        <!-- The Directory record at the other end. Optional: a number nobody has recorded is
+             exactly the case the queue exists for, and demanding a contact first would put a lookup
+             in front of the one act this form exists to make quick. -->
+        <DirectoryEntityPicker
+          inputId={props.id}
+          label="Contact"
           disabled={busy}
+          createBeside={false}
+          value={contactSelection}
+          onSelect={(entity) => chooseContact(draft, entity)}
+          onClear={() => clearContact(draft)}
         />
+      {/snippet}
+    </LabelledField>
+  {/if}
+
+  <!-- What was said, straight under the number and across the whole width (owner, 2026-11-09): it
+       is what somebody still on the telephone is typing, so it sits where they are already looking
+       rather than at the bottom of the form. On a text it is the message, on a call it is what the
+       member wrote down; the record keeps the two in different columns, and the label says which. -->
+  <div class="flex flex-col gap-8">
+    <Label for="{identity}-description">{text ? "What the text said" : "Notes"}</Label>
+    <Textarea
+      id="{identity}-description"
+      class="resize-none"
+      rows={5}
+      resizable={false}
+      disabled={busy}
+      placeholder={placeholderOf(text ? "Message" : "Notes")}
+      bind:value={draft.description}
+    />
+  </div>
+
+  <div class="flex flex-col gap-4">
+    {#if whenOpen}
+      <div class="grid gap-12 @sm:grid-cols-2 @lg:grid-cols-4">
+        <!-- The wall clock, read in the reader's own zone in both directions: the person typing it
+             is saying what their own clock said. The picker renders its own label, so it takes a
+             track of its own rather than a LabelledField: its label and its field are siblings and a
+             grid would split them. -->
+        <div class="flex flex-col gap-8">
+          <DatePicker
+            label="Date"
+            value={civilDateValue(draft.occurredDate)}
+            onValueChange={(next) => (draft.occurredDate = civilDateTextOrEmpty(next))}
+            disabled={busy}
+          />
+        </div>
+
+        <LabelledField label="Start" id="{identity}-start">
+          {#snippet children({ props })}
+            <Input {...props} type="time" disabled={busy} bind:value={draft.occurredTime} />
+          {/snippet}
+        </LabelledField>
+
+        <LabelledField label="End" id="{identity}-end">
+          {#snippet children({ props })}
+            <Input
+              {...props}
+              type="time"
+              disabled={busy || text}
+              title={text ? NO_LENGTH_ON_A_TEXT : "When the line closed."}
+              value={draft.endTime}
+              oninput={(event) => {
+                endTyped(event.currentTarget.value);
+              }}
+            />
+          {/snippet}
+        </LabelledField>
+
+        <LabelledField label="Length" id="{identity}-duration">
+          {#snippet children({ props })}
+            <!-- Typed, and free: "20", "1h 5m" and "1:20" all read as the same length. It is filled
+                 from the end when it is empty and never against what somebody wrote. -->
+            <Input
+              {...props}
+              class="tabular-nums"
+              disabled={busy || text}
+              title={text ? NO_LENGTH_ON_A_TEXT : "How long the call took. 20, 1h 5m or 1:20."}
+              placeholder={placeholderOf("Length")}
+              bind:value={draft.durationText}
+            />
+          {/snippet}
+        </LabelledField>
       </div>
-
-      <LabelledField label="Start" id="{identity}-start">
-        {#snippet children({ props })}
-          <Input {...props} type="time" disabled={busy} bind:value={draft.occurredTime} />
-        {/snippet}
-      </LabelledField>
-
-      <LabelledField label="End" id="{identity}-end">
-        {#snippet children({ props })}
-          <Input
-            {...props}
-            type="time"
-            disabled={busy || text}
-            title={text ? NO_LENGTH_ON_A_TEXT : "When the line closed."}
-            value={draft.endTime}
-            oninput={(event) => {
-              endTyped(event.currentTarget.value);
-            }}
-          />
-        {/snippet}
-      </LabelledField>
-
-      <LabelledField label="Duration" id="{identity}-duration">
-        {#snippet children({ props })}
-          <!-- Typed, and free: "20", "1h 5m" and "1:20" all read as the same length. It is filled
-               from the end when it is empty and never against what somebody wrote. -->
-          <Input
-            {...props}
-            class="tabular-nums"
-            disabled={busy || text}
-            title={text ? NO_LENGTH_ON_A_TEXT : "How long the call took. 20, 1h 5m or 1:20."}
-            placeholder={placeholderOf("Duration")}
-            bind:value={draft.durationText}
-          />
-        {/snippet}
-      </LabelledField>
-    </div>
+    {:else}
+      <div class="grid items-end gap-12 @sm:grid-cols-2">
+        <div class="flex flex-col gap-8">
+          <span class="text-sm font-medium" id="{identity}-when">When</span>
+          <div
+            class="flex min-h-40 items-center justify-between gap-12 rounded-md border border-border-default bg-surface-sunken px-12"
+            aria-labelledby="{identity}-when"
+            role="group"
+          >
+            <span class="tabular-nums">{whenSummary}</span>
+            <Button size="sm" variant="ghost" disabled={busy} onclick={() => (whenOpen = true)}>
+              Change
+            </Button>
+          </div>
+        </div>
+        <LabelledField label="Length" id="{identity}-duration">
+          {#snippet children({ props })}
+            <Input
+              {...props}
+              class="tabular-nums"
+              disabled={busy || text}
+              title={text ? NO_LENGTH_ON_A_TEXT : "How long the call took. 20, 1h 5m or 1:20."}
+              placeholder={placeholderOf("Length")}
+              bind:value={draft.durationText}
+            />
+          {/snippet}
+        </LabelledField>
+      </div>
+    {/if}
 
     {#if spanNote !== null}
       <p class="text-xs text-text-muted">{spanNote}</p>
@@ -381,21 +383,4 @@
   {:else if matterFixed && matterName !== null}
     <p class="text-xs text-text-muted">Recorded on {matterName}.</p>
   {/if}
-
-  <!-- What was said, beneath everything else and across the whole of it. One word for both types: on
-       a text it is the message, on a call it is what the member wrote down. The record keeps the two
-       in different columns so a read never has to ask which it is holding, and the person typing does
-       not have to care. -->
-  <div class="flex flex-col gap-8">
-    <Label for="{identity}-description">Description</Label>
-    <Textarea
-      id="{identity}-description"
-      class="resize-none"
-      rows={6}
-      resizable={false}
-      disabled={busy}
-      placeholder={placeholderOf("Description")}
-      bind:value={draft.description}
-    />
-  </div>
 </div>

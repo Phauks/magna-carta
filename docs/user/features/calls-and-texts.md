@@ -3,7 +3,7 @@
 _You can record calls and texts that happened, open one to read or correct it, read them across the
 firm or on one matter, file one onto a matter, set one aside as something that belongs to no matter,
 and start an intake from a call — either from the call's record or straight from the form as you
-write it down. Every call and text carries a reference number you can read back to whoever is on the
+write it down. Several calls can be written down at once. Every call and text carries a reference number you can read back to whoever is on the
 line, and the number is on screen before you save. The firm has no phone number connected yet, so nothing is sent or
 received from Magna Carta — every row is written down by whoever made or took the call. Call
 recording and transcripts are not built._
@@ -43,46 +43,47 @@ Email is not here. Mail lives in your own mailbox and is filed onto a matter fro
    search. Inside a matter, the same button is at the top of the matter screen and fills the matter
    in for you. The window is called **Record Communication**, whichever kind you are writing down —
    and it is the same window a row opens into, so there is only one place to learn.
-2. Under the heading is the **number this record will be given**, so you can read it back to the
-   caller before you have finished writing anything down. It is what the next call recorded for that
-   day would take: if somebody else records one first, yours takes the following number, and the
-   number on the saved record is the one that counts.
-3. The facts of the call come first and **the description sits underneath them**, with the full width
-   of the window to write in. Nothing moves when you switch between a call and a text.
-4. Every list on the form can be **typed into**: start typing and it narrows to what matches. That is
-   true of the type, the direction, the country and where it belongs.
-5. Choose the **type** — a call or a text — and the **direction**, outgoing or incoming. A text that
-   carries a picture is still a text; the record notes what it carried.
-6. Name the **contact** if the person is in your directory. Picking them fills in their number, and
-   it is what lets you start an intake for them later without typing anything twice. Somebody who is
-   not in the directory yet can be added from the bottom of the same list. You can skip this: a
-   number nobody has recorded yet is exactly the case the queue exists for.
-7. Choose the **country** and type the **number**. The country list carries flags and answers to the
-   dial code, the country's name or its two letters. The digits group themselves as you type, the way
-   that country writes a number, and the greyed shape in the empty field shows you which way that is.
-   Keep typing past the end of a number and the extra digits move into the **extension** beside it,
-   rather than the grouping giving up — you can also type the extension there directly.
-8. Give the **date**, the **start** and, for a call, the **end** and the **duration**. The date and
-   the start default to now, which is right for a call you have just put down; a call on Tuesday
-   written up on Thursday belongs on Tuesday, and every list puts it there once you change the date.
-   A call that ran past midnight is counted properly.
-9. **The duration is yours to type, and it does not have to match the clock.** Typing an end fills
-   the duration in for you the first time, so you rarely type both — but if the caller spent forty
-   minutes on hold, put the real length of the call in and leave the end where it is. The window says
-   what the difference means ("the line was open 1h; 20m of it was the call") rather than treating it
-   as a mistake, and the record keeps both. Write the length however you say it: `20`, `45m`,
-   `1h 5m` or `1:20`. A text has no end and no length, so those two are greyed rather than moving the
-   rest of the form around.
-10. Write the **description** underneath. On a text it is the message itself; on a call it is your own
-    account of it. A call needs either a description or a length; a call with neither is refused,
-    because if you have nothing to record there is nothing to save. A text needs its words.
-11. Say where it **belongs**, in one field: type a matter's name or its number, or pick one of the
-    reasons it is on no matter — spam or a wrong number, firm business, nothing came of it — or leave
-    it as **Decide later**, which puts it in the queue. Every matter the firm has is offered,
-    including intakes and consultations.
-12. Press **Save**. If the call is somebody wanting the firm to act, press **Save And Start An
-    Intake** instead: it records the call and opens the intake in one step, so the account of the
-    first contact ends up on the file it started.
+2. Under the heading, in italics, is the **number this record will be given**, so you can read it
+   back to the caller before you have finished writing anything down. It is what the next call
+   recorded for that day would take: if somebody else records one first, yours takes the following
+   number, and the number on the saved record is the one that counts.
+3. Press **Call** or **Text**, and **Incoming** or **Outgoing**. A text that carries a picture is
+   still a text; the record notes what it carried.
+4. Type the **number** first, because it is usually all you have. Choose the **country** beside it if
+   it is not your own; the list carries flags and answers to the dial code, the country's name or
+   its two letters. The digits group themselves as you type, the way that country writes a number.
+   Keep typing past the end of a number and the extra digits move into the **extension** beside it.
+5. As soon as the number is a whole number, the **Identification** side of the window looks it up.
+   If somebody in your directory is known by that number, they show there; otherwise find them by
+   name in the same place, or leave it empty — a number nobody has recorded yet is exactly the case
+   the queue exists for. Once a contact is chosen, their **open matters** are listed, the most
+   recently linked first. A contact on many matters gets a search box: type a client's name or a
+   matter number to find the right one, then press **File Here**.
+6. The **History** side shows every earlier call and text with the same number, newest first.
+7. Write your **notes** straight under the number, while you are still on the phone. On a text, the
+   box is for the message itself. A call needs either notes or a length; a call with neither is
+   refused, because if you have nothing to record there is nothing to save. A text needs its words.
+8. **When** it happened defaults to now and shows as one line. Press **Change** to set the date, the
+   start and, for a call, the end — a call on Tuesday written up on Thursday belongs on Tuesday.
+   **The length is yours to type, and it does not have to match the clock.** Typing an end fills
+   the length in for you the first time, but if the caller spent forty minutes on hold, put the real
+   length of the call in. Write it however you say it: `20`, `45m`, `1h 5m` or `1:20`. A text has no
+   length, so that box is greyed.
+9. Say where it **belongs**, in one field: type a matter's name or its number, or pick one of the
+   reasons it is on no matter — spam or a wrong number, firm business, nothing came of it — or leave
+   it as **Decide later**, which puts it in the queue. **File Here** on the Identification side fills
+   this in for you.
+10. Press **Save**. If the call is somebody wanting the firm to act, open the **More** menu at the top
+    right and choose **Start An Intake** instead: it saves the call and opens the intake, so the
+    account of the first contact ends up on the file it started.
+
+### When a second call comes in
+
+The calls you are writing down are listed down the **left side** of the window. Press **Another
+Call** to start one more without losing the first, and press any call in the list to go back to it.
+Saving a call takes it off the list and leaves the others where they are; the window closes once
+the last one is saved. Starting an intake from one call saves only that call, so nothing you were
+writing about anybody else is lost.
 
 ## Reading a row without opening it
 
@@ -140,9 +141,10 @@ firm answers the phone.
 
 ## Starting an intake from a call
 
-Somebody rings wanting the firm to act. Press **Save And Start An Intake** while you are still writing
-the call down, or — for a call already in the log — open it and press **Start An Intake**. Either way
-the call is recorded first.
+Somebody rings wanting the firm to act. While you are still writing the call down, open the **More**
+menu at the top right of the window and choose **Start An Intake**; for a call already in the log,
+open it and press **Start An Intake**. Either way the call is recorded first, and any other call you
+were writing down stays in the window.
 
 The intake window opens with the caller already filled in as the client, if you named a contact when
 you recorded the call. Fill in the rest as you would on the intake desk — see
