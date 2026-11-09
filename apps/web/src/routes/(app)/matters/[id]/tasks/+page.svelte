@@ -55,6 +55,4 @@
   matterTitle={matter.title}
   {isSample}
   heading="Tasks"
-  emptyTitle="Nothing outstanding"
-  emptyDescription="No task is open on this matter. Anything the firm still owes here goes on this list, with whose it is and when it is due."
 />

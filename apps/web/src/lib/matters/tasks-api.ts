@@ -10,7 +10,8 @@
  * is read, because a stored flag is stale in exactly the window where it matters. `isOverdue` below
  * is that comparison and nothing is persisted from it.
  */
-import { zonedReading } from "@magna-carta/civil-time/time-zone";
+import { viewerTimeZone as readerTimeZone, zonedReading } from "@magna-carta/civil-time/time-zone";
+import type { PaletteColorName } from "@magna-carta/design-system/palette";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 /** One of the matter's documents, pointed at by a task. */
@@ -73,6 +74,24 @@ export interface MatterTask {
   deadlineId: string | null;
   documents: TaskDocument[];
   /**
+   * Which of the firm's lists the task is on, and where it stands on that list's own statuses. The
+   * status says where the work stands; whether it is FINISHED is `completedAt`, kept apart so that
+   * finishing a task leaves its status where it stood.
+   */
+  listId: string | null;
+  statusId: string | null;
+  /** The task this one is a sub-task of. A sub-task shares its parent's list and matter. */
+  parentTaskId: string | null;
+  startsOn: string | null;
+  /** Where the work happens: a room, an address, or a meeting link. */
+  location: string | null;
+  /** Everyone the work is assigned to, people and teams, in the order they were named. */
+  assignees: TaskAssignee[];
+  /** People kept informed of the work without doing it. */
+  watcherUserIds: string[];
+  checklist: TaskChecklistItem[];
+  links: TaskLink[];
+  /**
    * How long this task has actually taken, from the time entries that name it.
    *
    * MINUTES, NEVER MONEY — what a task cost is a billing question with a different audience. The
@@ -94,6 +113,61 @@ export interface MatterTask {
    * mirrors: a system syncing both ways reads it to tell its own writes from a person's.
    */
   updatedBy: string | null;
+}
+
+/** One assignee: a person or a team, never both. */
+export interface TaskAssignee {
+  id: string;
+  userId: string | null;
+  teamId: string | null;
+}
+
+export interface TaskChecklistItem {
+  id: string;
+  text: string;
+  doneAt: string | null;
+  doneBy: string | null;
+}
+
+export interface TaskLink {
+  id: string;
+  url: string;
+  label: string | null;
+}
+
+/** The seven colours a status can carry, as the server names them. */
+export const TASK_STATUS_COLOURS = [
+  "gray",
+  "blue",
+  "orange",
+  "amber",
+  "green",
+  "purple",
+  "red",
+] as const;
+export type TaskStatusColour = (typeof TASK_STATUS_COLOURS)[number];
+
+export interface TaskListStatus {
+  id: string;
+  name: string;
+  colour: TaskStatusColour;
+  position: number;
+  /** The statuses a task on this one may move to. */
+  nextStatusIds: string[];
+}
+
+export interface TaskListSummary {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  openCount: number;
+  statuses: TaskListStatus[];
+}
+
+export interface TaskTeam {
+  id: string;
+  name: string;
+  memberUserIds: string[];
 }
 
 export interface TaskExternalLink {
@@ -155,6 +229,9 @@ export interface TaskDueInput {
  */
 export interface TaskContentInput extends TaskDueInput {
   title: string;
+  /** Left out, the task keeps what it has; null clears it. */
+  startsOn?: string | null;
+  location?: string | null;
   body?: string | null;
   priority?: TaskPriority | null;
   blockedByTaskId?: string | null;
@@ -171,7 +248,17 @@ export interface TaskListFilters {
   dueTo?: string;
   search?: string;
   includeClosedMatters?: boolean;
+  /** Which of the firm's lists. Absent, every list. */
+  listIds?: readonly string[];
+  /** Only tasks that are nobody's sub-task; their sub-tasks are read with `readSubtaskTrees`. */
+  topLevel?: boolean;
+  /** Me Mode: the reader's own work, assigned to them (directly or through a team), watched, or either. */
+  mine?: MeMode;
+  /** Only completed tasks, or only open ones. Absent, both. */
+  completed?: boolean;
 }
+
+export type MeMode = "assigned" | "watching" | "both";
 
 function filterQuery(filters: TaskListFilters, cursor?: string): string {
   const query = new URLSearchParams();
@@ -189,6 +276,12 @@ function filterQuery(filters: TaskListFilters, cursor?: string): string {
   const search = filters.search?.trim();
   if (search !== undefined && search.length > 0) query.set("search", search);
   if (filters.includeClosedMatters === true) query.set("includeClosedMatters", "true");
+  if (filters.listIds !== undefined && filters.listIds.length > 0) {
+    query.set("listId", filters.listIds.join(","));
+  }
+  if (filters.topLevel === true) query.set("topLevel", "true");
+  if (filters.mine !== undefined) query.set("mine", filters.mine);
+  if (filters.completed !== undefined) query.set("completed", String(filters.completed));
   return query.size === 0 ? "" : `?${query.toString()}`;
 }
 
@@ -220,9 +313,22 @@ export function listMyTasks(
   return requestJson(fetchImpl, `/api/v1/tasks${filterQuery(filters, cursor)}`);
 }
 
+export interface NewTaskInput extends TaskContentInput {
+  matterId: string | null;
+  assigneeUserId?: string | null;
+  /** Left out, the firm's default list at its first status. A sub-task takes its parent's list. */
+  listId?: string | null;
+  statusId?: string | null;
+  parentTaskId?: string | null;
+  assignees?: readonly AssigneeInput[];
+  watcherUserIds?: readonly string[];
+}
+
+export type AssigneeInput = { userId: string } | { teamId: string };
+
 export function createTask(
   fetchImpl: typeof fetch,
-  task: TaskContentInput & { matterId: string | null; assigneeUserId?: string | null },
+  task: NewTaskInput,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ id: string }>> {
   return requestJson(fetchImpl, "/api/v1/tasks", {
@@ -367,7 +473,7 @@ export { viewerTimeZone } from "$lib/dates";
  * the same projection the server's resolver uses (zonedReading), so the two agree about "Friday".
  */
 export function isOverdue(task: MatterTask, now: Date = new Date()): boolean {
-  if (task.rung === "done" || task.archivedAt !== null) return false;
+  if (task.completedAt !== null || task.archivedAt !== null) return false;
   if (task.dueOn === null || task.timeZone === null) return false;
   const reading = zonedReading(now.getTime(), task.timeZone);
   if (reading.civilDate > task.dueOn) return true;
@@ -392,3 +498,315 @@ export const RUNG_LABELS: Readonly<Record<TaskRung, string>> = Object.freeze({
   on_hold: "On Hold",
   done: "Done",
 });
+
+/** Every sub-task under the given tasks, at any depth. Each names its parent. */
+export function readSubtaskTrees(
+  fetchImpl: typeof fetch,
+  rootIds: readonly string[],
+  includeArchived = false,
+): Promise<ApiOutcome<{ data: MatterTask[] }>> {
+  const query = new URLSearchParams({ rootIds: rootIds.join(",") });
+  if (includeArchived) query.set("includeArchived", "true");
+  return requestJson(fetchImpl, `/api/v1/tasks/subtask-trees?${query.toString()}`);
+}
+
+/*
+ * A TASK'S OWN PARTS. Each is its own small write, which is what lets the list and the window edit
+ * one thing in place without carrying the rest of the task through a form.
+ */
+
+function taskPath(taskId: string, part: string): string {
+  return `/api/v1/tasks/${encodeURIComponent(taskId)}/${part}`;
+}
+
+type Acknowledged = Promise<ApiOutcome<{ ok: true }>>;
+type Created = Promise<ApiOutcome<{ id: string }>>;
+
+/** Moves the task to another of its list's statuses, where the flow allows it. */
+export function moveTaskToStatus(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  statusId: string,
+): Acknowledged {
+  return requestJson(fetchImpl, taskPath(taskId, "status"), {
+    method: "PUT",
+    body: { statusId },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/** Moves a top-level task, with its sub-tasks, to another list. */
+export function moveTaskToList(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  listId: string,
+): Acknowledged {
+  return requestJson(fetchImpl, taskPath(taskId, "list"), {
+    method: "PUT",
+    body: { listId },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/** Marks the task complete, or reopens it. The status stays where it stood either way. */
+export function setTaskCompletion(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  completed: boolean,
+): Acknowledged {
+  return requestJson(fetchImpl, taskPath(taskId, "completion"), {
+    method: "PUT",
+    body: { completed },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function setTaskAssignees(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  assignees: readonly AssigneeInput[],
+): Acknowledged {
+  return requestJson(fetchImpl, taskPath(taskId, "assignees"), {
+    method: "PUT",
+    body: { assignees },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function setTaskWatchers(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  userIds: readonly string[],
+): Acknowledged {
+  return requestJson(fetchImpl, taskPath(taskId, "watchers"), {
+    method: "PUT",
+    body: { userIds },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function addChecklistItem(fetchImpl: typeof fetch, taskId: string, text: string): Created {
+  return requestJson(fetchImpl, taskPath(taskId, "checklist"), {
+    method: "POST",
+    body: { text },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function updateChecklistItem(
+  fetchImpl: typeof fetch,
+  itemId: string,
+  change: { text?: string; done?: boolean },
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-checklist-items/${encodeURIComponent(itemId)}`, {
+    method: "PATCH",
+    body: change,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function removeChecklistItem(fetchImpl: typeof fetch, itemId: string): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-checklist-items/${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function addTaskLink(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  link: { url: string; label: string | null },
+): Created {
+  return requestJson(fetchImpl, taskPath(taskId, "links"), {
+    method: "POST",
+    body: link,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function removeTaskLink(fetchImpl: typeof fetch, linkId: string): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-links/${encodeURIComponent(linkId)}`, {
+    method: "DELETE",
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/*
+ * HOW THE FIRM ORGANISES ITS TASK WORK: its lists, each list's statuses and flow, and its teams.
+ */
+
+export function listTaskLists(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<{ data: TaskListSummary[] }>> {
+  return requestJson(fetchImpl, "/api/v1/task-lists");
+}
+
+export function listTaskTeams(fetchImpl: typeof fetch): Promise<ApiOutcome<{ data: TaskTeam[] }>> {
+  return requestJson(fetchImpl, "/api/v1/task-teams");
+}
+
+export function createTaskList(fetchImpl: typeof fetch, name: string): Created {
+  return requestJson(fetchImpl, "/api/v1/task-lists", {
+    method: "POST",
+    body: { name },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function renameTaskList(
+  fetchImpl: typeof fetch,
+  listId: string,
+  name: string,
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-lists/${encodeURIComponent(listId)}`, {
+    method: "PATCH",
+    body: { name },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function makeTaskListDefault(fetchImpl: typeof fetch, listId: string): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-lists/${encodeURIComponent(listId)}/default`, {
+    method: "PUT",
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/** Retires a list, moving its tasks to another list first. */
+export function retireTaskList(
+  fetchImpl: typeof fetch,
+  listId: string,
+  moveTasksToListId: string,
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-lists/${encodeURIComponent(listId)}/retire`, {
+    method: "POST",
+    body: { moveTasksToListId },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function addTaskListStatus(
+  fetchImpl: typeof fetch,
+  listId: string,
+  status: { name: string; colour: TaskStatusColour },
+): Created {
+  return requestJson(fetchImpl, `/api/v1/task-lists/${encodeURIComponent(listId)}/statuses`, {
+    method: "POST",
+    body: status,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function updateTaskListStatus(
+  fetchImpl: typeof fetch,
+  statusId: string,
+  status: { name: string; colour: TaskStatusColour; position: number },
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-list-statuses/${encodeURIComponent(statusId)}`, {
+    method: "PATCH",
+    body: status,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function removeTaskListStatus(fetchImpl: typeof fetch, statusId: string): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-list-statuses/${encodeURIComponent(statusId)}`, {
+    method: "DELETE",
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/** Which statuses a task on this one may move to next, replacing what was there. */
+export function setTaskStatusFlow(
+  fetchImpl: typeof fetch,
+  statusId: string,
+  toStatusIds: readonly string[],
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-list-statuses/${encodeURIComponent(statusId)}/flow`, {
+    method: "PUT",
+    body: { toStatusIds },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function createTaskTeam(
+  fetchImpl: typeof fetch,
+  team: { name: string; memberUserIds: readonly string[] },
+): Created {
+  return requestJson(fetchImpl, "/api/v1/task-teams", {
+    method: "POST",
+    body: team,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function updateTaskTeam(
+  fetchImpl: typeof fetch,
+  teamId: string,
+  team: { name: string; memberUserIds: readonly string[] },
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-teams/${encodeURIComponent(teamId)}`, {
+    method: "PATCH",
+    body: team,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function retireTaskTeam(fetchImpl: typeof fetch, teamId: string): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-teams/${encodeURIComponent(teamId)}`, {
+    method: "DELETE",
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/** The palette colour each status colour paints with. */
+export const STATUS_PALETTE: Readonly<Record<TaskStatusColour, PaletteColorName>> = Object.freeze({
+  gray: "grey",
+  blue: "blue",
+  orange: "orange",
+  amber: "yellow",
+  green: "green",
+  purple: "purple",
+  red: "red",
+});
+
+/** The status colour a palette swatch stands for, for the settings picker. */
+export function statusColourOf(palette: PaletteColorName): TaskStatusColour {
+  const found = TASK_STATUS_COLOURS.find((colour) => STATUS_PALETTE[colour] === palette);
+  return found ?? "gray";
+}
+
+/**
+ * Changes one or two of a task's own fields in place, from the list or the window.
+ *
+ * The content edit REPLACES what it names, and an omitted link or detail is a cleared one, so every
+ * field the task should keep travels from the task as it stands and only the change differs. The
+ * start date and the location are the exception the server already makes: left out, they are kept.
+ */
+export function editTaskFields(
+  fetchImpl: typeof fetch,
+  task: MatterTask,
+  change: Partial<TaskContentInput>,
+): Promise<ApiOutcome<{ ok: true }>> {
+  const content: TaskContentInput = {
+    title: task.title,
+    body: task.body,
+    priority: task.priority,
+    blockedByTaskId: task.blockedByTaskId,
+    triggerEventId: task.triggerEventId,
+    deadlineId: task.deadlineId,
+    dueOn: task.dueOn,
+    dueAtTime: task.dueAtTime,
+    timeZone: task.timeZone,
+    ...change,
+  };
+  // A due date needs a zone to fall at a moment; a new date written here falls in the reader's.
+  if (content.dueOn !== null && content.dueOn !== undefined && content.timeZone == null) {
+    content.timeZone = readerTimeZone();
+  }
+  if (content.dueOn === null) {
+    content.dueAtTime = null;
+    content.timeZone = null;
+  }
+  return editTask(fetchImpl, task.id, content, newWriteKey());
+}
