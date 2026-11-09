@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveEnginePort } from "../src/conversions/conversion-engine.ts";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 
 // A fake service binding: a Fetcher whose fetch() records the request it saw and returns a scripted
 // Response.

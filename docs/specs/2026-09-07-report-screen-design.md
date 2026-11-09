@@ -9,7 +9,7 @@ program does.
 projection layer, the temporal contract, the four families, the nine owner questions) and
 [`2026-08-31-tabular-export-rendering-design.md`](2026-08-31-tabular-export-rendering-design.md)
 (the export seam). **Decision:**
-[`a-report-is-declared-once-and-the-screen-renders-from-it`](../decisions/pending/a-report-is-declared-once-and-the-screen-renders-from-it.md).
+[`a-report-is-declared-once-and-the-screen-renders-from-it`](../decisions/0445-a-report-is-declared-once-and-the-screen-renders-from-it.md).
 **Scope:** the `/reports` destination and everything a person does on it — pick a report, set its
 period, its knowledge instant and its subject, read the result, export it. **Excludes:** the
 report families' backends (sub-slices 3·6·2 to 3·6·4), scheduling and the filed artifact

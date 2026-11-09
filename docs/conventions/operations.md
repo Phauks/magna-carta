@@ -64,7 +64,7 @@ Until the analytics tier is built, this archive simply accumulates — nothing c
 
 ## 2. Email Sending on `magnacarta.esq` (the deliverability lever + adapter activation)
 
-The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects the Cloudflare Email Service adapter **only when the `EMAIL_FROM` var is also set** (`apps/api-worker/src/app.ts` `emailAdapterForEnv`). Until then the logging adapter runs, so no send fails against an un-onboarded domain. This runbook is what makes real email work:
+The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects the Cloudflare Email Service adapter **only when the `EMAIL_FROM` var is also set** (`apps/api-worker/src/http/app.ts` `emailAdapterForEnv`). Until then the logging adapter runs, so no send fails against an un-onboarded domain. This runbook is what makes real email work:
 
 1. **Onboard the domain.** Dashboard → **Compute → Email Service → Email Sending → Onboard Domain**; choose `magnacarta.esq`. The domain must use Cloudflare DNS.
 2. **Accept the DNS records** Cloudflare adds on the `cf-bounce` subdomain: MX (bounce routing), TXT SPF (authorize sending), TXT DKIM (signing), TXT DMARC on `_dmarc.magnacarta.esq`. Propagation is usually 5–15 minutes. Correct DKIM/SPF is the actual deliverability lever at these volumes.
@@ -113,7 +113,7 @@ The forward/CC capture path terminates on the `apps/email-worker` Cloudflare Ema
 > The pass supersedes split objects but never deletes one; the daily sweep collects them after a grace
 > period, so a firm's bucket briefly holds both the merged split and the sources it replaced.
 >
-> `…-platform-jobs` is the **shared per-firm job queue**: every per-firm outbox row the relay sweeps crosses it, firmId-tagged, and the dispatch table in `apps/api-worker/src/costs/recoverable-charge-consumer.ts` routes each message to the handler owning its topic (unowned topics are acked and ignored). It was a declared **producer only** until email capture-address minting needed it, so per-firm outbox effects were published and never applied; it is now a declared consumer, and its dead-letter queue must exist before the next deploy. A parked message here means a per-firm effect has not been applied — for a capture address, that the address exists but will never receive mail until the row is revived (the operator seam in [`security.md`](security.md)).
+> `…-platform-jobs` is the **shared per-firm job queue**: every per-firm outbox row the relay sweeps crosses it, firmId-tagged, and the dispatch table in `apps/api-worker/src/background/costs/recoverable-charge-consumer.ts` routes each message to the handler owning its topic (unowned topics are acked and ignored). It was a declared **producer only** until email capture-address minting needed it, so per-firm outbox effects were published and never applied; it is now a declared consumer, and its dead-letter queue must exist before the next deploy. A parked message here means a per-firm effect has not been applied — for a capture address, that the address exists but will never receive mail until the row is revived (the operator seam in [`security.md`](security.md)).
 
 ## 4. Adding a per-firm D1 binding (beyond the starter pool)
 
@@ -193,8 +193,8 @@ These are free on every plan and easy to miss. A legal SaaS should have them on 
 - [ ] **Modern Rules engine, not legacy Page Rules** — author **Cache Rules** (per-path cache control), **Configuration Rules** (scope zone settings per-route), **Transform Rules** (request/response header rewrites), and **Compression Rules** as needed. Migrate any legacy Page Rules onto these — Page Rules are being sunset.
 - [ ] **Tiered Cache + Smart Tiered Cache** — **Caching → Tiered Cache**: enable both (free on all plans). Modest benefit for a Workers app, but free and harmless; set a cloud-region hint only if an external origin appears.
 - **Turnstile** — **no longer a checkbox here.** Server-side verification is built and shipped
-  dormant (`apps/api-worker/src/human-verification/`), gating `POST /api/v1/registrations` and `POST
-  /api/v1/invitations/redemptions`; with no secret provisioned it serves those endpoints unprotected
+  dormant (`apps/api-worker/src/http/human-verification/`), gating `POST /api/v1/registrations` and `POST
+/api/v1/invitations/redemptions`; with no secret provisioned it serves those endpoints unprotected
   and counts every unprotected pass as `human_verification.decided` / `unenforced`. Switching it on
   is an ordered activation with a UI prerequisite, not a dashboard toggle — the steps are in the
   [deploy queue](../deploy-queue.md). Free, and complements Super Bot Fight Mode (§8.2).
@@ -491,7 +491,7 @@ one. The domains/records read above is the reliable answer; a browser is the rel
 it is running, over its service binding, on the `/__version` route in `packages/build-identity`.
 The roster is the **whole fleet** — every `apps/*/wrangler.jsonc` worker except the app Worker
 itself, pinned by a fitness test in `apps/web/test/version-overlay.test.ts` — so adding a worker
-under `apps/` means rostering it in `apps/api-worker/src/routes/meta-versions.ts` in the same
+under `apps/` means rostering it in `apps/api-worker/src/http/routes/platform/meta-versions.ts` in the same
 commit, and usually adding a service binding for the probe (see the version-read-only trio in the
 app Worker's `services` array; a binding must name a worker that exists on the account or the app
 Worker's own deploy fails, which is why `EMAIL_SERVICE` waits for `magna-carta-email` to ship). The
@@ -643,7 +643,7 @@ This makes the local Docker acceptance gate (`containers/bundle/tests/acceptance
 
 ## 13. Control-plane database migrations
 
-Control-plane D1 migrations apply **automatically** — no manual deploy step is required. The scheduled (Cron) handler (`apps/api-worker/src/scheduled.ts`) runs `runPendingMigrations` against `env.DB_CONTROL` as its **first action** on every cron tick, before the existing control-plane outbox sweep, so the schema is current before any other control-plane work in the same tick.
+Control-plane D1 migrations apply **automatically** — no manual deploy step is required. The scheduled (Cron) handler (`apps/api-worker/src/background/scheduled.ts`) runs `runPendingMigrations` against `env.DB_CONTROL` as its **first action** on every cron tick, before the existing control-plane outbox sweep, so the schema is current before any other control-plane work in the same tick.
 
 **Why the cron is the sole runtime applier — single-flight by construction.** The migration runner is not safe to run concurrently against the same database for the same pending migration. Each migration applies as one atomic `batch()` call (see `packages/database/src/d1-migration-target.ts`), and the runner fails loud on the first error with no internal retry (`packages/database/src/migration-runner.ts`). The `_migrations` table uses `tag TEXT PRIMARY KEY`, so if N worker isolates raced the same pending migration, exactly one batch would commit and every other isolate's batch would fail with a `UNIQUE constraint failed: _migrations.tag` error — a burst of N−1 thrown errors per migration-bearing deploy. The cron fires as a single invocation per tick, so making it the sole applier eliminates that concurrency in the common case; a rare overlapping fire is made safe by the error isolation around the step (the loser throws and is caught, the next tick is a no-op at head).
 
@@ -692,7 +692,7 @@ curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
 
 The File Manager upload is a direct-to-R2 ceremony: the browser `PUT`s bytes straight to a presigned R2 S3 URL (`<account>.r2.cloudflarestorage.com`), never through the Worker. That is a **cross-origin** request from the app origin to the R2 endpoint, so the bucket must carry a **CORS configuration** or the browser's preflight fails and no bytes land. Multipart additionally needs the `ETag` **response** header exposed — the client reads each part's `ETag` to build the completion manifest, and a browser cannot read a response header CORS does not expose. This is bucket configuration, not committed code (like the `bundles/` lifecycle rule in §10); it is applied **out-of-band against the bucket by the owner, not by CI**, and no committed code can substitute for it.
 
-The development R2 upload route (`apps/api-worker/src/routes/dev-r2-upload.ts`) is **same-origin** and therefore exercises no CORS — a green local suite proves nothing about this step. **The acceptance gate is one real upload against a real bucket in a preview environment, including a file large enough to take the multipart path** (exercising `uploads.signPart` and the `ETag` read). Until that passes, CORS is unverified no matter how green the local run is.
+The development R2 upload route (`apps/api-worker/src/http/routes/developer/dev-r2-upload.ts`) is **same-origin** and therefore exercises no CORS — a green local suite proves nothing about this step. **The acceptance gate is one real upload against a real bucket in a preview environment, including a file large enough to take the multipart path** (exercising `uploads.signPart` and the `ETag` read). Until that passes, CORS is unverified no matter how green the local run is.
 
 **Who applies it, and to which bucket.** Since 2026-09-03 firm provisioning applies the policy itself: `firm-resource-provider.ts` PUTs the rule set onto every new firm's bucket in the same unconditional step as its notifications and expiry rules, so a firm provisioned from now on takes browser uploads without an operator touching the dashboard. What stays an operator step is **every bucket that existed before that date** — the shared platform bucket, and the firm buckets provisioned before the step existed. The first production upload (2026-09-03) failed on exactly this: the firm's bucket carried no policy at all, the preflight was refused, and the app could only report that nothing answered. **Reading a bucket's policy is the check** (`GET /accounts/{account}/r2/buckets/{bucket}/cors`; "The CORS configuration does not exist" means uploads from a browser cannot work against it).
 

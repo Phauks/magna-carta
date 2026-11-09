@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { HttpClient } from "@magna-carta/integrations/http";
 import type { WhoisSocket } from "@magna-carta/whois/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,

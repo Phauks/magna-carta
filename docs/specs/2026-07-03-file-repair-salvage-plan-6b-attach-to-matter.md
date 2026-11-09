@@ -32,7 +32,7 @@
 - `packages/data-access/test/file-repair-provenance-statements.test.ts` — statement/read test.
 - `apps/worker/src/chokepoint/context-accessors.ts` — add `requireChokepointPermissions(c)` (exposes the set the chokepoint already computed).
 - `apps/worker/src/chokepoint/register.ts` (or wherever the middleware sets context) — stash the resolved permission set on context.
-- `apps/worker/src/routes/file-repair.ts` — export `dispatchToRecovery` + `RepairResultSchema`; add the two attach routes + the attach helper.
+- `apps/worker/src/routes/files/file-repair.ts` — export `dispatchToRecovery` + `RepairResultSchema`; add the two attach routes + the attach helper.
 - `apps/worker/test/file-repair-attach.test.ts` — attach route + provenance + flagged tests.
 - `apps/worker/vitest.config.ts` — no change if the R2 bucket + RECOVERY_SERVICE/SCAN stubs already boot; confirm a bucket binding exists in the pool.
 - `changelog.d/file-repair-attach.md`, `STATUS.md`, `ROADMAP.md`, `docs/active-work/file-repair-salvage.md` — docs.
@@ -288,7 +288,7 @@ git commit -m "feat(data-access): file_repair_provenance record + read statement
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/file-repair.ts` (export `dispatchToRecovery`, `RepairResultSchema`; add the attach helper + `repair/attach` route)
+- Modify: `apps/worker/src/routes/files/file-repair.ts` (export `dispatchToRecovery`, `RepairResultSchema`; add the attach helper + `repair/attach` route)
 - Modify: `apps/worker/src/chokepoint/context-accessors.ts` (add `requireChokepointPermissions`)
 - Modify: the chokepoint middleware to stash the resolved permission set on context (near `chokepoint.ts:195`)
 - Test: `apps/worker/test/file-repair-attach.test.ts`
@@ -372,9 +372,9 @@ it("repair/attach 422 when the engine cannot reconstruct", async () => {
 
 - [ ] **Step 3: Run to verify failure.** Run: `pnpm --filter @magna-carta/worker test run file-repair-attach`. Expected: FAIL (route 404).
 
-- [ ] **Step 4: Export the reused pieces** in `apps/worker/src/routes/file-repair.ts`: change `async function dispatchToRecovery` → `export async function dispatchToRecovery`, and `const RepairResultSchema` → `export const RepairResultSchema`.
+- [ ] **Step 4: Export the reused pieces** in `apps/worker/src/routes/files/file-repair.ts`: change `async function dispatchToRecovery` → `export async function dispatchToRecovery`, and `const RepairResultSchema` → `export const RepairResultSchema`.
 
-- [ ] **Step 5: Add the attach meta + helper + route** in `apps/worker/src/routes/file-repair.ts`:
+- [ ] **Step 5: Add the attach meta + helper + route** in `apps/worker/src/routes/files/file-repair.ts`:
 
 ```ts
 const attachBaseMeta = {
@@ -544,7 +544,7 @@ app.openapi(
 - [ ] **Step 7: Commit.**
 
 ```bash
-git add apps/worker/src/routes/file-repair.ts apps/worker/src/chokepoint apps/worker/test/file-repair-attach.test.ts
+git add apps/worker/src/routes/files/file-repair.ts apps/worker/src/chokepoint apps/worker/test/file-repair-attach.test.ts
 git commit -m "feat(worker): repair/attach route — new version or new file via the ingest gate, provenance persisted"
 ```
 
@@ -554,7 +554,7 @@ git commit -m "feat(worker): repair/attach route — new version or new file via
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/file-repair.ts` (add `carve/attach` route + a name sanitizer)
+- Modify: `apps/worker/src/routes/files/file-repair.ts` (add `carve/attach` route + a name sanitizer)
 - Test: extend `apps/worker/test/file-repair-attach.test.ts`
 
 **Interfaces:**
@@ -674,7 +674,7 @@ app.openapi(
 - [ ] **Step 5: Commit.**
 
 ```bash
-git add apps/worker/src/routes/file-repair.ts apps/worker/test/file-repair-attach.test.ts
+git add apps/worker/src/routes/files/file-repair.ts apps/worker/test/file-repair-attach.test.ts
 git commit -m "feat(worker): carve/attach route — N carved files into a matter folder, provenance per file"
 ```
 
@@ -715,7 +715,7 @@ Provide `driveIngestForVersion` (mirror how `ingest-consumer` tests build an `R2
 
 - [ ] **Step 3: Regenerate the OpenAPI contract.** Run the repo's emit script (`vp run emit-openapi` + `generate-client`, the same as 6a Task 6). Commit the regenerated artifacts with the routes.
 
-- [ ] **Step 4: Full worker gate.** Run: `pnpm --filter @magna-carta/worker test run` and `pnpm check` (fmt+lint+typecheck). Expected: PASS. Run the process-ref citation grep on the changed source: `git grep -nE "golden rule|ADR-[0-9]|spec §|slice [0-9]|Plan [0-9]" -- apps/worker/src/routes/file-repair.ts packages/data-access/src/file-repair-provenance-statements.ts` — expected: no matches.
+- [ ] **Step 4: Full worker gate.** Run: `pnpm --filter @magna-carta/worker test run` and `pnpm check` (fmt+lint+typecheck). Expected: PASS. Run the process-ref citation grep on the changed source: `git grep -nE "golden rule|ADR-[0-9]|spec §|slice [0-9]|Plan [0-9]" -- apps/worker/src/routes/files/file-repair.ts packages/data-access/src/file-repair-provenance-statements.ts` — expected: no matches.
 
 - [ ] **Step 5: Commit.**
 

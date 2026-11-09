@@ -16,7 +16,7 @@ import {
 
 setup("seed the local development firm", async ({ request }) => {
   // Bring the control-plane schema up first. In production a Cron trigger applies the control-plane
-  // migrations (apps/api-worker/src/scheduled.ts -> runScheduledSweep); wrangler dev does NOT auto-run
+  // migrations (apps/api-worker/src/background/scheduled.ts -> runScheduledSweep); wrangler dev does NOT auto-run
   // Cron, so a fresh Miniflare D1 has no `firm` table and the seed would 500. Hitting the scheduled
   // handler runs the same migration pass. Idempotent — re-running applies nothing new.
   const migrate = await request.get("/cdn-cgi/handler/scheduled");

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { beforeAll, describe, expect, it } from "vitest";
-import { runTieringSweep } from "../../src/editing/tiering-sweep.ts";
+import { runTieringSweep } from "../../src/background/editing/tiering-sweep.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 

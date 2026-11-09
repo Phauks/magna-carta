@@ -107,7 +107,7 @@ about the matter.
 
 Vocabulary discipline that lives in a convention document decays. This one becomes a source-scan
 fitness function, `pnpm run lint:conflicts-vocabulary`, modelled directly on the shipped
-`tooling/lint-custodian-vocabulary.mjs`. It scans `packages/conflicts/`, `apps/worker/src/routes/conflicts.ts`,
+`tooling/lint-custodian-vocabulary.mjs`. It scans `packages/conflicts/`, `apps/worker/src/routes/directory/conflicts.ts`,
 the conflicts OpenAPI descriptions, the conflicts surfaces of `apps/web`, and `docs/user/` for
 assertion vocabulary — `conflict-free`, `no conflicts`, `clear of conflicts`, `conflicts cleared`
 (as a property of a matter rather than of a hit), `check passed`, `all clear` — and fails the build.

@@ -32,7 +32,7 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   Google Magika's ML model (EMBEDDED in the `magika` crate, no runtime egress, no external model file) and
   returns the **raw facts** `RawIdentifyResult` (`label`, `score`, `group`, `magikaVersion`, `modelVersion`)
   — no verdict, no extension recommendation: the app decides whether the content type matches the claimed
-  extension (`apps/api-worker/src/routes/file-type.ts`). The session takes `&mut self`, so it lives behind a
+  extension (`apps/api-worker/src/http/routes/files/file-type.ts`). The session takes `&mut self`, so it lives behind a
   `Mutex` shared via `Arc<IdentifyEngine>` in `AppState`; inference runs on a `spawn_blocking` thread and a
   fault maps to the same retryable 503 as the scan path. NOTE: magika 1.1 is **not** pure Rust — it infers
   through `ort` (ONNX Runtime, C++); see Local rules.

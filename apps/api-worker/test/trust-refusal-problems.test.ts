@@ -6,7 +6,7 @@
 import type { Context } from "hono";
 import { describe, expect, it } from "vitest";
 import { TrustValidationError } from "@magna-carta/trust/trust-validation";
-import { problemResponseForTrustRefusal } from "../src/trust-refusal-problems";
+import { problemResponseForTrustRefusal } from "../src/http/trust-refusal-problems";
 
 function fakeContext(path: string): Context {
   return {

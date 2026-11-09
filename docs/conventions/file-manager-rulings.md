@@ -619,7 +619,7 @@ The owner's words this round: "the file manager area is really good."
   time but the reservation itself: it answered `Content-Type` beside the presigner's `content-type`,
   the browser merged the two into one doubled value, and the signature no longer matched. The
   development route never checks the signature, which is why the test pool had been green. The fix and
-  its test are in `apps/api-worker/src/routes/uploads.ts` and `apps/api-worker/test/uploads.test.ts`.
+  its test are in `apps/api-worker/src/http/routes/files/uploads.ts` and `apps/api-worker/test/uploads.test.ts`.
 - A22 rests on a small extension to the one grid: `orderRows` on the grid state and the exported
   `gridRowComparator`, so a hierarchy sorts by exactly the rule the flat table uses.
 - Harness: `tooling/file-manager-rulings/` pins the retired mockup and cannot see this dialog, so

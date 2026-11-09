@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { setCookies, liveCookie } from "./support/test-auth.ts";
 import { createAuth } from "../src/auth.ts";
-import { consumeFirmProvision } from "../src/firm-provision-consumer.ts";
+import { consumeFirmProvision } from "../src/background/firm-provision-consumer.ts";
 import { generateConfirmationToken, confirmationTokenHash } from "../src/joining-secrets.ts";
 
 // THE WHOLE WALK, once: a stranger registers, confirms, the firm is built off the request path, and

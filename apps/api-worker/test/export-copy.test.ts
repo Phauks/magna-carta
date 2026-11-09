@@ -227,6 +227,83 @@ describe("the export copy — the queue handler", () => {
     expect((await env.R2.get(`${r2Key}.accepted`))?.uploaded.toISOString()).toBe(uploadedAt);
   });
 
+  it("reads the version's marks into history, attributed to the member the name resolves to", async () => {
+    const body =
+      '<w:p><w:r><w:t xml:space="preserve">The court </w:t></w:r>' +
+      `<w:ins w:id="1" w:author="Export Owner" w:date="2026-09-24T10:00:00Z"><w:r><w:t xml:space="preserve">hereby </w:t></w:r></w:ins>` +
+      `<w:del w:id="2" w:author="Nobody Known" w:date="2026-09-24T10:05:00Z"><w:r><w:delText xml:space="preserve">never </w:delText></w:r></w:del>` +
+      "<w:r><w:t>orders.</w:t></w:r></w:p>";
+    const { fileId, versionId } = await seedVersion("attributed.docx", docx(body), {
+      saveKind: "explicit",
+    });
+    await runHandler(fileId, versionId);
+    const { results } = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "SELECT sequence, kind, author_name, author_user_id, changed_at, text, paragraph_index FROM file_version_change WHERE version_id = ?1 ORDER BY sequence",
+      )
+      .bind(versionId)
+      .all<{
+        sequence: number;
+        kind: string;
+        author_name: string;
+        author_user_id: string | null;
+        changed_at: string;
+        text: string;
+        paragraph_index: number;
+      }>();
+    expect(results).toEqual([
+      {
+        sequence: 0,
+        kind: "insertion",
+        author_name: "Export Owner",
+        author_user_id: ownerUserId,
+        changed_at: "2026-09-24T10:00:00Z",
+        text: "hereby ",
+        paragraph_index: 0,
+      },
+      {
+        sequence: 1,
+        kind: "deletion",
+        author_name: "Nobody Known",
+        author_user_id: null,
+        changed_at: "2026-09-24T10:05:00Z",
+        text: "never ",
+        paragraph_index: 0,
+      },
+    ]);
+
+    // A second version of the same file carrying the same marks plus one records only the new one.
+    const later = docx(
+      body.replace(
+        "<w:r><w:t>orders.</w:t></w:r>",
+        `<w:r><w:t>orders</w:t></w:r><w:ins w:id="3" w:author="Export Owner" w:date="2026-09-24T10:20:00Z"><w:r><w:t xml:space="preserve"> forthwith</w:t></w:r></w:ins><w:r><w:t>.</w:t></w:r>`,
+      ),
+    );
+    const secondVersionId = newIdentifier("fileVersion");
+    const secondKey = `files/${fileId}/${secondVersionId}`;
+    await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at, save_kind, export_copy_state) VALUES (?1, ?2, 2, ?3, ?4, ?5, 'clean', ?6, ?7, ?7, 'explicit', 'pending')",
+      )
+      .bind(
+        secondVersionId,
+        fileId,
+        secondKey,
+        later.byteLength,
+        `hash-${secondVersionId}`,
+        ownerUserId,
+        ISO,
+      )
+      .run();
+    await env.R2.put(secondKey, later);
+    await runHandler(fileId, secondVersionId);
+    const { results: second } = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare("SELECT text FROM file_version_change WHERE version_id = ?1 ORDER BY sequence")
+      .bind(secondVersionId)
+      .all<{ text: string }>();
+    expect(second.map((row) => row.text)).toEqual([" forthwith"]);
+  });
+
   it("a version that recorded nothing is ready at its own key, with no second object", async () => {
     const { fileId, versionId, r2Key } = await seedVersion("plain.docx", docx(PLAIN_BODY), {
       saveKind: "explicit",

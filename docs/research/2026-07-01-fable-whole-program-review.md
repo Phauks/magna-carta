@@ -67,7 +67,7 @@ per-area findings below.
    share one root: the `matter_number` UNIQUE backstop is render-accurate, not scope-accurate,
    so a scheme with a non-scoping variable segment lets two concurrent draws commit the same
    counter value. Option A: a `matter_number_allocation` table with `UNIQUE(scope_key,
-   counter_value)` + `UNIQUE(matter_id)` inserted inside the draw batch (the codebase's own
+counter_value)` + `UNIQUE(matter_id)` inserted inside the draw batch (the codebase's own
    assert-inside-the-batch idiom; closes both highs regardless of rendered string). Option B:
    require every variable segment to be scoping — changes product semantics (a firm can no
    longer put a non-scoping token in a number).
@@ -231,7 +231,7 @@ numeric boundary with no input validation.
 - `F-001` **Medium (CONFIRMED, downgraded from high)** — financial — `packages/money/src/allocate.ts:7` —
   `allocate()` documents a largest-remainder split but dinero.js 2.0.2 assigns leftover minor
   units to the largest weight, not the largest fractional remainder. Failure: `allocate($0.09,
-  [3,4])` returns [3¢, 6¢] where true largest-remainder gives [4¢, 5¢] (reproduced); weighted
+[3,4])` returns [3¢, 6¢] where true largest-remainder gives [4¢, 5¢] (reproduced); weighted
   settlement splits systematically favor the larger party and the split cannot be defended as
   "largest remainder" under audit. Fix: implement the distribution in-house at the seam
   (floor shares + remainder by descending fractional remainder), or document the actual rule
@@ -535,7 +535,7 @@ checks the wrong proxy.
   endpoint through green CI — no startup throw, no failing test. Fix: make composition
   structurally provable (brand/record composed routes and assert over `app.routes` at
   startup), or a registration helper that always injects the chokepoint.
-- `F-040` **Low (CONFIRMED, downgraded from medium)** — security — `apps/worker/src/routes/firms.ts:77` —
+- `F-040` **Low (CONFIRMED, downgraded from medium)** — security — `apps/worker/src/routes/platform/firms.ts:77` —
   the platform-admin secret guard runs before the rate-limit gate, so failed
   X-Platform-Admin-Key attempts are never throttled (only correct-key requests ever charge
   the bucket), leaving the provisioning credential open to unbounded online brute force and
@@ -612,7 +612,7 @@ both highs with the codebase's own assert-inside-the-batch idiom.
   closed_at and emits a second matter.closed outbox event. Failure: a June re-close moves a
   January close date — the date driving retention clocks — five months with no trace. Fix:
   refuse status 'closed' with a 409-mapped validation code plus an in-batch `AND status !=
-  'closed'` belt.
+'closed'` belt.
 - `F-046` **Medium (CONFIRMED)** — correctness — `packages/matters/src/close-preconditions.ts:18` —
   the close-precondition seam is check-then-act: preconditions run as reads before the commit
   batch and their contract cannot contribute an in-batch guard. Failure: when Phase 3 registers
@@ -625,7 +625,7 @@ both highs with the codebase's own assert-inside-the-batch idiom.
   no durable record. Failure: a court filing referencing the pre-renumber number a year later
   resolves to nothing anywhere in the system. Fix: record the prior number in the same batch
   (history row or audit metadata — loadMatter already fetched it).
-- `F-048` **Low (CONFIRMED)** — correctness — `apps/worker/src/routes/matters.ts:149` —
+- `F-048` **Low (CONFIRMED)** — correctness — `apps/worker/src/routes/matters/matters.ts:149` —
   serviceClock().today() is the UTC civil date, so year/date_opened segments render the UTC
   date: a Nevada matter opened 5pm on New Year's Eve is permanently numbered into the next
   year. Fix: derive today() from a firm timezone setting; until it exists, document the UTC
@@ -661,12 +661,12 @@ as raw 500s.
   second office named "RENO" throws a raw UNIQUE error → generic 500 with an Error ID and no
   clue why. Fix: validate in memory / pre-read what needs the database with stable codes,
   keeping the unique index as the race backstop mapped to 409.
-- `F-052` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/matters.ts:617` — nothing
+- `F-052` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/matters/matters.ts:617` — nothing
   anywhere reads location.status: a closed location still accepts new matters, feeds its
   number_code into fresh matter numbers, and takes new primary-office assignments — and its
   number_code occupies the unique index forever. Fix: enforce close semantics where new
   references are created; free the code on close or scope the unique index `WHERE status =
-  'active'`.
+'active'`.
 - `F-053` **Medium (CONFIRMED)** — correctness — `packages/locations/src/settings.ts:9` — the
   firm-default-Location machinery is half-built: no production write path for the setting
   exists, so the close-refusal guard never fires (an admin can close every office), and the
@@ -688,12 +688,12 @@ as raw 500s.
   `packages/database/drizzle/per-firm/0004_matters-locations-file-manager.sql:162` — the
   exactly-one-primary-per-member invariant has no schema backstop, unlike the module's other
   invariants. Fix: partial unique index `ON member_location (member_user_id) WHERE is_primary
-  = 1` in the next per-firm migration.
-- `F-057` **Low (CONFIRMED)** — reuse — `apps/worker/src/routes/locations.ts:520` — the GET
+= 1` in the next per-firm migration.
+- `F-057` **Low (CONFIRMED)** — reuse — `apps/worker/src/routes/matters/locations.ts:520` — the GET
   detail/list handlers inline raw location SQL duplicating selectLocationStatement, invisible
   to the schema-name-sync fitness test that pins every other location statement. Fix: move the
   reads into statements.ts and cover them.
-- `F-058` **Low (CONFIRMED)** — quality — `apps/worker/src/routes/locations.ts:40` — numberCode and
+- `F-058` **Low (CONFIRMED)** — quality — `apps/worker/src/routes/matters/locations.ts:40` — numberCode and
   the letterhead text fields have no format or length bounds: empty-string numberCode is
   accepted (and occupies the unique index); a multi-megabyte addressBlock lands in D1. Fix:
   zod min/max/charset constraints mirrored by a service-side non-empty rule.
@@ -726,7 +726,7 @@ orphans with no deletion path, mutations blind to soft-delete, dead-letters stra
   benign variants (image/jpg vs image/jpeg, OOXML sniffed as zip) false-quarantine too. Fix:
   an equivalence table for sniffed/declared families, accept the container types, quarantine
   only genuinely contradictory pairs.
-- `F-061` **Medium (CONFIRMED)** — financial — `apps/worker/src/routes/uploads.ts:617` — no path ever
+- `F-061` **Medium (CONFIRMED)** — financial — `apps/worker/src/routes/files/uploads.ts:617` — no path ever
   deletes R2 objects for abandoned outcomes (hash-skip duplicates, aborted PUT-mode sessions,
   expired PUTs). Failure: a re-uploaded 4 GB deposition video's bytes stay in R2 forever,
   invisible to the meter (reconciliation deliberately excludes non-clean keys) while accruing
@@ -822,7 +822,7 @@ be fixed before any real firm uploads a file.
   re-request, livelocked permanently for that manifest hash. Fix: let the caller force a
   rebuild after observing the artifact missing (artifactMissing flag treating 'ready' as
   'failed'), covered by a DO test.
-- `F-074` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/uploads.ts:571` —
+- `F-074` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/files/uploads.ts:571` —
   uploads.complete is not idempotent across its two-phase commit: if R2's
   completeMultipartUpload succeeds but the D1 status flip fails, every retry re-calls the R2
   complete, which now 404s and throws (unlike abort, which tolerates 404). Failure (an earlier
@@ -831,7 +831,7 @@ be fixed before any real firm uploads a file.
   a permanently failing complete, the session terminates 'expired' instead of 'completed', and
   the upload_completed audit row is never written on an audited route. Fix: on 404 from the R2
   complete, HEAD the session's key and treat an existing object as already-done.
-- `F-075` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/uploads.ts:456` — if the
+- `F-075` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/files/uploads.ts:456` — if the
   deferred createMultipartUpload throws after the idempotency batch commits, the stored 201
   actively blocks repair: a same-key retry replays it and skips the multipart create, leaving
   r2_upload_id null forever and every sign-part a 409. Fix: run the deferred-create repair on
@@ -849,7 +849,7 @@ be fixed before any real firm uploads a file.
   same versions every week forever — dead traffic that will still be no-ops when the real
   engine lands. Fix: gate the sweep on a real engine being resolvable, or land a distinct
   rescan message shape with a committed-version verdict-update path.
-- `F-078` **Low (PLAUSIBLE)** — quality — `apps/worker/src/routes/uploads.ts:41` — SESSION_TTL_MS /
+- `F-078` **Low (PLAUSIBLE)** — quality — `apps/worker/src/routes/files/uploads.ts:41` — SESSION_TTL_MS /
   STUCK_DEADLINE_MS use the 'MS' shorthand the naming rule forbids while the sibling cron file
   spells MILLISECONDS in full. Fix: mechanical rename.
 
@@ -887,7 +887,7 @@ non-negotiable. All three are cheap, localized fixes.
   references to a merged-away subordinate through the ordinary API. Failure: a stale tab adds
   a matter party pointing at the archived subordinate — immediately flagged dangling by the
   fitness probe, invisible in search, resolving to the master nowhere. Fix: `AND status !=
-  'merged_into'` in the guard with a distinct error; regression tests per write path.
+'merged_into'` in the guard with a distinct error; regression tests per write path.
 - `F-082` **Medium (CONFIRMED)** — correctness — `packages/directory/src/name-history.ts:70` —
   changeName is missing the assertEntityExists guard its sibling addName has: renaming a
   nonexistent entity inserts an orphan current-flagged name row plus phonetic codes into the
@@ -980,13 +980,13 @@ missing field, or a scale round-trip across Convert.
   cap check while the caps count only active rows, so archive/define/unarchive cycles push
   active field counts arbitrarily past the anti-bloat ceilings the read fan-out was calibrated
   against. Fix: run assertWithinFieldCaps in unarchive.
-- `F-095` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/custom-fields.ts:251` — the
+- `F-095` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/firm/custom-fields.ts:251` — the
   contract is asymmetric on numeric scaling: writes accept a plain decimal and scale it, reads
   return the raw scaled integer while neither value rows nor the resolved-field response
   exposes number_scale (or kind), so a client cannot reconstruct the actual value — 1234
   displayed for $12.34. Fix: expose number_scale + kind, or descale at the route so the API
   speaks decimals both ways; regenerate the contract in the same commit.
-- `F-096` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/custom-fields.ts:229` — date
+- `F-096` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/firm/custom-fields.ts:229` — date
   values are never validated: any string stores on a date field, and Convert's prefix regex
   classifies "2025-13-99" and "2025-01-15 lunch with client" as clean dates, breaking every
   downstream sort/range/report over value_date. Fix: full ISO shape + calendar round-trip at
@@ -996,7 +996,7 @@ missing field, or a scale round-trip across Convert.
   latent no-floats violation that activates when the confirmed-rule apply path is wired, and
   it never applies currency scaling. Fix: round or refuse non-integral results now, with a
   comment pinning the caller's scaling obligation.
-- `F-098` **Low (CONFIRMED)** — quality — `apps/worker/src/routes/custom-fields.ts:178` — unbounded
+- `F-098` **Low (CONFIRMED)** — quality — `apps/worker/src/routes/firm/custom-fields.ts:178` — unbounded
   contract inputs: numberScale accepts any int (10^300 → Infinity at scaling time → unhandled
   bind failure) and names/text values have no maximum length, so a single value can push
   hundreds of KB into a D1 row. Fix: int().min(0).max(8) on numberScale and sensible max()
@@ -1052,7 +1052,7 @@ repairable without redesign.
   loadProfileSnapshot and thread it through, recording a single manifest-level firmId.
 - `F-104` **Low (CONFIRMED)** — reuse —
   `packages/fixtures/src/load-profile/protected-generate.ts:136` — the raw `INSERT INTO
-  incident` duplicates the identical literal in the incidents route — a raw business-table
+incident` duplicates the identical literal in the incidents route — a raw business-table
   INSERT the package's own CLAUDE.md declares a bug. Fix: extract an insertIncidentStatement
   builder into data-access and use it from both.
 - `F-105` **Low (CONFIRMED)** — quality —
@@ -1124,7 +1124,7 @@ wiring.
   standard-1 instance — OOM risk plus CPU serialization; a scan exceeding the 11-minute adapter
   timeout re-queues, so sustained load backs the queue up indefinitely, contradicting the
   engine's own horizontal-throughput design. Fix: distribute via `getRandom(env.SCAN_CONTAINER,
-  N)` or sharded ids with a warm-poke per instance, or lower `max_instances` to 1 and document
+N)` or sharded ids with a warm-poke per instance, or lower `max_instances` to 1 and document
   single-instance scanning as intent. (Owner decision #3.)
 - `F-110` **Medium (CONFIRMED)** — correctness — `containers/scan/src/main.rs:11` — `engineVersion` is
   `clamav+yara-x/{yara_x lib}+heuristics/1`: the `clamav` token is unversioned and the
@@ -1286,7 +1286,7 @@ inflation actually happens.
   comment-part allow-list misses `word/commentsExtensible.xml` (M365, w16cex), so per-comment
   `dateUtc` timestamps survive a comments scrub. Fix: add it to `COMMENT_PART_PATTERN`,
   `stripCommentRels`, and the inspect check.
-- `F-132` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/metadata.ts:53` — the route
+- `F-132` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/files/metadata.ts:53` — the route
   `atob`-decodes unbounded base64 before any size check, and invalid base64 throws uncaught
   (500 instead of 400) while a ~90 MB body allocates hundreds of MB before `oversize()` runs.
   Fix: `z.string().min(1).max(21_000_000)` with a base64 regex; wrap decode in try/catch → 400.
@@ -1297,7 +1297,7 @@ inflation actually happens.
   `TargetMode != External`).
 - `F-134` **Medium (CONFIRMED)** — correctness — `packages/metadata/src/image/jpeg.ts:25` — when
   `walkSegments` loses sync (fill bytes, wrong length, truncation) it returns `scanStart =
-  bytes.length`, and `scrubJpeg` emits a header-only image with an appended EOI — silently
+bytes.length`, and `scrubJpeg` emits a header-only image with an appended EOI — silently
   destroying the picture instead of failing `corrupt`. Fix: track whether SOS was reached and
   throw if not; skip spec-legal `0xFF` fill padding.
 - `F-135` **Low (CONFIRMED)** — correctness — `packages/metadata/src/ooxml/scrub.ts:85` — dropping
@@ -1323,7 +1323,7 @@ attempts (IPv4-embedded IPv6 classification, WHATWG-URL normalization, per-hop r
 re-guard). Defects concentrate in the shipping worker slice's financial edges and in a
 nonfunctional whois IP path — none undermine the architecture.
 
-- `F-138` **High (CONFIRMED)** — financial — `apps/worker/src/routes/shipping.ts:505` — the purchase
+- `F-138` **High (CONFIRMED)** — financial — `apps/worker/src/routes/communications/shipping.ts:505` — the purchase
   route's double-buy protection rests on an EasyPost `Idempotency-Key` header EasyPost does not
   support (verified against EasyPost docs). Failure: a buy that succeeds remotely but fails
   locally (label fetch / R2 / D1) leaves the effect uncommitted; the retry re-buys, EasyPost
@@ -1335,8 +1335,8 @@ nonfunctional whois IP path — none undermine the architecture.
   to EasyPost, so requested insurance is silently never bought while the row records it as
   purchased — direct malpractice exposure on lost original documents. Fix: send EasyPost's
   `insurance` buy parameter; until wired, 422 requests that set it.
-- `F-140` **High (CONFIRMED)** — tenancy — `apps/worker/src/routes/shipping.ts:573` — `GET
-  /shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no
+- `F-140` **High (CONFIRMED)** — tenancy — `apps/worker/src/routes/communications/shipping.ts:573` — `GET
+/shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no
   firm-ownership check, so any member of any firm with `shipping:manage` can stream another
   firm's label (client name + address) by id — the sole R2 route that skips the firm DB. Fix:
   select the shipment from `firm.firmDatabase`, serve only its stored key, prefix keys with firm
@@ -1347,19 +1347,19 @@ nonfunctional whois IP path — none undermine the architecture.
   mis-routed; zero IP-path test coverage for a route whose OpenAPI advertises IP lookup. Fix:
   real numeric CIDR containment (longest-prefix) for v4/v6, strip brackets before RDAP routing,
   map no-RDAP to a typed 4xx.
-- `F-142` **High (CONFIRMED)** — correctness — `apps/worker/src/routes/shipping.ts:381` — reconnecting
+- `F-142` **High (CONFIRMED)** — correctness — `apps/worker/src/routes/communications/shipping.ts:381` — reconnecting
   (API-key rotation) is impossible: connect always INSERTs a new `integration_connection` row,
   but a UNIQUE index on `(category, principal_ref)` makes every connect after the first throw a
   500, and there is no disconnect/update route (`deleteConnectionStatement`/
   `updateConnectionStatusStatement` have zero callers). Failure: a firm rotating a compromised
   key is dead-ended with the old revoked key. Fix: make connect an upsert on conflict; add a
   DELETE route; key the secret deterministically.
-- `F-143` **Medium (CONFIRMED)** — financial — `apps/worker/src/routes/shipping.ts:515` — purchase buys
+- `F-143` **Medium (CONFIRMED)** — financial — `apps/worker/src/routes/communications/shipping.ts:515` — purchase buys
   from EasyPost before verifying the draft exists and never reconciles the supplied
   `remoteShipmentId`/`remoteRateId` with the draft — money spent against a nonexistent/mismatched
   row, or attached to the wrong draft's addresses. Fix: select the draft first (404/409), verify
   the remote id matches the one persisted at rate time.
-- `F-144` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/shipping.ts:522` —
+- `F-144` **Medium (CONFIRMED)** — correctness — `apps/worker/src/routes/communications/shipping.ts:522` —
   `fetch(label.labelUrl)` never checks `response.ok` before storing the body as the permanent
   label PDF, so a transient EasyPost CDN 503 HTML page is stored and served forever as the
   label. Fix: `if (!labelResponse.ok) throw` so the idempotent effect retries.
@@ -1408,7 +1408,7 @@ file-type report honestly maps Magika sentinels to `unverifiable` and isolates i
 as retryable 503s; the ai-detection core has real signal-not-proof enforcement (low reliability
 collapses band + segments; consent off by default). All findings are medium/low.
 
-- `F-152` **Medium (CONFIRMED)** — security — `apps/worker/src/routes/file-type.ts:100` (and
+- `F-152` **Medium (CONFIRMED)** — security — `apps/worker/src/routes/files/file-type.ts:100` (and
   `file-integrity.ts:185`) — the per-firm inspectable-size cap is enforced only against the
   client `Content-Length` header, so a missing/malformed header (`Number(undefined ?? "0")=0`,
   `Number("abc")=NaN`) bypasses it entirely — a body far above the cap streams into the hasher
@@ -1461,7 +1461,7 @@ dormant inference pipeline, to fix before the first AI feature's producer lands.
   make `emitUsage` never-throw. (Counted once across the two areas; owner decision #8.)
 - `F-158` **Medium (CONFIRMED)** — correctness — `packages/inference/src/gateway.ts:218` —
   `generateStream` is written against a binding shape that does not exist: real `env.AI.run(...,
-  stream:true)` returns a ReadableStream of SSE bytes, so `String(delta)` yields comma-joined
+stream:true)` returns a ReadableStream of SSE bytes, so `String(delta)` yields comma-joined
   byte numbers and `extractUsage` on a stream handle returns `{0,0}` — streaming output is
   garbage and streaming runs are never metered; the same gap applies to `generate`'s `{prompt}`
   body for anthropic/\* models. The deferred "composition-root translation" the comments promise
@@ -1603,11 +1603,11 @@ Findings:
   (`crates/recovery-core` for file repair next to decryption-tool's `crates/decryption-core` +
   `apps/recovery-worker` + `containers/recovery` for password recovery), guaranteeing a merge
   path collision and eroding name clarity (golden rule 12). No guard reserves the path; `vp run
-  worktrees` is advisory. Fix: reconcile now in the active-work notes — give the file-repair
+worktrees` is advisory. Fix: reconcile now in the active-work notes — give the file-repair
   container a domain-specific path (e.g. `containers/file-repair`) and reserve `containers/
-  recovery` + `apps/recovery-worker` for decryption (or rename decryption's artifacts
+recovery` + `apps/recovery-worker` for decryption (or rename decryption's artifacts
   `password-recovery`). (Owner decision — see roadmap in-flight streams.)
-- `F-173` **Low (CONFIRMED)** — correctness — `apps/worker/src/routes/decryption.ts:373`
+- `F-173` **Low (CONFIRMED)** — correctness — `apps/worker/src/routes/files/decryption.ts:373`
   (decryption-tool) — a failed unlock (wrong password / unreadable) returns 400 without writing
   any audit row, so unsuccessful decryption attempts leave no chain-of-custody trace while the
   success path is fully audited — an asymmetry a legal chain-of-custody tool should not have.
@@ -1677,11 +1677,11 @@ table.
 | 20  | High         | Privileged part classes untouched + unreported (thumbnail/customXml/docVars/mail-merge) | metadata (wave 3)                 | `packages/metadata/src/ooxml/scrub.ts:80`                     | Drop parts + overrides + rels; emit findings                                         | **S1** |
 | 21  | High         | JPEG after-EOI payload (motion-photo video/audio, polyglot) survives scrub              | metadata (wave 3)                 | `packages/metadata/src/image/jpeg.ts:93`                      | Truncate at genuine EOI, or surface a finding                                        | **S1** |
 | 22  | High         | Inflation cap 200 MB > 128 MiB isolate → OOM on compliant archive                       | metadata (wave 3)                 | `packages/metadata/src/guards.ts:4`                           | Lower cap to ~48–64 MB; streaming unzip the durable fix                              | **S1** |
-| 23  | High         | EasyPost `Idempotency-Key` unsupported → paid-but-failed purchase, retries 422 forever  | shipping (wave 3)                 | `apps/worker/src/routes/shipping.ts:505`                      | Recover-by-read on replayed key / purchase-pending marker                            | **S1** |
+| 23  | High         | EasyPost `Idempotency-Key` unsupported → paid-but-failed purchase, retries 422 forever  | shipping (wave 3)                 | `apps/worker/src/routes/communications/shipping.ts:505`       | Recover-by-read on replayed key / purchase-pending marker                            | **S1** |
 | 24  | High         | Requested insurance silently never bought (record misrepresents)                        | shipping (wave 3)                 | `packages/shipping/src/easypost/map.ts:165`                   | Send EasyPost `insurance` buy param; 422 until wired                                 | **S1** |
-| 25  | High         | Label GET reads shared bucket by path id — cross-firm label leak                        | shipping (wave 3)                 | `apps/worker/src/routes/shipping.ts:573`                      | Serve from firm-verified row's stored key; firm-prefix keys                          | **S1** |
+| 25  | High         | Label GET reads shared bucket by path id — cross-firm label leak                        | shipping (wave 3)                 | `apps/worker/src/routes/communications/shipping.ts:573`       | Serve from firm-verified row's stored key; firm-prefix keys                          | **S1** |
 | 26  | High         | Whois IP path nonfunctional (string-prefix CIDR, raw 500)                               | shipping/whois (wave 3)           | `packages/whois/src/rdap.ts:136`                              | Numeric CIDR containment v4/v6; strip brackets; typed 4xx                            | **S3** |
-| 27  | High         | API-key rotation impossible (connect always INSERTs into a UNIQUE index)                | shipping (wave 3)                 | `apps/worker/src/routes/shipping.ts:381`                      | Upsert on conflict; add DELETE route; deterministic secret key                       | **S2** |
+| 27  | High         | API-key rotation impossible (connect always INSERTs into a UNIQUE index)                | shipping (wave 3)                 | `apps/worker/src/routes/communications/shipping.ts:381`       | Upsert on conflict; add DELETE route; deterministic secret key                       | **S2** |
 | 28  | High         | PDF `split()` embeds dropped pages via kept-page annotation refs                        | pdf-engine (wave 3)               | `crates/pdf-core/src/generate.rs:203`                         | Strip/drop annotations whose dest is outside the kept set                            | **S2** |
 | 29  | High         | Surgery-mode redaction leaves annotations painting over the black box                   | pdf-engine (wave 3)               | `crates/pdf-core/src/redact.rs:353`                           | Delete rect-intersecting annotations, or force flatten fallback                      | **S2** |
 

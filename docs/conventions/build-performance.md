@@ -65,6 +65,13 @@ The standing shape, worked in `apps/api-worker/src/index.ts` + `src/event-dispat
   wrangler check startup` writes a local CPU profile and total. The split took the app worker from
   roughly 1.5 s to 0.24 s of local startup work. Local CPU is not Cloudflare CPU; treat the number
   as a trend, not the deployed truth.
+- **The gate measures it on every code change.** The `startup` dimension of `pnpm gate`
+  (`tooling/gate/startup.mjs`) runs the same check, reads the span out of the profile it writes, and
+  prints it beside the previous run recorded on this machine, so a step change is read in the
+  summary as a trend rather than discovered as a refused deploy. It never fails on a threshold, for
+  the reason above: the number is local. What grows it is the route graph — every route module
+  builds its schemas when it is evaluated, so the first request to a fresh isolate pays for every
+  operation whichever one it asked for.
 
 The same rule binds every worker in the fleet: a new consumer, sweep, or route joins the
 event-dispatch graph, never the entrypoint's static imports.
@@ -735,7 +742,7 @@ runs the same assemblers by hand ([`docs/maintenance/README.md`](../maintenance/
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
 - **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
-- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/api-worker`'s whole-program type graph. Because the worker depends _directly_ on 39 of the 61 workspace packages, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. **Scoping is exhausted as a lever, measured in both directions** (2026-08-05): at package granularity by the fan-out above, and at _file_ granularity too — a reverse-import closure over the repository's own module graph still reaches 70–80% of the worker's 394 files for 37 of its 38 package dependencies, because `apps/api-worker/src/app.ts` mounts every route and 157 files import it. So the remaining structural fix is the dependency shape itself: `--defer-fanout-sinks` below moves the cost to a cheaper pass, it does not remove it.
+- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/api-worker`'s whole-program type graph. Because the worker depends _directly_ on 39 of the 61 workspace packages, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. **Scoping is exhausted as a lever, measured in both directions** (2026-08-05): at package granularity by the fan-out above, and at _file_ granularity too — a reverse-import closure over the repository's own module graph still reaches 70–80% of the worker's 394 files for 37 of its 38 package dependencies, because `apps/api-worker/src/http/app.ts` mounts every route and 157 files import it. So the remaining structural fix is the dependency shape itself: `--defer-fanout-sinks` below moves the cost to a cheaper pass, it does not remove it.
 
 ### Scope the gate's type-aware lint to the affected packages (now)
 
@@ -805,7 +812,7 @@ pays here:
   repository's own module graph, resolved with the TypeScript resolver rather than guessed. Sound in
   principle, and measured worth roughly a quarter of the worst case: for **37 of the worker's 38
   package dependencies the closure still reaches 70–80% of its 394 files**, because
-  `apps/api-worker/src/app.ts` mounts every route and 157 files import it. That buys a fraction off the tall
+  `apps/api-worker/src/http/app.ts` mounts every route and 157 files import it. That buys a fraction off the tall
   pole in exchange for a module-resolution graph whose failure mode — a specifier that quietly resolves
   to nothing — is silent under-linting on a merge gate. Not worth it until the hub itself is broken up.
 - **Content-hash caching of a package's lint result**, keyed on the package plus its dependency

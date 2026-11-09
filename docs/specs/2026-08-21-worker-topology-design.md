@@ -46,11 +46,11 @@ buys nothing on this platform.
 
 This is the real segmentation gain, and it is orthogonal to every naming question.
 
-| Import                    | Used by                                                                                      | Proposed home     | Why that home                                                                              |
-| ------------------------- | -------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------ |
-| `@magna-carta/pdf`        | `assemblies/pdf-form-engine.ts` (AcroForm fill), `search/text-extraction.ts`                 | `sign-worker`     | Already carries the same WebAssembly for `/seal`; the service-binding shape already exists |
-| `@magna-carta/decryption` | `routes/decryption.ts`, `routes/recovery.ts`                                                 | `recovery-worker` | Already runs `decryption-core` inside its Container                                        |
-| `@magna-carta/email`      | `emails/capture-consumer.ts`, `emails/attachment-extraction.ts`, `routes/email-inspector.ts` | `email-worker`    | Already the inbound mail entrance; parsing belongs at the entrance                         |
+| Import                    | Used by                                                                                            | Proposed home     | Why that home                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------ |
+| `@magna-carta/pdf`        | `assemblies/pdf-form-engine.ts` (AcroForm fill), `search/text-extraction.ts`                       | `sign-worker`     | Already carries the same WebAssembly for `/seal`; the service-binding shape already exists |
+| `@magna-carta/decryption` | `routes/files/decryption.ts`, `routes/files/recovery.ts`                                           | `recovery-worker` | Already runs `decryption-core` inside its Container                                        |
+| `@magna-carta/email`      | `emails/capture-consumer.ts`, `emails/attachment-extraction.ts`, `routes/email/email-inspector.ts` | `email-worker`    | Already the inbound mail entrance; parsing belongs at the entrance                         |
 
 Each move is the shape `/seal` already uses: a port in the core, a service binding, a thin adapter.
 None of the three needs a new Worker.

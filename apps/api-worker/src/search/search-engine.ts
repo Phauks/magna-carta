@@ -15,7 +15,7 @@ import {
 } from "@magna-carta/search/port";
 import type { CorpusScope } from "@magna-carta/search/corpus";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import {
   SPLIT_OBJECT_HOST,
   SPLIT_OBJECT_PATH_PREFIX,

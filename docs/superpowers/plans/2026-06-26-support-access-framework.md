@@ -34,9 +34,9 @@
 - `apps/worker/src/support/tier-permissions.ts` — `DIAGNOSTIC_PERMISSIONS` + `resolveSupportPermissions`.
 - `apps/worker/src/support/resolve-support-session.ts` — header token → live grant check → `SessionContext`.
 - `apps/worker/src/support/support-audit.ts` — `writeSupportAudit` helper.
-- `apps/worker/src/routes/support-grants.ts` — request / list / cosign / revoke routes.
-- `apps/worker/src/routes/support-sessions.ts` — staff redeem route (mints the token).
-- `apps/worker/src/routes/support-diagnostics.ts` — diagnostic overview read route.
+- `apps/worker/src/routes/support/support-grants.ts` — request / list / cosign / revoke routes.
+- `apps/worker/src/routes/support/support-sessions.ts` — staff redeem route (mints the token).
+- `apps/worker/src/routes/support/support-diagnostics.ts` — diagnostic overview read route.
 - `packages/database/drizzle/control-plane/0003_support-access.sql` — generated control-plane migration.
 - `packages/database/drizzle/per-firm/00NN_support-access-permissions.sql` — hand-authored role-seed migration.
 - Test files alongside each (paths given per task).
@@ -1521,7 +1521,7 @@ git commit -m "feat(support): support audit helper over the auth_audit lineage"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/support-grants.ts` (request + list; cosign/revoke added in Task 12)
+- Create: `apps/worker/src/routes/support/support-grants.ts` (request + list; cosign/revoke added in Task 12)
 - Modify: `apps/worker/src/app.ts` (register the route module)
 - Test: `apps/worker/test/support-grants.test.ts`
 
@@ -1589,7 +1589,7 @@ Expected: FAIL — route not registered (404) / module not found.
 
 - [ ] **Step 3: Implement the request + list routes**
 
-Create `apps/worker/src/routes/support-grants.ts`:
+Create `apps/worker/src/routes/support/support-grants.ts`:
 
 ```typescript
 import { z } from "@hono/zod-openapi";
@@ -1782,7 +1782,7 @@ export function registerSupportGrantsRoutes(
 In `apps/worker/src/app.ts`, add the import and call alongside the other `register…Route(app, chokepoint)` calls:
 
 ```typescript
-import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
+import { registerSupportGrantsRoutes } from "./routes/support/support-grants.ts";
 // ... within createApp, with the other registrations:
 registerSupportGrantsRoutes(app, chokepoint);
 ```
@@ -1801,7 +1801,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/support-grants.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-grants.test.ts
+git add apps/worker/src/routes/support/support-grants.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-grants.test.ts
 git commit -m "feat(support): request + list support-grant routes"
 ```
 
@@ -1811,7 +1811,7 @@ git commit -m "feat(support): request + list support-grant routes"
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/support-grants.ts` (add cosign + revoke)
+- Modify: `apps/worker/src/routes/support/support-grants.ts` (add cosign + revoke)
 - Test: `apps/worker/test/support-grants-manage.test.ts`
 
 **Interfaces:**
@@ -1890,7 +1890,7 @@ Expected: FAIL — routes not registered (404 for the cosign/revoke paths, but t
 
 - [ ] **Step 3: Implement cosign + revoke**
 
-In `apps/worker/src/routes/support-grants.ts`, add the imports:
+In `apps/worker/src/routes/support/support-grants.ts`, add the imports:
 
 ```typescript
 import {
@@ -2041,7 +2041,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/worker/src/routes/support-grants.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-grants-manage.test.ts
+git add apps/worker/src/routes/support/support-grants.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-grants-manage.test.ts
 git commit -m "feat(support): co-sign + revoke support-grant routes"
 ```
 
@@ -2051,7 +2051,7 @@ git commit -m "feat(support): co-sign + revoke support-grant routes"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/support-sessions.ts`
+- Create: `apps/worker/src/routes/support/support-sessions.ts`
 - Modify: `apps/worker/src/app.ts` (register)
 - Test: `apps/worker/test/support-sessions.test.ts`
 
@@ -2156,7 +2156,7 @@ Expected: FAIL — route not registered.
 
 - [ ] **Step 3: Implement the redeem route**
 
-Create `apps/worker/src/routes/support-sessions.ts`:
+Create `apps/worker/src/routes/support/support-sessions.ts`:
 
 ```typescript
 import { z } from "@hono/zod-openapi";
@@ -2306,7 +2306,7 @@ export function registerSupportSessionsRoute(
 In `apps/worker/src/app.ts`:
 
 ```typescript
-import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
+import { registerSupportSessionsRoute } from "./routes/support/support-sessions.ts";
 // ... within createApp:
 registerSupportSessionsRoute(app, chokepoint);
 ```
@@ -2325,7 +2325,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/support-sessions.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-sessions.test.ts
+git add apps/worker/src/routes/support/support-sessions.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-sessions.test.ts
 git commit -m "feat(support): staff redeem route mints a support-session token"
 ```
 
@@ -2335,7 +2335,7 @@ git commit -m "feat(support): staff redeem route mints a support-session token"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/support-diagnostics.ts`
+- Create: `apps/worker/src/routes/support/support-diagnostics.ts`
 - Modify: `apps/worker/src/app.ts` (register)
 - Test: `apps/worker/test/support-diagnostics.e2e.test.ts`
 
@@ -2429,7 +2429,7 @@ Expected: FAIL — route not registered (404 instead of 200/403).
 
 - [ ] **Step 3: Implement the diagnostic overview route**
 
-Create `apps/worker/src/routes/support-diagnostics.ts`:
+Create `apps/worker/src/routes/support/support-diagnostics.ts`:
 
 ```typescript
 import { z } from "@hono/zod-openapi";
@@ -2522,7 +2522,7 @@ export function registerSupportDiagnosticsRoute(
 In `apps/worker/src/app.ts`:
 
 ```typescript
-import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
+import { registerSupportDiagnosticsRoute } from "./routes/support/support-diagnostics.ts";
 // ... within createApp:
 registerSupportDiagnosticsRoute(app, chokepoint);
 ```
@@ -2547,7 +2547,7 @@ Expected: PASS (watch for the Miniflare OOM gotcha — re-run the worker suite a
 - [ ] **Step 8: Commit**
 
 ```bash
-git add apps/worker/src/routes/support-diagnostics.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-diagnostics.e2e.test.ts
+git add apps/worker/src/routes/support/support-diagnostics.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json packages/api-client apps/worker/test/support-diagnostics.e2e.test.ts
 git commit -m "feat(support): diagnostic overview route + end-to-end tier enforcement"
 ```
 

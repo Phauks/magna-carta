@@ -113,7 +113,7 @@ does not trust, renders it remotely, and hands back only inert data — a screen
 text/Markdown, the page title, outbound links, and a redirect chain from a separately guarded probe.
 The live page never loads in the user's browser, and that non-interactivity is the safety property.
 
-It is wired as follows: `apps/worker/src/routes/safe-browse.ts` builds a `BrowserRenderer` from the
+It is wired as follows: `apps/worker/src/routes/tools/safe-browse.ts` builds a `BrowserRenderer` from the
 `env.BROWSER` Workers binding and calls `quickAction("snapshot", { url, formats: ["screenshot",
 "markdown"] })` plus a best-effort `quickAction("links", { url })`. The binding is declared in
 `apps/worker/wrangler.jsonc` as `"browser": { "binding": "BROWSER" }`. The orchestration lives in
@@ -126,7 +126,7 @@ we have designed and deliberately left open (section 5.2).
 One incidental finding, independent of Kitesurf and worth fixing whoever gets there first: the product
 has been **renamed from Browser Rendering to Browser Run**, and the repository still says the old name
 in ADR-0119, in `packages/safe-browse/CLAUDE.md`, and in the comments in
-`apps/worker/src/routes/safe-browse.ts`. Cloudflare's own documentation is mid-rename too — the
+`apps/worker/src/routes/tools/safe-browse.ts`. Cloudflare's own documentation is mid-rename too — the
 Kitesurf page uses `/browser-run/screenshot` URLs while the limits page still shows
 `/browser-rendering/content`.
 
@@ -513,4 +513,4 @@ ADR-0162 (the pure-Rust PDF engine), ADR-0204 (the LibreOffice engine), ADR-0003
 [`docs/research/2026-08-06-cloudflare-ai-search-assessment.md`](2026-08-06-cloudflare-ai-search-assessment.md);
 [`docs/specs/2026-06-22-whois-and-safe-website-viewer-design.md`](../specs/2026-06-22-whois-and-safe-website-viewer-design.md);
 [`docs/operating-costs.md`](../operating-costs.md); `packages/safe-browse/CLAUDE.md`;
-`apps/worker/src/routes/safe-browse.ts`; `apps/worker/wrangler.jsonc`.
+`apps/worker/src/routes/tools/safe-browse.ts`; `apps/worker/wrangler.jsonc`.
