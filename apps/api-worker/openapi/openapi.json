@@ -27221,6 +27221,46 @@
               "null"
             ]
           },
+          "callerIdName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "answered",
+              "transferred",
+              "messageTaken",
+              "spam",
+              "connected",
+              "voicemailLeft",
+              "noAnswer",
+              null
+            ]
+          },
+          "spamKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sales",
+              "wrongNumber",
+              "scam",
+              null
+            ]
+          },
+          "messageTaskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -27250,6 +27290,10 @@
           "summary",
           "producer",
           "loggedByUserId",
+          "callerIdName",
+          "outcome",
+          "spamKind",
+          "messageTaskId",
           "createdAt",
           "updatedAt"
         ]
@@ -27377,6 +27421,44 @@
               "noAction",
               null
             ]
+          },
+          "callerIdName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "answered",
+              "transferred",
+              "messageTaken",
+              "spam",
+              "connected",
+              "voicemailLeft",
+              "noAnswer",
+              null
+            ]
+          },
+          "spamKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sales",
+              "wrongNumber",
+              "scam",
+              null
+            ]
+          },
+          "message": {
+            "$ref": "#/components/schemas/CallMessageRequest"
           }
         },
         "required": [
@@ -27384,6 +27466,45 @@
           "direction",
           "counterpartyNumber",
           "occurredAt"
+        ]
+      },
+      "CallMessageRequest": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "forUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "urgent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "forUserId",
+          "title"
         ]
       },
       "CommunicationAcknowledged": {

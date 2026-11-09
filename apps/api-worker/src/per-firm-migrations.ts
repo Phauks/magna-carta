@@ -93,7 +93,8 @@ export function perFirmMigrations(): Migration[] {
     "20261109T180511_a-matter-file-carries-its-destruction-date":
       aMatterFileCarriesItsDestructionDateSql,
     "20261109T192537_attorney-sub-roles": attorneySubRolesSql,
-    "20261109T223925_a-call-records-what-happened-on-the-line": aCallRecordsWhatHappenedOnTheLineSql,
+    "20261109T223925_a-call-records-what-happened-on-the-line":
+      aCallRecordsWhatHappenedOnTheLineSql,
   });
 }
 
