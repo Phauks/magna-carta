@@ -483,6 +483,18 @@ export const addressesLookup = defineMetric("addresses.lookup", [
   "outcome",
 ] as const);
 
+// One paid caller-identity lookup a member pressed for, by which engine answered and how it came
+// out. Every `found` is a billed query, so this is the number that drives the provider's bill, and
+// `failed` climbing is the first sign the key was revoked or the balance ran out. `cached` is a press
+// answered from the firm's kept answer, which cost nothing. No dimension can hold the number or the
+// name: both are a person's.
+//   engine:  telnyx | deferred
+//   outcome: found | cached | not-covered | unavailable | failed
+export const communicationsCallerLookup = defineMetric("communications.caller_lookup", [
+  "engine",
+  "outcome",
+] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -552,6 +564,7 @@ const CATALOG: readonly MetricDefinition[] = [
   emailDeliveryFailed,
   downloadsShelfSwept,
   addressesLookup,
+  communicationsCallerLookup,
   exportsCopyProduced,
   exportsCopyRequestFailed,
   exportsCopyMalformedPayload,
