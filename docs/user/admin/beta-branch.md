@@ -26,7 +26,7 @@ from this page, so the page states it and offers no switch.
 ## Who can change it
 
 Moving the firm between the released build and the beta needs the `firm:manageReleaseChannel`
-permission, which is granted to the Owner/Admin role. Everybody else sees where the firm is.
+permission, which is granted to the Admin role. Everybody else sees where the firm is.
 
 ## Related features
 

@@ -6,7 +6,7 @@ The check asks the server to look from its side, where it can see what your brow
 
 ## Who sees it
 
-Anyone who can change the firm's file-safety settings — by default, the Owner/Admin role. Everyone else sees, in the same place, what the last check found.
+Anyone who can change the firm's file-safety settings — by default, the Admin role. Everyone else sees, in the same place, what the last check found.
 
 ## Running the check
 

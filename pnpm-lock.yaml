@@ -263,6 +263,31 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
 
+  apps/address-worker:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: 'catalog:'
+        version: 0.3.7
+      '@magna-carta/build-identity':
+        specifier: workspace:*
+        version: link:../../packages/build-identity
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261106.1
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.6.6)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(vite@8.0.16(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(yaml@2.9.1)'
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
+
   apps/api-worker:
     dependencies:
       '@cloudflare/containers':
@@ -277,6 +302,9 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/address-lookup':
+        specifier: workspace:*
+        version: link:../../packages/address-lookup
       '@magna-carta/ai-detection':
         specifier: workspace:*
         version: link:../../packages/ai-detection
@@ -1027,6 +1055,9 @@ importers:
 
   packages/address-lookup:
     devDependencies:
+      '@magna-carta/address-formats':
+        specifier: workspace:*
+        version: link:../address-formats
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

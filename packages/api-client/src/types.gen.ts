@@ -139,6 +139,10 @@ export type FirmRole = {
     id: string;
     name: string;
     /**
+     * The role this one is a sub-role of, or null for a top-level role. A sub-role adds to its parent and is only ever held together with it, so its permissions are the ones it adds.
+     */
+    parentRoleId: string | null;
+    /**
      * The permission keys this role carries, in registry form. Empty where the role carries none, which is a real state rather than a missing answer.
      */
     permissions: Array<string>;
@@ -1106,6 +1110,7 @@ export type FirmAiSettingsResponse = {
         version: number;
         effectiveDate: string;
     };
+    provider: AiProviderRoster;
     magnus: {
         enabled: boolean;
         dailyTurnCeiling: number;
@@ -1122,6 +1127,7 @@ export type AiModelFacts = {
 
 export type AiModelChoice = {
     modelId: string;
+    displayName: string;
     snapshotId: string;
     zeroDataRetention: boolean;
     noTraining: boolean;
@@ -1129,7 +1135,19 @@ export type AiModelChoice = {
     availabilityVerifiedOn: string;
     retirementNotBefore: string | null;
     tier: string | null;
+    effortLevels: Array<'low' | 'medium' | 'high' | 'xhigh' | 'max'>;
+    defaultEffort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
     platformDefault: boolean;
+    published: boolean | null;
+};
+
+export type AiProviderRoster = {
+    status: 'live' | 'not-configured' | 'unreachable';
+    checkedAt: string | null;
+    awaitingVerification: Array<{
+        modelId: string;
+        displayName: string;
+    }>;
 };
 
 export type PatchFirmAiSettingsRequest = {
@@ -3341,6 +3359,17 @@ export type MatterSummary = {
     createdAt: string;
 };
 
+export type MatterSettingsResponse = {
+    /**
+     * The firm's minimum retention for a closed matter's paper file, in whole years after the close. 0 means the firm states no minimum; the platform never picks a period.
+     */
+    fileRetentionMinimumYears: number;
+};
+
+export type PatchMatterSettingsRequest = {
+    fileRetentionMinimumYears?: number;
+};
+
 export type ConsultationListResponse = {
     data: Array<ConsultationItem>;
     nextCursor: string | null;
@@ -3379,6 +3408,7 @@ export type MatterDetail = {
     matterTypeName: string | null;
     locationName: string | null;
     physicalFileLocationName: string | null;
+    fileDestructionDate: string | null;
     responsibleMemberName: string | null;
 };
 
@@ -3446,6 +3476,13 @@ export type MatterCloseAck = {
         code: string;
         message: string;
     }>;
+};
+
+export type CloseMatterRequest = {
+    /**
+     * The date (YYYY-MM-DD) the matter's paper file may be destroyed after, stated by the person closing it — no earlier than the firm's minimum retention after the close (GET /api/v1/matters/settings) — or null for none. Absent records nothing. A reminder only: nothing is deleted when the date arrives.
+     */
+    fileDestroyOn?: string | null;
 };
 
 export type HoldMatterRequest = {
@@ -3564,6 +3601,20 @@ export type MatterCourtCaseFields = {
      * What this court's caption calls the other side — Defendant, Respondent.
      */
     opposingDesignation: string | null;
+};
+
+export type MatterFileDestructionDateResponse = {
+    matterId: string;
+    destroyOn: string | null;
+    recordedByUserId: string | null;
+    recordedAt: string | null;
+};
+
+export type MatterFileDestructionDateRequest = {
+    /**
+     * The civil date (YYYY-MM-DD) on or after which the firm may destroy its own paper file for this matter. The firm states it; the platform derives no date and deletes nothing when it arrives — it is a reminder on the matter and on the firm calendar. Null clears it.
+     */
+    destroyOn: string | null;
 };
 
 export type MatterEstateReadResponse = {
@@ -5165,6 +5216,101 @@ export type SetDirectoryPersonLifeDatesRequest = {
      * Separate from the date, because known dead with the date unknown is a state probate work meets constantly. A recorded date of death implies this flag.
      */
     deceased?: boolean;
+};
+
+/**
+ * `suggestions` may be empty, which means the country is covered and nothing matched. `no-coverage` means the service holds no addresses for that country, which is not the same thing and must not be shown as though it were. `unavailable` means no address service is provisioned: a person types the address themselves, exactly as before.
+ */
+export type AddressSuggestionsResponse = {
+    outcome: 'suggestions';
+    suggestions: Array<AddressSuggestion>;
+} | {
+    outcome: 'no-coverage';
+} | {
+    outcome: 'unavailable';
+};
+
+export type AddressSuggestion = {
+    /**
+     * Opaque. Meaningful only to the resolution operation, short-lived, and able to carry an address — so it is sent back in a request body, never a URL.
+     */
+    suggestionId: string;
+    /**
+     * The whole offer on one line, for a list.
+     */
+    label: string;
+    parts: AddressLookupParts;
+    /**
+     * A group is a building whose units share one street line. It is not an address a record can hold: resolving it answers the addresses inside it.
+     */
+    kind: 'address' | 'group';
+    /**
+     * For a group, how many addresses it holds.
+     */
+    count?: number;
+};
+
+/**
+ * An address as the parts a record stores, named for their position in an address rather than for what any one country calls them.
+ */
+export type AddressLookupParts = {
+    street?: string;
+    streetTwo?: string;
+    dependentLocality?: string;
+    city?: string;
+    region?: string;
+    postal?: string;
+    sortingCode?: string;
+    /**
+     * ISO 3166-1 alpha-2.
+     */
+    country?: string;
+};
+
+export type AddressSuggestionsRequest = {
+    /**
+     * ISO 3166-1 alpha-2: the country the address is in.
+     */
+    country: string;
+    /**
+     * What has been typed so far.
+     */
+    query: string;
+    limit?: number;
+    /**
+     * The region the address is probably in — the subdivision part of an ISO 3166-2 code, without the country (`NC`, not `US-NC`). Ranks nearby addresses first and never hides the rest. Absent, the caller's primary office stands in for it.
+     */
+    near?: string;
+};
+
+/**
+ * `address` is the parts a record stores. `group` is the addresses inside a group, offered in turn. `expired` is an offer the service no longer knows — nothing went wrong, and the caller asks again.
+ */
+export type AddressResolutionResponse = {
+    outcome: 'address';
+    parts: AddressLookupParts;
+    location?: AddressLocation;
+} | {
+    outcome: 'group';
+    suggestions: Array<AddressSuggestion>;
+} | {
+    outcome: 'expired';
+} | {
+    outcome: 'no-coverage';
+} | {
+    outcome: 'unavailable';
+};
+
+/**
+ * Where the address is, as the open address data records it. For a map or a distance; not a postal fact.
+ */
+export type AddressLocation = {
+    latitude: number;
+    longitude: number;
+};
+
+export type AddressResolutionRequest = {
+    suggestionId: string;
 };
 
 export type OpenedConflictsCheckResponse = {
@@ -20231,6 +20377,95 @@ export type MattersCreateResponses = {
 
 export type MattersCreateResponse = MattersCreateResponses[keyof MattersCreateResponses];
 
+export type MattersGetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/matters/settings';
+};
+
+export type MattersGetSettingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGetSettingsError = MattersGetSettingsErrors[keyof MattersGetSettingsErrors];
+
+export type MattersGetSettingsResponses = {
+    /**
+     * The firm's matter settings
+     */
+    200: MatterSettingsResponse;
+};
+
+export type MattersGetSettingsResponse = MattersGetSettingsResponses[keyof MattersGetSettingsResponses];
+
+export type MattersUpdateSettingsData = {
+    body: PatchMatterSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/matters/settings';
+};
+
+export type MattersUpdateSettingsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersUpdateSettingsError = MattersUpdateSettingsErrors[keyof MattersUpdateSettingsErrors];
+
+export type MattersUpdateSettingsResponses = {
+    /**
+     * The firm's matter settings after the write
+     */
+    200: MatterSettingsResponse;
+};
+
+export type MattersUpdateSettingsResponse = MattersUpdateSettingsResponses[keyof MattersUpdateSettingsResponses];
+
 export type MattersListConsultationsData = {
     body?: never;
     path?: never;
@@ -20582,7 +20817,7 @@ export type MattersOpenResponses = {
 export type MattersOpenResponse = MattersOpenResponses[keyof MattersOpenResponses];
 
 export type MattersCloseData = {
-    body?: never;
+    body?: CloseMatterRequest;
     headers: {
         'idempotency-key': string;
     };
@@ -21085,6 +21320,60 @@ export type MattersSetCourtCaseResponses = {
 };
 
 export type MattersSetCourtCaseResponse = MattersSetCourtCaseResponses[keyof MattersSetCourtCaseResponses];
+
+export type MattersSetFileDestructionDateData = {
+    body: MatterFileDestructionDateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/file-destruction-date';
+};
+
+export type MattersSetFileDestructionDateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersSetFileDestructionDateError = MattersSetFileDestructionDateErrors[keyof MattersSetFileDestructionDateErrors];
+
+export type MattersSetFileDestructionDateResponses = {
+    /**
+     * The matter's file destruction date as it now stands
+     */
+    200: MatterFileDestructionDateResponse;
+};
+
+export type MattersSetFileDestructionDateResponse = MattersSetFileDestructionDateResponses[keyof MattersSetFileDestructionDateResponses];
 
 export type MattersEstateData = {
     body?: never;
@@ -25889,6 +26178,96 @@ export type DirectorySetPersonLifeDatesResponses = {
 };
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
+
+export type AddressLookupSuggestData = {
+    body: AddressSuggestionsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/address-lookup/suggestions';
+};
+
+export type AddressLookupSuggestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * Not found
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The address service did not answer, or refused. Transient and retryable; the address can always be typed by hand.
+     */
+    502: Problem;
+};
+
+export type AddressLookupSuggestError = AddressLookupSuggestErrors[keyof AddressLookupSuggestErrors];
+
+export type AddressLookupSuggestResponses = {
+    /**
+     * The offers, or why there are none
+     */
+    200: AddressSuggestionsResponse;
+};
+
+export type AddressLookupSuggestResponse = AddressLookupSuggestResponses[keyof AddressLookupSuggestResponses];
+
+export type AddressLookupResolveData = {
+    body: AddressResolutionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/address-lookup/resolutions';
+};
+
+export type AddressLookupResolveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * Not found
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The address service did not answer, or refused. Transient and retryable; the address can always be typed by hand.
+     */
+    502: Problem;
+};
+
+export type AddressLookupResolveError = AddressLookupResolveErrors[keyof AddressLookupResolveErrors];
+
+export type AddressLookupResolveResponses = {
+    /**
+     * What the chosen offer comes to
+     */
+    200: AddressResolutionResponse;
+};
+
+export type AddressLookupResolveResponse = AddressLookupResolveResponses[keyof AddressLookupResolveResponses];
 
 export type ConflictsListChecksData = {
     body?: never;

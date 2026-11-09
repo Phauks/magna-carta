@@ -35,7 +35,8 @@ export type SettingsPermissionArea =
   | "integrations"
   | "calendar"
   | "reports"
-  | "ai";
+  | "ai"
+  | "retention";
 
 /**
  * The capability that stands for each area — what a firm grants when it means "you may set our
@@ -58,6 +59,9 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   // Its own key rather than firm:manageMembers: consenting to privileged client content leaving
   // the platform is not an act of administering who works here.
   ai: "firm:manageAiSettings",
+  // How long a closed matter's paper file is kept: the firm's policy, not a choice for whoever is
+  // closing a matter.
+  retention: "matters:manageRetention",
 };
 
 /** Whether the signed-in member may edit this firm area. False until the session read lands. */

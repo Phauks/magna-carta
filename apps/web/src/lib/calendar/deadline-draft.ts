@@ -52,9 +52,13 @@ export function emptyDeadlineDraft(timeZone: string, dueOn: string | null = null
   };
 }
 
+/**
+ * Where a deadline came from, as its Source field reads: the short names the owner chose
+ * (2026-11-09). The stored values are unchanged; only the words a person reads are these.
+ */
 const SOURCE_LABELS: Record<DeadlineSource, string> = {
-  member: "Recorded by the firm",
-  court_order: "Set by a court order",
+  court_order: "Court Order",
+  member: "Firm",
 };
 
 export function deadlineSourceLabel(source: DeadlineSource): string {

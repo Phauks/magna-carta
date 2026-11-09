@@ -81,18 +81,18 @@ describe("end-to-end", () => {
     expect(firmB.status).toBe("active");
 
     // Each firm's per-firm database is its firmId-addressed FirmDatabase DO, which self-migrated to
-    // head on first access (no provisioning step) — the Owner/Admin role seed is resolvable in
+    // head on first access (no provisioning step) — the Admin role seed is resolvable in
     // each, the handle every later isolation assert keys its direct database reads off.
     for (const firmId of [firmA.id, firmB.id]) {
       const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
       const roleRows = await firmDatabase
-        .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+        .prepare("SELECT id FROM role WHERE name = 'Admin'")
         .all<{ id: string }>();
       expect(roleRows.results[0]?.id).toMatch(/^role_/);
     }
   });
 
-  it("mirrors both owners into their own firm databases with Owner/Admin via the sweep", async () => {
+  it("mirrors both owners into their own firm databases with Admin via the sweep", async () => {
     // This explicit sweep is kept for DETERMINISM: it is awaited, so the owner mirrors below are
     // guaranteed present when asserted. In production each provision ALSO fires a best-effort
     // request-path sweep on commit (the R1 latency optimization), which over the SELF surface may
@@ -120,7 +120,7 @@ describe("end-to-end", () => {
         )
         .bind(owner.id)
         .all<{ role_name: string }>();
-      expect(roleRows.results).toEqual([{ role_name: "Owner/Admin" }]);
+      expect(roleRows.results).toEqual([{ role_name: "Admin" }]);
     }
   });
 
@@ -209,7 +209,7 @@ describe("end-to-end", () => {
     ownerSessionCookie = completedSession?.pair ?? "";
   });
 
-  it("GET /api/v1/me answers firm A and the Owner/Admin permissions", async () => {
+  it("GET /api/v1/me answers firm A and the Admin permissions", async () => {
     const response = await SELF.fetch("https://example.com/api/v1/me", {
       headers: { cookie: ownerSessionCookie },
     });
@@ -228,7 +228,7 @@ describe("end-to-end", () => {
       // The owner's member record has reached the firm's own database — which is a separate fact
       // from belonging to the firm, and the one the app's guards wait on before letting anybody in.
       membership: { state: "active" },
-      // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
+      // Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
       // incidents:viewDescription grants (0006) + shipping:manage (0008_elite_genesis) + the slice
@@ -240,21 +240,21 @@ describe("end-to-end", () => {
       // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
       // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
-      // firm:manageReleaseChannel (0024_seed-release-channel-permission, Owner/Admin only) + the
-      // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin) +
+      // firm:manageReleaseChannel (0024_seed-release-channel-permission, Admin only) + the
+      // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Admin) +
       // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
       // tools:fileWorkbench (20260901T000000_seed-file-workbench-permission, seeded onto every
       // default role: it opens the bench, and each capability inside it still carries its own key) +
-      // firm:manageScanPolicy (0030_seed-scan-policy-permission, Owner/Admin only) + the support:
+      // firm:manageScanPolicy (0030_seed-scan-policy-permission, Admin only) + the support:
       // grants (0031_support-access-permissions: support:request onto every default role,
-      // support:cosign / support:manage onto Owner/Admin) +
+      // support:cosign / support:manage onto Admin) +
       // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
         // The six billing keys split by what they let a member do: reading and drafting reach the
-        // practitioner set, finalizing and crediting reach Owner/Admin + Attorney, applying client
-        // money reaches Owner/Admin + Attorney + Billing, and configuring the account-role map is
-        // Owner/Admin alone (20260805T230000_billing-invoices). Owner/Admin holds all six.
+        // practitioner set, finalizing and crediting reach Admin + Attorney, applying client
+        // money reaches Admin + Attorney + Billing, and configuring the account-role map is
+        // Admin alone (20260805T230000_billing-invoices). Admin holds all six.
         "billing:apply",
         "billing:configure",
         "billing:credit",
@@ -262,20 +262,20 @@ describe("end-to-end", () => {
         "billing:finalize",
         "billing:read",
         // calendar:read reaches every default role — "when is the hearing" is a question every seat
-        // in a firm asks; calendar:manage asserts when a hearing IS and reaches Owner/Admin,
+        // in a firm asks; calendar:manage asserts when a hearing IS and reaches Admin,
         // Attorney, and Paralegal only (20260806T000000_case-calendar).
         "calendar:manage",
         "calendar:read",
-        // The three communications keys reach Owner/Admin. communications:read also reaches Billing,
-        // and communications:reviewUnrouted stops at Owner/Admin and Paralegal — working the queue of
+        // The three communications keys reach Admin. communications:read also reaches Billing,
+        // and communications:reviewUnrouted stops at Admin and Paralegal — working the queue of
         // calls nobody has filed is reception's job, and its contents are unsorted by construction
         // (20260907T030000_communication-log).
         "communications:log",
         "communications:read",
         "communications:reviewUnrouted",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
-        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only, and
-        // conflicts:configure narrower still — Owner/Admin alone, because it sets what every future
+        // consultation); conflicts:dispose is narrower and reaches Admin + Attorney only, and
+        // conflicts:configure narrower still — Admin alone, because it sets what every future
         // check searches rather than acting on any one of them.
         "conflicts:configure",
         "conflicts:dispose",
@@ -284,7 +284,7 @@ describe("end-to-end", () => {
         "costs:approve",
         "costs:track",
         // custody:read reaches every default role (a billing clerk answering "do we hold the deed"
-        // needs it); custody:manage moves physical originals and reaches Owner/Admin, Attorney, and
+        // needs it); custody:manage moves physical originals and reaches Admin, Attorney, and
         // Paralegal only (20260804T160001_seed-custody-catalog).
         "custody:manage",
         "custody:read",
@@ -292,7 +292,7 @@ describe("end-to-end", () => {
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
-        // The five discovery keys reach Owner/Admin, Attorney, and Paralegal, and none of them
+        // The five discovery keys reach Admin, Attorney, and Paralegal, and none of them
         // reaches Billing or Read-only. Its OWN namespace is the access rule: a review set is
         // reachable from a discovery grant and from nothing else, never from matters:* or files:*,
         // because material produced by another party may be attorney's-eyes-only under a protective
@@ -305,8 +305,8 @@ describe("end-to-end", () => {
         "documents:assemble",
         // The four co-editing keys. documents:edit and documents:checkout reach the three
         // content-writing seats — the set files:upload and documents:assemble already reach.
-        // documents:reconcile stops at Owner/Admin + Attorney (choosing the firm's text of record
-        // is the files:delete bracket) and documents:forceReleaseLock at Owner/Admin alone
+        // documents:reconcile stops at Admin + Attorney (choosing the firm's text of record
+        // is the files:delete bracket) and documents:forceReleaseLock at Admin alone
         // (20260819T220000_seed-document-editing-and-tools-permissions).
         "documents:checkout",
         "documents:edit",
@@ -318,7 +318,7 @@ describe("end-to-end", () => {
         "downloads:shelf",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
-        // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
+        // file mail are different grants. Admin and Attorney carry it by seed; Paralegal gets
         // it only by an explicit firm grant.
         "emails:manageAutoFileRules",
         "emails:manageCaptureAddresses",
@@ -332,7 +332,7 @@ describe("end-to-end", () => {
         // Writing one's own name reaches every seat, Read-only included: it is the platform's one
         // self-scoped mutation, and every statement behind it is scoped to the session's own user id.
         "firm:editOwnProfile",
-        // Seeded to Owner/Admin ALONE by 20260909T000000_seed-ai-settings-permission, and
+        // Seeded to Admin ALONE by 20260909T000000_seed-ai-settings-permission, and
         // deliberately not to the seats that hold magnus:converse: asking the assistant a
         // question is ordinary work, deciding that the firm's privileged content may leave for
         // a third-party model is not.
@@ -340,15 +340,15 @@ describe("end-to-end", () => {
         "firm:manageEditingPolicy",
         "firm:manageMembers",
         // The firm's notification policy — the in-app floor, retention window and digest hour —
-        // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role
+        // reaches Admin only. Deliberately NOT notifications:read, which every default role
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
-        // What the firm is CALLED to its clients. Owner/Admin alone, and its own key rather than a
+        // What the firm is CALLED to its clients. Admin alone, and its own key rather than a
         // corner of firm:manageMembers: administering who works here and deciding what the firm is
         // called are different acts, and the second reaches paper that has already left the building.
         "firm:manageProfile",
         "firm:manageReleaseChannel",
-        // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
+        // Seeded to Admin alone by 20260907T090000_seed-report-policy-permission.
         "firm:manageReportPolicy",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
@@ -361,8 +361,8 @@ describe("end-to-end", () => {
         "firm:scanFile",
         "incidents:viewDescription",
         // The four intake keys. intake:read and intake:record reach every seat that does firm work
-        // (Owner/Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
-        // at Owner/Admin and Attorney, because waiving a required step is the recorded override of
+        // (Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
+        // at Admin and Attorney, because waiving a required step is the recorded override of
         // an opening gate and the procedure is the firm's statement of how it takes work on
         // (20260903T150000_intake-procedure).
         "intake:manageProcedures",
@@ -374,15 +374,15 @@ describe("end-to-end", () => {
         // firm holds in exchange for buying a postage label.
         "integrations:useConnection",
         "locations:manage",
-        // Both assistant keys reach Owner/Admin: magnus:converse is seeded to the seats that do
-        // legal work (Owner/Admin, Attorney, Paralegal), and magnus:readAllConversations — reading
-        // every member's conversation, a supervision capability — stops at Owner/Admin
+        // Both assistant keys reach Admin: magnus:converse is seeded to the seats that do
+        // legal work (Admin, Attorney, Paralegal), and magnus:readAllConversations — reading
+        // every member's conversation, a supervision capability — stops at Admin
         // (20260806T050000_magnus-conversations). Holding them turns nothing on: both firm-level
         // consent settings default closed and every route reads them before anything else.
         "magnus:converse",
         "magnus:readAllConversations",
         // The asset register is narrower than custody and calendar by seed: it concentrates what an
-        // estate owns and what it is worth in one surface, so both keys reach Owner/Admin, Attorney,
+        // estate owns and what it is worth in one surface, so both keys reach Admin, Attorney,
         // and Paralegal and neither reaches Billing or Read-only (20260806T020000_matter-assets).
         // Opening a FULL account number is a third gate that already existed —
         // directory:viewSensitiveIdentifiers, above — so matterAssets:read alone never reveals one.
@@ -393,17 +393,20 @@ describe("end-to-end", () => {
         "matters:edit",
         "matters:hold",
         "matters:manageNumbering",
+        // Seeded to Admin alone: how long the firm keeps a closed matter's paper file is
+        // its policy, not a choice for whoever is closing a matter.
+        "matters:manageRetention",
         "matters:manageTypes",
         "matters:open",
         "matters:renumber",
         "matters:reopen",
         "matters:viewNumbering",
-        // meetings:join reaches Owner/Admin, Attorney, Paralegal and Billing; meetings:host stops
+        // meetings:join reaches Admin, Attorney, Paralegal and Billing; meetings:host stops
         // short of Billing — attending a meeting about a case is not the privilege that convening
         // one is (20260919T001020_seed-meetings-permissions).
         "meetings:host",
         "meetings:join",
-        // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
+        // The two matter-notes keys, each seeded to the same three practising seats — Admin,
         // Attorney and Paralegal — and to neither Billing nor Read-only. The separate withdrawal key
         // left with the edit-and-delete model.
         "notes:read",
@@ -412,7 +415,7 @@ describe("end-to-end", () => {
         // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
         // scoped to their own user id and filtered by matter visibility before it returns a row.
         "notifications:read",
-        // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
+        // Every reports key is Admin alone — narrower than the trust and billing reads a firm
         // grants more widely, because an aggregate across every matter and client is a different
         // exposure from a per-matter read. reports:productivity is narrower still in kind: a report
         // about people rather than about money.
@@ -432,11 +435,11 @@ describe("end-to-end", () => {
         "support:manage",
         "support:request",
         // The four task keys. tasks:read and tasks:write reach every seat that does firm work —
-        // Owner/Admin, Attorney, Paralegal and Billing, because chasing a retainer replenishment is
+        // Admin, Attorney, Paralegal and Billing, because chasing a retainer replenishment is
         // a billing clerk's own work and a list that cannot hold it sends them to a spreadsheet.
         // tasks:assign is separate because putting work in a colleague's NAME is a different act
         // from fixing a due date, and a firm may reserve it without reserving the rest.
-        // tasks:managePlans is narrower again — Owner/Admin and Attorney — because a matter plan is
+        // tasks:managePlans is narrower again — Admin and Attorney — because a matter plan is
         // a statement about how the firm practises rather than a piece of work.
         "tasks:assign",
         "tasks:managePlans",
@@ -451,7 +454,7 @@ describe("end-to-end", () => {
         "time:viewFirm",
         "tools:aiTextDetection",
         // The four public-record link libraries reach every default role, the reach every other
-        // credential-less lookup already has; the shipping tile below is Owner/Admin alone, matching
+        // credential-less lookup already has; the shipping tile below is Admin alone, matching
         // shipping:manage (20260819T220000_seed-document-editing-and-tools-permissions).
         "tools:attorneyLicense",
         "tools:businessLookup",
@@ -471,15 +474,15 @@ describe("end-to-end", () => {
         "tools:shipping",
         "tools:speedTest",
         "tools:whois",
-        // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
-        // client money and reaches Owner/Admin, Attorney, and Billing
+        // trust:read reaches Admin, Attorney, Paralegal, and Billing; trust:manage moves
+        // client money and reaches Admin, Attorney, and Billing
         // (20260805T120001_seed-trust-permissions). Read-only carries neither. trust:authorize —
         // the authority to act on client money under the firm's authorization policy — reaches
-        // Owner/Admin and Attorney only (20260807T050000_trust-authorization-policy).
+        // Admin and Attorney only (20260807T050000_trust-authorization-policy).
         "trust:authorize",
         // Putting the FIRM'S own money into a client trust account — the one deliberate exception
         // to no-commingling, permitted for a single purpose and only in the amount necessary for
-        // it — is narrower still: Owner/Admin alone by seed
+        // it — is narrower still: Admin alone by seed
         // (20260812T000001_seed-trust-firm-funds-permission).
         "trust:firmFunds",
         "trust:manage",

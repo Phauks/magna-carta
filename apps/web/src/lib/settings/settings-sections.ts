@@ -104,7 +104,8 @@ export interface SettingsSection {
     | "integrations"
     | "calendar"
     | "reports"
-    | "ai";
+    | "ai"
+    | "retention";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -346,6 +347,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The firm's minimum retention for a closed matter's paper file (owner ruling 2026-11-09):
+    // closing a matter asks for a destruction date at least this many years out, a later one, or
+    // none. Server-backed from the start — GET/PATCH /api/v1/matters/settings — and its edit right
+    // is `matters:manageRetention`, Admin alone, checked against the session on the page.
+    id: "file-retention",
+    label: "File Retention",
+    href: "/settings/file-retention",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "retention",
+    shipped: true,
+  },
+  {
     // The firm's report policy: what its trust-compliance document lists. A FIRM setting rather
     // than a per-run choice (owner-ruled 2026-09-07): a compliance document should read the same
     // every time the firm produces it. Server-backed from the start — the page reads and writes
@@ -556,7 +571,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // privileged client content leaving for a third party, which is not a decision anybody should
     // make by brushing a switch.
     id: "ai",
-    label: "AI and the Assistant",
+    label: "AI",
     href: "/settings/ai",
     group: "data-platform",
     scope: "firm",

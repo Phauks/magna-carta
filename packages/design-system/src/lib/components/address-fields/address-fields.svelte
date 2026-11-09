@@ -48,6 +48,8 @@
   import LabelledField from "../labelled-field/index.ts";
   import { placeholderOf } from "../../formatters/placeholder.ts";
   import { addressFormatFor, type AddressFieldKey } from "./address-format.ts";
+  import StreetSuggestionField from "./street-suggestion-field.svelte";
+  import { withResolvedAddress, type AddressLookup } from "./street-lookup.ts";
   import type { AddressAdministrativeArea, AddressCountry, AddressParts } from "./types.ts";
 
   let {
@@ -55,6 +57,7 @@
     countries,
     administrativeAreas = [],
     postalCodeNote,
+    lookup,
     disabled = false,
     /** The refusal to show on the first line, where the caller has one. */
     error,
@@ -81,6 +84,13 @@
      * own commit.
      */
     postalCodeNote?: (country: string | undefined, value: string) => string | null;
+    /**
+     * How real addresses are looked up. Given, the street box offers addresses as it is typed into,
+     * and choosing one fills the rest of the form (street-suggestion-field.svelte). Absent, the street
+     * box is the plain box it always was. The form never fetches: the caller supplies the lookup, and
+     * a lookup with no service behind it answers "unavailable" and the box quietly stays plain.
+     */
+    lookup?: AddressLookup;
     disabled?: boolean;
     error?: string;
   } = $props();
@@ -241,17 +251,31 @@
           error={index === 0 && field.key === "street" ? error : undefined}
         >
           {#snippet children({ props })}
-            <Input
-              {...props}
-              autocomplete="off"
-              list={field.key === "region" && administrativeAreas.length > 0
-                ? areaListIdentifier
-                : undefined}
-              value={value[field.key] ?? ""}
-              {disabled}
-              placeholder={placeholderOf(field.label)}
-              oninput={(event) => set(field.key, event.currentTarget.value)}
-            />
+            {#if field.key === "street" && lookup !== undefined}
+              <StreetSuggestionField
+                text={value.street ?? ""}
+                country={value.country}
+                near={value.region}
+                {lookup}
+                fieldName={field.label}
+                controlProperties={props}
+                {disabled}
+                onType={(typed) => set("street", typed)}
+                onChoose={(parts) => (value = withResolvedAddress(value, parts))}
+              />
+            {:else}
+              <Input
+                {...props}
+                autocomplete="off"
+                list={field.key === "region" && administrativeAreas.length > 0
+                  ? areaListIdentifier
+                  : undefined}
+                value={value[field.key] ?? ""}
+                {disabled}
+                placeholder={placeholderOf(field.label)}
+                oninput={(event) => set(field.key, event.currentTarget.value)}
+              />
+            {/if}
           {/snippet}
         </LabelledField>
       {/each}

@@ -70,6 +70,14 @@ const FirmRole = z
   .object({
     id: z.string(),
     name: z.string(),
+    parentRoleId: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The role this one is a sub-role of, or null for a top-level role. A sub-role adds to its " +
+          "parent and is only ever held together with it, so its permissions are the ones it adds.",
+      }),
     permissions: z.array(z.string()).openapi({
       description:
         "The permission keys this role carries, in registry form. Empty where the role carries " +
@@ -224,9 +232,10 @@ const setRolesRoute = defineOpenAPIRoute(setRolesMeta, {
   method: "put",
   path: "/api/v1/members/{userId}/roles",
   description:
-    "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, and " +
-    "refused when the change would leave the firm with no active member who can administer its " +
-    "members. Returns the roles held after the write.",
+    "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, when " +
+    "the set names a sub-role without its parent role or two sub-roles of one parent, and when " +
+    "the change would leave the firm with no active member who can administer its members. " +
+    "Returns the roles held after the write.",
   request: {
     params: memberParam,
     headers: idempotencyKeyHeader,
@@ -308,6 +317,40 @@ function unpackPermissions(packed: string | null): string[] {
   return packed.split(ROLE_NAME_SEPARATOR).filter((permission) => permission !== "");
 }
 
+/**
+ * Why a requested role set breaks the sub-role rules, or null where it keeps them. A sub-role is held
+ * together with its parent, because that second row is what gives the member the parent's
+ * permissions through every read that joins member_role to role_permission; and a member holds at
+ * most one sub-role of a parent, because Partner and Associate describe one position, not two.
+ */
+export function roleFamilyProblem(
+  target: readonly string[],
+  roles: readonly Pick<FirmRoleRow, "id" | "name" | "parentRoleId">[],
+): string | null {
+  const byId = new Map(roles.map((role) => [role.id, role]));
+  const targetSet = new Set(target);
+  const subRolesByParent = new Map<string, string[]>();
+  for (const roleId of target) {
+    const role = byId.get(roleId);
+    if (role === undefined || role.parentRoleId === null) continue;
+    const parent = byId.get(role.parentRoleId);
+    const parentName = parent?.name ?? "its parent role";
+    if (!targetSet.has(role.parentRoleId)) {
+      return `${role.name} is a kind of ${parentName}, so it is given together with ${parentName}.`;
+    }
+    const siblings = subRolesByParent.get(role.parentRoleId) ?? [];
+    siblings.push(role.name);
+    subRolesByParent.set(role.parentRoleId, siblings);
+  }
+  for (const [parentId, names] of subRolesByParent) {
+    if (names.length > 1) {
+      const parentName = byId.get(parentId)?.name ?? "one role";
+      return `A member holds one kind of ${parentName} at a time, not ${names.toSorted().join(" and ")}.`;
+    }
+  }
+  return null;
+}
+
 /** The member's status, or null where this firm has no such member. */
 async function readMemberStatus(
   database: SqlDatabase,
@@ -366,6 +409,7 @@ export function registerMemberAdministrationRoutes(
           data: results.map((row) => ({
             id: row.id,
             name: row.name,
+            parentRoleId: row.parentRoleId,
             permissions: unpackPermissions(row.permissions),
             memberCount: row.memberCount,
           })),
@@ -421,6 +465,16 @@ export function registerMemberAdministrationRoutes(
           title: "Unknown role",
           status: 422,
           detail: `This firm has no role with the handle ${unknown[0]}.`,
+        });
+      }
+
+      const familyProblem = roleFamilyProblem(target, roleRows);
+      if (familyProblem !== null) {
+        return problemJson(c, {
+          type: "role-family",
+          title: "Sub-roles do not fit together that way",
+          status: 422,
+          detail: familyProblem,
         });
       }
 

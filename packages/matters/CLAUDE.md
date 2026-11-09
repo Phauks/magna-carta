@@ -34,6 +34,10 @@ list/consultations queries. Validates in memory and composes statements into @ma
   identity records: one live record per matter (partial unique index), upserted as facts accrete,
   every person/organisation a Directory reference validated live before the write. The estate's
   styles are STORED court-fixed designations, never composed.
+- `src/matter-file-retention.ts` — the date the firm's own PAPER file may be destroyed after, one
+  row per matter in `matter_file_retention`. A date a person states, never derived, and read by
+  nothing that deletes: it is a reminder on the status window and the firm calendar. Every write
+  audits the date it replaced, because the row holds only the current one.
 - `src/member-professional-profile.ts` — the whole-record profile upsert keyed by the member's own
   user id; the one home for that write (route and fixtures share it). A bar number is deliberately
   NOT a column here — it is a protected Directory identifier.

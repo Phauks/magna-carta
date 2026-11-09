@@ -11,7 +11,9 @@
     "./reasoning-tier": "./src/reasoning-tier.ts",
     "./settings": "./src/settings.ts",
     "./gateway": "./src/gateway.ts",
-    "./stub": "./src/stub.ts"
+    "./stub": "./src/stub.ts",
+    "./provider-roster": "./src/provider-roster.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"

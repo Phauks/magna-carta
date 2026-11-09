@@ -1,4 +1,5 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -16,6 +17,11 @@ import {
   reasoningModelIds,
   type CatalogEntry,
 } from "@magna-carta/inference/catalog";
+import {
+  reconcileProviderRoster,
+  type ProviderRosterReconciliation,
+  type ProviderRosterSnapshot,
+} from "@magna-carta/inference/provider-roster";
 import {
   aiProcessingEligibilityDefinition,
   primaryReasoningModelDefinition,
@@ -38,6 +44,13 @@ import { idempotencyKeyHeader } from "../../contracts/common.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
+import {
+  AiModelChoice,
+  AiModelFacts,
+  FirmAiSettingsResponse,
+  PatchFirmAiSettingsRequest,
+} from "@magna-carta/inference/contract";
+import { readProviderRoster } from "../../../inference/provider-roster-source.ts";
 
 // THE FIRM'S AI SETTINGS — the one place a firm says whether its content may reach a model, and
 // whether the assistant is one of the things that may send it.
@@ -60,6 +73,14 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // So the roster is as current as the catalog, and the page states the catalog's version and
 // effective date beside it, because that is the honest answer to "how fresh is this list".
 //
+// WHAT THE PROVIDER PUBLISHES IS STATED BESIDE IT, AND DECIDES NOTHING. Where the platform holds a
+// read-only Anthropic key, the route also reads the provider's own model list (cached; see
+// apps/api-worker/src/inference/provider-roster-source.ts) and reports two things the catalog cannot
+// know about itself between verification passes: whether each roster entry is still published, and
+// which published models the roster does not yet carry. The second list is shown, never offered —
+// a model joins the roster only through the verification pass, because only that pass can record
+// whether the provider keeps what it is sent.
+//
 // TWO POSTURES, ONE SETTING. A firm that has never chosen FOLLOWS THE PLATFORM: its model is the
 // catalog's occupant of the platform's reasoning tier, which moves forward as better models are
 // verified. A firm that has chosen is PINNED to that model until it chooses again, because a
@@ -71,78 +92,6 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // one.
 
 const PERMISSION = "firm:manageAiSettings" as const;
-
-// The four facts a firm needs about the model its content reaches: which one, the exact snapshot
-// that produced any given answer, and the two confidentiality guarantees the gateway pins per
-// request. `snapshotId` may equal `modelId` without a prefix — the catalog records why (a provider
-// that publishes no dated form makes the undated id itself the pin). `selection` says whether the
-// firm follows the platform's tier or has pinned this model itself.
-const AiModelFacts = z
-  .object({
-    modelId: z.string(),
-    snapshotId: z.string(),
-    zeroDataRetention: z.boolean(),
-    noTraining: z.boolean(),
-    selection: z.enum(["platform", "chosen"]),
-  })
-  .openapi("AiModelFacts");
-
-// One roster entry a firm may choose: the facts above plus the dates each was last verified and the
-// provider's published retirement, so a firm choosing between two verified models can see how fresh
-// each verification is. `platformDefault` marks the entry an unconfigured firm resolves to.
-const AiModelChoice = z
-  .object({
-    modelId: z.string(),
-    snapshotId: z.string(),
-    zeroDataRetention: z.boolean(),
-    noTraining: z.boolean(),
-    // When the confidentiality facts (retention, training) were last re-checked against the
-    // provider's reference, and when the lifecycle facts (still published, retirement date) were.
-    verifiedOn: z.string(),
-    availabilityVerifiedOn: z.string(),
-    retirementNotBefore: z.string().nullable(),
-    // The platform's evergreen tier this entry currently occupies, if any.
-    tier: z.string().nullable(),
-    platformDefault: z.boolean(),
-  })
-  .openapi("AiModelChoice");
-
-const FirmAiSettingsResponse = z
-  .object({
-    aiProcessing: z.object({ eligible: z.boolean() }),
-    // Null when the firm's stored model id is not in the curated catalog at all. The setting read is
-    // total (an unrecognized stored value yields the platform default), so this is unreachable
-    // today; it stays nullable rather than asserted because a catalog entry can be retired while a
-    // firm's row still names it, and a screen that says nothing is honest where one that names a
-    // model the platform no longer carries is not.
-    model: AiModelFacts.nullable(),
-    // The roster the firm chooses from, and the catalog it comes from.
-    models: z.array(AiModelChoice),
-    catalog: z.object({ version: z.number().int(), effectiveDate: z.string() }),
-    magnus: z.object({
-      enabled: z.boolean(),
-      dailyTurnCeiling: z.number().int(),
-    }),
-  })
-  .openapi("FirmAiSettingsResponse");
-
-const PatchFirmAiSettingsRequest = z
-  .object({
-    // Sparse: a field absent is unchanged, and an empty patch writes nothing and audits nothing.
-    aiProcessing: z.object({ eligible: z.boolean().optional() }).optional(),
-    // The model. A string pins the firm to that roster entry; null returns the firm to following the
-    // platform's tier. Absent leaves the choice alone.
-    model: z.object({ modelId: z.string().min(1).nullable() }).optional(),
-    magnus: z
-      .object({
-        enabled: z.boolean().optional(),
-        // The same bounds the setting definition enforces at the write path, declared here so a bad
-        // value is a 422 against the contract rather than a throw inside the effect.
-        dailyTurnCeiling: z.number().int().min(0).max(100000).optional(),
-      })
-      .optional(),
-  })
-  .openapi("PatchFirmAiSettingsRequest");
 
 const errorResponses = {
   400: {
@@ -277,9 +226,13 @@ function clearFirmModelStatement(database: FirmDatabase): SqlStatement {
     .bind(primaryReasoningModelDefinition.key);
 }
 
-function choiceBody(entry: CatalogEntry): z.infer<typeof AiModelChoice> {
+function choiceBody(
+  entry: CatalogEntry,
+  reconciliation: ProviderRosterReconciliation,
+): z.infer<typeof AiModelChoice> {
   return {
     modelId: entry.modelId,
+    displayName: entry.displayName,
     snapshotId: entry.snapshotId,
     zeroDataRetention: entry.zdrEligible,
     noTraining: entry.noTrainingEligible,
@@ -287,7 +240,10 @@ function choiceBody(entry: CatalogEntry): z.infer<typeof AiModelChoice> {
     availabilityVerifiedOn: entry.availabilityVerifiedOn,
     retirementNotBefore: entry.retirementNotBefore ?? null,
     tier: entry.tier ?? null,
+    effortLevels: [...(entry.effortLevels ?? [])],
+    defaultEffort: entry.defaultEffort ?? null,
     platformDefault: entry.modelId === primaryReasoningModelDefinition.defaultValue,
+    published: reconciliation.published.get(entry.modelId) ?? null,
   };
 }
 
@@ -306,15 +262,21 @@ function platformModelFacts(): z.infer<typeof AiModelFacts> | null {
       };
 }
 
-async function readAiSettingsBody(database: FirmDatabase): Promise<AiSettingsBody> {
-  const [eligible, modelId, chosen, enabled, dailyTurnCeiling] = await Promise.all([
+async function readAiSettingsBody(
+  database: FirmDatabase,
+  providerRoster: Promise<ProviderRosterSnapshot>,
+): Promise<AiSettingsBody> {
+  const [eligible, modelId, chosen, enabled, dailyTurnCeiling, snapshot] = await Promise.all([
     readFirmSetting(database, aiProcessingEligibilityDefinition),
     readFirmSetting(database, primaryReasoningModelDefinition),
     firmHasChosenModel(database),
     readFirmSetting(database, magnusEnabledDefinition),
     readFirmSetting(database, magnusDailyTurnCeilingDefinition),
+    providerRoster,
   ]);
   const entry = catalogEntryFor(modelId);
+  const reasoning = reasoningEntries();
+  const reconciliation = reconcileProviderRoster(reasoning, snapshot);
   return {
     aiProcessing: { eligible },
     model:
@@ -327,10 +289,30 @@ async function readAiSettingsBody(database: FirmDatabase): Promise<AiSettingsBod
             noTraining: entry.noTrainingEligible,
             selection: chosen ? "chosen" : "platform",
           },
-    models: reasoningEntries().map(choiceBody),
+    models: reasoning.map((choice) => choiceBody(choice, reconciliation)),
     catalog: { version: CATALOG_VERSION, effectiveDate: CATALOG_EFFECTIVE_DATE },
+    provider: {
+      status: snapshot.status,
+      checkedAt: snapshot.checkedAt,
+      awaitingVerification: reconciliation.awaitingVerification.map((model) => ({
+        modelId: model.id,
+        displayName: model.displayName,
+      })),
+    },
     magnus: { enabled, dailyTurnCeiling },
   };
+}
+
+// The provider roster for this request: the platform key from the environment, the request's own
+// logger and correlation id so a failed read is one more event on the request that caused it.
+function providerRosterFor(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+): Promise<ProviderRosterSnapshot> {
+  return readProviderRoster({
+    apiKey: c.env.ANTHROPIC_MODELS_API_KEY,
+    logger: c.get("logger"),
+    correlationId: c.get("correlationId"),
+  });
 }
 
 export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Chokepoint): void {
@@ -339,7 +321,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
     { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      return c.json(await readAiSettingsBody(firm.firmDatabase), 200);
+      return c.json(await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c)), 200);
     },
   );
 
@@ -363,7 +345,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
       ) {
         // An empty patch changes nothing and must not add an audit row: a redelivered no-op would
         // otherwise put a consent decision in the log that nobody made.
-        return c.json(await readAiSettingsBody(firm.firmDatabase), 200);
+        return c.json(await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c)), 200);
       }
       // A model off the roster is refused at the contract, with the roster's own vocabulary in the
       // reason. The setting definition's schema would refuse it too, but inside the effect, where it
@@ -385,7 +367,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
 
       const idempotency = requireChokepointIdempotency(c);
       const now = () => new Date().toISOString();
-      const stored = await readAiSettingsBody(firm.firmDatabase);
+      const stored = await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c));
       const chosenEntry =
         modelChoice === undefined || modelChoice === null
           ? undefined
@@ -408,6 +390,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
                   },
         models: stored.models,
         catalog: stored.catalog,
+        provider: stored.provider,
         magnus: {
           enabled: enabled ?? stored.magnus.enabled,
           dailyTurnCeiling: dailyTurnCeiling ?? stored.magnus.dailyTurnCeiling,
@@ -488,7 +471,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(await readAiSettingsBody(firm.firmDatabase), 200);
+      return c.json(await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c)), 200);
     },
   );
 }

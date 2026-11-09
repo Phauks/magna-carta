@@ -31,6 +31,7 @@
   import { administrativeAreasFor } from "@magna-carta/address-formats/administrative-areas";
   import { postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
   import AddressFields from "@magna-carta/design-system/address-fields";
+  import { addressLookup } from "$lib/addresses/address-lookup-source.ts";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
@@ -124,6 +125,8 @@
   /** Bumped after a logo write, so the image element re-reads a path that does not move. */
   let logoVersion = $state<string | null>(null);
 
+  // Real addresses offered from each street box. Dormant, and invisible, until a service is provisioned.
+  const streetLookup = addressLookup();
   const countries = phoneCountries().map((country) => ({
     code: country.region,
     name: country.name,
@@ -568,6 +571,7 @@
     {countries}
     administrativeAreas={administrativeAreasFor(draft[which].parts.country)}
     postalCodeNote={postalCodeNoteFor}
+    lookup={streetLookup}
     disabled={saving}
   />
   <PhoneNumberField
