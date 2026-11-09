@@ -904,7 +904,7 @@ describe("the reporting posture over the wire", () => {
     });
     expect(read.record?.hits).toEqual([]);
     const statement = read.record?.statement ?? [];
-    expect(statement[0]).toMatch(/^Searched on .* trigger comprehensive\.$/);
+    expect(statement[0]).toMatch(/^Searched on .*, as a comprehensive check\.$/);
     expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
     expect(statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
     expect(statement.at(-1)).toBe("Nothing surfaced.");

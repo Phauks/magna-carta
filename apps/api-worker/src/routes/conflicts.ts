@@ -68,8 +68,9 @@ import {
 import { WAIVER_SHORTFALLS, waiverShortfalls } from "@magna-carta/conflicts/waiver";
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { readMemberDisplayName } from "@magna-carta/data-access/member-statements";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
+import type { ConflictsCheckId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { identifierField, identifierPathParam, idempotencyKeyHeader } from "../contracts/common.ts";
 import type { Context } from "hono";
@@ -1404,6 +1405,10 @@ async function readRecord(database: SqlDatabase, runId: string) {
       createdAt: checkRow.created_at,
       trigger: checkRow.trigger,
       actorUserId: checkRow.actor_user_id,
+      actorDisplayName:
+        checkRow.actor_user_id === null
+          ? null
+          : await readMemberDisplayName(database, checkRow.actor_user_id as UserId),
       strictness: checkRow.strictness as "balanced" | "over_inclusive",
       depth: checkRow.depth,
       floorRaised: checkRow.floor_raised === 1,
