@@ -3,15 +3,37 @@ import { areaCodeRegion } from "../src/area-code.ts";
 import { NORTH_AMERICAN_AREA_CODES } from "../src/north-american-area-codes.ts";
 
 describe("areaCodeRegion", () => {
-  it("names the state or province an area code was issued for", () => {
+  it("names the state or province, and the zone, an area code was issued for", () => {
     expect(areaCodeRegion({ countryCallingCode: "1", nationalNumber: "7025550142" })).toEqual({
       areaCode: "702",
       region: "Nevada",
+      place: null,
+      timeZone: "America/Los_Angeles",
     });
-    expect(areaCodeRegion({ countryCallingCode: "1", nationalNumber: "4165550100" })).toEqual({
-      areaCode: "416",
-      region: "Ontario",
+    expect(areaCodeRegion({ countryCallingCode: "1", nationalNumber: "4165550100" })?.region).toBe(
+      "Ontario",
+    );
+  });
+
+  it("names the town an exchange was assigned to", () => {
+    expect(areaCodeRegion({ countryCallingCode: "1", nationalNumber: "7025580142" })).toEqual({
+      areaCode: "702",
+      region: "Nevada",
+      place: "Henderson, NV",
+      timeZone: "America/Los_Angeles",
     });
+    expect(areaCodeRegion({ countryCallingCode: "1", nationalNumber: "4162030100" })?.place).toBe(
+      "Toronto, ON",
+    );
+  });
+
+  it("says no zone for an area code that spans two, unless the exchange settles it", () => {
+    expect(
+      areaCodeRegion({ countryCallingCode: "1", nationalNumber: "7755550142" })?.timeZone,
+    ).toBeNull();
+    expect(
+      areaCodeRegion({ countryCallingCode: "1", nationalNumber: "7752000142" })?.timeZone,
+    ).toBe("America/Los_Angeles");
   });
 
   it("answers null outside North America and for anything that is not a ten-digit number", () => {

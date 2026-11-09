@@ -41,6 +41,19 @@ export const CallerAreaCode = z
         "Where the area code was issued — a state, a province or a city. Where the number was " +
         "issued, never where the caller is.",
     }),
+    place: z
+      .string()
+      .nullable()
+      .meta({
+        description:
+          "The town the number's exchange was assigned to, as the numbering data writes it " +
+          '("Las Vegas, NV"). Null where that data does not subdivide the area code.',
+      }),
+    timeZone: z.string().nullable().meta({
+      description:
+        "The IANA time zone the number was issued under. Null where the area code spans several.",
+      example: "America/Los_Angeles",
+    }),
   })
   .meta({ id: "CallerAreaCode" });
 

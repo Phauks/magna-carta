@@ -3,6 +3,7 @@ import { client } from "@magna-carta/api-client/client";
 import {
   areaCodeLine,
   callerIdentityLine,
+  localTimeLine,
   lookUpCallerIdentity,
   lookupNumberFor,
   readCallerLookup,
@@ -42,7 +43,28 @@ describe("the lines it prints", () => {
   });
 
   it("says where a number was issued, not where the caller is", () => {
-    expect(areaCodeLine({ areaCode: "702", region: "Nevada" })).toBe("702 · Nevada number");
+    const nevada = { areaCode: "702", region: "Nevada", place: null, timeZone: null };
+    expect(areaCodeLine(nevada)).toBe("702 · Nevada number");
+    expect(areaCodeLine({ ...nevada, place: "Henderson, NV" })).toBe(
+      "702 · Henderson, Nevada number",
+    );
+    expect(
+      areaCodeLine({
+        areaCode: "202",
+        region: "Washington D.C.",
+        place: "Washington, DC",
+        timeZone: null,
+      }),
+    ).toBe("202 · Washington D.C. number");
+  });
+
+  it("tells the time where the number was issued, or nothing when the zone is not known", () => {
+    const at = new Date("2026-11-09T23:19:00.000Z");
+    const nevada = { areaCode: "702", region: "Nevada", place: null };
+    expect(localTimeLine({ ...nevada, timeZone: "America/Los_Angeles" }, at)).toMatch(
+      /^3:19\sPM PST there$/,
+    );
+    expect(localTimeLine({ ...nevada, timeZone: null }, at)).toBeNull();
   });
 });
 
