@@ -145,8 +145,8 @@
   bind:open
   kind="form"
   heading="New Person"
-  commitLabel="Record Person"
-  commitBusyLabel="Recording"
+  commitLabel="Save"
+  commitBusyLabel="Saving"
   commitRefusal={refusal}
   width="record"
   unsavedChanges={started}

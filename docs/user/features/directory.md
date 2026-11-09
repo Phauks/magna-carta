@@ -28,7 +28,7 @@ identifiers and the organizations they belong to can all be entered before the r
 sections never changes the size of the window. On the right, as you type
 the name, the Directory shows records that may already be the same person, with a way to open each
 beside your draft, so the same client does not end up in the book twice under two spellings.
-Everything you entered is recorded together when you press Record Person, or not at all.
+Everything you entered is recorded together when you press Save, or not at all.
 
 ## A record
 
