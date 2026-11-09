@@ -22,7 +22,7 @@ tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-base64 = "0.22"
+base64 = "0.23"
 
 [dev-dependencies]
 # Loopback HTTP client for the full-app tests. default-features off + rustls keeps the TLS backend

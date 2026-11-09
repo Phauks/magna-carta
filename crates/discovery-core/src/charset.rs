@@ -44,9 +44,9 @@ fn guess(bytes: &[u8]) -> &'static Encoding {
     if std::str::from_utf8(bytes).is_ok() {
         return UTF_8;
     }
-    let mut detector = chardetng::EncodingDetector::new();
+    let mut detector = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Allow);
     detector.feed(bytes, true);
-    detector.guess(None, true)
+    detector.guess(None, chardetng::Utf8Detection::Allow)
 }
 
 #[cfg(test)]
