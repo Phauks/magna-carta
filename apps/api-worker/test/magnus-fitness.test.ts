@@ -13,7 +13,7 @@ import { resolveMagnusInferencePort } from "../src/magnus/inference-port-binding
 // the Workers pool and cannot read the repository's files.
 
 const CONVERSATION_INPUT = {
-  modelId: "anthropic/claude-opus-4-8",
+  modelId: "anthropic/claude-opus-5-5",
   firmId: "firm_fitness" as FirmId,
   systemPrompt: "platform-authored text",
   messages: [{ role: "member" as const, content: "hello" }],

@@ -28,6 +28,9 @@ export interface AiModelFacts {
 }
 
 /** One model the firm may choose, with the facts a choice is made on. */
+/** The provider's effort control, lowest to highest. */
+export type AiReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
 export interface AiModelChoice {
   modelId: string;
   /** The provider's own name for the model, e.g. "Claude Opus 5.5". */
@@ -41,6 +44,10 @@ export interface AiModelChoice {
   availabilityVerifiedOn: string;
   retirementNotBefore: string | null;
   tier: string | null;
+  /** The effort levels the provider accepts for this model, lowest first. */
+  effortLevels: AiReasoningEffort[];
+  /** The effort the provider applies when a request names none. */
+  defaultEffort: AiReasoningEffort | null;
   /** True on the entry an unconfigured firm resolves to. */
   platformDefault: boolean;
   /** Whether the provider's live list includes it; null when the list was not read. */

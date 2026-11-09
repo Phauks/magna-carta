@@ -49,7 +49,7 @@
   status: shipped
   surface: internal
   evidence: packages/inference/src/catalog.ts (tier occupancy validated at module load) and packages/inference/src/reasoning-tier.ts; packages/inference/test/reasoning-tier.test.ts.
-  notes: Catalog version 4 (2026-11-09) adds Claude Opus 5.5, Sonnet 5.5, Opus 5 and Sonnet 5 as selectable reasoning entries and keeps Opus 4.8 and Sonnet 4.6 for firms that pinned them. Which model occupies each tier is an owner decision recorded in the catalog: on 2026-11-09 the owner moved most-capable to Opus 5.5 and balanced to Sonnet 5.5.
+  notes: Catalog version 4 (2026-11-09) offers the current generation only, Claude Opus 5.5 and Sonnet 5.5, by the owner's ruling that previous generations are not offered; each provider model records its effort levels (low to max) and default. Which model occupies each tier is an owner decision recorded in the catalog: on 2026-11-09 the owner moved most-capable to Opus 5.5 and balanced to Sonnet 5.5.
 
 - id: ai.inference.pin-freshness
   name: Model-pin staleness detection

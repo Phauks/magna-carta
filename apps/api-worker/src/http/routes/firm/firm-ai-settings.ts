@@ -240,6 +240,8 @@ function choiceBody(
     availabilityVerifiedOn: entry.availabilityVerifiedOn,
     retirementNotBefore: entry.retirementNotBefore ?? null,
     tier: entry.tier ?? null,
+    effortLevels: [...(entry.effortLevels ?? [])],
+    defaultEffort: entry.defaultEffort ?? null,
     platformDefault: entry.modelId === primaryReasoningModelDefinition.defaultValue,
     published: reconciliation.published.get(entry.modelId) ?? null,
   };

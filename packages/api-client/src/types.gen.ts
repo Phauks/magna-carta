@@ -1131,6 +1131,8 @@ export type AiModelChoice = {
     availabilityVerifiedOn: string;
     retirementNotBefore: string | null;
     tier: string | null;
+    effortLevels: Array<'low' | 'medium' | 'high' | 'xhigh' | 'max'>;
+    defaultEffort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
     platformDefault: boolean;
     published: boolean | null;
 };

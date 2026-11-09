@@ -40,14 +40,14 @@ describe("the curated model catalog", () => {
   });
 
   it("isZdrEligible answers per model id", () => {
-    expect(isZdrEligible("anthropic/claude-opus-4-8")).toBe(true);
+    expect(isZdrEligible("anthropic/claude-opus-5-5")).toBe(true);
     expect(isZdrEligible("anthropic/not-in-catalog")).toBe(false);
   });
 
   it("rejects a malformed entry through the entry schema (module-load guard)", () => {
     const result = catalogEntrySchema.safeParse({
       slot: "reasoning",
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       // missing snapshotId/referenceId/zdrEligible/noTrainingEligible/verifiedOn
     });
     expect(result.success).toBe(false);
@@ -68,6 +68,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
     };
     expect(catalogEntrySchema.safeParse(nonZdrReasoning).success).toBe(false);
     // The same entry with eligibility restored parses, which is what proves the refinement was the cause.
@@ -88,6 +90,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
       tier: "most-capable",
     };
     expect(catalogEntrySchema.safeParse(taggedUtility).success).toBe(false);
@@ -127,6 +131,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-6-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
     };
     expect(catalogEntrySchema.safeParse(singleDigitMonth).success).toBe(false);
     // Correcting only the malformed date parses, so the date format was the sole cause.
@@ -158,6 +164,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
     };
     expect(catalogEntrySchema.safeParse(missingSnapshotId).success).toBe(false);
     // Every other field is present, so restoring only snapshotId parses — which is what proves the
@@ -184,6 +192,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
     };
     expect(catalogEntrySchema.safeParse(fabricatedDate).success).toBe(false);
     // Dropping the invented suffix — the correct record for a dateless model — parses.
@@ -207,6 +217,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
     };
     expect(catalogEntrySchema.safeParse(droppedDate).success).toBe(false);
     // A malformed date is refused on the same rule; only the provider's -YYYYMMDD shape is accepted.
@@ -232,8 +244,46 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
       availabilityVerifiedOn: "2026-06-17",
+      effortLevels: ["low", "medium", "high", "xhigh", "max"],
+      defaultEffort: "medium",
     };
     expect(catalogEntrySchema.safeParse(composedReasoning).success).toBe(false);
+  });
+
+  it("records each provider model's effort levels, with its default among them", () => {
+    // The current generation accepts the full range; the default differs by model, so each is pinned.
+    const defaults = Object.fromEntries(
+      CATALOG.filter((entry) => entry.slot !== "embedding").map((entry) => [
+        entry.modelId,
+        [entry.effortLevels, entry.defaultEffort],
+      ]),
+    );
+    const allLevels = ["low", "medium", "high", "xhigh", "max"];
+    expect(defaults).toEqual({
+      "anthropic/claude-opus-5-5": [allLevels, "medium"],
+      "anthropic/claude-sonnet-5-5": [allLevels, "high"],
+      "anthropic/claude-haiku-5-5": [allLevels, "medium"],
+    });
+    expect(embeddingEntry().effortLevels).toBeUndefined();
+
+    const entry = { ...CATALOG.find((each) => each.slot === "reasoning") };
+    expect(catalogEntrySchema.safeParse({ ...entry, defaultEffort: undefined }).success).toBe(
+      false,
+    );
+    expect(
+      catalogEntrySchema.safeParse({
+        ...entry,
+        effortLevels: ["low", "medium"],
+        defaultEffort: "max",
+      }).success,
+    ).toBe(false);
+    expect(
+      catalogEntrySchema.safeParse({
+        ...embeddingEntry(),
+        effortLevels: ["low"],
+        defaultEffort: "low",
+      }).success,
+    ).toBe(false);
   });
 
   it("the exactly-one-embedding invariant is enforced by the module-load fitness guard (validateCatalog)", () => {

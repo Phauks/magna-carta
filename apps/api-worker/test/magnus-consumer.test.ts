@@ -162,7 +162,7 @@ describe("the assistant queue consumer", () => {
         conversationId: started.conversationId,
         magnusTurnId: submission.magnusTurnId,
         content: `answer ${index}`,
-        modelId: "anthropic/claude-opus-4-8",
+        modelId: "anthropic/claude-opus-5-5",
         snapshotId: "stub",
         inputTokens: 1,
         outputTokens: 1,

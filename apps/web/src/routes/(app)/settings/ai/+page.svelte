@@ -45,7 +45,10 @@
     MAGNUS_ENABLED_DEFINITION,
     PLATFORM_MODEL_CHOICE,
   } from "$lib/ai/ai-settings-draft.svelte.ts";
-  import { MANAGE_AI_SETTINGS_PERMISSION } from "$lib/ai/ai-settings-api.ts";
+  import {
+    MANAGE_AI_SETTINGS_PERMISSION,
+    type AiReasoningEffort,
+  } from "$lib/ai/ai-settings-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
   const draft = new AiSettingsDraft(fetch);
@@ -54,6 +57,16 @@
   // Read-only until the session says otherwise: a control that appears and then vanishes when the
   // permission turns out to be missing reads as a broken page.
   const canEdit = $derived(session?.permissions.includes(MANAGE_AI_SETTINGS_PERMISSION) ?? false);
+
+  // The provider's effort names, as a reader says them.
+  const EFFORT_LABELS: Readonly<Record<AiReasoningEffort, string>> = {
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    xhigh: "Extra high",
+    max: "Maximum",
+  };
+  const effortLabel = (effort: AiReasoningEffort): string => EFFORT_LABELS[effort];
 
   // The facts beneath the control describe the STAGED choice, so they read back what saving will do.
   const shownModel = $derived(draft.stagedModelChoice);
@@ -280,6 +293,15 @@
                 ? null
                 : `The provider names ${shownModel.retirementNotBefore} as the earliest it may retire this model.`,
             )}
+            {#if shownModel.effortLevels.length > 0}
+              {@render modelFact(
+                "Effort Levels",
+                shownModel.effortLevels.map(effortLabel).join(", "),
+                shownModel.defaultEffort === null
+                  ? "How much thinking a request may spend; each feature chooses per request."
+                  : `How much thinking a request may spend; each feature chooses per request, and ${effortLabel(shownModel.defaultEffort).toLowerCase()} applies when it names none.`,
+              )}
+            {/if}
           {/if}
           {#if draft.committed !== null && draft.committed.catalog.version > 0}
             {@render modelFact(

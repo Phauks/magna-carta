@@ -84,8 +84,8 @@ describe("parsing the configured value", () => {
   });
 
   it("reads a tier-to-model object", () => {
-    expect(parseReasoningTierOverrides('{"most-capable":"anthropic/claude-sonnet-4-6"}')).toEqual({
-      overrides: { "most-capable": "anthropic/claude-sonnet-4-6" },
+    expect(parseReasoningTierOverrides('{"most-capable":"anthropic/claude-sonnet-5-5"}')).toEqual({
+      overrides: { "most-capable": "anthropic/claude-sonnet-5-5" },
       malformed: false,
     });
   });
@@ -100,9 +100,9 @@ describe("parsing the configured value", () => {
 
   it("drops an unknown tier but keeps a good one beside it", () => {
     const parsed = parseReasoningTierOverrides(
-      '{"balanced":"anthropic/claude-sonnet-4-6","cheapest":"anthropic/claude-haiku-4-5"}',
+      '{"balanced":"anthropic/claude-sonnet-5-5","cheapest":"anthropic/claude-haiku-4-5"}',
     );
-    expect(parsed.overrides).toEqual({ balanced: "anthropic/claude-sonnet-4-6" });
+    expect(parsed.overrides).toEqual({ balanced: "anthropic/claude-sonnet-5-5" });
     expect(parsed.malformed).toBe(true);
   });
 

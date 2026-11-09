@@ -4441,6 +4441,33 @@
               "null"
             ]
           },
+          "effortLevels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ]
+            }
+          },
+          "defaultEffort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              null
+            ]
+          },
           "platformDefault": {
             "type": "boolean"
           },
@@ -4461,6 +4488,8 @@
           "availabilityVerifiedOn",
           "retirementNotBefore",
           "tier",
+          "effortLevels",
+          "defaultEffort",
           "platformDefault",
           "published"
         ]

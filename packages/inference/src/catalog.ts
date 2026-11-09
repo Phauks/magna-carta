@@ -28,6 +28,14 @@ export type ReasoningTier = "most-capable" | "balanced";
 
 export const REASONING_TIERS: readonly ReasoningTier[] = ["most-capable", "balanced"];
 
+// The provider's effort control: how much thinking and output a request may spend, sent per request
+// (output_config.effort). The current generation accepts all five; which of them a given model accepts,
+// and which it uses when a request names none, is the provider's fact about that model, so each entry
+// records its own.
+export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 // Whether the platform embedding model may still change.
 //
 // "open"   — no vector index exists anywhere in the platform, so the model can be swapped for the cost
@@ -113,6 +121,11 @@ export interface CatalogEntry {
   // platform's confidentiality posture rather than a derivation from a provider's release notes. The
   // field exists so the freshness pass can say "a successor exists, and nobody has decided about it".
   readonly supersededBy?: string;
+  // Provider models only (not the embedding entry): the effort levels the provider accepts for this
+  // model, lowest first, and the one it applies when a request names none. Read off the provider's
+  // effort reference on availabilityVerifiedOn, with the other lifecycle facts.
+  readonly effortLevels?: readonly ReasoningEffort[];
+  readonly defaultEffort?: ReasoningEffort;
   // Reasoning entries only: the tier this entry currently occupies, if any. A reasoning entry without a
   // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to.
   readonly tier?: ReasoningTier;
@@ -155,6 +168,8 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
     availabilityVerifiedOn: isoDate,
     retirementNotBefore: isoDate.optional(),
     supersededBy: z.string().min(1).optional(),
+    effortLevels: z.array(z.enum(REASONING_EFFORTS)).min(1).optional(),
+    defaultEffort: z.enum(REASONING_EFFORTS).optional(),
     tier: z.enum(["most-capable", "balanced"]).optional(),
     pinState: z.enum(["open", "frozen"]).optional(),
     indexVersion: z.string().min(1).optional(),
@@ -165,6 +180,20 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .refine((entry) => entry.tier === undefined || entry.slot === "reasoning", {
     message: "only a reasoning model may occupy a reasoning tier",
   })
+  // Every model a request can name an effort for records the levels it accepts and its own default, and
+  // the default is one of those levels; the embedding model takes no effort and records none.
+  .refine(
+    (entry) =>
+      entry.slot === "embedding"
+        ? entry.effortLevels === undefined && entry.defaultEffort === undefined
+        : entry.effortLevels !== undefined &&
+          entry.defaultEffort !== undefined &&
+          entry.effortLevels.includes(entry.defaultEffort),
+    {
+      message:
+        "a reasoning or utility model records its effort levels and a default among them; the embedding model records none",
+    },
+  )
   .refine((entry) => entry.pinState === undefined || entry.slot === "embedding", {
     message: "only the embedding model carries a pin state",
   })
@@ -224,9 +253,12 @@ export const PLATFORM_DEFAULT_REASONING_TIER: ReasoningTier = "most-capable";
 // ZDR-verified by the reasoning-reference process.
 export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 
-// The catalog. Reasoning models first, each current-generation model on the tier it occupies, then the
-// previous generation kept selectable so a firm that pinned one keeps working until it chooses again;
-// the small utility model; the platform-fixed embedding model pinned to the index generation.
+// The catalog. The current generation only, by the owner's ruling of 2026-11-09: the most capable and the
+// balanced reasoning model, each on the tier it occupies; the small utility model; the platform-fixed
+// embedding model pinned to the index generation. A previous-generation model is not offered. A firm
+// that had pinned one resolves to the platform default instead, because the settings read is total (an
+// id the catalog no longer carries is treated as no choice, ./settings.ts), and an administrator sees
+// the platform's model on the AI screen and may choose again.
 //
 // The Fable line (claude-fable-5, claude-fable-5-1) is intentionally absent, and so is anything else
 // the provider designates a Covered Model: those require a 30-day retention window and return a hard
@@ -240,8 +272,7 @@ export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 // every reasoning entry below is provider-dateless.
 const RAW_CATALOG: readonly CatalogEntry[] = [
   {
-    // The platform default from catalog version 4, by the owner's decision of 2026-11-09. A firm that
-    // follows the platform moves here; a firm that pinned another model stays where it is.
+    // The platform default from catalog version 4, by the owner's decision of 2026-11-09.
     slot: "reasoning",
     tier: "most-capable",
     modelId: "anthropic/claude-opus-5-5",
@@ -254,6 +285,8 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     verifiedOn: "2026-11-09",
     availabilityVerifiedOn: "2026-11-09",
     retirementNotBefore: "2027-09-22",
+    effortLevels: ["low", "medium", "high", "xhigh", "max"],
+    defaultEffort: "medium",
   },
   {
     slot: "reasoning",
@@ -268,60 +301,8 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     verifiedOn: "2026-11-09",
     availabilityVerifiedOn: "2026-11-09",
     retirementNotBefore: "2027-09-28",
-  },
-  {
-    slot: "reasoning",
-    modelId: "anthropic/claude-opus-5",
-    displayName: "Claude Opus 5",
-    snapshotId: "claude-opus-5",
-    snapshotForm: "provider-dateless",
-    referenceId: "claude-opus-5",
-    zdrEligible: true,
-    noTrainingEligible: true,
-    verifiedOn: "2026-11-09",
-    availabilityVerifiedOn: "2026-11-09",
-    retirementNotBefore: "2027-07-24",
-  },
-  {
-    slot: "reasoning",
-    modelId: "anthropic/claude-sonnet-5",
-    displayName: "Claude Sonnet 5",
-    snapshotId: "claude-sonnet-5",
-    snapshotForm: "provider-dateless",
-    referenceId: "claude-sonnet-5",
-    zdrEligible: true,
-    noTrainingEligible: true,
-    verifiedOn: "2026-11-09",
-    availabilityVerifiedOn: "2026-11-09",
-    retirementNotBefore: "2027-06-30",
-  },
-  {
-    // The platform default until catalog version 4. Kept so a firm that pinned it is not moved off
-    // it by a catalog edit: a firm's explicit choice is its own decision (./settings.ts says why).
-    slot: "reasoning",
-    modelId: "anthropic/claude-opus-4-8",
-    displayName: "Claude Opus 4.8",
-    snapshotId: "claude-opus-4-8",
-    snapshotForm: "provider-dateless",
-    referenceId: "claude-opus-4-8",
-    zdrEligible: true,
-    noTrainingEligible: true,
-    verifiedOn: "2026-11-09",
-    availabilityVerifiedOn: "2026-11-09",
-    retirementNotBefore: "2027-05-28",
-  },
-  {
-    slot: "reasoning",
-    modelId: "anthropic/claude-sonnet-4-6",
-    displayName: "Claude Sonnet 4.6",
-    snapshotId: "claude-sonnet-4-6",
-    snapshotForm: "provider-dateless",
-    referenceId: "claude-sonnet-4-6",
-    zdrEligible: true,
-    noTrainingEligible: true,
-    verifiedOn: "2026-11-09",
-    availabilityVerifiedOn: "2026-11-09",
-    retirementNotBefore: "2027-02-17",
+    effortLevels: ["low", "medium", "high", "xhigh", "max"],
+    defaultEffort: "high",
   },
   {
     // Nothing calls the utility slot yet, so moving it from claude-haiku-4-5 (whose earliest published
@@ -339,6 +320,8 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     verifiedOn: "2026-11-09",
     availabilityVerifiedOn: "2026-11-09",
     retirementNotBefore: "2027-10-07",
+    effortLevels: ["low", "medium", "high", "xhigh", "max"],
+    defaultEffort: "medium",
   },
   {
     // Workers AI on-Cloudflare embedding model. Confidentiality rests on Cloudflare's own data terms

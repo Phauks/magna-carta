@@ -55,11 +55,11 @@ describe("primaryReasoningModelDefinition", () => {
     await writeFirmSettingStatement(
       asDatabase(database),
       primaryReasoningModelDefinition,
-      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-sonnet-5-5",
       "2026-06-18T00:00:00.000Z",
     ).run();
     expect(await readFirmSetting(asDatabase(database), primaryReasoningModelDefinition)).toBe(
-      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-sonnet-5-5",
     );
   });
 
@@ -78,6 +78,19 @@ describe("primaryReasoningModelDefinition", () => {
   it("read stays total on a schema-invalid stored value (returns the default)", async () => {
     const database = fakeDatabase();
     database.rows.set("inference.primaryReasoningModel", JSON.stringify("garbage/model"));
+    expect(await readFirmSetting(asDatabase(database), primaryReasoningModelDefinition)).toBe(
+      "anthropic/claude-opus-5-5",
+    );
+  });
+
+  it("a firm pinned to a model the catalog no longer offers follows the platform again", async () => {
+    // The previous generation left the catalog on 2026-11-09. A row still naming one of its models
+    // must neither fail the read nor keep routing to it.
+    const database = fakeDatabase();
+    database.rows.set(
+      "inference.primaryReasoningModel",
+      JSON.stringify("anthropic/claude-opus-4-8"),
+    );
     expect(await readFirmSetting(asDatabase(database), primaryReasoningModelDefinition)).toBe(
       "anthropic/claude-opus-5-5",
     );

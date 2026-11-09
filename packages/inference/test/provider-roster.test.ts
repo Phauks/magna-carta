@@ -118,7 +118,7 @@ describe("reconcileProviderRoster", () => {
     const result = reconcileProviderRoster(entries, snapshot);
     expect(result.published.get("anthropic/claude-opus-5-5")).toBe(true);
     // A curated model the live list omits is reported, never dropped from the roster.
-    expect(result.published.get("anthropic/claude-sonnet-4-6")).toBe(false);
+    expect(result.published.get("anthropic/claude-sonnet-5-5")).toBe(false);
     expect(result.awaitingVerification.map((model) => model.id)).toEqual([
       "claude-fable-5-1",
       "claude-fable-5",

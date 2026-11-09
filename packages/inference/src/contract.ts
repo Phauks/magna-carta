@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REASONING_EFFORTS } from "./catalog.ts";
 
 // The firm's AI settings contract: what GET/PATCH /api/v1/firm/ai/settings return and accept, as plain
 // zod. Each component is named with zod's own metadata (`.meta({ id })`), which the contract emitter
@@ -39,6 +40,10 @@ export const AiModelChoice = z
     retirementNotBefore: z.string().nullable(),
     // The platform's evergreen tier this entry currently occupies, if any.
     tier: z.string().nullable(),
+    // The effort levels the provider accepts for this model, lowest first, and the one it applies
+    // when a request names none. Effort is chosen per request by the feature making it, not here.
+    effortLevels: z.array(z.enum(REASONING_EFFORTS)),
+    defaultEffort: z.enum(REASONING_EFFORTS).nullable(),
     platformDefault: z.boolean(),
     // Whether the provider's live model list includes this model: true or false when the platform
     // read the list, null when it could not or is not configured to.

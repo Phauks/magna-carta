@@ -31,9 +31,9 @@ describe("resolveReasoningModel", () => {
   it("returns the firm's stored model through the firm-scoped read", async () => {
     expect(
       await resolveReasoningModel(
-        fakeFirmDatabase("anthropic/claude-sonnet-4-6") as unknown as SqlDatabase,
+        fakeFirmDatabase("anthropic/claude-sonnet-5-5") as unknown as SqlDatabase,
       ),
-    ).toBe("anthropic/claude-sonnet-4-6");
+    ).toBe("anthropic/claude-sonnet-5-5");
   });
 
   it("returns the safe default when no firm row is set", async () => {
