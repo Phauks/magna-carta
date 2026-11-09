@@ -13,13 +13,18 @@
    * and the menu sits next to it, on the title's row, which is where a screen with a trailing column
    * keeps its page-level controls together (see screen-header.svelte).
    *
+   * ONE "MORE" ACROSS THE PRODUCT. It wears the record window's own menu control — the vertical
+   * ellipsis named "More", items as plain DropdownMenu rows with a leading icon — so a member who
+   * meets it on a screen and again in a record's dialog header (a person over Directory, a task)
+   * meets the same control (packages/design-system/src/lib/components/record-window).
+   *
    * IT ALWAYS EARNS ITS GLYPH. A menu is drawn only when opening it offers two or more live items
    * (docs/conventions/design-corrections.md, "A menu earns its glyph"), and the two below work on
    * every page, so a screen that passes nothing still gets a menu worth opening. A screen's own
    * items go beneath a separator, and they are live ones only: an unwired action stays on the row,
    * disabled and marked Soon, because a seam behind a glyph is a seam nobody sees.
    */
-  import Ellipsis from "@lucide/svelte/icons/ellipsis";
+  import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Link from "@lucide/svelte/icons/link";
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
   import { buttonClasses } from "@magna-carta/design-system/button";
@@ -55,16 +60,16 @@
         <DropdownMenu.Trigger
           {...tooltipProps}
           class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
-          aria-label="Actions for {title}"
+          aria-label="More"
           data-page-actions=""
         >
-          <Ellipsis class="size-16" aria-hidden="true" />
+          <EllipsisVertical class="size-16" aria-hidden="true" />
         </DropdownMenu.Trigger>
       {/snippet}
     </Tooltip.Trigger>
-    <Tooltip.Content side="bottom">More actions</Tooltip.Content>
+    <Tooltip.Content side="bottom">More</Tooltip.Content>
   </Tooltip.Root>
-  <DropdownMenu.Content align="start" style="inline-size: var(--mc-size-popover)">
+  <DropdownMenu.Content align="start">
     <DropdownMenu.Item onSelect={() => void copyLink()}>
       <Link class="size-16 shrink-0" aria-hidden="true" />
       Copy Link
