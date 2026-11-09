@@ -10,7 +10,7 @@ import { broadcast, broadcastPerViewer, type RoomContext } from "./room-state.ts
 //
 // THE ROUTE IS THE RECORD AND THE ROOM STORES NOTHING ABOUT A MESSAGE. Not the body, not the handle,
 // not a count — this module has no storage key and reads none. The transcript is rows in the firm's
-// own database written by `apps/api-worker/src/routes/meeting-chat.ts` through the firm-scoped
+// own database written by `apps/api-worker/src/http/routes/communications/meeting-chat.ts` through the firm-scoped
 // data-access layer; what happens here is a relay of a row that has ALREADY committed, so a browser
 // reaches the message as it is said rather than on a poller's next tick. A browser that misses one
 // is caught up by the read, which is why this path may fail silently and nothing downstream has to

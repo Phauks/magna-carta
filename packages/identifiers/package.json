@@ -10,13 +10,15 @@
     "./types": "./src/types.ts",
     "./generate": "./src/generate.ts",
     "./token": "./src/nanoid.ts",
-    "./validate": "./src/validate.ts"
+    "./validate": "./src/validate.ts",
+    "./field": "./src/field.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
-    "nanoid": "catalog:"
+    "nanoid": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

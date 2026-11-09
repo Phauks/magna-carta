@@ -8,7 +8,7 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {

@@ -38,17 +38,17 @@ than the API is at describing one, and it gets worse per surface added.
 
 ## 2. What is built, and where it stops
 
-| Layer                                                                                     | State                                                                                  |
-| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Problem document, `type` registry, `errorId` minting, correlation, `app.onError` boundary | **Built** — `apps/api-worker/src/contracts/problem-types.ts`, `@magna-carta/telemetry` |
-| Incident intake (`POST /v1/incidents`, firm-scoped row, outbox message)                   | **Built**                                                                              |
-| Client problem model                                                                      | **Partial** — `apps/web/src/lib/api/request.ts`, 4 of 12 fields                        |
-| One failure screen                                                                        | **Absent** — two area-local copies exist                                               |
-| One inline failure band                                                                   | **Absent** — 76 `danger`-variant `<Alert>` compositions across 68 files                |
-| Error ID on screen                                                                        | **Partial** — present on 14 of 37 failing surfaces                                     |
-| Breadcrumb ring buffer                                                                    | **Absent** — the reporter posts `breadcrumbs: []`                                      |
-| Crash boundary (`svelte:boundary`, `onerror`, `unhandledrejection`, `handleError`)        | **Absent** — no `hooks.client.ts` in the app                                           |
-| "Report a problem" always available                                                       | **Absent** — reachable only from the costs and billing failure screens                 |
+| Layer                                                                                     | State                                                                                       |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Problem document, `type` registry, `errorId` minting, correlation, `app.onError` boundary | **Built** — `apps/api-worker/src/http/contracts/problem-types.ts`, `@magna-carta/telemetry` |
+| Incident intake (`POST /v1/incidents`, firm-scoped row, outbox message)                   | **Built**                                                                                   |
+| Client problem model                                                                      | **Partial** — `apps/web/src/lib/api/request.ts`, 4 of 12 fields                             |
+| One failure screen                                                                        | **Absent** — two area-local copies exist                                                    |
+| One inline failure band                                                                   | **Absent** — 76 `danger`-variant `<Alert>` compositions across 68 files                     |
+| Error ID on screen                                                                        | **Partial** — present on 14 of 37 failing surfaces                                          |
+| Breadcrumb ring buffer                                                                    | **Absent** — the reporter posts `breadcrumbs: []`                                           |
+| Crash boundary (`svelte:boundary`, `onerror`, `unhandledrejection`, `handleError`)        | **Absent** — no `hooks.client.ts` in the app                                                |
+| "Report a problem" always available                                                       | **Absent** — reachable only from the costs and billing failure screens                      |
 
 The convention file already predicted this split: it books the client reporter, the breadcrumb
 buffer, the Error ID surfacing and the two report surfaces as inherited work that "arrives with the

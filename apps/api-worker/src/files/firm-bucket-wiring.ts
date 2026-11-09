@@ -1,5 +1,5 @@
 import type { DataRegion } from "@magna-carta/database/data-region";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { realR2Credentials } from "./presigner-wiring.ts";
 import { ScopedCredentialCache } from "./firm-bucket-credentials.ts";
 import { createS3FirmBucket, type S3Credentials } from "./s3-firm-bucket.ts";

@@ -136,7 +136,7 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   `@magna-carta/matters` (only for `system-matter-statements` — the custody holding matter). It does NOT depend on `@magna-carta/locations`, `@magna-carta/directory`, or
   `@magna-carta/file-manager`: a firm office, a Directory entity, and a stored file all arrive as
   handles, following the `matter_party` precedent of an id column with no cross-domain foreign key.
-- The route layer (`apps/api-worker/src/routes/custody.ts`) hands every service the firm-scoped database,
+- The route layer (`apps/api-worker/src/http/routes/custody/custody.ts`) hands every service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 
 ## Gotchas

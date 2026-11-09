@@ -23,7 +23,7 @@ tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-base64 = "0.22"
+base64 = "0.23"
 
 [dev-dependencies]
 # Loopback HTTP client for the full-app tests. default-features off + rustls keeps the TLS backend
@@ -31,7 +31,7 @@ base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 # Builds the archive fixtures the expansion routes are exercised against. Same pure-Rust backend the
 # engine reads with, so the fixture and the reader agree about what a deflated entry is.
-zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9.4", default-features = false, features = ["deflate-flate2"] }
 
 # The lint floor. Same rules as crates/Cargo.toml, stated here because every container is its own Cargo
 # workspace and a workspace lint table reaches nothing outside its own tree. This workspace holds one

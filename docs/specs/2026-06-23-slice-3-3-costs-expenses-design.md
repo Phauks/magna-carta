@@ -182,4 +182,4 @@ Mirrors 3·1: TDD via subagent-driven-development. Package unit tests (node-sqli
 - Producer: `packages/data-access/src/shipment-service.ts:127` (`shipment.purchased`); shipment row `packages/database/src/per-firm-schema.ts:1162` (`matter_ref`, `postage_cost_minor`, `service_fee_minor`).
 - Consumer registration: `apps/worker/src/index.ts` (the `CONTROL_PLANE_CONSUMERS` analogue) + `scheduled.ts` (the relay note).
 - Money: `packages/money/src/money.ts` (integer-minor, no floats).
-- Route/chokepoint pattern: `apps/worker/src/routes/time-entries.ts` (the clean `defineOpenAPIRoute` template).
+- Route/chokepoint pattern: `apps/worker/src/routes/timekeeping/time-entries.ts` (the clean `defineOpenAPIRoute` template).

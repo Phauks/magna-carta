@@ -24,12 +24,12 @@ crypto-shred), ADR-0078 (build the cheap-to-add seams while in the area; the exa
 rollup), ADR-0168 (`firm.data_region`), ADR-0190 (firm-level erasure is the only erasure that exists).
 **Decision inputs, all read in this cycle:** `packages/database/src/control-plane-schema.ts` (the firm
 registry), `apps/worker/src/firm-provisioner.ts` and `apps/worker/src/firm-resource-provider.ts` (what
-provisioning actually does), `apps/worker/src/routes/firms.ts` (the secret-gated creation route),
+provisioning actually does), `apps/worker/src/routes/platform/firms.ts` (the secret-gated creation route),
 `apps/worker/src/chokepoint/chokepoint.ts` and `apps/worker/src/contracts/route-meta.ts` (the one
 enforcement point and its reserved seams), `packages/access-control/src/registry.ts` (the permission
 registry), `apps/worker/src/usage/consent.ts` (the isolate-local cache idiom this design reuses),
 `apps/worker/src/scheduled.ts` (the fleet-wide cron enumeration), `apps/worker/src/firm-key-shred.ts`,
-`apps/worker/src/routes/firm-usage.ts` (the storage measurement already built),
+`apps/worker/src/routes/firm/firm-usage.ts` (the storage measurement already built),
 `docs/specs/2026-08-04-custodian-design.md` (the retention and destruction posture this design follows
 rather than reinvents), `docs/specs/2026-08-06-ai-search-integration-design.md` (the 5,000-instance
 account cap), `docs/conventions/settings.md` and `packages/notifications/src/settings.ts` (the
@@ -544,7 +544,7 @@ Build nothing. Define the seam precisely enough that the payments work is a wiri
 Tier is a control-plane fact with exactly one writer: an internal function,
 `setFirmEntitlementTier(firmId, tier, reason, actor)`, which writes the column, records an `auth_audit`
 row, and invalidates the isolate cache entry. **The seam is the function, not a route.** Today it is
-reachable from a platform-operator-guarded endpoint — `apps/worker/src/routes/platform-release-channel.ts`
+reachable from a platform-operator-guarded endpoint — `apps/worker/src/routes/platform/platform-release-channel.ts`
 is the working template for exactly this shape: secret-guarded, no firm session, audited to the
 control-plane `auth_audit`. Tomorrow the payments integration calls the same function. Nothing else in
 the codebase ever writes the column.

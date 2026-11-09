@@ -982,7 +982,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // holding the bytes, so deleting it and stopping leaves a photograph of a person in the firm's
   // bucket that nothing can ever find again to delete. The object key has to be read off the row
   // before the row goes. The route that removes a picture does exactly that
-  // (apps/api-worker/src/routes/me-photo.ts).
+  // (apps/api-worker/src/http/routes/session/me-photo.ts).
   {
     table: "member_photo",
     subjectKey: "member_user_id",

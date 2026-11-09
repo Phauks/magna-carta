@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Route through the chokepoint, code-as-contract:** a `RouteMeta` + `defineOpenAPIRoute`, registered with `chokepointMiddleware`; no inline session/firm/RBAC checks in the handler. Mirror `apps/worker/src/routes/me.ts`.
+- **Route through the chokepoint, code-as-contract:** a `RouteMeta` + `defineOpenAPIRoute`, registered with `chokepointMiddleware`; no inline session/firm/RBAC checks in the handler. Mirror `apps/worker/src/routes/session/me.ts`.
 - **Conformance binding:** a route naming a `tools:` permission requires `tools: "firm"` in `RESOURCE_BY_PERMISSION_NAMESPACE` (`apps/worker/test/conformance.test.ts`); the route's `resource` is `"firm"`.
 - **Drift gates:** after wiring, run `pnpm --filter @magna-carta/worker run emit-openapi` and `pnpm run generate-client`, and commit the regenerated `apps/worker/openapi/openapi.json` + `packages/api-client`.
 - **Migration discipline:** per-firm migrations are journal-driven (`drizzle/per-firm/meta/_journal.json` + `<tag>.sql`); seeding `role_permission` is a DATA migration, created via `drizzle-kit generate --custom` (which produces the empty migration + journal entry + snapshot), then the INSERT is hand-written. The Owner/Admin role is `role_Gw-zKO8hOHQuNv2bWokMp`; the seeded `role_permission.id` must be a valid `rolePermission_` handle. The seed-fitness test requires every seeded permission to be in the registry (`tools:firmUsage` is).
@@ -90,7 +90,7 @@ git commit -m "feat(database): seed tools:firmUsage onto the Owner/Admin role (p
 
 **Files:**
 
-- Create: `apps/worker/src/routes/firm-usage.ts`
+- Create: `apps/worker/src/routes/firm/firm-usage.ts`
 - Modify: `apps/worker/src/app.ts` (import + register beside `registerMeRoute`)
 - Modify: `apps/worker/test/conformance.test.ts` (add `tools: "firm"` to `RESOURCE_BY_PERMISSION_NAMESPACE`)
 - Create: `apps/worker/test/firm-usage.test.ts`
@@ -219,7 +219,7 @@ Expected: FAIL — the route does not exist (the OpenAPI assertion finds no oper
 
 - [ ] **Step 3: Write the route module**
 
-`apps/worker/src/routes/firm-usage.ts`:
+`apps/worker/src/routes/firm/firm-usage.ts`:
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -343,7 +343,7 @@ export function registerFirmUsageRoute(
 In `apps/worker/src/app.ts`, add beside the other route imports:
 
 ```ts
-import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerFirmUsageRoute } from "./routes/firm/firm-usage.ts";
 ```
 
 and immediately after `registerMeRoute(app, chokepoint);`:
@@ -380,7 +380,7 @@ Expected: PASS — `firm-usage.test.ts` (401 / 403 / 200 / OpenAPI emission), th
 - [ ] **Step 8: Commit**
 
 ```bash
-git add apps/worker/src/routes/firm-usage.ts apps/worker/src/app.ts apps/worker/test/conformance.test.ts apps/worker/test/firm-usage.test.ts apps/worker/openapi/openapi.json packages/api-client
+git add apps/worker/src/routes/firm/firm-usage.ts apps/worker/src/app.ts apps/worker/test/conformance.test.ts apps/worker/test/firm-usage.test.ts apps/worker/openapi/openapi.json packages/api-client
 git commit -m "feat(worker): GET /api/v1/firm-usage — the per-firm usage snapshot route"
 ```
 

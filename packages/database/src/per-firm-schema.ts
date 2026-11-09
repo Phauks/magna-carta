@@ -262,7 +262,7 @@ export const member = sqliteTable("member", {
 // and keying on content would make one member's upload silently become the other's row.
 //
 // WHY THE FIRM'S DATABASE AND NOT THE ACCOUNT'S. A member's own name is an ACCOUNT fact and lives
-// on the control-plane user row (apps/api-worker/src/routes/me-name.ts says why). A picture is not
+// on the control-plane user row (apps/api-worker/src/http/routes/session/me-name.ts says why). A picture is not
 // the same kind of fact: it is what this firm's colleagues see beside this person's work, it is
 // stored in this firm's bucket under this firm's key, and a person who leaves takes their name to
 // their next account and leaves the firm's roster photograph behind. Better Auth's `user.image`

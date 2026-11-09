@@ -12,7 +12,7 @@ import {
   runIncidentDescriptionEncryptBackfill,
   runProtectedKeyMintBackfill,
   listReachableActiveFirms,
-} from "../src/scheduled.ts";
+} from "../src/background/scheduled.ts";
 import { shredFirmKey } from "../src/firm-key-shred.ts";
 import { firmKeyProviderForEnv } from "../src/firm-key-provider-wiring.ts";
 import {

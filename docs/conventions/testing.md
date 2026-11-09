@@ -43,7 +43,7 @@ teardown and only removes the evidence.
 
 Every piece of fire-and-forget work therefore goes through a helper that accounts for it, and the
 harness waits for the count to reach zero after each test. In the Worker that is
-`trackBackgroundWork` / `runInBackground` (`apps/api-worker/src/background.ts`) and the global
+`trackBackgroundWork` / `runInBackground` (`apps/api-worker/src/http/deferred-work.ts`) and the global
 `afterEach` barrier in `apps/api-worker/test/support/settle-background-work.ts`, registered for every
 file through `setupFiles`. A new fire-and-forget path that skips the helper is invisible to the
 barrier, which is the one way to reopen this: the barrier's own test
@@ -79,7 +79,7 @@ Two things follow from it.
   (`packages/conversion/src/port.ts`, `packages/search/src/port.ts`),
   `credential-store-not-implemented` (`packages/integrations/src/dispatch.ts`), `ScanFaultError`
   (`packages/file-manager/src/verdict.ts`). Map it to a status whose registered contract in
-  `apps/api-worker/src/contracts/problem-types.ts` is actually true — `service-unavailable` promises a
+  `apps/api-worker/src/http/contracts/problem-types.ts` is actually true — `service-unavailable` promises a
   deploy clears it, `not-implemented` does not.
 - **A stub service binding in the test pool is a test double too.** `apps/api-worker/vitest.config.ts`
   registers a stub worker for every service binding, and a stub that answers correctly proves only

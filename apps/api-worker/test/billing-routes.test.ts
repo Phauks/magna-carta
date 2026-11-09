@@ -24,7 +24,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The billing HTTP surface over real Miniflare bindings. What is proved here is the wiring the domain
 // suites cannot reach: that the chokepoint gates each route on the right billing capability, that

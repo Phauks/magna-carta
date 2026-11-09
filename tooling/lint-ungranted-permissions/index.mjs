@@ -40,7 +40,7 @@ const MIGRATION_ROOT = "packages/database/drizzle";
 const PERMISSION_SEED_TABLES = ["role_permission", "direct_grant"];
 
 // A chokepoint route whose surface is "public" is NOT a demand. The chokepoint
-// (apps/api-worker/src/chokepoint/chokepoint.ts) skips its session, authn and RBAC steps entirely for a
+// (apps/api-worker/src/http/chokepoint/chokepoint.ts) skips its session, authn and RBAC steps entirely for a
 // public surface — those routes carry their own header-token guard — so the `permission:` on one is
 // nominal metadata and a role that held it would gain nothing. Counting them was measured at three
 // false positives out of seven; see rules.mjs.

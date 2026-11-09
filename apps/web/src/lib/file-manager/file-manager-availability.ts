@@ -7,7 +7,7 @@
  * what its arrival waits on. Nothing here is omitted and nothing is faked live. A reader sees the
  * shape of what is coming and can never mistake it for working.
  *
- * Each entry was checked against apps/api-worker/src/routes/ rather than assumed. Delete an entry
+ * Each entry was checked against apps/api-worker/src/http/routes/ rather than assumed. Delete an entry
  * the day its route lands and every control that reads it follows.
  */
 

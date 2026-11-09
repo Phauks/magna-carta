@@ -38,14 +38,14 @@
   scope: Firm endpoint accepting only stable/beta, behind firm:manageReleaseChannel, requiring an explicit versioned consent acknowledgment recorded in the per-firm audit log.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/release-channel.ts (PUT /api/v1/firm/release-channel).
+  evidence: apps/api-worker/src/http/routes/firm/release-channel.ts (PUT /api/v1/firm/release-channel).
 
 - id: release-channels.alpha-door
   name: Alpha door (developer-only)
   scope: Secret-guarded platform endpoint writing any channel including alpha; audited in control-plane auth_audit; internal firms pinned to alpha for dogfooding.
   status: shipped
   surface: internal
-  evidence: apps/api-worker/src/routes/platform-release-channel.ts + platform-operator-guard.ts.
+  evidence: apps/api-worker/src/http/routes/platform/platform-release-channel.ts + platform-operator-guard.ts.
 
 - id: release-channels.feature-flags
   name: Feature-flag engine (@magna-carta/feature-flags)
@@ -67,7 +67,7 @@
   scope: Per-request evaluation context (firmId, channel, role, userId — non-privileged identifiers only); resolved flag set delivered in the /me bootstrap beside permissions; one bundle for all channels.
   status: shipped
   surface: internal
-  evidence: apps/api-worker/src/routes/me.ts (evaluateCatalog into the flags payload).
+  evidence: apps/api-worker/src/http/routes/session/me.ts (evaluateCatalog into the flags payload).
 
 - id: release-channels.frontend
   name: Channel frontend (Plan 2)

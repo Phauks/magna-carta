@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { beforeAll, expect, it } from "vitest";
-import { runIdleCheckoutSweep } from "../../src/editing/idle-checkout-sweep.ts";
+import { runIdleCheckoutSweep } from "../../src/background/editing/idle-checkout-sweep.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 

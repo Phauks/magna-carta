@@ -4,9 +4,10 @@ import { ensureReady, recoveryTier } from "@magna-carta/decryption";
 import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { createApp, type Bindings } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { recoveryQueue } from "../src/recovery/recovery-consumer.ts";
+import { recoveryQueue } from "../src/background/recovery/recovery-consumer.ts";
 import type {
   RecoveryBackend,
   RecoveryJobState,
@@ -50,7 +51,7 @@ const PDF_FIXTURE_BASE64 =
   "IDUgMCBSCj4+CnN0YXJ0eHJlZgo0NzYKJSVFT0YK";
 
 // Wrangler bundles .wasm imports as WebAssembly.Module — the same ambient-declared cast
-// routes/recovery.ts uses, so recoveryTier() below can initialise the engine from the compiled
+// routes/files/recovery.ts uses, so recoveryTier() below can initialise the engine from the compiled
 // module rather than attempting a network fetch under workerd.
 const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
 
@@ -151,7 +152,7 @@ function batchOf(message: RecoveryShardMessage): MessageBatch<RecoveryShardMessa
   } as unknown as MessageBatch<RecoveryShardMessage>;
 }
 
-const RECOVERY_SHARD_COUNT = 4; // matches routes/recovery.ts's RECOVERY_SHARD_COUNT
+const RECOVERY_SHARD_COUNT = 4; // matches routes/files/recovery.ts's RECOVERY_SHARD_COUNT
 
 describe("recovery end-to-end: cfCapable happy path (button -> tier router -> fan-out -> first-hit -> password)", () => {
   let jobId = "";

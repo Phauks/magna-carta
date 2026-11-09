@@ -2,8 +2,8 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { describe, expect, it } from "vitest";
-import { identifierPathParam, idempotencyKeyHeader } from "../../src/contracts/common";
-import { defaultHook } from "../../src/contracts/problem";
+import { identifierPathParam, idempotencyKeyHeader } from "../../src/http/contracts/common";
+import { defaultHook } from "../../src/http/contracts/problem";
 
 describe("idempotencyKeyHeader", () => {
   it("declares the header under the lowercase key (library matches header schema keys case-sensitively against the lowercase incoming header map)", () => {
