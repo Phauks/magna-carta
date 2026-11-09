@@ -5426,6 +5426,10 @@ export type ConflictsRunSummary = {
     finishedAt: string | null;
     failure: string | null;
     cancelledByUserId: string | null;
+    askedScope: {
+        sources: Array<string>;
+        strictness: string;
+    } | null;
     hitCount: number | null;
     subjectParties: Array<ConflictsSubjectParty>;
 };

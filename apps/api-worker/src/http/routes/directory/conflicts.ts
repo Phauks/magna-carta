@@ -391,6 +391,16 @@ const RunSummary = z
     failure: z.string().nullable(),
     // Who stopped a cancelled run. Null on every other run.
     cancelledByUserId: z.string().nullable(),
+    // What the run was asked to search, as it was asked: readable from the moment it is queued, so
+    // a running check can say what it is searching before it has a record. The record's own scope
+    // says what actually ran once the firm's floor has been applied. Null on a run whose stored
+    // request cannot be read.
+    askedScope: z
+      .object({
+        sources: z.array(z.string()),
+        strictness: z.string(),
+      })
+      .nullable(),
     // How many candidates this run's record holds. Null while it has no record.
     hitCount: z.number().int().nullable(),
     // Who this run searches, by name, readable from the moment it is queued: the run stores its
@@ -1356,6 +1366,13 @@ function subjectEntityIdsOf(requestJson: string | null): readonly string[] {
   return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
 }
 
+function askedScopeOf(
+  requestJson: string,
+): { readonly sources: readonly string[]; readonly strictness: string } | null {
+  const scope = parseStoredRunRequest(requestJson)?.scope;
+  return scope === undefined ? null : { sources: [...scope.sources], strictness: scope.strictness };
+}
+
 /** The parties a run was asked about, named from one set-valued Directory read. */
 function subjectPartiesOf(
   entityIds: readonly string[],
@@ -1395,6 +1412,7 @@ function runSummary(
     finishedAt: run.finished_at,
     failure: run.failure,
     cancelledByUserId: run.cancelled_by_user_id,
+    askedScope: askedScopeOf(run.request_json),
     hitCount: run.status === "completed" ? (hitCounts.get(run.id) ?? 0) : null,
     subjectParties: subjectPartiesOf(subjectEntityIdsOf(run.request_json), names),
   };
@@ -1804,17 +1822,10 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       // A plain guarded update rather than an effect batch: it moves one mutable row, and a repeat
       // finds the run already settled and changes nothing — the chokepoint still requires the key so
       // a replay is recognised.
-      await cancelRunStatement(
-        firm.firmDatabase,
-        run.id,
-        actorUserId,
-        nowInstant(),
-      ).run();
+      await cancelRunStatement(firm.firmDatabase, run.id, actorUserId, nowInstant()).run();
       const settled = (await readRun(firm.firmDatabase, run.id)) ?? run;
       return c.json(
-        { id: run.id, status: reportedRunStatus(settled) } as z.infer<
-          typeof CancelledRunResponse
-        >,
+        { id: run.id, status: reportedRunStatus(settled) } as z.infer<typeof CancelledRunResponse>,
         200,
       );
     },

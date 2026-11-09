@@ -22846,6 +22846,27 @@
               "null"
             ]
           },
+          "askedScope": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "strictness": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sources",
+              "strictness"
+            ]
+          },
           "hitCount": {
             "type": [
               "integer",
@@ -22873,6 +22894,7 @@
           "finishedAt",
           "failure",
           "cancelledByUserId",
+          "askedScope",
           "hitCount",
           "subjectParties"
         ]

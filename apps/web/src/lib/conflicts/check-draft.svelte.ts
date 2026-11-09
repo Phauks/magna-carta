@@ -22,17 +22,11 @@
  */
 import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
 import type { Strictness } from "./conflicts-api.ts";
-import { OPENING_DRAFT, type CheckDraftValues, type ChosenMatter } from "./check-request.ts";
+import { OPENING_DRAFT, type CheckDraftValues } from "./check-request.ts";
 
 export class CheckDraft implements CheckDraftValues {
   /** The Directory entities the check is about. Entities, never typed names. */
   parties = $state<PickableEntity[]>([]);
-
-  /**
-   * The matter chosen in the panel, where the panel asks for one. Null when it asks nothing —
-   * either because nothing is chosen yet, or because the surface already knows the matter.
-   */
-  chosenMatter = $state<ChosenMatter | null>(null);
 
   searchRelationships = $state(OPENING_DRAFT.searchRelationships);
   searchOwnPeople = $state(OPENING_DRAFT.searchOwnPeople);

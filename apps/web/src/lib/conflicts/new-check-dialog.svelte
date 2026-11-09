@@ -15,14 +15,11 @@
    * same footing, which is how a form comes to look like a control panel for something nobody can
    * name.
    *
-   * THE SAME PANEL FROM BOTH DOORS. Opened from the firm's log it asks which matter, if any;
-   * opened from a matter it states the matter and asks nothing about it. Everything else is
-   * identical by construction, because both panes bind to one draft (check-draft.svelte.ts) and
-   * the request is composed from that draft in one place (check-request.ts).
-   *
-   * A CHECK MAY NAME NO MATTER AT ALL. The pre-engagement screen — parties named on the telephone,
-   * before a file exists — is the case the preliminary trigger exists for, and demanding a matter
-   * would make the platform's own earliest check the one it refused to record.
+   * IT DOES NOT ASK FOR A MATTER (owner's ruling, 2026-11-09). A check is a search for parties;
+   * the matter it belongs to is chosen from its report once somebody knows it. Opened from a
+   * matter's own section the check is that matter's, and the panel states it. Both panes bind to one
+   * draft (check-draft.svelte.ts) and the request is composed from it in one place
+   * (check-request.ts).
    *
    * IT NO LONGER ASKS WHICH TRIGGER TO FILE UNDER. Preliminary and comprehensive name WHEN a check
    * ran, not how it searched, and the record already knows: a check filed against a matter the firm
@@ -45,20 +42,14 @@
   import CheckScope from "./check-scope.svelte";
   import CheckSubject from "./check-subject.svelte";
   import { CheckDraft } from "./check-draft.svelte.ts";
-  import { checkPlan, composeCheck, type CheckSurface } from "./check-request.ts";
-  import {
-    openConflictsCheck,
-    readFirmConflictsPolicy,
-    readNextConflictsCheckNumber,
-    type FirmConflictsPolicy,
-  } from "./conflicts-api.ts";
+  import { composeCheck, type CheckSurface } from "./check-request.ts";
+  import { openConflictsCheck, readNextConflictsCheckNumber } from "./conflicts-api.ts";
 
   let {
     open = $bindable(false),
     matterId = null,
     matterLabel = null,
     matterEngaged = false,
-    chooseMatter = false,
     permissions = null,
     onRan,
   }: {
@@ -72,8 +63,6 @@
      * consultation number. It is what decides the trigger, and nothing else.
      */
     matterEngaged?: boolean;
-    /** Whether the panel asks which matter. The firm-wide log does; a matter's own section cannot. */
-    chooseMatter?: boolean;
     /** The signed-in member's permissions; null until the session lands. */
     permissions?: readonly string[] | null;
     /** The check was opened and its first run queued. Where that leads belongs to the surface. */
@@ -87,8 +76,6 @@
    */
   let draft = $state(new CheckDraft());
 
-  let policy = $state<FirmConflictsPolicy | null>(null);
-  let policyAsked = false;
   let failure = $state<StatedFailure | null>(null);
   /** The number the next check would draw. A preview, never a reservation: two panels may show it. */
   /*
@@ -97,22 +84,6 @@
    * every panel that previews a number uses.
    */
   const previewed = new PreviewedNumber("Check");
-
-  /*
-   * The firm's own policy, read so a blank bound can show the number it will actually take, and so
-   * the right pane can state the floor. Read on the first OPENING rather than on mount: this panel
-   * sits mounted behind a screen almost nobody opens it from, and a firm's floor moves about as
-   * often as a firm's letterhead. A policy that cannot be read is left unstated rather than guessed
-   * at — a blank field takes the firm's setting whether or not the panel can name it.
-   */
-  $effect(() => {
-    if (!open || policyAsked) return;
-    policyAsked = true;
-    void (async () => {
-      const outcome = await readFirmConflictsPolicy(fetch);
-      if (outcome.kind === "ok") policy = outcome.value;
-    })();
-  });
 
   // The number is read on EVERY opening: a check opened from another panel in between draws it.
   $effect(() => {
@@ -126,18 +97,10 @@
     });
   });
 
-  /** The matter the check is filed under: the surface's, or the one chosen in the left pane. */
-  const surface: CheckSurface = $derived({
-    matterId: matterId ?? draft.chosenMatter?.id ?? null,
-    // A matter carrying a matter number has been taken on; one carrying only a consultation number
-    // has not. That is the whole of what decides the trigger.
-    matterEngaged:
-      matterId === null ? (draft.chosenMatter?.matterNumber ?? null) !== null : matterEngaged,
-    permissions,
-  });
+  /** The matter the check is filed under: the surface's own, where it was opened from one. */
+  const surface: CheckSurface = $derived({ matterId, matterEngaged, permissions });
 
   const composed = $derived(composeCheck(draft, surface));
-  const plan = $derived(checkPlan(draft, surface));
 
   function reset(): void {
     draft = new CheckDraft();
@@ -188,10 +151,10 @@
   {/snippet}
 
   {#snippet fields({ busy }: { busy: boolean })}
-    <CheckSubject {draft} {chooseMatter} {matterLabel} {plan} {busy} />
+    <CheckSubject {draft} {matterLabel} {busy} />
   {/snippet}
 
   {#snippet context({ busy }: { busy: boolean })}
-    <CheckScope {draft} {policy} matterNamed={surface.matterId !== null} {busy} />
+    <CheckScope {draft} {busy} />
   {/snippet}
 </ActionDialog>

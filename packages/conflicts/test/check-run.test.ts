@@ -403,7 +403,11 @@ test("a queued run that is cancelled reads as cancelled, names who stopped it, a
   expect(row?.failure).toBe(CANCELLED_RUN_FAILURE);
   // Nothing left to claim: the executor searches nothing and records nothing.
   await expect(
-    executeCheckRun(fixture.context, { runId: opened.runId, input: request() }, fixture.writeOptions),
+    executeCheckRun(
+      fixture.context,
+      { runId: opened.runId, input: request() },
+      fixture.writeOptions,
+    ),
   ).resolves.toBeNull();
 });
 
@@ -412,7 +416,11 @@ test("a run cancelled while it searches stops at its next report and records not
   const subject = await subjectOn(fixture, "Cancelled");
   const opened = await openCheckRun(
     fixture.database,
-    { request: storedRequest({ subjectEntityIds: [subject] }), triggerSource: "manual", under: null },
+    {
+      request: storedRequest({ subjectEntityIds: [subject] }),
+      triggerSource: "manual",
+      under: null,
+    },
     fixture.writeOptions,
   );
   // A member presses Cancel the moment the search starts walking.
