@@ -24,6 +24,7 @@ import {
   DEFAULT_ON_SOURCE_KEYS,
   FIRM_EVENTS_SOURCE_KEY,
   RECORDS_SOURCE_KEY,
+  type UnservedDateCalendar,
 } from "$lib/calendar/calendar-sources.ts";
 import {
   isSourceOn,
@@ -65,7 +66,19 @@ const RESOURCES: readonly FirmResource[] = [
   resource("resource_old", "Retired room", "room", false),
 ];
 
-const folders = calendarFolders({ members: ROSTER, resources: RESOURCES });
+// One date calendar that nothing serves, injected so the Soon row's handling stays proven whether or
+// not the shipped catalog happens to be holding one today.
+const COMING: UnservedDateCalendar = {
+  key: "limitation",
+  name: "Limitation dates",
+  soonReason: "a limitation period on a matter's claims",
+};
+
+const folders = calendarFolders({
+  members: ROSTER,
+  resources: RESOURCES,
+  unservedDates: [COMING],
+});
 
 function folderNamed(name: string) {
   const found = folders.find((folder) => folder.name === name);
@@ -128,17 +141,28 @@ describe("the catalog's folders", () => {
     expect(withoutResources.map((folder) => folder.name)).not.toContain("Vehicles and equipment");
   });
 
-  it("lists the dates, including the one nothing serves yet, marked and refused", () => {
+  it("lists the dates, including one nothing serves yet, marked and refused", () => {
     const dates = folderNamed("Dates");
     expect(dates.sources.map((source) => source.name)).toEqual([
       "Custody dates",
       "File destruction dates",
+      "Limitation dates",
     ]);
-    const destruction = dates.sources[1]!;
+    const coming = dates.sources[2]!;
     // Listed so a firm can see the shape of what is coming; refused so it can never be mistaken
     // for what is here.
-    expect(destruction.soonReason).toBe("a retention schedule on a matter's files");
-    expect(selectableSources(folders)).not.toContain(destruction);
+    expect(coming.soonReason).toBe("a limitation period on a matter's claims");
+    expect(selectableSources(folders)).not.toContain(coming);
+  });
+
+  it("serves file destruction dates, under the key the Soon row was remembered by", () => {
+    // The shipped catalog, with nothing injected: the paper file's destruction date is a served
+    // layer now, and a reader who had the row in view keeps it because the key did not move.
+    const shipped = calendarFolders({ members: ROSTER, resources: RESOURCES });
+    const destruction = sourceByKey(shipped, layerSourceKey("fileDestruction"))!;
+    expect(destruction.name).toBe("File destruction dates");
+    expect(destruction.soonReason).toBeUndefined();
+    expect(selectableSources(shipped)).toContain(destruction);
   });
 });
 
@@ -158,8 +182,13 @@ describe("what a folder's own control does", () => {
   });
 
   it("counts only the rows that can be turned on, so a Soon row never holds a folder open", () => {
-    // One served date calendar, one still coming: turning the served one on IS the whole folder.
-    expect(folderSelection(dates, new Set([layerSourceKey("custody")]))).toBe("all");
+    // Two served date calendars, one still coming: turning the served ones on IS the whole folder.
+    expect(
+      folderSelection(
+        dates,
+        new Set([layerSourceKey("custody"), layerSourceKey("fileDestruction")]),
+      ),
+    ).toBe("all");
   });
 
   it("completes a part-filled folder, and empties a full one", () => {
@@ -172,7 +201,8 @@ describe("what a folder's own control does", () => {
   it("never turns on a calendar nothing serves", () => {
     const turnedOn = toggleFolder(dates, new Set());
     expect(turnedOn.has(layerSourceKey("custody"))).toBe(true);
-    expect(turnedOn.has(layerSourceKey("fileDestruction"))).toBe(false);
+    expect(turnedOn.has(layerSourceKey("fileDestruction"))).toBe(true);
+    expect(turnedOn.has(layerSourceKey("limitation"))).toBe(false);
   });
 });
 
@@ -185,8 +215,8 @@ describe("one calendar's own control", () => {
   });
 
   it("does not move a row that is waiting on a source", () => {
-    const destruction = sourceByKey(folders, layerSourceKey("fileDestruction"))!;
-    expect(toggleSource(destruction, new Set()).size).toBe(0);
+    const coming = sourceByKey(folders, layerSourceKey("limitation"))!;
+    expect(toggleSource(coming, new Set()).size).toBe(0);
   });
 });
 

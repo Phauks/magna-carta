@@ -53,9 +53,11 @@ setting and deadline on every matter you can see, and the firm's own events besi
   are given colours to start with, so eight of them turned on are still eight you can tell apart.
 - **Custody dates**, under **Dates**, adds the safe custody register's dates to the calendar: when
   an original checked out is due back, and when a packet or an item is due for review. Each shows
-  its custody number and opens the register. **File destruction dates** is listed beside it and
-  marked Soon: it waits on a retention schedule for a matter's files, which the platform does not
-  hold yet.
+  its custody number and opens the register.
+- **File destruction dates**, under **Dates** beside it, shows the day each matter's paper file may
+  be destroyed after, as your firm recorded it on the matter's status window. Each entry shows the
+  matter's number and opens the matter. It is a reminder only: nothing is destroyed when the day
+  arrives.
 - **Whose calendar you are reading is the list on the left.** To read your own day, turn your own
   calendar on and the others off; to read a colleague's, turn theirs on. A colleague's calendar
   shows the settings they are a participant at or the responsible attorney for, over the matters

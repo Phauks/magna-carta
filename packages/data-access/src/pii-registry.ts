@@ -956,6 +956,13 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
   { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
+  // The date a matter's paper file may be destroyed after, and the member who stated it. The date is
+  // the matter's record; who stated it is an actor reference, pseudonymized on the audit_log terms.
+  {
+    table: "matter_file_retention",
+    subjectKey: "recorded_by_user_id",
+    action: "pseudonymize-keep",
+  },
   // Matter staffing: which firm member carried a matter, in which role, over which dates. Retained
   // as the matter's record on the same line time_entry.timekeeper_user_id sits on — who worked a
   // file is that file's history, not current operational state.
