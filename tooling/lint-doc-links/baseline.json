@@ -1,7 +1,6 @@
 {
   "note": "Links that were already broken when the dead-link gate landed. This file may only ever SHRINK: fix a link and delete its line. An entry that no longer matches a real finding fails the gate, so a repaired link cannot leave its exemption behind. Nothing may be added here that the same change could have fixed.",
   "broken": {
-    "CHANGELOG.md -> .github/workflows/ci.yml": "the rendered changelog is assembled on main from changelog.d/ and is never edited on a branch; the path this entry names was renamed after the entry was written, and a correction belongs in the fragment, not in the build output",
     "CHANGELOG.md -> apps/worker/test/openapi-emission.test.ts": "the rendered changelog is assembled on main from changelog.d/ and is never edited on a branch; the path this entry names was renamed after the entry was written, and a correction belongs in the fragment, not in the build output",
     "CHANGELOG.md -> packages/fixtures/baselines/ledgerVolume-v1.json": "the rendered changelog is assembled on main from changelog.d/ and is never edited on a branch; the path this entry names was renamed after the entry was written, and a correction belongs in the fragment, not in the build output",
     "docs/Decision-Log.md -> ./CHANGELOG.md": "the register is assembled on main from the decision records and is never edited on a branch; this link comes from the record body, which is written at a different depth from the register that renders it",
