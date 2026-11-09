@@ -613,7 +613,7 @@ function unmetSentence(count: number): string {
  * "Destroy After" is a date a person at the firm states and nothing else. The platform derives
  * none — a retention period is the jurisdiction's and the firm's, and a date invented here would be
  * a date somebody destroys a client's file on — and nothing deletes anything when it arrives. It is
- * a reminder: here, and on the firm calendar's File destruction dates. The custody register is
+ * a reminder: here, and on the firm calendar's File Destruction Dates. The custody register is
  * explicit about the same posture for client property — an original is destroyed on a written
  * basis, by two people, never because a date arrived.
  *

@@ -252,7 +252,7 @@ so a half-typed year never becomes a recorded date. A matter that is not closed 
 matter closes", because the firm's minimum is counted from the close. Magna Carta never works the
 date out for you, because retention periods depend on your jurisdiction and your firm's own policy,
 and it never destroys or deletes anything when the date arrives. The date appears on the firm
-calendar under **File destruction dates**, and every change to it is kept in the matter's audit
+calendar under **File Destruction Dates**, and every change to it is kept in the matter's audit
 history with the date it replaced. Recording it needs the same permission as the location.
 
 **Held in** is not recorded in Magna Carta yet, so it reads "Not recorded" and carries the Soon mark

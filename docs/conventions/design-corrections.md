@@ -3353,3 +3353,43 @@ width.
   one. Generalizes: **a component that refuses its own props by throwing needs a gate that reads the
   props from source**, because review does not catch a label that is one character too long and the
   type-checker sees a string.
+
+### 2026-11-09 — the calendar screen: one View menu, the date as its heading, three firm calendars
+
+The owner, on the firm calendar: "the calendar preview area on the left side is pretty big. the
+calendar on the right has a scrollbar when it should not. should swap the kinds button and the
+button that changes the view, should combine those view buttons into a single view dropdown." Then,
+over three rounds on a mockup: "rename to Firm Events, title case. should we separate out matters and
+deadlines?"; "we don't need to duplicate which month it is and year in two different locations,
+picking the month or date in those dropdowns is bad and can be hard to read"; "source should be
+changed to Court Order and Firm"; "not sure how necessary kinds is when we already have the settings
+on the left side. the calendar on the left needs a picker. we still need the calendar names in both
+places though. move today to left of view dropdown"; "calendar is showing six weeks, when a month has
+at most 5. think we need to find a better way to showcase the date above the calendar".
+
+- **The views are one labelled menu, not four icon buttons.** `View` names the view the reader is in;
+  the week and the day add how concurrent entries are drawn as a section of it, and the agenda adds
+  Hide settled. A choice that means nothing on a view is not drawn there. _(built 2026-11-09)_
+- **The window's name is the heading over the grid, and it is the way to go somewhere far.** Large,
+  at the reading edge, with the arrows BEFORE it so they hold still whatever the name's length;
+  pressing it opens `MonthJump`, twelve months a year at a time. Today and View sit together at the
+  far end, Today first. _(built 2026-11-09)_
+- **A month and a year are never chosen from native selects on the calendar screen.** The rail's
+  month names its month in words with arrows of its own, and its name opens the same `MonthJump`.
+  The month name reads in both places, because the rail's month browses on its own and must say
+  which month it is showing. _(built 2026-11-09 for the compact `Calendar`; the framed date picker
+  still carries the two selects and is the open follow-up.)_
+- **The rail's month fits the rail.** The compact density drops the frame and steps the days down
+  one control rung, so seven make exactly the navigation measure; the framed picker was wider than
+  the column it stood in. _(built 2026-11-09)_
+- **A month grid draws only the weeks the month touches, and never scrolls for nothing.** Four, five
+  or six rows sharing the height. A month told to fill its host while also drawing a blank caption
+  line was the host's height plus that line, so the region scrolled on every screen; a grid with
+  nothing to say keeps its caption for assistive technology only. _(built 2026-11-09)_
+- **The firm's own calendars are three: Case Settings, Deadlines, Firm Events.** Each has its own row
+  and colour, so a hearing and a filing deadline read differently and either can be turned off alone.
+  That is also why the separate **Kinds** filter is gone: what sort of thing is on screen is the
+  rail's question now, as whose calendar it is already was. Every rail name is Title Case.
+  _(built 2026-11-09)_
+- **A deadline's Source reads Court Order or Firm.** The stored values are unchanged.
+  _(built 2026-11-09)_

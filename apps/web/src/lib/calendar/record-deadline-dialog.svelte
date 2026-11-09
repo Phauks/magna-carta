@@ -68,7 +68,7 @@
   import TimeZonePicker from "./time-zone-picker.svelte";
   import { civilDateText } from "$lib/dates";
 
-  const SOURCES: readonly DeadlineSource[] = ["member", "court_order"];
+  const SOURCES: readonly DeadlineSource[] = ["court_order", "member"];
 
   let {
     open = $bindable(false),
