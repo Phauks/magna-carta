@@ -27,6 +27,9 @@
 //                    type-check, svelte-check for the SPA and the design system — when code changed
 //   contracts        OpenAPI snapshot, generated client, Spectral, design tokens: each regenerated and
 //                    diffed against what is committed — when code changed
+//   startup          the api worker's local startup span from `wrangler check startup`, recorded
+//                    beside the previous run as a trend, never a threshold (startup.mjs) — when
+//                    code changed
 //   lint             `vp check --no-fmt` over the affected packages plus their full transitive
 //                    dependent closure (tooling/affected-lint), the whole repository when a global
 //                    input moved — when code changed
@@ -79,6 +82,7 @@ import { acceptanceFor, changedContainers, classify } from "./classify.mjs";
 import { GOVERNANCE_STEPS } from "./governance.mjs";
 import { NEEDS_WASM, parseList, selectDimensions } from "./plan.mjs";
 import { runStep } from "./run-step.mjs";
+import { runStartupCheck } from "./startup.mjs";
 
 const argv = process.argv.slice(2);
 const CACHE = path.join(ROOT, "node_modules", ".cache", "magna-carta", "gate");
@@ -354,6 +358,22 @@ const dimensions = {
       },
       gitDiffStep("design-token drift", "packages/design-tokens/generated"),
     ]),
+
+  startup: () => {
+    const started = Date.now();
+    process.stdout.write("--- startup: api worker local startup span (wrangler check startup)\n");
+    const result = runStartupCheck({
+      root: ROOT,
+      cache: CACHE,
+      log: (line) => console.log(`    ${line}`),
+      environment: environment(),
+      shell: onWindows,
+    });
+    const seconds = ((Date.now() - started) / 1000).toFixed(0);
+    if (result.status === "passed") console.log(`    ok (${seconds}s)\n`);
+    else console.error(`    ${result.detail}\n    FAILED (${seconds}s)\n`);
+    return result;
+  },
 
   lint: () => {
     const targets = scope.mode === "all" ? [] : scope.paths;

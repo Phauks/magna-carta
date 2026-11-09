@@ -136,6 +136,10 @@ export async function beginEnrolment(password: string): Promise<EnrolmentIssued 
     if (error || data === null) {
       return { kind: "refused", message: twoFactorRefusal(error?.code) };
     }
+    // The server answers with the one-time-password shape (no authenticator secret, no recovery
+    // codes) when it is configured for emailed codes only. Enrolment here is authenticator-app
+    // enrolment, so that answer has nothing to show and is refused rather than rendered empty.
+    if (data.method !== "totp") return { kind: "refused", message: TWO_FACTOR_REFUSED_UNKNOWN };
     return {
       kind: "issued",
       uri: data.totpURI,

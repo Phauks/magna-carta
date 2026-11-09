@@ -7,7 +7,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { buildOpenAPIDocument } from "../src/app.ts";
+import { buildOpenAPIDocument } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {

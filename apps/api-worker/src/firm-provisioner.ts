@@ -25,7 +25,7 @@ import { insertCredentialAccountStatement } from "./joining-credentials.ts";
 // minted per attempt, and the idempotency record stores only a response — neither survives a
 // crash as a lookup key, so the client-supplied name is the one stable handle a re-invocation can
 // find its partial row by. The match is BYTE-EXACT (WHERE name = ?1), so the ROUTE owns name
-// normalization: routes/firms.ts canonicalizes (trim + Unicode NFC) in its request schema before
+// normalization: routes/platform/firms.ts canonicalizes (trim + Unicode NFC) in its request schema before
 // the name reaches this module — a trailing space or an NFD variant must resume the same row, not
 // insert a second one. Platform-admin-controlled input on a fleet of ~1 (the endpoint is
 // secret-gated); revisit if firm creation ever becomes self-serve.

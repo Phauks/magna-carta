@@ -232,7 +232,7 @@ git commit -m "feat(migrations): apply control-plane migrations from the schedul
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/me.ts`
+- Modify: `apps/worker/src/routes/session/me.ts`
 - Test: `apps/worker/test/me-channel-failsafe.test.ts` (new unit test); `apps/worker/test/me.test.ts` (must still pass)
 
 **Interfaces:**
@@ -247,7 +247,7 @@ Create `apps/worker/test/me-channel-failsafe.test.ts`. It injects a fake `Bindin
 ```typescript
 import { describe, expect, it } from "vitest";
 import type { Bindings } from "../src/app.ts";
-import { resolveChannelAndFlags } from "../src/routes/me.ts";
+import { resolveChannelAndFlags } from "../src/routes/session/me.ts";
 import type { FirmId } from "@magna-carta/identifiers/types";
 
 // A control-plane binding whose channel read throws (e.g. "no such column: release_channel").
@@ -278,7 +278,7 @@ Expected: FAIL — `resolveChannelAndFlags` is not exported from `me.ts`.
 
 - [ ] **Step 3: Extract the fail-safe helper and wire the handler**
 
-In `apps/worker/src/routes/me.ts`, add `defaultOffEvaluator` to the `@magna-carta/feature-flags` import and add `import type { FirmId } from "@magna-carta/identifiers/types";`. Add the exported helper above `registerMeRoute`:
+In `apps/worker/src/routes/session/me.ts`, add `defaultOffEvaluator` to the `@magna-carta/feature-flags` import and add `import type { FirmId } from "@magna-carta/identifiers/types";`. Add the exported helper above `registerMeRoute`:
 
 ```typescript
 // The channel + flags are best-effort bootstrap enrichments. A failure to read them — most plausibly
@@ -332,7 +332,7 @@ Expected: PASS — the fail-safe unit test and the existing `/me` happy-path tes
 Run: `pnpm check`.
 
 ```bash
-git add apps/worker/src/routes/me.ts apps/worker/test/me-channel-failsafe.test.ts
+git add apps/worker/src/routes/session/me.ts apps/worker/test/me-channel-failsafe.test.ts
 git commit -m "fix(release-channels): make /me channel + flags fail-safe to stable"
 ```
 

@@ -281,7 +281,7 @@ is not enforced.
   composes a firm ceiling with a member's choice and the digest pass calls it every run, but nothing
   in this package writes `notifications.emailDetailLevel` at either scope and no route reaches it — so
   every firm resolves the `counts-only` default forever. That is the same shape the firm's in-app
-  floor was in until `apps/api-worker/src/routes/firm-notification-policy.ts` shipped, and it is invisible
+  floor was in until `apps/api-worker/src/http/routes/firm/firm-notification-policy.ts` shipped, and it is invisible
   to `pnpm run lint:unwired-writes` for the reason that gate states out loud: there is no write
   function to find a caller for. **Build both tiers together or neither.** A firm ceiling alone lets a
   firm raise what its members' mail carries with no member lever to lower it, which inverts the one

@@ -1,5 +1,5 @@
 import type { MatterId } from "@magna-carta/identifiers/types";
-import type { FirmContext } from "../chokepoint/ports.ts";
+import type { FirmContext } from "../http/chokepoint/ports.ts";
 
 // The ethical-wall seam. Given the matters a message is filed to, return the subset the caller may see.
 // Ethical-wall enforcement is a later phase; today every matter in the firm is accessible, so this is

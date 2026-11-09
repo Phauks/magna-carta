@@ -40,7 +40,8 @@
     "./usage": "./src/usage.ts",
     "./topics": "./src/topics.ts",
     "./audit": "./src/audit.ts",
-    "./run-directory-effect": "./src/run-directory-effect.ts"
+    "./run-directory-effect": "./src/run-directory-effect.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -52,7 +53,8 @@
     "@magna-carta/database": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "double-metaphone": "catalog:"
+    "double-metaphone": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

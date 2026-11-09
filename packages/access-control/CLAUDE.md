@@ -3,7 +3,7 @@
 **Purpose.** The platform permission registry, the resolver that turns a member's rows into their
 effective permission set, and the platform-operator decision. Pure and dependency-free: no D1, no
 Hono, no `env`, no network. It decides nothing about a request — the chokepoint
-(`apps/api-worker/src/chokepoint/`) enforces, this package supplies the vocabulary and the arithmetic.
+(`apps/api-worker/src/http/chokepoint/`) enforces, this package supplies the vocabulary and the arithmetic.
 
 **White paper:** _Authentication & encryption_ —
 [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md). (ADR-0067.)

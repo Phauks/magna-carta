@@ -1,5 +1,5 @@
 // The shared R2-to-zip input source for the bulk-download paths. Both the inline ZIP stream
-// (apps/api-worker routes/downloads.ts) and the async background build (apps/api-worker
+// (apps/api-worker routes/files/downloads.ts) and the async background build (apps/api-worker
 // downloads/bundle-consumer.ts) turn a resolved set of {r2Key, path} entries into the
 // {name, input} stream client-zip's makeZip consumes — fetching each object's body from R2 and
 // skipping any that was reaped between resolution and streaming. Extracted so the two paths share one

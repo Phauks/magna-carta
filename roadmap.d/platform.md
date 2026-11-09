@@ -17,7 +17,7 @@
   status: partial
   slices: 0-1-walking-skeleton, 0-5a-api-contract-foundation, 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0001, ADR-0022, ADR-0069
-  evidence: apps/api-worker/src/app.ts over eighty-two route modules in apps/api-worker/src/routes/, emitting 446 operations into the committed contract at apps/api-worker/openapi/openapi.json.
+  evidence: apps/api-worker/src/http/app.ts over eighty-two route modules in apps/api-worker/src/http/routes/, emitting 446 operations into the committed contract at apps/api-worker/openapi/openapi.json.
   notes: First-party same-origin /api surface live; the public token-auth host is reserved, not built.
 
 - id: platform.workers-api.code-as-contract
@@ -28,7 +28,7 @@
   slices: 0-5a-api-contract-foundation, 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0066, ADR-0067
   spec: docs/specs/2026-06-04-api-contract-design.md
-  evidence: apps/api-worker/src/contracts/, apps/api-worker/openapi/openapi.json
+  evidence: apps/api-worker/src/http/contracts/, apps/api-worker/openapi/openapi.json
 
 - id: platform.workers-api.contract-toolchain
   name: Spec CI toolchain
@@ -55,7 +55,17 @@
   surface: internal
   slices: 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0067
-  evidence: apps/api-worker/src/chokepoint/chokepoint.ts
+  evidence: apps/api-worker/src/http/chokepoint/chokepoint.ts
+
+- id: platform.workers-api.domain-modules
+  name: Domain-module route tree
+  scope: The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
+  status: in-build
+  surface: internal
+  slices: api-worker-domain-modules
+  spec: docs/specs/2026-09-18-api-worker-domain-modules-design.md
+  evidence: apps/api-worker/src/http/ (the app, the chokepoint, the contracts, the middleware, and routes/manifest.ts over 21 domain directories) beside apps/api-worker/src/background/ (every consumer and sweep, scheduled.ts), held apart by test/http-background-boundary-scan.test.ts; contract shapes still inline
+  notes: In flight on docs/active-work/claude/adoring-ride-fe94q5.md. Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
 
 - id: platform.workers-api.public-api-host
   name: Public API host
@@ -130,7 +140,7 @@
   name: Public web surfaces
   scope: Marketing site, help center, public intake forms, product-updates pages rendered separately (static/SSR) for SEO.
   status: not-started
-  notes: Crawler directives for private surfaces exist (apps/api-worker/src/crawler-directives.ts); the public sites themselves do not.
+  notes: Crawler directives for private surfaces exist (apps/api-worker/src/http/crawler-directives.ts); the public sites themselves do not.
 
 - id: platform.desktop
   name: Tauri desktop shell
@@ -268,7 +278,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0131
-  evidence: apps/api-worker/src/timer/, apps/api-worker/src/routes/bundle-status.ts, async bulk-download job DO
+  evidence: apps/api-worker/src/timer/, apps/api-worker/src/http/routes/files/bundle-status.ts, async bulk-download job DO
 
 - id: platform.client-state.global-server-push
   name: Global server-push layer
@@ -296,7 +306,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0003, ADR-0026
-  evidence: packages/data-access/src/effect-batch.ts, protected-fields.ts, apps/api-worker/src/chokepoint/
+  evidence: packages/data-access/src/effect-batch.ts, protected-fields.ts, apps/api-worker/src/http/chokepoint/
 
 - id: platform.architectural-integrity.registry-first
   name: Registry-first pattern
@@ -376,7 +386,7 @@
   status: shipped
   surface: internal
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
-  evidence: apps/api-worker/src/member-provision-consumer.ts, packages/data-access/src/member-statements.ts
+  evidence: apps/api-worker/src/background/member-provision-consumer.ts, packages/data-access/src/member-statements.ts
 
 - id: platform.tenancy.locations-dimension
   name: Locations inside the firm
@@ -413,7 +423,7 @@
   scope: Cron-triggered Workflow fanning out across firms, streaming zstd-compressed SQL dumps into each firm's R2 under backups/, control plane included; restore drills.
   status: not-started
   adrs: ADR-0050, ADR-0078
-  evidence: no backup workflow in apps/api-worker/src/scheduled.ts
+  evidence: no backup workflow in apps/api-worker/src/background/scheduled.ts
 
 - id: platform.tenancy.backup-dr.gfs-retention
   name: GFS retention tiering
@@ -489,7 +499,7 @@
   slices: 0-6-telemetry-baseline-platform-closeout
   adrs: ADR-0074
   spec: docs/specs/2026-06-09-slice-0-6-telemetry-baseline-design.md
-  evidence: packages/telemetry, apps/api-worker/src/telemetry-middleware.ts
+  evidence: packages/telemetry, apps/api-worker/src/http/telemetry-middleware.ts
 
 - id: platform.time-model
   name: Time, dates and timezones

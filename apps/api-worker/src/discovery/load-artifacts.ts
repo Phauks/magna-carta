@@ -32,7 +32,7 @@ import { readRecordCustodians } from "@magna-carta/discovery/record-custodian-st
 import { readReviewSet } from "@magna-carta/discovery/review-set-statements";
 import type { DiscoveryLoadId, MatterId, ReviewSetId } from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import type { DiscoveryLoadCompletionMessage } from "./discovery-process-types.ts";

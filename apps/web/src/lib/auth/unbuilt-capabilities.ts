@@ -15,7 +15,7 @@
  * widget to mint a token and a decision to gate sign-in, and the sentence says so. A gap that half
  * closes and keeps its old wording is worse than one that never closed, because the next reader
  * trusts it. Verified against apps/api-worker/src/auth.ts,
- * apps/api-worker/src/human-verification/human-verification-gate.ts and
+ * apps/api-worker/src/http/human-verification/human-verification-gate.ts and
  * apps/web/src/lib/auth/client.ts.
  */
 

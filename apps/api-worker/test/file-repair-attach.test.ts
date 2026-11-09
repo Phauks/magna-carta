@@ -7,10 +7,10 @@ import {
 } from "@magna-carta/data-access/member-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FirmId, FolderId, MatterId, RoleId } from "@magna-carta/identifiers/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,

@@ -220,7 +220,7 @@ all abort; `pnpm test`.
 
 ## Task 9 — Routes
 
-- [ ] `apps/worker/src/routes/custody.ts` — the route table from the design's API section:
+- [ ] `apps/worker/src/routes/custody/custody.ts` — the route table from the design's API section:
       locations (list, create, patch), packets (list, create, get, patch), items, owners, movements
       (post + list), holds (place + release), scans (link), item types (list + create).
 - [ ] `RouteMeta` per the design's table — `resource: "firm"` on every route, `custody:read` on the

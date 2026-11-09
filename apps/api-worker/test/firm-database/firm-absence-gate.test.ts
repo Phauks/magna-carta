@@ -2,9 +2,9 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Context } from "hono";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { ResolvedSession } from "../../src/chokepoint/chokepoint.ts";
-import type { RouteMeta } from "../../src/contracts/route-meta.ts";
-import { createChokepointPorts } from "../../src/chokepoint/ports.ts";
+import type { ResolvedSession } from "../../src/http/chokepoint/chokepoint.ts";
+import type { RouteMeta } from "../../src/http/contracts/route-meta.ts";
+import { createChokepointPorts } from "../../src/http/chokepoint/ports.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { seedFirm } from "../support/test-auth.ts";
 

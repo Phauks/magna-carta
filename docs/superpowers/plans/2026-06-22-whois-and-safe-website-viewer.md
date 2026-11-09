@@ -59,8 +59,8 @@
 
 **`apps/worker`** (modify)
 
-- `apps/worker/src/routes/whois.ts` — new route + meta + zod schemas + worker adapters.
-- `apps/worker/src/routes/safe-browse.ts` — new route + meta + zod schemas + worker adapters.
+- `apps/worker/src/routes/tools/whois.ts` — new route + meta + zod schemas + worker adapters.
+- `apps/worker/src/routes/tools/safe-browse.ts` — new route + meta + zod schemas + worker adapters.
 - `apps/worker/src/app.ts` — register both routes; add `BROWSER` to `Bindings`.
 - `apps/worker/wrangler.*` — add the `browser` binding; bump `compatibility_date` if needed.
 - `apps/worker/test/*` — Miniflare integration tests for both routes.
@@ -848,7 +848,7 @@ test("assembles a SafeView from probe + render", async () => {
 
 **Files:**
 
-- Create: `apps/worker/src/routes/whois.ts`
+- Create: `apps/worker/src/routes/tools/whois.ts`
 - Modify: `apps/worker/src/app.ts` (import + `registerWhoisRoute(app, chokepoint)` near `registerFirmUsageRoute`)
 - Test: `apps/worker/test/whois-route.test.ts` (match the existing Miniflare integration test pattern — check a sibling route test first)
 
@@ -878,7 +878,7 @@ test("assembles a SafeView from probe + render", async () => {
 
 - Modify: `apps/worker/wrangler.jsonc` (or `.toml`) — add `"browser": { "binding": "BROWSER" }`; ensure `compatibility_date >= "2026-03-24"`.
 - Modify: `apps/worker/src/app.ts` — add `BROWSER` to the `Bindings` type; register the route.
-- Create: `apps/worker/src/routes/safe-browse.ts`
+- Create: `apps/worker/src/routes/tools/safe-browse.ts`
 - Test: `apps/worker/test/safe-browse-route.test.ts`
 
 **Interfaces:**

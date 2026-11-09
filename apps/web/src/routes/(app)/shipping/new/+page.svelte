@@ -118,8 +118,10 @@
   const busy = $derived(rating || buying);
   const chosenRate = $derived(rates.find((rate) => rate.remoteId === chosenRateId) ?? null);
 
-  // The service fee the platform adds. Zero until a fee policy exists — stated at the confirm step
-  // rather than omitted, because an absent line reads as a promise that there will never be one.
+  // The service fee the platform adds, as the confirm step STATES it. The server decides the fee and
+  // never takes it from this page (SERVICE_FEE_MINOR in apps/api-worker/src/routes/shipping.ts is the
+  // authority); this copy only says what that is. Zero until a fee policy exists — stated rather than
+  // omitted, because an absent line reads as a promise that there will never be one.
   const SERVICE_FEE_MINOR = 0;
 
   const steps = $derived<ProgressStep[]>(
@@ -216,7 +218,7 @@
       const bought = await purchaseIntent.submit((key) =>
         purchaseLabel(
           shipment,
-          { remoteShipmentId: remote, remoteRateId: rateId, serviceFeeMinor: SERVICE_FEE_MINOR },
+          { remoteShipmentId: remote, remoteRateId: rateId },
           key,
         ),
       );

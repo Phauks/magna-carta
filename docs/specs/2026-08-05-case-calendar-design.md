@@ -593,7 +593,7 @@ composed in SQL, never applied in the Worker after the rows come back**, for the
 
 ## 10. The API surface
 
-Route module `apps/worker/src/routes/calendar.ts`; two permissions in the
+Route module `apps/worker/src/routes/calendar/calendar.ts`; two permissions in the
 `@magna-carta/access-control` registry, seeded by migration.
 
 **`calendar:read`** — read timelines, events, and deadlines. Seeded to the practising roles.

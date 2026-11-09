@@ -9,8 +9,8 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import {
   collectDatabaseHealth,
   type ControlPlaneReader,
-} from "../src/routes/meta-database-health.ts";
-import type { FirmContext } from "../src/chokepoint/ports.ts";
+} from "../src/http/routes/platform/meta-database-health.ts";
+import type { FirmContext } from "../src/http/chokepoint/ports.ts";
 
 const USER_ID = "usr_0000000000000000000000" as UserId;
 const FIRM_ID = "frm_0000000000000000000000";

@@ -18,7 +18,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The per-firm authorization policy over the HTTP surface. What is proved here is the wiring the
 // domain suites cannot reach: the policy read and the versioned change as routes, the chokepoint

@@ -59,6 +59,8 @@
   import Hash from "@lucide/svelte/icons/hash";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import { formatInstantDate } from "@magna-carta/design-system/formatters";
   import AmendAgreementDialog from "$lib/billing/amend-agreement-dialog.svelte";
   import {
@@ -92,6 +94,7 @@
   } from "./matter-lifecycle.ts";
   import {
     readMatterOffices,
+    setMatterFileDestructionDate,
     updateMatter,
     EDIT_MATTER_PERMISSION,
     type MatterOffices,
@@ -207,6 +210,24 @@
       : permissionRefusal("Recording where the paper file is kept", EDIT_MATTER_PERMISSION);
   });
 
+  /*
+   * The date the paper file may be destroyed on or after. A date a person at the firm states; the
+   * platform derives none and deletes nothing when it arrives (matter-lifecycle.ts says why).
+   *
+   * Unlike the office, a date is NOT recorded as the field changes. A segmented date field holds a
+   * complete — and wrong — date at every keystroke of a typed year (0002, 0020, 0203, 2030), and
+   * every one of those would be a recorded destruction date with an audit row behind it. So the
+   * field holds a draft and the date is recorded by its own press; both presses sit under the field
+   * at rest, so nothing grows under the pointer when they are used.
+   */
+  const fileDestructionDate = $derived(offices?.fileDestructionDate ?? null);
+  let destructionDraft = $state("");
+  let destructionSaving = $state(false);
+  let destructionFailure = $state<StatedFailure | null>(null);
+  const destructionChanged = $derived(
+    destructionDraft.trim() !== "" && destructionDraft !== (fileDestructionDate ?? ""),
+  );
+
   // Who is asking, read through the shared session so the first control on the page to need it
   // pays and the rest join. Not read on mount: the seal is on every matter page and most visits
   // never touch it. It is read as the pointer reaches the seal, or focus lands on it, so that by
@@ -250,6 +271,7 @@
     if (outcome.kind === "ok") {
       offices = outcome.value;
       physicalFileDraft = outcome.value.physicalFileLocationId;
+      destructionDraft = outcome.value.fileDestructionDate ?? "";
       officesFailure = null;
       return;
     }
@@ -271,6 +293,7 @@
     numberFailure = null;
     numberRefusal = null;
     physicalFileFailure = null;
+    destructionFailure = null;
     if (isSample) return;
     // Both re-reads keep the last answer standing while they are in flight, so a window somebody
     // has already read does not blink back to "Not recorded" and then forward again.
@@ -298,6 +321,30 @@
     physicalFileFailure = stated(
       outcome.failure,
       "Where the file is kept was not recorded.",
+      "Nothing answered. The matter's paper file is unchanged.",
+    );
+  }
+
+  async function setDestructionDate(destroyOn: string | null): Promise<void> {
+    if (destructionSaving || destroyOn === fileDestructionDate) return;
+    destructionSaving = true;
+    destructionFailure = null;
+    const outcome = await setMatterFileDestructionDate(
+      fetch,
+      matter.id,
+      destroyOn,
+      crypto.randomUUID(),
+    );
+    destructionSaving = false;
+    if (outcome.kind === "ok") {
+      await readOffices();
+      return;
+    }
+    // The write was refused, so the field goes back to what the record still says.
+    destructionDraft = fileDestructionDate ?? "";
+    destructionFailure = stated(
+      outcome.failure,
+      "The destruction date was not recorded.",
       "Nothing answered. The matter's paper file is unchanged.",
     );
   }
@@ -681,15 +728,18 @@
          the record rather than reading a name that leads nowhere. It is NOT the office the matter
          is run out of — that one is the citation on the header — because a folder travels.
 
-         The other two rows hold nothing and say so the way a row says it: "Not recorded" beside
-         the Soon mark, with deliberately no sentence under them naming the dependency, which a row
-         that already states it holds nothing has said (owner ruling). The reasoning for all three
-         lives in matter-lifecycle.ts. -->
+         DESTROY AFTER IS A DATE THE FIRM STATES, recorded by its own press rather than as the field
+         changes, and deleting nothing when it arrives.
+
+         Held In holds nothing and says so the way a row says it: "Not recorded" beside the Soon
+         mark, with deliberately no sentence under it naming the dependency, which a row that
+         already states it holds nothing has said (owner ruling). The reasoning for all three lives
+         in matter-lifecycle.ts. -->
     <dl class="flex flex-col gap-8 text-sm">
       {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
         <div class="grid grid-cols-2 items-baseline gap-16">
           <dt class="text-text-muted">{fact.label}</dt>
-          {#if fact.served}
+          {#if fact.key === "location"}
             <dd>
               <LoadingRegion
                 loading={officesLoading}
@@ -749,6 +799,61 @@
                 {/if}
               </LoadingRegion>
             </dd>
+          {:else if fact.key === "destroy-after"}
+            <dd>
+              <LoadingRegion
+                loading={officesLoading}
+                failed={officesFailure !== null}
+                label="Reading the paper file's destruction date"
+                class="flex flex-col gap-8"
+              >
+                <!-- The office row above already offers the retry for this same read. -->
+                {#snippet failure()}
+                  <span class="text-text-subtle">Not read</span>
+                {/snippet}
+                {#if isSample || physicalFileBlock !== null || matter.status !== "closed"}
+                  <!-- The date is set when the matter closes (the close asks for it), so an open
+                       matter reads it rather than offering a field for a date it cannot have. -->
+                  <span class={fileDestructionDate === null ? "text-text-subtle" : undefined}>
+                    {fileDestructionDate !== null
+                      ? formatDate(fileDestructionDate)
+                      : matter.status === "closed" || isSample
+                        ? "Not recorded"
+                        : "Set when the matter closes"}
+                  </span>
+                {:else}
+                  <!-- A wrapper, because the picker renders its label and its field as two
+                       siblings. The two presses are always there, so the row is the same height
+                       before and after either is used. -->
+                  <div class="flex flex-col gap-4">
+                    <DatePicker
+                      aria-label="Destroy after"
+                      value={civilDateValue(destructionDraft)}
+                      onValueChange={(next) => (destructionDraft = civilDateTextOrEmpty(next))}
+                      disabled={destructionSaving}
+                    />
+                    <div class="flex items-center gap-8">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={destructionSaving || !destructionChanged}
+                        onclick={() => void setDestructionDate(destructionDraft)}
+                      >
+                        {destructionSaving ? "Recording" : "Record"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={destructionSaving || fileDestructionDate === null}
+                        onclick={() => void setDestructionDate(null)}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                {/if}
+              </LoadingRegion>
+            </dd>
           {:else}
             <dd class="flex items-center gap-8 text-text-subtle">
               Not recorded
@@ -770,6 +875,11 @@
         The office the firm keeps this matter's folder at. Not the office the matter is run out of:
         a file that has been boxed elsewhere is recorded where it actually is.
       </p>
+      <p class="text-xs text-text-subtle">
+        Destroy After is set when the matter closes, no earlier than the firm's minimum retention,
+        and can be moved later or cleared here once it is closed. It appears on the calendar under
+        File Destruction Dates; nothing is destroyed when it arrives.
+      </p>
     {/if}
     {#if physicalFileFailure !== null}
       <FailureNotice
@@ -777,6 +887,14 @@
         title="The Paper File Is Unchanged"
         fallback={physicalFileFailure.fallback}
         whenSilent={physicalFileFailure.whenSilent}
+      />
+    {/if}
+    {#if destructionFailure !== null}
+      <FailureNotice
+        failure={destructionFailure.failure}
+        title="The Destruction Date Is Unchanged"
+        fallback={destructionFailure.fallback}
+        whenSilent={destructionFailure.whenSilent}
       />
     {/if}
   </div>

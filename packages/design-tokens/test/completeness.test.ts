@@ -25,6 +25,7 @@ const resolver = JSON.parse(readFileSync(join(PACKAGE_ROOT, "resolver.json"), "u
     mode: ResolverModifier;
     density: ResolverModifier;
     motion: ResolverModifier;
+    typeface: ResolverModifier;
   };
 };
 
@@ -40,7 +41,7 @@ const expectedSelectors = themes.flatMap((theme) =>
   modes.map((mode) => expectedSelector(theme, mode)),
 );
 
-// The motion and density axes emit one small OVERLAY block per non-default level
+// The motion, density and typeface axes emit one small OVERLAY block per non-default level
 // (`:root[data-motion="…"]` / `:root[data-density="…"]`) after the theme x mode matrix — an
 // overlay, not a context: each re-points exactly one variable namespace and must carry nothing
 // else (a color there would silently override every theme). Default levels are the primitive/
@@ -54,12 +55,22 @@ const overlayExpectations = [
   ...nonDefaultLevels(resolver.modifiers.density).map((level) => ({
     selector: `:root[data-density="${level}"]`,
     variablePrefix: "--mc-density-",
+    minimumVariables: 4,
     valuePattern: /^var\(--mc-(control|space)-[\w-]+\)$/,
   })),
   ...nonDefaultLevels(resolver.modifiers.motion).map((level) => ({
     selector: `:root[data-motion="${level}"]`,
     variablePrefix: "--mc-duration-",
+    minimumVariables: 4,
     valuePattern: /^\d+(\.\d+)?m?s$/,
+  })),
+  // Typeface overlays re-point the reading face alone: one font stack, ending in a generic family
+  // so a face that fails to load still falls back to something legible.
+  ...nonDefaultLevels(resolver.modifiers.typeface).map((level) => ({
+    selector: `:root[data-typeface="${level}"]`,
+    variablePrefix: "--mc-font-sans",
+    minimumVariables: 1,
+    valuePattern: /^.+, (sans-serif|serif)$/,
   })),
 ];
 const expectedOverlaySelectors = overlayExpectations.map(({ selector }) => selector);
@@ -210,11 +221,11 @@ describe("theme-and-mode completeness (resolver matrix vs generated/tokens.css)"
 
   it.each(overlayExpectations)(
     "$selector is a single-namespace overlay ($variablePrefix)",
-    ({ selector, variablePrefix, valuePattern }) => {
+    ({ selector, variablePrefix, minimumVariables, valuePattern }) => {
       const variables = parsed.base[selector];
       expect(variables).toBeDefined();
       const names = Object.keys(variables ?? {});
-      expect(names.length).toBeGreaterThanOrEqual(4);
+      expect(names.length).toBeGreaterThanOrEqual(minimumVariables);
       // Single-namespace: anything else here would silently override every theme x mode context.
       expect(names.filter((name) => !name.startsWith(variablePrefix))).toEqual([]);
       for (const value of Object.values(variables ?? {})) {
@@ -296,5 +307,9 @@ describe("tailwind.template.css @theme inline coupling", () => {
 
   it.each([0, 1, 2, 3])("elevation %i has its --shadow-elevation-* mapping", (level) => {
     expect(inlineDeclarations[`--shadow-elevation-${level}`]).toBe(`var(--mc-elevation-${level})`);
+  });
+
+  it("the reading face maps onto the --mc-font-sans variable, so the typeface axis reaches font-sans", () => {
+    expect(inlineDeclarations["--font-sans"]).toBe("var(--mc-font-sans)");
   });
 });

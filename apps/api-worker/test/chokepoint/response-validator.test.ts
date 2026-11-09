@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import {
   createResponseValidator,
   ResponseContractDivergenceError,
-} from "../../src/chokepoint/response-validator";
-import { defineOpenAPIRoute, type RouteMeta } from "../../src/contracts/route-meta";
+} from "../../src/http/chokepoint/response-validator";
+import { defineOpenAPIRoute, type RouteMeta } from "../../src/http/contracts/route-meta";
 
 function sampleMeta(overrides: Partial<RouteMeta> = {}): RouteMeta {
   return {

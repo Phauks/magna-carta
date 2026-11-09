@@ -23,7 +23,7 @@
   slices: 6-4-intake-procedure
   surface: screen
   spec: docs/specs/2026-09-03-intake-procedure-design.md
-  evidence: packages/intake (procedure-service.ts, checklist.ts with the reader seam, record-service.ts, open-precondition.ts, readers/), the intake_procedure, intake_procedure_step and matter_intake_step_record tables, intake:read/record/waive/manageProcedures, apps/api-worker/src/routes/intake.ts, the openPreconditions hook in packages/matters/src/open-preconditions.ts threaded through openMatter, GET /api/v1/matters/{id}/open-readiness, /settings/intake-procedures, the matter's Intake section, and Requirements To Open in the status window.
+  evidence: packages/intake (procedure-service.ts, checklist.ts with the reader seam, record-service.ts, open-precondition.ts, readers/), the intake_procedure, intake_procedure_step and matter_intake_step_record tables, intake:read/record/waive/manageProcedures, apps/api-worker/src/http/routes/matters/intake.ts, the openPreconditions hook in packages/matters/src/open-preconditions.ts threaded through openMatter, GET /api/v1/matters/{id}/open-readiness, /settings/intake-procedures, the matter's Intake section, and Requirements To Open in the status window.
   notes: Ten step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification, the client's online forms, a payment and an acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure.
 
 - id: intake.desk
@@ -33,7 +33,7 @@
   slices: 6-5-intake-desk
   surface: screen
   spec: docs/specs/2026-09-05-intake-desk-design.md
-  evidence: packages/intake/src/desk.ts and GET /api/v1/intake/consultations (apps/api-worker/src/routes/intake.ts, intake:read, cursor-paged, capped at fifty), apps/web/src/routes/(app)/intake/+page.svelte over apps/web/src/lib/intake/intake-desk.ts, the intake purpose of apps/web/src/lib/matters/new-matter-dialog.svelte, the seeded title and participants of apps/web/src/lib/calendar/record-event-dialog.svelte, and the shipped Intake row in apps/web/src/lib/navigation/destinations.ts.
+  evidence: packages/intake/src/desk.ts and GET /api/v1/intake/consultations (apps/api-worker/src/http/routes/matters/intake.ts, intake:read, cursor-paged, capped at fifty), apps/web/src/routes/(app)/intake/+page.svelte over apps/web/src/lib/intake/intake-desk.ts, the intake purpose of apps/web/src/lib/matters/new-matter-dialog.svelte, the seeded title and participants of apps/web/src/lib/calendar/record-event-dialog.svelte, and the shipped Intake row in apps/web/src/lib/navigation/destinations.ts.
   notes: An intake in flight is a matter in the intake status, the first rung of the lifecycle (owner's ruling, 2026-09-05: intake -> consultation -> open -> closed, the second rung renamed from prospective; a hold rung beside open followed on 2026-09-06); the desk lists intakes and consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete Intake is the graduation step: refused with the reason while a required step is outstanding, it draws the consultation number through POST /api/v1/matters/{id}/graduate; Schedule follows on a consultation. The row states counts, never a verdict.
 
 - id: intake.lead-pipeline
@@ -46,7 +46,7 @@
   name: Public intake forms
   scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes.
   status: not-started
-  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned.
+  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/http/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned.
   awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 
 - id: intake.call-intake
