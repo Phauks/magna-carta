@@ -130,7 +130,7 @@ export async function consumeFirmProvision(env: Bindings, row: OutboxRow): Promi
     // and the relay retries it.
     //
     // The batch itself — the owner user, the audit row, the member.provision row carrying the
-    // Owner/Admin role, the activation fence and the status flip — commits atomically. There is no
+    // Admin role, the activation fence and the status flip — commits atomically. There is no
     // idempotency record: the relay's at-least-once delivery plus the provisioner's own state
     // guards are the exactly-once story, and a later delivery finds the firm already active.
     let activated = true;

@@ -549,7 +549,7 @@ describe("directory sensitive-identifier read gate", () => {
     });
     expect(added.status).toBe(201);
 
-    // The owner holds directory:viewSensitiveIdentifiers (seeded onto Owner/Admin) — the decrypt
+    // The owner holds directory:viewSensitiveIdentifiers (seeded onto Admin) — the decrypt
     // returns the plaintext.
     const ownerRead = await get(`/api/v1/directory/entities/${id}/identifiers/ssn`);
     expect(ownerRead.status).toBe(200);

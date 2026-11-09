@@ -13,7 +13,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The Owner/Admin role id is a committed literal from 0002_member-rbac.sql.
+// The Admin role id is a committed literal from 0002_member-rbac.sql.
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 
 // A tiny valid base64 payload. The fake SealPort never parses the document (the real WASM seal is
@@ -62,7 +62,7 @@ beforeAll(async () => {
   poolFirmId = (
     await seedFirm({ name: "Document Seal Route Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
-  // esign:seal is seeded onto Owner/Admin + Attorney in a per-firm migration. Grant it here directly
+  // esign:seal is seeded onto Admin + Attorney in a per-firm migration. Grant it here directly
   // so the route tests do not depend on that seed having run against the pooled test database.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")

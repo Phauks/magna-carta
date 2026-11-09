@@ -271,7 +271,7 @@ export async function signInForSessionCookie(email: string): Promise<string> {
 // The five roles the per-firm baseline seeds into every firm. Named rather than handle-typed so a
 // test reads as the seat it means; the rol_ handles are committed literals in the baseline
 // migration and are looked up by name here.
-export type SeededRoleName = "Owner/Admin" | "Attorney" | "Paralegal" | "Billing" | "Read-only";
+export type SeededRoleName = "Admin" | "Attorney" | "Paralegal" | "Billing" | "Read-only";
 
 // Mirrors the user into a firm database's member table and assigns one of the five seeded default
 // roles. The firm's per-firm FirmDatabase Durable Object is addressed by firmId and self-migrates
@@ -309,11 +309,11 @@ export async function mirrorMemberWithRole(
   }).run();
 }
 
-// The Owner/Admin case, which is what most suites want for their acting member.
+// The Admin case, which is what most suites want for their acting member.
 export async function mirrorMemberWithOwnerRole(
   userId: UserId,
   displayName: string,
   firmId: FirmId,
 ): Promise<void> {
-  await mirrorMemberWithRole(userId, displayName, firmId, "Owner/Admin");
+  await mirrorMemberWithRole(userId, displayName, firmId, "Admin");
 }

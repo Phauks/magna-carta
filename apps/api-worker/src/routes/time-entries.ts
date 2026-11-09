@@ -18,7 +18,7 @@ import {
 } from "@magna-carta/timekeeping/time-entry-service";
 import type { DraftPatch } from "@magna-carta/timekeeping/time-entry-statements";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
-import { resolveRate } from "@magna-carta/timekeeping/rate-resolution";
+import { readTimekeeperRateRole, resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
   incrementMinutesDefinition,
@@ -1032,16 +1032,14 @@ async function resolveCaptureValues(
     rateCardId = cardRows[0]?.id;
   }
 
-  const { results: memberRows } = await database
-    .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
-    .bind(input.timekeeperUserId)
-    .all<{ role_id: string | null }>();
+  const rateRole = await readTimekeeperRateRole(database, input.timekeeperUserId);
 
   const rate = await resolveRate(database, {
     matterId: input.matterId,
     clientId: null,
     timekeeperUserId: input.timekeeperUserId,
-    roleId: memberRows[0]?.role_id ?? null,
+    roleId: rateRole.roleId,
+    parentRoleId: rateRole.parentRoleId,
     workDate: input.workDate,
     rateCardId,
     overrideE4: input.overrideRateE4 ?? undefined,
@@ -1637,15 +1635,16 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           let rateSource = ownerRow.rate_source;
           let currency = ownerRow.currency;
           if (rateInputsChanged) {
-            const { results: memberRows } = await firm.firmDatabase
-              .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
-              .bind(ownerRow.timekeeper_user_id)
-              .all<{ role_id: string | null }>();
+            const rateRole = await readTimekeeperRateRole(
+              firm.firmDatabase,
+              ownerRow.timekeeper_user_id,
+            );
             const resolved = await resolveRate(firm.firmDatabase, {
               matterId: ownerRow.matter_id,
               clientId: null,
               timekeeperUserId: ownerRow.timekeeper_user_id,
-              roleId: memberRows[0]?.role_id ?? null,
+              roleId: rateRole.roleId,
+              parentRoleId: rateRole.parentRoleId,
               workDate,
               rateCardId: ownerRow.rate_card_id ?? undefined,
               overrideE4,

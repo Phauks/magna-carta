@@ -116,7 +116,7 @@ meaning.
 
 **The permission split is the point, and it is not interchangeable.** The member route rides
 `notifications:read`, which is seeded to EVERY default role including Read-only because reading one's
-own feed is not a privilege. The firm route rides `firm:manageNotificationPolicy`, Owner/Admin only.
+own feed is not a privilege. The firm route rides `firm:manageNotificationPolicy`, Admin only.
 Putting the firm tier on the member key would let any member raise the floor for every colleague and
 shorten the whole firm's retention window; `test/firm-notification-policy-routes.test.ts` seeds
 exactly that member and asserts 403 on both verbs. A third notification setting that binds anybody

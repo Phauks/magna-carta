@@ -839,6 +839,10 @@ export type FirmRole = {
     id: string;
     name: string;
     /**
+     * The role this one is a sub-role of, or null for a top-level role. A sub-role adds to its parent and is only ever held together with it, so its permissions are the ones it adds.
+     */
+    parentRoleId: string | null;
+    /**
      * The permission keys this role carries, in registry form. Empty where the role carries none, which is a real state rather than a missing answer.
      */
     permissions: Array<string>;

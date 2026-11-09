@@ -3505,6 +3505,13 @@
           "name": {
             "type": "string"
           },
+          "parentRoleId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role this one is a sub-role of, or null for a top-level role. A sub-role adds to its parent and is only ever held together with it, so its permissions are the ones it adds."
+          },
           "permissions": {
             "type": "array",
             "items": {
@@ -3520,6 +3527,7 @@
         "required": [
           "id",
           "name",
+          "parentRoleId",
           "permissions",
           "memberCount"
         ]
@@ -45766,7 +45774,7 @@
     },
     "/api/v1/members/{userId}/roles": {
       "put": {
-        "description": "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, and refused when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.",
+        "description": "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, when the set names a sub-role without its parent role or two sub-roles of one parent, and when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.",
         "operationId": "members.setRoles",
         "tags": [
           "members"
@@ -46730,7 +46738,7 @@
     },
     "/api/v1/firms": {
       "post": {
-        "description": "Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.",
+        "description": "Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.",
         "operationId": "firms.provision",
         "tags": [
           "firms"

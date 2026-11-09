@@ -59,7 +59,7 @@ function authedJson(cookie: string, withIdempotencyKey: boolean): Record<string,
 
 // A role holding shipping:manage and nothing else — the shape a firm creates the moment it decides
 // that mailing is an assistant's job rather than a partner's. Built inline rather than through the
-// seeded-role helper precisely because no seeded role has this shape: Owner/Admin holds both keys,
+// seeded-role helper precisely because no seeded role has this shape: Admin holds both keys,
 // which is why the collision this guards against stayed invisible until it was looked for.
 async function mirrorMemberWhoMayShipButNotDecrypt(
   userId: UserId,

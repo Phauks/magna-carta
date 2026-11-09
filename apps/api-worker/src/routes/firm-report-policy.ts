@@ -29,7 +29,7 @@ import {
 //
 // Two settings today, both about the trust-compliance document: whether a matter ledger at zero all
 // period appears, and whether the member who authorized each payment out is named. They sit behind
-// `firm:manageReportPolicy` (Owner/Admin by seed) rather than any `reports:` key, for a reason the
+// `firm:manageReportPolicy` (Admin by seed) rather than any `reports:` key, for a reason the
 // conformance suite enforces: no `reports:` key may ever gate a write, so a report can never adjust
 // the books it reports on. Deciding what the document says is the firm's act; reading the document
 // is the reader's, and the pack route reads the policy on the reader's behalf.

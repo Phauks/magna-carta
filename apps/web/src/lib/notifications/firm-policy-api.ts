@@ -55,7 +55,7 @@ export interface FirmNotificationPolicyPatch {
   digestLocalHour?: number;
 }
 
-/** The permission this surface names — Owner/Admin by seed, never the member key. */
+/** The permission this surface names — Admin by seed, never the member key. */
 export const MANAGE_NOTIFICATION_POLICY_PERMISSION = "firm:manageNotificationPolicy";
 
 /** The server's own bounds, mirrored so the page refuses out of range where the value is typed. */

@@ -150,7 +150,7 @@ beforeAll(async () => {
     .bind(poolFirmId)
     .run();
 
-  // The owner: holds trust:authorize through the Owner/Admin role — the seat with the authority to
+  // The owner: holds trust:authorize through the Admin role — the seat with the authority to
   // act on client money and to change the posture.
   const owner = await seedCredentialedUser("policy-owner@example.com", {
     userName: "Policy Owner",

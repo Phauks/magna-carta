@@ -26,7 +26,7 @@ import { readTrustComplianceReportPolicy } from "../reporting/trust-compliance-r
 //
 // The capability is its own namespace rather than a corner of `trust:read`: an aggregate across every
 // matter and client in a firm is a different exposure from a per-matter read, and it is gated
-// accordingly — seeded to Owner/Admin, and widened by a direct grant that leaves a record.
+// accordingly — seeded to Admin, and widened by a direct grant that leaves a record.
 
 const TRUST_COMPLIANCE = "reports:trustCompliance" as const;
 

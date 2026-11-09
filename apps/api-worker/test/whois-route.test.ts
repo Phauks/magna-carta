@@ -89,12 +89,12 @@ describe("GET /api/v1/whois", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 
-  it("returns the RDAP result for an Owner/Admin member", async () => {
+  it("returns the RDAP result for an Admin member", async () => {
     const { userId } = await seedCredentialedUser("whois-ok@example.com", {
       userName: "WHOIS OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "WHOIS OK", poolFirmId); // Owner/Admin carries tools:whois (0016)
+    await mirrorMemberWithOwnerRole(userId, "WHOIS OK", poolFirmId); // Admin carries tools:whois (0016)
     const cookie = await signInForSessionCookie("whois-ok@example.com");
     const response = await app.request(
       "https://example.com/api/v1/whois?query=example.com",

@@ -142,7 +142,7 @@
   status: shipped
   surface: screen
   evidence: apps/web/src/routes/(app)/settings/users/ and /roles/ over GET /api/v1/roles, PUT /api/v1/members/{userId}/roles and POST /api/v1/members/{userId}/deactivation|reactivation (apps/api-worker/src/routes/member-administration.ts), with the invite route accepting a role by name so a member arrives holding something. Permission keys are said in the firm's words by apps/web/src/lib/members/permission-language.ts, which derives the phrasing from the key rather than transcribing two hundred sentences that would go stale.
-  notes: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.
+  notes: Sub-roles are built - role.parent_role_id with Partner and Associate seeded under Attorney; a member holding one also holds the parent, the set-roles route refuses a sub-role without its parent or two of one parent, and both screens list a sub-role under its parent (apps/web/src/lib/members/role-families.ts). Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.
 
 - id: settings.area-ui.platform-band
   name: Platform band (AI and the Assistant, Beta Access, Versions, Developer)

@@ -125,7 +125,7 @@ function collect(options: {
 const HEALTHY_FIRM: FirmDatabasePlan = {
   migrations: [{ tag: "20260704T041516_baseline" }, { tag: EXPECTED_HEAD }],
   member: [{ status: "active" }],
-  roles: [{ name: "Owner/Admin" }],
+  roles: [{ name: "Admin" }],
   rolePermissions: [{ permission: "firm:manageMembers" }, { permission: "matters:create" }],
 };
 
@@ -137,7 +137,7 @@ describe("collectDatabaseHealth", () => {
     expect(health.schema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
     expect(health.membership).toMatchObject({
       state: "active",
-      roles: ["Owner/Admin"],
+      roles: ["Admin"],
       permissionCount: 2,
     });
     expect(health.controlPlane).toMatchObject({ state: "reachable", bucketProvisioned: true });

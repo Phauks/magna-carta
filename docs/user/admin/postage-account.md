@@ -5,7 +5,7 @@ connect it once, and from then on anyone allowed to post things can rate and buy
 **Shipping & Postage** — see [Shipping & postage](../features/shipping.md).
 
 The page is **Settings › Postage Account**, under **Integrations**. By default only the
-**Owner/Admin** role can open it.
+**Admin** role can open it.
 
 ## Connecting
 
@@ -52,7 +52,7 @@ and the record of everything already sent, are untouched.
 
 Connecting the account does not by itself let every member buy labels. A member needs both
 `shipping:manage`, to use Shipping & Postage at all, and `integrations:useConnection`, which lets
-Magna Carta use this account on their behalf. By default both belong to the Owner/Admin role only.
+Magna Carta use this account on their behalf. By default both belong to the Admin role only.
 
 They are separate on purpose. Using the account for someone is not the same as being able to read
 its key: a member who buys labels every day never needs to see the key, and holding

@@ -1320,7 +1320,7 @@ export const rolesListOptions = (options?: Options<RolesListData>) => queryOptio
 });
 
 /**
- * Sets the roles a member holds, as a whole set. Refused when the actor is the subject, and refused when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.
+ * Sets the roles a member holds, as a whole set. Refused when the actor is the subject, when the set names a sub-role without its parent role or two sub-roles of one parent, and when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.
  */
 export const membersSetRolesMutation = (options?: Partial<Options<MembersSetRolesData>>): MutationOptions<MembersSetRolesResponse, MembersSetRolesError, Options<MembersSetRolesData>> => {
     const mutationOptions: MutationOptions<MembersSetRolesResponse, MembersSetRolesError, Options<MembersSetRolesData>> = {
@@ -1493,7 +1493,7 @@ export const firmSetReleaseChannelMutation = (options?: Partial<Options<FirmSetR
 };
 
 /**
- * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
+ * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
  */
 export const firmsProvisionMutation = (options?: Partial<Options<FirmsProvisionData>>): MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> => {
     const mutationOptions: MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> = {

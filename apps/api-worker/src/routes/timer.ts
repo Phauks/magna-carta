@@ -18,7 +18,7 @@ import {
   TIME_ENTRY_NUMBERING_TABLES,
 } from "@magna-carta/timekeeping/entry-numbering";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
-import { resolveRate } from "@magna-carta/timekeeping/rate-resolution";
+import { readTimekeeperRateRole, resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
   abandonedThresholdMinutesDefinition,
@@ -573,10 +573,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       // non-archived rate card in the firm is the default when no card is specified (the common
       // single-card scenario). A missing card or no rate in force resolves to noRate; the entry is
       // still captured (billable=true, amount_minor=null) — the timekeeper can correct it before billing.
-      const { results: memberRows } = await firm.firmDatabase
-        .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
-        .bind(userId)
-        .all<{ role_id: string | null }>();
+      const rateRole = await readTimekeeperRateRole(firm.firmDatabase, userId);
 
       const { results: cardRows } = await firm.firmDatabase
         .prepare("SELECT id FROM rate_card WHERE archived_at IS NULL ORDER BY created_at LIMIT 1")
@@ -587,7 +584,8 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
         matterId,
         clientId: null,
         timekeeperUserId: userId,
-        roleId: memberRows[0]?.role_id ?? null,
+        roleId: rateRole.roleId,
+        parentRoleId: rateRole.parentRoleId,
         workDate,
         rateCardId: resolvedRateCardId,
       });

@@ -78,6 +78,6 @@ Two consequences bind here:
 
 - **A permission granted to a role no member holds is invisible to the scan and to the resolver
   alike.** The gate asks whether some role carries the key, not whether some member carries the role.
-- **The Owner/Admin role is not privileged in code.** It holds the most keys because the seeds give
+- **The Admin role is not privileged in code.** It holds the most keys because the seeds give
   it the most keys; nothing anywhere treats it specially, so a capability missing from its seed is
   missing from it.

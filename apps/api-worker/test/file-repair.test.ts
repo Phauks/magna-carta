@@ -11,7 +11,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The Owner/Admin role id is a committed literal from 0002_member-rbac.sql.
+// The Admin role id is a committed literal from 0002_member-rbac.sql.
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 
 const app = createApp();

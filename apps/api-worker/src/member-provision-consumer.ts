@@ -30,7 +30,7 @@ interface MemberProvisionPayload {
 // JSON.parse) is malformed and dead-letters. Coercing a missing roleName to null would silently
 // mirror a ROLELESS owner (a locked-out firm — no firm:manageMembers), which the reconciliation
 // backstop can't catch (it only detects missing member ROWS). Both real producers always write the
-// field explicitly: members.ts sends `roleName: null`, firm-provisioner sends `roleName: "Owner/Admin"`.
+// field explicitly: members.ts sends `roleName: null`, firm-provisioner sends `roleName: "Admin"`.
 function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
   try {
     const parsed = JSON.parse(row.payload) as {
@@ -84,20 +84,25 @@ export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Pro
     // the producer names the role and the id is resolved here at consume time — the worker never
     // hardcodes rol_ handles.
     const roleResult = await firmDatabase
-      .prepare("SELECT id FROM role WHERE name = ?1")
+      .prepare("SELECT id, parent_role_id AS parentRoleId FROM role WHERE name = ?1")
       .bind(payload.roleName)
-      .all<{ id: string }>();
+      .all<{ id: string; parentRoleId: string | null }>();
     const role = roleResult.results[0];
     if (role === undefined) {
       throw new Error(`member.provision ${row.id}: unknown role "${payload.roleName}"`);
     }
-    statements.push(
-      insertRoleAssignmentStatement(firmDatabase, {
-        id: newIdentifier("memberRole"),
-        memberUserId: payload.userId,
-        roleId: assertIdentifier(role.id, "role"),
-      }),
-    );
+    // A sub-role arrives with its parent: the parent's own row is what carries the parent's
+    // permissions to the member, so an invited Partner who held only Partner would hold only what
+    // Partner adds to Attorney.
+    for (const roleId of role.parentRoleId === null ? [role.id] : [role.parentRoleId, role.id]) {
+      statements.push(
+        insertRoleAssignmentStatement(firmDatabase, {
+          id: newIdentifier("memberRole"),
+          memberUserId: payload.userId,
+          roleId: assertIdentifier(roleId, "role"),
+        }),
+      );
+    }
   }
   // One atomic batch: a crash can never leave the member row without its role (or vice versa).
   // Deliberate pin: the BatchDatabase annotation proves at compile time that the firm-database proxy

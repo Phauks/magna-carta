@@ -17,7 +17,7 @@ import {
 // check (its first run queued, the search running after the response), reading it back with its runs
 // and the selected run's record, running it again, filing it on a matter, and recording a reviewer's
 // disposition of a hit. conflicts:run and conflicts:read are seeded broadly (every default role,
-// including Owner/Admin); a caller with neither gets refused before any check runs. Mutations require
+// including Admin); a caller with neither gets refused before any check runs. Mutations require
 // an Idempotency-Key (the chokepoint gate), and a repeated key replays the first opening rather than
 // opening a second.
 

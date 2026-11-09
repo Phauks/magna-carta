@@ -12,7 +12,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The Owner/Admin role id is a committed literal from 0002_member-rbac.sql.
+// The Admin role id is a committed literal from 0002_member-rbac.sql.
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 
 function base64(bytes: Uint8Array): string {
@@ -50,7 +50,7 @@ beforeAll(async () => {
     await seedFirm({ name: "Metadata Route Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
   // The DO self-migrates the per-firm lineage on first access. The baseline migration already
-  // seeds tools:metadataScrubber onto Owner/Admin; granting it directly is an idempotent belt so
+  // seeds tools:metadataScrubber onto Admin; granting it directly is an idempotent belt so
   // this suite does not depend on migration ordering.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
@@ -98,7 +98,7 @@ describe("POST /api/v1/metadata/inspect", () => {
       userName: "Metadata OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Metadata OK", poolFirmId); // Owner/Admin carries tools:metadataScrubber (seeded above)
+    await mirrorMemberWithOwnerRole(userId, "Metadata OK", poolFirmId); // Admin carries tools:metadataScrubber (seeded above)
     const cookie = await signInForSessionCookie("metadata-ok@example.com");
     const response = await app.request(
       "https://example.com/api/v1/metadata/inspect",
