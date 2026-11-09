@@ -82,4 +82,4 @@ steps); **publishing only `Fixed` and `Security` entries** (mechanical, and it w
 the new capabilities a changelog exists to announce). Extends **ADR-0048** (product updates — the
 bundled artifact and version-accuracy-by-construction are unchanged; this supplies the audience filter
 its public read surface always needed) and **ADR-0037** (living docs). Spec:
-[`docs/specs/2026-08-11-community-surfaces-design.md`](../../specs/2026-08-11-community-surfaces-design.md).
+[`docs/specs/2026-08-11-community-surfaces-design.md`](../specs/2026-08-11-community-surfaces-design.md).

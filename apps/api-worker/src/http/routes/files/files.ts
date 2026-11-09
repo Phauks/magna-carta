@@ -17,10 +17,15 @@ import {
 import { fileAuditStatement } from "@magna-carta/file-manager/audit";
 import { selectFileStatement } from "@magna-carta/file-manager/file-statements";
 import {
+  listVersionChanges,
+  summarizeVersionChanges,
+} from "@magna-carta/file-manager/version-changes";
+import {
   getCurrentCleanVersion,
   getCurrentCleanVersionForPreview,
   getFileSummary,
   getFileWithArchiveVersion,
+  getFileWithNamedVersion,
   listCleanVersions,
   listDeletedFiles,
   listDocumentTypeNamesByIds,
@@ -175,10 +180,47 @@ const FileVersionItem = z
     scanVerdict: z.enum(["unscanned", "clean", "flagged"]).nullable(),
     scanEngineVersion: z.string().nullable(),
     scanDetail: z.string().nullable(),
+    // Who changed what in this version, read from the document's own tracked changes: one entry
+    // per author with counts of what they inserted, removed and reformatted. Empty for a version
+    // that recorded nothing new, or whose marks have not been read yet.
+    changes: z.array(
+      z.object({
+        authorUserId: z.string().nullable(),
+        authorName: z.string(),
+        insertions: z.number().int(),
+        deletions: z.number().int(),
+        formatting: z.number().int(),
+      }),
+    ),
   })
   .openapi("FileVersionItem");
 
 const FileVersionsResponse = paginated(FileVersionItem).openapi("FileVersionsResponse");
+
+// One tracked change a version carries that no earlier version did, as the document holds it.
+const FileVersionChangeItem = z
+  .object({
+    sequence: z.number().int(),
+    kind: z.enum(["insertion", "deletion", "formatting"]),
+    // The author as the document names them, and the member that name resolved to when the
+    // version was cut (null when it resolved to nobody); authorCurrentName is that member's name
+    // today, or null for a departed member.
+    authorName: z.string(),
+    authorUserId: z.string().nullable(),
+    authorCurrentName: z.string().nullable(),
+    changedAt: z.string().nullable(),
+    // The words inserted, removed or reformatted; a paragraph break is a newline. Capped, and
+    // textTruncated says when the cap cut them.
+    text: z.string(),
+    textTruncated: z.boolean(),
+    part: z.string(),
+    paragraphIndex: z.number().int(),
+  })
+  .openapi("FileVersionChangeItem");
+
+const FileVersionChangesResponse = z
+  .object({ data: z.array(FileVersionChangeItem) })
+  .openapi("FileVersionChangesResponse");
 
 const PreviewGrant = z
   .object({
@@ -693,6 +735,41 @@ const listFileVersionsRoute = defineOpenAPIRoute(listFileVersionsMeta, {
     200: {
       description: "The file's clean version history",
       content: { "application/json": { schema: FileVersionsResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listFileVersionChangesMeta: RouteMeta = {
+  operationId: "files.versionChanges",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+const fileVersionParam = z.object({
+  id: identifierPathParam("file", "id"),
+  versionId: identifierPathParam("fileVersion", "versionId"),
+});
+
+const listFileVersionChangesRoute = defineOpenAPIRoute(listFileVersionChangesMeta, {
+  method: "get",
+  path: "/api/v1/files/{id}/versions/{versionId}/changes",
+  description:
+    "Lists what changed in one version, read from the document's own tracked changes: who inserted, " +
+    "removed or reformatted which words, in document order. Only the marks this version carries " +
+    "that no earlier version did. Bounded per version; the words of one change are capped.",
+  request: { params: fileVersionParam },
+  responses: {
+    200: {
+      description: "The version's changes, in document order",
+      content: { "application/json": { schema: FileVersionChangesResponse } },
     },
     401: authErrors[401],
     404: authErrors[404],
@@ -1268,11 +1345,25 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         id,
         cursor === undefined ? {} : { cursor },
       );
+      // One grouped read for the page, never one per version.
+      const summaries = await summarizeVersionChanges(
+        firm.firmDatabase,
+        page.data.map((version) => version.id),
+      );
       return c.json(
         {
           nextCursor: page.nextCursor,
           data: page.data.map((version) => ({
             id: version.id,
+            changes: summaries
+              .filter((summary) => summary.versionId === version.id)
+              .map((summary) => ({
+                authorUserId: summary.authorUserId,
+                authorName: summary.authorName,
+                insertions: summary.insertions,
+                deletions: summary.deletions,
+                formatting: summary.formatting,
+              })),
             versionNumber: version.versionNumber,
             sizeBytes: version.sizeBytes,
             sniffedContentType: version.sniffedContentType,
@@ -1290,6 +1381,47 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             scanDetail: version.scanDetail,
           })),
         } as z.infer<typeof FileVersionsResponse>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/files/{id}/versions/{versionId}/changes — what changed in one version, by whom
+  app.openapi(
+    {
+      ...listFileVersionChangesRoute,
+      middleware: chokepointMiddleware(chokepoint, listFileVersionChangesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id, versionId } = c.req.valid("param");
+      // The version is resolved through the same gate every version read takes: a soft-deleted
+      // file, a withdrawn version, or a version of another file all answer 404.
+      const file = await getFileWithNamedVersion(firm.firmDatabase, id, versionId);
+      if (file === undefined || file.deletedAt !== null || file.version === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such version of this file in this firm.",
+        });
+      }
+      const changes = await listVersionChanges(firm.firmDatabase, versionId);
+      return c.json(
+        {
+          data: changes.map((change) => ({
+            sequence: change.sequence,
+            kind: change.kind,
+            authorName: change.authorName,
+            authorUserId: change.authorUserId,
+            authorCurrentName: change.authorCurrentName,
+            changedAt: change.changedAt,
+            text: change.text,
+            textTruncated: change.textTruncated,
+            part: change.part,
+            paragraphIndex: change.paragraphIndex,
+          })),
+        } as z.infer<typeof FileVersionChangesResponse>,
         200,
       );
     },

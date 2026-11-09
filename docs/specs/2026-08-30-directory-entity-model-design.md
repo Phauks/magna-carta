@@ -439,7 +439,7 @@ untouched: the CHANNEL's default row, where a message goes when the sender named
 Withdrawing a permission is what the screen offers where deleting would otherwise be used — deleting
 loses the instruction along with the value, and the next member re-enters the number and rings it. The
 whole reasoning is in the ADR fragment
-[`a-contact-point-carries-a-permission-and-a-preference-and-they-are-two-facts`](../decisions/pending/a-contact-point-carries-a-permission-and-a-preference-and-they-are-two-facts.md).
+[`a-contact-point-carries-a-permission-and-a-preference-and-they-are-two-facts`](../decisions/0397-a-contact-point-carries-a-permission-and-a-preference-and-they-are-two-facts.md).
 
 **Duplicates within one entity.** All three tables gain a partial unique index over the live rows —
 `(entity_id, normalized_address)`, `(entity_id, number_e164, extension)`, `(entity_id,
@@ -617,7 +617,7 @@ them without first asserting an employment that is false — and a false edge is
 because `directory_edge` is the corpus the conflicts traversal walks and prints. A person who is both
 an employee and the contact carries two edges, which is right: an employment and an appointment as
 contact start and end at different times. The full reasoning is
-[`a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee`](../decisions/pending/a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee.md).
+[`a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee`](../decisions/0402-a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee.md).
 
 **Representation is two different things and the model must not merge them.**
 
@@ -909,7 +909,7 @@ deliberately a duplicate key rather than a canonical form, and the four verifica
 exactly where a provider's answer lands — so adopting one later is a writer of existing columns, not a
 migration. The options, the measured costs, the golden-rule-14 finding that libpostal is C with no
 pure-Rust port, and the recommendation are in
-[`an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider`](../decisions/pending/an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider.md).
+[`an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider`](../decisions/0405-an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider.md).
 
 ---
 

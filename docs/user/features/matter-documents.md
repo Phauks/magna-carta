@@ -295,6 +295,16 @@ Every committed version of the document, newest first, as a table: its number, w
 committed, its size, and who created it. Each row has its own controls: open that version, or
 verify it, which opens the **Hashes** tab on that version.
 
+For a Word document edited in the browser with recording on, each version also says **who changed
+what** in it: "Ana Vasquez: 3 added, 2 removed · Trevor Goldsmith: 1 reformatted". That comes from
+the document's own record of changes, so it names the person who typed the words, not just the
+person who pressed Save. Open a version's changes and the words appear in order, each with its
+author: additions underlined, removals struck through, a formatting change marked as such. A version
+lists only what is new in it; what an earlier version already showed is not repeated. The record is
+read when the version is saved, so a version saved a moment ago may say nothing for a few seconds.
+Uploaded documents, spreadsheets and presentations carry no such record, and their versions say
+nothing here.
+
 ## Hashes
 
 The **Hashes** tab computes the document's five fingerprints the moment you open it, from the bytes

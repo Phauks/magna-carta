@@ -21,4 +21,4 @@ summary: "The local development upload path is a Worker route, not a production 
 
 **Fitness tests:** the dev route refuses to serve (bare 404) when the full R2 S3 credential set is present, and is otherwise wired (a 401 under the same request without a session); an unauthenticated request 401s; a key no upload session minted is refused (404) while the key `uploads.initiate` minted is accepted and its bytes land in the `R2` binding. The upload-ceremony integration suite runs the worker-origin single-shot and multipart paths (sign part → stage the part through the dev route → complete assembles the staged parts) end to end.
 
-Design: [`docs/specs/2026-07-09-matter-file-manager-design.md`](../../specs/2026-07-09-matter-file-manager-design.md).
+Design: [`docs/specs/2026-07-09-matter-file-manager-design.md`](../specs/2026-07-09-matter-file-manager-design.md).

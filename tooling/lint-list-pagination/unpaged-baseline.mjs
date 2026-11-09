@@ -22,6 +22,14 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- The changes ONE version carries -----------------------------------------------------------
+  "files.versionChanges":
+    "What changed in one version, read from the document's own tracked changes: only the marks " +
+    "this version carries that no earlier version did. Recorded through newMarksSince in " +
+    "packages/file-manager/src/version-changes.ts, whose MAX_CHANGES_PER_VERSION (5000) caps the " +
+    "rows one version may hold at the moment they are written, so the read is bounded by the " +
+    "write; the history opens a version's changes whole, in document order, which a page could " +
+    "not show as one diff.",
   // --- The checks ONE file has had -------------------------------------------------------------
   "files.scans":
     "Every safety check, request and hold recorded against ONE file's versions. Read through " +

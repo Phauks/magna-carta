@@ -36,6 +36,7 @@ export const OPERATIONS: readonly string[] = [
   "files.restore",
   "files.scans",
   "files.update",
+  "files.versionChanges",
   "files.versions",
   "folders.create",
   "folders.delete",

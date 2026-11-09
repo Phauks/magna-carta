@@ -88,6 +88,17 @@ platform, a client-portal share, and any assembly that takes a member's document
 A version's copy goes wherever its bytes go: `purgeableVersionObjects` lists it beside the
 version's own object. It is not tiered with the version (a derived cache; rebuildable).
 
+**The marks are read into history at the same moment.** `../exports/record-version-changes.ts`
+runs inside `produceExportCopy`, on the bytes it already holds: `readTrackedChanges` (the read-side
+twin of the accept pass, same tree, same parts) → the set difference against every earlier
+version's rows of the file (`readRecordedMarkKeys`; a mark's identity is what the document holds,
+never the editor's renumbered `w:id`) → the author's name resolved to a member (the version's
+participants first, the roster second, a shared name to neither) → `file_version_change` rows in
+the batch that records the copy. So a version's attribution exists exactly when its copy does, and
+a version whose copy is `unavailable` records no marks. The history reads: `summarizeVersionChanges`
+(one grouped read per page of versions) and `listVersionChanges` (`files.versionChanges`, bounded
+by `MAX_CHANGES_PER_VERSION` at the write).
+
 ## Dependencies & contracts
 
 - **The coolwsd container is NOT here.** Per ADR `container-subsystems-extract-to-dedicated-workers`, it lives in a dedicated `magna-carta-edit` worker (no egress, no R2/D1 creds, one per document). The editor (browser iframe) loads it and it calls _back_ into this worker's `/wopi/*` surface — the container is the caller, never invoked from here.

@@ -9967,6 +9967,39 @@
               "string",
               "null"
             ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "authorUserId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "authorName": {
+                  "type": "string"
+                },
+                "insertions": {
+                  "type": "integer"
+                },
+                "deletions": {
+                  "type": "integer"
+                },
+                "formatting": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "authorUserId",
+                "authorName",
+                "insertions",
+                "deletions",
+                "formatting"
+              ]
+            }
           }
         },
         "required": [
@@ -9982,7 +10015,83 @@
           "participants",
           "scanVerdict",
           "scanEngineVersion",
-          "scanDetail"
+          "scanDetail",
+          "changes"
+        ]
+      },
+      "FileVersionChangesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileVersionChangeItem"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "FileVersionChangeItem": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "insertion",
+              "deletion",
+              "formatting"
+            ]
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "authorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorCurrentName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "textTruncated": {
+            "type": "boolean"
+          },
+          "part": {
+            "type": "string"
+          },
+          "paragraphIndex": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "kind",
+          "authorName",
+          "authorUserId",
+          "authorCurrentName",
+          "changedAt",
+          "text",
+          "textTruncated",
+          "part",
+          "paragraphIndex"
         ]
       },
       "FileActionAck": {
@@ -57732,6 +57841,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FileVersionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/versions/{versionId}/changes": {
+      "get": {
+        "description": "Lists what changed in one version, read from the document's own tracked changes: who inserted, removed or reformatted which words, in document order. Only the marks this version carries that no earlier version did. Bounded per version; the words of one change are capped.",
+        "operationId": "files.versionChanges",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.versionChanges",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^fileVersion_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "versionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The version's changes, in document order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileVersionChangesResponse"
                 }
               }
             }
