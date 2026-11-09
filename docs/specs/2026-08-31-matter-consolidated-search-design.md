@@ -17,7 +17,7 @@ discovery search index beyond consuming the port it already exposes.
 - The owner's direction of 2026-08-31: _a search button at the top right of the matter screen,
   defaulting to the screen it is on, changeable to other screens and to the whole matter._
 - The screen-search decision
-  ([`../decisions/pending/a-screen-search-is-a-different-object-from-the-command-palette.md`](../decisions/0403-a-screen-search-is-a-different-object-from-the-command-palette.md))
+  ([`../decisions/0403-a-screen-search-is-a-different-object-from-the-command-palette.md`](../decisions/0403-a-screen-search-is-a-different-object-from-the-command-palette.md))
   — `ScreenSearch` is the one control for searching within a screen, it already ships a `scope`
   seam, and the seam names the matter file manager's dropdown as the first thing that will sit in
   it. This design is that seam being filled.

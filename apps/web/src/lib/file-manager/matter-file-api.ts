@@ -75,6 +75,22 @@ export interface MatterFileVersion {
   scanVerdict: "unscanned" | "clean" | "flagged" | null;
   scanEngineVersion: string | null;
   scanDetail: string | null;
+  /**
+   * Who changed what in this version, one entry per author, read from the document's own change
+   * marks at the cut. `authorName` is the member's name today where the author resolved to one
+   * who is still here, else the name the document holds. Empty where the version recorded nothing
+   * new: an upload, a spreadsheet, or a version whose marks have not been read yet.
+   */
+  changes: readonly VersionAuthorChanges[];
+}
+
+/** One author's tally of changes in a version. */
+export interface VersionAuthorChanges {
+  authorUserId: string | null;
+  authorName: string;
+  insertions: number;
+  deletions: number;
+  formatting: number;
 }
 
 /**

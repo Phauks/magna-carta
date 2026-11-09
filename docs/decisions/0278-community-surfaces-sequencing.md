@@ -76,4 +76,4 @@ first draft's recommendation against the forum** (it was scoped to lawyers discu
 and did not survive contact with what the reference product means by the word). Extends **ADR-0044**
 (whose package boundary, native-build reasoning, data model and escalation bridge all stand, and whose
 `discussion` seam this wakes as designed) and **ADR-0048** (unchanged). Spec:
-[`docs/specs/2026-08-11-community-surfaces-design.md`](../../specs/2026-08-11-community-surfaces-design.md).
+[`docs/specs/2026-08-11-community-surfaces-design.md`](../specs/2026-08-11-community-surfaces-design.md).

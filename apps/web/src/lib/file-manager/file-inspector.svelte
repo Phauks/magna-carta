@@ -24,7 +24,7 @@
   import Input from "@magna-carta/design-system/input";
   import Textarea from "@magna-carta/design-system/textarea";
   import FileInput from "@magna-carta/design-system/file-input";
-  import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
+  import { sampleInstant, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import { buttonClasses } from "@magna-carta/design-system/button";
@@ -39,10 +39,12 @@
   import { statusEntry } from "@magna-carta/design-system/status-register";
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
+  import VersionChangesDialog from "./version-changes-dialog.svelte";
   import Flag from "@lucide/svelte/icons/flag";
   import Eye from "@lucide/svelte/icons/eye";
   import Hash from "@lucide/svelte/icons/hash";
   import GitCompare from "@lucide/svelte/icons/git-compare";
+  import Diff from "@lucide/svelte/icons/diff";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import X from "@lucide/svelte/icons/x";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -51,6 +53,7 @@
   import { folderSizeText, formatBytes } from "./file-rows.ts";
   import { fileExtension, safetyKeyOf } from "./file-columns.ts";
   import {
+    changesSummaryText,
     createdByText,
     foldedCount,
     foldedLabel,
@@ -304,6 +307,17 @@
       scanVerdict: null,
       scanEngineVersion: null,
       scanDetail: null,
+      // Two authors, so the Changes column's shape stands at its real width while the read runs.
+      changes: [
+        {
+          authorUserId: null,
+          authorName: samplePerson(0).name,
+          insertions: 3,
+          deletions: 2,
+          formatting: 1,
+        },
+        { authorUserId: null, authorName: samplePerson(1).name, insertions: 1, deletions: 0, formatting: 0 },
+      ],
     },
     {
       id: "fixture-2",
@@ -319,6 +333,7 @@
       scanVerdict: null,
       scanEngineVersion: null,
       scanDetail: null,
+      changes: [],
     },
   ];
   const SCAN_FIXTURE: readonly FileScanEvent[] = [
@@ -369,6 +384,7 @@
     kind: "kind",
     size: "size",
     createdBy: "createdBy",
+    changes: "changes",
     actions: "actions",
   } as const;
   // Every save in the editor is a version, so a history folds the autosaves by default and opens
@@ -420,6 +436,14 @@
         text: (version) => createdByText(version),
       },
       {
+        // Who changed what, one clause per author; empty where the version recorded nothing new.
+        id: VERSION_COLUMN.changes,
+        label: "Changes",
+        type: "text",
+        filter: "none",
+        value: (version) => changesSummaryText(version),
+      },
+      {
         id: VERSION_COLUMN.actions,
         label: "Actions",
         type: "text",
@@ -437,6 +461,19 @@
   const currentVersionNumber = $derived(
     versions === null || versions.length === 0 ? null : Math.max(...versions.map((v) => v.versionNumber)),
   );
+
+  /*
+   * THE CHANGES OPEN IN THEIR OWN PANEL, from the row: a version's marks are a list long enough to
+   * need the room, and a column can only summarise them. The control is on the rows that have any.
+   */
+  let changesVersion = $state<MatterFileVersion | null>(null);
+  let changesOpen = $state(false);
+  $effect(() => {
+    // A different file is a different history; a panel open on the old one has nothing to show.
+    void file?.id;
+    changesOpen = false;
+    changesVersion = null;
+  });
 
   /*
    * THE HASHES TAB COMPUTES ON ENTRY. The digests are the tab's whole content, so a tab that
@@ -600,6 +637,20 @@
       >
         <Eye class="size-16" aria-hidden="true" />
       </Button>
+      {#if row.changes.length > 0}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="See who changed what in version {row.versionNumber}"
+          aria-label="See who changed what in version {row.versionNumber}"
+          onclick={() => {
+            changesVersion = row;
+            changesOpen = true;
+          }}
+        >
+          <Diff class="size-16" aria-hidden="true" />
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         size="icon"
@@ -923,6 +974,7 @@
               caption="This file's versions"
             />
           </LoadingRegion>
+          <VersionChangesDialog bind:open={changesOpen} fileId={file.id} version={changesVersion} />
         </Tabs.Content>
 
         <Tabs.Content value="hashes">
