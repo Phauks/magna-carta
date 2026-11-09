@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import type { Bindings } from "../../src/bindings.ts";

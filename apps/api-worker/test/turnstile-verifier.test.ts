@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { createTurnstileVerifier } from "../src/http/human-verification/turnstile-verifier.ts";
 import { verifierNotConfigured } from "../src/http/human-verification/human-verification-port.ts";

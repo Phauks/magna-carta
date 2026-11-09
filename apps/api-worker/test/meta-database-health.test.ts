@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 /*
  * The database-health read's resolution rules. Two contracts are worth pinning here and nothing
  * else is: every check lands in exactly one honest state, and NO single failing check can fail the

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 /*
  * The aggregate version read's resolution rules: every rostered service binding lands in exactly
  * one honest state — reported (its own answer), unbound (no binding here), unreachable (bound but
