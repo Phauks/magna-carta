@@ -190,6 +190,19 @@ export const SCAN_KINDS: readonly CustodyScanKind[] = [
   "correspondence",
 ];
 
+/** Every kind a container can be, in the order a form offers them: largest to smallest, then the external sites. */
+export const LOCATION_KINDS: readonly CustodyLocationKind[] = [
+  "office",
+  "room",
+  "safe",
+  "cabinet",
+  "shelf",
+  "box",
+  "position",
+  "offsite",
+  "bank",
+];
+
 const LOCATION_LABELS: Readonly<Record<CustodyLocationKind, string>> = {
   office: "Office",
   room: "Room",
