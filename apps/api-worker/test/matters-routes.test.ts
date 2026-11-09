@@ -641,3 +641,145 @@ describe("the matter's paper file", () => {
     expect(detail.physicalFileLocationId).toBe(storeId);
   });
 });
+
+describe("the date the matter's paper file may be destroyed", () => {
+  async function newMatter(title: string): Promise<string> {
+    const created = await post("/api/v1/matters", {
+      title,
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(created.status).toBe(201);
+    return ((await created.json()) as { matterId: string }).matterId;
+  }
+
+  async function detailDate(matterId: string): Promise<string | null> {
+    const detail = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      fileDestructionDate: string | null;
+    };
+    return detail.fileDestructionDate;
+  }
+
+  async function setMinimum(years: number): Promise<void> {
+    const response = await patch("/api/v1/matters/settings", { fileRetentionMinimumYears: years });
+    expect(response.status).toBe(200);
+  }
+
+  // The floor for a close made today, computed the way the service computes it.
+  function yearsFromToday(years: number): string {
+    const today = new Date();
+    return `${String(today.getUTCFullYear() + years)}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  it("reads the firm's minimum, which is none until the firm sets one, and only Owner/Admin sets it", async () => {
+    await setMinimum(0);
+    const read = (await (await get("/api/v1/matters/settings", readOnlyCookie)).json()) as {
+      fileRetentionMinimumYears: number;
+    };
+    expect(read.fileRetentionMinimumYears).toBe(0);
+    expect(
+      (await patch("/api/v1/matters/settings", { fileRetentionMinimumYears: 3 }, readOnlyCookie))
+        .status,
+    ).toBe(403);
+    expect(
+      (await patch("/api/v1/matters/settings", { fileRetentionMinimumYears: 101 })).status,
+    ).toBe(422);
+  });
+
+  it("is stated at the close, read back on the matter, and falls due on the firm calendar", async () => {
+    await setMinimum(7);
+    const matterId = await newMatter("Retention Recorded");
+    const destroyOn = yearsFromToday(8);
+    const closed = await post(`/api/v1/matters/${matterId}/close`, { fileDestroyOn: destroyOn });
+    expect(closed.status).toBe(200);
+    expect(await detailDate(matterId)).toBe(destroyOn);
+
+    const month = destroyOn.slice(0, 7);
+    const calendar = await get(
+      `/api/v1/calendar/events?from=${month}-01&to=${month}-28&scope=matter&kind=matterFileDestruction`,
+    );
+    expect(calendar.status).toBe(200);
+    const page = (await calendar.json()) as {
+      data: { sourceKey: string; kind: string; matterId: string | null; sortKey: string }[];
+    };
+    if (Number(destroyOn.slice(8, 10)) <= 28) {
+      expect(page.data).toContainEqual(
+        expect.objectContaining({
+          sourceKey: "matterFileDestruction",
+          kind: "fileDestruction",
+          matterId,
+          sortKey: destroyOn,
+        }),
+      );
+    }
+    await setMinimum(0);
+  });
+
+  it("refuses a close whose date is under the minimum, and a later write on an open matter", async () => {
+    await setMinimum(7);
+    const matterId = await newMatter("Retention Too Soon");
+    const refused = await post(`/api/v1/matters/${matterId}/close`, {
+      fileDestroyOn: yearsFromToday(6),
+    });
+    expect(refused.status).toBe(422);
+    const detail = (await (await get(`/api/v1/matters/${matterId}`)).json()) as { status: string };
+    expect(detail.status).toBe("open");
+    // The date is set when the matter closes, so an open matter takes none from the status window.
+    expect(
+      (await put(`/api/v1/matters/${matterId}/file-destruction-date`, { destroyOn: "2040-01-01" }))
+        .status,
+    ).toBe(422);
+    await setMinimum(0);
+  });
+
+  it("closes with none; a date can then be added, refused and cleared", async () => {
+    await setMinimum(0);
+    const matterId = await newMatter("Retention Later");
+    expect((await post(`/api/v1/matters/${matterId}/close`, { fileDestroyOn: null })).status).toBe(
+      200,
+    );
+    expect(await detailDate(matterId)).toBeNull();
+
+    const recorded = await put(`/api/v1/matters/${matterId}/file-destruction-date`, {
+      destroyOn: "2034-02-01",
+    });
+    expect(recorded.status).toBe(200);
+    expect(await recorded.json()).toMatchObject({
+      matterId,
+      destroyOn: "2034-02-01",
+      recordedByUserId: ownerUserId,
+    });
+    expect(await detailDate(matterId)).toBe("2034-02-01");
+
+    // A day that does not exist, an unknown matter, and a member without matters:edit.
+    expect(
+      (await put(`/api/v1/matters/${matterId}/file-destruction-date`, { destroyOn: "2033-02-30" }))
+        .status,
+    ).toBe(422);
+    expect(
+      (
+        await put(`/api/v1/matters/${newIdentifier("matter")}/file-destruction-date`, {
+          destroyOn: "2033-11-09",
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await put(
+          `/api/v1/matters/${matterId}/file-destruction-date`,
+          { destroyOn: "2033-11-09" },
+          readOnlyCookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect(await detailDate(matterId)).toBe("2034-02-01");
+
+    expect(
+      (await put(`/api/v1/matters/${matterId}/file-destruction-date`, { destroyOn: null })).status,
+    ).toBe(200);
+    expect(await detailDate(matterId)).toBeNull();
+    // That a reopen clears the date is asserted against the service, in
+    // packages/matters/test/matter-file-retention.test.ts: this file already spends the per-minute
+    // rate limit close to its edge.
+  });
+});

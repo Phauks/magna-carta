@@ -117,23 +117,18 @@ const DATES_FOLDER_KEY = "dates";
  * The date calendars that have no source behind them yet, listed so the shape of the calendar is
  * honest about what it will hold, and refused so it cannot be mistaken for what it holds today.
  *
- * File destruction is the one the owner asked for by name. A retention schedule reaching a date is
- * a date that falls due exactly as a custody due-back is, so it belongs in this folder and nowhere
- * else — there is simply no retention model to read from yet.
+ * Empty today. File destruction dates were the one listed here until the matter's paper file
+ * carried a date of its own; it is a served layer now (`CALENDAR_LAYERS`), under the same key, so a
+ * reader who had the row in view keeps it. The list stays as the place the next unserved date
+ * calendar goes.
  */
-interface UnservedDateCalendar {
+export interface UnservedDateCalendar {
   readonly key: string;
   readonly name: string;
   readonly soonReason: string;
 }
 
-const UNSERVED_DATE_CALENDARS: readonly UnservedDateCalendar[] = [
-  {
-    key: "fileDestruction",
-    name: "File destruction dates",
-    soonReason: "a retention schedule on a matter's files",
-  },
-];
+const UNSERVED_DATE_CALENDARS: readonly UnservedDateCalendar[] = [];
 
 /** What the catalog is built from: everything the calendar's context already read. */
 export interface CalendarCatalogInput {
@@ -143,6 +138,8 @@ export interface CalendarCatalogInput {
   readonly resources: readonly FirmResource[];
   /** The date-bearing sources the read can be widened to. The vocabulary's own list by default. */
   readonly layers?: readonly CalendarLayer[];
+  /** The date calendars listed but not yet served. The catalog's own list by default. */
+  readonly unservedDates?: readonly UnservedDateCalendar[];
 }
 
 /**
@@ -171,7 +168,7 @@ export function calendarFolders(input: CalendarCatalogInput): readonly CalendarF
     },
     ...memberFolders(input.members),
     ...resourceFolders(input.resources),
-    dateFolder(input.layers ?? CALENDAR_LAYERS),
+    dateFolder(input.layers ?? CALENDAR_LAYERS, input.unservedDates ?? UNSERVED_DATE_CALENDARS),
   ];
   return folders.filter((folder) => folder.sources.length > 0);
 }
@@ -251,7 +248,10 @@ function resourceFolders(resources: readonly FirmResource[]): readonly CalendarF
 }
 
 /** The calendars that are dates rather than people: the served layers, then the ones still coming. */
-function dateFolder(layers: readonly CalendarLayer[]): CalendarFolder {
+function dateFolder(
+  layers: readonly CalendarLayer[],
+  unservedDates: readonly UnservedDateCalendar[],
+): CalendarFolder {
   return {
     key: DATES_FOLDER_KEY,
     name: "Dates",
@@ -263,7 +263,7 @@ function dateFolder(layers: readonly CalendarLayer[]): CalendarFolder {
           kind: { kind: "layer", layerKey: layer.key },
         }),
       ),
-      ...UNSERVED_DATE_CALENDARS.map(
+      ...unservedDates.map(
         (unserved): CalendarSource => ({
           key: layerSourceKey(unserved.key),
           name: unserved.name,

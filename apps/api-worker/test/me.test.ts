@@ -224,6 +224,9 @@ describe("GET /api/v1/me", () => {
         "matters:edit",
         "matters:hold",
         "matters:manageNumbering",
+        // Seeded to Owner/Admin alone: how long the firm keeps a closed matter's paper file is
+        // its policy, not a choice for whoever is closing a matter.
+        "matters:manageRetention",
         "matters:manageTypes",
         "matters:open",
         "matters:renumber",

@@ -298,7 +298,8 @@ export const CREATE_MATTER_PERMISSION = "matters:create";
 export const EDIT_MATTER_PERMISSION = "matters:edit";
 
 /**
- * What the matter read answers about the two offices a matter names, and nothing else.
+ * What the matter read answers about the two offices a matter names, and the paper file's destruction
+ * date beside them — the facts the status window states and re-reads each time it opens.
  *
  * TWO OFFICES, NEVER ONE. `locationId` is the office the matter is RUN OUT OF — the fact the
  * header's citation states. `physicalFileLocationId` is the office the firm's own paper file for
@@ -311,6 +312,12 @@ export interface MatterOffices {
   locationName: string | null;
   physicalFileLocationId: string | null;
   physicalFileLocationName: string | null;
+  /**
+   * The civil date on or after which the firm may destroy its paper file for this matter, as a
+   * person at the firm recorded it, or null where nobody has. It rides the same read as the paper
+   * file's office because the status window states both and re-reads both each time it opens.
+   */
+  fileDestructionDate: string | null;
 }
 
 /**
@@ -339,6 +346,7 @@ export async function readMatterOffices(
       locationName: outcome.value.locationName ?? null,
       physicalFileLocationId: outcome.value.physicalFileLocationId ?? null,
       physicalFileLocationName: outcome.value.physicalFileLocationName ?? null,
+      fileDestructionDate: outcome.value.fileDestructionDate ?? null,
     },
   };
 }
@@ -374,6 +382,33 @@ export function updateMatter(
     body: patch,
     idempotencyKey,
   });
+}
+
+/** The matter's file destruction date as it stands after a write. */
+export interface MatterFileDestructionDate {
+  matterId: string;
+  destroyOn: string | null;
+  recordedByUserId: string | null;
+  recordedAt: string | null;
+}
+
+/**
+ * Record, change or clear the date on or after which the firm may destroy its paper file for the
+ * matter. Null clears it. A reminder only: nothing is deleted when the date arrives, and the server
+ * audits every change with the date it replaced. Behind the same permission as the matter's other
+ * fields.
+ */
+export function setMatterFileDestructionDate(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  destroyOn: string | null,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MatterFileDestructionDate>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/file-destruction-date`,
+    { method: "PUT", body: { destroyOn }, idempotencyKey },
+  );
 }
 
 /**
@@ -443,9 +478,40 @@ export function closeMatter(
   fetchImpl: typeof fetch,
   matterId: string,
   idempotencyKey: string,
+  fileDestroyOn?: string | null,
 ): Promise<ApiOutcome<CloseMatterResult>> {
+  // The paper file's destruction date rides the close itself, so a date under the firm's minimum
+  // refuses the close rather than closing a matter whose date was lost. Absent records nothing.
   return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/close`, {
     method: "POST",
+    ...(fileDestroyOn === undefined ? {} : { body: { fileDestroyOn } }),
+    idempotencyKey,
+  });
+}
+
+/** The firm's matter settings. */
+export interface MatterSettings {
+  /** Minimum years a closed matter's paper file is kept after the close. 0 means no minimum. */
+  fileRetentionMinimumYears: number;
+}
+
+/** The permission that sets the firm's minimum retention. */
+export const MANAGE_RETENTION_PERMISSION = "matters:manageRetention";
+
+/** Read the firm's matter settings. Every member may: the close asks for a date against them. */
+export function readMatterSettings(fetchImpl: typeof fetch): Promise<ApiOutcome<MatterSettings>> {
+  return requestJson(fetchImpl, "/api/v1/matters/settings");
+}
+
+/** Change the firm's matter settings. Sparse: an absent field is left alone. */
+export function updateMatterSettings(
+  fetchImpl: typeof fetch,
+  patch: Partial<MatterSettings>,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MatterSettings>> {
+  return requestJson(fetchImpl, "/api/v1/matters/settings", {
+    method: "PATCH",
+    body: patch,
     idempotencyKey,
   });
 }
