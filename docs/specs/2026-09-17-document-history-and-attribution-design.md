@@ -3,7 +3,8 @@
 **Status:** Layers 1 and 2 built (every save a version with its kind, the fold, participants per
 version), 3.2 built (the firm policy, recording forced on by the host, the marks hidden on open),
 and the accept-on-export step built (2026-09-24: the export copy, every download lane served from
-it); 3.4 is design, the one decision (section 3.3) taken: accept on export. The owner asked on 2026-09-17 for history that matches
+it); 3.4 built the same day (the marks read into rows when the copy is made, attributed to
+members, the per-author summary and the changes by author in Version History). The owner asked on 2026-09-17 for history that matches
 what Google Docs shows: every state of the document, grouped in a timeline, and each change
 attributed to the person who made it, with the noise handled by grouping rather than by keeping
 less.
@@ -170,6 +171,23 @@ History then shows, for any version or fold, the per-author summary ("Ana: 3 par
 sentences removed · Trevor: 1 sentence changed") and, on opening it, the diff coloured by author,
 rendered from the marks rather than from a text comparison.
 
+**Built 2026-09-24, with two changes to the means.** The reader is TypeScript beside the accept
+pass (`readTrackedChanges` in `@magna-carta/document-assembly`), not Rust in the document core: it
+walks the same tree the accept pass resolves, so what history reads is exactly what a copy on the
+way out accepts, and a second implementation in another language would be a second answer to what
+a mark is. And the marks are read when the version's export copy is made rather than at the cut
+itself: that is the one moment the document is in hand off the request path, and the rows ride
+the batch that records the copy, so a version's attribution and its copy arrive together (a
+version saved a moment ago says nothing for the seconds until the queue reaches it).
+
+A version's rows are the marks it carries that no earlier version of the file recorded — the
+stored document keeps every mark, so a version's full set is the whole history so far, and what a
+version is for in history is what changed in it. A mark's identity across versions is what the
+document holds (kind, author, instant, words, part); the revision identifiers the editor writes
+are renumbered on every save. One act of typing split across many runs reads as one mark. The
+words are capped per row and the rows per version (`file_version_change`, keyed by version and
+document order), and a document past the accept pass's caps records no marks.
+
 ### 3.5 What is deliberately out
 
 Spreadsheets and presentations record no per-cell or per-shape authorship in their formats; for
@@ -195,4 +213,4 @@ pretending.
 2. Participants per version — layer 2.
 3. The firm policy and recording-on-load — 3.2.
 4. The owner's answer to 3.3, recorded; accept-on-export — built 2026-09-24, as an XML rewrite.
-5. The mark reader in the document core, the change rows, the per-author summary and diff — 3.4.
+5. The mark reader, the change rows, the per-author summary and diff — 3.4, built 2026-09-24.

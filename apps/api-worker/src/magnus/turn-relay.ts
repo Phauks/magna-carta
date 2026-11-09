@@ -1,4 +1,4 @@
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { MagnusTurnJob } from "./magnus-types.ts";
 
 // The hand-off from the per-firm transactional outbox onto the MAGNUS queue.

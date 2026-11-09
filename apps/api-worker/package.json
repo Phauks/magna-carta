@@ -10,7 +10,8 @@
     "deploy": "wrangler deploy",
     "emit-openapi": "node scripts/emit-openapi.mts",
     "emit-r2-cors": "node scripts/emit-r2-cors.mts",
-    "test": "vp test run"
+    "test": "vp test run",
+    "emit-domain-operations": "node scripts/emit-domain-operations.mts"
   },
   "dependencies": {
     "@cloudflare/containers": "catalog:",

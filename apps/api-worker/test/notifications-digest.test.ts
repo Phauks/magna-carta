@@ -7,7 +7,7 @@ import { writeMemberNotificationPreferencesStatement } from "@magna-carta/notifi
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import type { NotificationDigestSendPort } from "../src/notifications/digest-send-port.ts";
 import { resolveNotificationDigestSendPort } from "../src/notifications/digest-send-port.ts";
-import { runNotificationDigestPass } from "../src/scheduled.ts";
+import { runNotificationDigestPass } from "../src/background/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // The digest pass driven through the real cron entry point, the real per-firm Durable Object, and

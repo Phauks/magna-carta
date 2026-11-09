@@ -1,5 +1,5 @@
 // WHAT A PERSON WITH NO FIRM STILL HAS TO DO — one read, one home, two readers: the bootstrap
-// (routes/me.ts) publishes it, and the founding route (routes/onboarding.ts) reads it to decide
+// (routes/session/me.ts) publishes it, and the founding route (routes/session/onboarding.ts) reads it to decide
 // whether a second press queues a second firm or answers the one already under way.
 //
 // IT IS A FACT ON THE SERVER, NEVER A FLAG IN THE BROWSER. A person who asks for a firm and closes

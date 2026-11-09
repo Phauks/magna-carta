@@ -28,7 +28,7 @@
 **New `packages/parcels/`:** `src/manifest.ts`; export added.
 **New `packages/property-links/`:** `src/manifest.ts`; export added.
 **New `apps/worker/`:** `src/plugins/runtime.ts` (`PluginRuntime` + builder), `src/plugins/registry.ts` (`WorkerPlugin` type, the `workerPlugins` index, `listManifests`, `buildIntegrationRegistry`), `src/plugins/shipping-plugin.ts` (binds shipping manifest + routes + adapter); tests `test/plugins/registry.test.ts`, `test/plugins/manifest-fitness.test.ts`.
-**Modified `apps/worker/`:** `src/app.ts` (mount loop; drop shipping special-casing), `src/routes/shipping.ts` (`ShippingRouteDeps` → `PluginRuntime`; `buildShippingRegistry` → `buildIntegrationRegistry`), `src/index.ts` (drop the shipping option), regenerated `openapi/openapi.json`; **deleted** `src/shipping/registry.ts` (generalized into `plugins/registry.ts`).
+**Modified `apps/worker/`:** `src/http/app.ts` (mount loop; drop shipping special-casing), `src/http/routes/communications/shipping.ts` (`ShippingRouteDeps` → `PluginRuntime`; `buildShippingRegistry` → `buildIntegrationRegistry`), `src/index.ts` (drop the shipping option), regenerated `openapi/openapi.json`; **deleted** `src/shipping/registry.ts` (generalized into `plugins/registry.ts`).
 **Modified `packages/api-client/`:** regenerated client (routes byte-identical).
 **Modified docs:** `docs/Decision-Log.md` (two ADRs), `docs/Magna-Carta-White-Paper.md` (Plugin/Add-on system), `STATUS.md`, `ROADMAP.md`, `CHANGELOG.md`.
 
@@ -351,16 +351,16 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ## Task 4: Bind shipping as a WorkerPlugin; generalize the routes' registry
 
-**Files:** Create `apps/worker/src/plugins/shipping-plugin.ts`; modify `apps/worker/src/routes/shipping.ts`, `apps/worker/src/plugins/registry.ts`; delete `apps/worker/src/shipping/registry.ts`.
+**Files:** Create `apps/worker/src/plugins/shipping-plugin.ts`; modify `apps/worker/src/routes/communications/shipping.ts`, `apps/worker/src/plugins/registry.ts`; delete `apps/worker/src/shipping/registry.ts`.
 
 **Interfaces:**
 
 - Consumes: `shippingManifest` (Task 3); `registerShippingRoutes` (existing, signature `(app, chokepoint, deps)`); `buildIntegrationRegistry` (Task 2); `PluginRuntime` (Task 2); `createEasyPostAdapter` (`@magna-carta/shipping/easypost`).
 - Produces: `shippingPlugin: WorkerPlugin`, added to `workerPlugins`.
 
-- [ ] **Step 1: Generalize `routes/shipping.ts` to `PluginRuntime` + the shared registry**
+- [ ] **Step 1: Generalize `routes/communications/shipping.ts` to `PluginRuntime` + the shared registry**
 
-In `apps/worker/src/routes/shipping.ts`: replace the `ShippingRouteDeps` interface with an import of `PluginRuntime`, and rename the `deps` parameter accordingly. Change the four `buildShippingRegistry(firm.firmDatabase, deps.secretStoreForFirm(firm.firmDatabase), deps.httpClient)` call sites to `buildIntegrationRegistry(firm.firmDatabase, runtime)`. Update imports:
+In `apps/worker/src/routes/communications/shipping.ts`: replace the `ShippingRouteDeps` interface with an import of `PluginRuntime`, and rename the `deps` parameter accordingly. Change the four `buildShippingRegistry(firm.firmDatabase, deps.secretStoreForFirm(firm.firmDatabase), deps.httpClient)` call sites to `buildIntegrationRegistry(firm.firmDatabase, runtime)`. Update imports:
 
 ```typescript
 // remove: import { buildShippingRegistry } from "../shipping/registry.ts";
@@ -399,7 +399,7 @@ git rm apps/worker/src/shipping/registry.ts
 // apps/worker/src/plugins/shipping-plugin.ts
 import { shippingManifest } from "@magna-carta/shipping/manifest";
 import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
-import { registerShippingRoutes } from "../routes/shipping.ts";
+import { registerShippingRoutes } from "../routes/communications/shipping.ts";
 import type { WorkerPlugin } from "./registry.ts";
 
 export const shippingPlugin: WorkerPlugin = {
@@ -419,7 +419,7 @@ import { shippingPlugin } from "./shipping-plugin.ts";
 export const workerPlugins: readonly WorkerPlugin[] = [shippingPlugin];
 ```
 
-> Note: `registry.ts` now imports `shipping-plugin.ts`, which imports `routes/shipping.ts` — a one-directional plugin→routes dependency. No cycle (routes no longer import the registry's `workerPlugins`, only `buildIntegrationRegistry`).
+> Note: `registry.ts` now imports `shipping-plugin.ts`, which imports `routes/communications/shipping.ts` — a one-directional plugin→routes dependency. No cycle (routes no longer import the registry's `workerPlugins`, only `buildIntegrationRegistry`).
 
 - [ ] **Step 5: Typecheck**
 
@@ -447,7 +447,7 @@ In `apps/worker/src/app.ts`:
 Remove these imports:
 
 ```typescript
-import { registerShippingRoutes } from "./routes/shipping.ts";
+import { registerShippingRoutes } from "./routes/communications/shipping.ts";
 import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
 ```
 
@@ -517,7 +517,7 @@ Run: `pnpm check && pnpm run lint:process-refs`
 Expected: PASS.
 
 ```bash
-git add apps/worker/src/plugins/ apps/worker/src/routes/shipping.ts apps/worker/src/app.ts apps/worker/src/index.ts apps/worker/openapi/openapi.json packages/api-client/ apps/worker/test/shipping-e2e.test.ts
+git add apps/worker/src/plugins/ apps/worker/src/routes/communications/shipping.ts apps/worker/src/app.ts apps/worker/src/index.ts apps/worker/openapi/openapi.json packages/api-client/ apps/worker/test/shipping-e2e.test.ts
 git rm apps/worker/src/shipping/registry.ts
 git commit -m "refactor(worker): mount plugins from the manifest registry; shipping is the first
 
@@ -756,4 +756,4 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Type consistency:** `IntegrationManifest` fields (Task 1) used identically in Tasks 3,6,7. `PluginRuntime { httpClient, secretStoreForFirm }` (Task 2) consumed in Tasks 4,5. `buildIntegrationRegistry(firmDatabase, runtime)` (Task 2) called in Task 4. `WorkerPlugin`/`workerPlugins` (Task 2) extended in Tasks 4,6. `registerShippingRoutes(app, chokepoint, runtime)` new signature (Task 4) matched by the `WorkerPlugin.registerRoutes` type (Task 2) and the app.ts loop (Task 5).
 
-**Build note:** Tasks 4 and 5 share one commit (the `routes/shipping.ts` signature change breaks `app.ts` until the loop replaces the old call) — flagged in both tasks.
+**Build note:** Tasks 4 and 5 share one commit (the `routes/communications/shipping.ts` signature change breaks `app.ts` until the loop replaces the old call) — flagged in both tasks.

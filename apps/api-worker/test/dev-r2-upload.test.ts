@@ -4,9 +4,9 @@ import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-stat
 import { modeThresholdDefinition } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId } from "@magna-carta/identifiers/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -15,7 +15,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The development-only R2 upload route (routes/dev-r2-upload.ts) stands in for direct-to-R2 uploads
+// The development-only R2 upload route (routes/developer/dev-r2-upload.ts) stands in for direct-to-R2 uploads
 // under `wrangler dev`, where no presigned R2 host resolves and no R2 object-create event fires. It
 // writes bytes to object storage, so it is guarded three ways. These tests pin each guard:
 //   1. Real-credential absence — a production-shaped env (the full R2 S3 credential set present) does

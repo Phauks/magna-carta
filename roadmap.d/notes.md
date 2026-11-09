@@ -19,7 +19,7 @@
   scope: One row carrying the matter, the author, the words, the instant it was written, and optionally when the thing it describes happened.
   status: shipped
   slices: 4-4-matter-notes
-  evidence: packages/notes (note-service.ts, note-statements.ts), matter_note in packages/database/src/per-firm-schema.ts, apps/api-worker/src/routes/notes.ts, the matter's Notes section and note-record-window.svelte in apps/web
+  evidence: packages/notes (note-service.ts, note-statements.ts), matter_note in packages/database/src/per-firm-schema.ts, apps/api-worker/src/http/routes/notes-and-tasks/notes.ts, the matter's Notes section and note-record-window.svelte in apps/web
   audience: public
   public-summary: A note on a matter, dated and attributed the moment it is written.
 

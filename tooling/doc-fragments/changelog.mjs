@@ -74,16 +74,40 @@ export function parseFragment(markdown, context = "changelog fragment") {
   const body = lines.slice(end + 1);
   const publicAt = body.findIndex((line) => line.trim() === PUBLIC_HEADING);
   const developerLines = publicAt === -1 ? body : body.slice(0, publicAt);
-  record.text = stripLeadingListMarker(developerLines.join("\n").trim());
+  record.text = rebaseLinks(stripLeadingListMarker(developerLines.join("\n").trim()), "developer");
   if (publicAt !== -1) {
-    record.publicText = stripLeadingListMarker(
-      body
-        .slice(publicAt + 1)
-        .join("\n")
-        .trim(),
+    record.publicText = rebaseLinks(
+      stripLeadingListMarker(
+        body
+          .slice(publicAt + 1)
+          .join("\n")
+          .trim(),
+      ),
+      "public",
     );
   }
   return record;
+}
+
+// A fragment is written in changelog.d/, and its links are written from there: `../docs/x` reaches
+// the repository's docs from the fragment's own directory. The entry it becomes lives somewhere
+// else — the developer text at the repository root (CHANGELOG.md), the public text under docs/
+// (public-changelog.md) — so a link that was right in the fragment points one directory too high
+// once assembled, and lint:doc-links refuses the rendered file for a mistake nobody made. The
+// assembler rebases each relative link to where the text is going. Absolute links and anchors are
+// left alone.
+export function rebaseLinks(text, destination) {
+  return text.replace(/\]\((?!https?:|mailto:|#)([^)\s]+)\)/g, (match, target) => {
+    let path = target;
+    // From changelog.d/, `../` is the repository root; the fragment's own directory is never linked.
+    if (path.startsWith("../")) path = path.slice(3);
+    if (destination === "public") {
+      // The public changelog lives in docs/: a root-relative link into docs/ loses that prefix, and
+      // a link out of docs/ climbs one directory.
+      path = path.startsWith("docs/") ? path.slice(5) : `../${path}`;
+    }
+    return `](${path})`;
+  });
 }
 
 // Semantic checks on a parsed fragment, returned as a list so one run reports every problem in the
