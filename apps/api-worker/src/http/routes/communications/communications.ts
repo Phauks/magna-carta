@@ -27,19 +27,26 @@ import {
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import { previewNextNumber } from "@magna-carta/sequence-numbering/scheme-draw";
 import {
+  CALL_OUTCOMES,
   COMMUNICATION_CHANNELS,
   COMMUNICATION_DIRECTIONS,
   COMMUNICATION_DISPOSITIONS,
   COMMUNICATION_SCOPES,
   MAX_CALL_DURATION_SECONDS,
+  MAX_CALLER_ID_NAME_LENGTH,
   MAX_COMMUNICATION_BODY_LENGTH,
   MAX_COMMUNICATION_PAGE_SIZE,
   MAX_COMMUNICATION_SUMMARY_LENGTH,
   MAX_COUNTERPARTY_NUMBER_LENGTH,
+  SPAM_KINDS,
 } from "@magna-carta/communications/types";
+import { createMatterTask } from "@magna-carta/tasks/task-service";
+import { MAX_TASK_TITLE_LENGTH } from "@magna-carta/tasks/types";
+import { TaskValidationError } from "@magna-carta/tasks/validation";
+import type { Permission } from "@magna-carta/access-control/registry";
 import { CommunicationValidationError } from "@magna-carta/communications/validation";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { CommunicationId, MatterId } from "@magna-carta/identifiers/types";
+import type { CommunicationId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
@@ -78,12 +85,33 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 const READ = "communications:read" as const;
 const WRITE = "communications:log" as const;
 const REVIEW_UNROUTED = "communications:reviewUnrouted" as const;
+// The keys a message taken on a call needs, because it becomes a task (tasks.ts holds the same).
+const TASKS_WRITE = "tasks:write" as const;
+const TASKS_ASSIGN = "tasks:assign" as const;
 
 // ---- request/response contracts ----
 
 const channelField = z.enum(COMMUNICATION_CHANNELS);
 const directionField = z.enum(COMMUNICATION_DIRECTIONS);
 const dispositionField = z.enum(COMMUNICATION_DISPOSITIONS);
+const outcomeField = z.enum(CALL_OUTCOMES);
+const spamKindField = z.enum(SPAM_KINDS);
+
+// A MESSAGE TAKEN ON THE CALL, for one member. It becomes a task in their list, written in the same
+// batch as the call, so the call and the message it left are saved together or not at all; the task
+// raises the assignment notification every task does. Who received it is whoever is logging the
+// call, which the row already records.
+const CallMessageRequest = z
+  .object({
+    forUserId: identifierField("user"),
+    // The line the task shows, which the form builds from what was asked ("Call back Maria Lopez").
+    title: z.string().min(1).max(MAX_TASK_TITLE_LENGTH),
+    // By when, as the task's own civil date in the reader's zone; all or nothing, as on a task.
+    dueOn: z.string().date().nullable().optional(),
+    timeZone: z.string().min(1).max(64).nullable().optional(),
+    urgent: z.boolean().optional(),
+  })
+  .openapi("CallMessageRequest");
 
 const LogCommunicationRequest = z
   .object({
@@ -111,6 +139,13 @@ const LogCommunicationRequest = z
     // be filed onto a matter sits in the queue forever. Refused together with matterId: a row is on
     // a matter, or set aside, never both.
     disposition: dispositionField.nullable().optional(),
+    // The name the caller gave, as typed. A heard name, kept apart from the Directory record above.
+    callerIdName: z.string().max(MAX_CALLER_ID_NAME_LENGTH).nullable().optional(),
+    // What happened on the line. A spam outcome sets the spam disposition itself; a transferred call
+    // names who it went to in memberUserId; a message taken names who it is for in `message`.
+    outcome: outcomeField.nullable().optional(),
+    spamKind: spamKindField.nullable().optional(),
+    message: CallMessageRequest.nullable().optional(),
   })
   .openapi("LogCommunicationRequest");
 
@@ -182,6 +217,13 @@ const CommunicationDetail = z
     // wrong one as fact.
     producer: z.enum(["member", "carrier"]),
     loggedByUserId: z.string().nullable(),
+    // The name the caller gave, as typed; never a Directory record (counterpartyEntityId is that).
+    callerIdName: z.string().nullable(),
+    // What happened on the line, and which kind of spam where it was spam.
+    outcome: outcomeField.nullable(),
+    spamKind: spamKindField.nullable(),
+    // The task a message taken on this call became. The message is open while that task is.
+    messageTaskId: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
@@ -650,6 +692,10 @@ function communicationDetail(row: CommunicationWithMatterRow): z.infer<typeof Co
     summary: row.summary,
     producer: row.producer,
     loggedByUserId: row.logged_by_user_id,
+    callerIdName: row.caller_id_name,
+    outcome: row.outcome,
+    spamKind: row.spam_kind,
+    messageTaskId: row.message_task_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -723,6 +769,19 @@ async function commitEffect(
   } catch (caught) {
     if (caught instanceof CommunicationValidationError) {
       return { ok: false, problem: communicationErrorResponse(c, caught) };
+    }
+    // A message's task refused by the tasks subsystem: an assignee who is not a member, or who
+    // cannot see the matter the call is filed on. The call is not saved either, by design.
+    if (caught instanceof TaskValidationError) {
+      return {
+        ok: false,
+        problem: problemJson(c, {
+          type: "validation",
+          title: "Message could not be left",
+          status: 422,
+          detail: caught.message,
+        }),
+      };
     }
     throw caught;
   }
@@ -861,6 +920,23 @@ export function registerCommunicationsRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const mayReview = mayReviewUnrouted(c);
+      // A message is a task in somebody's list, so leaving one needs what putting a task there
+      // needs: the tasks write key, and the assign key when it is for somebody else.
+      const message = request.message ?? null;
+      if (message !== null) {
+        const permissions = requireChokepointPermissions(c);
+        const mayLeave =
+          permissions.has(TASKS_WRITE as unknown as Permission) &&
+          (message.forUserId === userId || permissions.has(TASKS_ASSIGN as unknown as Permission));
+        if (!mayLeave) {
+          return problemJson(c, {
+            type: "permission-denied",
+            title: "Forbidden",
+            status: 403,
+            detail: "Leaving a message for a member needs the permission to give them a task.",
+          });
+        }
+      }
       // THE NUMBER IS DRAWN INSIDE THE WRITE, so the record and its number are one batch or neither.
       // A concurrent recording on the same day that took the value first aborts this batch on the
       // partial unique index over the rendered number; the shared loop advances the counter out of
@@ -884,6 +960,34 @@ export function registerCommunicationsRoutes(
               firm.firmDatabase,
               { ...request, matterId: (request.matterId ?? null) as MatterId | null },
               { ...serviceOptions(userId, mayReview), observeDraw: observe },
+              message === null
+                ? undefined
+                : async (call) => {
+                    const task = await createMatterTask(
+                      firm.firmDatabase,
+                      {
+                        matterId: call.matterId,
+                        title: message.title,
+                        // Which call it came from, by the number the firm says out loud. What was
+                        // said stays on the call, behind the call's own read.
+                        body: `Message taken on call ${call.referenceNumber}.`,
+                        assigneeUserId: message.forUserId as UserId,
+                        priority: message.urgent === true ? "urgent" : "normal",
+                        dueOn: message.dueOn ?? null,
+                        timeZone:
+                          message.dueOn === undefined || message.dueOn === null
+                            ? null
+                            : (message.timeZone ?? null),
+                      },
+                      {
+                        clock: { now: () => new Date().toISOString() },
+                        actorUserId: userId as UserId,
+                        randomSource: cryptoRandomSource,
+                        visibility: visibleMatterPredicate(),
+                      },
+                    );
+                    return { taskId: task.taskId, effect: task.effect };
+                  },
             );
             return { id: created.communicationId, effect: created.effect };
           }),

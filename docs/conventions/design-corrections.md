@@ -575,6 +575,14 @@ is usually the fastest way to understand the rule.
     button beside Save was pressed in its place; the intake is a rarer act and reads as one from the
     menu. The previewed number under the heading is the number alone, in italics. _(the call log,
     2026-11-09)_
+  - **Activity, in formal words, with spam among them.** What happened on a call is its own
+    pressed choice, per direction: Answered, Transferred, Message Taken, Spam for a call taken;
+    Connected, Voicemail Left, No Answer for one placed. A transfer names the colleague, who becomes
+    the member on the call; a message names who it is for, what was asked, by when and whether it
+    is urgent, and becomes a task in their list; spam names its kind and files the call as spam by
+    itself. The caller's own name is a separate optional field, "Caller ID (optional)", never a
+    Directory record. _(the call log, 2026-11-09: "what happened and associated buttons beneath are
+    so informal. Change it to Activity"; "add a way to show it was spam")_
 - **A telephone number's ghost text is its country's own grouping** — `(XXX) XXX-XXXX` here, and
   whatever the chosen country writes anywhere else. It is the ONE placeholder in the product that is
   not simply its field's name: the grouping cannot be said anywhere else, it is what tells a reader

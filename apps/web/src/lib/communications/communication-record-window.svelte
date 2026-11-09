@@ -69,6 +69,7 @@
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
+  import { viewerTimeZone } from "$lib/dates";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -84,6 +85,8 @@
   import { communicationSheet } from "./communication-print-sheet.ts";
   import {
     anchorText,
+    CALL_OUTCOME_LABELS,
+    SPAM_KIND_LABELS,
     attachmentNote,
     channelEntry,
     counterpartyNumberText,
@@ -108,6 +111,7 @@
     draftFromCommunication,
     draftOccurredAt,
     emptyLogDraft,
+    activityRequest,
     logDraftReady,
     logDraftRequest,
     logDraftShortfalls,
@@ -256,7 +260,9 @@
       candidate.durationText.trim() !== "" ||
       candidate.counterpartyEntityId !== null ||
       candidate.matterId !== null ||
-      candidate.disposition !== null
+      candidate.disposition !== null ||
+      candidate.callerIdName.trim() !== "" ||
+      candidate.outcome !== null
     );
   }
 
@@ -484,7 +490,11 @@
   async function writeNewRecord(): Promise<string | null> {
     saving = true;
     saveFailure = null;
-    const written = await logCommunication(fetch, logDraftRequest(draft), newWriteKey());
+    const written = await logCommunication(
+      fetch,
+      { ...logDraftRequest(draft), ...activityRequest(draft, viewerTimeZone()) },
+      newWriteKey(),
+    );
     saving = false;
     if (written.kind !== "ok") {
       saveFailure = stated(
@@ -756,6 +766,7 @@
         {matterName}
         showAnchor={creating}
         showContact={!creating}
+        showActivity={creating}
       />
     {:else if record !== null}
       <div class="flex flex-wrap items-center gap-8">
@@ -770,6 +781,13 @@
             {dispositionEntry(record.disposition).label}
           </Badge>
         {/if}
+        {#if record.outcome !== null}
+          <Badge variant="neutral">
+            {record.outcome === "spam" && record.spamKind !== null
+              ? `Spam · ${SPAM_KIND_LABELS[record.spamKind]}`
+              : CALL_OUTCOME_LABELS[record.outcome]}
+          </Badge>
+        {/if}
         {#if carried !== null}
           <Badge variant="neutral">{carried}</Badge>
         {/if}
@@ -778,6 +796,12 @@
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact("When", formatInstant(record.occurredAt))}
         {@render fact("Number", counterpartyNumberText(record.counterpartyNumber))}
+        {#if record.callerIdName !== null}
+          {@render fact("Caller ID", record.callerIdName)}
+        {/if}
+        {#if record.outcome === "transferred"}
+          {@render fact("Transferred to", nameOf(record.memberUserId) ?? "A colleague")}
+        {/if}
         {#if span !== null && span !== length}
           <!-- Only where it DIFFERS from the length. A call whose span and length agree has one
                fact, said once; a call put on hold has two, and both of them are true. -->

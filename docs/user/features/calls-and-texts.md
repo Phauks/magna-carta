@@ -60,20 +60,36 @@ Email is not here. Mail lives in your own mailbox and is filed onto a matter fro
    recently linked first. A contact on many matters gets a search box: type a client's name or a
    matter number to find the right one, then press **File Here**.
 6. The **History** side shows every earlier call and text with the same number, newest first.
-7. Write your **notes** straight under the number, while you are still on the phone. On a text, the
+7. If the caller told you their name, type it in **Caller ID (optional)**. It is kept as the name
+   you heard, separate from any directory contact.
+8. Under **Activity**, press what happened. For a call you took: **Answered**, **Transferred**,
+   **Message Taken** or **Spam**. For a call you made: **Connected**, **Voicemail Left** or **No
+   Answer**. A text only offers **Spam**.
+   - **Transferred** asks who you put the call through to. That colleague becomes the person on the
+     call, so they can add their own notes to it afterwards.
+   - **Message Taken** asks who the message is for, what the caller asked for (**A Call Back**,
+     **Will Call Again** or **No Reply Needed**), by when, and whether it is **Urgent**. You are
+     recorded as the person who received it. Saving puts a task such as "Call back Maria Lopez" on
+     your colleague's task list and sends them a notification; the task names the call's number, and
+     ticking it done closes the message.
+   - **Spam** asks what kind: **Sales Or Robocall**, **Wrong Number** or **Scam**. Saving files the
+     call as spam, so it never reaches the queue. The next time that number calls, the
+     Identification side warns **Likely Spam** and says how many times the firm has marked it.
+9. Write your **notes** in the box under Activity, while you are still on the phone. On a text, the
    box is for the message itself. A call needs either notes or a length; a call with neither is
-   refused, because if you have nothing to record there is nothing to save. A text needs its words.
-8. **When** it happened defaults to now and shows as one line. Press **Change** to set the date, the
-   start and, for a call, the end — a call on Tuesday written up on Thursday belongs on Tuesday.
-   **The length is yours to type, and it does not have to match the clock.** Typing an end fills
-   the length in for you the first time, but if the caller spent forty minutes on hold, put the real
-   length of the call in. Write it however you say it: `20`, `45m`, `1h 5m` or `1:20`. A text has no
-   length, so that box is greyed.
-9. Say where it **belongs**, in one field: type a matter's name or its number, or pick one of the
-   reasons it is on no matter — spam or a wrong number, firm business, nothing came of it — or leave
-   it as **Decide later**, which puts it in the queue. **File Here** on the Identification side fills
-   this in for you.
-10. Press **Save**. If the call is somebody wanting the firm to act, open the **More** menu at the top
+   refused, because if you have nothing to record there is nothing to save. A text needs its words. A
+   call marked Spam, No Answer or Voicemail Left needs neither, because that says it all.
+10. **When** it happened defaults to now and shows as one line. Press **Change** to set the date, the
+    start and, for a call, the end — a call on Tuesday written up on Thursday belongs on Tuesday.
+    **The length is yours to type, and it does not have to match the clock.** Typing an end fills
+    the length in for you the first time, but if the caller spent forty minutes on hold, put the real
+    length of the call in. Write it however you say it: `20`, `45m`, `1h 5m` or `1:20`. A text has no
+    length, so that box is greyed.
+11. Say where it **belongs**, in one field: type a matter's name or its number, or pick one of the
+    reasons it is on no matter — spam or a wrong number, firm business, nothing came of it — or leave
+    it as **Decide later**, which puts it in the queue. **File Here** on the Identification side fills
+    this in for you. A call marked Spam skips this question.
+12. Press **Save**. If the call is somebody wanting the firm to act, open the **More** menu at the top
     right and choose **Start An Intake** instead: it saves the call and opens the intake, so the
     account of the first contact ends up on the file it started.
 

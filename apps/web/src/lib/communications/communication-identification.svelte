@@ -26,7 +26,9 @@
   } from "$lib/directory/directory-api.ts";
   import { checkPhoneEntry } from "$lib/directory/phone-entry.ts";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
+  import * as Alert from "@magna-carta/design-system/alert";
   import { chooseContact, clearContact, contactSelectionOf } from "./communication-contact.ts";
+  import { readNumberHistory, spamMarks } from "./number-history.ts";
   import type { LogDraft } from "./log-draft.ts";
 
   let {
@@ -57,6 +59,33 @@
     ).ok,
   );
   const contact = $derived(contactSelectionOf(draft));
+
+  /** The number as it is stored, or null until it is a whole one. */
+  const stored = $derived.by((): string | null => {
+    const checked = checkPhoneEntry(draft.region as CountryCode, draft.counterpartyNumber);
+    return checked.ok ? checked.number : null;
+  });
+
+  /*
+   * LIKELY SPAM (owner, 2026-11-09). How many times the firm has already called this number spam,
+   * read from the same earlier calls the History tab lists, so a receptionist sees the warning
+   * before they have said anything to the caller.
+   */
+  let spamCount = $state(0);
+  $effect(() => {
+    const number = stored;
+    spamCount = 0;
+    if (number === null) return;
+    let cancelled = false;
+    void (async () => {
+      const outcome = await readNumberHistory(fetch, number);
+      if (cancelled || outcome.kind !== "ok") return;
+      spamCount = spamMarks(outcome.value);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
 
   let parties = $state<readonly DirectoryEntityMatterParty[] | null>(null);
   let partiesCapped = $state(false);
@@ -152,6 +181,16 @@
   </EmptyState>
 {:else}
   <div class="flex flex-col gap-24">
+    {#if spamCount > 0}
+      <Alert.Root variant="warning">
+        <Alert.Title>Likely Spam</Alert.Title>
+        <Alert.Description>
+          The firm has marked this number as spam {spamCount === 1
+            ? "once"
+            : `${String(spamCount)} times`} before.
+        </Alert.Description>
+      </Alert.Root>
+    {/if}
     <section class="flex flex-col gap-8" aria-labelledby="{identity}-who">
       <FieldLabel as="h3" id="{identity}-who">This Number Belongs To</FieldLabel>
       {#if contact !== null}

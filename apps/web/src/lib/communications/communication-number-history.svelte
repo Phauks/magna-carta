@@ -12,8 +12,14 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import type { CountryCode } from "libphonenumber-js/min";
   import { checkPhoneEntry } from "$lib/directory/phone-entry.ts";
-  import { channelEntry, directionEntry, durationText } from "./communication-vocabulary.ts";
-  import { listCommunications, type Communication } from "./communications-api.ts";
+  import {
+    CALL_OUTCOME_LABELS,
+    channelEntry,
+    directionEntry,
+    durationText,
+  } from "./communication-vocabulary.ts";
+  import type { Communication } from "./communications-api.ts";
+  import { readNumberHistory } from "./number-history.ts";
   import type { LogDraft } from "./log-draft.ts";
 
   let { draft }: { draft: LogDraft } = $props();
@@ -34,16 +40,14 @@
     if (number === null) return;
     let cancelled = false;
     void (async () => {
-      // The digits alone: the stored form leads with a plus the log's search would read literally.
-      const outcome = await listCommunications(fetch, { search: number.replace(/^\+/u, "") });
+      const outcome = await readNumberHistory(fetch, number);
       if (cancelled) return;
       if (outcome.kind !== "ok") {
         failed = true;
         rows = [];
         return;
       }
-      // A stored number may carry its extension after the digits; the line is the same line.
-      rows = outcome.value.data.filter((row) => row.counterpartyNumber.startsWith(number));
+      rows = outcome.value;
     })();
     return () => {
       cancelled = true;
@@ -56,6 +60,7 @@
       formatInstant(row.occurredAt),
       `${directionEntry(row.direction).label} ${channelEntry(row.channel).label.toLowerCase()}`,
       length,
+      row.outcome === null ? null : CALL_OUTCOME_LABELS[row.outcome],
     ]
       .filter((part) => part !== null && part !== "")
       .join(" · ");

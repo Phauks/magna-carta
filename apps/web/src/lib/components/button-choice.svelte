@@ -33,7 +33,8 @@
     /** The question, said to assistive technology as the group's name. */
     label: string;
     options: readonly ButtonChoiceOption<Value>[];
-    value: Value;
+    /** The pressed answer, or null while none has been chosen. */
+    value: Value | null;
     disabled?: boolean;
     onchange: (next: Value) => void;
   } = $props();

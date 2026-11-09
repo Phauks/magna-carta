@@ -38,6 +38,10 @@
    * entered in. One place in the product knows how a country writes its numbers, and one place knows
    * what to do with the digits a direct dial adds past the end of them.
    *
+   * WHO CALLED, AND WHAT HAPPENED, come straight after the number while a record is being made
+   * (owner, 2026-11-09): the name the caller gave, typed as Caller ID, and the Activity section
+   * (./communication-activity.svelte) that records an answer, a transfer, a message or spam.
+   *
    * WHERE IT BELONGS IS ONE FIELD WITH EVERY ANSWER IN IT. A matter, searched by number or name; or
    * a reason it is on no matter — spam, the firm's own business, a prospect nothing came of; or
    * nothing yet, which leaves it in the queue. All of them in the common matter picker, because
@@ -51,6 +55,7 @@
   import Button from "@magna-carta/design-system/button";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import ButtonChoice, { type ButtonChoiceOption } from "$lib/components/button-choice.svelte";
+  import CommunicationActivity from "./communication-activity.svelte";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import PhoneNumberField from "$lib/directory/phone-number-field.svelte";
   import { chooseContact, clearContact, contactSelectionOf } from "./communication-contact.ts";
@@ -81,6 +86,7 @@
     matterName = null,
     showAnchor = true,
     showContact = true,
+    showActivity = false,
   }: {
     draft: LogDraft;
     busy?: boolean;
@@ -115,6 +121,13 @@
      * the panel has already answered.
      */
     showContact?: boolean;
+    /**
+     * Whether the form asks for the caller's name and what happened on the line.
+     *
+     * True only while a record is being MADE: the transfer and the message a call leaves are acts
+     * done once, as it is saved, and a correction cannot take them back.
+     */
+    showActivity?: boolean;
   } = $props();
 
   const identity = $props.id();
@@ -235,6 +248,24 @@
     extensionInputId="{identity}-extension"
     disabled={busy}
   />
+
+  {#if showActivity}
+    <!-- The name the caller gave, as somebody heard it. Optional, and never a Directory record:
+         choosing who the number belongs to is the Identification panel's, beside the form. -->
+    <LabelledField label="Caller ID (optional)" id="{identity}-caller-id">
+      {#snippet children({ props })}
+        <Input
+          {...props}
+          disabled={busy}
+          maxlength={200}
+          placeholder={placeholderOf("Caller ID")}
+          bind:value={draft.callerIdName}
+        />
+      {/snippet}
+    </LabelledField>
+
+    <CommunicationActivity bind:draft {busy} />
+  {/if}
 
   {#if showContact}
     <LabelledField label="Contact" id="{identity}-contact">
@@ -359,7 +390,7 @@
     {/if}
   </div>
 
-  {#if showAnchor && !matterFixed}
+  {#if showAnchor && !matterFixed && !(showActivity && draft.outcome === "spam")}
     <LabelledField label="Belongs to" id="{identity}-anchor">
       {#snippet children({ props })}
         <!-- One field, every answer: a matter — including the unnumbered ones, since an intake and
