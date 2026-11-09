@@ -41,7 +41,7 @@ fn zip_options<'a>(
     compression: Compression,
     encryption: Option<&'a Encryption>,
     mtime_epoch_secs: Option<i64>,
-) -> zip::write::FileOptions<'a, ()> {
+) -> zip::write::FileOptions<'a, 'static, ()> {
     use zip::write::FileOptions;
     let mut options = FileOptions::default().large_file(true); // ZIP64 always
     options = match compression {
