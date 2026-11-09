@@ -70,6 +70,9 @@ export interface CatalogEntry {
   readonly slot: ModelSlot;
   // The gateway-routable, provider-prefixed id passed to the AI binding.
   readonly modelId: InferenceModelId;
+  // The provider's own name for the model, as its model reference prints it, for the screen an
+  // administrator chooses on. A label only: nothing resolves or compares through it.
+  readonly displayName: string;
   // The pinned snapshot in effect — persisted per run so a result is reproducible.
   //
   // This value is written into the per-request provenance record, which exists to answer WHICH EXACT
@@ -142,6 +145,7 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .object({
     slot: z.enum(["reasoning", "utility", "embedding"]),
     modelId: z.string().min(1),
+    displayName: z.string().min(1),
     snapshotId: z.string().min(1),
     snapshotForm: z.enum(["provider-dated", "provider-dateless", "platform-composed"]),
     referenceId: z.string().min(1),
@@ -206,8 +210,8 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 3;
-export const CATALOG_EFFECTIVE_DATE = "2026-08-14";
+export const CATALOG_VERSION = 4;
+export const CATALOG_EFFECTIVE_DATE = "2026-11-09";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
 // constant does not change when the platform moves to a newer model.
@@ -220,58 +224,117 @@ export const PLATFORM_DEFAULT_REASONING_TIER: ReasoningTier = "most-capable";
 // ZDR-verified by the reasoning-reference process.
 export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 
-// The launch catalog. Reasoning models first, each on the tier it currently occupies; the small utility
-// model; the platform-fixed embedding model pinned to the index generation. claude-fable-5 is
-// intentionally absent — it mandates a retention window and returns a hard error under ZDR, so it is not
-// ZDR-eligible and never enters the reasoning slot.
+// The catalog. Reasoning models first, each current-generation model on the tier it occupies, then the
+// previous generation kept selectable so a firm that pinned one keeps working until it chooses again;
+// the small utility model; the platform-fixed embedding model pinned to the index generation.
+//
+// The Fable line (claude-fable-5, claude-fable-5-1) is intentionally absent, and so is anything else
+// the provider designates a Covered Model: those require a 30-day retention window and return a hard
+// error under ZDR, so they are not ZDR-eligible and can never enter the reasoning slot. The live
+// provider roster (./provider-roster.ts) will still SHOW such a model to an administrator as published
+// and not on the roster, which is the honest answer; it never makes one selectable.
+//
+// Every Anthropic entry's lifecycle facts were read off the provider's model-deprecations page and its
+// confidentiality facts off the zero-data-retention page on availabilityVerifiedOn / verifiedOn. From
+// the 4.6 generation on, the provider publishes dateless ids that are themselves pinned snapshots, so
+// every reasoning entry below is provider-dateless.
 const RAW_CATALOG: readonly CatalogEntry[] = [
+  {
+    slot: "reasoning",
+    modelId: "anthropic/claude-opus-5-5",
+    displayName: "Claude Opus 5.5",
+    snapshotId: "claude-opus-5-5",
+    snapshotForm: "provider-dateless",
+    referenceId: "claude-opus-5-5",
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-09-22",
+  },
+  {
+    slot: "reasoning",
+    modelId: "anthropic/claude-sonnet-5-5",
+    displayName: "Claude Sonnet 5.5",
+    snapshotId: "claude-sonnet-5-5",
+    snapshotForm: "provider-dateless",
+    referenceId: "claude-sonnet-5-5",
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-09-28",
+  },
+  {
+    slot: "reasoning",
+    modelId: "anthropic/claude-opus-5",
+    displayName: "Claude Opus 5",
+    snapshotId: "claude-opus-5",
+    snapshotForm: "provider-dateless",
+    referenceId: "claude-opus-5",
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-07-24",
+  },
+  {
+    slot: "reasoning",
+    modelId: "anthropic/claude-sonnet-5",
+    displayName: "Claude Sonnet 5",
+    snapshotId: "claude-sonnet-5",
+    snapshotForm: "provider-dateless",
+    referenceId: "claude-sonnet-5",
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-06-30",
+  },
   {
     slot: "reasoning",
     tier: "most-capable",
     modelId: "anthropic/claude-opus-4-8",
-    // The provider publishes no dated id for this model: from the 4.6 generation onward its ids use a
-    // dateless format that is itself a pinned snapshot rather than a pointer to one. The undated id IS
-    // the pin, so recording it unchanged is the complete provenance, not an abbreviation of it.
+    displayName: "Claude Opus 4.8",
     snapshotId: "claude-opus-4-8",
     snapshotForm: "provider-dateless",
     referenceId: "claude-opus-4-8",
     zdrEligible: true,
     noTrainingEligible: true,
-    verifiedOn: "2026-06-17",
-    availabilityVerifiedOn: "2026-08-14",
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
     retirementNotBefore: "2027-05-28",
-    supersededBy: "claude-opus-5",
   },
   {
     slot: "reasoning",
     tier: "balanced",
     modelId: "anthropic/claude-sonnet-4-6",
-    // Dateless for the same reason as the entry above: this is the 4.6 generation, where the published
-    // id is the pinned snapshot itself.
+    displayName: "Claude Sonnet 4.6",
     snapshotId: "claude-sonnet-4-6",
     snapshotForm: "provider-dateless",
     referenceId: "claude-sonnet-4-6",
     zdrEligible: true,
     noTrainingEligible: true,
-    verifiedOn: "2026-06-17",
-    availabilityVerifiedOn: "2026-08-14",
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
     retirementNotBefore: "2027-02-17",
-    supersededBy: "claude-sonnet-5",
   },
   {
+    // Nothing calls the utility slot yet, so moving it from claude-haiku-4-5 (whose earliest published
+    // retirement, 2026-10-15, has passed) changes no running behaviour. The 5.5 generation publishes a
+    // dateless id, unlike its predecessor, so this entry is provider-dateless where the old one was
+    // provider-dated.
     slot: "utility",
-    modelId: "anthropic/claude-haiku-4-5",
-    // This model predates the dateless generation, so its undated name is a convenience alias and the
-    // provider's published pin is the dated id below. Here the date is load-bearing: recording the alias
-    // instead would name a pointer rather than the release that produced the output.
-    snapshotId: "claude-haiku-4-5-20251001",
-    snapshotForm: "provider-dated",
-    referenceId: "claude-haiku-4-5",
+    modelId: "anthropic/claude-haiku-5-5",
+    displayName: "Claude Haiku 5.5",
+    snapshotId: "claude-haiku-5-5",
+    snapshotForm: "provider-dateless",
+    referenceId: "claude-haiku-5-5",
     zdrEligible: true,
     noTrainingEligible: true,
-    verifiedOn: "2026-06-17",
-    availabilityVerifiedOn: "2026-08-14",
-    retirementNotBefore: "2026-10-15",
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-10-07",
   },
   {
     // Workers AI on-Cloudflare embedding model. Confidentiality rests on Cloudflare's own data terms
@@ -285,6 +348,7 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     // nothing to read here, which is why the pin-state gate rather than a date is what protects it.
     slot: "embedding",
     modelId: PLATFORM_EMBEDDING_MODEL_ID,
+    displayName: "BGE Large EN v1.5",
     snapshotId: "bge-large-en-v1.5-vectorize-index-v1",
     snapshotForm: "platform-composed",
     referenceId: PLATFORM_EMBEDDING_MODEL_ID,

@@ -23,9 +23,10 @@ saved — so you can see what will be true before you save it.
 ## The model your content reaches
 
 Under the switches, **Model** is the one choice on this plate. The list offers **the platform's
-current model** and every model the platform has verified; type to narrow it. Beneath the control
-the page states, for whatever the control holds right now, the exact release behind any given
-answer and the facts a choice is made on:
+current model** and every model the platform has verified, by name (for example **Claude Opus
+5.5** or **Claude Sonnet 5.5**); type to narrow it. Beneath the control
+the page states, for whatever the control holds right now, the model's name and identifier, the
+exact release behind any given answer, and the facts a choice is made on:
 
 - **Zero Data Retention** — the provider keeps nothing that is sent to it, and when that was last
   checked.
@@ -45,9 +46,17 @@ than pinning it to today's answer. The line above the message box in Magnus name
 answering.
 
 **Where the list comes from.** The list is the platform's own verified catalog; the **Roster** row
-states the catalog's version and the date it took effect. Nothing lists models automatically,
-because a model joins the list only once somebody has checked what it keeps, and that is a check no
-automatic list can carry. The platform's verification pass is what keeps it current.
+states the catalog's version and the date it took effect. A model joins the list only once somebody
+has checked what it keeps, and that is a check no automatic list can carry, so the platform's
+verification pass is what keeps it current.
+
+**Checking against the provider's own list.** Where the platform is set up to read Anthropic's live
+model list, the **Provider's Live List** row says when it was last read and names any model Anthropic
+publishes that is not on your list yet. Those models are shown, not offered: each joins the list once
+its retention terms are verified, and a model that requires Anthropic to keep your content (such as
+**Claude Fable 5.1**) is never offered at all. If a model on your list stops appearing in Anthropic's
+list, the choice says so beside it. Where the live check is not set up, or could not be read, the row
+says that instead, and the list is unaffected.
 
 ## Questions a day
 
@@ -60,7 +69,7 @@ available to nobody today can set it to zero without switching anything off.
 
 ## Changing them
 
-Open **Settings**, and under **Data & Platform** choose **AI and the Assistant**. Choose your answers,
+Open **Settings**, and under **Data & Platform** choose **AI**. Choose your answers,
 then **Save** at the bottom of the page. Nothing is applied until you save, and the page recaps every
 change before it commits.
 

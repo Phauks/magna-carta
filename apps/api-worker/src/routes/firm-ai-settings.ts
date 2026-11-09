@@ -1,4 +1,5 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -16,6 +17,11 @@ import {
   reasoningModelIds,
   type CatalogEntry,
 } from "@magna-carta/inference/catalog";
+import {
+  reconcileProviderRoster,
+  type ProviderRosterReconciliation,
+  type ProviderRosterSnapshot,
+} from "@magna-carta/inference/provider-roster";
 import {
   aiProcessingEligibilityDefinition,
   primaryReasoningModelDefinition,
@@ -38,6 +44,7 @@ import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { readProviderRoster } from "../inference/provider-roster-source.ts";
 
 // THE FIRM'S AI SETTINGS — the one place a firm says whether its content may reach a model, and
 // whether the assistant is one of the things that may send it.
@@ -59,6 +66,14 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 // Gateway offers a way to list models at runtime — and a list that did could not carry that finding.
 // So the roster is as current as the catalog, and the page states the catalog's version and
 // effective date beside it, because that is the honest answer to "how fresh is this list".
+//
+// WHAT THE PROVIDER PUBLISHES IS STATED BESIDE IT, AND DECIDES NOTHING. Where the platform holds a
+// read-only Anthropic key, the route also reads the provider's own model list (cached; see
+// apps/api-worker/src/inference/provider-roster-source.ts) and reports two things the catalog cannot
+// know about itself between verification passes: whether each roster entry is still published, and
+// which published models the roster does not yet carry. The second list is shown, never offered —
+// a model joins the roster only through the verification pass, because only that pass can record
+// whether the provider keeps what it is sent.
 //
 // TWO POSTURES, ONE SETTING. A firm that has never chosen FOLLOWS THE PLATFORM: its model is the
 // catalog's occupant of the platform's reasoning tier, which moves forward as better models are
@@ -93,6 +108,8 @@ const AiModelFacts = z
 const AiModelChoice = z
   .object({
     modelId: z.string(),
+    // The provider's own name for the model, for the reader; modelId is what a write names.
+    displayName: z.string(),
     snapshotId: z.string(),
     zeroDataRetention: z.boolean(),
     noTraining: z.boolean(),
@@ -104,8 +121,25 @@ const AiModelChoice = z
     // The platform's evergreen tier this entry currently occupies, if any.
     tier: z.string().nullable(),
     platformDefault: z.boolean(),
+    // Whether the provider's live model list includes this model: true or false when the platform
+    // read the list, null when it could not or is not configured to.
+    published: z.boolean().nullable(),
   })
   .openapi("AiModelChoice");
+
+// What the provider's live model list said, and when it was read. `status` is "live" when the list
+// was read, "not-configured" when the platform holds no key to read it with, and "unreachable" when
+// the read failed; the roster above is the whole choice in every case.
+const AiProviderRoster = z
+  .object({
+    status: z.enum(["live", "not-configured", "unreachable"]),
+    checkedAt: z.string().nullable(),
+    // Models the provider publishes that the roster does not carry, newest first. Not selectable:
+    // none has a recorded retention finding yet, and some never will (a model the provider requires
+    // to retain content cannot be offered at all).
+    awaitingVerification: z.array(z.object({ modelId: z.string(), displayName: z.string() })),
+  })
+  .openapi("AiProviderRoster");
 
 const FirmAiSettingsResponse = z
   .object({
@@ -119,6 +153,7 @@ const FirmAiSettingsResponse = z
     // The roster the firm chooses from, and the catalog it comes from.
     models: z.array(AiModelChoice),
     catalog: z.object({ version: z.number().int(), effectiveDate: z.string() }),
+    provider: AiProviderRoster,
     magnus: z.object({
       enabled: z.boolean(),
       dailyTurnCeiling: z.number().int(),
@@ -277,9 +312,13 @@ function clearFirmModelStatement(database: FirmDatabase): SqlStatement {
     .bind(primaryReasoningModelDefinition.key);
 }
 
-function choiceBody(entry: CatalogEntry): z.infer<typeof AiModelChoice> {
+function choiceBody(
+  entry: CatalogEntry,
+  reconciliation: ProviderRosterReconciliation,
+): z.infer<typeof AiModelChoice> {
   return {
     modelId: entry.modelId,
+    displayName: entry.displayName,
     snapshotId: entry.snapshotId,
     zeroDataRetention: entry.zdrEligible,
     noTraining: entry.noTrainingEligible,
@@ -288,6 +327,7 @@ function choiceBody(entry: CatalogEntry): z.infer<typeof AiModelChoice> {
     retirementNotBefore: entry.retirementNotBefore ?? null,
     tier: entry.tier ?? null,
     platformDefault: entry.modelId === primaryReasoningModelDefinition.defaultValue,
+    published: reconciliation.published.get(entry.modelId) ?? null,
   };
 }
 
@@ -306,15 +346,21 @@ function platformModelFacts(): z.infer<typeof AiModelFacts> | null {
       };
 }
 
-async function readAiSettingsBody(database: FirmDatabase): Promise<AiSettingsBody> {
-  const [eligible, modelId, chosen, enabled, dailyTurnCeiling] = await Promise.all([
+async function readAiSettingsBody(
+  database: FirmDatabase,
+  providerRoster: Promise<ProviderRosterSnapshot>,
+): Promise<AiSettingsBody> {
+  const [eligible, modelId, chosen, enabled, dailyTurnCeiling, snapshot] = await Promise.all([
     readFirmSetting(database, aiProcessingEligibilityDefinition),
     readFirmSetting(database, primaryReasoningModelDefinition),
     firmHasChosenModel(database),
     readFirmSetting(database, magnusEnabledDefinition),
     readFirmSetting(database, magnusDailyTurnCeilingDefinition),
+    providerRoster,
   ]);
   const entry = catalogEntryFor(modelId);
+  const reasoning = reasoningEntries();
+  const reconciliation = reconcileProviderRoster(reasoning, snapshot);
   return {
     aiProcessing: { eligible },
     model:
@@ -327,10 +373,30 @@ async function readAiSettingsBody(database: FirmDatabase): Promise<AiSettingsBod
             noTraining: entry.noTrainingEligible,
             selection: chosen ? "chosen" : "platform",
           },
-    models: reasoningEntries().map(choiceBody),
+    models: reasoning.map((choice) => choiceBody(choice, reconciliation)),
     catalog: { version: CATALOG_VERSION, effectiveDate: CATALOG_EFFECTIVE_DATE },
+    provider: {
+      status: snapshot.status,
+      checkedAt: snapshot.checkedAt,
+      awaitingVerification: reconciliation.awaitingVerification.map((model) => ({
+        modelId: model.id,
+        displayName: model.displayName,
+      })),
+    },
     magnus: { enabled, dailyTurnCeiling },
   };
+}
+
+// The provider roster for this request: the platform key from the environment, the request's own
+// logger and correlation id so a failed read is one more event on the request that caused it.
+function providerRosterFor(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+): Promise<ProviderRosterSnapshot> {
+  return readProviderRoster({
+    apiKey: c.env.ANTHROPIC_MODELS_API_KEY,
+    logger: c.get("logger"),
+    correlationId: c.get("correlationId"),
+  });
 }
 
 export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Chokepoint): void {
@@ -339,7 +405,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
     { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      return c.json(await readAiSettingsBody(firm.firmDatabase), 200);
+      return c.json(await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c)), 200);
     },
   );
 
@@ -363,7 +429,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
       ) {
         // An empty patch changes nothing and must not add an audit row: a redelivered no-op would
         // otherwise put a consent decision in the log that nobody made.
-        return c.json(await readAiSettingsBody(firm.firmDatabase), 200);
+        return c.json(await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c)), 200);
       }
       // A model off the roster is refused at the contract, with the roster's own vocabulary in the
       // reason. The setting definition's schema would refuse it too, but inside the effect, where it
@@ -385,7 +451,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
 
       const idempotency = requireChokepointIdempotency(c);
       const now = () => new Date().toISOString();
-      const stored = await readAiSettingsBody(firm.firmDatabase);
+      const stored = await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c));
       const chosenEntry =
         modelChoice === undefined || modelChoice === null
           ? undefined
@@ -408,6 +474,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
                   },
         models: stored.models,
         catalog: stored.catalog,
+        provider: stored.provider,
         magnus: {
           enabled: enabled ?? stored.magnus.enabled,
           dailyTurnCeiling: dailyTurnCeiling ?? stored.magnus.dailyTurnCeiling,
@@ -488,7 +555,7 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(await readAiSettingsBody(firm.firmDatabase), 200);
+      return c.json(await readAiSettingsBody(firm.firmDatabase, providerRosterFor(c)), 200);
     },
   );
 }

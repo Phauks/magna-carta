@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * Settings · AI and the Assistant — the screen a firm opens its two consent gates from, under
+   * Settings · AI — the screen a firm opens its two consent gates from, under
    * Data & Platform. Until this page existed the gates were reachable only through the settings
    * write path, so every firm's assistant rendered its closed state and no administrator could
    * open it.
@@ -35,6 +35,7 @@
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
   import type { ChoiceOption } from "$lib/components/choice-picker.ts";
   import {
     AI_PROCESSING_ELIGIBILITY_DEFINITION,
@@ -58,7 +59,8 @@
   const shownModel = $derived(draft.stagedModelChoice);
 
   // The roster as the combobox offers it: the platform's own choice first, then each verified model
-  // with the date its retention facts were last checked beside it.
+  // by the provider's name, with its tier, the date its retention facts were last checked, and — when
+  // the provider's live list was read and omits it — that it is no longer listed.
   const modelOptions = $derived.by((): readonly ChoiceOption[] => {
     const definition = draft.modelDefinition;
     const roster = draft.committed?.models ?? [];
@@ -69,10 +71,44 @@
         : {
             value: option.value,
             label: option.label,
-            aside: `zero data retention, verified ${entry.verifiedOn}${entry.tier === null ? "" : ` · ${entry.tier}`}`,
-            keywords: [entry.tier ?? "", entry.snapshotId],
+            aside: [
+              entry.tier,
+              `zero data retention, verified ${entry.verifiedOn}`,
+              entry.published === false ? "not in the provider's current list" : null,
+            ]
+              .filter((part) => part !== null)
+              .join(" · "),
+            keywords: [entry.tier ?? "", entry.snapshotId, entry.modelId],
           };
     });
+  });
+
+  // What the provider's live list said, as one sentence: the roster above is the whole choice in
+  // every case, so this only ever adds what the platform could see and when.
+  const providerSummary = $derived.by((): { value: string; detail: string } | null => {
+    const provider = draft.committed?.provider;
+    if (provider === undefined) return null;
+    if (provider.status === "not-configured") {
+      return {
+        value: "Not checked",
+        detail:
+          "The platform is not set up to read the provider's live model list, so the roster above is the verified catalog alone.",
+      };
+    }
+    if (provider.status === "unreachable") {
+      return {
+        value: "Unavailable",
+        detail: `The provider's model list could not be read${provider.checkedAt === null ? "" : ` at ${formatInstant(provider.checkedAt)}`}; the roster above is unaffected.`,
+      };
+    }
+    const waiting = provider.awaitingVerification.map((model) => model.displayName);
+    return {
+      value: provider.checkedAt === null ? "Checked" : `Checked ${formatInstant(provider.checkedAt)}`,
+      detail:
+        waiting.length === 0
+          ? "Every model the provider lists that the platform could offer is on the roster."
+          : `Published but not on the roster yet: ${waiting.join(", ")}. A model is added only once its retention terms are verified; one that requires the provider to keep your content is never offered.`,
+    };
   });
 
   $effect(() => {
@@ -84,12 +120,12 @@
 </script>
 
 <svelte:head>
-  <title>AI and the Assistant · Settings · Magna Carta</title>
+  <title>AI · Settings · Magna Carta</title>
 </svelte:head>
 
 <SettingsMasthead
   sectionId={AI_SETTINGS_SECTION_ID}
-  title="AI and the Assistant"
+  title="AI"
   posture={canEdit ? "draft" : "readOnly"}
   draft={canEdit ? draft : undefined}
   showHistory={false}
@@ -219,6 +255,7 @@
               "The platform no longer carries the model this firm last selected.",
             )}
           {:else}
+            {@render modelFact("Model", shownModel.displayName, shownModel.modelId)}
             {@render modelFact(
               "Snapshot",
               shownModel.snapshotId,
@@ -249,6 +286,13 @@
               "Roster",
               `Catalog version ${String(draft.committed.catalog.version)}, effective ${draft.committed.catalog.effectiveDate}`,
               "The platform's verification pass is what keeps it current; a model joins the roster only once its retention facts have been checked.",
+            )}
+          {/if}
+          {#if providerSummary !== null}
+            {@render modelFact(
+              "Provider's Live List",
+              providerSummary.value,
+              providerSummary.detail,
             )}
           {/if}
         </dl>

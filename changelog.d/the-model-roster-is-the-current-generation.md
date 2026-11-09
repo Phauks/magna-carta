@@ -1,0 +1,14 @@
+---
+category: Changed
+audience: public
+---
+
+**The model catalog is the current Anthropic generation, the AI settings screen checks it against Anthropic's own model list, and the screen scrolls once.** `packages/inference/src/catalog.ts` is catalog version 4 (effective 2026-11-09): `anthropic/claude-opus-5-5`, `anthropic/claude-sonnet-5-5`, `anthropic/claude-opus-5` and `anthropic/claude-sonnet-5` join the reasoning roster beside `claude-opus-4-8` and `claude-sonnet-4-6`, which stay for firms that pinned them; the utility slot moves from `claude-haiku-4-5` (earliest published retirement 2026-10-15, past) to `claude-haiku-5-5`, which nothing called; every entry gains a `displayName`; and every lifecycle and confidentiality fact was re-read on 2026-11-09 from Anthropic's model-deprecations and zero-data-retention pages. The Fable line stays out: it requires 30-day retention and is refused under zero data retention. New `packages/inference/src/provider-roster.ts` reads `GET /v1/models` through the injected `HttpClient` and reconciles it with the catalog (per entry, published or not; uncurated models listed as awaiting verification, never selectable); `apps/api-worker/src/inference/provider-roster-source.ts` composes it with an optional `ANTHROPIC_MODELS_API_KEY` secret, a three-second timeout and the Workers Cache API (six hours on success, five minutes on failure), and logs a failed read through `logOperationFailed`. `GET /api/v1/firm/ai/settings` gains `models[].displayName`, `models[].published` and a `provider` object. On the web surface, the model picker names models by their display name, the facts list gains Model and Provider's Live List rows, the section's label and title are now "AI", and `SettingsScrollRegion` is now `relative`, so LoadingRegion's absolutely positioned announcer no longer stretches the shell's `<main>` into a second scrollbar (`apps/web/test/settings-scroll-region-containment.test.ts`).
+
+## Public
+
+**Newer AI models are now available to choose.** Under **Settings, AI** (renamed from AI and the Assistant), the model list now includes **Claude Opus 5.5**, **Claude Sonnet 5.5**, **Claude Opus 5** and **Claude Sonnet 5**, and every model is listed by its name. A model you already chose stays chosen. Every model on the list still keeps nothing your firm sends it and never trains on it.
+
+**The page can check Anthropic's own list.** Where it is set up, a new **Provider's Live List** row says when Anthropic's list of models was last read and names any newer model that is not on your list yet, so you can see what exists before it is verified and offered.
+
+**One scrollbar.** The AI settings page no longer shows a second scrollbar beside its own.

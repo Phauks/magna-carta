@@ -36316,6 +36316,9 @@
               "effectiveDate"
             ]
           },
+          "provider": {
+            "$ref": "#/components/schemas/AiProviderRoster"
+          },
           "magnus": {
             "type": "object",
             "properties": {
@@ -36337,6 +36340,7 @@
           "model",
           "models",
           "catalog",
+          "provider",
           "magnus"
         ]
       },
@@ -36380,6 +36384,9 @@
           "modelId": {
             "type": "string"
           },
+          "displayName": {
+            "type": "string"
+          },
           "snapshotId": {
             "type": "string"
           },
@@ -36409,10 +36416,17 @@
           },
           "platformDefault": {
             "type": "boolean"
+          },
+          "published": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "required": [
           "modelId",
+          "displayName",
           "snapshotId",
           "zeroDataRetention",
           "noTraining",
@@ -36420,7 +36434,50 @@
           "availabilityVerifiedOn",
           "retirementNotBefore",
           "tier",
-          "platformDefault"
+          "platformDefault",
+          "published"
+        ]
+      },
+      "AiProviderRoster": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "live",
+              "not-configured",
+              "unreachable"
+            ]
+          },
+          "checkedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "awaitingVerification": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "modelId": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "modelId",
+                "displayName"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "checkedAt",
+          "awaitingVerification"
         ]
       },
       "PatchFirmAiSettingsRequest": {

@@ -60,6 +60,7 @@ describe("the curated model catalog", () => {
     const nonZdrReasoning = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
+      displayName: "Example Model",
       snapshotId: "some-model-20260101",
       snapshotForm: "provider-dated",
       referenceId: "some-model",
@@ -79,6 +80,7 @@ describe("the curated model catalog", () => {
     const taggedUtility = {
       slot: "utility",
       modelId: "anthropic/some-utility-model",
+      displayName: "Example Model",
       snapshotId: "some-utility-model-20260101",
       snapshotForm: "provider-dated",
       referenceId: "some-utility-model",
@@ -97,6 +99,7 @@ describe("the curated model catalog", () => {
     const unstatedPin = {
       slot: "embedding",
       modelId: "@cf/example/embedding",
+      displayName: "Example Model",
       snapshotId: "example-embedding-v1",
       snapshotForm: "platform-composed",
       referenceId: "@cf/example/embedding",
@@ -116,6 +119,7 @@ describe("the curated model catalog", () => {
     const singleDigitMonth = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
+      displayName: "Example Model",
       snapshotId: "some-model-20260101",
       snapshotForm: "provider-dated",
       referenceId: "some-model",
@@ -146,6 +150,7 @@ describe("the curated model catalog", () => {
     const missingSnapshotId = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
+      displayName: "Example Model",
       // snapshotId intentionally omitted
       snapshotForm: "provider-dated",
       referenceId: "some-model",
@@ -171,6 +176,7 @@ describe("the curated model catalog", () => {
     const fabricatedDate = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
+      displayName: "Example Model",
       snapshotId: "some-model-20260101",
       snapshotForm: "provider-dateless",
       referenceId: "some-model",
@@ -193,6 +199,7 @@ describe("the curated model catalog", () => {
     const droppedDate = {
       slot: "utility",
       modelId: "anthropic/some-model",
+      displayName: "Example Model",
       snapshotId: "some-model",
       snapshotForm: "provider-dated",
       referenceId: "some-model",
@@ -217,6 +224,7 @@ describe("the curated model catalog", () => {
     const composedReasoning = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
+      displayName: "Example Model",
       snapshotId: "something-the-provider-never-published",
       snapshotForm: "platform-composed",
       referenceId: "some-model",

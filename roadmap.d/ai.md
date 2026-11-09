@@ -49,7 +49,7 @@
   status: shipped
   surface: internal
   evidence: packages/inference/src/catalog.ts (tier occupancy validated at module load) and packages/inference/src/reasoning-tier.ts; packages/inference/test/reasoning-tier.test.ts.
-  notes: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision.
+  notes: Catalog version 4 (2026-11-09) adds Claude Opus 5.5, Sonnet 5.5, Opus 5 and Sonnet 5 as selectable reasoning entries and keeps Opus 4.8 and Sonnet 4.6 for firms that pinned them. Which model occupies each tier is an owner decision recorded in the catalog.
 
 - id: ai.inference.pin-freshness
   name: Model-pin staleness detection
@@ -64,7 +64,7 @@
   status: shipped
   surface: screen
   evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition). Settings / AI and the Assistant offers the choice through the product's combobox over the roster GET /api/v1/firm/ai/settings returns (every catalog reasoning entry with its retention facts, both verification dates, retirement date and tier, plus the catalog's version and effective date); PATCH takes model.modelId, where a roster id pins the firm and null DELETES the row so the firm follows the platform's tier again. The response reports selection as platform or chosen from the row's existence. apps/api-worker/test/firm-ai-settings-routes.test.ts drives the round trip and the off-roster refusal.
-  notes: The two postures stay legible because following is the ABSENCE of a row: choosing the platform's option never writes today's default. No runtime source lists models (neither the Workers AI binding nor the AI Gateway REST API enumerates them), so the roster is the catalog and the page states its date and that the freshness pass keeps it current.
+  notes: The two postures stay legible because following is the ABSENCE of a row: choosing the platform's option never writes today's default. Neither the Workers AI binding nor the AI Gateway REST API enumerates models, so the roster is the catalog and the page states its date. Where the platform holds a read-only ANTHROPIC_MODELS_API_KEY, the route also reads Anthropic's GET /v1/models (cached six hours, five minutes on failure; packages/inference/src/provider-roster.ts and apps/api-worker/src/inference/provider-roster-source.ts) and reports, per roster entry, whether it is still published and which published models await verification. That list never makes a model selectable.
 
 - id: ai.inference.confidentiality
   name: Confidentiality control plane

@@ -40,17 +40,17 @@ describe("the deploy-configuration override", () => {
     // zero-data-retention eligible, so an unknown identifier can never be honoured — otherwise the
     // catalog stops being exhaustive and a non-eligible model becomes representable through config.
     const resolution = resolveReasoningTier("most-capable", {
-      "most-capable": "anthropic/claude-opus-5",
+      "most-capable": "anthropic/claude-fable-5-1",
     });
     expect(resolution.overrideApplied).toBe(false);
     expect(resolution.entry).toBe(reasoningModelForTier("most-capable"));
-    expect(resolution.rejectedOverride).toBe("anthropic/claude-opus-5");
+    expect(resolution.rejectedOverride).toBe("anthropic/claude-fable-5-1");
     expect(resolution.rejectionReason).toBe("not-in-catalog");
   });
 
   it("REFUSES a catalog model that is not a reasoning model", () => {
     const resolution = resolveReasoningTier("most-capable", {
-      "most-capable": "anthropic/claude-haiku-4-5",
+      "most-capable": "anthropic/claude-haiku-5-5",
     });
     expect(resolution.overrideApplied).toBe(false);
     expect(resolution.rejectionReason).toBe("not-a-reasoning-model");
