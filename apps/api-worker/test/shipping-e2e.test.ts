@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { HttpClient } from "@magna-carta/integrations/http";
 import { createApp } from "../src/http/app.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -198,6 +199,26 @@ describe("shipping e2e", () => {
     // records insurance but never asks for it leaves the firm believing a parcel is covered.
     expect(buyRequests).toHaveLength(1);
     expect(buyRequests[0]?.body).toMatchObject({ insurance: "250.00" });
+
+    // The request above still sends serviceFeeMinor: 5, as an old client would. The fee is the
+    // server's number, never the caller's: a positive one becomes a billable charge on the matter when
+    // the firm recovers the shipping service fee, so a caller-chosen fee was a way to put any amount on
+    // a client's bill without costs:track. It must be ignored in BOTH places it could land — on the
+    // shipment, and in the purchase event cost recovery reads.
+    const detail = await app.request(
+      `${base}/shipments/${id}`,
+      { method: "GET", headers: { cookie } },
+      env,
+    );
+    expect(((await detail.json()) as { serviceFeeMinor: number | null }).serviceFeeMinor).toBe(0);
+    const purchasedEvent = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT payload FROM outbox WHERE topic = 'shipment.purchased' ORDER BY created_at DESC",
+      )
+      .first<{ payload: string }>();
+    expect(purchasedEvent).not.toBeNull();
+    expect(JSON.parse(purchasedEvent?.payload ?? "{}")).toMatchObject({ serviceFeeMinor: 0 });
+
     // Handed to the cross-firm test below, which asks whether another firm can read this label.
     purchasedShipmentId = id;
 

@@ -36,6 +36,7 @@
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
+  import { canEditFirmSettings } from "$lib/settings/settings-permissions.ts";
 
   const queryClient = useQueryClient();
   const connection = createQuery(() => shippingReadConnectionOptions());
@@ -49,6 +50,15 @@
   let confirmingDisconnect = $state(false);
   let submitting = $state(false);
 
+  /*
+   * WHO MAY CHANGE THE ACCOUNT. Connecting, replacing and disconnecting are refused by the server to
+   * anyone without the integrations area's edit right (firm:manageSecrets), because whoever controls
+   * the account receives every shipment's addresses. The register links every shipping member here,
+   * so this page is read by members who may see the account's health and may not change it — and a
+   * key field that is offered and then refused reads as a broken page. False until the session read
+   * lands, so the controls appear rather than vanish.
+   */
+  const canChangeAccount = $derived(canEditFirmSettings("integrations"));
   const connected = $derived(connection.data?.connected === true);
   const status = $derived(connection.data?.status ?? null);
   const busy = $derived(submitting);
@@ -144,6 +154,13 @@
         <Alert.Description>{healthSentence}</Alert.Description>
       </Alert.Root>
 
+      {#if !canChangeAccount}
+        <!-- Said rather than left to be discovered: a member who mails things can read the account's
+             health here, and needs to know who to ask when it says the key is being refused. -->
+        <p class="text-sm text-text-muted">
+          Only an administrator can connect, replace or disconnect the firm's postage account.
+        </p>
+      {:else}
       <div class="flex flex-col gap-8">
         <!-- A password field for a value nobody will read back: it keeps the key off the screen
              while it is being pasted, in a room that may not be private. -->
@@ -166,10 +183,11 @@
           </Button>
         </div>
       </div>
+      {/if}
     </LoadingRegion>
   </SettingsPlate>
 
-  {#if connected}
+  {#if connected && canChangeAccount}
     <SettingsPlate heading="Disconnect">
       <SettingsDescription>
         Disconnecting stops every carrier operation for this firm and clears the stored key. Drafts
