@@ -140,6 +140,12 @@
      */
     menu?: Snippet;
     /**
+     * What stands before the heading: the picture of the person or the logo of the organization a
+     * record is about, so the panel is recognised before it is read. A face, never a control strip;
+     * the header's controls stay at its far end.
+     */
+    leading?: Snippet;
+    /**
      * The body. Handed `busy` so ONE snippet renders the fields at rest and while the commit is in
      * flight — two snippets would be two layouts, and they would disagree within a week — and
      * `done` so the same snippet can show what the act came to, once it has.
@@ -234,6 +240,7 @@
     subtitle,
     notice,
     menu,
+    leading,
     fields,
     context,
     commitLabel,
@@ -599,14 +606,24 @@
       onCloseAutoFocus={keepFocusWhereItIs}
     >
       <div class="mc-modal-frame-header">
-        <div class="mc-modal-frame-identity">
-          <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
-          {#if hasSubtitle}
-            <AlertDialog.Description class="mc-modal-frame-subtitle">
-              {@render subtitleContent()}
-            </AlertDialog.Description>
-          {/if}
-        </div>
+        {#snippet identity()}
+          <div class="mc-modal-frame-identity">
+            <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
+            {#if hasSubtitle}
+              <AlertDialog.Description class="mc-modal-frame-subtitle">
+                {@render subtitleContent()}
+              </AlertDialog.Description>
+            {/if}
+          </div>
+        {/snippet}
+        {#if leading}
+          <div class="mc-modal-frame-lead">
+            {@render leading()}
+            {@render identity()}
+          </div>
+        {:else}
+          {@render identity()}
+        {/if}
         {@render headerActions()}
       </div>
       {@render body()}
@@ -637,14 +654,24 @@
       onCloseAutoFocus={keepFocusWhereItIs}
     >
       <div class="mc-modal-frame-header">
-        <div class="mc-modal-frame-identity">
-          <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
-          {#if hasSubtitle}
-            <Dialog.Description class="mc-modal-frame-subtitle">
-              {@render subtitleContent()}
-            </Dialog.Description>
-          {/if}
-        </div>
+        {#snippet identity()}
+          <div class="mc-modal-frame-identity">
+            <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
+            {#if hasSubtitle}
+              <Dialog.Description class="mc-modal-frame-subtitle">
+                {@render subtitleContent()}
+              </Dialog.Description>
+            {/if}
+          </div>
+        {/snippet}
+        {#if leading}
+          <div class="mc-modal-frame-lead">
+            {@render leading()}
+            {@render identity()}
+          </div>
+        {:else}
+          {@render identity()}
+        {/if}
         {@render headerActions()}
       </div>
       {@render body()}

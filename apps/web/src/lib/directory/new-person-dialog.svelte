@@ -21,9 +21,14 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Alert from "@magna-carta/design-system/alert";
+  import * as Avatar from "@magna-carta/design-system/avatar";
+  import Button from "@magna-carta/design-system/button";
+  import { personInitials } from "@magna-carta/design-system/formatters";
+  import { toast } from "@magna-carta/design-system/toast";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import { createDirectoryPerson } from "./directory-api.ts";
+  import { createDirectoryPerson, setDirectoryEntityPhoto } from "./directory-api.ts";
+  import PhotoCropDialog from "./photo-crop-dialog.svelte";
   import { directoryPickerSearch } from "./directory-picker-source.ts";
   import DuplicateGate from "./duplicate-gate.svelte";
   import {
@@ -72,6 +77,9 @@
 
   let draft = $state<PersonDraft>(emptyPersonDraft());
   let failure = $state<StatedFailure | null>(null);
+  /** The photo cut for the new person, held until the person exists to hang it on. */
+  let photoBase64 = $state<string | null>(null);
+  let cropping = $state(false);
 
   const search = directoryPickerSearch(fetch, { kinds: ["organization"] });
 
@@ -101,6 +109,7 @@
         ? empty
         : { ...empty, name: { ...empty.name, given: prefill.given, family: prefill.family } };
     failure = null;
+    photoBase64 = null;
   }
 
   /*
@@ -127,6 +136,19 @@
     // server answers the repeat with the first result.
     const outcome = await createDirectoryPerson(fetch, personCreateRequest(draft), crypto.randomUUID());
     if (outcome.kind === "ok") {
+      // The person is recorded whether or not the photo lands after it; a photo that did not is
+      // said so, and is added again from the record.
+      if (photoBase64 !== null) {
+        const photo = await setDirectoryEntityPhoto(
+          fetch,
+          outcome.value.id,
+          photoBase64,
+          crypto.randomUUID(),
+        );
+        if (photo.kind !== "ok") {
+          toast.error("The person was saved, but the photo was not. Add it from their record.");
+        }
+      }
       onCreated(outcome.value.id, personDraftDisplayName(draft));
       return "committed";
     }
@@ -147,7 +169,7 @@
   commitBusyLabel="Saving"
   commitRefusal={refusal}
   width="record"
-  unsavedChanges={started}
+  unsavedChanges={started || photoBase64 !== null}
   onOpen={reset}
   onCommit={submit}
 >
@@ -176,6 +198,23 @@
     <RecordSections sections={counts} label="Sections of the new person">
       {#snippet section(part)}
         {#if part.id === "names"}
+          <!-- The photo leads the record, as it leads the record window's header. -->
+          <div class="flex items-center gap-16">
+            <Avatar.Root class="size-48 shrink-0">
+              {#if photoBase64 !== null}
+                <Avatar.Image src={`data:image/jpeg;base64,${photoBase64}`} alt="The new person's photo" />
+              {/if}
+              <Avatar.Fallback>{personInitials(personDraftDisplayName(draft))}</Avatar.Fallback>
+            </Avatar.Root>
+            <Button variant="secondary" size="sm" disabled={busy} onclick={() => (cropping = true)}>
+              {photoBase64 === null ? "Add Photo" : "Change Photo"}
+            </Button>
+            {#if photoBase64 !== null}
+              <Button variant="ghost" size="sm" disabled={busy} onclick={() => (photoBase64 = null)}>
+                Remove Photo
+              </Button>
+            {/if}
+          </div>
           <NamesSection
             bind:name={draft.name}
             otherNames={draft.otherNames}
@@ -249,3 +288,13 @@
     </div>
   {/snippet}
 </ActionDialog>
+
+<PhotoCropDialog
+  bind:open={cropping}
+  heading={photoBase64 === null ? "Add Photo" : "Change Photo"}
+  subject={personDraftDisplayName(draft) || "New Person"}
+  onSave={async (imageBase64) => {
+    photoBase64 = imageBase64;
+    return null;
+  }}
+/>
