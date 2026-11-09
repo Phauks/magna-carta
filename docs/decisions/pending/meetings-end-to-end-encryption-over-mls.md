@@ -3,7 +3,7 @@ slug: meetings-end-to-end-encryption-over-mls
 status: Proposed
 area: Communications layer
 date: 2026-11-09
-summary: "End-to-end encrypted meetings use MLS (RFC 9420) for group keys, through OpenMLS with its pure-Rust provider compiled to WebAssembly, and SFrame (RFC 9605) per frame over WebCrypto, so an encrypted meeting keeps the room's full 300 rather than the 50 sender keys would allow. The MeetingRoom Durable Object is the MLS delivery service and relays handshake messages without reading them. Recording is kept by recording in the host's browser and filing through the untrusted-file pipeline; dial-in is kept with a persistent banner that a phone caller ends end-to-end encryption while connected. Live captions, webinars and live streaming are not offered while it is on."
+summary: "End-to-end encrypted meetings use MLS (RFC 9420) for group keys, through OpenMLS with its pure-Rust provider compiled to WebAssembly, and SFrame (RFC 9605) per frame over WebCrypto, so an encrypted meeting keeps the room's full 300 rather than the 50 sender keys would allow. The MeetingRoom Durable Object is the MLS delivery service and relays handshake messages without reading them. Recording is kept by recording in the host's browser and filing through the untrusted-file pipeline; dial-in is kept with a persistent banner that a phone caller ends end-to-end encryption while connected. Live captions, webinars and live streaming are not offered while it is on. It is on by default; a host switches it off at Start, and the choice is fixed for the meeting."
 ---
 
 **End-to-end encrypted meetings agree keys over MLS and keep recording and dial-in.**

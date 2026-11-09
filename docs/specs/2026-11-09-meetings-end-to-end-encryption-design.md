@@ -1,6 +1,6 @@
 # Meetings — end-to-end encryption, design
 
-**Status:** Design, 2026-11-09. Shaped with the owner on 2026-11-09. One owner question is still open (section 12).
+**Status:** Design, 2026-11-09. Shaped with the owner on 2026-11-09; every owner question is settled (section 12).
 **Over:** [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md) covers the meeting record, the `MeetingRoom` Durable Object, the routing-service client and the screen. Nothing here rebuilds any of it.
 **Research:** [`docs/research/2026-09-24-meetings-end-to-end-encryption.md`](../research/2026-09-24-meetings-end-to-end-encryption.md). This design takes its frame format, browser findings and threat model as they stand. It changes four of its recommendations, and section 2 says which and why.
 **Beside:** [`2026-09-20-meetings-recording-and-transcription-design.md`](2026-09-20-meetings-recording-and-transcription-design.md), [`2026-09-24-meetings-dial-in-design.md`](2026-09-24-meetings-dial-in-design.md), [`2026-09-20-meetings-reactions-and-polls-design.md`](2026-09-20-meetings-reactions-and-polls-design.md) and [`2026-09-24-meetings-breakout-rooms-design.md`](2026-09-24-meetings-breakout-rooms-design.md).
@@ -111,6 +111,6 @@ As in the research note (section 6.4): each browser hashes the group's member li
 
 ## 12. Owner questions
 
-- **Open: on by default, or chosen at Start?** Either way the choice is fixed once the meeting starts. Encryption now costs only live captions and webinars (section 8), so on by default is a reasonable answer.
+- **Settled 2026-11-09: on by default.** Every meeting starts end-to-end encrypted unless the host switches it off at Start. It is fixed for the meeting once started. Switching it off is the only way to get live captions or a webinar.
 - **Settled 2026-11-09:** build it; full room size (MLS); keep recording; allow dial-in with a warning; personal rooms are allowed (a separate ledger node).
 - **Carried from the research note, with the recommended answer taken unless the owner says otherwise:** a firm may forbid encrypted meetings (O2); the security code is shown, not required (O5); the claim in section 1 is the claim (O4).

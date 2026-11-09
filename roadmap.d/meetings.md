@@ -261,8 +261,7 @@
   status: designed
   spec: docs/specs/2026-11-09-meetings-end-to-end-encryption-design.md
   evidence: No code. Designed 2026-11-09 over the research in docs/research/2026-09-24-meetings-end-to-end-encryption.md; four experiments (simulcast with encrypted VP8, Opus clear prefix, encrypted H.264 from Safari, MLS cost at 300) come before any code.
-  notes: The owner's rulings of 2026-11-09 — build it; MLS rather than sender keys so the room keeps its 300; recording stays, made in the recording host's browser and filed through the untrusted-file pipeline, with transcripts and the summary after the meeting; dial-in stays, with a banner telling everyone a phone caller ends end-to-end encryption while connected. Only live captions, webinars and live streaming are given up.
-  awaiting-owner: On by default, or chosen at Start? Either way it is fixed for the meeting once started.
+  notes: The owner's rulings of 2026-11-09 — build it; MLS rather than sender keys so the room keeps its 300; recording stays, made in the recording host's browser and filed through the untrusted-file pipeline, with transcripts and the summary after the meeting; dial-in stays, with a banner telling everyone a phone caller ends end-to-end encryption while connected. Only live captions, webinars and live streaming are given up. On by default (owner, 2026-11-09): a host switches it off at Start for captions or a webinar, and the choice is fixed for the meeting.
 - id: meetings.usage-reporting
   name: Meetings usage and quality
   scope: How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
