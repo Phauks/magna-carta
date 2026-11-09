@@ -14,6 +14,7 @@ const CHECK: ReportedCheck = {
   createdAt: "2026-08-13T15:04:05.000Z",
   trigger: "comprehensive",
   actorUserId: "user_attorney",
+  actorDisplayName: "Avery Attorney",
   strictness: "over_inclusive",
   depth: 1,
   floorRaised: false,
@@ -46,7 +47,7 @@ test("a zero-hit check ends by saying the search ended, and says nothing about t
 test("the statement says what ran, with what settings, over how many entities", () => {
   const statements = describeCheck(CHECK, [], FULL_SOURCES);
   expect(statements[0]).toBe(
-    "Searched on 13 August 2026 (UTC) by user_attorney, trigger comprehensive.",
+    "Searched on 13 August 2026 (UTC) by Avery Attorney, as a comprehensive check.",
   );
   expect(statements).toContainEqual(
     "Party — name and identifier similarity at over_inclusive strictness, over 4 subject parties.",
@@ -118,7 +119,7 @@ test("one hit reads in the singular", () => {
 test("a check with no acting member on the row does not attribute the run to anyone", () => {
   const statements = describeCheck({ ...CHECK, actorUserId: null }, [], FULL_SOURCES);
   expect(statements[0]).toBe(
-    "Searched on 13 August 2026 (UTC) with no acting member recorded, trigger comprehensive.",
+    "Searched on 13 August 2026 (UTC) with no acting member recorded, as a comprehensive check.",
   );
 });
 
@@ -339,4 +340,12 @@ test("a bounded run says its candidates were RECORDED, not that they were everyt
 
   const unbounded = describeCheck(CHECK, [{ evidenceTier: 4 }], FULL_SOURCES);
   expect(unbounded.at(-1)).toBe("1 candidate surfaced for review (tier 4: 1).");
+});
+
+test("the statement names the member, never their handle", () => {
+  const unnamed = describeCheck({ ...CHECK, actorDisplayName: null }, [], FULL_SOURCES);
+  expect(unnamed[0]).toBe(
+    "Searched on 13 August 2026 (UTC) by a member the firm's roster does not name, as a comprehensive check.",
+  );
+  expect(unnamed.join("\n")).not.toContain("user_attorney");
 });
