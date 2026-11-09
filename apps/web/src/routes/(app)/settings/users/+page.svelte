@@ -47,6 +47,7 @@
     type FirmMemberSummary,
     type FirmRole,
   } from "$lib/members/members-api.ts";
+  import { orderRolesByFamily, toggleRoleInFamily } from "$lib/members/role-families.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import {
     CATALOG_ACTIONS_COLUMN_ID,
@@ -116,9 +117,15 @@
   let inviteFailure = $state<StatedFailure | null>(null);
   let inviteKey: string | null = null;
 
+  // A sub-role reads with its parent beside it, because inviting somebody as a Partner also makes
+  // them an Attorney and the choice should say so before it is made.
+  const orderedRoles = $derived(orderRolesByFamily(roles));
   const roleChoices = $derived([
     { value: NO_ROLE, label: "No role" },
-    ...roles.map((role) => ({ value: role.name, label: role.name })),
+    ...orderedRoles.map(({ role, parent }) => ({
+      value: role.name,
+      label: parent === null ? role.name : `${parent.name}, ${role.name}`,
+    })),
   ]);
   const inviteStarted = $derived(
     inviteName.trim() !== "" || inviteEmail.trim() !== "" || inviteRoleName !== NO_ROLE,
@@ -201,9 +208,7 @@
   }
 
   function toggleRole(roleId: string, held: boolean): void {
-    chosenRoleIds = held
-      ? [...chosenRoleIds, roleId]
-      : chosenRoleIds.filter((candidate) => candidate !== roleId);
+    chosenRoleIds = toggleRoleInFamily(chosenRoleIds, roleId, held, roles);
   }
 
   async function commitRoles(): Promise<ActionOutcome> {
@@ -407,17 +412,25 @@
           A member holds any number of roles and can do what any of them allows. What each one
           means is listed under Roles and Permissions.
         </p>
-        {#each roles as role (role.id)}
+        {#each orderedRoles as { role, parent } (role.id)}
           {@const held = chosenRoleIds.includes(role.id)}
-          <div class="flex items-center gap-8">
+          <div class={parent === null ? "flex items-center gap-8" : "flex items-center gap-8 ps-24"}>
             <Checkbox
               id={`role-${role.id}`}
               checked={held}
               onCheckedChange={(next) => toggleRole(role.id, next === true)}
             />
             <Label for={`role-${role.id}`}>{role.name}</Label>
+            {#if parent !== null}
+              <span class="text-xs text-text-muted">a kind of {parent.name}</span>
+            {/if}
           </div>
         {/each}
+        {#if orderedRoles.some(({ parent }) => parent !== null)}
+          <p class="text-xs text-text-muted">
+            A sub-role comes with the role it sits under, and a member holds one sub-role of each.
+          </p>
+        {/if}
       {/if}
       {#if rolesSubject !== null && chosenRoleIds.length === 0}
         <p class="text-sm text-text-muted">

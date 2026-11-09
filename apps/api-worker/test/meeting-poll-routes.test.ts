@@ -3,7 +3,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
 import { MAX_MEETING_POLL_QUESTION_LENGTH } from "@magna-carta/meetings/poll-types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";

@@ -1,4 +1,4 @@
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 // WHICH ENGINES THIS DEPLOYMENT CAN ACTUALLY REACH, as one short token.
 //

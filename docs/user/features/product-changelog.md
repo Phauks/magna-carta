@@ -1,7 +1,5 @@
 # What's new — the product changelog
 
-_Stub — the full guide is authored when the changelog page ships. The content and its contract are built; there is no page to read it on yet._
-
 ## What it does
 
 The product changelog is where you find out what changed in Magna Carta, written for you rather than for the people who build it. Entries are grouped **by date** — the product is improved continuously rather than in numbered releases, so a date is the honest way to say when something arrived.
@@ -21,11 +19,19 @@ The changelog covers **changes you can see or use.** Design work, internal tooli
 
 That filter is the reason entries can be short. A month of work on the platform's own machinery may produce no changelog entry at all, and that is the changelog working as intended rather than a gap in it.
 
-## Common tasks (once the page ships)
+## Opening it
 
-- **See what changed recently.** Open the changelog and read from the top; the newest date is first.
+Select your avatar at the top right, point to **Websites**, and choose **Changelog**. You can also press Ctrl+K (Cmd+K on a Mac), type "changelog", and choose **Website: Changelog**. The page opens inside Magna Carta, and you can star it like any other page.
+
+The changelog comes with the version of Magna Carta you are using, so it never describes something your version does not have yet, and it opens even when the service is having trouble.
+
+## Common tasks
+
+- **See what changed recently.** Read from the top; the newest date is first, and the line under the title says when the latest change arrived.
 - **Find when something arrived.** Entries stay on the page permanently, so a feature's arrival date remains findable long after the fact.
-- **Filter by kind of change.** Narrow to Fixed or Security when you are checking whether a specific problem has been addressed.
+- **Filter by kind of change.** Use the menu at the top right of the page to show only Added, Fixed, or another heading, for example when you are checking whether a specific problem has been addressed. Choose **All changes** to see everything again.
+
+Some entries mention a guide by name. Those guides will be linked once the help centre is online; for now, the name tells you which guide to look for.
 
 ## Related features
 

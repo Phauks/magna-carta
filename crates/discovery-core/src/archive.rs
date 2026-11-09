@@ -134,7 +134,10 @@ pub fn enumerate(bytes: &[u8], limits: &Limits) -> Result<Vec<ArchiveEntry>, Dis
             .by_index_raw(index)
             .map_err(|_| DiscoveryError::Corrupt)?;
         entries.push(ArchiveEntry {
-            path: entry.name().to_owned(),
+            path: entry
+                .name()
+                .map(std::borrow::Cow::into_owned)
+                .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned()),
             compressed_size: entry.compressed_size(),
             declared_size: entry.size(),
             encrypted: entry.encrypted(),
@@ -189,7 +192,10 @@ fn expand_into(
                 .by_index_raw(index)
                 .map_err(|_| DiscoveryError::Corrupt)?;
             (
-                entry.name().to_owned(),
+                entry
+                    .name()
+                    .map(std::borrow::Cow::into_owned)
+                    .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned()),
                 entry.encrypted(),
                 entry.is_dir(),
                 entry.size(),

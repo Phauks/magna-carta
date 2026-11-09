@@ -11,8 +11,8 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { mintEditToken } from "../../src/editing/wopi-token.ts";
-import { runTieringSweep } from "../../src/editing/tiering-sweep.ts";
-import { handleIngestMessage } from "../../src/files/ingest-consumer.ts";
+import { runTieringSweep } from "../../src/background/editing/tiering-sweep.ts";
+import { handleIngestMessage } from "../../src/background/files/ingest-consumer.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle, type FirmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {

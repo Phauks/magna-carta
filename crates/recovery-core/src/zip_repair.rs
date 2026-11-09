@@ -59,7 +59,10 @@ fn salvage_entries_capped(
             Ok(None) => break, // hit the central-directory signature: no more local entries
             Err(_) => break,   // a malformed/truncated local header: stop scanning
         };
-        let name = next.name().to_owned();
+        let name = next
+            .name()
+            .map(std::borrow::Cow::into_owned)
+            .unwrap_or_else(|_| String::from_utf8_lossy(next.name_raw()).into_owned());
         // Directory entries carry no data; skip them (they are recreated on re-emit).
         if name.ends_with('/') {
             continue;

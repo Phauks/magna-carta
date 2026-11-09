@@ -23,10 +23,10 @@ email-core = { path = "../email-core" }
 # The PDF object model, for the Info dictionary's dates. The text itself comes from pdf-core's
 # glyph reader; this is the trailer, which that reader has no reason to expose. default-features
 # off drops the date/parallelism features (chrono/jiff/rayon/time) nothing here needs.
-lopdf = { version = "0.44", default-features = false }
+lopdf = { version = "0.46", default-features = false }
 # Archive enumeration and guarded expansion. Lean pure-Rust features only — deflate via
 # flate2/miniz_oxide, and no bzip2/zstd/lzma, each of which would pull a C library.
-zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9.4", default-features = false, features = ["deflate-flate2"] }
 # The DEFLATE backend `deflate-flate2` selects, declared directly to pin miniz_oxide (pure Rust)
 # rather than letting a zlib/zlib-ng (C) backend be selected by a feature unification elsewhere.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
@@ -34,22 +34,22 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # crafted input: every structural fault is an io::Error rather than a panic, persisted indices are
 # bounds-checked, FAT and directory cycles are detected, and the stream read buffer is capped rather
 # than sized from a declared length.
-cfb = "0.14"
+cfb = "0.16"
 # Pull-parser over the XML parts inside an OOXML or OpenDocument package. Pure Rust, and it does
 # not expand general entities at all, so the classic entity-expansion bomb has no decoder to reach.
 quick-xml = { version = "0.41", default-features = false }
 # Label-to-decoder mapping for every legacy encoding real discovery material arrives in.
 encoding_rs = "0.8"
 # Statistical charset detection for bytes that declare nothing. Pairs with encoding_rs by design.
-chardetng = "0.1"
+chardetng = "1.0"
 # Canonical composition, the first step of the determinism boundary: two byte sequences that render
 # identically must hash and chunk identically.
 unicode-normalization = "0.1"
 # The five-algorithm digest set eDiscovery load files specify, computed in one pass. RustCrypto,
 # pure Rust with the assembly/C backends unselected.
-md-5 = "0.10"
-sha1 = "0.10"
-sha2 = "0.10"
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

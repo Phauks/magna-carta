@@ -29,7 +29,7 @@ portal secure messaging (`portal.capabilities.messaging`) and email. Section 7 s
 ## 2. Why email is not in this row
 
 The strongest case for folding email in is real and should be stated before it is refused. Captured
-mail that routes to no matter lands unrouted today — `apps/api-worker/src/emails/capture-consumer.ts`
+mail that routes to no matter lands unrouted today — `apps/api-worker/src/background/emails/capture-consumer.ts`
 says so in as many words: "a firm catch-all (or an unknown token) lands unrouted — the message is
 captured to the firm with no matter link, for staff to route." **There is no screen anywhere in the
 product where a member can see those.** Mail is being captured into a place nobody can look at, and

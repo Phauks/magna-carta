@@ -1,5 +1,5 @@
 import { searchEngineNotImplemented, type SearchQueryResult } from "@magna-carta/search/port";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { KeywordSearchInput } from "./keyword-search.ts";
 
 // The semantic half of discovery search — Vectorize nearest-neighbour over passage embeddings. Unlike

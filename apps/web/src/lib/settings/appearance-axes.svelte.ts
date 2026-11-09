@@ -1,6 +1,6 @@
 /*
- * The appearance axes — ONE home for the instant-apply personalization machinery the Theme and
- * Accessibility pages share. The axes are PAGE-LOCAL definitions, not registry entries: their
+ * The appearance axes — ONE home for the instant-apply personalization machinery the Theme,
+ * Accessibility and Text pages share. The axes are PAGE-LOCAL definitions, not registry entries: their
  * values live in the theme-preference storage the no-FOUC boot script reads
  * (@magna-carta/design-system/internal/theme-preference), not the settings store, so
  * registering them would put one fact in two homes. They move into the definitions registry
@@ -31,6 +31,7 @@ import {
   type Mode,
   type MotionPreference,
   type ScrollEdgeHintPreference,
+  type TypefacePreference,
 } from "@magna-carta/design-system/internal/theme-preference";
 
 interface AppearanceValues {
@@ -40,6 +41,7 @@ interface AppearanceValues {
   density: DensityPreference;
   contrast: ContrastPreference;
   scrollEdgeHints: ScrollEdgeHintPreference;
+  typeface: TypefacePreference;
 }
 
 function readInitialValues(): AppearanceValues {
@@ -52,6 +54,7 @@ function readInitialValues(): AppearanceValues {
       density: "comfortable",
       contrast: "system",
       scrollEdgeHints: "shown",
+      typeface: "atkinson",
     };
   }
   return readThemePreference();
@@ -67,6 +70,7 @@ function persistAndApply(): void {
     values.density,
     values.contrast,
     values.scrollEdgeHints,
+    values.typeface,
   );
 }
 
@@ -201,6 +205,38 @@ export const MOTION_AXIS: AppearanceAxis = {
   definition: MOTION_DEFINITION,
   current: () => values.motion,
   set: (value) => (values.motion = value as MotionPreference),
+};
+
+// ─── Text page axis (the reading face: how interface text reads is the person's own, never the
+//     firm's — the firm owns the brand, the individual owns how they read). ─────────────────────
+
+/*
+ * The setting id keeps the name the Text page's placeholder row carried ("text.font-family"), so
+ * the page's change ledger reads as one history from the first live choice on.
+ */
+export const TYPEFACE_DEFINITION: SettingDefinition = {
+  id: "text.font-family",
+  sectionId: "text",
+  label: "Font Family",
+  description:
+    "The reading typeface across the interface. Page titles and the firm's mark keep their own faces.",
+  kind: "select",
+  options: [
+    { value: "atkinson", label: "Atkinson Hyperlegible — built for legibility (default)" },
+    { value: "lexend", label: "Lexend — built for reading endurance" },
+    { value: "opendyslexic", label: "OpenDyslexic — for dyslexic readers" },
+    { value: "serif", label: "Literata — a serif for long reading" },
+    { value: "system", label: "System — your device's own face" },
+  ],
+  defaultValue: "atkinson",
+  sensitivity: "open",
+};
+
+export const TYPEFACE_AXIS: AppearanceAxis = {
+  sectionId: "text",
+  definition: TYPEFACE_DEFINITION,
+  current: () => values.typeface,
+  set: (value) => (values.typeface = value as TypefacePreference),
 };
 
 /*

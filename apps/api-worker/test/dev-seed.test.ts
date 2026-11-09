@@ -1,10 +1,10 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { liveCookie, postJson, setCookies } from "./support/test-auth.ts";
 
-// The development-only firm seeder (routes/dev-seed.ts), driven through the real Miniflare bindings.
+// The development-only firm seeder (routes/developer/dev-seed.ts), driven through the real Miniflare bindings.
 // It stands up a complete signed-in-ready tenant so local dev has real data; this proves the route
 // provisions firm + user + matter + files, is idempotent on a re-run, mints a real session on
 // sign-in with the returned credentials, and that the seeded files list through the authenticated

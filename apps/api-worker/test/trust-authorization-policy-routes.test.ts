@@ -18,7 +18,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // The per-firm authorization policy over the HTTP surface. What is proved here is the wiring the
 // domain suites cannot reach: the policy read and the versioned change as routes, the chokepoint
@@ -150,7 +150,7 @@ beforeAll(async () => {
     .bind(poolFirmId)
     .run();
 
-  // The owner: holds trust:authorize through the Owner/Admin role — the seat with the authority to
+  // The owner: holds trust:authorize through the Admin role — the seat with the authority to
   // act on client money and to change the posture.
   const owner = await seedCredentialedUser("policy-owner@example.com", {
     userName: "Policy Owner",

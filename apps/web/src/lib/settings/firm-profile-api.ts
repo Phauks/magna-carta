@@ -18,7 +18,7 @@
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 
-/** The permission the writes name — Owner/Admin by seed, never the member-administration key. */
+/** The permission the writes name — Admin by seed, never the member-administration key. */
 export const MANAGE_FIRM_PROFILE_PERMISSION = "firm:manageProfile";
 
 /** The server's own bound, mirrored so the page refuses a too-long name where it is typed. */

@@ -61,10 +61,10 @@ skeleton) client. The single existing retrofit is bounded.
 
 ### Backend (`apps/worker`) — conformant; becomes the reference
 
-- **Upload** (`routes/uploads.ts`) — direct-to-R2: single-shot presigned PUT at or below the firm's
+- **Upload** (`routes/files/uploads.ts`) — direct-to-R2: single-shot presigned PUT at or below the firm's
   threshold, **multipart-resumable session above it** (sign-part / complete / abort), idempotency-
   keyed, bytes bypass the Worker. This _is_ the mandated seam. No change.
-- **Per-file and over-threshold bulk download** (`routes/downloads.ts`, `files/presign.ts`) — a
+- **Per-file and over-threshold bulk download** (`routes/files/downloads.ts`, `files/presign.ts`) — a
   single resolved file and an over-threshold bundle deliver via a 302 to a presigned GET, so the
   browser's download manager drives pause / resume. No change.
 - **Inline preview / media** (`files/preview-serve.ts`) — HTTP Range with If-Range conditional resume
@@ -75,7 +75,7 @@ skeleton) client. The single existing retrofit is bounded.
 
 ### Backend — one bounded retrofit (backlogged)
 
-- **Inline bulk ZIP** (`routes/downloads.ts`, multi-file under the live threshold) — a single
+- **Inline bulk ZIP** (`routes/files/downloads.ts`, multi-file under the live threshold) — a single
   non-resumable streamed `application/zip`; a mid-stream drop restarts the whole archive. Bounded by
   the firm's live-download thresholds. **Backlog:** on a constrained-network signal, lower the inline
   threshold or route to the async build + presigned GET (already resumable). Tuning, not a rebuild.
@@ -83,7 +83,7 @@ skeleton) client. The single existing retrofit is bounded.
 ### Backend — one DRY extraction (folded into this change)
 
 - The R2-entries-to-zip-inputs generator is duplicated almost verbatim: `zipInputs()` in
-  `routes/downloads.ts` and `inputs()` in `downloads/bundle-consumer.ts` (both: for each entry,
+  `routes/files/downloads.ts` and `inputs()` in `downloads/bundle-consumer.ts` (both: for each entry,
   `R2.get`, skip null, yield `{ name, input: object.body }`). Extract one shared
   `zipEntriesFromR2(bucket, entries)` and have both call it. Behaviour-neutral; tests stay green.
 
@@ -140,7 +140,7 @@ Range-serve helper extraction at the second byte-serving consumer.
 2. Harness transfer-weight profile: add to the load-profile harness with the first real SPA routes.
 3. Per-route transfer budget: set initial budgets from that baseline → enforce the fitness-function
    gate.
-4. Inline-ZIP (`routes/downloads.ts`): constrained-network threshold / async-route tuning.
+4. Inline-ZIP (`routes/files/downloads.ts`): constrained-network threshold / async-route tuning.
 5. Range-serve helper: extract from `files/preview-serve.ts` at the second byte-serving consumer.
 6. Upload/download client UX: surface progress, pause, resume, ETA.
 7. Client portal: lite-mode bundle + resumable delivery at build time.

@@ -72,7 +72,7 @@ These bind every task. Do not restate them; do not violate them.
 | `crates/pdf-core/src/redact.rs`                  | Call it instead of keeping an inline copy of the same rule.         |
 | `apps/worker/wrangler.jsonc`                     | Add `OCR_SERVICE` to the single `services` array.                   |
 | `apps/worker/src/app.ts`                         | `OCR_SERVICE?` binding; call `registerOcrRoutes`.                   |
-| `apps/worker/src/routes/ocr.ts`                  | New route `POST /api/v1/ocr`.                                       |
+| `apps/worker/src/routes/files/ocr.ts`            | New route `POST /api/v1/ocr`.                                       |
 | `apps/worker/src/per-firm-migrations.ts`         | Register the seed migration.                                        |
 | `packages/access-control/src/registry.ts`        | Add `tools:ocr`.                                                    |
 | `packages/tools/src/catalog.ts`                  | Add the catalog entry.                                              |
@@ -1759,7 +1759,7 @@ This is the registration surface. Every item below must land together: a permiss
 - Create: `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json`
 - Modify: `apps/worker/src/per-firm-migrations.ts`
-- Create: `apps/worker/src/routes/ocr.ts`
+- Create: `apps/worker/src/routes/files/ocr.ts`
 - Modify: `apps/worker/src/app.ts`
 - Modify: `apps/worker/wrangler.jsonc`
 - Create: `apps/worker/test/seed-tools-ocr.test.ts`
@@ -1875,7 +1875,7 @@ In `apps/worker/wrangler.jsonc`, add to the **existing** `services` array — ne
 
 - [ ] **Step 9: Write the route**
 
-Create `apps/worker/src/routes/ocr.ts`:
+Create `apps/worker/src/routes/files/ocr.ts`:
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
