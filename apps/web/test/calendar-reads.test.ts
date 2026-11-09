@@ -251,8 +251,8 @@ describe("readCalendarWindow, firm scope", () => {
 
   it("reads a date calendar as its own calendar, narrowed to that layer's sources", async () => {
     // A date calendar is a ROW IN THE RAIL with a read of its own, not a widening of the firm's
-    // records read: widening would read the same rows twice and put a custody due-back on the
-    // calendar of the firm's matters and deadlines, which is not where it is.
+    // case settings read: widening would read the same rows twice and put a custody due-back on the
+    // Case Settings calendar, which is not where it is.
     const dueBack: TimelineEntry = {
       ...timelineRow,
       sourceKey: "custodyDueBack",

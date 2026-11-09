@@ -16,6 +16,7 @@ import {
   ESTATE_PROCEEDING_TYPES,
   readMatterEstate,
 } from "@magna-carta/matters/matter-estate";
+import { composeSetMatterFileDestructionDate } from "@magna-carta/matters/matter-file-retention";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
@@ -34,8 +35,8 @@ import { Problem, problemJson, type ProblemResponse } from "../../contracts/prob
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
 
-// The matter's identity records beyond the shell: staffing assignments, the court-case record, and
-// the estate record. Each is the Matters area's own table with the document engine as one consumer
+// The matter's identity records beyond the shell: staffing assignments, the court-case record, the
+// estate record, and the date the firm's own paper file may be destroyed. Each is the Matters area's own table with the document engine as one consumer
 // — caseload views, docketing, and conflicts imputation read the same rows — and each rides the
 // matter's existing permissions: reads open to any authenticated member, writes under matters:edit.
 
@@ -160,6 +161,26 @@ const EstateResponse = EstateRecord.openapi("MatterEstateResponse");
 const EstateReadResponse = z
   .object({ estate: EstateRecord.nullable() })
   .openapi("MatterEstateReadResponse");
+
+const FileDestructionDateRequest = z
+  .object({
+    destroyOn: civilDate.nullable().openapi({
+      description:
+        "The civil date (YYYY-MM-DD) on or after which the firm may destroy its own paper file for " +
+        "this matter. The firm states it; the platform derives no date and deletes nothing when it " +
+        "arrives — it is a reminder on the matter and on the firm calendar. Null clears it.",
+    }),
+  })
+  .openapi("MatterFileDestructionDateRequest");
+
+const FileDestructionDateResponse = z
+  .object({
+    matterId: z.string(),
+    destroyOn: z.string().nullable(),
+    recordedByUserId: z.string().nullable(),
+    recordedAt: z.string().nullable(),
+  })
+  .openapi("MatterFileDestructionDateResponse");
 
 // ---- metas ----
 
@@ -334,6 +355,36 @@ const setCourtCaseRoute = defineOpenAPIRoute(editMeta("setCourtCase"), {
     200: {
       description: "The recorded court-case record",
       content: { "application/json": { schema: CourtCaseResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const setFileDestructionDateRoute = defineOpenAPIRoute(editMeta("setFileDestructionDate"), {
+  method: "put",
+  path: "/api/v1/matters/{id}/file-destruction-date",
+  description:
+    "Records, changes or clears the date on or after which the firm may destroy its own paper " +
+    "file for the matter. A reminder, never a trigger: nothing is deleted when the date arrives. " +
+    "Every change is audited with the date it replaced.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterParam,
+    body: {
+      content: { "application/json": { schema: FileDestructionDateRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The matter's file destruction date as it now stands",
+      content: { "application/json": { schema: FileDestructionDateResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -576,6 +627,53 @@ export function registerMatterRecordsRoutes(app: MatterRecordsApp, chokepoint: C
       }
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
       const body = JSON.parse(result.responseBody ?? "{}") as z.infer<typeof CourtCaseResponse>;
+      return c.json(body, 200);
+    },
+  );
+
+  // PUT /api/v1/matters/{id}/file-destruction-date
+  app.openapi(
+    {
+      ...setFileDestructionDateRoute,
+      middleware: chokepointMiddleware(chokepoint, setFileDestructionDateRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { destroyOn } = c.req.valid("json");
+      let result;
+      try {
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          effect: async () => {
+            const built = await composeSetMatterFileDestructionDate(
+              firm.firmDatabase,
+              id,
+              destroyOn,
+              { clock: serviceClock(), actorUserId: userId },
+            );
+            return {
+              write: { statements: built.statements, outboxMessages: [] },
+              responseCode: 200,
+              responseBody: canonicalJsonStringify(built.value),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof MatterValidationError) return matterRecordErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      const body = JSON.parse(result.responseBody ?? "{}") as z.infer<
+        typeof FileDestructionDateResponse
+      >;
       return c.json(body, 200);
     },
   );

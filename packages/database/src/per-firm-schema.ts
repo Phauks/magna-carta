@@ -868,6 +868,40 @@ export const matter = sqliteTable(
   ],
 );
 
+// The date on or after which the firm may destroy its own PAPER file for a matter, as the firm
+// recorded it. A date a person entered, never one this platform derived: retention periods are
+// jurisdictional, and a date invented here is a date somebody destroys a client's file on. Nothing
+// reads this to delete anything — it is a reminder on the matter and on the firm calendar, and the
+// destruction itself stays a person's act.
+//
+// A table of its own rather than a column on `matter` for two reasons. A date column carries the
+// shared shape guard, and adding a CHECK to `matter` is a rebuild of the table most of the schema
+// points at. And the retention record will grow — the basis a firm states, the policy a date came
+// from — without each arrival widening the matter row. One row per matter, keyed by the matter, so
+// two dates for one file are unrepresentable; clearing the date deletes the row, and the audit log
+// keeps every date the matter has carried.
+export const matterFileRetention = sqliteTable(
+  "matter_file_retention",
+  {
+    matterId: text("matter_id")
+      .primaryKey()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    destroyOn: text("destroy_on").notNull(),
+    recordedByUserId: text("recorded_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    check("matter_file_retention_destroy_on_shape_check", civilDateShape(table.destroyOn)),
+    // The firm calendar's window reads these by date across every matter; the matter id rides along
+    // so the keyset cursor seeks rather than sorts.
+    index("matter_file_retention_destroy_on_matter_id_index").on(table.destroyOn, table.matterId),
+  ],
+);
+
 // Every counter value a number draw actually consumed, one row per {scope_key, drawn_value}. The
 // guarded increment alone cannot keep concurrent draws distinct: when the active scheme carries a
 // variable segment that is NOT marked scoping (a client code, staff initials, a matter-type code),
