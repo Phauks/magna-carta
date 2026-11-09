@@ -5351,7 +5351,7 @@ export type ConflictsCheckSummary = {
     createdByUserId: string | null;
     runCount: number;
     latestRunId: string | null;
-    runStatus: 'queued' | 'running' | 'completed' | 'failed' | null;
+    runStatus: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
     latestRunAt: string | null;
     trigger: string | null;
     triggerSource: string | null;
@@ -5382,6 +5382,11 @@ export type ConflictsPolicyRequest = {
     balancedNameRoles?: Array<string>;
 };
 
+export type ConflictsCancelledRun = {
+    id: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+};
+
 export type FiledConflictsCheckResponse = {
     id: string;
     matterId: string;
@@ -5410,7 +5415,7 @@ export type ConflictsNumberedCheck = {
 export type ConflictsRunSummary = {
     id: string;
     ordinal: number;
-    status: 'queued' | 'running' | 'completed' | 'failed';
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
     stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
     progress: ConflictsRunProgress;
     trigger: string;
@@ -5420,6 +5425,7 @@ export type ConflictsRunSummary = {
     startedAt: string | null;
     finishedAt: string | null;
     failure: string | null;
+    cancelledByUserId: string | null;
     hitCount: number | null;
     subjectParties: Array<ConflictsSubjectParty>;
 };
@@ -26595,6 +26601,61 @@ export type ConflictsRerunCheckResponses = {
 };
 
 export type ConflictsRerunCheckResponse = ConflictsRerunCheckResponses[keyof ConflictsRerunCheckResponses];
+
+export type ConflictsCancelRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel';
+};
+
+export type ConflictsCancelRunErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsCancelRunError = ConflictsCancelRunErrors[keyof ConflictsCancelRunErrors];
+
+export type ConflictsCancelRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: ConflictsCancelledRun;
+};
+
+export type ConflictsCancelRunResponse = ConflictsCancelRunResponses[keyof ConflictsCancelRunResponses];
 
 export type ConflictsFileCheckOnMatterData = {
     body: FileConflictsCheckOnMatterRequest;

@@ -157,7 +157,7 @@ asked to justify how it screened a matter, a described procedure is what the que
 about. A one-word verdict is not, and a one-word verdict the software produced is worse than none,
 because it is a sentence a lawyer would then have to defend without having written it.
 
-When a check turns up nothing, the report ends with the sentence **"Nothing surfaced."** That sentence
+When a check turns up nothing, the report ends with the sentence **"0 results."** That sentence
 is about the search. It is not about the matter.
 
 ## Where a matter stands

@@ -5,7 +5,7 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { createPerson } from "@magna-carta/directory/person";
 import { linkMatterParty } from "@magna-carta/directory/party";
 import { expect, test } from "vitest";
-import { findImputationHits } from "../src/imputation.ts";
+import { findImputationHits, findMemberEntities } from "../src/imputation.ts";
 
 const clock = { now: () => "2026-07-09T00:00:00.000Z" };
 const ACTOR = "user_actor" as UserId;
@@ -109,4 +109,27 @@ test("a soft-deleted matter party does not impute", async () => {
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toEqual([]);
+});
+
+// With no matter named, Firm Employees asks whether anybody the check reached IS one of the firm's
+// own people — the same identity join, over the reached entities instead of a matter's parties.
+test("a reached entity linked to a member is found without any matter", async () => {
+  const { database, raw } = await imputationDatabase();
+  const options = writeOptions("member-reached");
+  raw.exec(
+    `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_partner', 'Ada Partner', 'active', '${clock.now()}')`,
+  );
+  const memberPerson = await createPerson(database, { given: "Ada", family: "Partner" }, options);
+  raw.exec(`UPDATE directory_person SET member_id = 'user_partner' WHERE id = '${memberPerson}'`);
+  const stranger = await createPerson(database, { given: "Ada", family: "Partner" }, options);
+
+  const found = await findMemberEntities(database, [stranger, memberPerson]);
+  // Identity, not name: the stranger shares every letter of the name and is not found.
+  expect(found).toEqual([{ memberUserId: "user_partner", entityId: memberPerson }]);
+});
+
+test("the member lookup reads a closure larger than one query's parameters", async () => {
+  const { database } = await imputationDatabase();
+  const many = Array.from({ length: 1_200 }, (_, index) => `person_unknown${String(index)}`);
+  await expect(findMemberEntities(database, many)).resolves.toEqual([]);
 });

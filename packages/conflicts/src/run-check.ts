@@ -16,6 +16,7 @@ import {
   failRunStatement,
   openCheckRun,
   readLatestNumberedCheckForMatter,
+  readRun,
   reportRunProgressStatement,
   type OpenedRun,
   type RunProgress,
@@ -23,7 +24,7 @@ import {
 } from "./check-run.ts";
 import { assignTier, describeEvidence } from "./evidence.ts";
 import { expandGraph, WALK_CEILING, type ExpansionTruncation } from "./expansion.ts";
-import { findImputationHits } from "./imputation.ts";
+import { findImputationHits, findMemberEntities } from "./imputation.ts";
 import { matchPartyBatch } from "./matching.ts";
 import { nicknameCatalogueIsPopulated } from "@magna-carta/directory/nickname";
 import { readSubjectFactsBatch } from "./subject-facts.ts";
@@ -138,22 +139,55 @@ export async function executeCheckRun(
   const claimed = await claimRunStatement(database, run.runId, options.clock.now()).run();
   if (claimed.meta.changes === 0) return null;
 
+  // Every progress report doubles as the cancellation check: the write is guarded on the run still
+  // running, so a run a member stopped finds no row to report onto, and the search stops there
+  // rather than spending the rest of the invocation on an answer nobody will record.
   const report = async (stage: RunStage, progress: RunProgress): Promise<void> => {
-    await reportRunProgressStatement(
+    const reported = await reportRunProgressStatement(
       database,
       run.runId,
       stage,
       progress,
       options.clock.now(),
     ).run();
+    if (reported.meta.changes === 0) throw new RunStoppedError();
   };
 
   try {
     await search(context, run, options, report);
     return run.runId;
   } catch (error) {
+    if (error instanceof RunStoppedError || (await runWasCancelled(database, run.runId))) {
+      return null;
+    }
     await failRunStatement(database, run.runId, RUN_FAILURE, options.clock.now()).run();
     throw error;
+  }
+}
+
+// Thrown inside the search when its run is no longer running: a member cancelled it, or a read
+// settled it as stale. Neither is a fault, and neither is reported as one.
+class RunStoppedError extends Error {
+  constructor() {
+    super("the run is no longer running");
+    this.name = "RunStoppedError";
+  }
+}
+
+// Whether the run was cancelled. A cancel that lands between the last progress report and the
+// settling batch makes that batch's guarded completion refuse, which arrives here as an ordinary
+// error; this tells that case apart from a real failure.
+async function runWasCancelled(
+  database: DirectoryIdentifierContext["database"],
+  runId: ConflictsCheckId,
+): Promise<boolean> {
+  try {
+    const row = await readRun(database, runId);
+    return row !== null && row.cancelled_at !== null;
+  } catch {
+    // A database that cannot answer this cannot have recorded a cancel either; the original error
+    // is the one worth reporting.
+    return false;
   }
 }
 
@@ -271,19 +305,40 @@ async function search(
   const hits: CandidateHit[] = [...bounded.hits];
   const candidateTruncation: CandidateTruncation | null = bounded.truncation;
 
-  if (inScope.has("imputation") && input.matterId !== undefined) {
-    for (const imputed of await findImputationHits(context.database, [input.matterId])) {
-      hits.push({
-        entityId: imputed.entityId,
-        sourceClass: "imputation",
-        // Imputation is its own distinct class already; the co-party flag is for the party/graph
-        // channels, so an imputed hit is never additionally flagged.
-        coParty: false,
-        // Identity, not similarity: an exact join is the strongest evidence there is.
-        tier: 1,
-        matchedFields: [`firm member ${imputed.memberUserId} is a party (${imputed.role})`],
-        path: [],
-      });
+  if (inScope.has("imputation")) {
+    if (input.matterId !== undefined) {
+      for (const imputed of await findImputationHits(context.database, [input.matterId])) {
+        hits.push({
+          entityId: imputed.entityId,
+          sourceClass: "imputation",
+          // Imputation is its own distinct class already; the co-party flag is for the party/graph
+          // channels, so an imputed hit is never additionally flagged.
+          coParty: false,
+          // Identity, not similarity: an exact join is the strongest evidence there is.
+          tier: 1,
+          // Names the role, never the member's account handle: the handle is not a name a reader
+          // knows, and the hit already names the person through its entity.
+          matchedFields: [`a firm employee is a party on the matter (${imputed.role})`],
+          path: [],
+        });
+      }
+    } else {
+      // No matter to join against, so the question becomes whether anybody this check reached is
+      // one of the firm's own people. The same identity join, over the closure instead of a matter.
+      const pathByEntity = new Map(expanded.map((entity) => [entity.entityId, entity.path]));
+      for (const member of await findMemberEntities(
+        context.database,
+        expanded.map((entity) => entity.entityId),
+      )) {
+        hits.push({
+          entityId: member.entityId,
+          sourceClass: "imputation",
+          coParty: false,
+          tier: 1,
+          matchedFields: ["is a firm employee"],
+          path: pathByEntity.get(member.entityId) ?? [],
+        });
+      }
     }
   }
   await report("candidates", {
@@ -295,11 +350,6 @@ async function search(
 
   const scopeRecord: Record<string, SourceAvailability> = {};
   for (const sourceClass of scope.sources) scopeRecord[sourceClass] = availabilityOf(sourceClass);
-  // Imputation needs a matter to join firm members against; without one it never ran, no matter how
-  // the availability table above classifies the source class in general.
-  if (inScope.has("imputation") && input.matterId === undefined) {
-    scopeRecord["imputation"] = "unavailable";
-  }
   // Prior-firm lateral history is a registered source with no table. Record it, never omit it.
   scopeRecord[PRIOR_FIRM_HISTORY_SOURCE] = "unavailable";
   // Nickname equivalents: the catalogue exists and ships empty, so the dimension is recorded as one
