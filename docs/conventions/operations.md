@@ -898,3 +898,26 @@ The United States is answered from an index the platform builds itself, with no 
 **What never appears anywhere.** As in §19: the query is a client's address. The Containers log no query text and no address, their error bodies carry engine vocabulary only, and the routes stay POSTs.
 
 **Switching it off.** Remove the `ADDRESS_SERVICE` binding from the app worker. US lookups then go to Smarty if its pair is set, and to nothing otherwise. The worker, bucket and index can stay; with no queries the Containers sleep and bill nothing, and the cron keeps the index fresh for the day the binding returns. To stop the monthly build as well, remove the cron trigger from `apps/address-worker/wrangler.jsonc`.
+
+## 21. Caller ID lookup — switching it on (Telnyx)
+
+The call record's number field says who a typed number belongs to. The Directory match and the area code's region are free and always on. The **Look Up Caller ID** button is a paid Telnyx Number Lookup, and it ships **off**: with no `TELNYX_API_KEY`, the Worker answers the paid operation `unavailable`, no button is shown, and nothing calls out.
+
+**Switching it on**
+
+1. Create a Telnyx account under `ops@magnacarta.esq` (credentials into the Bitwarden vault) and add a balance. Number Lookup refuses to run on a negative balance, and only the organization owner may use it.
+2. **Mission Control → API Keys**: create a key.
+3. Set it on `magna-carta-api`: `wrangler secret put TELNYX_API_KEY`.
+4. Open **Messaging → New Message**, type a whole US number, and press **Look Up Caller ID**. The caller ID line replaces the button; typing the same number again shows it without the button.
+
+The name is not in `secrets.required` (§3), deliberately, for the same reason as the Smarty pair.
+
+**Watching it**
+
+- `communications.caller_lookup` in the telemetry dataset, with `engine` (`telnyx` / `deferred`) and `outcome` (`found` / `cached` / `not-covered` / `unavailable` / `failed`). Each `found` is a billed query (caller name plus carrier); `cached` cost nothing.
+- `outcome: failed` climbing means Telnyx is refusing — usually a revoked key or an empty balance. The person is told the lookup did not answer and nothing is kept, so their next press asks again.
+- **The Telnyx balance is the only hard spending ceiling.** Keep it at the amount you are prepared to spend; the Worker's rate limit is per isolate.
+
+**What never appears anywhere.** The number is a client's: the routes are POSTs (the invocation log records full URLs), the audit row records only that a lookup was paid for, and no metric dimension can hold the number or the name.
+
+**Switching it off.** `wrangler secret delete TELNYX_API_KEY`. The button disappears on the next read; answers already kept stay visible, because the firm paid for them.

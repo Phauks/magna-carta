@@ -330,6 +330,13 @@ export type Bindings = {
   // echoed to a caller: Smarty takes them in the query string, so the adapter never quotes a URL.
   SMARTY_AUTH_ID?: string;
   SMARTY_AUTH_TOKEN?: string;
+  // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
+  // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
+  // the free Directory match and area-code region and offers no paid lookup at all. Production sets
+  // it with `wrangler secret put TELNYX_API_KEY`, and doing so is what switches the button on — and
+  // starts the per-query bill. Not in wrangler.jsonc's secrets.required, for the same reason as the
+  // Turnstile key. Never logged, never echoed to a caller.
+  TELNYX_API_KEY?: string;
   // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
   // default — serve, unprotected, and count it) or "fail-closed" (refuse). Public deployment
   // configuration, not a secret: bound via wrangler.jsonc vars. An unset or unrecognized value takes
