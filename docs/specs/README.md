@@ -1,3 +1,5 @@
+| [`2026-09-18-api-worker-domain-modules-design.md`](2026-09-18-api-worker-domain-modules-design.md) | The api worker as a manifest of domain modules — one constructor and one sub-app per domain, contract shapes in the domain packages, the HTTP-versus-background seam inside the Worker, and the fitness tests that hold the shape; lazy loading checked and deferred, the deployable split kept settled | _Delivery model and application architecture_ · _Performance & concurrency model_ | Proposed (design) — ADR-the-api-worker-is-a-manifest-of-domain-modules |
+
 # Specs
 
 Detailed, per-subsystem design — the output of the **design → spec → plan → build** cycle. The white paper stays high-level (what each subsystem is and why); a spec here is the implementation-grade detail for one subsystem before code is written.

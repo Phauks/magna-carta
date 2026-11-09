@@ -148,9 +148,9 @@ the available tasks are inert until the gate is turned on.
 - `packages/file-manager/src/queries.ts:177` — TS2322: a value with `scanVerdict: "infected"` assigned
   to `CleanVersion` (whose `scanVerdict` excludes it). **Real** (confirmed under plain `noEmit`). Needs
   a domain call: widen `CleanVersion`, or fix the producer.
-- `apps/worker/src/routes/time-entries.ts:603,904,975,1057` — TS2345: `ProxyBatchDatabase` passed where
+- `apps/worker/src/routes/timekeeping/time-entries.ts:603,904,975,1057` — TS2345: `ProxyBatchDatabase` passed where
   `D1Database` is expected (missing `exec`/`withSession`/`dump`). Real-class assignability errors.
-- `apps/worker/src/routes/file-type.ts:88` — TS2345 (`readonly string[]` → mutable `string[]`);
+- `apps/worker/src/routes/files/file-type.ts:88` — TS2345 (`readonly string[]` → mutable `string[]`);
   `:114,129` — TS2820: `"engine-unavailable"` is not a member of the Problem `type` union
   (`"service-unavailable"`?).
 - `apps/worker/src/app.ts:527` — TS2883: `buildOpenAPIDocument`'s inferred type is not nameable in the

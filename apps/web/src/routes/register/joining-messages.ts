@@ -19,7 +19,7 @@ import type { JoiningOutcome, JoiningProblem } from "$lib/auth/joining-api.ts";
 
 /**
  * The problem type the API stamps on a 503 whose cause is a mail that would not send
- * (apps/api-worker/src/contracts/problem-types.ts). Matched as a STRING rather than imported,
+ * (apps/api-worker/src/http/contracts/problem-types.ts). Matched as a STRING rather than imported,
  * because apps/web does not depend on the worker — the same arrangement the request shapes in
  * $lib/auth/joining-api.ts are under, and the contract snapshot is what keeps the two honest.
  */

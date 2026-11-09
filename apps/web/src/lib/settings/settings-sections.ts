@@ -188,8 +188,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
-    // Text preferences (typeface, size). Its rows are honest Soon seams until the type system
-    // grows the machinery (font tokens / a text-scale overlay) — see the page.
+    // Text preferences: the reading typeface (live) and text size (a Soon seam until the type
+    // system grows a text-scale overlay) — see the page.
     id: "text",
     label: "Text",
     href: "/settings/text",
@@ -205,12 +205,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     //
     // Instant rather than the firm scope's draft default: it is one field, and the footer's
     // staged-count-and-recap anatomy over a single row would be more machinery than the act. The
-    // rest of "identity" — an address, a telephone number, a letterhead root — belongs to an
-    // office, which has its own page, rather than being a second firm-wide answer no letterhead
-    // reads.
+    // firm's marks live on Firm Brand and its offices on Offices, each on its own page, so the
+    // identity page never repeats a register that has a home of its own.
     id: "firm-profile",
     label: "Firm Profile",
     href: "/settings/firm-profile",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's marks: the primary mark every office's letterhead prints unless the office has a
+    // logo of its own, and the additional images kept beside it. Every act (add, make primary,
+    // caption, remove) commits at once against the brand-image routes, so nothing is staged. Its
+    // own page rather than a plate on Firm Profile because how the firm looks is a different
+    // question from what it is called, and it is where firm-wide branding grows.
+    id: "firm-brand",
+    label: "Firm Brand",
+    href: "/settings/firm-brand",
     group: "firm",
     scope: "firm",
     commitMode: "instant",
@@ -232,6 +246,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "instant",
     editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
+    // settings form: each act (add, change, retire) commits through its own dialog against
+    // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
+    // nothing is staged. Its edit right is the calendar's own `calendar:manage`, read from the
+    // session on the page, because the area seam here is still a mock.
+    id: "resources",
+    label: "Rooms and Resources",
+    href: "/settings/resources",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendar",
     shipped: true,
   },
   // Notifications
@@ -354,21 +383,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: "event-types",
     label: "Event Types",
     href: "/settings/event-types",
-    group: "practice",
-    scope: "firm",
-    commitMode: "instant",
-    editPermissionArea: "calendar",
-    shipped: true,
-  },
-  {
-    // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
-    // settings form: each act (add, change, retire) commits through its own dialog against
-    // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
-    // nothing is staged. Its edit right is the calendar's own `calendar:manage`, read from the
-    // session on the page, because the area seam here is still a mock.
-    id: "resources",
-    label: "Rooms and Resources",
-    href: "/settings/resources",
     group: "practice",
     scope: "firm",
     commitMode: "instant",

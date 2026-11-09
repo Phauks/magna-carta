@@ -8,7 +8,7 @@ import {
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -64,12 +64,14 @@ function authedJson(cookie: string, withIdempotencyKey: boolean): Record<string,
 async function mirrorMemberWhoMayShipButNotDecrypt(
   userId: UserId,
   displayName: string,
+  // Role names are unique within a firm, so a second member of this shape needs a role of its own.
+  roleName = "Mailroom",
 ): Promise<void> {
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
   const roleId = newIdentifier("role");
   await firmDatabase
     .prepare("INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)")
-    .bind(roleId, "Mailroom", new Date().toISOString())
+    .bind(roleId, roleName, new Date().toISOString())
     .run();
   await firmDatabase
     .prepare("INSERT INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
@@ -194,5 +196,90 @@ describe("the postage credential's permission gate", () => {
       env,
     );
     expect(rates.status).not.toBe(403);
+  });
+});
+
+/*
+ * Writing the credential is the administrator's act, not the mailroom's.
+ *
+ * The credential store deliberately does no permission check on a write — it defers to the route — so
+ * the route's own permission is the only gate there is. It used to be shipping:manage, the same key
+ * as drafting a shipment, which let any member who could draft one swap the firm's key for one on an
+ * account they control (after which every shipment an administrator bought, with its clients' names
+ * and addresses, went to that account) or switch the firm's postage off outright. These pin both
+ * doors shut for exactly the member who is otherwise trusted with shipping, and pin that nothing was
+ * written — a 403 raised after a write would pass a status assertion and still be the bug.
+ */
+describe("who may change the postage account", () => {
+  async function storedCiphertext(): Promise<string | null> {
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const row = await firmDatabase
+      .prepare("SELECT ciphertext FROM integration_credential")
+      .first<{ ciphertext: string }>();
+    return row?.ciphertext ?? null;
+  }
+
+  let mailerCookie: string;
+
+  beforeAll(async () => {
+    const { userId } = await seedCredentialedUser("mailer@mailroom.example", {
+      userName: "Mailer",
+      firmId,
+    });
+    await mirrorMemberWhoMayShipButNotDecrypt(userId, "Mailer", "Postroom");
+    mailerCookie = await signInForSessionCookie("mailer@mailroom.example");
+  });
+
+  it("refuses a member with only shipping:manage who tries to replace the key, and writes nothing", async () => {
+    const before = await storedCiphertext();
+    expect(before).not.toBeNull();
+
+    const replace = await app.request(
+      `${ROUTE_BASE}/integrations/shipping/connection`,
+      {
+        method: "POST",
+        headers: authedJson(mailerCookie, true),
+        body: JSON.stringify({ apiKey: "ezk-an-account-the-member-controls" }),
+      },
+      env,
+    );
+    expect(replace.status).toBe(403);
+    expect(await storedCiphertext()).toBe(before);
+  });
+
+  it("refuses the same member who tries to disconnect, and the firm stays connected", async () => {
+    const disconnect = await app.request(
+      `${ROUTE_BASE}/integrations/shipping/connection`,
+      { method: "DELETE", headers: authedJson(mailerCookie, true) },
+      env,
+    );
+    expect(disconnect.status).toBe(403);
+
+    // Reading whether the firm is connected stays on shipping:manage: the register says "no account
+    // is connected" from it, and that sentence is for exactly this member.
+    const state = await app.request(
+      `${ROUTE_BASE}/integrations/shipping/connection`,
+      { method: "GET", headers: authedJson(mailerCookie, false) },
+      env,
+    );
+    expect(state.status).toBe(200);
+    expect(await state.json()).toMatchObject({ connected: true });
+  });
+
+  it("still lets the administrator replace the key", async () => {
+    const before = await storedCiphertext();
+    const adminCookie = await signInForSessionCookie("admin@mailroom.example");
+    const replace = await app.request(
+      `${ROUTE_BASE}/integrations/shipping/connection`,
+      {
+        method: "POST",
+        headers: authedJson(adminCookie, true),
+        body: JSON.stringify({ apiKey: "ezk_test_rotated" }),
+      },
+      env,
+    );
+    expect(replace.status).toBe(201);
+    // Re-sealed, so the stored bytes moved: the control for the "nothing written" assertions above.
+    expect(await storedCiphertext()).not.toBe(before);
   });
 });

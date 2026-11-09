@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * Settings · Rooms and Resources — the firm's bookable things, under Practice. A CATALOG page,
+   * Settings · Rooms and Resources — the firm's bookable things, under Firm. A CATALOG page,
    * not a settings form: every act (add, change, retire) is asked for in the one panel and commits
    * against the resource routes at once, so the posture is "applies immediately" and nothing is
    * staged. A retired resource keeps its bookings and its history; it simply stops being offered.
@@ -16,11 +16,13 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -230,12 +232,23 @@
   {:else if column.id === "standing"}
     <Badge variant={row.active ? "success" : "neutral"}>{resourceStandingLabel(row)}</Badge>
   {:else if column.id === CATALOG_ACTIONS_COLUMN_ID}
-    <span class="inline-flex items-center justify-end gap-4">
-      <Button variant="ghost" size="sm" onclick={() => openEdit(row)}>Change</Button>
-      <Button variant="ghost" size="sm" onclick={() => void setActive(row, !row.active)}>
-        {row.active ? "Retire" : "Restore"}
-      </Button>
-    </span>
+    <!-- One icon-sized trigger rather than a button per act: the column keeps one width whatever
+         a row offers (Retire and Restore are different lengths), so nothing reflows as a resource
+         changes standing or as more acts arrive. -->
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
+        aria-label={`Actions for ${row.name}`}
+      >
+        <Ellipsis class="size-16" aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        <DropdownMenu.Item onSelect={() => openEdit(row)}>Change</DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => void setActive(row, !row.active)}>
+          {row.active ? "Retire" : "Restore"}
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   {:else}
     {text}
   {/if}

@@ -18,7 +18,7 @@ dedicated workers" standing rule):
   container holds no credentials and needs no egress. This worker has the R2 binding; the main app worker
   reaches it via a `BUNDLE_SERVICE` Fetcher binding (like `SCAN_SERVICE`).
 - **Main worker `apps/worker/src/downloads/`** — extended:
-  - `routes/downloads.ts`: the `ZipRequest` schema gains an optional `options: BundleOptions` (reuse
+  - `routes/files/downloads.ts`: the `ZipRequest` schema gains an optional `options: BundleOptions` (reuse
     `bundleOptionsSchema` from `@magna-carta/file-manager/bundle-options`); validate with
     `validateOptionsForFormat`; apply `applyBundleLayout` to the resolved entries; choose the lane.
   - A `bundleContainerAdapter` (mirrors `containerScanAdapter`) over the `BUNDLE_SERVICE` Fetcher:
@@ -26,7 +26,7 @@ dedicated workers" standing rule):
   - `bundle-types.ts` / `bundle-coordinator.ts` / `bundle-consumer.ts`: carry `BundleOptions` + the
     multi-volume artifact key list; the unencrypted build consumer calls the adapter instead of
     `client-zip`.
-  - `routes/bundle-status.ts`: return the set of signed volume URLs when ready.
+  - `routes/files/bundle-status.ts`: return the set of signed volume URLs when ready.
   - Cache key: `bundleCacheKey(entries, options)` (already built) instead of `bundleManifestHash` for
     optioned bundles. The CONTENTS manifest, when requested, is generated in the route from the
     `file_version` SHA-256 (`buildContentsManifest`) and passed as an inline entry in the manifest.

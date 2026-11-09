@@ -140,7 +140,7 @@ git commit -m "fix(tools): a built tool is launchable at any stage above soon"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/tools-connection.ts`
+- Create: `apps/worker/src/routes/tools/tools-connection.ts`
 - Modify: `apps/worker/src/app.ts` (one import, one registration call)
 - Modify: `apps/worker/openapi/openapi.json` (regenerated, not hand-edited)
 - Modify: `packages/api-client/**` (regenerated, not hand-edited)
@@ -187,7 +187,7 @@ Expected: FAIL — the path is absent from the contract, and the request 404s ra
 
 - [ ] **Step 3: Create the route**
 
-Create `apps/worker/src/routes/tools-connection.ts`:
+Create `apps/worker/src/routes/tools/tools-connection.ts`:
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -277,7 +277,7 @@ export function registerToolsConnectionRoute(
 In `apps/worker/src/app.ts`, add the import beside the other route imports:
 
 ```ts
-import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
+import { registerToolsConnectionRoute } from "./routes/tools/tools-connection.ts";
 ```
 
 and the registration beside `registerFirmUsageRoute(app, chokepoint);`:
@@ -302,7 +302,7 @@ Expected: PASS — the route 401s unauthenticated, appears in the contract, and 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/worker/src/routes/tools-connection.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json apps/worker/test/tools-connection.test.ts packages/api-client
+git add apps/worker/src/routes/tools/tools-connection.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json apps/worker/test/tools-connection.test.ts packages/api-client
 git commit -m "feat(tools): connection route reporting the edge's view of the caller"
 ```
 
@@ -1789,7 +1789,7 @@ So the engine is told to measure packet loss **only when credentials are actuall
 
 **Files:**
 
-- Create: `apps/worker/src/routes/tools-turn-credentials.ts`
+- Create: `apps/worker/src/routes/tools/tools-turn-credentials.ts`
 - Modify: `apps/worker/src/app.ts` (one import, one registration)
 - Modify: `apps/worker/openapi/openapi.json`, `packages/api-client/**` (regenerated, never hand-edited)
 - Test: `apps/worker/test/tools-turn-credentials.test.ts`
@@ -1823,7 +1823,7 @@ Expected: FAIL — the path 404s.
 
 - [ ] **Step 3: Write the route**
 
-Create `apps/worker/src/routes/tools-turn-credentials.ts`, following `apps/worker/src/routes/tools-connection.ts` for structure:
+Create `apps/worker/src/routes/tools/tools-turn-credentials.ts`, following `apps/worker/src/routes/tools/tools-connection.ts` for structure:
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -1987,7 +1987,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/worker/src/routes/tools-turn-credentials.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json apps/worker/test/tools-turn-credentials.test.ts packages/api-client
+git add apps/worker/src/routes/tools/tools-turn-credentials.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json apps/worker/test/tools-turn-credentials.test.ts packages/api-client
 git commit -m "feat(tools): short-lived relay credentials for packet-loss measurement"
 ```
 

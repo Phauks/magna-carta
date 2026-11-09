@@ -6,7 +6,7 @@ import {
   objectIsStamped,
 } from "@magna-carta/object-dimensions/dimensions";
 import { beforeAll, describe, expect, it } from "vitest";
-import { runDimensionBackfillSweep } from "../src/files/dimension-backfill-sweep.ts";
+import { runDimensionBackfillSweep } from "../src/background/files/dimension-backfill-sweep.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle } from "./support/firm-database-handle.ts";
 

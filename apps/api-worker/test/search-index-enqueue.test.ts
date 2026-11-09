@@ -6,7 +6,7 @@ import { initiateUpload } from "@magna-carta/file-manager/file-service";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileVersionId, FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { searchIndexingEnabledDefinition } from "@magna-carta/search/settings";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { enqueueVersionForIndexing } from "../src/search/enqueue-index.ts";
 import { searchIndexJobName } from "../src/search/index-types.ts";

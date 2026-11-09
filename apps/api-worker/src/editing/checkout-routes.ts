@@ -23,17 +23,18 @@ import {
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DocumentCheckoutId, FileId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
-import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import type { Bindings } from "../bindings.ts";
+import type { Chokepoint } from "../http/chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointUserId,
-} from "../chokepoint/context-accessors.ts";
-import type { AppVariables } from "../chokepoint/ports.ts";
-import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { identifierField, identifierPathParam } from "../contracts/common.ts";
-import { Problem, problemJson } from "../contracts/problem.ts";
-import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+} from "../http/chokepoint/context-accessors.ts";
+import type { AppVariables } from "../http/chokepoint/ports.ts";
+import { chokepointMiddleware } from "../http/chokepoint/register.ts";
+import { identifierPathParam } from "../http/contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
+import { Problem, problemJson } from "../http/contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../http/contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { copyObjectPreservingDimensions } from "../files/object-stamping.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
@@ -479,7 +480,7 @@ export function registerDocumentCheckoutRoutes(
           url: presigned.url,
           // The presigner's set exactly: it already carries the content type it signed, and a
           // second spelling beside it is merged by the browser into one doubled value the
-          // signature does not cover (the defect routes/uploads.ts records).
+          // signature does not cover (the defect routes/files/uploads.ts records).
           headers: presigned.headers,
         },
         200,

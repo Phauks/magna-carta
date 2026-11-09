@@ -12,7 +12,7 @@ interface ships on `magna-carta-web`, in minutes, while `magna-carta` deploys on
 itself changes.**
 
 **Context:** The split was designed in
-[`docs/specs/2026-08-21-spa-worker-split-design.md`](../../specs/2026-08-21-spa-worker-split-design.md)
+[`docs/specs/2026-08-21-spa-worker-split-design.md`](../specs/2026-08-21-spa-worker-split-design.md)
 and gated on two owner flags: W1 (do it at all, after reading the real build cost) and W2 (what
 hostname the application answers on). The premise held up — `apps/web` imports no WebAssembly and
 `adapter-static` produces a folder, not a program — and the blocker was never code: route patterns

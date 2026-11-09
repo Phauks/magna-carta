@@ -25,7 +25,7 @@ image = { workspace = true }
 # (`onig_sys`, a C regex library) into the shipped binary via a normal (non-build) edge --
 # Cargo feature unification cannot drop it. See containers/ocr/CLAUDE.md for the reachability
 # reasoning; removing it would require forking oar-ocr-core to make `tokenizers` optional.
-oar-ocr = { version = "0.8", default-features = false, features = ["download-binaries"] }
+oar-ocr = { version = "0.9", default-features = false, features = ["download-binaries"] }
 
 # The workspace lint floor (see crates/Cargo.toml): unsafe Rust forbidden, and the abort lints denied so a
 # malformed input returns an error instead of taking the process down. A member that omits this table is

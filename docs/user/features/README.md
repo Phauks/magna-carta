@@ -49,6 +49,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
 - [`conflicts-reports.md`](conflicts-reports.md) — Conflicts reports: what a conflicts check searched, what it could not search, what is still unanswered, and why the platform reports a search rather than a verdict (backend built, screens pending).
 - [`automatic-conflicts-rechecks.md`](automatic-conflicts-rechecks.md) — Automatic conflicts re-checks: the six changes that make a matter get looked at again, what deliberately does not, and why a matter says a re-check is owed before one has run (backend built, screens pending).
+- [`your-reading-typeface.md`](your-reading-typeface.md) — Your reading typeface: choosing the face the interface is set in (Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata or your system's own), what follows the choice and what keeps its own face, and undoing a change.
 - [`your-sidebar.md`](your-sidebar.md) — Your sidebar: the groups the rows are gathered under, the tools and the four groups they fold into, saving a page to Favorites, Customize, and collapsing the sidebar.
 - [`shipping.md`](shipping.md) — Shipping & postage: sending mail and packages, certified mail, buying and voiding labels, tracking, and who may spend postage.
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup: who registered a domain or IP address, and when.

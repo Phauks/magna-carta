@@ -4,7 +4,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CANCEL_CLOSING_GUARD } from "@magna-carta/meetings/meeting-service";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { racingFirmDatabase } from "./support/racing-firm-database.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -307,6 +307,19 @@ describe("recording what happens in a case", () => {
       source: "statutory_catalog",
     });
     // Refused at the door by the request contract: the source is not one a caller can name.
+    expect(refused.status).toBe(422);
+  });
+
+  it("refuses a deadline whose time is not a time of day", async () => {
+    // The form's control can only hold a time, but the contract is the door every caller uses. One
+    // request: this block's firm shares one rate-limit window, and the range of malformed times is
+    // pinned in packages/calendar/test/deadline-service.test.ts.
+    const refused = await post(`/api/v1/matters/${matterId}/deadlines`, {
+      title: "Opposition due",
+      dueOn: "2026-12-01",
+      dueAtTime: "5pm",
+      timeZone: "America/Los_Angeles",
+    });
     expect(refused.status).toBe(422);
   });
 });

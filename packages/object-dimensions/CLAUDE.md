@@ -38,7 +38,7 @@ headers) here.
 
 - Depends only on `@magna-carta/identifiers` (for `MatterId`). Consumed by `@magna-carta/file-manager`
   (which returns the stamp for the version it reserves), `apps/api-worker`, and `apps/email-worker`.
-- The backfill sweep (`apps/api-worker/src/files/dimension-backfill-sweep.ts`) is the repair path for
+- The backfill sweep (`apps/api-worker/src/background/files/dimension-backfill-sweep.ts`) is the repair path for
   objects written before a stamp existed; it reads through `objectIsStamped` and writes through the
   same two builders, so a stamped-late object is byte-identical in metadata to a stamped-at-write one.
 

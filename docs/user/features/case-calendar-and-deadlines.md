@@ -268,8 +268,11 @@ vacated is itself a fact about the case.
 A deadline is a different kind of record from an event, because two things are true of it that are
 not true of a hearing: it can be **satisfied**, and it **came from somewhere**.
 
-Give it a title, a date, and a time zone. Add a time if you know it — many filing deadlines are five
-in the afternoon, and a deadline whose hour nobody wrote down is not treated as midnight. Write down
+Give it a matter, a title, a date, and a time zone. A deadline always belongs to a matter, so the
+matter list on this form has no **No matter** choice; a date the whole firm keeps is a firm event.
+Add a time if you know it — many filing deadlines are five in the afternoon, and a deadline whose hour
+nobody wrote down is due at the end of its day, not at midnight. The time field takes only a time of
+day, and one left half-typed is pointed out beneath the field rather than recorded as no time. Write down
 **the authority** it comes from in your own words: the rule, the statute, the order. That note is
 what you or a colleague reads six months later when deciding whether the date is right.
 

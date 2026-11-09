@@ -262,7 +262,7 @@ export const member = sqliteTable("member", {
 // and keying on content would make one member's upload silently become the other's row.
 //
 // WHY THE FIRM'S DATABASE AND NOT THE ACCOUNT'S. A member's own name is an ACCOUNT fact and lives
-// on the control-plane user row (apps/api-worker/src/routes/me-name.ts says why). A picture is not
+// on the control-plane user row (apps/api-worker/src/http/routes/session/me-name.ts says why). A picture is not
 // the same kind of fact: it is what this firm's colleagues see beside this person's work, it is
 // stored in this firm's bucket under this firm's key, and a person who leaves takes their name to
 // their next account and leaves the firm's roster photograph behind. Better Auth's `user.image`
@@ -1264,6 +1264,42 @@ export const fileVersionParticipant = sqliteTable(
     memberUserId: text("member_user_id").notNull().$type<UserId>(),
   },
   (table) => [primaryKey({ columns: [table.versionId, table.memberUserId] })],
+);
+
+// One tracked change a version carries that no earlier version of the file carried: who wrote or
+// removed which words, and where. Read from the document itself when the version's export copy is
+// made (the marks are the document's own record; the platform never re-derives them from a text
+// comparison), one row per mark, the author resolved to a member at that moment. The author's name
+// is kept as the document holds it beside the resolution, so a mark whose name resolves to nobody
+// is kept rather than dropped. Not a foreign key to the member row, on the same terms as
+// `uploaded_by`. The words are capped (`text_truncated`), since a row is a record of a change and
+// not a second copy of the document.
+export const fileVersionChange = sqliteTable(
+  "file_version_change",
+  {
+    versionId: text("version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    // Document order within the version, from zero.
+    sequence: integer("sequence").notNull(),
+    kind: text("kind", { enum: ["insertion", "deletion", "formatting"] }).notNull(),
+    authorName: text("author_name").notNull(),
+    authorUserId: text("author_user_id").$type<UserId>(),
+    changedAt: text("changed_at"),
+    text: text("text").notNull(),
+    textTruncated: integer("text_truncated").notNull().default(0),
+    // The package part the change sits in, and the paragraph within it, counted from zero.
+    part: text("part").notNull(),
+    paragraphIndex: integer("paragraph_index").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.sequence] }),
+    check(
+      "file_version_change_kind_check",
+      sql`${table.kind} IN ('insertion', 'deletion', 'formatting')`,
+    ),
+  ],
 );
 
 export const documentCheckout = sqliteTable(

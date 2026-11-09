@@ -7,7 +7,7 @@
   scope: In-app and public changelog, release notes, roadmap, and live known-issues/status — versioned content bundled with the build, live content in control-plane KV.
   status: partial
   adrs: ADR-0048
-  evidence: Authoring homes and fragment assembly are shipped, the live-status KV machinery exists, and the artifact's schema and parsers are a real package (packages/product-updates). What is unbuilt is everything that would move an artifact anywhere: no build step calls the builders, nothing writes product-updates.json, nothing publishes to KV, and there is no /updates route and no public update page.
+  evidence: Authoring homes and fragment assembly are shipped, the live-status KV machinery exists, and the artifact's schema and parsers are a real package (packages/product-updates). The in-app Changelog screen (apps/web/src/routes/(app)/updates) renders the public changelog built into the web bundle. What is unbuilt: nothing writes product-updates.json or publishes to KV, there is no What's New or Roadmap view, and there is no public update page.
 
 - id: product-updates.sources
   name: Authoring homes and fragment assembly
@@ -23,7 +23,7 @@
   status: partial
   surface: internal
   adrs: ADR-0048
-  evidence: Partial because the artifact exists as a package and as nothing else. The schema and the generators exist — packages/product-updates holds a versioned zod artifact schema plus buildPublicChangelogArtifact and buildPublicRoadmapArtifact, both strict enough that a malformed heading fails rather than silently dropping an entry. Nothing calls either outside their own tests: no build step runs them, no product-updates.json is written, and nothing publishes to KV at deploy.
+  evidence: Partial because the artifact exists as a package and as nothing else. The schema and the generators exist — packages/product-updates holds a versioned zod artifact schema plus buildPublicChangelogArtifact and buildPublicRoadmapArtifact, both strict enough that a malformed heading fails rather than silently dropping an entry. The web bundle calls buildPublicChangelogArtifact on docs/public-changelog.md (apps/web/src/lib/product-updates/public-changelog.ts); nothing else does — no product-updates.json is written and nothing publishes to KV at deploy.
 
 - id: product-updates.release-notes
   name: Curated release notes
@@ -34,9 +34,10 @@
 - id: product-updates.updates-route
   name: In-app /updates surface
   scope: Authenticated deep-linkable route with What's New, Changelog, and Roadmap tabs plus a help-menu entry carrying the unread badge.
-  status: not-started
+  status: partial
+  surface: screen
   adrs: ADR-0048
-  evidence: No such route in apps/web; design system it must build from is shipped.
+  evidence: apps/web/src/routes/(app)/updates renders the Changelog view, filterable by category, reached from the profile menu's Websites > Changelog and the command palette. The What's New and Roadmap views and the unread badge are not built.
 
 - id: product-updates.public-pages
   name: Public changelog/roadmap/status pages

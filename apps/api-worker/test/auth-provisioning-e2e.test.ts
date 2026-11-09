@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { isPermission } from "@magna-carta/access-control/registry";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { runScheduledSweep } from "../src/scheduled.ts";
+import { runScheduledSweep } from "../src/background/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { NON_MUTATING_POST_ALLOW_LIST as NON_MUTATING_POST_EXEMPTIONS } from "./support/non-mutating-post-allow-list.ts";
 import {

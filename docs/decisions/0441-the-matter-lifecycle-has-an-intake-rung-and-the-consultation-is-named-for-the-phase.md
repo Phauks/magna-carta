@@ -47,4 +47,4 @@ the intake package's precondition is renamed to the door it holds; the desk gain
 and Complete Intake; the status window gains the Complete Intake step with Requirements To Complete
 Intake; every surface and test that spelled `prospective` now spells `consultation`, and the usage
 report counts intakes. Spec:
-[`docs/specs/2026-09-05-intake-desk-design.md`](../../specs/2026-09-05-intake-desk-design.md).
+[`docs/specs/2026-09-05-intake-desk-design.md`](../specs/2026-09-05-intake-desk-design.md).
