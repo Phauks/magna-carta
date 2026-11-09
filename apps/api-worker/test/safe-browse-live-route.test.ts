@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { LiveSessionPlan } from "@magna-carta/safe-browse";
 import type { LiveServerMessage } from "@magna-carta/safe-browse/live-stream-protocol";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import type { LiveBrowser, LiveBrowserOpener } from "../src/safe-browse/live-stream.ts";
 import { SafeBrowseSession, streamRequest } from "../src/safe-browse/safe-browse-session.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";

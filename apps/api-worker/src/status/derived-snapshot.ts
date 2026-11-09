@@ -17,7 +17,7 @@ import {
   SCHEMA_VERSION,
   STATUS_KV_KEYS,
 } from "@magna-carta/status";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 // Probe only the cheap, always-warm core primitives; never boot a container to check it.
 async function probeCore(env: Bindings): Promise<Record<string, ProbeOutcome>> {

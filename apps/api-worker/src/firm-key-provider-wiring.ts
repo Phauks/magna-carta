@@ -4,7 +4,7 @@ import {
   type WrappedKeyRow,
 } from "@magna-carta/data-access/firm-key-provider";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 
 // One firm-key provider per worker env — the same per-isolate caching discipline as authForEnv: the
 // env object is stable within an isolate, so the unwrapped non-extractable HKDF handles are cached

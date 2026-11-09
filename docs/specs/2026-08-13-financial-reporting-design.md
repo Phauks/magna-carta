@@ -511,7 +511,7 @@ packages/reporting/                 pure, writes nothing, holds no binding
   test/purity.test.ts               the read-only fitness function
   test/agreement.test.ts            every decomposition equals the aggregate its owner produces
 
-apps/worker/src/routes/reports.ts   GET reads + the one production enqueue
+apps/worker/src/routes/billing/reports.ts   GET reads + the one production enqueue
 apps/worker/src/reports-consumer.ts the queue consumer that assembles, renders, files
 ```
 

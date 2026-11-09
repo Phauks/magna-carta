@@ -1,5 +1,5 @@
 import { afterEach } from "vitest";
-import { backgroundWorkStatus } from "../../src/background.ts";
+import { backgroundWorkStatus } from "../../src/http/deferred-work.ts";
 
 // The entrypoint reaches the app through a runtime dynamic import (src/index.ts keeps the startup
 // budget), and the test pool's module loader deadlocks when that import is first resolved INSIDE a

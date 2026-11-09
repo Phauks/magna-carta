@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Confidentiality keystone (never regress):** the password and any decrypted plaintext must NEVER appear in a response (except the recovered password surfaced once to the authorized requester on `found`), audit record, problem detail, log, or queue message. Only the **extracted hash string** enters the job/queue/container — never the file bytes. `fileSha256` in audits is of the ENCRYPTED input. Audits go through `insertAuditLogStatement` (which invokes `refuseUnredactedMetadata`). (`docs/conventions/invariants.md`; the Slice-1 boundary in `apps/worker/src/routes/decryption.ts`.)
+- **Confidentiality keystone (never regress):** the password and any decrypted plaintext must NEVER appear in a response (except the recovered password surfaced once to the authorized requester on `found`), audit record, problem detail, log, or queue message. Only the **extracted hash string** enters the job/queue/container — never the file bytes. `fileSha256` in audits is of the ENCRYPTED input. Audits go through `insertAuditLogStatement` (which invokes `refuseUnredactedMetadata`). (`docs/conventions/invariants.md`; the Slice-1 boundary in `apps/worker/src/routes/files/decryption.ts`.)
 - **Button-initiated only.** Recovery runs solely on the explicit `POST /api/v1/decryption/recover` action. Nothing cracks on upload or inspect. There is no background/automatic pass anywhere.
 - **No panic / no 500 on untrusted input.** Routes and the container ingest attacker-influenced bytes/hashes/params — malformed → 400, never 500/panic. The container already clamps inverted/oob shard specs; keep that.
 - **Full names, no shorthand** (golden rule 12): `RecoveryJobCoordinator`, `recoveryTier`, `shardIndex`, `shardCount`, `candidatesTried` — no `rec`/`wl`/`idx`. The DO class is `RecoveryJobCoordinator` (the Rust crate already owns the name `RecoveryJob` — a struct — so the DO must NOT reuse the bare name).
@@ -31,7 +31,7 @@ New home: **`apps/worker/src/recovery/`** (mirrors `apps/worker/src/downloads/` 
 - `apps/worker/src/recovery/recovery-coordinator.ts` — the `RecoveryJobCoordinator` DO (fan-out + aggregation + first-hit-cancel + alarm).
 - `apps/worker/src/recovery/recovery-service-adapter.ts` — the typed, zod-validated fetch over the `RECOVERY_SERVICE` binding to `apps/recovery-worker` (mirrors `files/container-scan-adapter.ts`).
 - `apps/worker/src/recovery/recovery-consumer.ts` — the recovery-Queue consumer (dispatch shard → report back → ack/retry; skip once the job is terminal).
-- `apps/worker/src/routes/recovery.ts` — the `recover` / status / `cancel` routes (new file; keeps `routes/decryption.ts` focused on the synchronous inspect/unlock).
+- `apps/worker/src/routes/files/recovery.ts` — the `recover` / status / `cancel` routes (new file; keeps `routes/files/decryption.ts` focused on the synchronous inspect/unlock).
 
 Modified:
 
@@ -403,15 +403,15 @@ it("dispatches a live shard and reports the outcome back", async () => {
 
 ---
 
-### Task 7: Routes — `recover` / status / `cancel` (`routes/recovery.ts`)
+### Task 7: Routes — `recover` / status / `cancel` (`routes/files/recovery.ts`)
 
-The button-initiated surface. Mirrors the Slice-1 decryption routes' boundary (permission, attestation, size-cap, base64 decode, wasm, redacted audit) — see `apps/worker/src/routes/decryption.ts`.
+The button-initiated surface. Mirrors the Slice-1 decryption routes' boundary (permission, attestation, size-cap, base64 decode, wasm, redacted audit) — see `apps/worker/src/routes/files/decryption.ts`.
 
-**Files:** Create `apps/worker/src/routes/recovery.ts`
+**Files:** Create `apps/worker/src/routes/files/recovery.ts`
 
 **Interfaces:**
 
-- Consumes: `ensureReady`, `extractHash`, `recoveryTier`, `DecryptionError` (`@magna-carta/decryption`); the wasm module import (copy the `decryption_core_bg.wasm` import + `decryptionWasm` cast from `routes/decryption.ts`); `requireChokepointFirmContext`/`requireChokepointUserId`, `chokepointMiddleware`, `defineOpenAPIRoute`, `RouteMeta`, `Problem`/`problemJson`, `commitEffectBatch`, `insertAuditLogStatement`, `newIdentifier`; `env.RECOVERY_JOB`; `RecoveryStartInput`/`RecoveryJobState` (Task 3).
+- Consumes: `ensureReady`, `extractHash`, `recoveryTier`, `DecryptionError` (`@magna-carta/decryption`); the wasm module import (copy the `decryption_core_bg.wasm` import + `decryptionWasm` cast from `routes/files/decryption.ts`); `requireChokepointFirmContext`/`requireChokepointUserId`, `chokepointMiddleware`, `defineOpenAPIRoute`, `RouteMeta`, `Problem`/`problemJson`, `commitEffectBatch`, `insertAuditLogStatement`, `newIdentifier`; `env.RECOVERY_JOB`; `RecoveryStartInput`/`RecoveryJobState` (Task 3).
 - Produces: `export function registerRecoveryRoutes(app, chokepoint): void` with three operations. A module constant `const RECOVERY_SHARD_COUNT = 4;` (modest real sharding — a few containers — proves the coordinator; the comment states this is the CF-band fan-out width, tunable, not a keyspace bound).
 
 Operations (all `permission: "tools:decryption"`, `surface: "app"`, `authenticated: true`, `resource: "firm"`):
@@ -423,9 +423,9 @@ Operations (all `permission: "tools:decryption"`, `surface: "app"`, `authenticat
 Note the confidentiality invariant: the `recover` audit records tier/format/outcome/counts only; the recovered password is NEVER audited or logged, only returned via the status GET's `result.password`.
 
 - [ ] **Step 1: write the failing route-registration test** — assert the three routes register on a bare app and the metas carry `permission: "tools:decryption"` (a light unit test; the full behavior is the Task 9 e2e). Alternatively fold this into Task 9 and make Step 1 here the meta-shape assertion only.
-- [ ] **Step 2: run → fail. Step 3: implement** `registerRecoveryRoutes` (copy the decode/size-cap/attestation/wasm/DecryptionError-mapping helpers from `routes/decryption.ts` — factor the shared `decodeBase64`/`sha256Hex` into a small `routes/decryption-shared.ts` if that avoids duplication, else duplicate with a comment; do NOT re-export private internals across a boundary that would couple the files). **Step 4: run → pass.**
+- [ ] **Step 2: run → fail. Step 3: implement** `registerRecoveryRoutes` (copy the decode/size-cap/attestation/wasm/DecryptionError-mapping helpers from `routes/files/decryption.ts` — factor the shared `decodeBase64`/`sha256Hex` into a small `routes/decryption-shared.ts` if that avoids duplication, else duplicate with a comment; do NOT re-export private internals across a boundary that would couple the files). **Step 4: run → pass.**
 - [ ] **Step 5: register** in `apps/worker/src/app.ts`: import `registerRecoveryRoutes`, add `registerRecoveryRoutes(app, chokepoint);` beside `registerDecryptionRoutes(app, chokepoint);`.
-- [ ] **Step 6: commit** (`routes/recovery.ts`, `app.ts`, any shared helper): `feat(recovery): recover/status/cancel routes (tier router, attestation, redacted audit)`
+- [ ] **Step 6: commit** (`routes/files/recovery.ts`, `app.ts`, any shared helper): `feat(recovery): recover/status/cancel routes (tier router, attestation, redacted audit)`
 
 ---
 

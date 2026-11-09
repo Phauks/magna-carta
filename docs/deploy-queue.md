@@ -364,7 +364,7 @@ whole reason the lane is separate from files ingest in the first place.
 ## Turnstile activation — the order matters, and the widget comes before the secret
 
 Server-side human verification is built and ships **dormant**
-(`apps/api-worker/src/human-verification/`). It gates the two anonymous writes — `POST
+(`apps/api-worker/src/http/human-verification/`). It gates the two anonymous writes — `POST
 /api/v1/registrations` (founding a firm) and `POST /api/v1/invitations/redemptions`. With no secret
 set it does nothing to either endpoint except count: one `human_verification.decided` point per
 request, outcome `unenforced`. Nothing below is required for the next deploy; the app worker deploys
@@ -1353,7 +1353,7 @@ one authority holder from two-person to solo — a reduction, so it waits for a 
 
 The two organization match keys are derived at write time for every new name and filled for
 existing corpora by a **bounded, resumable pass on the daily cron**
-(`runDirectoryNameIndexBackfill` in `apps/api-worker/src/scheduled.ts`, 500 name rows per firm per
+(`runDirectoryNameIndexBackfill` in `apps/api-worker/src/background/scheduled.ts`, 500 name rows per firm per
 pass). Until a firm's pass has finished, the names it has not reached are invisible to those two
 blocking channels — while a conflicts check reports them as channels that ran.
 
@@ -1380,7 +1380,7 @@ is expected to retry against the same staged bytes rather than upload the file a
 object cannot be reaped by anything that runs on a scale of minutes.
 
 The daily sweep over template objects no row names
-(`apps/api-worker/src/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
+(`apps/api-worker/src/background/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
 rule**, and abandoned staging is left to expire on its own. Nothing expires it yet: the bucket
 carries no lifecycle rule for that prefix.
 

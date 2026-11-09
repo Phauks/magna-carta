@@ -20,7 +20,10 @@ import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { splitIdentifierForDocumentVersion, splitObjectKey } from "@magna-carta/search/split";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import type { SearchIndexJob } from "../src/search/index-coordinator.ts";
-import { searchIndexQueue, type SearchIndexPorts } from "../src/search/index-consumer.ts";
+import {
+  searchIndexQueue,
+  type SearchIndexPorts,
+} from "../src/background/search/index-consumer.ts";
 import { searchIndexJobName, type SearchIndexMessage } from "../src/search/index-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 

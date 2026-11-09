@@ -73,7 +73,7 @@ export interface EdgeStep {
 - `packages/conflicts/src/disposition.ts` — append-only adjudication writes
 - `packages/conflicts/src/fitness.ts` — `assertConflictsFitness`
 - `packages/conflicts/src/index.ts` — barrel
-- `apps/worker/src/routes/conflicts.ts` — routes
+- `apps/worker/src/routes/directory/conflicts.ts` — routes
 - `packages/database/drizzle/per-firm/<timestamp>_conflicts.sql` — tables + append-only triggers
 
 **Modify:**
@@ -2805,7 +2805,7 @@ EOF
 
 **Files:**
 
-- Create: `apps/worker/src/routes/conflicts.ts`
+- Create: `apps/worker/src/routes/directory/conflicts.ts`
 - Modify: `apps/worker/src/app.ts`, `packages/access-control/src/registry.ts`
 - Create: `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`
 - Test: `apps/worker/test/conflicts-routes.test.ts`
@@ -2818,7 +2818,7 @@ EOF
   - `GET /conflicts/checks/:checkId` — → `200 { check, hits }`. Permission `conflicts:read`.
   - `POST /conflicts/hits/:hitId/dispositions` — body `{ kind, rationale }` → `201 { id }`. Permission `conflicts:dispose`.
 
-**Context:** Mirror `apps/worker/src/routes/directory.ts` for env, actor, and crypto-context threading. The route is the only caller that owns those. Idempotency threads through the chokepoint middleware, as in the directory routes.
+**Context:** Mirror `apps/worker/src/routes/directory/directory.ts` for env, actor, and crypto-context threading. The route is the only caller that owns those. Idempotency threads through the chokepoint middleware, as in the directory routes.
 
 `trigger` is **required** on the check request — nothing auto-fires in this slice. Do not add a queue consumer or a Cron binding.
 
@@ -2837,7 +2837,7 @@ Expected: FAIL — 404 on `/conflicts/checks`
 
 Add `conflicts:run`, `conflicts:read`, `conflicts:dispose` to `packages/access-control/src/registry.ts`. Seed them onto the appropriate default roles in the new migration — grant `conflicts:run` and `conflicts:read` broadly, and `conflicts:dispose` only to roles that may accept or decline a representation.
 
-Create `apps/worker/src/routes/conflicts.ts` mirroring `routes/directory.ts`. Mount it in `apps/worker/src/app.ts`.
+Create `apps/worker/src/routes/directory/conflicts.ts` mirroring `routes/directory/directory.ts`. Mount it in `apps/worker/src/app.ts`.
 
 Regenerate the contract: `pnpm --filter @magna-carta/worker run emit-openapi`, then regenerate `packages/api-client/src/*`. Commit both — they are generated but tracked.
 
@@ -2849,7 +2849,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/worker/src/routes/conflicts.ts apps/worker/src/app.ts packages/access-control/src/registry.ts packages/database/drizzle/per-firm/20260908T000000_baseline.sql apps/worker/test/conflicts-routes.test.ts apps/worker/openapi/openapi.json packages/api-client/src
+git add apps/worker/src/routes/directory/conflicts.ts apps/worker/src/app.ts packages/access-control/src/registry.ts packages/database/drizzle/per-firm/20260908T000000_baseline.sql apps/worker/test/conflicts-routes.test.ts apps/worker/openapi/openapi.json packages/api-client/src
 git commit -F- <<'EOF'
 feat(conflicts): expose run, read, and disposition routes
 

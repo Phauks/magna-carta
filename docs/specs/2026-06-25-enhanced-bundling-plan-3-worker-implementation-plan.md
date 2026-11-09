@@ -97,7 +97,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 **Files:**
 
 - Create: `apps/worker/src/downloads/bundle-lane.ts` (the pure `selectBundleLane`)
-- Modify: `apps/worker/src/routes/downloads.ts` (add `options` to the schema + `422` validation; call `selectBundleLane`; for now, an optioned lane that isn't yet wired returns a `501`/clear problem OR falls through to the existing behavior only for the plain case — see below)
+- Modify: `apps/worker/src/routes/files/downloads.ts` (add `options` to the schema + `422` validation; call `selectBundleLane`; for now, an optioned lane that isn't yet wired returns a `501`/clear problem OR falls through to the existing behavior only for the plain case — see below)
 - Test: `apps/worker/test/bundle-lane.test.ts` (the pure selector) + extend `apps/worker/test/...downloads...` for the `422` path
 
 **Behavior:**
@@ -114,7 +114,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 
 **Files:**
 
-- Modify: `apps/worker/src/downloads/bundle-types.ts`, `bundle-coordinator.ts`, `bundle-consumer.ts`, `routes/bundle-status.ts`
+- Modify: `apps/worker/src/downloads/bundle-types.ts`, `bundle-coordinator.ts`, `bundle-consumer.ts`, `routes/files/bundle-status.ts`
 - Test: `apps/worker/test/bundle-build-optioned.test.ts`
 
 **Behavior:** the `BundleBuildMessage` gains `options: BundleOptions` and `manifest: BundleManifest` (the prebuilt manifest, password-free since this lane is unencrypted) and the cache key replaces `manifestHash` for optioned builds (`bundleCacheKey`). `BundleJobState` gains `volumes: BuildResultVolume[]` (the ready artifact key(s)) — single-element for a non-split bundle, N for 7z split. The consumer calls `bundleContainerAdapter(env.BUNDLE_SERVICE).build(message.manifest)` instead of `client-zip` (the manifest's `outputKeyPrefix` is `bundles/<cacheKey>`), then `markReady(volumes)`. `bundle-status` returns a fresh signed URL per volume. The plain-ZIP async path (Task A3 "plain lanes") still uses the existing `client-zip` consumer path unchanged — branch the consumer on whether `message.manifest` is present.
@@ -125,7 +125,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/downloads.ts`
+- Modify: `apps/worker/src/routes/files/downloads.ts`
 - Test: `apps/worker/test/downloads-encrypted.test.ts`
 
 **Behavior:** for `options.encryption !== null`: build the manifest (`buildBundleManifest` with the password; `outputKeyPrefix` unused for streaming — the container streams instead of PUTting), call `bundleContainerAdapter(env.BUNDLE_SERVICE).buildStream(manifest)`, and return that streaming `Response` to the client with `content-type: application/zip|application/x-7z-compressed` and a `content-disposition` from `options.outputName`. **No coordinator, no queue, no R2 artifact, no cache** — the password and the bytes exist only for the request. `recordExport` runs with `encrypted: true` (no password in the metadata). (Validation already guarantees no `split` here.)

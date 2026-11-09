@@ -19,7 +19,7 @@ exactly like a firm having configured things that way. The test suites could not
 because each editing suite inserted its own `direct_grant` before asserting anything.
 
 The reason this is a hard error rather than a smell is
-[a-seed-is-the-whole-supply-so-an-ungranted-permission-is-a-refusal](a-seed-is-the-whole-supply-so-an-ungranted-permission-is-a-refusal.md):
+[a-seed-is-the-whole-supply-so-an-ungranted-permission-is-a-refusal](0391-a-seed-is-the-whole-supply-so-an-ungranted-permission-is-a-refusal.md):
 `role_permission` and `direct_grant` have no write statement anywhere in the product, so an ungranted
 permission is permanent rather than a default somebody can change.
 

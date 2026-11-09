@@ -1,7 +1,7 @@
 {
   "note": "Money arithmetic outside @magna-carta/money, per file, as of the last recording. A DEBT REGISTER: a count may fall and must then be re-recorded here, a file may leave, and nothing may arrive except by a deliberate edit. tooling/lint-money-arithmetic/rules.mjs says why.",
   "counts": {
-    "apps/api-worker/src/routes/billing.ts": 1,
+    "apps/api-worker/src/http/routes/billing/billing.ts": 1,
     "apps/api-worker/test/billing-routes.test.ts": 4,
     "apps/web/src/lib/activity/activity-register.svelte": 1,
     "apps/web/src/lib/billing/amount-entry.ts": 2,

@@ -64,7 +64,7 @@ tried, the classification, and the evidence.
 
 ### 1. WHOIS Lookup (`whois-lookup`)
 
-- **Route:** `GET /api/v1/whois` (`apps/worker/src/routes/whois.ts`), permission `tools:whois`.
+- **Route:** `GET /api/v1/whois` (`apps/worker/src/routes/tools/whois.ts`), permission `tools:whois`.
 - **Package:** `@magna-carta/whois` — RDAP first via the IANA bootstrap, port-43 fallback for six
   ccTLDs. SSRF-guarded through `@magna-carta/integrations/safe-target`.
 - **Needs at runtime:** outbound HTTPS to `data.iana.org` and the resolved RDAP server; outbound
@@ -126,7 +126,7 @@ no browser, and the engine deliberately never touches our worker.
 ### 3. File Hash & Integrity (`file-hash-integrity`)
 
 - **Route:** `POST /api/v1/file-integrity/hash` and `/verify`
-  (`apps/worker/src/routes/file-integrity.ts`), permission `tools:fileIntegrity`.
+  (`apps/worker/src/routes/files/file-integrity.ts`), permission `tools:fileIntegrity`.
 - **Needs at runtime:** nothing outside the worker for the hash path; `env.R2` for the
   ingest-baseline compare.
 - **Classification:** **works here, verified correct.**
@@ -144,7 +144,7 @@ sha256  b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9 == sha2
 ### 4. Metadata Inspector & Scrubber (`metadata-scrubber`)
 
 - **Routes:** `POST /api/v1/metadata/inspect` and `/scrub`
-  (`apps/worker/src/routes/metadata.ts`), permission `tools:metadataScrubber`. JSON body with
+  (`apps/worker/src/routes/files/metadata.ts`), permission `tools:metadataScrubber`. JSON body with
   base64 content, not `application/octet-stream`.
 - **Needs at runtime:** nothing. In-worker OOXML/JPEG/PNG/TIFF handling.
 - **Classification:** **works here, verified correct** — and verified on the removal, not just the
@@ -162,7 +162,7 @@ Fed a `.docx` carrying `dc:creator = Audit Author`, `cp:lastModifiedBy = Audit R
 ### 5. File Decryption & Recovery (`file-decryption`)
 
 - **Routes:** `POST /api/v1/decryption/inspect` and `/unlock`
-  (`apps/worker/src/routes/decryption.ts`), permission `tools:decryption`, both audited, both behind
+  (`apps/worker/src/routes/files/decryption.ts`), permission `tools:decryption`, both audited, both behind
   an explicit `attestation.authorized` gate. Recovery lives on separate `/decryption/recover*`
   routes backed by `magna-carta-recovery`.
 - **Needs at runtime:** nothing for inspect/unlock (`crates/decryption-core` compiled to WASM, built
@@ -180,7 +180,7 @@ Built a ZipCrypto archive (`zip -P auditpass`) around the known plaintext
 
 ### 6. Email Inspector (`email-inspector`)
 
-- **Route:** `POST /api/v1/email/inspect` (`apps/worker/src/routes/email-inspector.ts`), permission
+- **Route:** `POST /api/v1/email/inspect` (`apps/worker/src/routes/email/email-inspector.ts`), permission
   `tools:emailInspector`. Engine is `crates/email-core` as WASM.
 - **Needs at runtime:** nothing (the WASM artifact, built by `vp run bootstrap`).
 - **Classification:** **works here, verified correct**, with one caveat below.
@@ -200,7 +200,7 @@ changed.
 
 ### 7. Firm Usage (`firm-usage`)
 
-- **Route:** `GET /api/v1/firm-usage` (`apps/worker/src/routes/firm-usage.ts`), permission
+- **Route:** `GET /api/v1/firm-usage` (`apps/worker/src/routes/firm/firm-usage.ts`), permission
   `tools:firmUsage`, seeded to Owner/Admin by migration `0006_seed-tools-firm-usage`.
 - **Needs at runtime:** nothing beyond the firm database.
 - **Classification:** **works here; the counts half verified correct, the storage half undetermined.**
@@ -307,7 +307,7 @@ this tool trustworthy rather than merely present.
 
 ### 12. Shipping & Postage (`shipping`)
 
-- **Routes:** `apps/worker/src/routes/shipping.ts` — connect/disconnect, create shipment, rates,
+- **Routes:** `apps/worker/src/routes/communications/shipping.ts` — connect/disconnect, create shipment, rates,
   purchase, label, tracking, refund. Permission `integrations:manage`.
 - **Package:** `@magna-carta/shipping` (EasyPost behind a typed port).
 - **Needs at runtime:** a firm EasyPost API key stored as a firm secret, and a way to read it back.
@@ -351,7 +351,7 @@ the firm's own addresses and parcel and needs no carrier.
 
 ### 13. Safe Website Viewer (`safe-website-viewer`)
 
-- **Route:** `POST /api/v1/safe-browse` (`apps/worker/src/routes/safe-browse.ts`), permission
+- **Route:** `POST /api/v1/safe-browse` (`apps/worker/src/routes/tools/safe-browse.ts`), permission
   `tools:safeBrowse`.
 - **Needs at runtime:** the Cloudflare **Browser Rendering** binding (`env.BROWSER`) with
   `quickAction()`, which needs `compatibility_date >= 2026-03-24` (satisfied) **and** the account
@@ -376,7 +376,7 @@ catalog that is neither a worker nor a container nor a secret, so it is the easi
 
 ### 14. File Type Verifier (`file-type-verifier`)
 
-- **Route:** `POST /api/v1/file-type/verify` (`apps/worker/src/routes/file-type.ts`), permission
+- **Route:** `POST /api/v1/file-type/verify` (`apps/worker/src/routes/files/file-type.ts`), permission
   `tools:fileTypeVerifier`.
 - **Needs at runtime:** `SCAN_SERVICE` → `magna-carta-scan`, whose Container serves `POST /identify`
   (Magika/ONNX). Confirmed present at `containers/scan/src/lib.rs` (`.route("/identify", post(identify))`).
@@ -397,7 +397,7 @@ turns out to be in practice, which needs the engine to measure.
 
 ### 15. Malware Scan (`malware-scan`)
 
-- **Route:** `POST /api/v1/scan/diagnose` (`apps/worker/src/routes/scan-diagnose.ts`), permission
+- **Route:** `POST /api/v1/scan/diagnose` (`apps/worker/src/routes/files/scan-diagnose.ts`), permission
   `firm:scanFile`, audited.
 - **Needs at runtime:** `SCAN_SERVICE` → `magna-carta-scan` (clamd + yara-x + structural heuristics).
 - **Classification:** **works only once deployed.**
@@ -423,7 +423,7 @@ choosing between "fault" and "unscanned" for an unreachable engine is a safety d
 
 ### 16. Text Recognition / OCR (`ocr`)
 
-- **Routes:** `POST /api/v1/ocr` and `/ocr/searchable` (`apps/worker/src/routes/ocr.ts`), permission
+- **Routes:** `POST /api/v1/ocr` and `/ocr/searchable` (`apps/worker/src/routes/files/ocr.ts`), permission
   `tools:ocr`.
 - **Needs at runtime:** `OCR_SERVICE` → `magna-carta-ocr` (`apps/ocr-worker` + `containers/ocr`,
   PP-OCR ONNX via `crates/ocr-core`).
@@ -449,7 +449,7 @@ to perform before the next push, since it is cheap to confirm and expensive to d
 ### 17. File Repair & Salvage (`file-repair`)
 
 - **Routes:** `POST /api/v1/file-repair/diagnose`, `/repair`, `/carve`, and the two `/attach`
-  variants (`apps/worker/src/routes/file-repair.ts`), permission `tools:fileRepair`.
+  variants (`apps/worker/src/routes/files/file-repair.ts`), permission `tools:fileRepair`.
 - **Needs at runtime:** `FILE_REPAIR_SERVICE` → `magna-carta-file-repair`
   (`apps/file-repair-worker` + `containers/file-repair`, `crates/recovery-core`).
 - **Classification:** **works only once deployed.**
@@ -477,7 +477,7 @@ and poll are all genuinely working.
 
 What could **not** be verified, and why it is worth writing down: the source upload cannot be
 completed under `wrangler dev` at all. The dev upload route
-(`apps/worker/src/routes/dev-r2-upload.ts`) only accepts a key that `uploads.initiate` minted as a
+(`apps/worker/src/routes/developer/dev-r2-upload.ts`) only accepts a key that `uploads.initiate` minted as a
 pending **file version**, and a conversion source key is minted by `conversions/upload` and never
 registered there — so the PUT answers `404 No pending upload in this firm has that object key`, and
 the job correctly fails `source expired`. In production the upload URL is a presigned R2 URL and this
@@ -490,7 +490,7 @@ activation is already queued in `docs/deploy-queue.md`.
 
 ### 19. AI-Text Detection (`ai-text-detection`)
 
-- **Route:** `POST /api/v1/ai-detection/detect` (`apps/worker/src/routes/ai-detection.ts`),
+- **Route:** `POST /api/v1/ai-detection/detect` (`apps/worker/src/routes/files/ai-detection.ts`),
   permission `tools:aiTextDetection`. The only `integration`-backed tool besides shipping.
 - **Needs at runtime:** the firm's own consent setting **and** a platform `PANGRAM_API_KEY` secret.
 - **Classification:** **works only once deployed** (the secret is the deploy step).
@@ -514,7 +514,7 @@ One repair, chosen because it was small, certain, and visible to a person.
 - `packages/whois/src/legacy.ts` — `queryLegacy` now throws a typed `UnsupportedRegistry` (carrying
   the TLD) instead of a bare `Error` whose message named an internal source path. Exported from the
   package root.
-- `apps/worker/src/routes/whois.ts` — catches it and answers `501 not-implemented`: _"The '.ch'
+- `apps/worker/src/routes/tools/whois.ts` — catches it and answers `501 not-implemented`: _"The '.ch'
   registry publishes no lookup service this tool can reach. Check the registry's own WHOIS page
   directly."_ The TLD is echoed because a public suffix is not user input; the query string still
   never is.
