@@ -13,7 +13,7 @@ pdf-core = { path = "../pdf-core" }
 ocr-core = { path = "../ocr-core" }
 hayro = { workspace = true }
 image = { workspace = true }
-lopdf = "0.44"
+lopdf = "0.46"
 pdf = "0.10"
 pdfium-render = { version = "0.9", optional = true }
 image-compare = { version = "0.5", optional = true }

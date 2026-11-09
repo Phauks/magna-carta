@@ -50,7 +50,7 @@
 #
 # --- What is NOT accepted, and is deliberately left visible ----------------------------------------
 #
-# Nine advisories remain in the audited lockfiles. All nine pass the gate on severity, and every one
+# Eight advisories remain in the audited lockfiles. All eight pass the gate on severity, and every one
 # has either no fix published or no fix reachable without a carrier moving first, so there is nothing
 # an entry here could usefully forgive:
 #
@@ -58,12 +58,11 @@
 #   esbuild 0.18.20 (GHSA-67mh-4wv8-2f99, 5.3) — @esbuild-kit/core-utils hard-pins ~0.18.20 and is
 #     deprecated; it reaches the tree only through drizzle-kit's config loader, which never starts the
 #     esbuild dev server the advisory is about.
-#   lru 0.16.4 (RUSTSEC-2026-0253) — tantivy pins it; the fix is 0.18.2, a Cargo-breaking bump.
 #   paste 1.0.15, proc-macro-error2 2.0.1, ttf-parser 0.25.1, bincode 2.0.1 — unmaintained-crate
 #     notices with no fixed version published. The first two are build-time proc macros with no
 #     runtime surface at all.
-#   rsa 0.9.10 (RUSTSEC-2023-0071, Marvin timing sidechannel, 5.9) — no fixed release exists upstream.
-#     It arrives through yara-x's signature-parsing modules, which verify Authenticode signatures on
+#   rsa 0.10.0-rc.21 (RUSTSEC-2023-0071, Marvin timing sidechannel, 5.9) — no fixed release exists
+#     upstream. It arrives through yara-x's signature-parsing modules, which verify Authenticode signatures on
 #     scanned samples and hold no private key; the attack recovers a private key through a
 #     decryption/signing oracle, so there is no operation here for it to target.
 #   wasmtime 43.0.2 (RUSTSEC-2026-0222, 3.8) — yara-x requires ^43.0.2 and the fix landed in 46.0.2,
