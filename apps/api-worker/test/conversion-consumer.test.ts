@@ -1,7 +1,7 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { converted, engineNotImplemented, type ConversionPort } from "@magna-carta/conversion/port";
-import { conversionQueue } from "../src/conversions/conversion-consumer.ts";
+import { conversionQueue } from "../src/background/conversions/conversion-consumer.ts";
 import type { ConversionJob } from "../src/conversions/conversion-coordinator.ts";
 import type { ConversionMessage } from "../src/conversions/conversion-types.ts";
 

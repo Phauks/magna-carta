@@ -15,7 +15,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // What this suite reads off the matter-ledger reply — the fields of the route's
 // TrustClientLedgerResponse that these assertions actually depend on.

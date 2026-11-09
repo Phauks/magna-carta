@@ -1,7 +1,7 @@
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 

@@ -1,7 +1,7 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { readDispatchableDocuments } from "@magna-carta/discovery/processing-statements";
 import type { DiscoveryLoadId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { DiscoveryLoadCoordinator } from "./discovery-load-coordinator.ts";
 import type {
   DiscoveryDispatchResult,

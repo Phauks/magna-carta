@@ -9,18 +9,18 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 lopdf = { workspace = true }
-zip = { version = "2", default-features = false, features = ["aes-crypto", "deflate"] }
-cfb = "0.10"
-pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
-hmac = "0.12"
-sha1 = "0.10"
-sha2 = "0.10"
-md-5 = "0.10"
-aes = "0.8"
-cbc = "0.1"
-ctr = "0.9"
-cfb-mode = "0.8"
-rc4 = "0.1"
+zip = { version = "9.4", default-features = false, features = ["aes-crypto", "deflate"] }
+cfb = "0.16"
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
+hmac = "0.13"
+sha1 = "0.11"
+sha2 = "0.11"
+md-5 = "0.11"
+aes = "0.9"
+cbc = "0.2"
+ctr = "0.10"
+cfb-mode = "0.9"
+rc4 = "0.2"
 thiserror = "2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

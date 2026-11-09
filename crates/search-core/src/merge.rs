@@ -184,8 +184,8 @@ fn document_ids_present(
     Ok(present)
 }
 
-/// Every file the index's live segments and its metadata depend on. `SegmentMeta::list_files` names the
-/// files a segment *may* have, so this is a superset of what is on disk; the bundler intersects it with
+/// Every file the index's live segments and its metadata depend on. `IndexMeta::list_segment_files` names
+/// the files each segment *may* have, so this is a superset of what is on disk; the bundler intersects it with
 /// what it actually finds.
 fn live_file_names(index: &Index) -> Result<BTreeSet<String>, SearchError> {
     let mut names: BTreeSet<String> = BTreeSet::new();
@@ -193,11 +193,9 @@ fn live_file_names(index: &Index) -> Result<BTreeSet<String>, SearchError> {
     // record rides along so a merged split has the same shape on disk as a built one.
     names.insert("meta.json".to_owned());
     names.insert(".managed.json".to_owned());
-    for segment_meta in index.searchable_segment_metas()? {
-        for path in segment_meta.list_files() {
-            if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
-                names.insert(name.to_owned());
-            }
+    for path in index.load_metas()?.list_segment_files() {
+        if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+            names.insert(name.to_owned());
         }
     }
     Ok(names)

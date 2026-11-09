@@ -7,7 +7,7 @@ import { refuseUnredactedMetadata } from "./metadata-redaction.ts";
 // audit writes (login.success, two_factor.*, password.reset — apps/api-worker auth.ts) fire alone and
 // are guarded/swallowed at the call site: they are observability, not gates, so their failure must
 // never break the auth flow they describe. Request-path audit writes (member.invited,
-// firm.provisioned — routes/members.ts, firm-provisioner.ts) ride the atomic effect batch and fail
+// firm.provisioned — routes/session/members.ts, firm-provisioner.ts) ride the atomic effect batch and fail
 // with it: an audit row the request's own commit cannot carry means the request must not succeed.
 // The divergence is deliberate, not drift.
 

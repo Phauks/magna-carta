@@ -113,7 +113,7 @@ A new `@magna-carta/conflicts` package, following the Directory pattern exactly:
 **The Directory write path is untouched; its read path takes two additive changes.** `findDuplicateCandidates` returns only `{entityId, signalCount}`, so evidence tiering cannot tell which channel matched — channel provenance must travel with each candidate. And its phonetic channel applies no scheme filter while neither name channel filters `is_current`, so both Double Metaphone schemes and every alias/former name are _already_ always searched. Balanced strictness therefore cannot be layered on top of the current signature; it needs a scheme filter and a name-role filter that do not exist. Both are added as optional parameters, so omitting them preserves today's behaviour exactly and the merge and entry-time-duplicate callers are unaffected.
 
 ```
-apps/worker/src/routes/conflicts.ts    owns env, actor, crypto context (mirrors routes/directory.ts)
+apps/worker/src/routes/directory/conflicts.ts    owns env, actor, crypto context (mirrors routes/directory/directory.ts)
   └── packages/conflicts/
         ├── run-check.ts       orchestration: resolve scope → expand graph → match → tier → compose log batch
         ├── sources.ts         the typed source registry + floor resolution

@@ -29,7 +29,7 @@ status below, and the fix table is in #157. Nothing here was disputed.
 
 **Where.** [`packages/custodian/src/release-gate.ts:53-118`](../../packages/custodian/src/release-gate.ts) ·
 [`packages/custodian/src/movement-service.ts:135-142`](../../packages/custodian/src/movement-service.ts) ·
-[`apps/api-worker/src/routes/custody.ts:584-590`](../../apps/api-worker/src/routes/custody.ts) ·
+[`apps/api-worker/src/http/routes/custody/custody.ts:584-590`](../../apps/api-worker/src/http/routes/custody/custody.ts) ·
 [`packages/database/drizzle/per-firm/20260908T000000_baseline.sql`](../../packages/database/drizzle/per-firm/20260908T000000_baseline.sql)
 
 **What the code does.** `resolveCustodyReleaseCapture` takes `identityVerifiedByUserId` and
@@ -212,7 +212,7 @@ existence guard closing the REPLACE path. Both are additive and need no table re
 
 **Status: Fixed in #157**, by the second half of the fix shape rather than the first: the narrowing is composed PER ZONE and is exact, so no post-filtering is introduced and the no-post-filter rule the package states elsewhere still holds. `overdueCutoffFor` inverts the comparison for one zone (binary search, because the wall clock is not monotonic across a transition while the instant is non-decreasing in the wall clock), the route reads the distinct zones of the coarse candidate set, and `selectMatterDeadlinesStatement` composes one clause per zone. `test/dst-and-overdue-bound.test.ts` asserts the bound against `isOverdue` itself across both DST boundaries rather than against restated expectations.
 
-**Where.** [`apps/api-worker/src/routes/calendar.ts:1150-1180`](../../apps/api-worker/src/routes/calendar.ts) ·
+**Where.** [`apps/api-worker/src/http/routes/calendar/calendar.ts:1150-1180`](../../apps/api-worker/src/http/routes/calendar/calendar.ts) ·
 [`packages/calendar/src/overdue.ts:34-39`](../../packages/calendar/src/overdue.ts)
 
 The handler composes `overdue=true` as `state = 'open' AND due_on <= today`, where `today` is
@@ -240,7 +240,7 @@ per-row filter is unacceptable on the hot path, the honest alternative is to ret
 
 **Status: Fixed in #157**, and widened past the two reads named. The predicate is now a REQUIRED argument on every statement builder that selects from `matter_event` or `matter_deadline`, and `CalendarServiceOptions` carries it, so the id-addressed write paths inherit it too. `test/visibility-fitness.test.ts` enumerates every such read, asserts the marker, and scans the two statement files so a read added later fails the count until it is listed.
 
-**Where.** [`apps/api-worker/src/routes/calendar.ts:1011-1031`](../../apps/api-worker/src/routes/calendar.ts)
+**Where.** [`apps/api-worker/src/http/routes/calendar/calendar.ts:1011-1031`](../../apps/api-worker/src/http/routes/calendar/calendar.ts)
 (`readEventsPage`) and `:1079-1110` (`GET /api/v1/events/{eventId}`) ·
 [`packages/calendar/src/event-statements.ts:169-188`](../../packages/calendar/src/event-statements.ts)
 
@@ -252,7 +252,7 @@ a source cannot decline. But `GET /api/v1/matters/{matterId}/events` and
 `selectMatterEventsStatement` composes `matter_id = ?1` and no predicate, and the single-event read
 resolves by id with no matter check at all. `RouteMeta.resource` does not gate anything — it is
 emitted as the `x-mc-resource` contract annotation
-([`apps/api-worker/src/contracts/route-meta.ts:24`](../../apps/api-worker/src/contracts/route-meta.ts)) and
+([`apps/api-worker/src/http/contracts/route-meta.ts:24`](../../apps/api-worker/src/http/contracts/route-meta.ts)) and
 the chokepoint performs no per-matter check — so declaring these routes `resource: "matter"` buys
 no enforcement.
 
@@ -299,7 +299,7 @@ only a bare `YYYY-MM-DD`, and reserve `null` for "this duty has no computable in
 **Status: Fixed in #157.** `summary` is replaced by `question` + `answer`; the Nevada entry's answer reads "No. Nevada provides no procedure for depositing a will with a court for safekeeping during the testator's lifetime."
 
 [`packages/custodian/src/will-deposit-catalog.ts:175-187`](../../packages/custodian/src/will-deposit-catalog.ts) ·
-schema at [`apps/api-worker/src/routes/custody.ts:1045-1053`](../../apps/api-worker/src/routes/custody.ts).
+schema at [`apps/api-worker/src/http/routes/custody/custody.ts:1045-1053`](../../apps/api-worker/src/http/routes/custody/custody.ts).
 The lifetime-deposit capability is encoded with `available: false` and a genuinely excellent `basis`
 recording the exhaustiveness of the search. But its `summary` reads "Depositing a will with a court
 for safekeeping during the testator's lifetime." — an affirmative description. A surface that renders
@@ -336,7 +336,7 @@ comment reads as though they have them.
 
 **Status: Fixed in #157.** Both sites call `encodeCursor`.
 
-[`apps/api-worker/src/routes/calendar.ts:1028`](../../apps/api-worker/src/routes/calendar.ts) and `:1171`
+[`apps/api-worker/src/http/routes/calendar/calendar.ts:1028`](../../apps/api-worker/src/http/routes/calendar/calendar.ts) and `:1171`
 write `btoa(JSON.stringify({ c: …, i: … }))` directly. That is byte-identical to `encodeCursor`
 today ([`packages/data-access/src/cursor-pagination.ts:20-22`](../../packages/data-access/src/cursor-pagination.ts)),
 so nothing is broken — but the calendar's own gotcha says "the calendar mints no wire contract of its
@@ -450,7 +450,7 @@ Recorded so the next pass does not re-derive it.
   at all.
 - **Idempotency.** Every mutating route in both files declares `idempotency: "required"` with
   `idempotencyStore: "firm"`, and the chokepoint owns the whole gate for those
-  (`apps/api-worker/src/chokepoint/chokepoint.ts:219-283`), so a retry replays the stored response rather
+  (`apps/api-worker/src/http/chokepoint/chokepoint.ts:219-283`), so a retry replays the stored response rather
   than re-executing. The movement and sighting paths additionally thread `runIdempotentEffect` so the
   record commits inside the business batch. Read routes are `optional`, correctly.
 - **Bounded fan-out, not N+1.** The timeline's read count scales with the registry (thirteen sources,

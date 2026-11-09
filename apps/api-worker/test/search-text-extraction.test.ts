@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import pdfFixtures from "virtual:pdf-core-fixtures";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { resolveTextExtractionPort } from "../src/search/text-extraction.ts";
 
 // The composite text-extraction port. The recognition engine cannot run under the test pool, so it is
