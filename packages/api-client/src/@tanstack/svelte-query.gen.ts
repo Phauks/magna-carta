@@ -7355,23 +7355,6 @@ export const conflictsRerunCheckMutation = (options?: Partial<Options<ConflictsR
 };
 
 /**
- * Stops a run that has not finished. The run is kept in the check's history as cancelled, naming who stopped it, and records no result: whatever it had not finished is not searched. A run that had already settled is left exactly as it settled, and the answer says how.
- */
-export const conflictsCancelRunMutation = (options?: Partial<Options<ConflictsCancelRunData>>): MutationOptions<ConflictsCancelRunResponse, ConflictsCancelRunError, Options<ConflictsCancelRunData>> => {
-    const mutationOptions: MutationOptions<ConflictsCancelRunResponse, ConflictsCancelRunError, Options<ConflictsCancelRunData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await conflictsCancelRun({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
  * Files a check on a matter. A check run before there was a matter is the ordinary case — the pre-engagement screen happens before there is a file — and the moment a matter exists is the moment somebody is reading the report. Filing moves the check into that matter's own history and makes the next run search with the matter's parties; no search record is touched, because each record says which matter its search actually ran against.
  */
 export const conflictsFileCheckOnMatterMutation = (options?: Partial<Options<ConflictsFileCheckOnMatterData>>): MutationOptions<ConflictsFileCheckOnMatterResponse, ConflictsFileCheckOnMatterError, Options<ConflictsFileCheckOnMatterData>> => {
@@ -7458,6 +7441,23 @@ export const conflictsMatterPostureOptions = (options: Options<ConflictsMatterPo
     },
     queryKey: conflictsMatterPostureQueryKey(options)
 });
+
+/**
+ * Stops a run that has not finished. The run is kept in the check's history as cancelled, naming who stopped it, and records no result: whatever it had not finished is not searched. A run that had already settled is left exactly as it settled, and the answer says how.
+ */
+export const conflictsCancelRunMutation = (options?: Partial<Options<ConflictsCancelRunData>>): MutationOptions<ConflictsCancelRunResponse, ConflictsCancelRunError, Options<ConflictsCancelRunData>> => {
+    const mutationOptions: MutationOptions<ConflictsCancelRunResponse, ConflictsCancelRunError, Options<ConflictsCancelRunData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await conflictsCancelRun({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const calendarMatterTimelineQueryKey = (options: Options<CalendarMatterTimelineData>) => createQueryKey('calendarMatterTimeline', options);
 

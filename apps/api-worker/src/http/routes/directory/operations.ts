@@ -4,6 +4,7 @@
 export const OPERATIONS: readonly string[] = [
   "addressLookup.resolve",
   "addressLookup.suggest",
+  "conflicts.cancelRun",
   "conflicts.fileCheckOnMatter",
   "conflicts.firmPolicy",
   "conflicts.getCheck",

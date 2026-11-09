@@ -211,31 +211,31 @@ beneath them. Rows here supersede R1 where they say so.
 
 ### The New Check panel
 
-| #   | Ruling                                                                                                                                                                                                                    | Status                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                            | settled                  |
-| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                                          | settled                  |
-| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations).            | settled                  |
-| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                                  | open (waits on indexing) |
-| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                                     | settled                  |
-| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                          | settled                  |
-| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                                 | open (one place today)   |
+| #   | Ruling                                                                                                                                                                                                         | Status                   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                 | settled                  |
+| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                               | settled                  |
+| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations). | settled                  |
+| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                     | open (waits on indexing) |
+| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                           | settled                  |
+| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                | settled                  |
+| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                       | open (one place today)   |
 
 ### The check page
 
-| #   | Ruling                                                                                                                                                                                                                    | Status                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| C1  | **Report and Runs are tabs**, after Cloudflare's Workers pages. The run history is no longer a column beside the report. Supersedes the Runs card of R1.                                                                  | settled                  |
-| C2  | **The report is three collapsible sections: Details, Status, Results.** Details is the parties, one per line, then a Settings area.                                                                                      | settled                  |
-| C3  | **The per-location status log is part of the report**, live while the run is in flight and kept afterwards.                                                                                                              | settled                  |
-| C4  | **A run can be cancelled, and Cancel is merged into the Running badge.** A cancelled run reads Cancelled, names who stopped it, and needs no explanatory banner.                                                         | settled                  |
-| C5  | **Print Report and Download Report are icon buttons without text.** Amends R2 of round one.                                                                                                                               | settled                  |
-| C6  | **"Candidates" reads "Results"; "Nothing surfaced" reads "0 results".**                                                                                                                                                   | settled                  |
-| C7  | **Each result says why and where**: strength in a word, which search found it, what matched, how it was reached, with the full account one click away.                                                                    | settled                  |
-| C8  | **Results are filterable**, by text, by which search found them, by strength and by review state.                                                                                                                         | settled                  |
-| C9  | **The Answer button becomes a review dropdown**: Not reviewed, Cleared, Waived, Walled off, Declined.                                                                                                                     | settled                  |
-| C10 | **The report names the searcher, never a user handle.**                                                                                                                                                                   | settled                  |
-| C11 | **Results populate live and can be reviewed mid-run**, and a run waits for documents still awaiting text extraction.                                                                                                      | open (waits on indexing) |
+| #   | Ruling                                                                                                                                                           | Status                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| C1  | **Report and Runs are tabs**, after Cloudflare's Workers pages. The run history is no longer a column beside the report. Supersedes the Runs card of R1.         | settled                  |
+| C2  | **The report is three collapsible sections: Details, Status, Results.** Details is the parties, one per line, then a Settings area.                              | settled                  |
+| C3  | **The per-location status log is part of the report**, live while the run is in flight and kept afterwards.                                                      | settled                  |
+| C4  | **A run can be cancelled, and Cancel is merged into the Running badge.** A cancelled run reads Cancelled, names who stopped it, and needs no explanatory banner. | settled                  |
+| C5  | **Print Report and Download Report are icon buttons without text.** Amends R2 of round one.                                                                      | settled                  |
+| C6  | **"Candidates" reads "Results"; "Nothing surfaced" reads "0 results".**                                                                                          | settled                  |
+| C7  | **Each result says why and where**: strength in a word, which search found it, what matched, how it was reached, with the full account one click away.           | settled                  |
+| C8  | **Results are filterable**, by text, by which search found them, by strength and by review state.                                                                | settled                  |
+| C9  | **The Answer button becomes a review dropdown**: Not reviewed, Cleared, Waived, Walled off, Declined.                                                            | settled                  |
+| C10 | **The report names the searcher, never a user handle.**                                                                                                          | settled                  |
+| C11 | **Results populate live and can be reviewed mid-run**, and a run waits for documents still awaiting text extraction.                                             | open (waits on indexing) |
 
 **Notes recorded this round.**
 

@@ -1,6 +1,7 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerAddressLookupRoutes } from "./address-lookup.ts";
+import { registerConflictsRunRoutes } from "./conflicts-runs.ts";
 import { registerConflictsRoutes } from "./conflicts.ts";
 import { registerDirectoryRoutes } from "./directory.ts";
 
@@ -25,5 +26,7 @@ export function mountDirectory(
   // The conflicts-of-interest check surface: run a check against the directory corpus, read a
   // completed check back with its hits, and record a reviewer's disposition of a hit.
   registerConflictsRoutes(domain, chokepoint);
+  // Stopping a run in flight.
+  registerConflictsRunRoutes(domain, chokepoint);
   app.route("/", domain);
 }

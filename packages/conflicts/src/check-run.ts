@@ -63,6 +63,15 @@ export function reportedRunStatus(run: {
   return run.status === "failed" && run.cancelled_at !== null ? "cancelled" : run.status;
 }
 
+// The same, for a read that may hold no run at all (the firm's log, for a check with no run yet).
+export function reportedStatusOrNull(
+  status: string | null,
+  cancelledAt: string | null,
+): ReportedRunStatus | null {
+  if (status === null) return null;
+  return reportedRunStatus({ status: status as RunStatus, cancelled_at: cancelledAt });
+}
+
 // The sentence a cancelled run carries in its failure column. A person reads "Cancelled" on the
 // screen; this is what the row says to anybody reading it raw.
 export const CANCELLED_RUN_FAILURE = "A member stopped the search before it finished.";
@@ -139,6 +148,37 @@ export function parseStoredRunRequest(json: string): StoredRunRequest | null {
       strictness: scopeRecord["strictness"] as ScopeRequest["strictness"],
     },
   };
+}
+
+// Who a run searches, from its stored request: readable from the moment it is queued.
+export function subjectEntityIdsOf(requestJson: string | null): readonly string[] {
+  if (requestJson === null) return [];
+  return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
+}
+
+// The parties a run was asked about, named from one set-valued Directory read.
+export function subjectPartiesOf(
+  entityIds: readonly string[],
+  names: ReadonlyMap<
+    string,
+    { readonly kind: "person" | "organization"; readonly displayName: string | null }
+  >,
+) {
+  return entityIds.map((entityId) => {
+    const name = names.get(entityId);
+    return {
+      entityId,
+      party: name === undefined ? null : { kind: name.kind, displayName: name.displayName },
+    };
+  });
+}
+
+// What a run was asked to search, from its stored request, before the firm's floor is applied.
+export function askedScopeOf(
+  requestJson: string,
+): { readonly sources: readonly string[]; readonly strictness: string } | null {
+  const scope = parseStoredRunRequest(requestJson)?.scope;
+  return scope === undefined ? null : { sources: [...scope.sources], strictness: scope.strictness };
 }
 
 // ---- the rows -----------------------------------------------------------------------------------

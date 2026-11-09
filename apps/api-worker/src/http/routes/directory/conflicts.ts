@@ -10,11 +10,13 @@ import {
   previewNextCheckNumber,
   readNumberedCheckByAnyId,
   readLatestNumberedCheckForMatter,
-  cancelRunStatement,
-  readRun,
   readRunsForCheck,
   REPORTED_RUN_STATUSES,
+  askedScopeOf,
   reportedRunStatus,
+  reportedStatusOrNull,
+  subjectEntityIdsOf,
+  subjectPartiesOf,
   RUN_STAGES,
   settleStaleRuns,
   UnknownNumberedCheckError,
@@ -23,6 +25,7 @@ import {
   type StoredRunRequest,
 } from "@magna-carta/conflicts/check-run";
 import { type RunCheckInput } from "@magna-carta/conflicts/run-check";
+import { AskedScope } from "@magna-carta/conflicts/contract";
 import {
   recordDisposition,
   readDispositionTrail,
@@ -391,16 +394,7 @@ const RunSummary = z
     failure: z.string().nullable(),
     // Who stopped a cancelled run. Null on every other run.
     cancelledByUserId: z.string().nullable(),
-    // What the run was asked to search, as it was asked: readable from the moment it is queued, so
-    // a running check can say what it is searching before it has a record. The record's own scope
-    // says what actually ran once the firm's floor has been applied. Null on a run whose stored
-    // request cannot be read.
-    askedScope: z
-      .object({
-        sources: z.array(z.string()),
-        strictness: z.string(),
-      })
-      .nullable(),
+    askedScope: AskedScope,
     // How many candidates this run's record holds. Null while it has no record.
     hitCount: z.number().int().nullable(),
     // Who this run searches, by name, readable from the moment it is queued: the run stores its
@@ -1009,43 +1003,6 @@ const rerunCheckRoute = defineOpenAPIRoute(mutationMeta("rerunCheck", "conflicts
   },
 });
 
-const runIdParam = z.object({
-  checkId: identifierPathParam("conflictsCheck", "checkId"),
-  runId: identifierPathParam("conflictsCheck", "runId"),
-});
-
-const CancelledRunResponse = z
-  .object({
-    id: z.string(),
-    // `cancelled` when this request stopped the run; otherwise how it had already settled, so a
-    // press that lost the race to the run finishing says what actually happened.
-    status: z.enum(REPORTED_RUN_STATUSES),
-  })
-  .openapi("ConflictsCancelledRun");
-
-const cancelRunRoute = defineOpenAPIRoute(mutationMeta("cancelRun", "conflicts:run"), {
-  method: "post",
-  path: "/api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel",
-  description:
-    "Stops a run that has not finished. The run is kept in the check's history as cancelled, " +
-    "naming who stopped it, and records no result: whatever it had not finished is not searched. " +
-    "A run that had already settled is left exactly as it settled, and the answer says how.",
-  request: { headers: idempotencyKeyHeader, params: runIdParam },
-  responses: {
-    200: {
-      description: "The run as it now stands",
-      content: { "application/json": { schema: CancelledRunResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
-  },
-});
-
 const fileCheckRoute = defineOpenAPIRoute(mutationMeta("fileCheckOnMatter", "conflicts:run"), {
   method: "put",
   path: "/api/v1/conflicts/checks/{checkId}/matter",
@@ -1360,36 +1317,6 @@ function executeAfterResponse(
   );
 }
 
-/** The run's subject entity ids, as its stored request names them; none where the request is unreadable. */
-function subjectEntityIdsOf(requestJson: string | null): readonly string[] {
-  if (requestJson === null) return [];
-  return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
-}
-
-function askedScopeOf(
-  requestJson: string,
-): { readonly sources: readonly string[]; readonly strictness: string } | null {
-  const scope = parseStoredRunRequest(requestJson)?.scope;
-  return scope === undefined ? null : { sources: [...scope.sources], strictness: scope.strictness };
-}
-
-/** The parties a run was asked about, named from one set-valued Directory read. */
-function subjectPartiesOf(
-  entityIds: readonly string[],
-  names: ReadonlyMap<
-    string,
-    { readonly kind: "person" | "organization"; readonly displayName: string | null }
-  >,
-) {
-  return entityIds.map((entityId) => {
-    const name = names.get(entityId);
-    return {
-      entityId,
-      party: name === undefined ? null : { kind: name.kind, displayName: name.displayName },
-    };
-  });
-}
-
 function runSummary(
   run: CheckRunRow,
   hitCounts: ReadonlyMap<string, number>,
@@ -1637,10 +1564,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             createdByUserId: row.created_by_user_id,
             runCount: row.run_count,
             latestRunId: row.latest_run_id,
-            runStatus:
-              row.run_status === "failed" && row.run_cancelled_at !== null
-                ? "cancelled"
-                : row.run_status,
+            runStatus: reportedStatusOrNull(row.run_status, row.run_cancelled_at),
             latestRunAt: row.latest_run_at,
             trigger: row.trigger,
             triggerSource: row.trigger_source,
@@ -1803,31 +1727,6 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       } catch (caught) {
         return conflictsErrorResponse(c, caught);
       }
-    },
-  );
-
-  // POST /api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel
-  app.openapi(
-    { ...cancelRunRoute, middleware: chokepointMiddleware(chokepoint, cancelRunRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const actorUserId = requireChokepointUserId(c);
-      const { checkId, runId } = c.req.valid("param");
-      const numbered = await readNumberedCheckByAnyId(firm.firmDatabase, checkId);
-      if (numbered === null) return notFound(c, "No such conflicts check in this firm.");
-      const run = await readRun(firm.firmDatabase, runId);
-      if (run === null || run.numbered_check_id !== numbered.id) {
-        return notFound(c, "No such run of this conflicts check.");
-      }
-      // A plain guarded update rather than an effect batch: it moves one mutable row, and a repeat
-      // finds the run already settled and changes nothing — the chokepoint still requires the key so
-      // a replay is recognised.
-      await cancelRunStatement(firm.firmDatabase, run.id, actorUserId, nowInstant()).run();
-      const settled = (await readRun(firm.firmDatabase, run.id)) ?? run;
-      return c.json(
-        { id: run.id, status: reportedRunStatus(settled) } as z.infer<typeof CancelledRunResponse>,
-        200,
-      );
     },
   );
 

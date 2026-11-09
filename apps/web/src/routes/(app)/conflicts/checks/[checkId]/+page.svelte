@@ -30,6 +30,7 @@
    */
   import * as Accordion from "@magna-carta/design-system/accordion";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
@@ -587,29 +588,30 @@
 
               <div class="flex flex-col gap-8 border-t border-border-default pt-16">
                 <FieldLabel as="h3">Settings</FieldLabel>
-                <dl class="grid grid-cols-[max-content_1fr] gap-x-16 gap-y-4 text-sm">
+                <DefinitionList.Root>
                   {#each SEARCH_LOCATIONS as entry (entry.location)}
-                    <dt class="text-text-muted">{entry.label}</dt>
-                    <dd>
+                    <DefinitionList.Row term={entry.label}>
                       {#if !entry.searchable}
                         Not searched
                       {:else}
                         {directorySettings === "" ? "As the firm's floor sets it" : directorySettings}
                       {/if}
-                    </dd>
+                    </DefinitionList.Row>
                   {/each}
                   {#if strictness !== null}
-                    <dt class="text-text-muted">Name Matching</dt>
-                    <dd>{strictnessVocabulary(strictness).label}</dd>
+                    <DefinitionList.Row term="Name Matching">
+                      {strictnessVocabulary(strictness).label}
+                    </DefinitionList.Row>
                   {/if}
-                  <dt class="text-text-muted">Asked By</dt>
-                  <dd>{memberText(run.requestedByUserId)}</dd>
+                  <DefinitionList.Row term="Asked By">
+                    {memberText(run.requestedByUserId)}
+                  </DefinitionList.Row>
                   {#if run.status === "cancelled"}
-                    <dt class="text-text-muted">Cancelled By</dt>
-                    <dd>{memberText(run.cancelledByUserId)}</dd>
+                    <DefinitionList.Row term="Cancelled By">
+                      {memberText(run.cancelledByUserId)}
+                    </DefinitionList.Row>
                   {/if}
-                  <dt class="text-text-muted">Matter</dt>
-                  <dd>
+                  <DefinitionList.Row term="Matter">
                     {#if check.matterId !== null}
                       <a class="underline underline-offset-2" href="/matters/{check.matterId}/conflicts">
                         Where the matter stands
@@ -617,8 +619,8 @@
                     {:else}
                       No Matter
                     {/if}
-                  </dd>
-                </dl>
+                  </DefinitionList.Row>
+                </DefinitionList.Root>
                 {#if check.matterId === null}
                   <!-- Filing moves no search record; the next run searches with the matter's own
                        parties. -->

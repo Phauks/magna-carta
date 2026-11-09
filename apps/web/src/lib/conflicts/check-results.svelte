@@ -18,6 +18,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import { buttonClasses } from "@magna-carta/design-system/button";
+  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Input from "@magna-carta/design-system/input";
@@ -233,59 +234,53 @@
             </DropdownMenu.Root>
           </div>
           {#if open}
-            <dl
-              class="grid grid-cols-[max-content_1fr] gap-x-16 gap-y-8 border-t border-border-default p-12 ps-48 text-sm"
-            >
-              <dt class="text-text-muted">Matched On</dt>
-              <dd>
-                <ul class="flex flex-col gap-4">
-                  {#each hit.matchedFields as field (field)}
-                    <li>{field}</li>
-                  {:else}
-                    <li class="text-text-muted">No channel recorded</li>
-                  {/each}
-                </ul>
-              </dd>
-              <dt class="text-text-muted">Path</dt>
-              <dd>
-                {#if hit.graphPath.length === 0}
-                  {pathSummary(hit.graphPath)}
-                {:else}
-                  <ol class="flex flex-col gap-4">
-                    {#each hit.graphPath as step (step.edgeId)}
-                      <li>
-                        {edgeTypeLabel(step.edgeType)}{step.expiredAtCheck === true
-                          ? " (ended before this check)"
-                          : ""}
-                      </li>
+            <div class="border-t border-border-default p-12 ps-48 text-sm">
+              <DefinitionList.Root>
+                <DefinitionList.Row term="Matched On">
+                  <ul class="flex flex-col gap-4">
+                    {#each hit.matchedFields as field (field)}
+                      <li>{field}</li>
+                    {:else}
+                      <li class="text-text-muted">No channel recorded</li>
                     {/each}
-                  </ol>
+                  </ul>
+                </DefinitionList.Row>
+                <DefinitionList.Row term="Path">
+                  {#if hit.graphPath.length === 0}
+                    {pathSummary(hit.graphPath)}
+                  {:else}
+                    <ol class="flex flex-col gap-4">
+                      {#each hit.graphPath as step (step.edgeId)}
+                        <li>
+                          {edgeTypeLabel(step.edgeType)}{step.expiredAtCheck === true
+                            ? " (ended before this check)"
+                            : ""}
+                        </li>
+                      {/each}
+                    </ol>
+                  {/if}
+                </DefinitionList.Row>
+                {#if hit.disposition !== null}
+                  <DefinitionList.Row term="Review">
+                    {dispositionVocabulary(hit.disposition.kind).label} by
+                    {memberName(hit.disposition.reviewerUserId)},
+                    {formatInstant(hit.disposition.createdAt)}: {hit.disposition.rationale}
+                  </DefinitionList.Row>
                 {/if}
-              </dd>
-              {#if hit.disposition !== null}
-                <dt class="text-text-muted">Review</dt>
-                <dd>
-                  {dispositionVocabulary(hit.disposition.kind).label} by
-                  {memberName(hit.disposition.reviewerUserId)},
-                  {formatInstant(hit.disposition.createdAt)}: {hit.disposition.rationale}
-                </dd>
-              {/if}
-              {#if hit.previouslyAnswered !== null}
-                <dt class="text-text-muted">Earlier Answer</dt>
-                <dd>
-                  <a
-                    class="underline underline-offset-2"
-                    href="/conflicts/checks/{hit.previouslyAnswered.checkId}"
-                  >
-                    {dispositionVocabulary(hit.previouslyAnswered.kind).label} on another check,
-                    {formatInstant(hit.previouslyAnswered.createdAt)}
-                  </a>
-                </dd>
-              {/if}
-              <dd class="col-span-2">
-                <Button variant="ghost" size="sm" onclick={() => onOpen(hit)}>Open</Button>
-              </dd>
-            </dl>
+                {#if hit.previouslyAnswered !== null}
+                  <DefinitionList.Row term="Earlier Answer">
+                    <a
+                      class="underline underline-offset-2"
+                      href="/conflicts/checks/{hit.previouslyAnswered.checkId}"
+                    >
+                      {dispositionVocabulary(hit.previouslyAnswered.kind).label} on another check,
+                      {formatInstant(hit.previouslyAnswered.createdAt)}
+                    </a>
+                  </DefinitionList.Row>
+                {/if}
+              </DefinitionList.Root>
+              <Button variant="ghost" size="sm" class="mt-8" onclick={() => onOpen(hit)}>Open</Button>
+            </div>
           {/if}
         </li>
       {:else}
