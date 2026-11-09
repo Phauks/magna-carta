@@ -31,6 +31,7 @@
     "@magna-carta/pdf": "workspace:*",
     "@magna-carta/product-updates": "workspace:*",
     "@magna-carta/safe-browse": "workspace:*",
+    "@magna-carta/segmentation": "workspace:*",
     "@magna-carta/tools": "workspace:*",
     "@noble/hashes": "catalog:",
     "@tanstack/svelte-query": "catalog:",

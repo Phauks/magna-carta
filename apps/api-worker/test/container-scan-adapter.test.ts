@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { RawScanResult } from "@magna-carta/file-manager/scan-port";
 import { ScanFaultError } from "@magna-carta/file-manager/verdict";

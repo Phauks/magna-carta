@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 /*
  * The live stream's decisions, pinned without a browser.
  *

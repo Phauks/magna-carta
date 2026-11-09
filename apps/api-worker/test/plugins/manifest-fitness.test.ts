@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // apps/api-worker/test/plugins/manifest-fitness.test.ts
 import { describe, expect, it } from "vitest";
 import { isPermission } from "@magna-carta/access-control/registry";

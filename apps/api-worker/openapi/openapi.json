@@ -22037,6 +22037,64 @@
           }
         }
       },
+      "DirectoryEntityPhotoResponse": {
+        "type": "object",
+        "properties": {
+          "photo": {
+            "$ref": "#/components/schemas/DirectoryEntityPhoto"
+          }
+        },
+        "required": [
+          "photo"
+        ]
+      },
+      "DirectoryEntityPhoto": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "description": "The SHA-256 of the bytes."
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "widthPixels": {
+            "type": "integer"
+          },
+          "heightPixels": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "contentType",
+          "sizeBytes",
+          "widthPixels",
+          "heightPixels",
+          "updatedAt"
+        ]
+      },
+      "SetDirectoryEntityPhotoRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "imageBase64"
+        ]
+      },
       "AddressSuggestionsResponse": {
         "oneOf": [
           {
@@ -27122,6 +27180,218 @@
           "shortfallMinutes",
           "unloggedDay"
         ]
+      },
+      "CallerLookup": {
+        "type": "object",
+        "properties": {
+          "directoryMatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallerDirectoryMatch"
+            }
+          },
+          "areaCode": {
+            "$ref": "#/components/schemas/CallerAreaCode"
+          },
+          "callerIdentity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallerIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A caller ID the firm already paid for, or null when it has none for the number."
+          },
+          "paidLookup": {
+            "type": "string",
+            "enum": [
+              "available",
+              "unavailable",
+              "not-covered"
+            ],
+            "description": "Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country."
+          }
+        },
+        "required": [
+          "directoryMatches",
+          "areaCode",
+          "callerIdentity",
+          "paidLookup"
+        ]
+      },
+      "CallerDirectoryMatch": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when the record holds no name at all; a reader shows the gap."
+          }
+        },
+        "required": [
+          "entityId",
+          "entityKind",
+          "displayName"
+        ]
+      },
+      "CallerAreaCode": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "areaCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string",
+            "description": "Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is."
+          },
+          "place": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The town the number's exchange was assigned to, as the numbering data writes it (\"Las Vegas, NV\"). Null where that data does not subdivide the area code."
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The IANA time zone the number was issued under. Null where the area code spans several.",
+            "example": "America/Los_Angeles"
+          }
+        },
+        "required": [
+          "areaCode",
+          "region",
+          "place",
+          "timeZone"
+        ]
+      },
+      "CallerIdentity": {
+        "type": "object",
+        "properties": {
+          "callerName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name the carriers' caller-name database holds, as it holds it. Null when it holds none."
+          },
+          "lineType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "mobile",
+              "fixed",
+              "fixedOrMobile",
+              "voip",
+              "tollFree",
+              "other",
+              null
+            ]
+          },
+          "carrierName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lookedUpAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "callerName",
+          "lineType",
+          "carrierName",
+          "lookedUpAt"
+        ],
+        "description": "A caller ID the firm already paid for."
+      },
+      "CallerLookupRequest": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "pattern": "^\\+[1-9][0-9]{6,14}$",
+            "description": "The number in E.164 — a plus, the country calling code and the national number, digits only. The form builds it from the number field and its country.",
+            "example": "+17025550142"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "CallerIdentityLookup": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "found"
+                ]
+              },
+              "callerIdentity": {
+                "$ref": "#/components/schemas/CallerIdentity"
+              }
+            },
+            "required": [
+              "outcome",
+              "callerIdentity"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "not-covered"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          }
+        ],
+        "description": "`found` is the kept answer, which may hold no name. `not-covered` and `unavailable` are answers, not failures: nothing was asked and nothing was charged."
       },
       "CommunicationPage": {
         "type": "object",
@@ -79870,6 +80140,419 @@
         }
       }
     },
+    "/api/v1/directory/entities/{id}/photo": {
+      "get": {
+        "description": "A record's picture, as facts about it: what the bytes are, how large, and when they were set. Null where the record holds none. The bytes themselves are a separate read.",
+        "operationId": "directory.entityPhoto",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.entityPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record's picture, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets a record's picture, replacing whatever it held. The bytes are read to decide what they are, a PNG or a JPEG and nothing else, so nothing is stored that a screen will refuse to draw.",
+        "operationId": "directory.setEntityPhoto",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.setEntityPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDirectoryEntityPhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record's picture after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityPhotoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a record's picture. A record that holds none is answered the same way: the act says what is true afterwards, not what was true before.",
+        "operationId": "directory.removeEntityPhoto",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.removeEntityPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "directory.setEntityPhoto"
+        },
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record holds no picture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityPhotoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/photo/content": {
+      "get": {
+        "description": "The bytes of a record's picture, in the type they were read to be when stored. Rides the session like every other read and is never publicly addressable.",
+        "operationId": "directory.entityPhotoContent",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.entityPhotoContent",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/address-lookup/suggestions": {
       "post": {
         "description": "Offers real addresses for what has been typed so far, in the country the address is in. A read-shaped POST: it reads and writes nothing, and takes a body rather than a query string because what it is sent is a client's address.",
@@ -89154,6 +89837,235 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/communications/caller-lookup": {
+      "post": {
+        "description": "Everything known about a number that costs nothing: the Directory records that list it, the region its area code was issued for, and any caller ID the firm already looked up. A read-shaped POST: it reads and writes nothing, and takes a body because what it is sent is a client's telephone number.",
+        "operationId": "communications.callerLookup",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.callerLookup",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallerLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What is known about the number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerLookup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks communications:log",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/communications/caller-lookup/caller-identity": {
+      "post": {
+        "description": "Asks the carriers' caller-name database who a number belongs to, and keeps the answer so the number is never paid for twice. Each call that reaches the network is a billed query; a number the firm already looked up is answered from the kept answer without one.",
+        "operationId": "communications.callerIdentity",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.callerIdentity",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallerLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The caller ID, or why there is none to ask for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerIdentityLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks communications:log",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The caller-name service did not answer, or refused. Nothing was kept; pressing again asks again.",
             "content": {
               "application/problem+json": {
                 "schema": {

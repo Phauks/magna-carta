@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it, vi } from "vitest";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { emitUsage } from "../../src/usage/emit.ts";

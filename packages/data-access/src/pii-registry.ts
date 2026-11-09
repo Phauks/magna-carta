@@ -43,6 +43,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "directory_phone", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_address", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_entity_category", subjectKey: "entity_id", action: "hard-delete" },
+  // A person's photograph. As with member_photo, the row is the only thing that names the object
+  // holding the bytes: read object_key before the row goes, or the picture stays in the firm's
+  // bucket where nothing can find it to delete.
+  {
+    table: "directory_entity_photo",
+    subjectKey: "entity_id",
+    action: "hard-delete",
+    note: "the row names an R2 object; read object_key before deleting the row",
+  },
   // Edges reference a subject on both endpoints (mirrors the merge repoint set).
   { table: "directory_edge", subjectKey: "from_entity_id", action: "hard-delete" },
   { table: "directory_edge", subjectKey: "to_entity_id", action: "hard-delete" },
@@ -281,6 +290,22 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "logged_by_user_id",
     action: "retain-under-matter",
     note: "who entered a hand-logged call, and when, is that entry's provenance — the reason a member-produced row can be weighed differently from a carrier-produced one",
+  },
+  // A looked-up caller identity is the telephone network's answer about a number, kept so one number
+  // is paid for once. It is reached by the number rather than by an entity — nothing links it to a
+  // Directory record — and it is no part of any matter's record, so a subject's erasure deletes the
+  // row outright: the next lookup simply pays again.
+  {
+    table: "caller_identity",
+    subjectKey: "national_number",
+    action: "hard-delete",
+    note: "the caller name the carriers' database returned for the number; the country calling code is the other half of the key",
+  },
+  {
+    table: "caller_identity",
+    subjectKey: "looked_up_by_user_id",
+    action: "pseudonymize-keep",
+    note: "which member asked is the provenance of a billed lookup",
   },
   // Meetings. A meeting is a conversation the firm had, so its retention basis is the call log's one
   // line above: who was in the room is part of what the matter record says happened. The meeting row

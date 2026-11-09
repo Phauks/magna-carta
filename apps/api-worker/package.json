@@ -24,6 +24,7 @@
     "@magna-carta/billing-core": "workspace:*",
     "@magna-carta/build-identity": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/caller-lookup": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/communications": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",

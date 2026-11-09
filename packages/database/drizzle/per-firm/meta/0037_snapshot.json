@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5192d0e6-bd99-45ee-bcd4-79373e0337b6",
+  "id": "af56de18-f49c-49a2-9624-de013a9be936",
   "prevId": "8549b78c-48da-40cd-a577-0223256a8e13",
   "tables": {
     "account_balance": {
@@ -667,6 +667,85 @@
         "calendar_event_link_continuance_matter_check": {
           "name": "calendar_event_link_continuance_matter_check",
           "value": "\"calendar_event_link\".\"kind\" <> 'continuance_of' OR (\"calendar_event_link\".\"from_matter_event_id\" IS NOT NULL AND \"calendar_event_link\".\"to_matter_event_id\" IS NOT NULL)"
+        }
+      }
+    },
+    "caller_identity": {
+      "name": "caller_identity",
+      "columns": {
+        "country_calling_code": {
+          "name": "country_calling_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "national_number": {
+          "name": "national_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "caller_name": {
+          "name": "caller_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "line_type": {
+          "name": "line_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "carrier_name": {
+          "name": "carrier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "looked_up_by_user_id": {
+          "name": "looked_up_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "looked_up_at": {
+          "name": "looked_up_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "caller_identity_country_calling_code_national_number_pk": {
+          "columns": [
+            "country_calling_code",
+            "national_number"
+          ],
+          "name": "caller_identity_country_calling_code_national_number_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "caller_identity_number_digits_check": {
+          "name": "caller_identity_number_digits_check",
+          "value": "length(\"caller_identity\".\"country_calling_code\") > 0 AND \"caller_identity\".\"country_calling_code\" NOT GLOB '*[^0-9]*' AND length(\"caller_identity\".\"national_number\") > 0 AND \"caller_identity\".\"national_number\" NOT GLOB '*[^0-9]*'"
         }
       }
     },
@@ -1406,20 +1485,6 @@
         },
         "failure": {
           "name": "failure",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cancelled_at": {
-          "name": "cancelled_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cancelled_by_user_id": {
-          "name": "cancelled_by_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

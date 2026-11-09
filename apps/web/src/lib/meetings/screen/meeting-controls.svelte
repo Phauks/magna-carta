@@ -57,6 +57,7 @@
   import ChoiceRow from "@magna-carta/design-system/choice-row";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FailureBand from "@magna-carta/design-system/failure-band";
+  import FileInput from "@magna-carta/design-system/file-input";
   import Label from "@magna-carta/design-system/label";
   import * as Popover from "@magna-carta/design-system/popover";
   import Switch from "@magna-carta/design-system/switch";
@@ -108,6 +109,7 @@
     onClearSpotlight,
     onOpenHosts,
     onChangeEffects,
+    onChooseBackgroundImage,
     onOpenPolls,
     onOpenQuestions,
     onLeave,
@@ -220,6 +222,11 @@
      * choice and hands it to the client, which asks the tracks and reads back what they did.
      */
     onChangeEffects?: (settings: MediaEffectSettings) => void;
+    /**
+     * Stand this member in front of a picture from their own computer. The file never leaves their
+     * browser; the room sees only the composite.
+     */
+    onChooseBackgroundImage?: (file: File) => void;
     /** Open the polls. Absent where the room screen offers no polls panel. */
     onOpenPolls?: () => void;
     /** Open the question queue. Absent where the room screen offers no queue. */
@@ -264,11 +271,27 @@
     appliedEffects?.audio.noiseSuppression ?? effectSettings.reduceNoise,
   );
 
+  /**
+   * Whether the member pressed Image before any picture was chosen, so the panel is asking for one.
+   * Choosing Image with nothing to show would publish nothing different, so the picture comes first.
+   */
+  let askingForImage = $state(false);
+
   function chooseBackground(background: MediaEffectSettings["background"]): void {
     if (appliedEffects === null) return;
-    const current = appliedEffects.blur === "on" ? "blur" : "none";
-    if (background === current) return;
+    if (background === "image" && !appliedEffects.imageChosen) {
+      askingForImage = true;
+      return;
+    }
+    askingForImage = false;
+    if (background === appliedEffects.background) return;
     onChangeEffects?.({ ...effectSettings, background });
+  }
+
+  function chooseImageFile(file: File | null): void {
+    if (file === null) return;
+    askingForImage = false;
+    onChooseBackgroundImage?.(file);
   }
 
   function chooseNoiseReduction(reduceNoise: boolean): void {
@@ -306,7 +329,37 @@
           <h3 id="meeting-effects-background" class="text-xs font-medium text-text-muted">
             Background
           </h3>
-          {#if applied.blur === "on" || applied.blur === "off"}
+          {#if applied.backgroundByProduct}
+            <div class="flex flex-col gap-4">
+              <ChoiceRow
+                selected={applied.background === "none" && !askingForImage}
+                onclick={() => chooseBackground("none")}
+              >
+                None
+              </ChoiceRow>
+              <ChoiceRow
+                selected={applied.background === "blur" && !askingForImage}
+                onclick={() => chooseBackground("blur")}
+              >
+                Blur
+              </ChoiceRow>
+              <ChoiceRow
+                selected={applied.background === "image" || askingForImage}
+                onclick={() => chooseBackground("image")}
+              >
+                Image
+              </ChoiceRow>
+            </div>
+            {#if applied.background === "image" || askingForImage}
+              <!-- The picture stays in this browser. It is cut down and kept here, and the room
+                   only ever sees the member standing in front of it. -->
+              <FileInput
+                accept="image/png,image/jpeg,image/webp"
+                aria-label={applied.imageChosen ? "Choose a different picture" : "Choose a picture"}
+                onchange={(event) => chooseImageFile(event.currentTarget.files?.[0] ?? null)}
+              />
+            {/if}
+          {:else if applied.blur === "on" || applied.blur === "off"}
             <div class="flex flex-col gap-4">
               <ChoiceRow
                 selected={applied.blur === "off"}

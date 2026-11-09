@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  bandedGridRows,
   gridRowMarkAttributes,
   groupedGridRows,
 } from "../src/lib/components/data-table/grid-rows.ts";
@@ -92,5 +93,49 @@ describe("gridRowMarkAttributes", () => {
 
   it("renders no attribute for a mark explicitly turned off", () => {
     expect(gridRowMarkAttributes({ pinned: false, quiet: false })).toEqual({});
+  });
+});
+
+describe("bandedGridRows", () => {
+  type Task = { id: string; band: string };
+  const TASKS: Task[] = [
+    { id: "a", band: "Later" },
+    { id: "b", band: "Today" },
+    { id: "c", band: "Later" },
+    { id: "d", band: "This Week" },
+    { id: "e", band: "Today" },
+  ];
+  const keyOf = (task: Task): string => task.band;
+
+  it("keeps each band's rows in the order they arrived, bands in first-seen order", () => {
+    const bands = bandedGridRows(TASKS, { keyOf }, "ascending");
+    expect(bands.map((band) => band.key)).toEqual(["Later", "Today", "This Week"]);
+    expect(bands[0]?.rows.map((task) => task.id)).toEqual(["a", "c"]);
+    expect(bands[1]?.rows.map((task) => task.id)).toEqual(["b", "e"]);
+  });
+
+  it("follows the surface's band order, and that order can flip with the sort direction", () => {
+    const fixed = ["Today", "This Week", "Later"];
+    const order = (
+      _keys: readonly string[],
+      direction: "ascending" | "descending" | null,
+    ): readonly string[] => (direction === "descending" ? fixed.toReversed() : fixed);
+    expect(bandedGridRows(TASKS, { keyOf, order }, "ascending").map((band) => band.key)).toEqual(
+      fixed,
+    );
+    expect(bandedGridRows(TASKS, { keyOf, order }, "descending").map((band) => band.key)).toEqual(
+      fixed.toReversed(),
+    );
+  });
+
+  it("never drops a band the ordering forgot, and never invents an empty one", () => {
+    const bands = bandedGridRows(TASKS, { keyOf, order: () => ["No Due Date", "Today"] }, null);
+    expect(bands.map((band) => band.key)).toEqual(["Today", "Later", "This Week"]);
+  });
+
+  it("labels a band from the surface, defaulting to its key", () => {
+    const bands = bandedGridRows(TASKS, { keyOf, labelOf: (key) => key.toUpperCase() }, null);
+    expect(bands[0]?.label).toBe("LATER");
+    expect(bandedGridRows(TASKS, { keyOf }, null)[0]?.label).toBe("Later");
   });
 });

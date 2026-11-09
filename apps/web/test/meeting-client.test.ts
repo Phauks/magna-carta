@@ -2576,6 +2576,9 @@ describe("capture, then effects, then publish", () => {
         },
         blur: "on",
         platformBlur: null,
+        background: "blur",
+        backgroundByProduct: false,
+        imageChosen: false,
         refusal: null,
       },
       update: () => Promise.reject(new Error("not asked")),
@@ -2621,6 +2624,9 @@ describe("capture, then effects, then publish", () => {
       },
       blur: "unavailable" as const,
       platformBlur: null,
+      background: "none" as const,
+      backgroundByProduct: false,
+      imageChosen: false,
       refusal: "Your browser did not change how it treats your microphone.",
     };
     const stage = stageThat(async (stream) => {

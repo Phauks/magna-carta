@@ -264,8 +264,22 @@
     {
       "idx": 37,
       "version": "6",
+      "when": 1794260036973,
+      "tag": "20261109T213357_a-looked-up-caller-identity-is-kept",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794265957034,
+      "tag": "20261109T231237_a-directory-record-carries-a-picture",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
       "when": 1794262936986,
-      "tag": "20261109T222217_a-conflicts-run-can-be-cancelled",
+      "tag": "20261109T234343_a-conflicts-run-can-be-cancelled",
       "breakpoints": true
     }
   ]
