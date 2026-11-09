@@ -259,7 +259,7 @@
     gap: var(--mc-space-8);
     color: var(--mc-text-default);
     font-size: var(--mc-font-size-sm);
-    letter-spacing: normal;
+    letter-spacing: var(--mc-tracking-normal);
     text-transform: none;
   }
   [data-arrangement="exchange"]
