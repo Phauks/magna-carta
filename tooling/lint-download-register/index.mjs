@@ -57,7 +57,7 @@ const DELIVERY_SIGNALS = [/\bpresignGet\s*\(/, /\bmakeZip\s*\(/];
  */
 const NOT_A_MEMBER_DOWNLOAD = new Map([
   [
-    "apps/api-worker/src/downloads/bundle-consumer.ts",
+    "apps/api-worker/src/background/downloads/bundle-consumer.ts",
     "builds the archive into the firm's bucket; the member is handed it by the poll route, and the " +
       "row was written when they asked for it",
   ],
@@ -78,11 +78,11 @@ const NOT_A_MEMBER_DOWNLOAD = new Map([
       "anybody on its own",
   ],
   [
-    "apps/api-worker/src/routes/dev-seed.ts",
+    "apps/api-worker/src/http/routes/developer/dev-seed.ts",
     "development seeding, compiled out of a deployment; there is no member on the other end",
   ],
   [
-    "apps/api-worker/src/routes/downloads-register.ts",
+    "apps/api-worker/src/http/routes/files/downloads-register.ts",
     "the register's OWN fetch route. Taking an item again records the format on the row that is " +
       "already there — writing a second row would make the register grow every time somebody read it",
   ],

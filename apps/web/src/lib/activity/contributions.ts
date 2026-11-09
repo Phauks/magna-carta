@@ -28,6 +28,7 @@ import {
   matterDeadlineActivityContribution,
   matterEventActivityContribution,
 } from "$lib/matters/calendar-activity-contribution.ts";
+import { matterFileDestructionActivityContribution } from "$lib/matters/matter-file-destruction-activity-contribution.ts";
 import { matterLifecycleActivityContribution } from "$lib/matters/matter-lifecycle-activity-contribution.ts";
 import { communicationActivityContribution } from "$lib/communications/activity-contribution.ts";
 import { noteActivityContribution } from "$lib/matters/note-activity-contribution.ts";
@@ -49,6 +50,7 @@ export const ACTIVITY_CONTRIBUTIONS: readonly ActivityContribution[] = Object.fr
   costEntryActivityContribution,
   conflictsCheckActivityContribution,
   matterLifecycleActivityContribution,
+  matterFileDestructionActivityContribution,
   custodyMovementActivityContribution,
   custodyReviewDueActivityContribution,
   custodyDueBackActivityContribution,

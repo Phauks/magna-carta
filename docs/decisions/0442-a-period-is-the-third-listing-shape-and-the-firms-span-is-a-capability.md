@@ -56,4 +56,4 @@ ships as the list half of the personal-timesheet design; the week grid is the ot
 built, and submission stays absent while the firm's review-gate setting is unserved. The figures on
 the screen cover what is loaded and the surface says so while a page remains, because a subtotal
 presented as a period's whole total is a number somebody would bill from. Spec:
-[`docs/specs/2026-08-25-personal-timesheet-design.md`](../../specs/2026-08-25-personal-timesheet-design.md).
+[`docs/specs/2026-08-25-personal-timesheet-design.md`](../specs/2026-08-25-personal-timesheet-design.md).

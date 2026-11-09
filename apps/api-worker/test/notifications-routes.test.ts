@@ -8,7 +8,7 @@ import { translateOutboxMessage } from "@magna-carta/notifications/translate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { INCIDENT_CREATED_TOPIC } from "../src/routes/incidents.ts";
+import { INCIDENT_CREATED_TOPIC } from "../src/http/routes/platform/incidents.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,

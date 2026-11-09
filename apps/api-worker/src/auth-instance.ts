@@ -1,39 +1,21 @@
-import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Logger } from "@magna-carta/telemetry/logger";
-import type { Bindings } from "./app.ts";
 import { createAuth } from "./auth.ts";
+import type { Bindings } from "./bindings.ts";
 import { createCloudflareEmailAdapter } from "./email-cloudflare.ts";
 import { deliverEmail } from "./email-delivery.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { defaultLoggerForEnv } from "./worker-logger.ts";
 
 // THE ONE BETTER AUTH INSTANCE PER ENVIRONMENT, and the outbound-email port under it.
 //
-// It lived in app.ts, which is the composition root — and that is exactly why it could not stay
-// there. A route-specific guard that has to resolve a session for itself (the platform-operator
-// lane, which the per-firm chokepoint cannot serve because its caller belongs to no firm) has to
-// reach this function, and app.ts imports every route module: a guard importing app.ts closed a
-// cycle that grew by two findings every time a second route joined that lane. Moved here, the
-// guard imports what it needs and app.ts goes on importing the guard's route.
-//
-// The only thing this module takes from app.ts is the `Bindings` TYPE, which every module in this
-// worker takes and which carries no runtime edge.
+// It lived in the composition root, and that is exactly why it could not stay there. Two kinds of
+// caller need it without the HTTP app: a route-specific guard that resolves a session for itself
+// (the platform-operator lane, which the per-firm chokepoint cannot serve because its caller belongs
+// to no firm), and the provisioning consumer on the background side. Either one importing the app
+// module closes a cycle through every route, so both import this instead.
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
 // isolate, so a WeakMap-keyed cache builds the auth context once instead of on every request.
 const authInstanceByEnv = new WeakMap<Bindings, ReturnType<typeof createAuth>>();
-
-// One Workers logger per env (the env object is stable within an isolate), built over the optional
-// TELEMETRY Analytics Engine binding. The single production wiring of createWorkersLogger.
-const loggerInstanceByEnv = new WeakMap<Bindings, Logger>();
-
-export function defaultLoggerForEnv(env: Bindings): Logger {
-  let logger = loggerInstanceByEnv.get(env);
-  if (logger === undefined) {
-    logger = createWorkersLogger(env.TELEMETRY);
-    loggerInstanceByEnv.set(env, logger);
-  }
-  return logger;
-}
 
 // The outbound-email adapter for an env: the real Cloudflare Email Service when its binding AND
 // EMAIL_FROM are both present (production), otherwise the dev logging adapter. EMAIL_FROM is the

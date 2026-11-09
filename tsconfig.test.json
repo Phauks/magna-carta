@@ -5,6 +5,9 @@
   "files": [],
   "references": [
     {
+      "path": "apps/address-worker/tsconfig.test.json"
+    },
+    {
       "path": "apps/api-worker/tsconfig.test.json"
     },
     {

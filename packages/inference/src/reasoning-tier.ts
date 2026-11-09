@@ -88,7 +88,7 @@ export interface ParsedReasoningTierOverrides {
 }
 
 // Read the deploy-configuration value. A JSON object of tier to model id, e.g.
-// {"most-capable":"anthropic/claude-sonnet-4-6"}. Unknown tier names and non-string values are dropped
+// {"most-capable":"anthropic/claude-sonnet-5-5"}. Unknown tier names and non-string values are dropped
 // rather than failing the whole object, so one bad key cannot discard a good one.
 export function parseReasoningTierOverrides(raw: string | undefined): ParsedReasoningTierOverrides {
   if (raw === undefined || raw.trim() === "") return { overrides: {}, malformed: false };

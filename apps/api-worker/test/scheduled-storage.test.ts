@@ -7,7 +7,7 @@ import {
   redriveStrandedPendingVersions,
   runStorageReconciliation,
   sweepStalePendingUploads,
-} from "../src/scheduled.ts";
+} from "../src/background/scheduled.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";

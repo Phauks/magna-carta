@@ -44,6 +44,13 @@
    * and this header's own title. `favoritable={false}` is for a screen that is not a place a member
    * can return to: a step in a flow, a dev-only console.
    *
+   * AND THE PAGE'S OWN MENU SITS BESIDE THE STAR (owner's selection, 2026-11-09). The `…` holds what
+   * is about this page rather than work done on it — Copy Link, Open in New Tab, and the screen's
+   * own secondary page-level items passed as `pageMenu` (page-actions-menu.svelte). The star was
+   * kept out of it on purpose: a gold star is how a member sees a page is already a favourite, and
+   * a menu would hide that answer. It follows `favoritable`, because the two questions are the same
+   * one — is this a place somebody returns to and passes around, or a step on the way to one.
+   *
    * THE TRAILING COLUMN is for a band that shares its height with something else — the matter's
    * search over its section strip. Passing it is what makes the title truncate rather than wrap and
    * the band stretch to one height, because those follow from the two-column arrangement rather
@@ -51,6 +58,7 @@
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
   import FavoriteControl from "$lib/navigation/favorite-control.svelte";
+  import PageActionsMenu from "$lib/screen/page-actions-menu.svelte";
   import type { MastheadDensity } from "@magna-carta/design-system/masthead";
   import BackLink from "$lib/navigation/back-link.svelte";
   import { resolveBackDestination, type BackTarget } from "$lib/screen/screen-header.ts";
@@ -65,6 +73,7 @@
     actions,
     trailing,
     favoritable = true,
+    pageMenu,
     class: className,
   }: {
     /** The screen's name, in the display serif. Becomes the page's h1. */
@@ -89,6 +98,12 @@
      * shortcutting to (the developer console).
      */
     favoritable?: boolean;
+    /**
+     * The screen's own items for the page menu beside the star (`DropdownMenu.Item`s), drawn
+     * beneath the two every page carries. Live, secondary, page-level items only: the screen's
+     * main work stays in `actions`, and an unwired item stays on the row marked Soon.
+     */
+    pageMenu?: Snippet;
     class?: string;
   } = $props();
 
@@ -134,7 +149,14 @@
         {:else}
           <Masthead.Title class="min-w-0">{title}</Masthead.Title>
         {/if}
-        {#if favoritable}<FavoriteControl {title} />{/if}
+        {#if favoritable}
+          <!-- The star and the menu sit together with no gap between them, so they read as one
+               cluster of page-level controls rather than two stray icons beside the name. -->
+          <div class="flex flex-none items-center">
+            <FavoriteControl {title} />
+            <PageActionsMenu {title} items={pageMenu} />
+          </div>
+        {/if}
       </div>
       {#if meta !== undefined}
         <Masthead.Meta class={sharesTheRow ? "flex-nowrap" : undefined}>{@render meta()}</Masthead.Meta>

@@ -47,7 +47,7 @@ and the next download at once; nothing is re-scanned.
 ## Who can change it
 
 Reading and changing the scan policy needs the `firm:manageScanPolicy` permission, which is granted
-to the Owner/Admin role. Everybody else sees the firm's answers stated and can ask for a change from
+to the Admin role. Everybody else sees the firm's answers stated and can ask for a change from
 the row.
 
 ## Related features

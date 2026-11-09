@@ -46,7 +46,10 @@
   let density = $state<DensityPreference>(initial.density);
 
   function apply(): void {
-    applyThemePreference(theme, mode, motion, density);
+    // The axes this module has no switcher for are read back and passed through unchanged, so
+    // flipping the theme here never resets a person's contrast, scroll-edge or typeface choice.
+    const { contrast, scrollEdgeHints, typeface } = readThemePreference();
+    applyThemePreference(theme, mode, motion, density, contrast, scrollEdgeHints, typeface);
   }
 </script>
 

@@ -184,7 +184,9 @@
   )}
   {...restProps}
 >
-  <caption class="mc-calendar-grid-caption">
+  <!-- Assistive technology only when the caller has nothing to say, as the month's: a blank visible
+       line over the week is height the hours could have had. -->
+  <caption class={mergeClasses("mc-calendar-grid-caption", emptyMessage === "" && "sr-only")}>
     {#if loading}
       <span class="sr-only">{loadingMessage}</span>
     {/if}

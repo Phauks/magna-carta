@@ -3340,7 +3340,7 @@ one.
 
 Eight of the design's open questions were answered by the owner and every section they touched was
 rewritten in
-[`docs/specs/2026-08-30-directory-entity-model-design.md`](../docs/specs/2026-08-30-directory-entity-model-design.md):
+[`docs/specs/2026-08-30-directory-entity-model-design.md`](docs/specs/2026-08-30-directory-entity-model-design.md):
 the date of birth is the full date in plaintext (the `birth_year` compromise is withdrawn), citizenship
 is dropped, the organization taxonomy is deferred whole, a failed verification never gates a send, and
 the point person on an organization is an edge type rather than a flag because the point person is
@@ -4708,7 +4708,7 @@ Two gaps from the matter Billing tab's screen design close with them. The invoic
 
 `bill-columns.ts`, `invoice-window.svelte`, `invoice-print-sheet.ts` and `bill-actions.ts` now take a matter or take none; the cost columns gain a Matter column hidden inside a matter and brought forward across the firm. Both money-column pairs are declared in both scopes with one of each hidden, so a stored layout means the same thing on both screens. The matter-anchored acts are refused on the firm's register with a scope refusal — a third kind beside the state and permission refusals the verb set already carried.
 
-Seams: `cost_entry.invoice_id` reaches the wire, and one **Open The Bill** verb in the shared ledger catalogue (`opensTheBill`, on the terms `reclassify` and `canRestoreVoid` already follow) lands a billed cost OR time entry on the matter's Billing section with that bill open — `time_entry.invoice_id` had been on the entry contract since it was written and nothing on the time surfaces read it, so that gap was a verb rather than a read; `?invoice=` opens a named bill on either register; the money toolbar's sibling row ends with the way out to the firm-wide twin, read from the sidebar's own registry so the two cannot call one place two things. Design: [`docs/specs/2026-09-07-firm-money-surfaces-design.md`](../docs/specs/2026-09-07-firm-money-surfaces-design.md). The invoice detail resolves each matter's number and title beside every line AND every balance — the lines because a draft has no balance rows, so reading the balances alone would say a draft charges nobody — and the window offers one link per matter.
+Seams: `cost_entry.invoice_id` reaches the wire, and one **Open The Bill** verb in the shared ledger catalogue (`opensTheBill`, on the terms `reclassify` and `canRestoreVoid` already follow) lands a billed cost OR time entry on the matter's Billing section with that bill open — `time_entry.invoice_id` had been on the entry contract since it was written and nothing on the time surfaces read it, so that gap was a verb rather than a read; `?invoice=` opens a named bill on either register; the money toolbar's sibling row ends with the way out to the firm-wide twin, read from the sidebar's own registry so the two cannot call one place two things. Design: [`docs/specs/2026-09-07-firm-money-surfaces-design.md`](docs/specs/2026-09-07-firm-money-surfaces-design.md). The invoice detail resolves each matter's number and title beside every line AND every balance — the lines because a draft has no balance rows, so reading the balances alone would say a draft charges nobody — and the window offers one link per matter.
 
 A cost's own record answers with what `cost_entry` already held. `created_at` and `created_by` were
 in the table from the baseline schema and were never projected, so Date Entered and Entered By said
@@ -5764,7 +5764,7 @@ The offer is rendered on the matter's Tasks section rather than the new-matter s
 opened before its plan existed can still take it, and somebody who declined can come back.
 - **Meetings, slice 1: a members-only video meeting started from a calendar event.** Media goes from the browser to the Cloudflare Realtime selective forwarding unit and never through a Worker; a `MeetingRoom` Durable Object per meeting brokers each browser's session with the unit over hibernating WebSockets, keeps the roster and writes attendance. `@magna-carta/meetings` holds the domain half on the communications package's shape, two tables join the per-firm lineage, and the routes sit under the chokepoint behind `meetings:host` and `meetings:join`.
 
-A meeting belongs to exactly one calendar event and carries no title, time or participant list of its own — those are the event's, read through a join — so authorization, visibility and the walled-matter question are answered once, by the event, rather than a second time by a free-standing meeting object. One meeting per event by unique index, created on demand by the first member who presses Start. The record keeps who was in the room and when, and nothing that was said: no recording, no transcript, no chat, which is what lets the feature ship before the jurisdiction consent machinery exists. Without `REALTIME_SFU_APP_ID` and `REALTIME_SFU_APP_SECRET` the create and join routes answer 503 and the calendar shows no Start control, so an unprovisioned account sees the feature dormant rather than broken. Design: [`docs/specs/2026-09-18-meetings-design.md`](../docs/specs/2026-09-18-meetings-design.md).
+A meeting belongs to exactly one calendar event and carries no title, time or participant list of its own — those are the event's, read through a join — so authorization, visibility and the walled-matter question are answered once, by the event, rather than a second time by a free-standing meeting object. One meeting per event by unique index, created on demand by the first member who presses Start. The record keeps who was in the room and when, and nothing that was said: no recording, no transcript, no chat, which is what lets the feature ship before the jurisdiction consent machinery exists. Without `REALTIME_SFU_APP_ID` and `REALTIME_SFU_APP_SECRET` the create and join routes answer 503 and the calendar shows no Start control, so an unprovisioned account sees the feature dormant rather than broken. Design: [`docs/specs/2026-09-18-meetings-design.md`](docs/specs/2026-09-18-meetings-design.md).
 
 External guests, recording, dial-in by telephone and rooms larger than the slice-1 cap of twelve are each their own node in the feature ledger, sequenced after this one.
 
@@ -6771,7 +6771,7 @@ go looking through the rail for.
 
 It is deliberately NOT a transfer manager and must not become one: bytes move over a presigned URL
 that the browser's own download manager drives
-([`network-resilience.md`](../docs/conventions/network-resilience.md) rules 1 and 2), so there is no
+([`network-resilience.md`](docs/conventions/network-resilience.md) rules 1 and 2), so there is no
 progress for this component to show and no transfer for it to own.
 
 Its dot is real state rather than decoration — the shelf holds something that arrived since this
@@ -6950,9 +6950,9 @@ Measured warm, before → after: a markdown-only diff 0.9 s → 1.6 s, one ordin
 4.9 s, a `packages/database` schema file 4.7 s → 7.8 s. `lint:test-registration` learned about
 **re-runner** configs (a Vitest config that owns no tests, only re-runs files belonging to other
 projects) and refuses to let one be registered twice. Homes:
-[`tooling/check-scoped/repo-wide.mjs`](../tooling/check-scoped/repo-wide.mjs),
-[`docs/conventions/build-performance.md`](../docs/conventions/build-performance.md),
-[`docs/conventions/testing.md`](../docs/conventions/testing.md).
+[`tooling/check-scoped/repo-wide.mjs`](tooling/check-scoped/repo-wide.mjs),
+[`docs/conventions/build-performance.md`](docs/conventions/build-performance.md),
+[`docs/conventions/testing.md`](docs/conventions/testing.md).
 - **The matter lifecycle gains its first rung and a hold, and the intake desk stands on it.** A
 matter now passes through `intake`, `consultation` (the status formerly stored as `prospective`,
 renamed as spelled because no firm holds a matter yet; a reviewed rebuild of `matter` widens the
@@ -8876,7 +8876,7 @@ task, and a build scoped to the package runs only `wrangler deploy --dry-run` an
 `pdf-core` was already covered by `rust-wasm-build` — the rule the deploy runbook states. What that
 rule left half-said, across three occurrences now, is the other half: **a Worker importing WASM needs
 a build command that reaches the task, not merely a crate that is listed in it.** Recorded in
-[`operations.md`](../docs/conventions/operations.md) section 12 with the failure signature and the
+[`operations.md`](docs/conventions/operations.md) section 12 with the failure signature and the
 watch paths.
 
 The fix is one line in `apps/sign-worker/package.json`: its `build` script now runs
@@ -9692,7 +9692,7 @@ verified by running them (`esign.seal` → `503`, `ai-detection.detect` → `422
 `tools/turn-credentials` → `503`, the conversion and search engine ports' `engine-not-implemented`);
 one was the shipping defect, fixed already; one is this. So the shipping case was closer to unlucky
 than typical — but the reason it survived was systemic, and
-[`docs/conventions/testing.md`](../docs/conventions/testing.md) now carries the rule: every injection
+[`docs/conventions/testing.md`](docs/conventions/testing.md) now carries the rule: every injection
 seam has at least one test that supplies nothing and asserts what a real request gets.
 
 **Not fixed here:** the scan engine's deployment, and the transactional-email adapter, which is the
@@ -10225,10 +10225,10 @@ sign Worker, which imports pdf-core alone for the same reason, now asks for the 
 The runbook's rule was half-stated twice before this. It read "a crate being in `rust-wasm-build` is
 not enough; the Worker that imports its output needs a build command that actually REACHES that
 task" — true, and one word short: reaching it is not ordering it. Both halves are now in
-[`docs/conventions/operations.md`](../docs/conventions/operations.md), with the fourth occurrence of
+[`docs/conventions/operations.md`](docs/conventions/operations.md), with the fourth occurrence of
 this class recorded beside the three before it, and the general form
 (`dependsOn` is a set, a chain is a chain) in
-[`docs/conventions/build-performance.md`](../docs/conventions/build-performance.md).
+[`docs/conventions/build-performance.md`](docs/conventions/build-performance.md).
 - **Nine registered permissions were granted to no role, so the surfaces behind them refused
 everybody.** The registry declares 102 keys; the `role_permission` seeds granted 90. Twelve were
 declared and seeded nowhere, and nothing made up the difference:
@@ -13181,7 +13181,7 @@ vocabulary would be shared in name only.
 the label; the code word does not move. Every user-facing string now carries it — the OpenAPI
 `description`s on the record-custodian routes, the refusal sentences the discovery services raise
 that a route surfaces verbatim as a problem `detail`, and
-[`docs/user/features/review-sets-and-loading.md`](../docs/user/features/review-sets-and-loading.md).
+[`docs/user/features/review-sets-and-loading.md`](docs/user/features/review-sets-and-loading.md).
 Identifiers, tables, columns, route paths (`/api/v1/review-sets/{reviewSetId}/record-custodians`),
 schema names, and refusal codes stay `record_custodian` / `recordCustodian`, so nothing on the wire
 changes shape. `tooling/lint-custodian-vocabulary.mjs` now recognises both permitted forms and
@@ -13299,7 +13299,7 @@ Every main screen now takes the Matters shape — `ScreenHeader` with the destin
 `navigation/destinations.ts`, no `eyebrow`, no descriptive `meta`. The rule is not new ("a heading
 carries no explanatory sub-text"); it had only ever bound lists, and now binds every archetype,
 recorded under a new "Screen headers" heading in
-[`docs/conventions/design-corrections.md`](../docs/conventions/design-corrections.md) and restated
+[`docs/conventions/design-corrections.md`](docs/conventions/design-corrections.md) and restated
 on `screen-header.svelte` itself so the next author meets it at the call site. A meta line still
 carries facts — Home's date, a room's kind and seat count, the speed test's run time, Assemble a
 document's alpha badge — because the test is unchanged: removing the line must lose a fact.
@@ -13742,7 +13742,7 @@ readable name lives in `display_name`. The chokepoint resolved `name`, so the bo
 than the old flow ever did.
 - **`ROADMAP.md` stops restating per-capability status and goes back to being the answer to "what is being worked on".** It had accreted into running build commentary — a single Next bullet could carry the design date, the plan link, the ADR numbers, what was built, what was deferred, the seams, and a mid-sentence status correction — and it had duplicated: the integration port system appeared twice, once ending "the framework is built and on `main`" and once ending "Build pending", with nothing flagging the contradiction. The tree settles it: `packages/integrations` exists, the ledger holds `integrations.port-framework` at `shipped`, and the false bullet is deleted. The property external-links resolver was duplicated verbatim, and both the OneDrive move and the continuous-deploy cutover sat in a "deferred, do when convenient" list marked DONE while also appearing under _Recently shipped_ — all now single entries in one place.
 
-**The register is what made this possible.** [`docs/now.md`](../docs/now.md) is generated from the feature ledger and gated against it, so it carries every capability at its real status and cannot drift. The roadmap no longer competes with it: what is per-capability status is linked, and the file keeps only what the ledger structurally cannot hold — which stream is live, what it does next, what order the rest comes in, and the cross-slice gates. Roughly 57% of the file's words are gone (17,400 to 7,600) with no stream dropped; what left was build history that already has a home in `docs/specs/`, the Decision Log, `CHANGELOG.md` and `STATUS.md`.
+**The register is what made this possible.** [`docs/now.md`](docs/now.md) is generated from the feature ledger and gated against it, so it carries every capability at its real status and cannot drift. The roadmap no longer competes with it: what is per-capability status is linked, and the file keeps only what the ledger structurally cannot hold — which stream is live, what it does next, what order the rest comes in, and the cross-slice gates. Roughly 57% of the file's words are gone (17,400 to 7,600) with no stream dropped; what left was build history that already has a home in `docs/specs/`, the Decision Log, `CHANGELOG.md` and `STATUS.md`.
 
 **Gates were kept as gates.** A real cross-slice prerequisite — deploy `magna-carta-sign` before the app worker because the `SIGN_SERVICE` binding blocks it, the attorney review that blocks any compliance surface over the Nevada profile, the CASA/Microsoft verification that blocks the first credentialed adapter, Costs before Billing — stays in the italic idiom the file already used, because those are ordering facts rather than commentary.
 
@@ -14025,7 +14025,7 @@ at all, so there is not one statement anywhere in the repository that inserts a 
 an address for a person. The record screen lists seven panes and none of them is Contact.
 
 The design pass that found it is at
-[`docs/specs/2026-08-30-directory-entity-model-design.md`](../docs/specs/2026-08-30-directory-entity-model-design.md),
+[`docs/specs/2026-08-30-directory-entity-model-design.md`](docs/specs/2026-08-30-directory-entity-model-design.md),
 and its first conclusion is that the model is much deeper than the screen suggests, so this is a
 completion rather than a rebuild. Names are already temporal, role-typed, phonetically coded and
 match-keyed twice over; identifiers are already one sealed row per value with a per-type frozen
@@ -14303,11 +14303,11 @@ File Analysis counts by severity rather than by how many files have anything at 
 Deleted files are matter files, so they render on the matter's own table — same columns, same sorting, same right-click, same multiple selection — plus Deleted, Deleted By and Was In. Sorting by deletion time is what that list is for.
 - **Design proposed for moving the single-page application onto its own Worker**, so an interface change
 stops rebuilding and redeploying the API:
-[`docs/specs/2026-08-21-spa-worker-split-design.md`](../docs/specs/2026-08-21-spa-worker-split-design.md).
+[`docs/specs/2026-08-21-spa-worker-split-design.md`](docs/specs/2026-08-21-spa-worker-split-design.md).
 Design only, and gated on a measurement — two reversible settings on the existing Worker may close
 most of the gap first, in which case the proposal should be withdrawn rather than built.
 
-**Corrects a claim in [`operations.md`](../docs/conventions/operations.md) that had stood since
+**Corrects a claim in [`operations.md`](docs/conventions/operations.md) that had stood since
 2026-06-28:** that `@magna-carta/pdf` is "imported by the SPA". It is not. `apps/web` depends on none
 of the three WebAssembly packages; every importer of the pdf package is server-side. The sentence
 mattered because it is why "can the interface build without the Rust toolchain?" carried an answer of
@@ -14858,7 +14858,7 @@ Copy sat at the FOOT of the Database section and put four health rows on the cli
 Workers has left Deployment and become a caret of its own, beside Deployment and Database. Nesting it made the fleet something a reader reached THROUGH the deployment, when in practice the two are asked about separately: "what build is live" and "is anything not answering" are different questions, and one of them was two folds deep. Each shut heading now counts only the Workers its own fold hides — one count across the whole read would have both headings claiming the same silent Worker.
 
 Three source assertions that pinned the old shape were rewritten to the rules they were actually guarding, rather than to the layout that happened to satisfy them: section order is asserted over the markup instead of the whole file, and the refresh rule is that every gesture a person makes probes fresh rather than that there are exactly two such gestures. One of them required a hand-written `aria-busy` on the refresh control, which the later ruling that every loading state runs through one region forbids outright — the two rules contradicted each other, and the test was the older one.
-- **The Build Versions panel stopped saying the same thing twice, and its two gestures moved into one cluster.** Five owner rulings from a deployed-site walk, recorded in [`docs/conventions/design-corrections.md`](../docs/conventions/design-corrections.md):
+- **The Build Versions panel stopped saying the same thing twice, and its two gestures moved into one cluster.** Five owner rulings from a deployed-site walk, recorded in [`docs/conventions/design-corrections.md`](docs/conventions/design-corrections.md):
 
 - The standing **"This page / committed … · built …"** row duplicated `magna-carta-web`. That Worker serves the interface, so its commit and timestamps already are this page's, said once under a name someone can open in a dashboard. `showsPageBuildRow` in `apps/web/src/lib/versions/version-overlay-model.ts` keeps the line as a fallback rather than deleting it outright: signed out, a read that failed, or a web row that came back silent all leave nothing else able to state this build, and a panel reporting no version at all is the opposite of the point. While a first read is still in flight it stays away, so it cannot appear for a moment and then vanish when the answer lands.
 - **"Services checked … ago"** sits under the header instead of beside the controls. Its length changes on a clock, and on the header row that motion pushed the Refresh button around while a reader was aiming at it.

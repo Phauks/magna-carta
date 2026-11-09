@@ -46,7 +46,8 @@
     "./platform-operator-statements": "./src/platform-operator-statements.ts",
     "./ai-detection-usage-statements": "./src/ai-detection-usage-statements.ts",
     "./file-repair-provenance-statements": "./src/file-repair-provenance-statements.ts",
-    "./index-split-statements": "./src/index-split-statements.ts"
+    "./index-split-statements": "./src/index-split-statements.ts",
+    "./pagination-contract": "./src/pagination-contract.ts"
   },
   "scripts": {
     "test": "vp test run"

@@ -26,6 +26,7 @@
     "./preview-policy": "./src/preview-policy.ts",
     "./bundle-paths": "./src/bundle-paths.ts",
     "./zip-composition": "./src/zip-composition.ts",
+    "./version-changes": "./src/version-changes.ts",
     "./zip-entries-from-r2": "./src/zip-entries-from-r2.ts",
     "./zip-central-directory": "./src/zip-central-directory.ts",
     "./zip-member-extract": "./src/zip-member-extract.ts",

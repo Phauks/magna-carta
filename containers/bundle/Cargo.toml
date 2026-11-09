@@ -18,7 +18,7 @@ axum = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # ZIP: Deflate + ZIP64 + AES write. Lean features — no bzip2/zstd/xz C deps (Windows-clean dev host).
-zip = { version = "8.6", default-features = false, features = [
+zip = { version = "9.4", default-features = false, features = [
   "deflate-flate2",
   "aes-crypto",
   "time",
@@ -35,7 +35,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # ReaderStream adapter: turn the spooled output file into a streaming PUT body (no full-file buffering).
 tokio-util = { version = "0.7", features = ["io"] }
 tempfile = "3"
-base64 = "0.22"
+base64 = "0.23"
 # Epoch → ZIP DateTime conversion (zip's `time` feature re-exports it; an explicit dep keeps the helper
 # readable).
 time = "0.3"

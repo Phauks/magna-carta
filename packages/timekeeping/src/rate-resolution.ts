@@ -10,6 +10,9 @@ export interface RateResolutionContext {
   readonly clientId: string | null;
   readonly timekeeperUserId: string;
   readonly roleId: string | null;
+  // The parent of roleId where roleId is a sub-role (Partner under Attorney), so a card that prices
+  // Attorney but not Partner still prices a Partner. Absent or null where there is no parent.
+  readonly parentRoleId?: string | null;
   readonly workDate: string; // PlainDate
   readonly rateCardId?: string;
   readonly overrideE4?: number;
@@ -41,6 +44,9 @@ function candidatesFor(context: RateResolutionContext): Candidate[] {
   candidates.push({ tier: "timekeeper", scopedId: context.timekeeperUserId, source: "timekeeper" });
   if (context.roleId !== null) {
     candidates.push({ tier: "role", scopedId: context.roleId, source: "role" });
+  }
+  if (context.parentRoleId !== undefined && context.parentRoleId !== null) {
+    candidates.push({ tier: "role", scopedId: context.parentRoleId, source: "role" });
   }
   candidates.push({ tier: "role", scopedId: null, source: "card_default" });
   return candidates;
@@ -114,4 +120,35 @@ async function firstInForce(
     if (hit !== undefined) return { currency: hit.currency };
   }
   return undefined;
+}
+
+/** The role a timekeeper's rate is priced by, and its parent where it is a sub-role. */
+export interface TimekeeperRateRole {
+  readonly roleId: string | null;
+  readonly parentRoleId: string | null;
+}
+
+// Which of a timekeeper's roles prices their time. A member can hold several (Attorney and Admin,
+// say), and the answer has to be the same on every read, so the order is fixed: a sub-role first,
+// because it is the most specific thing the firm said about the person; then a role that has
+// sub-roles, because that is a family of fee-earners; then by name. A per-timekeeper rate still
+// outranks all of this, since the timekeeper tier sits above the role tier.
+export async function readTimekeeperRateRole(
+  database: SqlDatabase,
+  timekeeperUserId: string,
+): Promise<TimekeeperRateRole> {
+  const { results } = await database
+    .prepare(
+      "SELECT role.id AS roleId, role.parent_role_id AS parentRoleId FROM member_role " +
+        "JOIN role ON role.id = member_role.role_id WHERE member_role.member_user_id = ?1 " +
+        "ORDER BY (role.parent_role_id IS NULL), " +
+        "NOT EXISTS (SELECT 1 FROM role AS child WHERE child.parent_role_id = role.id), " +
+        "role.name LIMIT 1",
+    )
+    .bind(timekeeperUserId)
+    .all<{ roleId: string; parentRoleId: string | null }>();
+  const row = results[0];
+  return row === undefined
+    ? { roleId: null, parentRoleId: null }
+    : { roleId: row.roleId, parentRoleId: row.parentRoleId };
 }

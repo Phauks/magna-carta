@@ -859,6 +859,50 @@ const matterLifecycleSource: TimelineSource = {
   project: projectRow("matterLifecycle", matterSectionLink("overview")),
 };
 
+// The date on or after which the firm may destroy its own paper file for a matter. A date a person
+// at the firm recorded, never one the platform derived, so it falls due exactly as a custody due-back
+// does: a forward-looking civil date on the firm calendar. Nothing about it is privileged — the
+// matter is the chip's whole content — so the label is declared empty and the matter number the
+// calendar already prints says which file it is.
+const matterFileDestructionSource: TimelineSource = {
+  key: "matterFileDestruction",
+  // The matter's own paper file is readable by anybody who can see the matter, as its standing is.
+  permission: null,
+  kinds: ["fileDestruction"],
+  visibilityAnchor: "matter",
+  timeColumnShape: "civilDate",
+  declaresLabel: false,
+  supportsMemberFilter: false,
+  buildStatements: (request) => {
+    const window = civilDateWindowConditions(
+      "matter_file_retention.destroy_on",
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const conditions = [...window.conditions];
+    const bindings = [...window.bindings];
+    if (request.scope.matterId !== undefined) {
+      conditions.push("matter_file_retention.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: "matter_file_retention",
+        sortColumn: "matter_file_retention.destroy_on",
+        idColumn: "matter_file_retention.matter_id",
+        matterExpression: "matter_file_retention.matter_id",
+        kindExpression: "'fileDestruction'",
+        actorExpression: "matter_file_retention.recorded_by_user_id",
+        labelExpression: "NULL",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("matterFileDestruction", matterSectionLink("overview")),
+};
+
 // ---- the join-reached sources ----
 
 async function resolveMatterPacketIds(
@@ -1236,7 +1280,7 @@ const firmEventSource: TimelineSource = {
   project: projectRow("firmEvent", (row) => `/calendar/firm-events?entry=${row.row_id}`),
 };
 
-// The registry. Fourteen declarations, reviewed when the list changes — the read count per page
+// The registry. Nineteen declarations, reviewed when the list changes — the read count per page
 // scales with THIS, not with the firm's data.
 export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   matterEventSource,
@@ -1252,6 +1296,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   costEntrySource,
   conflictsCheckSource,
   matterLifecycleSource,
+  matterFileDestructionSource,
   custodyMovementSource,
   custodyReviewDueSource,
   custodyDueBackSource,

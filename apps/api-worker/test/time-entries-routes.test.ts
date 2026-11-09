@@ -550,8 +550,8 @@ describe("list self-scope authorization (My-Day shape)", () => {
     expect(response.status).toBe(403);
   });
 
-  it("allows an Owner/Admin (time:viewFirm holder) to list another timekeeper's daily entries (200)", async () => {
-    // ownerCookie belongs to the Owner/Admin who holds time:viewFirm via their role.
+  it("allows an Admin (time:viewFirm holder) to list another timekeeper's daily entries (200)", async () => {
+    // ownerCookie belongs to the Admin who holds time:viewFirm via their role.
     const response = await get(
       `/api/v1/time-entries?timekeeperUserId=${trackOnlyUserId}&workDate=2026-06-22`,
       ownerCookie,

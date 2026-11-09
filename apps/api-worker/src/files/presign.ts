@@ -5,7 +5,7 @@ import {
   objectDimensionHeaders,
   type ObjectDimensions,
 } from "@magna-carta/object-dimensions/dimensions";
-import type { R2EventMessage } from "./ingest-consumer.ts";
+import type { R2EventMessage } from "../background/files/ingest-consumer.ts";
 import { r2S3Endpoint } from "./r2-s3-endpoint.ts";
 
 // The R2 presigner: every byte of an upload or download flows DIRECTLY between the client and R2's

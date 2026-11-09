@@ -14,3 +14,11 @@ export {
   type AddressFieldSpec,
   type AddressFormat,
 } from "./address-format.ts";
+export {
+  ADDRESS_LOOKUP_SENTENCES,
+  withResolvedAddress,
+  type AddressLookup,
+  type AddressLookupAnswer,
+  type AddressLookupResolution,
+  type AddressOffer,
+} from "./street-lookup.ts";

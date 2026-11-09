@@ -137,11 +137,11 @@ describe("provisionFirm", () => {
     });
 
     // The firm's per-firm database needed no provisioning step: its FirmDatabase DO self-migrates
-    // to head on first access. A read through firmDatabaseFor proves it — the 0002 Owner/Admin role
+    // to head on first access. A read through firmDatabaseFor proves it — the 0002 Admin role
     // seed is present without provisioning ever having migrated anything.
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, outcome.firmId);
     const ownerRole = await firmDatabase
-      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .prepare("SELECT id FROM role WHERE name = 'Admin'")
       .all<{ id: string }>();
     expect(ownerRole.results[0]?.id).toMatch(/^role_/);
 
@@ -173,7 +173,7 @@ describe("provisionFirm", () => {
       firm_id: outcome.firmId,
     });
 
-    // The member.provision outbox row carries the Owner/Admin role (canonical JSON, sorted keys).
+    // The member.provision outbox row carries the Admin role (canonical JSON, sorted keys).
     const outboxRow = await env.DB_CONTROL.prepare(
       "SELECT topic, payload, status FROM outbox WHERE payload LIKE '%' || ?1 || '%'",
     )
@@ -184,7 +184,7 @@ describe("provisionFirm", () => {
     expect(JSON.parse(outboxRow?.payload ?? "{}")).toEqual({
       displayName: "Owning Owner",
       firmId: outcome.firmId,
-      roleName: "Owner/Admin",
+      roleName: "Admin",
       userId: outcome.ownerUserId,
     });
 
@@ -382,7 +382,7 @@ describe("provisionFirm", () => {
     // SAME name under a different Idempotency-Key) reads status='provisioning', adopts A's durable
     // step 2-4 claims, and commits its activation. A's batch must then ABORT whole — without the
     // activation fence it would commit cleanly (different email, 0-row status flip) and leave TWO
-    // Owner/Admins.
+    // Admins.
     const portsA = fakePorts();
     const name = "Interleaved Activation Firm";
     const runA = await provisionFirm(portsA.dependencies, {

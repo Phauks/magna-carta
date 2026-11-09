@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   consumeCaptureRouteRegistration,
   parseCaptureRouteRegistrationPayload,
-} from "../src/emails/capture-route-consumer.ts";
+} from "../src/background/emails/capture-route-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
 

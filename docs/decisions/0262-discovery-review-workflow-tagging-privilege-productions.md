@@ -20,7 +20,7 @@ control. The AI Search design forbids review sets from ever reaching the derived
 construction rather than by flag.
 
 **Decision:** As proposed in
-[`docs/specs/2026-08-07-discovery-5-2-review-workflow.md`](../../specs/2026-08-07-discovery-5-2-review-workflow.md)
+[`docs/specs/2026-08-07-discovery-5-2-review-workflow.md`](../specs/2026-08-07-discovery-5-2-review-workflow.md)
 (spec plus slice plan, tagging in sub-slice 5·2·1), summarized above. Sub-slice order: coding and
 the access list; privilege claims and the draft log; redaction drawing; productions; batches and QC
 sampling; review aids and the transcript lane under F4b.

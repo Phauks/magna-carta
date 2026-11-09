@@ -24,13 +24,13 @@ Three concrete deltas on the file-manager machinery slice 1·1 already shipped:
 
 The entire upload → ingest → commit → download skeleton ships and is wired end-to-end:
 
-- **Uploads:** presigned PUT + resumable S3 multipart (`apps/worker/src/routes/uploads.ts`, `apps/worker/src/files/presign.ts` over `aws4fetch`); the `upload_session` lifecycle in `packages/file-manager/src/file-service.ts`.
+- **Uploads:** presigned PUT + resumable S3 multipart (`apps/worker/src/routes/files/uploads.ts`, `apps/worker/src/files/presign.ts` over `aws4fetch`); the `upload_session` lifecycle in `packages/file-manager/src/file-service.ts`.
 - **Status gate:** `file_version.status` (`pending`/`clean`/`quarantined`) + `scan_verdict` (`unscanned`/`clean`/`infected`); every read filters `status = 'clean'`, enforced by a source-scan fitness function. Promotion is a status flip — zero bytes move.
 - **Scan port:** `packages/file-manager/src/scan-port.ts` — `MalwareScanPort.scan(stream, meta) → { verdict, engineVersion }`; the launch `unscannedAdapter` is the exact seam this slice replaces.
 - **Ingest:** `packages/file-manager/src/ingest-core.ts` (`runIngest`) tees the object body once into head-sniff + streaming SHA-256 + the scan port; the `files-ingest` queue consumer (`apps/worker/src/files/ingest-consumer.ts`) commits or quarantines exactly-once.
 - **Policy:** `packages/file-manager/src/upload-policy.ts` enforced at presign (declared) **and** at the gate (sniffed).
 - **R2-event → queue wiring:** `configureBucketNotifications` on the `FirmResourceProvider` port.
-- **Bulk download:** live-stream store-mode ZIP64 (`apps/worker/src/routes/downloads.ts` over `client-zip`); the pure `resolveZipSelection`; the `zipAsyncThreshold` is recorded in audit metadata but not yet acted on.
+- **Bulk download:** live-stream store-mode ZIP64 (`apps/worker/src/routes/files/downloads.ts` over `client-zip`); the pure `resolveZipSelection`; the `zipAsyncThreshold` is recorded in audit metadata but not yet acted on.
 - **Metering:** exact D1 `storage_meter` + daily R2-LIST reconciliation.
 
 ---

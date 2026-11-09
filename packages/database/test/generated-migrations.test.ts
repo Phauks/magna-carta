@@ -174,7 +174,7 @@ describe("collapsed migration baselines (committed artifacts)", () => {
     ]) {
       expect(permissions.has(permission), permission).toBe(true);
     }
-    // firm:manageMembers is Owner/Admin only; tools:aiTextDetection went to all five roles.
+    // firm:manageMembers is Admin only; tools:aiTextDetection went to all five roles.
     const manageMembers = grants.filter((grant) => grant.permission === "firm:manageMembers");
     expect(manageMembers).toHaveLength(1);
     expect(manageMembers[0]?.role_id).toBe(ownerAdminId);
