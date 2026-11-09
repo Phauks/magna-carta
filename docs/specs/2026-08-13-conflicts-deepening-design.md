@@ -276,7 +276,7 @@ same discipline as the phonetic codes, and backfilled once over the corpus:
 
 - **`normalized_matchkey`** — the frozen normalization, plus: `&` ↔ `and` unified to one token;
   legal-entity forms canonicalized to a single token each (`l.l.p.`/`llp`/`limited liability
-partnership` → `llp`; `inc`/`incorporated` → `inc`; `corp`/`corporation` → `corp`; `ltd`/`limited`,
+  partnership` → `llp`; `inc`/`incorporated` → `inc`; `corp`/`corporation` → `corp`; `ltd`/`limited`,
   `plc`, `co`/`company`, `pc`, `pllc`, `lp`, `llc`); leading article `the` dropped; whitespace
   collapsed. The **legal form is preserved**, so only spelling is canonicalized. A match here is
   **tier 2**: `Smith & Jones LLP` and `Smith and Jones, L.L.P.` are the same name written two ways,

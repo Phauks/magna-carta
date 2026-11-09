@@ -1010,7 +1010,7 @@ work is end their session or make them retype a name — never quietly replace t
   and structural keywords by gate, and `calc()` is neither — the recipe names the four metrics as
   the tokens they already were, and the component writes the scaled lengths over them inline.
 - **The scale no longer drives the density.** It used to be `scalePercent < 100 ? compact :
-comfortable`, which is the whole reason nine of the ten steps did nothing: the control's only
+  comfortable`, which is the whole reason nine of the ten steps did nothing: the control's only
   effect in list view was that one flip. Density is a separate axis and the file manager simply
   takes the default; the scale does the work continuously across the whole range.
 - **`frame="flush"` replaces the `rounded-none border-0` incantation** that four file-manager grids

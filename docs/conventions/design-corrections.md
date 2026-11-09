@@ -2139,7 +2139,7 @@ different document types to different files at the same time". What binds:
   as the transfer runs, which resized the progress bar several times a second. The measure is a
   token, the way the create control's width is, and the bar is what does not move.
 - **A second browser dialog over ours is a defect, not a browser fact to accept.** An `<input
-webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
+  webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
   just chosen, in a dialog we neither control nor word. The File System Access pickers raise no such
   confirmation and are used wherever the engine has them.
 - **A failure states WHERE the fault is, not only that there was one.** The byte write is the one

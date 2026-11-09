@@ -108,7 +108,7 @@ pathfinding + a `ConversionPort`, plus the libvips image adapter. No D1, no Hono
 network, no UI.
 
 - **In-house only, one engine per edge.** A `ConversionEdge` is `{ from, to, engineId, recipeRef,
-weight }`. There is no confidentiality axis, no egress policy, no content classification, and no
+  weight }`. There is no confidentiality axis, no egress policy, no content classification, and no
   per-edge candidate ranking — every conversion runs in-tenant. (If an external engine is ever
   genuinely needed it is a deliberate future decision; nothing here is built for it.)
 - `findPath(from, to)` returns the weighted shortest edge chain (multi-hop, e.g. `wpd→odt→pdf`) or a

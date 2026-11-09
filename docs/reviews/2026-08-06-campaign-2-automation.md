@@ -511,7 +511,7 @@ Recorded so the negative results are as legible as the findings.
   lookup can reach a prototype; a merge key is one lexical atom (`lex.ts:60-77`), which is what makes
   `__proto__.constructor` uninteresting. Arity is enforced at parse (`parse.ts:555-563`, both
   minimum and maximum) as well as minimum-only at check, so the unguarded `argumentNodes[n] as
-ExpressionNode` casts in `evaluateCall` (`evaluate.ts:623-637`) are in fact unreachable.
+  ExpressionNode` casts in `evaluateCall` (`evaluate.ts:623-637`) are in fact unreachable.
 - **Termination and the budgets.** Every recursive walk is bounded: parser recursion by
   `PARSER_RECURSION_LIMIT` and separately by the node-counted tree depth; `treeDepthOf` recursion is
   bounded by the same; evaluation charges a step per node and per list element against a budget

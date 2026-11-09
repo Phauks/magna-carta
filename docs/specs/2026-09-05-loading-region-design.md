@@ -168,7 +168,7 @@ whole set on the deployed site.
 
 - **Four states in one contract.** `failed`/`failure`, `empty`/`emptyState` join `loading`/
   `fixture` and the children. The repeated `{#if failure} … {:else if x === null} … {:else if
-x.length === 0} … {:else}` chain is gone from every surface; the region decides the order.
+  x.length === 0} … {:else}` chain is gone from every surface; the region decides the order.
 - **Refreshing.** `refreshing` keeps the content and marks the region busy; the keep-stale rule
   `PagedList` carried is now the region's.
 - **The stall.** `STALLED_AFTER_MILLISECONDS` (15 s) in `loading-region.ts`; past it the region

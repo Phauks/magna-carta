@@ -234,7 +234,7 @@ So this slice builds the small, real thing that firm-provisioning's own comment 
 anticipated ("a real platform-admin principal model is a later seam"):
 
 - **`platform_operator` table** in the **control-plane** D1 — `{ user_id, granted_at,
-granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
+  granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
   separate from per-firm RBAC (which stays per-firm). `expires_at` mirrors the per-firm
   `direct_grant` time-boxing pattern: `NULL` = standing membership, a timestamp = a grant that
   lapses automatically. Membership is **seeded by hand** (SQL) for the operating firm's owner —

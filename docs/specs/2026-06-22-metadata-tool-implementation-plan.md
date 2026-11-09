@@ -1953,8 +1953,9 @@ function docxFixture(): Uint8Array {
 
 describe("POST /api/v1/metadata/inspect", () => {
   it("returns findings for a docx with an author", async () => {
-    const app =
-      createApp(/* test bindings — copy the arrangement from safe-browse-route.test.ts */);
+    const app = createApp(
+      /* test bindings — copy the arrangement from safe-browse-route.test.ts */
+    );
     const res = await authedRequest(app, "POST", "/api/v1/metadata/inspect", {
       filename: "a.docx",
       contentBase64: base64(docxFixture()),

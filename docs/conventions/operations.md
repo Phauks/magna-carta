@@ -194,7 +194,7 @@ These are free on every plan and easy to miss. A legal SaaS should have them on 
 - [ ] **Tiered Cache + Smart Tiered Cache** — **Caching → Tiered Cache**: enable both (free on all plans). Modest benefit for a Workers app, but free and harmless; set a cloud-region hint only if an external origin appears.
 - **Turnstile** — **no longer a checkbox here.** Server-side verification is built and shipped
   dormant (`apps/api-worker/src/human-verification/`), gating `POST /api/v1/registrations` and `POST
-/api/v1/invitations/redemptions`; with no secret provisioned it serves those endpoints unprotected
+  /api/v1/invitations/redemptions`; with no secret provisioned it serves those endpoints unprotected
   and counts every unprotected pass as `human_verification.decided` / `unenforced`. Switching it on
   is an ordered activation with a UI prerequisite, not a dashboard toggle — the steps are in the
   [deploy queue](../deploy-queue.md). Free, and complements Super Bot Fight Mode (§8.2).
