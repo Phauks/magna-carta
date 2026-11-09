@@ -157,12 +157,10 @@ impl PartitionBuilder {
         // from the metadata rather than from what is on disk keeps a superseded segment that garbage
         // collection has not yet removed out of the published split.
         let mut files = vec!["meta.json".to_owned()];
-        for meta in &metas {
-            for path in meta.list_files() {
-                if let Some(name) = path.to_str() {
-                    if directory.join(name).is_file() {
-                        files.push(name.to_owned());
-                    }
+        for path in index.load_metas()?.list_segment_files() {
+            if let Some(name) = path.to_str() {
+                if directory.join(name).is_file() {
+                    files.push(name.to_owned());
                 }
             }
         }

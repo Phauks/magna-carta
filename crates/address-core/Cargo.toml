@@ -11,7 +11,7 @@ publish.workspace = true
 search-core = { path = "../search-core" }
 # Same engine and version as search-core. Pure Rust; see the note on zstd in containers/address/CLAUDE.md
 # for the one transitive native library tantivy's default features bring in through search-core.
-tantivy = "0.26"
+tantivy = "0.27"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
