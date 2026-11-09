@@ -139,7 +139,6 @@ export function purchaseLabel(
   choice: {
     readonly remoteShipmentId: string;
     readonly remoteRateId: string;
-    readonly serviceFeeMinor: number;
   },
   idempotencyKey: string,
 ) {

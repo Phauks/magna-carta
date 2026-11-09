@@ -11,7 +11,7 @@ import type {
 import { GUEST_ARRIVAL_GUARD, GUEST_DOOR_GUARD } from "@magna-carta/meetings/guest-service";
 import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { buildOpenAPIDocument, createApp } from "../src/app.ts";
+import { buildOpenAPIDocument, createApp } from "../src/http/app.ts";
 import type { SendEmail } from "../src/email-port.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { GUEST_SOCKET_PROTOCOL, mintGuestInvitationToken } from "../src/meetings/guest-token.ts";

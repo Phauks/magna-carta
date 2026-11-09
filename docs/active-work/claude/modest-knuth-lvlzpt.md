@@ -2,7 +2,7 @@
 worktree: (none — this stream runs in the primary checkout)
 area: The calendar, owner review round: many individual calendars in folders, a day view, colours, the create gesture, and the record form's location, times and zones
 status: building
-touches: apps/web/src/lib/calendar, apps/web/src/routes/(app)/calendar, apps/web/test, packages/design-system/src/lib/components/calendar-grid, packages/design-system/src/stories, packages/calendar/src, packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm, apps/api-worker/src/routes/calendar.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/types.gen.ts, docs/conventions/design-corrections.md, docs/specs/2026-09-02-calendar-interface-design.md, roadmap.d/calendar.md, changelog.d/, status.d/
+touches: apps/web/src/lib/calendar, apps/web/src/routes/(app)/calendar, apps/web/test, packages/design-system/src/lib/components/calendar-grid, packages/design-system/src/stories, packages/calendar/src, packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm, apps/api-worker/src/http/routes/calendar/calendar.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/types.gen.ts, docs/conventions/design-corrections.md, docs/specs/2026-09-02-calendar-interface-design.md, roadmap.d/calendar.md, changelog.d/, status.d/
 ---
 
 The owner walked the deployed calendar and issued a round of corrections. The firm calendar stops

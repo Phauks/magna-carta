@@ -19,7 +19,7 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.15",
     "vitest": "catalog:"
   }
 }

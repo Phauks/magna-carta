@@ -1,4 +1,4 @@
-// Focused route-registration test for the password-recovery surface (routes/recovery.ts). Asserts
+// Focused route-registration test for the password-recovery surface (routes/files/recovery.ts). Asserts
 // the three operations are registered at their declared method/path and carry the
 // tools:decryption permission — a light unit test over the EMITTED OpenAPI document (matching
 // test/contracts/route-meta.test.ts's approach), not a live-request exercise: env.RECOVERY_JOB
@@ -6,7 +6,7 @@
 // test would need a binding that does not exist yet. buildOpenAPIDocument() calls createApp() with
 // no bindings — registration alone never touches env.
 import { describe, expect, it } from "vitest";
-import { buildOpenAPIDocument } from "../src/app.ts";
+import { buildOpenAPIDocument } from "../src/http/app.ts";
 
 describe("registerRecoveryRoutes", () => {
   const document = buildOpenAPIDocument();

@@ -2,23 +2,26 @@
   /*
    * Settings · Text — how interface text reads, under Appearance in the user band. A BESPOKE
    * page composing the standard parts (settings-masthead, settings-scroll-region,
-   * settings-plate, settings-row): both rows are honest Soon seams — per the only-real-rows rule
-   * nothing here pretends to work before the machinery exists:
+   * settings-plate, settings-row):
    *
-   * - Font Family becomes a real appearance axis when the type system grows font tokens (a
-   *   swappable reading face across the interface).
-   * - Text Size becomes a real appearance axis when the type system grows a text-scale overlay
-   *   (the base size the interface renders at).
-   *
-   * Each row carries the real control — the product's one closed-choice field, disabled — with
-   * the Soon badge and the line saying what it waits on: the deliberate honest-seam device (the
-   * badge states why the control is inert), distinct from the dead-control rule the engraved rows
-   * follow: these controls announce a coming choice, not a current value. When either axis ships,
-   * its row swaps to a live instant-apply choice (the Appearance page's axis pattern) and this
-   * page collapses toward the standard composition. The history trigger is already wired to this
-   * section's ledger, ready for the first live setting.
+   * - Font Family is LIVE: the typeface axis, an instant-apply choice through the shared
+   *   appearance-axes machinery ($lib/settings/appearance-axes.svelte.ts). It sets data-typeface on
+   *   <html>, the token overlays re-point --mc-font-sans, and every surface that reads the reading
+   *   face follows — no reload. The no-FOUC boot script applies the persisted face before first
+   *   paint. Each change appends to this page's own ledger, and Restore re-applies.
+   * - Text Size is still an honest Soon seam — it becomes a real axis when the type system grows a
+   *   text-scale overlay (the base size the interface renders at). It carries the real control,
+   *   disabled, with the Soon badge and the line saying what it waits on: these controls announce
+   *   a coming choice, not a current value. Until then a browser's own text-size setting already
+   *   scales the whole interface, because every type size is in rem.
    */
   import Badge from "@magna-carta/design-system/badge";
+  import {
+    appearanceRestoreAction,
+    instantForAxis,
+    TYPEFACE_AXIS,
+    TYPEFACE_DEFINITION,
+  } from "$lib/settings/appearance-axes.svelte.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
@@ -27,17 +30,9 @@
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
-  // Page-local seam definitions: rendering through SettingsRow keeps the shared table grid.
-  const FONT_FAMILY_DEFINITION: SettingDefinition = {
-    id: "text.font-family",
-    sectionId: "text",
-    label: "Font Family",
-    description: "The reading typeface across the interface. Arrives with the type system's font tokens.",
-    kind: "select",
-    defaultValue: "",
-    sensitivity: "open",
-  };
+  const restoreAction = appearanceRestoreAction([TYPEFACE_AXIS]);
 
+  // Page-local seam definition: rendering through SettingsRow keeps the shared table grid.
   const TEXT_SIZE_DEFINITION: SettingDefinition = {
     id: "text.text-size",
     sectionId: "text",
@@ -54,7 +49,7 @@
   <title>Text · Settings · Magna Carta</title>
 </svelte:head>
 
-<SettingsMasthead sectionId="text" title="Text" posture="instant" />
+<SettingsMasthead sectionId="text" title="Text" posture="instant" {restoreAction} />
 
 <SettingsScrollRegion>
   <SettingsDescription>
@@ -62,18 +57,7 @@
   </SettingsDescription>
 
   <SettingsPlate heading="Type">
-    <SettingsRow definition={FONT_FAMILY_DEFINITION}>
-      {#snippet control()}
-        <Badge variant="neutral">Soon</Badge>
-        <ChoicePicker
-          options={[]}
-          inputId="settings-{FONT_FAMILY_DEFINITION.id}"
-          label={FONT_FAMILY_DEFINITION.label}
-          disabled
-          title="Arrives with the type system's font tokens."
-        />
-      {/snippet}
-    </SettingsRow>
+    <SettingsRow definition={TYPEFACE_DEFINITION} instant={instantForAxis(TYPEFACE_AXIS)} />
 
     <SettingsRow definition={TEXT_SIZE_DEFINITION}>
       {#snippet control()}

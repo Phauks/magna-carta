@@ -17,7 +17,7 @@ mail-parser = { version = "0.11.5", default-features = false, features = ["full_
 # the real input, detect FAT/directory cycles, and cap the stream read buffer — so
 # no crafted .msg can abort the isolate (which has no unwinding). The MAPI property
 # streams inside the container are decoded above this crate, bounded ourselves.
-cfb = "0.14"
+cfb = "0.16"
 engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

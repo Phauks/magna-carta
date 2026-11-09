@@ -55,7 +55,7 @@ seed a check.
 So the Party column is not blocked on new machinery. It is blocked on the check read not
 **projecting** what the check already knows how to fetch: `GET /conflicts/checks/{checkId}` selects
 `entity_id` from `conflicts_hit` and puts it on the wire unresolved
-([`conflicts.ts:128`](../../apps/api-worker/src/routes/conflicts.ts)).
+([`conflicts.ts:128`](../../apps/api-worker/src/http/routes/directory/conflicts.ts)).
 
 **Consequence for the build order:** gap 1 is an enrichment of an existing response, not a new
 endpoint. That matters beyond effort — a second endpoint returning names for a set of entity ids

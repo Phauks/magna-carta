@@ -37,12 +37,12 @@ magna-carta/
   apps/
     web/                       # SvelteKit SPA (adapter-static)
       package.json · svelte.config.js · vite.config.ts · tsconfig.json
-      src/app.html · src/routes/+layout.ts · src/routes/+page.svelte
+      src/app.html · src/http/routes/+layout.ts · src/http/routes/+page.svelte
       src/lib/health.ts        # tiny typed fetch of /api/health
     worker/                    # Hono @hono/zod-openapi Worker
       package.json · wrangler.jsonc · tsconfig.json · vite.config.ts (vitest)
       src/index.ts             # OpenAPIHono app: /api/health, /api/openapi.json, asset fallback
-      src/app.ts               # the app factory (testable without the Worker entry)
+      src/http/app.ts               # the app factory (testable without the Worker entry)
       test/health.test.ts      # Miniflare integration smoke test
 ```
 
@@ -540,7 +540,7 @@ Also write `apps/worker/vitest.config.ts` per `@cloudflare/vitest-pool-workers` 
 - [ ] **Step 5: Run the test to verify it fails**
 
 Run: `pnpm --filter @magna-carta/worker test`
-Expected: FAIL — `src/index.ts`/`src/app.ts` not implemented (module not found / 404).
+Expected: FAIL — `src/index.ts`/`src/http/app.ts` not implemented (module not found / 404).
 
 - [ ] **Step 6: Implement the app factory** (`apps/worker/src/app.ts`)
 

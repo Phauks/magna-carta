@@ -1038,7 +1038,7 @@ fn derive_standard_key(salt: &[u8], password: &str, key_bytes: usize) -> Vec<u8>
 /// AES-CBC decrypt with no padding, for any AES key length. Returns `None` on a wrong key or
 /// IV length, or a ciphertext that is not a whole number of cipher blocks — never panics.
 fn aes_cbc_decrypt(key: &[u8], initialization_vector: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
-    use cbc::cipher::{block_padding::NoPadding, BlockDecryptMut, KeyIvInit};
+    use cbc::cipher::{block_padding::NoPadding, BlockModeDecrypt, KeyIvInit};
 
     if ciphertext.is_empty() || !ciphertext.len().is_multiple_of(AES_BLOCK_BYTES) {
         return None;
@@ -1047,17 +1047,17 @@ fn aes_cbc_decrypt(key: &[u8], initialization_vector: &[u8], ciphertext: &[u8]) 
     let length = match key.len() {
         16 => cbc::Decryptor::<aes::Aes128>::new_from_slices(key, initialization_vector)
             .ok()?
-            .decrypt_padded_mut::<NoPadding>(&mut buffer)
+            .decrypt_padded::<NoPadding>(&mut buffer)
             .ok()?
             .len(),
         24 => cbc::Decryptor::<aes::Aes192>::new_from_slices(key, initialization_vector)
             .ok()?
-            .decrypt_padded_mut::<NoPadding>(&mut buffer)
+            .decrypt_padded::<NoPadding>(&mut buffer)
             .ok()?
             .len(),
         32 => cbc::Decryptor::<aes::Aes256>::new_from_slices(key, initialization_vector)
             .ok()?
-            .decrypt_padded_mut::<NoPadding>(&mut buffer)
+            .decrypt_padded::<NoPadding>(&mut buffer)
             .ok()?
             .len(),
         _ => return None,
@@ -1070,18 +1070,16 @@ fn aes_cbc_decrypt(key: &[u8], initialization_vector: &[u8], ciphertext: &[u8]) 
 /// key, the mode ECMA-376 standard encryption uses. Returns `None` on a wrong key length or a
 /// ciphertext that is not a whole number of cipher blocks — never panics.
 fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
-    use aes::cipher::{
-        generic_array::typenum::U16, generic_array::GenericArray, BlockDecrypt, BlockSizeUser,
-        KeyInit,
-    };
+    use aes::cipher::{typenum::U16, Block, BlockCipherDecrypt, BlockSizeUser, KeyInit};
 
     fn decrypt_blocks<C>(key: &[u8], buffer: &mut [u8]) -> Option<()>
     where
-        C: BlockDecrypt + KeyInit + BlockSizeUser<BlockSize = U16>,
+        C: BlockCipherDecrypt + KeyInit + BlockSizeUser<BlockSize = U16>,
     {
         let cipher = C::new_from_slice(key).ok()?;
         for block in buffer.chunks_exact_mut(AES_BLOCK_BYTES) {
-            cipher.decrypt_block(GenericArray::from_mut_slice(block));
+            let block: &mut Block<C> = block.try_into().ok()?;
+            cipher.decrypt_block(block);
         }
         Some(())
     }
@@ -1148,7 +1146,7 @@ fn verify_agile(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
+    use aes::cipher::{BlockCipherEncrypt, KeyInit};
     use ms_offcrypto_writer::Ecma376AgileWriter;
     use rand::{rngs::StdRng, SeedableRng};
     use std::io::{Cursor, Write};
@@ -1219,13 +1217,13 @@ mod tests {
     /// AES-CBC encryption with no padding, the inverse of `aes_cbc_decrypt`. Fixture-only —
     /// the adapter has no encryption path.
     fn aes_cbc_encrypt(key: &[u8], initialization_vector: &[u8], plaintext: &[u8]) -> Vec<u8> {
-        use cbc::cipher::{block_padding::NoPadding, BlockEncryptMut, KeyIvInit};
+        use cbc::cipher::{block_padding::NoPadding, BlockModeEncrypt, KeyIvInit};
 
         let mut buffer = plaintext.to_vec();
         let length = buffer.len();
         cbc::Encryptor::<aes::Aes256>::new_from_slices(key, initialization_vector)
             .expect("aes: 256-bit key and 16-byte IV")
-            .encrypt_padded_mut::<NoPadding>(&mut buffer, length)
+            .encrypt_padded::<NoPadding>(&mut buffer, length)
             .expect("aes: block-aligned plaintext");
         buffer
     }
@@ -1363,7 +1361,7 @@ mod tests {
         let cipher = aes::Aes128::new_from_slice(key).expect("aes: 128-bit key");
         let mut buffer = plaintext.to_vec();
         for block in buffer.chunks_exact_mut(AES_BLOCK_BYTES) {
-            cipher.encrypt_block(GenericArray::from_mut_slice(block));
+            cipher.encrypt_block(block.try_into().expect("aes: 16-byte block"));
         }
         buffer
     }

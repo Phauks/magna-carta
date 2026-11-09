@@ -12,7 +12,7 @@ import type {
   MeetingSpotlight,
 } from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "@magna-carta/meetings/types";
-import type { Bindings } from "../../app.ts";
+import type { Bindings } from "../../bindings.ts";
 import { realtimeLoggerFor, recordRealtimeFailure } from "../sfu/realtime-failure.ts";
 
 // WHAT ONE MEETING'S ROOM HOLDS BETWEEN FRAMES, and the two places it can be held.

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { resolveFirmBucket } from "../src/files/firm-bucket.ts";
 
 // The firm bucket resolver is the one decision about where a firm's bytes live. Two things have to
@@ -126,17 +126,17 @@ const SOURCES = import.meta.glob("../src/**/*.ts", {
 // that reads the uploaded object back, and the paths that write a firm's bytes server-side. A direct
 // binding access here is what split the two ends apart, so it is what this scan forbids.
 const GUARDED = [
-  "src/routes/uploads.ts",
-  "src/files/ingest-consumer.ts",
+  "src/http/routes/files/uploads.ts",
+  "src/background/files/ingest-consumer.ts",
   // The conversion pair: the routes presign the source upload and the result download, and the queue
   // consumer reads that source and writes that result. Split them across two buckets and a job either
   // finds no source or lands a result nothing can hand back.
-  "src/routes/conversions.ts",
-  "src/conversions/conversion-consumer.ts",
-  "src/routes/shipping.ts",
-  "src/routes/file-repair.ts",
+  "src/http/routes/documents/conversions.ts",
+  "src/background/conversions/conversion-consumer.ts",
+  "src/http/routes/communications/shipping.ts",
+  "src/http/routes/files/file-repair.ts",
   "src/emails/attachment-extraction.ts",
-  "src/scheduled.ts",
+  "src/background/scheduled.ts",
 ];
 
 function guardedSource(suffix: string): string {

@@ -39,9 +39,9 @@ app worker  POST /api/v1/file-repair/{diagnose|repair|carve}   (defineOpenAPIRou
 | container.fetch proxy                                 | `apps/convert-worker/src/forward-convert.ts`                                                                                                                                                           |
 | Worker wrangler (container + DO + migration)          | `apps/convert-worker/wrangler.jsonc` (no cron — recovery scales to zero, no baked data to refresh)                                                                                                     |
 | App-worker service binding                            | `apps/worker/wrangler.jsonc` `services[]` (the `CONVERT` entry)                                                                                                                                        |
-| Tool route (bytes → container over a service binding) | `apps/worker/src/routes/file-type.ts` (streams to `c.env.SCAN_SERVICE`)                                                                                                                                |
-| Route base64 JSON envelope                            | `apps/worker/src/routes/metadata.ts` (`decodeBase64`/`encodeBase64`, `failureProblem`, `RouteMeta`)                                                                                                    |
-| Re-scan output                                        | `apps/worker/src/files/scan-port-binding.ts` (`resolveScanPort`) + `apps/worker/src/routes/scan-diagnose.ts:110-125` (lazy `await import`, `computeVerdict`)                                           |
+| Tool route (bytes → container over a service binding) | `apps/worker/src/routes/files/file-type.ts` (streams to `c.env.SCAN_SERVICE`)                                                                                                                          |
+| Route base64 JSON envelope                            | `apps/worker/src/routes/files/metadata.ts` (`decodeBase64`/`encodeBase64`, `failureProblem`, `RouteMeta`)                                                                                              |
+| Re-scan output                                        | `apps/worker/src/files/scan-port-binding.ts` (`resolveScanPort`) + `apps/worker/src/routes/files/scan-diagnose.ts:110-125` (lazy `await import`, `computeVerdict`)                                     |
 | Route registration                                    | `apps/worker/src/app.ts` (import + `registerXRoutes(app, chokepoint)`)                                                                                                                                 |
 | Permission + seed triple                              | the `tools:fileTypeVerifier` slice: `packages/access-control/src/registry.ts` + `packages/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql` + `apps/worker/src/per-firm-migrations.ts` |
 
@@ -202,7 +202,7 @@ Note: `wrangler deploy --dry-run` on a container worker tries to build the image
 
 ### Task 6: The three stateless app-worker routes (with re-scan on return)
 
-**Files:** create `apps/worker/src/routes/file-repair.ts`; modify `apps/worker/src/app.ts`; regenerate the contract.
+**Files:** create `apps/worker/src/routes/files/file-repair.ts`; modify `apps/worker/src/app.ts`; regenerate the contract.
 
 **Interfaces produced:** `POST /api/v1/file-repair/{diagnose,repair,carve}` — `permission: "tools:fileRepair"`, `resource: "firm"`, `audited: false`, `rateLimit: "expensive"`, `idempotency: "optional"`. Request body streams to the container; responses mirror the container DTOs (diagnose passthrough; repair/carve gated by the re-scan).
 
