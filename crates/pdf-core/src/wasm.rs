@@ -262,6 +262,9 @@ impl From<crate::bates::BatesError> for JsError {
                 "bates numbering exceeds the configured stop number"
             }
             crate::bates::BatesError::Rejected => "decompression-bomb",
+            crate::bates::BatesError::UnsupportedCharacter => {
+                "the stamp text has a character its font cannot draw"
+            }
         })
     }
 }
@@ -811,6 +814,9 @@ impl From<crate::GenerateError> for JsError {
             crate::GenerateError::EmptyInput => "no documents provided",
             crate::GenerateError::Reassemble => "failed to reassemble PDF",
             crate::GenerateError::Image => "could not decode the watermark image",
+            crate::GenerateError::UnsupportedCharacter => {
+                "the watermark text has a character its font cannot draw"
+            }
             crate::GenerateError::Rejected => "decompression-bomb",
         })
     }

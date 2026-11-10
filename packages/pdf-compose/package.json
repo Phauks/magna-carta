@@ -1,0 +1,21 @@
+{
+  "name": "@magna-carta/pdf-compose",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./src/pkg/pdf_compose_core_bg.wasm": "./src/pkg/pdf_compose_core_bg.wasm"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "build:wasm": "wasm-pack build ../../crates/pdf-compose-core --target web --out-dir ../../packages/pdf-compose/src/pkg --release --no-opt"
+  },
+  "devDependencies": {
+    "@magna-carta/pdf": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
