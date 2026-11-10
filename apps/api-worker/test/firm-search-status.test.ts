@@ -4,6 +4,11 @@ import { insertIndexSplitStatement } from "@magna-carta/data-access/index-split-
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { recordIndexSources } from "@magna-carta/search/record-index-sources";
+import { RECORD_INDEX_REBUILD_REQUESTED_TOPIC } from "@magna-carta/search/record-index-topics";
+import {
+  perFirmQueue,
+  type PerFirmQueueMessage,
+} from "../src/background/costs/recoverable-charge-consumer.ts";
 import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -37,6 +42,7 @@ interface StatusBody {
       indexed: number;
       expected: number;
     }[];
+    rebuild: { requestedAt: string | null; finishedAt: string | null; outstanding: boolean };
   };
   fileContents: {
     turnedOn: boolean;
@@ -135,6 +141,11 @@ describe("GET /api/v1/firm/search-status", () => {
       dailyCatchUpLimit: 1000,
     });
     expect(status.searchByMeaning).toEqual({ turnedOn: false, serviceConnected: false });
+    expect(status.records.rebuild).toEqual({
+      requestedAt: null,
+      finishedAt: null,
+      outstanding: false,
+    });
     expect(Number.isNaN(Date.parse(status.checkedAt))).toBe(false);
   });
 
@@ -213,5 +224,202 @@ describe("GET /api/v1/firm/search-status", () => {
 
   it("returns 401 without a session", async () => {
     expect((await SELF.fetch(ROUTE)).status).toBe(401);
+  });
+});
+
+// Asking for a rebuild, and the rebuild itself. The request is driven over the route; the work is
+// driven through the real per-firm queue consumer with a synthetic batch, because Miniflare cannot
+// deliver the relay's send.
+describe("POST /api/v1/firm/search-status/rebuild", () => {
+  const REBUILD_ROUTE = `${ROUTE}/rebuild`;
+
+  function rebuildInit(cookie: string, key: string | null = crypto.randomUUID()): RequestInit {
+    return {
+      method: "POST",
+      headers: {
+        cookie,
+        origin: "https://example.com",
+        ...(key === null ? {} : { "Idempotency-Key": key }),
+      },
+    };
+  }
+
+  async function auditRows(event: string): Promise<{ actor: string | null; metadata: string }[]> {
+    const { results } = await database()
+      .prepare(
+        "SELECT actor_user_id AS actor, metadata FROM audit_log WHERE event = ?1 ORDER BY created_at, id",
+      )
+      .bind(event)
+      .all<{ actor: string | null; metadata: string }>();
+    return results;
+  }
+
+  async function rebuildMessages(): Promise<{ payload: string }[]> {
+    const { results } = await database()
+      .prepare("SELECT payload FROM outbox WHERE topic = ?1")
+      .bind(RECORD_INDEX_REBUILD_REQUESTED_TOPIC)
+      .all<{ payload: string }>();
+    return results;
+  }
+
+  async function indexRowsFor(recordId: string): Promise<number> {
+    return (
+      (
+        await database()
+          .prepare("SELECT COUNT(*) AS n FROM record_text_entry WHERE record_id = ?1")
+          .bind(recordId)
+          .first<{ n: number }>()
+      )?.n ?? 0
+    );
+  }
+
+  // One delivery of the rebuild message, as the relay would publish it. Returns what the consumer
+  // did with the message.
+  async function deliverRebuild(): Promise<"acked" | "retried"> {
+    let outcome: "acked" | "retried" | null = null;
+    const body: PerFirmQueueMessage = {
+      id: newIdentifier("outbox"),
+      firmId: poolFirmId,
+      topic: RECORD_INDEX_REBUILD_REQUESTED_TOPIC,
+      payload: "{}",
+      aggregateKey: null,
+      seq: null,
+    };
+    await perFirmQueue(
+      {
+        queue: "per-firm",
+        messages: [
+          {
+            id: "message-0",
+            timestamp: new Date(NOW),
+            body,
+            attempts: 1,
+            ack: () => {
+              outcome = "acked";
+            },
+            retry: () => {
+              outcome = "retried";
+            },
+          },
+        ],
+        ackAll: () => undefined,
+        retryAll: () => undefined,
+      } as unknown as MessageBatch<PerFirmQueueMessage>,
+      env,
+    );
+    if (outcome === null) throw new Error("the consumer neither acked nor retried the message");
+    return outcome;
+  }
+
+  let lostNoteId: string;
+
+  it("refuses a request with no Idempotency-Key", async () => {
+    const response = await SELF.fetch(REBUILD_ROUTE, rebuildInit(ownerCookie, null));
+    expect(response.status).toBe(400);
+    expect(await auditRows("firm.record_index_rebuild_requested")).toEqual([]);
+  });
+
+  it("records who asked and queues the rebuild, in one write", async () => {
+    lostNoteId = await seedNote("A note the rebuild has to bring back.");
+    await database()
+      .prepare(
+        "DELETE FROM record_text_fts WHERE rowid IN (SELECT id FROM record_text_entry WHERE record_id = ?1)",
+      )
+      .bind(lostNoteId)
+      .run();
+    await database()
+      .prepare("DELETE FROM record_text_entry WHERE record_id = ?1")
+      .bind(lostNoteId)
+      .run();
+
+    const response = await SELF.fetch(REBUILD_ROUTE, rebuildInit(ownerCookie));
+    expect(response.status).toBe(202);
+    const { requestedAt } = await response.json<{ requestedAt: string }>();
+    expect(Number.isNaN(Date.parse(requestedAt))).toBe(false);
+
+    const audits = await auditRows("firm.record_index_rebuild_requested");
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.actor).toBe(ownerUserId);
+    // The message says nothing about which places: the rebuild decides when it runs.
+    expect(await rebuildMessages()).toEqual([{ payload: "{}" }]);
+
+    // Asking changes nothing in the index, and the status says a rebuild is still to run.
+    expect(await indexRowsFor(lostNoteId)).toBe(0);
+    expect((await readStatus()).records.rebuild).toEqual({
+      requestedAt,
+      finishedAt: null,
+      outstanding: true,
+    });
+  });
+
+  it("asks once however many times one press is delivered", async () => {
+    const key = crypto.randomUUID();
+    const first = await SELF.fetch(REBUILD_ROUTE, rebuildInit(ownerCookie, key));
+    const second = await SELF.fetch(REBUILD_ROUTE, rebuildInit(ownerCookie, key));
+    expect(first.status).toBe(202);
+    expect(second.status).toBe(202);
+    expect(await second.json()).toEqual(await first.json());
+    // The press in the test above, and this one.
+    expect(await auditRows("firm.record_index_rebuild_requested")).toHaveLength(2);
+    expect(await rebuildMessages()).toHaveLength(2);
+  });
+
+  it("rebuilds the places that are behind, and only those", async () => {
+    const before = (await readStatus()).records.places;
+    const behindBefore = before
+      .filter((place) => place.indexed !== place.expected)
+      .map((place) => place.key);
+    expect(behindBefore).toEqual(["notes"]);
+
+    expect(await deliverRebuild()).toBe("acked");
+
+    const status = await readStatus();
+    for (const place of status.records.places) {
+      expect(place.indexed).toBe(place.expected);
+    }
+    expect(await indexRowsFor(lostNoteId)).toBe(1);
+
+    const rebuilt = await auditRows("firm.record_index_rebuilt");
+    expect(rebuilt).toHaveLength(1);
+    // The queue has no actor, and the row names the places by key and nothing they hold.
+    expect(rebuilt[0]?.actor).toBeNull();
+    expect(JSON.parse(rebuilt[0]?.metadata ?? "{}")).toEqual({ places: ["notes"] });
+
+    expect(status.records.rebuild.outstanding).toBe(false);
+    expect(status.records.rebuild.finishedAt).not.toBeNull();
+  });
+
+  it("finds a rebuilt record through a matter's search", async () => {
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/matters/${matterId}/search?q=${encodeURIComponent("rebuild has to bring")}`,
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(response.status).toBe(200);
+    const answer = await response.json<{ groups: { source: string; hits: { id: string }[] }[] }>();
+    const notes = answer.groups.find((group) => group.source === "notes");
+    expect(notes?.hits.map((hit) => hit.id)).toEqual([lostNoteId]);
+  });
+
+  it("rebuilds nothing on a second delivery, and says so", async () => {
+    expect(await deliverRebuild()).toBe("acked");
+    const rebuilt = await auditRows("firm.record_index_rebuilt");
+    expect(rebuilt).toHaveLength(2);
+    expect(JSON.parse(rebuilt[1]?.metadata ?? "{}")).toEqual({ places: [] });
+  });
+
+  it("returns 403 for an authenticated member without firm:manageSearchSettings", async () => {
+    const cookie = await signInForSessionCookie("search-status-noperm@example.com");
+    const before = await rebuildMessages();
+    const response = await SELF.fetch(REBUILD_ROUTE, rebuildInit(cookie));
+    expect(response.status).toBe(403);
+    expect(await rebuildMessages()).toEqual(before);
+  });
+
+  it("returns 401 without a session", async () => {
+    const response = await SELF.fetch(REBUILD_ROUTE, {
+      method: "POST",
+      headers: { origin: "https://example.com", "Idempotency-Key": crypto.randomUUID() },
+    });
+    expect(response.status).toBe(401);
   });
 });

@@ -18,11 +18,11 @@ const READER_SOURCE_DIRECTORIES: Record<RecordIndexReader, string> = {
   "conflicts-check": join(repositoryRoot, "packages", "conflicts", "src"),
 };
 
-// The four ways a consumer composes the index into a statement of its own, each naming its source
-// as a literal: the two forms record-index-query.ts offers, and the two helpers a matter's search
+// The ways a consumer composes the index into a statement of its own, each naming its source as a
+// literal: the three forms record-index-query.ts offers, and the three helpers a matter's search
 // wraps them in (packages/matter-search/src/sources/build.ts), which take the request first.
 const COMPOSED_SOURCE_KEY =
-  /\b(?:recordIndexLeadingMatch|recordIndexMatch)\(\s*\w+,\s*"([a-z-]+)"|\b(?:recordIndexLeadingFrom|recordIdsMatchingSubquery)\(\s*"([a-z-]+)"/g;
+  /\b(?:recordIndexLeadingMatch|recordIndexMatch|recordIndexNewestMatch)\(\s*\w+,\s*"([a-z-]+)"|\b(?:recordIndexLeadingFrom|recordIdsMatchingSubquery|recordIndexNewestMatchesFrom)\(\s*"([a-z-]+)"/g;
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((name) => {

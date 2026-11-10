@@ -5,6 +5,9 @@ import {
   matterSectionLink,
   recordIndexLeadingMatch,
   recordIndexMatch,
+  recordIndexNewestMatch,
+  visibleMattersSearchSelect,
+  type SearchRowColumns,
 } from "./build.ts";
 import {
   MatterSearchSourceRegistry,
@@ -66,6 +69,7 @@ function projectInto(sourceKey: string, section: string) {
   return (row: MatterSearchRawRow): MatterSearchHit => ({
     sourceKey,
     id: row.row_id,
+    matterId: row.matter_id,
     title: row.title,
     snippet: row.snippet,
     secondary: row.secondary,
@@ -97,9 +101,21 @@ function tooShort(request: SourceSearchRequest, minimum: number): boolean {
 // The snippet is DECLARED, and this is the source where that decision is load-bearing: a note is the
 // most privileged free text the platform holds. It is allowed here because every row this can return
 // is a note whose body the same reader is already shown on the Notes tab this hit links into, behind
-// the same notes:read capability. A firm-wide note search is a different question with a different
-// answer, and it is not built here.
+// the same notes:read capability. The search across matters answers with the same rows under the
+// same capability, and is declared separately below (`acrossMatters`).
 const NOTE_ORDERING_DATE = `COALESCE(${MATTER_NOTE_TABLE}.occurred_on, substr(${MATTER_NOTE_TABLE}.created_at, 1, 10))`;
+
+const NOTE_ROW: SearchRowColumns = {
+  idColumn: `${MATTER_NOTE_TABLE}.id`,
+  matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
+  sortExpression: NOTE_ORDERING_DATE,
+  // A note has no name; the reader recognizes it by when it is about, and the snippet carries the
+  // words. The title is that date, rendered by the client.
+  titleExpression: NOTE_ORDERING_DATE,
+  snippetExpression: `${MATTER_NOTE_TABLE}.body`,
+  secondaryExpression: "NULL",
+  actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
+};
 
 const notesSource: MatterSearchSource = {
   key: "notes",
@@ -119,21 +135,34 @@ const notesSource: MatterSearchSource = {
       boundedSearchSelect(request.database, {
         request,
         from: match.from,
-        idColumn: `${MATTER_NOTE_TABLE}.id`,
-        matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
-        sortExpression: NOTE_ORDERING_DATE,
-        // A note has no name; the reader recognizes it by when it is about, and the snippet carries
-        // the words. The title is that date, rendered by the client.
-        titleExpression: NOTE_ORDERING_DATE,
-        snippetExpression: `${MATTER_NOTE_TABLE}.body`,
-        secondaryExpression: "NULL",
-        actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
+        ...NOTE_ROW,
         conditions: [match.condition],
         bindings: [match.binding],
       }),
     ];
   },
   project: projectInto("notes", "notes"),
+  // The same rows, the same body and the same notes:read, on every matter the reader may see. The
+  // excerpt is allowed for the reason it is allowed inside a matter: each hit is a note this reader
+  // is shown in full on the Notes tab it links to. What decides WHICH matters is the visible-matter
+  // predicate alone, so a matter that becomes closed to a reader leaves their search with it.
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["the note's text"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "notes", MATTER_NOTE_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...NOTE_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- files -----------------------------------------------------------------------------------
@@ -215,6 +244,46 @@ const filesSource: MatterSearchSource = {
     ];
   },
   project: projectInto("files", "files"),
+  // File and folder names on every matter the reader may see. A name is characters and not words,
+  // so this reads the firm's file and folder rows instead of the record index, and its cost grows
+  // with how many files the firm holds; scripts/measure-across-matters.mts is the reading that says
+  // a firm's file list is short enough to read. Deleted files are never part of this answer: the
+  // option that brings them back belongs to the matter's own search, beside the register it reads.
+  acrossMatters: {
+    reads: "names",
+    matchedFields: ["file names", "folder names"],
+    buildStatements: (request) => {
+      const term = likeContainsTerm(request.query);
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: `${FILE_TABLE} LEFT JOIN ${FOLDER_TABLE} ON ${FOLDER_TABLE}.id = ${FILE_TABLE}.folder_id`,
+          idColumn: `${FILE_TABLE}.id`,
+          matterExpression: `${FILE_TABLE}.matter_id`,
+          sortExpression: `${FILE_TABLE}.created_at`,
+          titleExpression: `${FILE_TABLE}.name`,
+          snippetExpression: "NULL",
+          secondaryExpression: `${FOLDER_TABLE}.name`,
+          actorExpression: "NULL",
+          conditions: [`${FILE_TABLE}.name LIKE ? ESCAPE '\\'`, `${FILE_TABLE}.deleted_at IS NULL`],
+          bindings: [term],
+        }),
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: FOLDER_TABLE,
+          idColumn: `${FOLDER_TABLE}.id`,
+          matterExpression: `${FOLDER_TABLE}.matter_id`,
+          sortExpression: `${FOLDER_TABLE}.created_at`,
+          titleExpression: `${FOLDER_TABLE}.name`,
+          snippetExpression: "NULL",
+          secondaryExpression: "'Folder'",
+          actorExpression: "NULL",
+          conditions: [`${FOLDER_TABLE}.name LIKE ? ESCAPE '\\'`],
+          bindings: [term],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- file contents ---------------------------------------------------------------------------
@@ -372,6 +441,20 @@ const custodySource: MatterSearchSource = {
 // UNROUTED ROWS ARE OUT OF SCOPE HERE BY CONSTRUCTION, not by a condition — a matter search is
 // scoped to one matter, and a row waiting in the queue is on none. The firm-wide screen's own search
 // is where those are found.
+const COMMUNICATION_ROW: SearchRowColumns = {
+  idColumn: `${COMMUNICATION_TABLE}.id`,
+  matterExpression: `${COMMUNICATION_TABLE}.matter_id`,
+  sortExpression: `${COMMUNICATION_TABLE}.occurred_at`,
+  // A call has no name; the reader recognizes it by when it happened, and the snippet carries the
+  // words. The title is that instant, rendered by the client.
+  titleExpression: `${COMMUNICATION_TABLE}.occurred_at`,
+  snippetExpression: `COALESCE(${COMMUNICATION_TABLE}.body, ${COMMUNICATION_TABLE}.summary)`,
+  // What it was and which way it went — the two facts that tell a reader whether the hit is the
+  // conversation they meant before they open it.
+  secondaryExpression: `${COMMUNICATION_TABLE}.channel || ' · ' || ${COMMUNICATION_TABLE}.direction`,
+  actorExpression: `${COMMUNICATION_TABLE}.member_user_id`,
+};
+
 const communicationsSource: MatterSearchSource = {
   key: "communications",
   sectionSlug: "messaging",
@@ -396,17 +479,7 @@ const communicationsSource: MatterSearchSource = {
       boundedSearchSelect(request.database, {
         request,
         from: COMMUNICATION_TABLE,
-        idColumn: `${COMMUNICATION_TABLE}.id`,
-        matterExpression: `${COMMUNICATION_TABLE}.matter_id`,
-        sortExpression: `${COMMUNICATION_TABLE}.occurred_at`,
-        // A call has no name; the reader recognizes it by when it happened, and the snippet carries
-        // the words. The title is that instant, rendered by the client.
-        titleExpression: `${COMMUNICATION_TABLE}.occurred_at`,
-        snippetExpression: `COALESCE(${COMMUNICATION_TABLE}.body, ${COMMUNICATION_TABLE}.summary)`,
-        // What it was and which way it went — the two facts that tell a reader whether the hit is
-        // the conversation they meant before they open it.
-        secondaryExpression: `${COMMUNICATION_TABLE}.channel || ' · ' || ${COMMUNICATION_TABLE}.direction`,
-        actorExpression: `${COMMUNICATION_TABLE}.member_user_id`,
+        ...COMMUNICATION_ROW,
         conditions: [
           match === null ? numberCondition : `(${match.condition} OR ${numberCondition})`,
         ],
@@ -415,6 +488,27 @@ const communicationsSource: MatterSearchSource = {
     ];
   },
   project: projectInto("communications", "messaging"),
+  // Across matters the words alone answer, and the number does not. Inside a matter the number is
+  // matched by reading that matter's calls and texts, which are few; with no matter to narrow by,
+  // the same match would read every call and text the firm has logged. A row waiting in the queue
+  // on no matter is still out of reach here: the visible-matter predicate asks for a matter.
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["what was said", "the caller's name"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "communications", COMMUNICATION_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...COMMUNICATION_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- parties ---------------------------------------------------------------------------------
@@ -511,6 +605,17 @@ const partiesSource: MatterSearchSource = {
 // notes where the snippet decision is load-bearing, and it lands the same way for the same reason —
 // a reader holding time:read is already shown these narratives in full on the Time tab this hit
 // links into.
+const TIME_ROW: SearchRowColumns = {
+  idColumn: `${TIME_ENTRY_TABLE}.id`,
+  matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
+  // The day the work was done, not the day it was typed — the order the Time tab reads in.
+  sortExpression: `${TIME_ENTRY_TABLE}.work_date`,
+  titleExpression: `${TIME_ENTRY_TABLE}.work_date`,
+  snippetExpression: `${TIME_ENTRY_TABLE}.narrative`,
+  secondaryExpression: `${TIME_ENTRY_TABLE}.status`,
+  actorExpression: `${TIME_ENTRY_TABLE}.timekeeper_user_id`,
+};
+
 const timeSource: MatterSearchSource = {
   key: "time",
   sectionSlug: "time",
@@ -530,20 +635,30 @@ const timeSource: MatterSearchSource = {
       boundedSearchSelect(request.database, {
         request,
         from: match.from,
-        idColumn: `${TIME_ENTRY_TABLE}.id`,
-        matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
-        // The day the work was done, not the day it was typed — the order the Time tab reads in.
-        sortExpression: `${TIME_ENTRY_TABLE}.work_date`,
-        titleExpression: `${TIME_ENTRY_TABLE}.work_date`,
-        snippetExpression: `${TIME_ENTRY_TABLE}.narrative`,
-        secondaryExpression: `${TIME_ENTRY_TABLE}.status`,
-        actorExpression: `${TIME_ENTRY_TABLE}.timekeeper_user_id`,
+        ...TIME_ROW,
         conditions: [match.condition],
         bindings: [match.binding],
       }),
     ];
   },
   project: projectInto("time", "time"),
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["time narratives"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "time", TIME_ENTRY_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...TIME_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- costs -----------------------------------------------------------------------------------
@@ -551,6 +666,17 @@ const timeSource: MatterSearchSource = {
 // Costs advanced and expenses incurred on this matter, matched on what the firm wrote the cost was
 // for. The description is the whole point of a cost row to a person searching — "the filing fee",
 // "the process server" — so it is both what matches and what is shown.
+const COST_ROW: SearchRowColumns = {
+  idColumn: `${COST_ENTRY_TABLE}.id`,
+  matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
+  sortExpression: `${COST_ENTRY_TABLE}.incurred_date`,
+  titleExpression: `${COST_ENTRY_TABLE}.description`,
+  // The description is already the title, so an excerpt would be the same string twice.
+  snippetExpression: "NULL",
+  secondaryExpression: `${COST_ENTRY_TABLE}.status`,
+  actorExpression: "NULL",
+};
+
 const costsSource: MatterSearchSource = {
   key: "costs",
   sectionSlug: "costs",
@@ -568,20 +694,30 @@ const costsSource: MatterSearchSource = {
       boundedSearchSelect(request.database, {
         request,
         from: match.from,
-        idColumn: `${COST_ENTRY_TABLE}.id`,
-        matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
-        sortExpression: `${COST_ENTRY_TABLE}.incurred_date`,
-        titleExpression: `${COST_ENTRY_TABLE}.description`,
-        // The description is already the title, so an excerpt would be the same string twice.
-        snippetExpression: "NULL",
-        secondaryExpression: `${COST_ENTRY_TABLE}.status`,
-        actorExpression: "NULL",
+        ...COST_ROW,
         conditions: [match.condition],
         bindings: [match.binding],
       }),
     ];
   },
   project: projectInto("costs", "costs"),
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["cost descriptions"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "costs", COST_ENTRY_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...COST_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- calendar --------------------------------------------------------------------------------
@@ -595,6 +731,10 @@ const costsSource: MatterSearchSource = {
 // it concerns, and putting it on a firm-wide read would be a leak. This search is inside ONE matter,
 // behind that matter's own calendar:read, on a screen that shows those titles in full. Same column,
 // different reach, different answer.
+//
+// It declares no `acrossMatters` for the same reason. A search across matters is the wider reach
+// again, and whether an event's title may be shown on it is the owner's to decide, as it was for
+// the timeline; until then a search across matters says events are not searched there.
 const calendarSource: MatterSearchSource = {
   key: "calendar",
   sectionSlug: "calendar",

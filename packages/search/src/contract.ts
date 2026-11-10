@@ -38,7 +38,17 @@ export const FirmSearchStatusResponse = z
   .object({
     // When these numbers were counted.
     checkedAt: z.string(),
-    records: z.object({ places: z.array(SearchStatusRecordPlace) }),
+    records: z.object({
+      places: z.array(SearchStatusRecordPlace),
+      // The rebuild of the places that are behind, as the firm's audit log records it. These are
+      // moments and not figures: when a member last asked for one, and when one last ran to its
+      // end. A request with no finish at or after it is a rebuild still to run.
+      rebuild: z.object({
+        requestedAt: z.string().nullable(),
+        finishedAt: z.string().nullable(),
+        outstanding: z.boolean(),
+      }),
+    }),
     fileContents: z.object({
       // The firm's switch: whether the contents of its files are indexed at all.
       turnedOn: z.boolean(),
@@ -66,3 +76,83 @@ export const FirmSearchStatusResponse = z
   .meta({ id: "FirmSearchStatusResponse" });
 
 export type FirmSearchStatusBody = z.infer<typeof FirmSearchStatusResponse>;
+
+// What asking for a rebuild answers: that it was asked for, and when. The rebuild itself runs
+// afterwards from a queue, so there is no count here and nothing about what it will find.
+export const FirmSearchRebuildResponse = z
+  .object({
+    // When the request was recorded.
+    requestedAt: z.string(),
+  })
+  .meta({ id: "FirmSearchRebuildResponse" });
+
+export type FirmSearchRebuildBody = z.infer<typeof FirmSearchRebuildResponse>;
+
+// ---- the search across matters ----
+//
+// One question answered from every matter the reader may see, one group to a place. The shapes are
+// the matter search's own with two additions: every hit names the matter it is on, because a hit
+// here is not on a matter the reader is already standing in, and the answer says when it was drawn
+// from the most recent records instead of from all of them.
+
+export const SearchAcrossMattersHit = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    // The declared excerpt, or null where the place declares it has none.
+    snippet: z.string().nullable(),
+    secondary: z.string().nullable(),
+    actorUserId: z.string().nullable(),
+    sortKey: z.string(),
+    // The record's own section on its own matter, behind that section's own gate.
+    link: z.string(),
+    // The matter the record is on, as a reader recognizes it. The number is the one the matter
+    // wears today: its matter number, or the consultation or intake number where it has not been
+    // opened yet, or null where it has none at all.
+    matter: z.object({
+      id: z.string(),
+      title: z.string(),
+      number: z.string().nullable(),
+    }),
+  })
+  .meta({ id: "SearchAcrossMattersHit" });
+
+export const SearchAcrossMattersGroup = z
+  .object({
+    source: z.string(),
+    section: z.string(),
+    answerShape: z.enum(["listing", "ranked"]),
+    // What this place matched on ACROSS MATTERS, which for some places is less than inside one.
+    matchedFields: z.array(z.string()),
+    hits: z.array(SearchAcrossMattersHit),
+    // Measured by reading one row past the limit, never estimated.
+    hasMore: z.boolean(),
+    // Why this place contributed nothing, or null when it answered. `one-matter-only` is a place
+    // that is searched inside a matter and not across them; the rest mean what they mean in a
+    // matter's own search.
+    skipped: z
+      .enum([
+        "one-matter-only",
+        "permission",
+        "query-too-short",
+        "engine-unavailable",
+        "engine-not-connected",
+        "not-indexed",
+      ])
+      .nullable(),
+  })
+  .meta({ id: "SearchAcrossMattersGroup" });
+
+export const SearchAcrossMattersAnswer = z
+  .object({
+    query: z.string(),
+    // True when the words are in more of the firm's records than one search reads. The groups then
+    // hold the most recent records with those words, and a group with no hits has not shown that
+    // its place holds none.
+    broad: z.boolean(),
+    // One group per place, in the order a matter's own sections read in.
+    groups: z.array(SearchAcrossMattersGroup),
+  })
+  .meta({ id: "SearchAcrossMattersAnswer" });
+
+export type SearchAcrossMattersAnswerBody = z.infer<typeof SearchAcrossMattersAnswer>;

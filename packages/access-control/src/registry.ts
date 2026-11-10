@@ -445,7 +445,8 @@ export const PERMISSIONS = [
   // export that ran outside any matter has none at all, so binding it to "matter" would name a
   // resource most rows do not have — the same reasoning notifications:read carries.
   "downloads:shelf", // read, add to, fetch from, and clear one's own download shelf
-  // Consolidated matter search — one query answered from every section of one matter at once. ONE
+  // Consolidated matter search — one query answered from every section of one matter at once, or
+  // from the same sections of every matter the member may see. ONE
   // key, and it gates the SURFACE rather than any of the records it reaches: every source behind it
   // carries its own read capability (notes:read, custody:read, and the firm-member-open reads for
   // files and parties), checked per source before a single statement is built, so a seat that may
@@ -456,9 +457,13 @@ export const PERMISSIONS = [
   // only for a route naming a non-null permission, and the per-source gate is what reads that set.
   // A route declaring no permission would receive no set and could not gate its sources at all.
   //
-  // Binds resource: "matter". A consolidated search names one matter and cannot be run without one,
-  // and it never widens past it — searching the whole application is the command palette's job.
-  "search:matter", // run one search across a matter's sections, each source still gated by its own read key
+  // Binds resource: "matter" on a matter's own search, which names one matter and never widens past
+  // it, and resource: "firm" on the search across matters, which names none. The second is not a
+  // wider grant of the first. It reads the same sources behind the same per-source capabilities,
+  // and which matters it reaches is decided by the visible-matter predicate every such read
+  // composes, never by this key. A second key would have to be granted to every role that already
+  // searches a matter, a firm's own roles included, to say nothing the predicate does not say.
+  "search:matter", // run the consolidated search, inside one matter or across the matters the member may see, each source still gated by its own read key
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

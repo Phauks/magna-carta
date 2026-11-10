@@ -1178,6 +1178,11 @@ export type FirmSearchStatusResponse = {
     checkedAt: string;
     records: {
         places: Array<SearchStatusRecordPlace>;
+        rebuild: {
+            requestedAt: string | null;
+            finishedAt: string | null;
+            outstanding: boolean;
+        };
     };
     fileContents: {
         turnedOn: boolean;
@@ -1200,6 +1205,10 @@ export type SearchStatusRecordPlace = {
     readBy: Array<'matter-search' | 'conflicts-check'>;
     indexed: number;
     expected: number;
+};
+
+export type FirmSearchRebuildResponse = {
+    requestedAt: string;
 };
 
 export type ExportRenderRequest = {
@@ -3868,6 +3877,37 @@ export type MatterSearchHit = {
     actorUserId: string | null;
     sortKey: string;
     link: string;
+};
+
+export type SearchAcrossMattersAnswer = {
+    query: string;
+    broad: boolean;
+    groups: Array<SearchAcrossMattersGroup>;
+};
+
+export type SearchAcrossMattersGroup = {
+    source: string;
+    section: string;
+    answerShape: 'listing' | 'ranked';
+    matchedFields: Array<string>;
+    hits: Array<SearchAcrossMattersHit>;
+    hasMore: boolean;
+    skipped: 'one-matter-only' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
+};
+
+export type SearchAcrossMattersHit = {
+    id: string;
+    title: string;
+    snippet: string | null;
+    secondary: string | null;
+    actorUserId: string | null;
+    sortKey: string;
+    link: string;
+    matter: {
+        id: string;
+        title: string;
+        number: string | null;
+    };
 };
 
 export type MatterPlanTemplateList = {
@@ -13882,6 +13922,58 @@ export type FirmSearchStatusGetResponses = {
 
 export type FirmSearchStatusGetResponse = FirmSearchStatusGetResponses[keyof FirmSearchStatusGetResponses];
 
+export type FirmSearchStatusRebuildData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-status/rebuild';
+};
+
+export type FirmSearchStatusRebuildErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchStatusRebuildError = FirmSearchStatusRebuildErrors[keyof FirmSearchStatusRebuildErrors];
+
+export type FirmSearchStatusRebuildResponses = {
+    /**
+     * The rebuild was asked for and is queued
+     */
+    202: FirmSearchRebuildResponse;
+};
+
+export type FirmSearchStatusRebuildResponse = FirmSearchStatusRebuildResponses[keyof FirmSearchStatusRebuildResponses];
+
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;
     path?: never;
@@ -23056,6 +23148,47 @@ export type MatterSearchSearchResponses = {
 };
 
 export type MatterSearchSearchResponse = MatterSearchSearchResponses[keyof MatterSearchSearchResponses];
+
+export type SearchAcrossMattersData = {
+    body?: never;
+    path?: never;
+    query: {
+        q: string;
+        in?: string | Array<string>;
+        limit?: number;
+    };
+    url: '/api/v1/search';
+};
+
+export type SearchAcrossMattersErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type SearchAcrossMattersError = SearchAcrossMattersErrors[keyof SearchAcrossMattersErrors];
+
+export type SearchAcrossMattersResponses = {
+    /**
+     * One group per place
+     */
+    200: SearchAcrossMattersAnswer;
+};
+
+export type SearchAcrossMattersResponse = SearchAcrossMattersResponses[keyof SearchAcrossMattersResponses];
 
 export type MatterPlansListPlansData = {
     body?: never;

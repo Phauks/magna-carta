@@ -101,6 +101,50 @@ export interface MatterSearchSource {
   // present the runner calls it INSTEAD of `buildStatements`.
   readonly prepare?: (request: SourceSearchRequest) => Promise<PreparedSearch>;
   readonly project: (row: MatterSearchRawRow) => MatterSearchHit;
+  // Declared only by a source that can also answer for EVERY MATTER THE READER MAY SEE. Absent, the
+  // source answers inside one matter and nowhere else, and a search across matters reports it as
+  // not searched instead of running it. See `AcrossMattersDeclaration`.
+  readonly acrossMatters?: AcrossMattersDeclaration;
+}
+
+// What a search across matters hands a source. There is no matter in it, and that is the whole
+// difference from `SourceSearchRequest`: the reach is every matter the visible-matter predicate
+// admits, and the predicate is the only thing deciding which those are.
+export interface AcrossMattersSearchRequest {
+  readonly database: SqlDatabase;
+  // The reader's text, already trimmed. A binding, never an instruction.
+  readonly query: string;
+  // REQUIRED, and composed into the WHERE clause before the LIMIT by the builder.
+  readonly visibility: VisibleMatterPredicate;
+  readonly limit: number;
+  // The most index entries one statement may draw its candidates from. See
+  // `recordIndexNewestMatchesFrom` in @magna-carta/search/record-index-query.
+  readonly candidateCap: number;
+}
+
+// HOW A SOURCE ANSWERS ACROSS MATTERS, declared separately from how it answers inside one.
+//
+// `buildStatements` above cannot reach a second matter: the builder it uses binds the one it was
+// given. This is a second, deliberate declaration, with its own builder
+// (`visibleMattersSearchSelect` in build.ts) that binds no matter and composes the visible-matter
+// predicate in its place. A source without this declaration is not widened by anything.
+//
+// The cost of a read with no matter to narrow by has to be bounded some other way, and the
+// declaration says which:
+//
+//   "record-index"  the source's words are in the firm's record index, and its statement draws on
+//                   the newest matches up to the request's cap. The read costs the same whatever
+//                   the firm holds.
+//   "names"         the source matches characters in a name on its own table, and its statement
+//                   reads that table. The cost grows with the firm's rows of that one kind, so a
+//                   source declares this only for a table whose rows are short and whose scan was
+//                   measured (scripts/measure-across-matters.mts).
+export interface AcrossMattersDeclaration {
+  readonly reads: "record-index" | "names";
+  // What is matched across matters, where that is less than inside one. A source that also matches
+  // a number by scanning its table inside a matter matches only its words here.
+  readonly matchedFields: readonly string[];
+  readonly buildStatements: (request: AcrossMattersSearchRequest) => readonly SqlStatement[];
 }
 
 // The registry itself: a frozen list, reviewed when it changes. The read count per search scales

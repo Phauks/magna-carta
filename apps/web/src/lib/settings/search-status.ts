@@ -82,6 +82,37 @@ export function searchByMeaningStanding(status: SearchStatus): StatusKey {
   return "index-turned-on";
 }
 
+/**
+ * What the page offers about rebuilding the record index.
+ *
+ * - `asked-for`: a member asked and the rebuild has not finished. Said first, because it is true
+ *   whether or not a place still reads behind: the rebuild may be part way through them.
+ * - `offered`: a place is behind and nobody has asked, so the page offers the button.
+ * - `none`: nothing is behind and nothing is outstanding. The standing says so and there is
+ *   nothing to press.
+ */
+export type RebuildOffer = "none" | "offered" | "asked-for";
+
+export function rebuildOffer(status: SearchStatus): RebuildOffer {
+  if (status.records.rebuild.outstanding) return "asked-for";
+  return recordIndexStanding(status) === "index-behind" ? "offered" : "none";
+}
+
+/**
+ * The status as it stands the moment the server has recorded a request: the same counts, with the
+ * rebuild now outstanding. The counts are not asked for again, because nothing has changed in them
+ * yet and the read behind them is the expensive one.
+ */
+export function withRebuildRequested(status: SearchStatus, requestedAt: string): SearchStatus {
+  return {
+    ...status,
+    records: {
+      ...status.records,
+      rebuild: { ...status.records.rebuild, requestedAt, outstanding: true },
+    },
+  };
+}
+
 /** How many records the record index holds across every place. */
 export function recordsIndexed(status: SearchStatus): number {
   return status.records.places.reduce((sum, place) => sum + place.indexed, 0);
@@ -145,6 +176,32 @@ export const RECORD_INDEX_DEFINITION: SettingDefinition = {
   sensitivity: "open",
 };
 
+/** Shown beneath Records while a place is behind and nobody has asked for a rebuild. */
+export const REBUILD_DEFINITION: SettingDefinition = {
+  id: "search.status.rebuild",
+  sectionId: SECTION_ID,
+  plateLabel: INDEXES_PLATE,
+  label: "Rebuild",
+  description:
+    "Reads the places that are behind again from the firm's records. Nothing the firm holds is changed.",
+  kind: "text",
+  defaultValue: "",
+  sensitivity: "open",
+};
+
+/** Shown in its place once a member has asked, until the rebuild has finished. */
+export const REBUILD_ASKED_FOR_DEFINITION: SettingDefinition = {
+  id: "search.status.rebuild-asked-for",
+  sectionId: SECTION_ID,
+  plateLabel: INDEXES_PLATE,
+  label: "Rebuild Asked For",
+  description:
+    "It starts within a few minutes and runs in the background. Count again to see where it stands.",
+  kind: "text",
+  defaultValue: "",
+  sensitivity: "open",
+};
+
 export const FILE_CONTENTS_INDEX_DEFINITION: SettingDefinition = {
   id: "search.status.file-contents",
   sectionId: SECTION_ID,
@@ -188,6 +245,7 @@ export const SEARCH_STATUS_FIXTURE: SearchStatus = {
     places: [
       { key: "notes", label: "", matchedFields: [], readBy: [], indexed: 12000, expected: 12000 },
     ],
+    rebuild: { requestedAt: null, finishedAt: null, outstanding: false },
   },
   fileContents: {
     turnedOn: true,

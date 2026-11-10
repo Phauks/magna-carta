@@ -188,3 +188,45 @@ export function recordIdsMatchingSubquery(sourceKey: string): string {
     `WHERE ${RECORD_TEXT_FTS_TABLE} MATCH ? AND ${RECORD_TEXT_ENTRY_TABLE}.source = '${source.key}'`
   );
 }
+
+// THE THIRD FORM, for a person's search with no one matter to narrow by: every matter they may see.
+//
+//   FROM <this> WHERE matter_note.deleted_at IS NULL AND <the visible-matter predicate> ...
+//
+// Inside one matter the matter's own token keeps the index's work to that matter's matches. Across
+// matters nothing does, and a word a firm writes in most of its records matches most of the index.
+// So this form does not read every match: it takes the NEWEST matches, up to a cap the caller binds,
+// and the consumer's table is reached from those alone. The index answers in the order its entries
+// were written and stops at the cap, so the read costs the same whether the words are in forty
+// records or in four hundred thousand.
+//
+// What that means for an answer: a question matched by no more records than the cap is answered in
+// full, exactly as the leading form would. A question matched by more is answered from the most
+// recently written of them, and the caller is told which it was by
+// `countRecordIndexMatchesUpToStatement` (record-index-statements.ts) so a reader is never shown a
+// part as the whole.
+//
+// The cap is over every source's matches together, because the source is a column on the entry row
+// and not a term the index can narrow by. One source's share of the newest matches is what its
+// statement goes on to read.
+//
+// Two bindings, in this order and before any the consumer's own conditions take: the match
+// expression, built with no matter in its scope, and the cap. As in the leading form the consumer's
+// statement still reads its own row and composes the visible-matter predicate; this only proposes.
+export function recordIndexNewestMatchesFrom(sourceKey: string, table: string): string {
+  const source = recordIndexSource(sourceKey);
+  if (source.table !== table) {
+    throw new Error(
+      `record index source "${source.key}" indexes ${source.table}, not ${table}: ` +
+        `its matches are not that table's rows`,
+    );
+  }
+  return (
+    `(SELECT ${RECORD_TEXT_FTS_TABLE}.rowid AS entry_id FROM ${RECORD_TEXT_FTS_TABLE} ` +
+    `WHERE ${RECORD_TEXT_FTS_TABLE} MATCH ? ` +
+    `ORDER BY ${RECORD_TEXT_FTS_TABLE}.rowid DESC LIMIT ?) AS newest_match ` +
+    `CROSS JOIN ${RECORD_TEXT_ENTRY_TABLE} ON ${RECORD_TEXT_ENTRY_TABLE}.id = newest_match.entry_id ` +
+    `AND ${RECORD_TEXT_ENTRY_TABLE}.source = '${source.key}' ` +
+    `CROSS JOIN ${table} ON ${table}.id = ${RECORD_TEXT_ENTRY_TABLE}.record_id`
+  );
+}

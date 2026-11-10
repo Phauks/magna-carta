@@ -89,6 +89,36 @@ export function selectRecordIndexPointersStatement(
     .bind(...bindings);
 }
 
+// Whether a reader's text matches more of the index than `cap` entries, counted no further than one
+// past it: the answer is a number from zero to `cap + 1`, and `cap + 1` means "more than the cap".
+// Null when the text holds nothing to match.
+//
+// It goes with `recordIndexNewestMatchesFrom` (record-index-query.ts), which answers a question
+// with no one matter in it from the newest `cap` matches. This is how the caller of that form learns
+// whether those were all of them, so it can tell a reader that a broad question was answered from
+// the most recent records instead of presenting a part as the whole.
+//
+// It counts matches in every source and on every matter, visible to the asker or not, and that is
+// deliberate: the newest-matches form caps the same set, before any source or matter is known. The
+// one fact it yields is whether the cap was reached. Never show the number to a reader, because
+// below the cap it is a count of records they may not all be allowed to see.
+export function countRecordIndexMatchesUpToStatement(
+  database: SqlDatabase,
+  text: string,
+  cap: number,
+): SqlStatement | null {
+  const match = recordMatchExpression(text, {
+    sourceKeys: recordIndexSources.map((source) => source.key),
+  });
+  if (match === null) return null;
+  return database
+    .prepare(
+      `SELECT COUNT(*) AS matched FROM (SELECT ${RECORD_TEXT_FTS_TABLE}.rowid ` +
+        `FROM ${RECORD_TEXT_FTS_TABLE} WHERE ${RECORD_TEXT_FTS_TABLE} MATCH ? LIMIT ?)`,
+    )
+    .bind(match, cap + 1);
+}
+
 // How many records each declared source has in the index. A source with no rows is absent from the
 // result rather than reported as zero; `readRecordIndexCounts` fills those in.
 export function countRecordIndexEntriesStatement(database: SqlDatabase): SqlStatement {
@@ -162,6 +192,18 @@ export async function readRecordIndexPlaces(database: SqlDatabase): Promise<Reco
     readBy: recordIndexSource(count.sourceKey).readBy,
     expected: expectedRow[`expected_${index}`] ?? 0,
   }));
+}
+
+// Whether a place's index has fallen behind its records: the two counts differ. One definition, for
+// the screen that shows a place as behind and for the rebuild that puts it right, so a place the
+// screen names is exactly a place the rebuild takes.
+//
+// "Differ" and not "is short": an index holding a row its records no longer do is as wrong as one
+// missing a row, and a rebuild repairs both.
+export function recordIndexPlaceIsBehind(
+  place: Pick<RecordIndexPlace, "indexed" | "expected">,
+): boolean {
+  return place.indexed !== place.expected;
 }
 
 // Empties one source's index rows and derives them again from its records. Returned as statements

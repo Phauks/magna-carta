@@ -10,7 +10,8 @@
     "./registry": "./src/sources/registry.ts",
     "./build": "./src/sources/build.ts",
     "./sources": "./src/sources/all.ts",
-    "./run": "./src/run.ts"
+    "./run": "./src/run.ts",
+    "./run-across-matters": "./src/run-across-matters.ts"
   },
   "scripts": {
     "test": "vp test run"
