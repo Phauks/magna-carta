@@ -5356,6 +5356,7 @@ export type ConflictsScopeRequest = {
         messaging: Array<'calls' | 'texts' | 'email'>;
         tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
         magnus: boolean;
+        files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
     };
 };
 
@@ -5453,6 +5454,7 @@ export type ConflictsRunSummary = {
             messaging: Array<'calls' | 'texts' | 'email'>;
             tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
             magnus: boolean;
+            files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
         };
     } | null;
     hitCount: number | null;
@@ -5534,7 +5536,7 @@ export type ConflictsHitDetail = {
     graphPath: Array<ConflictsGraphPathStep>;
     coParty: boolean;
     foundIn: {
-        kind: 'call' | 'text' | 'email' | 'task' | 'magnus_conversation';
+        kind: 'call' | 'text' | 'email' | 'task' | 'magnus_conversation' | 'file';
         id: string;
         matterId: string | null;
         matterNumber: string | null;

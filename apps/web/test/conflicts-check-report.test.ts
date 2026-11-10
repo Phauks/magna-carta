@@ -159,6 +159,49 @@ describe("the status section", () => {
     expect(placeSettingsText("files", askedScope.places)).toBeNull();
   });
 
+  it("files a file result under Files, and reads an unreachable file index as not searched", () => {
+    const askedScope = {
+      sources: ["party"],
+      strictness: "balanced",
+      places: {
+        messaging: [],
+        tasks: [],
+        magnus: false,
+        files: ["open", "archived"] as ("open" | "archived")[],
+      },
+    };
+    expect(placeSettingsText("files", askedScope.places)).toBe("Open, Archived");
+    const statement = [
+      "Files — the text of files on open matters, plus deleted files on every matter across 3 of 3 matters, searched.",
+    ];
+    const file = hit({
+      sourceClass: "content",
+      foundIn: {
+        kind: "file",
+        id: "file_1",
+        matterId: "matter_1",
+        matterNumber: "2026-0001",
+        at: null,
+      },
+    });
+    expect(whereText(file)).toBe("File on 2026-0001");
+    const searched = statusPlaces(
+      run({ askedScope, status: "completed", stage: null, hitCount: 1 }),
+      { check: { scope: { files: "searched" } } as unknown as CheckWithHits["check"], statement, hits: [file] },
+    );
+    expect(searched[1]?.state).toBe("done");
+    expect(searched[1]?.summary).toBe("1 result");
+    expect(searched[1]?.lines).toEqual(statement);
+    const dormant = statusPlaces(
+      run({ askedScope, status: "completed", stage: null, hitCount: 0 }),
+      { check: { scope: { files: "unavailable" } } as unknown as CheckWithHits["check"], statement: [], hits: [] },
+    );
+    expect(dormant[1]?.state).toBe("not-searched");
+    expect(dormant[1]?.lines).toEqual([
+      "The file index is not connected yet, so no file's text was read.",
+    ]);
+  });
+
   it("marks a cancelled run's place as cancelled, never as failed", () => {
     const places = statusPlaces(run({ status: "cancelled", stage: null }), null);
     expect(places[0]?.state).toBe("stopped");

@@ -261,6 +261,73 @@ test("a check asked for the firm's own records finds a party in them, records wh
   expect(statement.some((line) => line.startsWith("Messaging —"))).toBe(false);
 });
 
+test("a check asked for Files asks the file index, records where it found the party, and says so", async () => {
+  const { ctx, raw, options } = await conflictsTestContext("files");
+  const clientId = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
+  raw.exec(
+    `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('${ACTOR}', 'Actor', 'active', '${clock.now()}')`,
+  );
+  raw.exec(
+    `INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at)
+     VALUES ('matter_lease', 'Lease', 'open', '${ACTOR}', '${clock.now()}', '${clock.now()}')`,
+  );
+  raw.exec(
+    `INSERT INTO file (id, matter_id, name, created_at, updated_at)
+     VALUES ('file_lease', 'matter_lease', 'lease.pdf', '${clock.now()}', '${clock.now()}')`,
+  );
+  const request = {
+    trigger: "preliminary" as const,
+    subjectEntityIds: [clientId],
+    scope: {
+      sources: ["party" as const],
+      strictness: "balanced" as const,
+      places: { messaging: [], tasks: [], magnus: false, files: ["open" as const] },
+    },
+  };
+
+  const searched = await runConflictsCheck(ctx, request, options, {
+    query: ({ matterId }) =>
+      Promise.resolve({ ok: true, fileIds: matterId === "matter_lease" ? ["file_lease"] : [] }),
+  });
+  const row = await readCheck(ctx.database, searched);
+  expect((JSON.parse(row.scope_json) as Record<string, string>).files).toBe("searched");
+  const { results } = await ctx.database
+    .prepare(`SELECT found_in_json FROM conflicts_hit WHERE check_id = ?1`)
+    .bind(searched)
+    .all<{ found_in_json: string | null }>();
+  expect(results.map((hit) => JSON.parse(hit.found_in_json ?? "null"))).toEqual([
+    { kind: "file", id: "file_lease", matterId: "matter_lease", at: clock.now() },
+  ]);
+  const inputs = parseCheckInputs(row.inputs_json);
+  const statement = describeCheck(
+    {
+      createdAt: row.created_at,
+      trigger: row.trigger,
+      actorUserId: null,
+      strictness: "balanced",
+      depth: row.depth,
+      floorRaised: false,
+      subjectEntityCount: 1,
+      expandedEntityCount: 1,
+      skippedIdentifierTypes: [],
+      places: inputs.places,
+    },
+    [{ evidenceTier: 2 }],
+    [],
+  );
+  expect(statement).toContain(
+    "Files — the text of files on open matters across 1 of 1 matter, searched for 1 subject party by each name as an exact phrase.",
+  );
+
+  // Without the index, Files is recorded as not searched rather than as searched and empty.
+  const dormant = await runConflictsCheck(ctx, request, {
+    ...options,
+    randomSource: seededRandomSource("files-dormant"),
+  });
+  const dormantRow = await readCheck(ctx.database, dormant);
+  expect((JSON.parse(dormantRow.scope_json) as Record<string, string>).files).toBe("unavailable");
+});
+
 test("imputation in scope with no matter still searches, over the entities the check reached", async () => {
   const { ctx, options } = await conflictsTestContext("imputation-no-matter");
   const checkId = await runConflictsCheck(

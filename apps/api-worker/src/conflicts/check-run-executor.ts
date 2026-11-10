@@ -4,6 +4,8 @@ import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifi
 import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import type { Bindings } from "../bindings.ts";
+import { fileContentsSearcherFor } from "./file-contents-searcher.ts";
 
 // EXECUTING A RUN A PERSON ASKED FOR, AFTER THE RESPONSE THAT OPENED IT.
 //
@@ -27,9 +29,17 @@ export async function executeConflictsRunInBackground(
   run: { readonly runId: ConflictsCheckId; readonly input: RunCheckInput },
   options: Omit<ConflictsWriteOptions, "idempotency">,
   logger: Logger,
+  // The application's bindings, for reaching the file contents index when a check asks for Files.
+  env?: Bindings,
 ): Promise<void> {
+  const fileContents =
+    env === undefined ? undefined : fileContentsSearcherFor(env, context.firmId);
   try {
-    await executeCheckRun(context, run, options);
+    await executeCheckRun(
+      context,
+      { ...run, ...(fileContents === undefined ? {} : { fileContents }) },
+      options,
+    );
   } catch (error) {
     // The run row already says it failed; this is the diagnostic half, correlated by the standard
     // pipeline. The row carries no error text on purpose — a database message is not a sentence a

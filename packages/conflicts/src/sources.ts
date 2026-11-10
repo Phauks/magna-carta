@@ -30,6 +30,11 @@ export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
 export const MESSAGING_SOURCE = "messaging";
 export const TASKS_SOURCE = "tasks";
 
+// The text of the firm's files, read through the file contents index (file-search.ts). Recorded
+// `searched` when the index answered, `unavailable` when it could not be reached, absent when not
+// asked for.
+export const FILES_SOURCE = "files";
+
 // Every registered source with no class of its own, in the order the record lists them. A check
 // writes all of them; a reader of an older row treats an absent key as the row not saying.
 export const REGISTERED_SOURCES_WITHOUT_A_CLASS: readonly string[] = [
@@ -66,6 +71,7 @@ const LOCATIONS_BY_SOURCE: Readonly<Record<string, readonly SearchLocation[]>> =
   content: ["files", "messaging"],
   [MESSAGING_SOURCE]: ["messaging"],
   [TASKS_SOURCE]: ["tasks"],
+  [FILES_SOURCE]: ["files"],
   [MAGNUS_CONVERSATIONS_SOURCE]: ["magnus"],
 };
 
@@ -84,6 +90,7 @@ const SOURCE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   [NICKNAME_EQUIVALENCE_SOURCE]: "nickname equivalents",
   [MESSAGING_SOURCE]: "calls, texts and email",
   [TASKS_SOURCE]: "tasks",
+  [FILES_SOURCE]: "files",
   [MAGNUS_CONVERSATIONS_SOURCE]: "Magnus conversations",
 };
 
@@ -107,6 +114,9 @@ export interface UnavailabilityContext {
 export function unavailabilityReason(source: string, context: UnavailabilityContext): string {
   if (source === "content") {
     return "no corpus exists: nothing indexes document text, and no message-body index is wired";
+  }
+  if (source === FILES_SOURCE) {
+    return "the file contents index could not be reached: the search service that reads it is not connected";
   }
   if (source === PRIOR_FIRM_HISTORY_SOURCE) {
     return "no data is recorded: the source is registered so that it is reported, and it has no table behind it yet";

@@ -114,6 +114,8 @@ export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
 /** The firm's calls, texts and email, and its tasks: recorded searched when a check asked for them. */
 export const MESSAGING_SOURCE = "messaging";
 export const TASKS_SOURCE = "tasks";
+/** The text of the firm's files: recorded searched when the file index answered. */
+export const FILES_SOURCE = "files";
 
 export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   party: {
@@ -150,6 +152,10 @@ export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
     meaning:
       "Calls, texts and email linked to a party, from a party's number or address, or naming them.",
   },
+  [FILES_SOURCE]: {
+    label: "Files",
+    meaning: "A party named in the text of a document filed on a matter.",
+  },
   [TASKS_SOURCE]: {
     label: "Tasks",
     meaning: "A party named in a task's title or description.",
@@ -173,9 +179,8 @@ export function sourceVocabulary(source: string): VocabularyEntry {
  * reads as a place; whether the engine can search it yet; and the options listed beneath it, which
  * say WHAT it searches and nothing about why.
  *
- * Files stands over the content class, the corpus that would search document text, until it grows
- * one of its own. Messaging, Tasks and Magnus have keys of their own and are searched when asked;
- * Messaging also stands over the content class so a record written before it could be searched
+ * Files, Messaging, Tasks and Magnus have keys of their own and are searched when asked. Files and
+ * Messaging also stand over the content class, so a record written before either could be searched
  * still reads as not searched.
  */
 export type SearchLocation = "directory" | "files" | "messaging" | "tasks" | "magnus";
@@ -215,6 +220,9 @@ export const TASK_STATUS_OPTIONS: readonly {
   { key: "archived", label: "Archived" },
 ];
 
+/** Files' options: the same four statuses. Archived is the files deleted from a matter. */
+export const FILE_STATUS_OPTIONS = TASK_STATUS_OPTIONS;
+
 /** Magnus's one option. */
 export const MAGNUS_OPTION = "All Employee Conversations";
 
@@ -227,6 +235,7 @@ export const FOUND_IN_VOCABULARY: Readonly<
   email: { label: "Email", location: "messaging" },
   task: { label: "Task", location: "tasks" },
   magnus_conversation: { label: "Magnus conversation", location: "magnus" },
+  file: { label: "File", location: "files" },
 };
 
 export const SEARCH_LOCATIONS: readonly SearchLocationEntry[] = [
@@ -240,9 +249,9 @@ export const SEARCH_LOCATIONS: readonly SearchLocationEntry[] = [
   {
     location: "files",
     label: "Files",
-    sources: ["content"],
-    searchable: false,
-    options: MATTER_STATUS_OPTIONS,
+    sources: [FILES_SOURCE, "content"],
+    searchable: true,
+    options: FILE_STATUS_OPTIONS.map((option) => option.label),
   },
   {
     location: "messaging",

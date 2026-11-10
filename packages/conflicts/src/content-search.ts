@@ -36,15 +36,26 @@ export type MessagingChannel = (typeof MESSAGING_CHANNELS)[number];
 export const TASK_MATTER_STATUSES = ["consultations", "open", "closed", "archived"] as const;
 export type TaskMatterStatus = (typeof TASK_MATTER_STATUSES)[number];
 
+// The same four options for Files. Archived there means files a member deleted from a matter, which
+// the firm keeps (a file is only ever soft-deleted) and a conflicts check must still be able to read.
+export const FILE_MATTER_STATUSES = TASK_MATTER_STATUSES;
+export type FileMatterStatus = TaskMatterStatus;
+
 // What a check is asked to search beyond the Directory. An empty list (or false) is a place not asked
 // for, which the record keeps apart from a place asked for and searched.
 export interface PlacesRequest {
   readonly messaging: readonly MessagingChannel[];
   readonly tasks: readonly TaskMatterStatus[];
   readonly magnus: boolean;
+  readonly files: readonly FileMatterStatus[];
 }
 
-export const NO_PLACES: PlacesRequest = Object.freeze({ messaging: [], tasks: [], magnus: false });
+export const NO_PLACES: PlacesRequest = Object.freeze({
+  messaging: [],
+  tasks: [],
+  magnus: false,
+  files: [],
+});
 
 // Reads a places request from anywhere it can arrive: a stored run request, a request body. Anything
 // unrecognized is dropped rather than refused, so an old row reads as asking for nothing more.
@@ -57,17 +68,33 @@ export function readPlacesRequest(value: unknown): PlacesRequest {
     messaging: pick(record["messaging"], MESSAGING_CHANNELS),
     tasks: pick(record["tasks"], TASK_MATTER_STATUSES),
     magnus: record["magnus"] === true,
+    files: pick(record["files"], FILE_MATTER_STATUSES),
   };
 }
 
 export function asksForAnyPlace(places: PlacesRequest): boolean {
+  return (
+    places.messaging.length > 0 || places.tasks.length > 0 || places.magnus || places.files.length > 0
+  );
+}
+
+// Whether any place other than Files was asked for: those are searched in the firm's own database,
+// Files through the file contents index.
+export function asksForRecordPlaces(places: PlacesRequest): boolean {
   return places.messaging.length > 0 || places.tasks.length > 0 || places.magnus;
 }
 
 // Where one result was found. Identifiers, a matter and an instant only: never a subject line, a
 // message or a task title, because the log is append-only and outlives every one of those records.
 // A reader resolves what it may see through the record's own surface.
-export const FOUND_IN_KINDS = ["call", "text", "email", "task", "magnus_conversation"] as const;
+export const FOUND_IN_KINDS = [
+  "call",
+  "text",
+  "email",
+  "task",
+  "magnus_conversation",
+  "file",
+] as const;
 export type FoundInKind = (typeof FOUND_IN_KINDS)[number];
 
 export interface FoundIn {
@@ -167,9 +194,9 @@ export const NAME_FLOOR = 3;
 export const NUMBER_FLOOR = 7;
 
 // D1 binds at most 100 parameters to one statement.
-const MAX_BOUND_PARAMETERS = 100;
+export const MAX_BOUND_PARAMETERS = 100;
 
-function chunks<T>(values: readonly T[], size: number): T[][] {
+export function chunks<T>(values: readonly T[], size: number): T[][] {
   const out: T[][] = [];
   for (let start = 0; start < values.length; start += size) {
     out.push(values.slice(start, start + size));
@@ -177,7 +204,7 @@ function chunks<T>(values: readonly T[], size: number): T[][] {
   return out;
 }
 
-function placeholders(count: number, offset = 0): string {
+export function placeholders(count: number, offset = 0): string {
   return Array.from({ length: count }, (_, index) => `?${String(index + 1 + offset)}`).join(", ");
 }
 
@@ -588,7 +615,9 @@ async function searchEmail(
 }
 
 // The matter statuses each panel option stands for. Hold is an open matter paused.
-const MATTER_STATUSES_BY_OPTION: Readonly<Record<Exclude<TaskMatterStatus, "archived">, string[]>> =
+export const MATTER_STATUSES_BY_OPTION: Readonly<
+  Record<Exclude<TaskMatterStatus, "archived">, readonly string[]>
+> =
   {
     consultations: ["intake", "consultation"],
     open: ["open", "hold"],

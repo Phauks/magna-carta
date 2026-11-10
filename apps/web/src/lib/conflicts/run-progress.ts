@@ -61,7 +61,10 @@ export function runProgressSteps(run: RunSummary): ProgressStep[] {
   const places = run.askedScope?.places;
   const asked =
     places !== undefined &&
-    (places.messaging.length > 0 || places.tasks.length > 0 || places.magnus);
+    (places.messaging.length > 0 ||
+      places.tasks.length > 0 ||
+      places.magnus ||
+      (places.files ?? []).length > 0);
   const stages = RUN_STAGES.filter((stage) => stage !== "places" || asked);
   const current = run.stage === null ? -1 : stages.indexOf(run.stage);
   return stages.map((stage, index) => {
