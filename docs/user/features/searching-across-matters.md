@@ -10,9 +10,33 @@ still finds the application's own screens, settings and tools first. Its last ro
 Every Matter For** and whatever you typed: choose it, or press Enter when it is the only row, and
 the Search page opens with your words already in it.
 
-The page's address holds your words and the place you chose, so you can reload it, go back to an
-earlier search with the browser's Back button, or send the link to a colleague. They see what
-_they_ are allowed to see, which may be less than you do.
+The page's address holds your words, the place you chose and the matters you chose to search, so
+you can reload it, go back to an earlier search with the browser's Back button, or send the link
+to a colleague. They see what _they_ are allowed to see, which may be less than you do.
+
+## Choosing which matters to search
+
+Under the search box, **Search In** chooses which matters are asked.
+
+| Choice                   | What is searched                                                        |
+| ------------------------ | ----------------------------------------------------------------------- |
+| **Everything I Can See** | Every matter you can see. This is where the page starts.                |
+| **My Matters**           | The matters you are responsible for, and the ones you are assigned to   |
+| **One Client**           | The matters one person or organization is a client on. Pick the client. |
+| **One Matter**           | Pick a matter, and its own search opens with your words already in it   |
+
+A matter's own search reaches more of that matter than this page does, including the words inside
+its files, which is why **One Matter** takes you there.
+
+**My Matters** and **One Client** search fewer matters and nothing else changes: you still see only
+what you are allowed to see. A link that names a client shows a colleague only the matters of that
+client they can see themselves.
+
+While the search is narrowed, **People** is not searched, because the directory belongs to the
+whole firm and not to a matter. It is listed under **Not Searched** as **Firm-Wide**. Choose
+**Everything I Can See** to search people by name.
+
+Your choice stays as you type a new question. Changing it starts again at **All Places**.
 
 ## What is searched
 
@@ -58,6 +82,8 @@ Under **Not Searched** the page lists the places it did not look, and why:
   Today that is the words inside files, Parties, Calendar, Custodian and Billing. Open the matter
   and use the search at its top right.
 - **No Access** means your role does not include reading that place.
+- **Firm-Wide** means the place belongs to the whole firm and is searched only when **Search In**
+  reads **Everything I Can See**. Today that is People.
 - **Discovery Sets** are never searched from here. A discovery review set is searched only from
   inside the set, by the people on its access list.
 
@@ -65,7 +91,9 @@ Under **Not Searched** the page lists the places it did not look, and why:
 
 If your words are in more of the firm's records than one search reads, the page says **Showing The
 Most Recent Matches**. The results are then the most recent records with those words, not every
-one, and a place showing nothing may still hold older matches. Add a word to narrow the search.
+one, and a place showing nothing may still hold older matches. Add a word to narrow the search, or
+choose fewer matters under **Search In**: a search of **My Matters** or **One Client** that reaches
+25 matters or fewer reads those matters' own most recent matches, however old they are.
 
 ## What you can and cannot see
 

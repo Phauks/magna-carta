@@ -42,6 +42,10 @@ list/consultations queries. Validates in memory and composes statements into @ma
   user id; the one home for that write (route and fixtures share it). A bar number is deliberately
   NOT a column here — it is a protected Directory identifier.
 - `src/queries.ts` — `listMatters` (excludes intakes and consultations by default) + `listConsultations` (with the stale flag)
+- `src/matter-narrowing.ts` — **what "my matters" and "one client's matters" mean**, stated once as
+  a condition on a matter's id that the matters listing and the search across matters both compose.
+  A narrowing is a reader's choice and never a permission: a caller composes it WITH the
+  visible-matter predicate, not in place of it
 
 ## Invariants that apply here
 

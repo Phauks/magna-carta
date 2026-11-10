@@ -15,12 +15,28 @@ import {
 } from "$lib/search/search-across-matters.svelte.ts";
 import {
   ALL_PLACES,
+  EVERYTHING,
   MATTERS_PLACE,
+  MY_MATTERS,
   PEOPLE_PLACE,
+  isNarrowed,
   isRecordPlace,
   placeFromAddress,
+  reachFromAddress,
+  reachKey,
   searchAddress,
+  type SearchReach,
 } from "$lib/search/search-address.ts";
+import {
+  REACH_CHOICES,
+  UNNAMED_CLIENT,
+  clientNamed,
+  reachFieldLabel,
+  reachSentence,
+} from "$lib/search/search-reach.ts";
+
+const CLIENT = "directoryPerson_hargrove";
+const ONE_CLIENT: SearchReach = { kind: "client", entityId: CLIENT };
 
 const ORIGIN = "https://app.example";
 
@@ -75,6 +91,7 @@ function overviewOf(
 ): SearchOverview {
   return {
     query: "easement",
+    reach: EVERYTHING,
     matters: { rows: [matter("matter_a")], more: false, standing: "answered" },
     people: { rows: [], more: false, standing: "answered" },
     records: { query: "easement", broad: false, groups },
@@ -118,6 +135,66 @@ describe("the address is the page's state", () => {
     expect(isRecordPlace(ALL_PLACES)).toBe(false);
     expect(isRecordPlace(MATTERS_PLACE)).toBe(false);
     expect(isRecordPlace(PEOPLE_PLACE)).toBe(false);
+  });
+
+  it("carries the reader's choice of matters, and nothing for every matter", () => {
+    expect(searchAddress("easement", ALL_PLACES, EVERYTHING)).toBe("/search?q=easement");
+    expect(searchAddress("easement", ALL_PLACES, MY_MATTERS)).toBe("/search?q=easement&scope=mine");
+    expect(searchAddress("easement", "notes", ONE_CLIENT)).toBe(
+      `/search?q=easement&in=notes&client=${CLIENT}`,
+    );
+  });
+
+  it("reads the choice back, and anything it does not know as every matter", () => {
+    expect(reachFromAddress(null, null)).toEqual(EVERYTHING);
+    expect(reachFromAddress("mine", null)).toEqual(MY_MATTERS);
+    expect(reachFromAddress(null, CLIENT)).toEqual(ONE_CLIENT);
+    expect(reachFromAddress("everyone", "  ")).toEqual(EVERYTHING);
+    expect(isNarrowed(EVERYTHING)).toBe(false);
+    expect(isNarrowed(MY_MATTERS)).toBe(true);
+    expect(reachKey(ONE_CLIENT)).not.toBe(reachKey({ kind: "client", entityId: "another" }));
+  });
+});
+
+describe("what the Search In row offers and says", () => {
+  it("offers the three reaches and one matter, everything first", () => {
+    expect(REACH_CHOICES.map((choice) => choice.label)).toEqual([
+      "Everything I Can See",
+      "My Matters",
+      "One Client",
+      "One Matter",
+    ]);
+  });
+
+  it("says what is searched, and mentions people only where they are", () => {
+    expect(reachSentence(EVERYTHING)).toContain("matters and people by name");
+    expect(reachSentence(MY_MATTERS)).toContain("responsible for or assigned to");
+    expect(reachSentence(MY_MATTERS)).not.toContain("people");
+    expect(reachSentence(ONE_CLIENT)).toContain("is a client on");
+    expect(reachFieldLabel(MY_MATTERS)).toBe("Search your own matters");
+  });
+
+  it("names the client an address carries, and fills the field even where it cannot", () => {
+    expect(
+      clientNamed(CLIENT, {
+        kind: "ok",
+        value: {
+          data: [
+            {
+              entityId: CLIENT,
+              entityKind: "person",
+              displayName: "Ruth Hargrove",
+              mergedIntoId: null,
+            },
+          ],
+        },
+      }),
+    ).toEqual({ identifier: CLIENT, name: "Ruth Hargrove", kind: "person" });
+    expect(clientNamed("directoryOrganization_x", { kind: "ok", value: { data: [] } })).toEqual({
+      identifier: "directoryOrganization_x",
+      name: UNNAMED_CLIENT,
+      kind: "organization",
+    });
   });
 });
 
@@ -291,6 +368,46 @@ describe("one question, three reads", () => {
     await search.run(fetchImpl, "easement", MATTERS_PLACE);
     expect(calls).toEqual([]);
     expect(search.place).toBeNull();
+  });
+
+  it("asks the reader's own matters of the search and the matters list, and no people", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    await search.run(answering(calls, records), "easement", ALL_PLACES, MY_MATTERS);
+    expect(calls.toSorted()).toEqual([
+      "/api/v1/matters?search=easement&mine=true",
+      `/api/v1/search?q=easement&limit=${OVERVIEW_LIMIT}&mine=true`,
+    ]);
+    expect(search.overview?.people.standing).toBe("not-searched");
+    expect(railPlaces(search.overview).map((place) => place.key)).not.toContain(PEOPLE_PLACE);
+    const people = unsearchedPlaces(search.overview).find((place) => place.key === PEOPLE_PLACE);
+    expect(people?.mark).toBe("Firm-Wide");
+  });
+
+  it("asks one client's matters of both, and of a chosen place", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    const fetchImpl = answering(calls, records);
+    await search.run(fetchImpl, "easement", "notes", ONE_CLIENT);
+    expect(calls.toSorted()).toEqual([
+      `/api/v1/matters?search=easement&clientEntityId=${CLIENT}`,
+      `/api/v1/search?q=easement&in=notes&limit=50&clientEntityId=${CLIENT}`,
+      `/api/v1/search?q=easement&limit=${OVERVIEW_LIMIT}&clientEntityId=${CLIENT}`,
+    ]);
+  });
+
+  it("asks again when the choice of matters changes, and not when it stays", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    const fetchImpl = answering(calls, records);
+    await search.run(fetchImpl, "easement", ALL_PLACES, MY_MATTERS);
+    calls.length = 0;
+    await search.run(fetchImpl, "easement", ALL_PLACES, { kind: "mine" });
+    expect(calls).toEqual([]);
+    await search.run(fetchImpl, "easement", ALL_PLACES, EVERYTHING);
+    expect(calls).toHaveLength(3);
+    expect(search.overview?.reach).toEqual(EVERYTHING);
+    expect(search.overview?.people.standing).toBe("answered");
   });
 
   it("starts over for a new question", async () => {

@@ -29,6 +29,7 @@ let firmId: FirmId;
 let ownerCookie: string;
 let billingCookie: string;
 let ownerUserId: UserId;
+let billingUserId: UserId;
 let firstMatterId: string;
 let secondMatterId: string;
 
@@ -176,6 +177,7 @@ beforeAll(async () => {
     userName: "Across Matters Billing",
     firmId,
   });
+  billingUserId = billing.userId;
   await mirrorMemberWithRole(billing.userId, "Across Matters Billing", "Billing");
   billingCookie = await signInForSessionCookie("across-matters-billing@example.com");
 
@@ -380,5 +382,94 @@ describe("the reach ends at the session's firm", () => {
   it("treats a reader's punctuation as text and never as match syntax", async () => {
     const answer = await search('easement" OR matter:*');
     expect(answer.groups.flatMap((entry) => entry.hits).length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("a member narrows the search to matters they chose", () => {
+  const CLIENT = "directoryPerson_acrossMattersClient";
+  let colleagueMatterId: string;
+
+  async function matterIdsListed(extra: string): Promise<string[]> {
+    const response = await get(`/api/v1/matters?pageSize=50${extra}`);
+    expect(response.status, await response.clone().text()).toBe(200);
+    const page = await jsonOf<{ data: { id: string }[] }>(response);
+    return page.data.map((matter) => matter.id).toSorted();
+  }
+
+  function noteMatters(answer: Answer): string[] {
+    return group(answer, "notes")
+      .hits.map((hit) => hit.matter.id)
+      .toSorted();
+  }
+
+  beforeAll(async () => {
+    // A matter somebody else leads, holding a word the owner's own matter also holds.
+    colleagueMatterId = await openMatter("Quarry Road boundary", "Priya Raman", billingUserId);
+    await writeNote(firstMatterId, "The culvert under the lane is the client's.", "2026-09-01");
+    await writeNote(colleagueMatterId, "County replaced the culvert in 2019.", "2026-09-02");
+    const now = new Date().toISOString();
+    await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+      )
+      .bind(newIdentifier("matterParty"), colleagueMatterId, CLIENT, now)
+      .run();
+  });
+
+  it("answers from every matter until it is narrowed", async () => {
+    expect(noteMatters(await search("culvert"))).toEqual(
+      [firstMatterId, colleagueMatterId].toSorted(),
+    );
+  });
+
+  it("answers from the member's own matters alone when asked for those", async () => {
+    const answer = await search("culvert", "&mine=true");
+    expect(noteMatters(answer)).toEqual([firstMatterId]);
+    expect(answer.broad).toBe(false);
+    // The places that are not searched across matters still say so.
+    expect(group(answer, "parties").skipped).toBe("one-matter-only");
+  });
+
+  it("answers from one client's matters alone when asked for those", async () => {
+    const answer = await search("culvert", `&clientEntityId=${CLIENT}`);
+    expect(noteMatters(answer)).toEqual([colleagueMatterId]);
+  });
+
+  it("answers nothing where both are asked and no matter is in both", async () => {
+    const answer = await search("culvert", `&mine=true&clientEntityId=${CLIENT}`);
+    expect(answer.groups.flatMap((entry) => entry.hits)).toEqual([]);
+  });
+
+  it("answers nothing, and no error, for a client that is on no matter", async () => {
+    const answer = await search("culvert", "&clientEntityId=directoryPerson_nobodyAtAll");
+    expect(answer.groups.flatMap((entry) => entry.hits)).toEqual([]);
+    expect(answer.broad).toBe(false);
+  });
+
+  it("counts a matter the member is currently assigned to as their own", async () => {
+    const now = new Date().toISOString();
+    await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "INSERT INTO matter_assignment (id, matter_id, member_user_id, assignment_role, created_at, updated_at) VALUES (?1, ?2, ?3, 'supervising_attorney', ?4, ?4)",
+      )
+      .bind(newIdentifier("matterAssignment"), colleagueMatterId, ownerUserId, now)
+      .run();
+    expect(noteMatters(await search("culvert", "&mine=true"))).toEqual(
+      [firstMatterId, colleagueMatterId].toSorted(),
+    );
+  });
+
+  it("narrows the matters list by the same two choices", async () => {
+    expect(await matterIdsListed("")).toEqual(
+      [firstMatterId, secondMatterId, colleagueMatterId].toSorted(),
+    );
+    expect(await matterIdsListed(`&clientEntityId=${CLIENT}`)).toEqual([colleagueMatterId]);
+    // Every matter here is now the owner's: two they lead and one they are assigned to.
+    expect(await matterIdsListed("&mine=true")).toHaveLength(3);
+    expect(await matterIdsListed(`&mine=true&search=Quarry`)).toEqual([colleagueMatterId]);
+  });
+
+  it("refuses a value for mine that is not the one it takes", async () => {
+    expect((await get("/api/v1/search?q=culvert&mine=yes")).status).toBe(422);
   });
 });

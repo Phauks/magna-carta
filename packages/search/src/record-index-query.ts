@@ -117,7 +117,22 @@ export interface RecordQueryScope {
   // one: a conflicts check may, because a conflict is imputed across the firm; a person's own search
   // may not, and composes the visible-matter predicate over the entry's matter instead.
   readonly matter?: MatterId | "none";
+  // SEVERAL MATTERS, for a read whose caller has already resolved which matters it is asking
+  // about (a search a reader narrowed to their own matters, or to one client's). Ignored where
+  // `matter` is given. An empty list names nowhere to look.
+  //
+  // Like `matter`, this is not the access check. It keeps the index's work to those matters'
+  // matches; the caller's own statement still composes the condition that decides.
+  readonly matters?: readonly MatterId[];
 }
+
+// The most matters one question may name, and a caller holding more asks the index for the words
+// alone. Each matter named is one more list the index walks beside the words, so the work grows
+// with the matters named times the records on them: on 200,000 synthetic records a rare word
+// across 100 named matters cost about four times what it cost asked firm-wide
+// (packages/matter-search/scripts/measure-across-matters.mts). Twenty-five covers a client's
+// matters and keeps that product small.
+export const RECORD_QUERY_MATTERS_LIMIT = 25;
 
 // The match expression for a reader's text within a scope, or null when the text holds nothing to
 // match or the scope names nowhere to look. The result is a BINDING for a `MATCH ?` — never text to
@@ -137,6 +152,15 @@ export function recordMatchExpression(text: string, scope: RecordQueryScope): st
     clauses.push(`scope:"${NO_MATTER_SCOPE_TOKEN}"`);
   } else if (scope.matter !== undefined) {
     clauses.push(`scope:"${matterScopeToken(scope.matter)}"`);
+  } else if (scope.matters !== undefined) {
+    if (scope.matters.length === 0) return null;
+    if (scope.matters.length > RECORD_QUERY_MATTERS_LIMIT) {
+      throw new Error(
+        `a record index question names at most ${RECORD_QUERY_MATTERS_LIMIT} matters, not ${scope.matters.length}`,
+      );
+    }
+    const tokens = scope.matters.map((matter) => `"${matterScopeToken(matter)}"`);
+    clauses.push(`scope:(${tokens.join(" OR ")})`);
   }
   // The column filter is what keeps a reader's words out of the scope column: without it, typing a
   // matter's token would be a way to ask which records are on that matter.
@@ -229,8 +253,12 @@ export function recordIdsMatchingSubquery(sourceKey: string): string {
 // and not a term the index can narrow by. One source's share of the newest matches is what its
 // statement goes on to read.
 //
+// A caller that has resolved a short list of matters to ask about names them in the expression's
+// scope (`matters`), and the cap is then over those matters' matches: a narrowed question is
+// answered in full where the same words across the firm would not be.
+//
 // Two bindings, in this order and before any the consumer's own conditions take: the match
-// expression, built with no matter in its scope, and the cap. As in the leading form the consumer's
+// expression, built with no single matter in its scope, and the cap. As in the leading form the consumer's
 // statement still reads its own row and composes the visible-matter predicate; this only proposes.
 export function recordIndexNewestMatchesFrom(sourceKey: string, table: string): string {
   const source = recordIndexSource(sourceKey);
