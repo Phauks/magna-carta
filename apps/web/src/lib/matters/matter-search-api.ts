@@ -8,6 +8,7 @@
  * fifteenth searchable section cost nothing on the client but one presentation entry.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import type { TextMark } from "$lib/search/marked-text.ts";
 
 /**
  * Why a source contributed nothing. Null means it answered — with hits or honestly with none.
@@ -26,8 +27,18 @@ export interface MatterSearchHit {
   id: string;
   /** What the reader recognizes the record by. A file's name, a party's name, a note's instant. */
   title: string;
-  /** The excerpt, where the source declares one. Null where it declares it has none. */
+  /**
+   * Where the reader's words are in `title`, as the server found them. Optional because an answer
+   * from a server a deploy behind carries none, and the title is then drawn plain.
+   */
+  titleMarks?: TextMark[];
+  /**
+   * The excerpt, where the source declares one. Null where it declares it has none. A long text
+   * arrives cut to the stretch the reader's words are in.
+   */
   snippet: string | null;
+  /** Where the reader's words are in `snippet`. */
+  snippetMarks?: TextMark[];
   /** A short second line: a folder, a role, a custody number and status. */
   secondary: string | null;
   actorUserId: string | null;

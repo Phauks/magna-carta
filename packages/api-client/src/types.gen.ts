@@ -3872,11 +3872,18 @@ export type MatterSearchGroup = {
 export type MatterSearchHit = {
     id: string;
     title: string;
+    titleMarks: Array<SearchTextMark>;
     snippet: string | null;
+    snippetMarks: Array<SearchTextMark>;
     secondary: string | null;
     actorUserId: string | null;
     sortKey: string;
     link: string;
+};
+
+export type SearchTextMark = {
+    start: number;
+    end: number;
 };
 
 export type SearchAcrossMattersAnswer = {
@@ -3898,7 +3905,9 @@ export type SearchAcrossMattersGroup = {
 export type SearchAcrossMattersHit = {
     id: string;
     title: string;
+    titleMarks: Array<SearchTextMark>;
     snippet: string | null;
+    snippetMarks: Array<SearchTextMark>;
     secondary: string | null;
     actorUserId: string | null;
     sortKey: string;

@@ -95,12 +95,27 @@ export type FirmSearchRebuildBody = z.infer<typeof FirmSearchRebuildResponse>;
 // here is not on a matter the reader is already standing in, and the answer says when it was drawn
 // from the most recent records instead of from all of them.
 
+// Where one run of a reader's words is in a text a result shows: offsets in UTF-16 code units, the
+// end not included, so a JavaScript `text.slice(start, end)` is the run. Marks arrive sorted and
+// never overlap. Shared by a matter's own search and the search across matters.
+export const SearchTextMark = z
+  .object({
+    start: z.number().int().nonnegative(),
+    end: z.number().int().nonnegative(),
+  })
+  .meta({ id: "SearchTextMark" });
+
 export const SearchAcrossMattersHit = z
   .object({
     id: z.string(),
     title: z.string(),
-    // The declared excerpt, or null where the place declares it has none.
+    // Where the reader's words are in `title`. Empty where the title is not what matched.
+    titleMarks: z.array(SearchTextMark),
+    // The declared excerpt, or null where the place declares it has none. A long text is quoted at
+    // the stretch the reader's words are in.
     snippet: z.string().nullable(),
+    // Where the reader's words are in `snippet`.
+    snippetMarks: z.array(SearchTextMark),
     secondary: z.string().nullable(),
     actorUserId: z.string().nullable(),
     sortKey: z.string(),

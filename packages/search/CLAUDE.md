@@ -38,6 +38,9 @@ ADR-0110, ADR-0111.)
   object class, its bytes, and `readExtractedPassage`, which reads one passage by range
 - `src/keyword-excerpt.ts` — `keywordExcerpt`: the stretch of a passage where a reader's words are,
   found again by the engine's rules for cutting and folding a word
+- `src/matched-text.ts` — a reader's words found again in the text a result shows, for both
+  indexes: the two sets of word rules, the one finder, the excerpt cut around a match
+  (`excerptAtWords`, `recordExcerpt`) and the marks (`markWords`, `markCharacters`) a screen draws
 
 **Natural-language search** (every module prefixed `natural-language-`)
 
@@ -170,6 +173,21 @@ are the ones the production modules adopted; keep the two in step.
 - **An excerpt finds words the way the engine does.** `keywordExcerpt` cuts and folds with
   `engineWordsOf` and `asIndexed` from `keyword-query.ts`, the same word pattern and fold the query
   is built with. Give it a rule of its own and a result will name a page and quote nothing.
+
+## Local rules — marking a reader's words
+
+- **One finder, a set of rules per index.** `matched-text.ts` finds a question's terms in a text
+  under `RECORD_WORD_RULES` or `FILE_WORD_RULES`. A third index brings a third set of rules, never
+  a second finder: the excerpt and the marks are cut from the same finding, so they cannot name
+  different words.
+- **A mark decides nothing.** It is made for a text a consumer's own statement already returned,
+  and it may cost a mark but never a result. That is why `asRecordIndexed` is allowed to be close
+  to the record index's tokenizer and not held to it by a table, where the file engine's fold is:
+  the engine's fold also builds a query, and a wrong letter there loses a match.
+- **Marks are offsets into the text returned with them.** Rules whose index composes return the
+  composed text, and a caller sends that text and not the one it passed in.
+- **No markup leaves this package.** A mark is two numbers. What a marked word looks like is the
+  screen's.
 
 ## Local rules — the record index
 

@@ -29,6 +29,7 @@
     skippedBadge,
   } from "$lib/matters/matter-search-presentation.ts";
   import type { MatterSearchAnswer } from "$lib/matters/matter-search-api.ts";
+  import MarkedText from "$lib/search/marked-text.svelte";
 
   let {
     answer,
@@ -174,11 +175,15 @@
                             {formatInstant(hit.title)}
                           </time>
                         {:else}
-                          {hit.title}
+                          <MarkedText text={hit.title} marks={hit.titleMarks} />
                         {/if}
                       </span>
                       {#if hit.snippet !== null}
-                        <span class="line-clamp-2 text-xs text-text-muted">{hit.snippet}</span>
+                        <!-- Already cut by the server to the stretch the words are in, and marked
+                             where it found them. Nothing is searched for here. -->
+                        <span class="line-clamp-2 text-xs text-text-muted">
+                          <MarkedText text={hit.snippet} marks={hit.snippetMarks} />
+                        </span>
                       {/if}
                       {#if hit.secondary !== null}
                         <span class="text-xs text-text-subtle">{hit.secondary}</span>

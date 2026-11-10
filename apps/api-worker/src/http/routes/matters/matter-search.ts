@@ -4,6 +4,7 @@ import type { MatterId } from "@magna-carta/identifiers/types";
 import { runMatterSearch } from "@magna-carta/matter-search/run";
 import type { MatterSearchAnswer } from "@magna-carta/matter-search/types";
 import { matterSearchSources } from "@magna-carta/matter-search/sources";
+import { SearchTextMark } from "@magna-carta/search/contract";
 import type { Bindings } from "../../../bindings.ts";
 import { matterFileContentsSearcherFor } from "../../../search/matter-file-contents.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
@@ -67,9 +68,14 @@ const SearchHit = z
   .object({
     id: z.string(),
     title: z.string(),
+    // Where the reader's words are in `title`. Empty where the title is not what matched.
+    titleMarks: z.array(SearchTextMark),
     // The DECLARED excerpt, or null where the source declares it has none. A source over a
-    // protected() column always declares none and returns the pointer instead.
+    // protected() column always declares none and returns the pointer instead. A long text is
+    // quoted at the stretch the reader's words are in.
     snippet: z.string().nullable(),
+    // Where the reader's words are in `snippet`.
+    snippetMarks: z.array(SearchTextMark),
     secondary: z.string().nullable(),
     actorUserId: z.string().nullable(),
     sortKey: z.string(),
@@ -201,7 +207,9 @@ function wireAnswer(answer: MatterSearchAnswer): z.infer<typeof SearchAnswer> {
       hits: group.hits.map((hit) => ({
         id: hit.id,
         title: hit.title,
+        titleMarks: hit.titleMarks.map((mark) => ({ start: mark.start, end: mark.end })),
         snippet: hit.snippet,
+        snippetMarks: hit.snippetMarks.map((mark) => ({ start: mark.start, end: mark.end })),
         secondary: hit.secondary,
         actorUserId: hit.actorUserId,
         sortKey: hit.sortKey,
