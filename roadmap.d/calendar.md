@@ -200,10 +200,11 @@
 - id: calendar.sync
   name: Two-way Google/Outlook sync
   scope: Two-way calendar synchronization via the email/calendar plugin.
-  status: not-started
+  status: designed
   slices: integration-port-system
   adrs: ADR-0091
-  evidence: No calendar adapter; the integration port system it will plug into is shipped.
+  spec: docs/specs/2026-11-10-calendar-sync-design.md
+  evidence: Design accepted 2026-11-10 (per-member, rule-driven, off by default, Outlook first). No calendar adapter yet; the integration port system it will plug into is shipped.
   audience: public
   public-name: Two-way calendar sync
   public-summary: Keep the firm's calendar and your Google or Outlook calendar in step, in both directions.

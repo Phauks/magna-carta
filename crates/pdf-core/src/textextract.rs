@@ -119,6 +119,23 @@ struct PositionedGlyph {
     text: String,
     rect: Rect,
     order: usize,
+    /// Where the glyph's advance starts and ends, when the font declares one.
+    advance_span: Option<(f32, f32)>,
+}
+
+/// The horizontal distance from the end of `previous` to the start of `next`.
+///
+/// Measured between ADVANCES when both glyphs have one: that is the distance the document
+/// itself left between them, zero inside a word and a space wide between words. The inked
+/// boxes are the fallback, and a worse one, because every glyph's box is narrower than its
+/// advance by its side bearings and the bearings differ per glyph. Two digits "1" set solid
+/// sit further apart, box to box, than the words of a tightly set line, so a box-only
+/// measure reads "2011" as "201 1" and a search for the year no longer finds the page.
+fn gap_between(previous: &PositionedGlyph, next: &PositionedGlyph) -> f32 {
+    match (previous.advance_span, next.advance_span) {
+        (Some((_, previous_end)), Some((next_start, _))) => next_start - previous_end,
+        _ => next.rect.x0 - previous.rect.x1,
+    }
 }
 
 /// How much of a page is text a reader can see, and how much of it is picture. One home for
@@ -218,7 +235,7 @@ fn word_gap_for(glyphs: &[PositionedGlyph]) -> f32 {
         // Negative where glyph boxes overlap -- kerning, or a faux-bold double strike. An
         // overlap is emphatically not a word break, so it contributes zero, not a negative
         // that would drag the median below every real gap.
-        .map(|pair| (pair[1].rect.x0 - pair[0].rect.x1).max(0.0))
+        .map(|pair| gap_between(&pair[0], &pair[1]).max(0.0))
         .collect();
     let median = if gaps.is_empty() {
         0.0
@@ -235,7 +252,7 @@ fn word_gap_for(glyphs: &[PositionedGlyph]) -> f32 {
 /// a space belongs.
 fn join_line(glyphs: &[PositionedGlyph], word_gap: f32) -> String {
     let mut text = String::new();
-    let mut previous_x1: Option<f32> = None;
+    let mut previous: Option<&PositionedGlyph> = None;
     for glyph in glyphs {
         // A glyph that IS whitespace ends the gap reasoning for that position: the document
         // said there is a space here, which outranks any measurement of one. Rare -- an
@@ -245,16 +262,16 @@ fn join_line(glyphs: &[PositionedGlyph], word_gap: f32) -> String {
             if !text.ends_with(' ') && !text.is_empty() {
                 text.push(' ');
             }
-            previous_x1 = Some(glyph.rect.x1);
+            previous = Some(glyph);
             continue;
         }
-        if let Some(x1) = previous_x1 {
-            if glyph.rect.x0 - x1 > word_gap && !text.ends_with(' ') {
+        if let Some(previous) = previous {
+            if gap_between(previous, glyph) > word_gap && !text.ends_with(' ') {
                 text.push(' ');
             }
         }
         text.push_str(&glyph.text);
-        previous_x1 = Some(glyph.rect.x1);
+        previous = Some(glyph);
     }
     text.trim().to_string()
 }
@@ -281,6 +298,9 @@ fn reconstruct_lines(observation: &PageObservation) -> Vec<TextLayerLine> {
             text: glyph.text.clone(),
             rect: to_display_rect(glyph.bbox, observation.height_pt),
             order: glyph.order,
+            advance_span: glyph
+                .advance_span
+                .map(|(start, end)| (start as f32, end as f32)),
         })
         .collect();
     if glyphs.is_empty() {
@@ -345,6 +365,13 @@ fn reconstruct_lines(observation: &PageObservation) -> Vec<TextLayerLine> {
         })
         .collect()
 }
+
+/// The most pages one text-extraction call will interpret when the caller has no ceiling of
+/// its own to give. Page count is declared in the file and wholly attacker-controlled, so the
+/// walk has to end somewhere; but the ceiling sits far above any real filing or production,
+/// because a document refused here has its words left out of search, and to the person
+/// searching that is indistinguishable from the document holding none.
+pub const MAX_TEXT_EXTRACTION_PAGES: usize = 50_000;
 
 impl Document {
     /// Read page `index`'s own text layer and measure what the page is made of, in one
@@ -533,6 +560,54 @@ mod tests {
             load("blank.pdf").page_text_facts(7).err(),
             Some(PdfError::PageOutOfRange)
         );
+    }
+
+    #[test]
+    fn a_document_far_longer_than_one_hundred_pages_reads_back_every_page() {
+        use lopdf::{dictionary, Object, Stream};
+        // 250 pages, each carrying its own page number as text: long enough to cross the old
+        // one-hundred-page refusal twice over, and every page individually checkable.
+        const PAGE_COUNT: usize = 250;
+        let mut doc = lopdf::Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let font_id = doc.add_object(dictionary! {
+            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica",
+        });
+        let mut kids = Vec::new();
+        for number in 1..=PAGE_COUNT {
+            let content = format!("BT /F1 24 Tf 72 700 Td (Exhibit page {number}) Tj ET");
+            let content_id = doc.add_object(Stream::new(dictionary! {}, content.into_bytes()));
+            let page_id = doc.add_object(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+                "Contents" => content_id,
+            });
+            kids.push(Object::Reference(page_id));
+        }
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages", "Kids" => kids, "Count" => PAGE_COUNT as i64,
+            }),
+        );
+        let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        doc.trailer.set("Root", catalog_id);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("save");
+
+        let document = Document::load(bytes).expect("loads");
+        let facts = document
+            .document_text_facts(MAX_TEXT_EXTRACTION_PAGES)
+            .expect("every page is read");
+        assert_eq!(facts.len(), PAGE_COUNT);
+        for (index, page) in facts.iter().enumerate() {
+            assert_eq!(page.page_index, index);
+            assert!(!page.needs_recognition);
+            let text: Vec<&str> = page.lines.iter().map(|line| line.text.as_str()).collect();
+            assert_eq!(text, vec![format!("Exhibit page {}", index + 1)]);
+        }
     }
 
     #[test]
