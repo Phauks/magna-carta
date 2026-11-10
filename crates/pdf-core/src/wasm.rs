@@ -911,9 +911,9 @@ fn watermark_font_from_str(name: Option<&str>) -> crate::bates::BatesFont {
     }
 }
 
-/// Stamp an additive watermark onto every page. `options`:
+/// Stamp an additive watermark onto every page, or onto `pages` (0-based) when given. `options`:
 /// `{ content: { kind: "text", text, font?, fontSizePt?, color? } |
-///    { kind: "image", bytes, scale? }, opacity?, rotationDeg?, placement? }`.
+///    { kind: "image", bytes, scale? }, opacity?, rotationDeg?, placement?, pages? }`.
 /// Returns `{ pdf: Uint8Array }`.
 #[wasm_bindgen(js_name = watermarkDocument)]
 pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
@@ -983,11 +983,20 @@ pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, J
         }
     };
 
+    let pages = match get(&options, "pages") {
+        Some(value) if !value.is_undefined() && !value.is_null() => {
+            let indices: Vec<usize> = serde_wasm_bindgen::from_value(value)?;
+            crate::PageSelection::Pages(indices)
+        }
+        _ => crate::PageSelection::All,
+    };
+
     let opts = crate::WatermarkOptions {
         content,
         opacity,
         rotation_deg,
         placement,
+        pages,
     };
     let pdf = crate::watermark(&bytes, &opts)?;
     pdf_result(&pdf)
