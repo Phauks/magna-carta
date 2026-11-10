@@ -22,6 +22,8 @@ import {
   memberParticipant,
   participantsBySource,
   readsAsAllDay,
+  withStartsAtTime,
+  withStartsOn,
   recurrenceChanged,
   withMemberListed,
 } from "$lib/calendar/event-draft.ts";
@@ -406,6 +408,37 @@ describe("all day", () => {
     expect(cleared.endsAtTime).toBe("");
     expect(cleared.startsOn).toBe("2026-09-14");
     expect(readsAsAllDay(cleared)).toBe(true);
+  });
+});
+
+describe("the end follows the start", () => {
+  const blank = emptyEventDraft("America/Chicago");
+
+  it("fills an empty end date with the start date", () => {
+    expect(withStartsOn(blank, "2026-11-16").endsOn).toBe("2026-11-16");
+  });
+
+  it("moves an end that matched the start along with it", () => {
+    const sameDay = withStartsOn(blank, "2026-11-16");
+    expect(withStartsOn(sameDay, "2026-11-18").endsOn).toBe("2026-11-18");
+  });
+
+  it("keeps an end the reader set, unless the new start has passed it", () => {
+    const trial = { ...withStartsOn(blank, "2026-11-16"), endsOn: "2026-11-18" };
+    expect(withStartsOn(trial, "2026-11-17").endsOn).toBe("2026-11-18");
+    expect(withStartsOn(trial, "2026-11-20").endsOn).toBe("2026-11-20");
+  });
+
+  it("puts a new event's end an hour after its start", () => {
+    const timed = withStartsAtTime(withStartsOn(blank, "2026-11-16"), "09:40");
+    expect(timed.endsAtTime).toBe("10:40");
+    expect(timed.endsOn).toBe("2026-11-16");
+  });
+
+  it("leaves an end time the reader chose, and never wraps past midnight", () => {
+    const chosen = { ...withStartsOn(blank, "2026-11-16"), endsAtTime: "15:00" };
+    expect(withStartsAtTime(chosen, "09:00").endsAtTime).toBe("15:00");
+    expect(withStartsAtTime(withStartsOn(blank, "2026-11-16"), "23:30").endsAtTime).toBe("");
   });
 });
 

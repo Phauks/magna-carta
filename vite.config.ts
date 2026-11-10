@@ -39,6 +39,9 @@ export default defineConfig({
       // build-decisions.mjs. Formatter reflow would fight those assemblers (same case as docs/decisions/**).
       "CHANGELOG.md",
       "docs/Decision-Log.md",
+      // Rebuilt from git history by tooling/doc-fragments/build-pull-request-ledger.mjs, written one
+      // pull request per line so a merge adds one line; a formatter would explode it into thousands.
+      "docs/pull-request-ledger.json",
       // Assembled by tooling/doc-fragments/build-status.mjs from status.d/* — same case: the generator
       // owns the exact bytes (tables are emitted width-independent so a note edit can't re-pad, and diff,
       // every row) and CI re-derives + diff-gates them. Never hand-edit; never let the formatter reflow.

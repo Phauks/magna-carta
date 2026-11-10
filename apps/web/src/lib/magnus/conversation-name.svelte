@@ -2,8 +2,8 @@
   /*
    * A conversation's name, edited where it is read.
    *
-   * At rest the name is a line of text with a pencil beside it. Pressing either puts a field in the
-   * name's own place, at the same height, holding the current name: Enter commits, Escape cancels,
+   * At rest the name is a line of text. Pressing it, or Rename in the conversation's menu, puts a
+   * field in the name's own place, at the same height, holding the current name: Enter commits, Escape cancels,
    * and leaving the field commits too, because a name somebody typed and then clicked away from is
    * a name they meant. Nothing else on the row moves while it happens. The owner's ruling
    * (docs/conventions/magnus-rulings.md, R3) closed the earlier shape, which swapped the whole head
@@ -19,8 +19,6 @@
    */
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
-  import * as Tooltip from "@magna-carta/design-system/tooltip";
-  import PencilLine from "@lucide/svelte/icons/pencil-line";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -49,6 +47,11 @@
   let field = $state<HTMLInputElement | null>(null);
 
   const name = $derived(conversation === null ? "This conversation" : conversationDisplayName(conversation));
+
+  /** Open the edit where the name stands. The conversation's menu calls this for its Rename. */
+  export function rename(): void {
+    begin();
+  }
 
   function begin(): void {
     if (conversation === null || disabled || committing) return;
@@ -131,23 +134,6 @@
       >
         {committing ? draft || name : name}
       </Button>
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant="ghost"
-              size="icon-sm"
-              disabled={conversation === null || disabled || committing}
-              onclick={begin}
-              aria-label="Rename this conversation"
-            >
-              <PencilLine class="size-16" aria-hidden="true" />
-            </Button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content>Rename</Tooltip.Content>
-      </Tooltip.Root>
     {/if}
   </div>
   {#if failure !== null}
