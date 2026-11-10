@@ -1,0 +1,1 @@
+ALTER TABLE `conflicts_hit` ADD `found_in_json` text;

@@ -1,0 +1,10 @@
+---
+category: Changed
+audience: public
+---
+
+**The Tasks list and the task window, rebuilt on the firm's lists, statuses and teams.** `task-list.svelte` is now a `DataTable.Grid` over `TaskRow` (`task-columns.ts`): a status pill per row (`task-status-menu.svelte`) offering the statuses the list's flow allows plus Mark Complete; Start, Due and Priority edited in the row (`task-date-field.svelte`, `editTaskFields`); sub-tasks read with `readSubtaskTrees` and kept under their parent by `orderTaskRows`, folding from a chevron; bands keyed by the root task with Group By defaulting to List; a View menu for one or two lines, row size and columns; Me Mode (`mine=assigned|watching|both`); Show Completed (`completed=false` by default); and a Task Settings dialog (`task-settings-dialog.svelte`) for lists, statuses, flow and teams behind `tasks:managePlans`. A past due date is drawn red and never labelled. `task-record-window.svelte` edits in place (`editControl={false}`), keeps Save for a new task, puts the status beside Mark Complete, moves Duplicate, Archive and Delete into the "..." menu, and adds People, Location with Join, Checklist, Sub-Tasks and Links. The rung buttons and the Overdue badge are gone from both screens, and the print sheet names the status and Completed rather than the rung.
+
+## Public
+
+**Tasks has a new list and a new task window.** Each task list has its own coloured statuses: press a task's status to move it, or to mark it complete. Start dates, due dates and priority change right in the list, and a past due date shows in red. Tasks can have sub-tasks, several assignees (including teams), watchers, a checklist, links and a location with a Join button for meeting links. Me Mode narrows the list to the tasks assigned to you, the ones you are watching, or both. View lets you show one or two lines per task, choose the row size and hide columns, and Group By groups the list by list, status, due date, person or matter. People who manage task plans can set up lists, statuses and teams under Task Settings. Every field in a task's window is edited in place, without an Edit button.

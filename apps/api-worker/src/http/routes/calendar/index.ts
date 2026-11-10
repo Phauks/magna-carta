@@ -2,6 +2,7 @@ import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerCalendarRoutes } from "./calendar.ts";
 import { registerConnectedAccountsRoutes } from "./connected-accounts.ts";
+import { registerCalendarSeriesRoutes } from "./series.ts";
 
 // The case calendar and the matter timeline it federates.
 //
@@ -16,5 +17,7 @@ export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: Doma
   registerCalendarRoutes(domain, chokepoint);
   // A member's own account at a calendar provider: connecting it, listing it and disconnecting it.
   registerConnectedAccountsRoutes(domain, chokepoint, deps.connectedAccounts);
+  // Repeating settings: the days a series falls on in a window, and one day of it changed.
+  registerCalendarSeriesRoutes(domain, chokepoint);
   app.route("/", domain);
 }

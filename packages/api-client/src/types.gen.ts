@@ -5352,6 +5352,11 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
+    places?: {
+        messaging: Array<'calls' | 'texts' | 'email'>;
+        tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
+        magnus: boolean;
+    };
 };
 
 export type NextConflictsCheckNumberResponse = {
@@ -5431,7 +5436,7 @@ export type ConflictsRunSummary = {
     id: string;
     ordinal: number;
     status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-    stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
+    stage: 'sources' | 'walking' | 'matching' | 'places' | 'candidates' | null;
     progress: ConflictsRunProgress;
     trigger: string;
     triggerSource: string | null;
@@ -5444,6 +5449,11 @@ export type ConflictsRunSummary = {
     askedScope: {
         sources: Array<string>;
         strictness: string;
+        places: {
+            messaging: Array<'calls' | 'texts' | 'email'>;
+            tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
+            magnus: boolean;
+        };
     } | null;
     hitCount: number | null;
     subjectParties: Array<ConflictsSubjectParty>;
@@ -5456,6 +5466,7 @@ export type ConflictsRunProgress = {
     entitiesMatched?: number;
     candidatesSurfaced?: number;
     candidatesRecorded?: number;
+    placeResults?: number;
 };
 
 export type ConflictsCheckRecord = {
@@ -5522,6 +5533,13 @@ export type ConflictsHitDetail = {
     matchedFields: Array<string>;
     graphPath: Array<ConflictsGraphPathStep>;
     coParty: boolean;
+    foundIn: {
+        kind: 'call' | 'text' | 'email' | 'task' | 'magnus_conversation';
+        id: string;
+        matterId: string | null;
+        matterNumber: string | null;
+        at: string | null;
+    } | null;
     createdAt: string;
     disposition: ConflictsDispositionDetail;
     previouslyAnswered: ConflictsPriorConclusion;
@@ -6185,6 +6203,84 @@ export type ConnectedAccountDisconnectAck = {
     status: 'disconnected';
 };
 
+export type CalendarSeriesInWindow = {
+    data: Array<CalendarSeriesOccurrences>;
+    truncated: boolean;
+};
+
+export type CalendarSeriesOccurrences = {
+    source: 'matterEvent' | 'firmEvent';
+    id: string;
+    matterId: string | null;
+    title: string | null;
+    typeCode: string | null;
+    typeName: string | null;
+    audience: 'all_members' | 'participants' | null;
+    status: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    recurrenceRule: string;
+    occurrences: Array<string>;
+};
+
+export type ChangeEventOccurrenceRequest = {
+    occurrenceOn: string;
+    scope: 'this' | 'following';
+    change: {
+        kind: 'update';
+        fields: {
+            eventTypeId?: string | null;
+            title?: string;
+            description?: string | null;
+            status?: 'scheduled' | 'occurred' | 'cancelled';
+            startsOn?: string;
+            startsAtTime?: string | null;
+            endsOn?: string | null;
+            endsAtTime?: string | null;
+            timeZone?: string;
+            locationText?: string | null;
+            conferenceUrl?: string | null;
+            courtReference?: string | null;
+            recurrenceRule?: string | null;
+            participants?: Array<MatterEventParticipantInput>;
+        };
+    } | {
+        kind: 'cancel';
+        statusReason?: string | null;
+    };
+};
+
+export type ChangeFirmEventOccurrenceRequest = {
+    occurrenceOn: string;
+    scope: 'this' | 'following';
+    change: {
+        kind: 'update';
+        fields: {
+            eventTypeId?: string | null;
+            title?: string;
+            description?: string | null;
+            status?: 'scheduled' | 'occurred' | 'cancelled';
+            startsOn?: string;
+            startsAtTime?: string | null;
+            endsOn?: string | null;
+            endsAtTime?: string | null;
+            timeZone?: string;
+            audience?: 'all_members' | 'participants';
+            locationId?: string | null;
+            locationText?: string | null;
+            conferenceUrl?: string | null;
+            recurrenceRule?: string | null;
+            participants?: Array<MatterEventParticipantInput>;
+        };
+    } | {
+        kind: 'cancel';
+        statusReason?: string | null;
+    };
+};
+
 export type MatterNotePage = {
     data: Array<MatterNoteDetail>;
     nextCursor: string | null;
@@ -6264,12 +6360,40 @@ export type MatterTaskDetail = {
     blockedByTaskId: string | null;
     triggerEventId: string | null;
     deadlineId: string | null;
+    listId: string | null;
+    statusId: string | null;
+    parentTaskId: string | null;
+    startsOn: string | null;
+    location: string | null;
+    assignees: Array<MatterTaskAssignee>;
+    watcherUserIds: Array<string>;
+    checklist: Array<MatterTaskChecklistItem>;
+    links: Array<MatterTaskLink>;
     documents: Array<MatterTaskDocument>;
     updatedBy: string | null;
     externalLinks: Array<MatterTaskExternalLink>;
     timeLogged: MatterTaskTimeLogged;
     createdAt: string;
     updatedAt: string;
+};
+
+export type MatterTaskAssignee = {
+    id: string;
+    userId: string | null;
+    teamId: string | null;
+};
+
+export type MatterTaskChecklistItem = {
+    id: string;
+    text: string;
+    doneAt: string | null;
+    doneBy: string | null;
+};
+
+export type MatterTaskLink = {
+    id: string;
+    url: string;
+    label: string | null;
 };
 
 export type MatterTaskDocument = {
@@ -6352,6 +6476,11 @@ export type CreatedMatterTask = {
 export type CreateMatterTaskRequest = {
     matterId: string | null;
     assigneeUserId?: string | null;
+    listId?: string | null;
+    statusId?: string | null;
+    parentTaskId?: string | null;
+    assignees?: Array<MatterTaskAssigneeInput>;
+    watcherUserIds?: Array<string>;
     title: string;
     body?: string | null;
     priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
@@ -6361,6 +6490,14 @@ export type CreateMatterTaskRequest = {
     dueOn?: string | null;
     dueAtTime?: string | null;
     timeZone?: string | null;
+    startsOn?: string | null;
+    location?: string | null;
+};
+
+export type MatterTaskAssigneeInput = {
+    userId: string;
+} | {
+    teamId: string;
 };
 
 export type EditMatterTaskRequest = {
@@ -6373,6 +6510,8 @@ export type EditMatterTaskRequest = {
     dueOn?: string | null;
     dueAtTime?: string | null;
     timeZone?: string | null;
+    startsOn?: string | null;
+    location?: string | null;
 };
 
 export type ReassignMatterTaskRequest = {
@@ -6389,6 +6528,102 @@ export type ArchiveMatterTaskRequest = {
 
 export type AttachMatterTaskDocumentRequest = {
     fileId: string;
+};
+
+export type TaskListCollection = {
+    data: Array<TaskList>;
+};
+
+export type TaskList = {
+    id: string;
+    name: string;
+    isDefault: boolean;
+    openCount: number;
+    statuses: Array<TaskListStatus>;
+};
+
+export type TaskListStatus = {
+    id: string;
+    name: string;
+    colour: 'gray' | 'blue' | 'orange' | 'amber' | 'green' | 'purple' | 'red';
+    position: number;
+    nextStatusIds: Array<string>;
+};
+
+export type TaskListNameRequest = {
+    name: string;
+};
+
+export type RetireTaskListRequest = {
+    moveTasksToListId: string;
+};
+
+export type AddTaskListStatusRequest = {
+    name: string;
+    colour: 'gray' | 'blue' | 'orange' | 'amber' | 'green' | 'purple' | 'red';
+};
+
+export type UpdateTaskListStatusRequest = {
+    name: string;
+    colour: 'gray' | 'blue' | 'orange' | 'amber' | 'green' | 'purple' | 'red';
+    position: number;
+};
+
+export type TaskStatusFlowRequest = {
+    toStatusIds: Array<string>;
+};
+
+export type TaskTeamCollection = {
+    data: Array<TaskTeam>;
+};
+
+export type TaskTeam = {
+    id: string;
+    name: string;
+    memberUserIds: Array<string>;
+};
+
+export type TaskTeamRequest = {
+    name: string;
+    memberUserIds: Array<string>;
+};
+
+export type MatterTaskSubtaskTrees = {
+    data: Array<MatterTaskDetail>;
+};
+
+export type MoveMatterTaskToStatusRequest = {
+    statusId: string;
+};
+
+export type MoveMatterTaskToListRequest = {
+    listId: string;
+};
+
+export type SetMatterTaskCompletionRequest = {
+    completed: boolean;
+};
+
+export type SetMatterTaskAssigneesRequest = {
+    assignees: Array<MatterTaskAssigneeInput>;
+};
+
+export type SetMatterTaskWatchersRequest = {
+    userIds: Array<string>;
+};
+
+export type AddMatterTaskChecklistItemRequest = {
+    text: string;
+};
+
+export type UpdateMatterTaskChecklistItemRequest = {
+    text?: string;
+    done?: boolean;
+};
+
+export type AddMatterTaskLinkRequest = {
+    url: string;
+    label?: string | null;
 };
 
 export type MyDayResponse = {
@@ -29429,6 +29664,161 @@ export type ConnectedAccountsDisconnectResponses = {
 
 export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectResponses[keyof ConnectedAccountsDisconnectResponses];
 
+export type CalendarListSeriesData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        side?: 'matter' | 'firm' | 'all';
+        matterId?: string;
+        memberId?: string;
+    };
+    url: '/api/v1/calendar/series';
+};
+
+export type CalendarListSeriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListSeriesError = CalendarListSeriesErrors[keyof CalendarListSeriesErrors];
+
+export type CalendarListSeriesResponses = {
+    /**
+     * The series in the window
+     */
+    200: CalendarSeriesInWindow;
+};
+
+export type CalendarListSeriesResponse = CalendarListSeriesResponses[keyof CalendarListSeriesResponses];
+
+export type CalendarChangeEventOccurrenceData = {
+    body: ChangeEventOccurrenceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/occurrences';
+};
+
+export type CalendarChangeEventOccurrenceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarChangeEventOccurrenceError = CalendarChangeEventOccurrenceErrors[keyof CalendarChangeEventOccurrenceErrors];
+
+export type CalendarChangeEventOccurrenceResponses = {
+    /**
+     * The day or days were changed
+     */
+    200: CalendarCreatedResponse;
+};
+
+export type CalendarChangeEventOccurrenceResponse = CalendarChangeEventOccurrenceResponses[keyof CalendarChangeEventOccurrenceResponses];
+
+export type CalendarChangeFirmEventOccurrenceData = {
+    body: ChangeFirmEventOccurrenceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/occurrences';
+};
+
+export type CalendarChangeFirmEventOccurrenceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarChangeFirmEventOccurrenceError = CalendarChangeFirmEventOccurrenceErrors[keyof CalendarChangeFirmEventOccurrenceErrors];
+
+export type CalendarChangeFirmEventOccurrenceResponses = {
+    /**
+     * The day or days were changed
+     */
+    200: CalendarCreatedResponse;
+};
+
+export type CalendarChangeFirmEventOccurrenceResponse = CalendarChangeFirmEventOccurrenceResponses[keyof CalendarChangeFirmEventOccurrenceResponses];
+
 export type NotesListNotesData = {
     body?: never;
     path: {
@@ -29803,6 +30193,22 @@ export type TasksListMatterTasksData = {
         dueFrom?: string;
         dueTo?: string;
         search?: string;
+        /**
+         * Comma-separated task list ids to include. Absent, every list.
+         */
+        listId?: string;
+        /**
+         * Only tasks that are nobody's sub-task. A list screen pages these and reads each one's sub-tasks from the subtask-trees route, so a page boundary never splits a parent from its sub-tasks.
+         */
+        topLevel?: 'true' | 'false';
+        /**
+         * Narrow to the reader's own work: tasks assigned to them, directly or through a team they are on; tasks they watch; or either.
+         */
+        mine?: 'assigned' | 'watching' | 'both';
+        /**
+         * Only completed tasks, or only open ones. Absent, both.
+         */
+        completed?: 'true' | 'false';
     };
     url: '/api/v1/matters/{matterId}/tasks';
 };
@@ -29858,6 +30264,22 @@ export type TasksListMyTasksData = {
         dueFrom?: string;
         dueTo?: string;
         search?: string;
+        /**
+         * Comma-separated task list ids to include. Absent, every list.
+         */
+        listId?: string;
+        /**
+         * Only tasks that are nobody's sub-task. A list screen pages these and reads each one's sub-tasks from the subtask-trees route, so a page boundary never splits a parent from its sub-tasks.
+         */
+        topLevel?: 'true' | 'false';
+        /**
+         * Narrow to the reader's own work: tasks assigned to them, directly or through a team they are on; tasks they watch; or either.
+         */
+        mine?: 'assigned' | 'watching' | 'both';
+        /**
+         * Only completed tasks, or only open ones. Absent, both.
+         */
+        completed?: 'true' | 'false';
         /**
          * Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than archived, and reopening the matter brings them back with no backfill.
          */
@@ -30621,6 +31043,1253 @@ export type TasksDetachTaskDocumentResponses = {
 };
 
 export type TasksDetachTaskDocumentResponse = TasksDetachTaskDocumentResponses[keyof TasksDetachTaskDocumentResponses];
+
+export type TasksListTaskListsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/task-lists';
+};
+
+export type TasksListTaskListsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksListTaskListsError = TasksListTaskListsErrors[keyof TasksListTaskListsErrors];
+
+export type TasksListTaskListsResponses = {
+    /**
+     * Every live list
+     */
+    200: TaskListCollection;
+};
+
+export type TasksListTaskListsResponse = TasksListTaskListsResponses[keyof TasksListTaskListsResponses];
+
+export type TasksCreateTaskListData = {
+    body: TaskListNameRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/task-lists';
+};
+
+export type TasksCreateTaskListErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksCreateTaskListError = TasksCreateTaskListErrors[keyof TasksCreateTaskListErrors];
+
+export type TasksCreateTaskListResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksCreateTaskListResponse = TasksCreateTaskListResponses[keyof TasksCreateTaskListResponses];
+
+export type TasksRenameTaskListData = {
+    body: TaskListNameRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        listId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-lists/{listId}';
+};
+
+export type TasksRenameTaskListErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRenameTaskListError = TasksRenameTaskListErrors[keyof TasksRenameTaskListErrors];
+
+export type TasksRenameTaskListResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRenameTaskListResponse = TasksRenameTaskListResponses[keyof TasksRenameTaskListResponses];
+
+export type TasksMakeTaskListDefaultData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        listId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-lists/{listId}/default';
+};
+
+export type TasksMakeTaskListDefaultErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksMakeTaskListDefaultError = TasksMakeTaskListDefaultErrors[keyof TasksMakeTaskListDefaultErrors];
+
+export type TasksMakeTaskListDefaultResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksMakeTaskListDefaultResponse = TasksMakeTaskListDefaultResponses[keyof TasksMakeTaskListDefaultResponses];
+
+export type TasksRetireTaskListData = {
+    body: RetireTaskListRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        listId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-lists/{listId}/retire';
+};
+
+export type TasksRetireTaskListErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRetireTaskListError = TasksRetireTaskListErrors[keyof TasksRetireTaskListErrors];
+
+export type TasksRetireTaskListResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRetireTaskListResponse = TasksRetireTaskListResponses[keyof TasksRetireTaskListResponses];
+
+export type TasksAddTaskListStatusData = {
+    body: AddTaskListStatusRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        listId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-lists/{listId}/statuses';
+};
+
+export type TasksAddTaskListStatusErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAddTaskListStatusError = TasksAddTaskListStatusErrors[keyof TasksAddTaskListStatusErrors];
+
+export type TasksAddTaskListStatusResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAddTaskListStatusResponse = TasksAddTaskListStatusResponses[keyof TasksAddTaskListStatusResponses];
+
+export type TasksRemoveTaskListStatusData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        statusId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-list-statuses/{statusId}';
+};
+
+export type TasksRemoveTaskListStatusErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRemoveTaskListStatusError = TasksRemoveTaskListStatusErrors[keyof TasksRemoveTaskListStatusErrors];
+
+export type TasksRemoveTaskListStatusResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRemoveTaskListStatusResponse = TasksRemoveTaskListStatusResponses[keyof TasksRemoveTaskListStatusResponses];
+
+export type TasksUpdateTaskListStatusData = {
+    body: UpdateTaskListStatusRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        statusId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-list-statuses/{statusId}';
+};
+
+export type TasksUpdateTaskListStatusErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksUpdateTaskListStatusError = TasksUpdateTaskListStatusErrors[keyof TasksUpdateTaskListStatusErrors];
+
+export type TasksUpdateTaskListStatusResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksUpdateTaskListStatusResponse = TasksUpdateTaskListStatusResponses[keyof TasksUpdateTaskListStatusResponses];
+
+export type TasksSetTaskStatusFlowData = {
+    body: TaskStatusFlowRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        statusId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-list-statuses/{statusId}/flow';
+};
+
+export type TasksSetTaskStatusFlowErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksSetTaskStatusFlowError = TasksSetTaskStatusFlowErrors[keyof TasksSetTaskStatusFlowErrors];
+
+export type TasksSetTaskStatusFlowResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksSetTaskStatusFlowResponse = TasksSetTaskStatusFlowResponses[keyof TasksSetTaskStatusFlowResponses];
+
+export type TasksListTaskTeamsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/task-teams';
+};
+
+export type TasksListTaskTeamsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksListTaskTeamsError = TasksListTaskTeamsErrors[keyof TasksListTaskTeamsErrors];
+
+export type TasksListTaskTeamsResponses = {
+    /**
+     * Every live team
+     */
+    200: TaskTeamCollection;
+};
+
+export type TasksListTaskTeamsResponse = TasksListTaskTeamsResponses[keyof TasksListTaskTeamsResponses];
+
+export type TasksCreateTaskTeamData = {
+    body: TaskTeamRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/task-teams';
+};
+
+export type TasksCreateTaskTeamErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksCreateTaskTeamError = TasksCreateTaskTeamErrors[keyof TasksCreateTaskTeamErrors];
+
+export type TasksCreateTaskTeamResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksCreateTaskTeamResponse = TasksCreateTaskTeamResponses[keyof TasksCreateTaskTeamResponses];
+
+export type TasksRetireTaskTeamData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        teamId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-teams/{teamId}';
+};
+
+export type TasksRetireTaskTeamErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRetireTaskTeamError = TasksRetireTaskTeamErrors[keyof TasksRetireTaskTeamErrors];
+
+export type TasksRetireTaskTeamResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRetireTaskTeamResponse = TasksRetireTaskTeamResponses[keyof TasksRetireTaskTeamResponses];
+
+export type TasksUpdateTaskTeamData = {
+    body: TaskTeamRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        teamId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-teams/{teamId}';
+};
+
+export type TasksUpdateTaskTeamErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksUpdateTaskTeamError = TasksUpdateTaskTeamErrors[keyof TasksUpdateTaskTeamErrors];
+
+export type TasksUpdateTaskTeamResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksUpdateTaskTeamResponse = TasksUpdateTaskTeamResponses[keyof TasksUpdateTaskTeamResponses];
+
+export type TasksReadSubtaskTreesData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Comma-separated task ids.
+         */
+        rootIds: string;
+        includeArchived?: 'true' | 'false';
+    };
+    url: '/api/v1/tasks/subtask-trees';
+};
+
+export type TasksReadSubtaskTreesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReadSubtaskTreesError = TasksReadSubtaskTreesErrors[keyof TasksReadSubtaskTreesErrors];
+
+export type TasksReadSubtaskTreesResponses = {
+    /**
+     * The sub-tasks
+     */
+    200: MatterTaskSubtaskTrees;
+};
+
+export type TasksReadSubtaskTreesResponse = TasksReadSubtaskTreesResponses[keyof TasksReadSubtaskTreesResponses];
+
+export type TasksMoveTaskToStatusData = {
+    body: MoveMatterTaskToStatusRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/status';
+};
+
+export type TasksMoveTaskToStatusErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksMoveTaskToStatusError = TasksMoveTaskToStatusErrors[keyof TasksMoveTaskToStatusErrors];
+
+export type TasksMoveTaskToStatusResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksMoveTaskToStatusResponse = TasksMoveTaskToStatusResponses[keyof TasksMoveTaskToStatusResponses];
+
+export type TasksMoveTaskToListData = {
+    body: MoveMatterTaskToListRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/list';
+};
+
+export type TasksMoveTaskToListErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksMoveTaskToListError = TasksMoveTaskToListErrors[keyof TasksMoveTaskToListErrors];
+
+export type TasksMoveTaskToListResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksMoveTaskToListResponse = TasksMoveTaskToListResponses[keyof TasksMoveTaskToListResponses];
+
+export type TasksSetTaskCompletionData = {
+    body: SetMatterTaskCompletionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/completion';
+};
+
+export type TasksSetTaskCompletionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksSetTaskCompletionError = TasksSetTaskCompletionErrors[keyof TasksSetTaskCompletionErrors];
+
+export type TasksSetTaskCompletionResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksSetTaskCompletionResponse = TasksSetTaskCompletionResponses[keyof TasksSetTaskCompletionResponses];
+
+export type TasksSetTaskAssigneesData = {
+    body: SetMatterTaskAssigneesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/assignees';
+};
+
+export type TasksSetTaskAssigneesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksSetTaskAssigneesError = TasksSetTaskAssigneesErrors[keyof TasksSetTaskAssigneesErrors];
+
+export type TasksSetTaskAssigneesResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksSetTaskAssigneesResponse = TasksSetTaskAssigneesResponses[keyof TasksSetTaskAssigneesResponses];
+
+export type TasksSetTaskWatchersData = {
+    body: SetMatterTaskWatchersRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/watchers';
+};
+
+export type TasksSetTaskWatchersErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksSetTaskWatchersError = TasksSetTaskWatchersErrors[keyof TasksSetTaskWatchersErrors];
+
+export type TasksSetTaskWatchersResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksSetTaskWatchersResponse = TasksSetTaskWatchersResponses[keyof TasksSetTaskWatchersResponses];
+
+export type TasksAddTaskChecklistItemData = {
+    body: AddMatterTaskChecklistItemRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/checklist';
+};
+
+export type TasksAddTaskChecklistItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAddTaskChecklistItemError = TasksAddTaskChecklistItemErrors[keyof TasksAddTaskChecklistItemErrors];
+
+export type TasksAddTaskChecklistItemResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAddTaskChecklistItemResponse = TasksAddTaskChecklistItemResponses[keyof TasksAddTaskChecklistItemResponses];
+
+export type TasksRemoveTaskChecklistItemData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-checklist-items/{itemId}';
+};
+
+export type TasksRemoveTaskChecklistItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRemoveTaskChecklistItemError = TasksRemoveTaskChecklistItemErrors[keyof TasksRemoveTaskChecklistItemErrors];
+
+export type TasksRemoveTaskChecklistItemResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRemoveTaskChecklistItemResponse = TasksRemoveTaskChecklistItemResponses[keyof TasksRemoveTaskChecklistItemResponses];
+
+export type TasksUpdateTaskChecklistItemData = {
+    body: UpdateMatterTaskChecklistItemRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-checklist-items/{itemId}';
+};
+
+export type TasksUpdateTaskChecklistItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksUpdateTaskChecklistItemError = TasksUpdateTaskChecklistItemErrors[keyof TasksUpdateTaskChecklistItemErrors];
+
+export type TasksUpdateTaskChecklistItemResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksUpdateTaskChecklistItemResponse = TasksUpdateTaskChecklistItemResponses[keyof TasksUpdateTaskChecklistItemResponses];
+
+export type TasksAddTaskLinkData = {
+    body: AddMatterTaskLinkRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/links';
+};
+
+export type TasksAddTaskLinkErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAddTaskLinkError = TasksAddTaskLinkErrors[keyof TasksAddTaskLinkErrors];
+
+export type TasksAddTaskLinkResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAddTaskLinkResponse = TasksAddTaskLinkResponses[keyof TasksAddTaskLinkResponses];
+
+export type TasksRemoveTaskLinkData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-links/{linkId}';
+};
+
+export type TasksRemoveTaskLinkErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksRemoveTaskLinkError = TasksRemoveTaskLinkErrors[keyof TasksRemoveTaskLinkErrors];
+
+export type TasksRemoveTaskLinkResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksRemoveTaskLinkResponse = TasksRemoveTaskLinkResponses[keyof TasksRemoveTaskLinkResponses];
 
 export type MyDayGetData = {
     body?: never;

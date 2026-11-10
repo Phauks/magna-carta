@@ -4,6 +4,8 @@
 export const OPERATIONS: readonly string[] = [
   "calendar.cancelEvent",
   "calendar.cancelFirmEvent",
+  "calendar.changeEventOccurrence",
+  "calendar.changeFirmEventOccurrence",
   "calendar.continuanceChain",
   "calendar.continueEvent",
   "calendar.createBooking",
@@ -29,6 +31,7 @@ export const OPERATIONS: readonly string[] = [
   "calendar.listFirmEventLinks",
   "calendar.listFirmEvents",
   "calendar.listResources",
+  "calendar.listSeries",
   "calendar.matterTimeline",
   "calendar.resourceAvailability",
   "calendar.satisfyDeadline",

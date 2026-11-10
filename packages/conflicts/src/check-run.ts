@@ -12,6 +12,7 @@ import {
   schemeDrawOpeningStatements,
 } from "@magna-carta/sequence-numbering/scheme-draw";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
+import { readPlacesRequest, type PlacesRequest } from "./content-search.ts";
 import {
   CONFLICTS_CHECK_NUMBERING_TABLES,
   CONFLICTS_NUMBERED_CHECK_TABLE,
@@ -77,8 +78,9 @@ export function reportedStatusOrNull(
 export const CANCELLED_RUN_FAILURE = "A member stopped the search before it finished.";
 
 // Where a running search is, in the order the engine actually works: it resolves what to search,
-// walks the graph, matches the closure, then bounds and writes what surfaced.
-export const RUN_STAGES = ["sources", "walking", "matching", "candidates"] as const;
+// walks the graph, matches the closure, searches the firm's own records where it was asked to, then
+// bounds and writes what surfaced. A run that was not asked for any of those records skips `places`.
+export const RUN_STAGES = ["sources", "walking", "matching", "places", "candidates"] as const;
 export type RunStage = (typeof RUN_STAGES)[number];
 
 // What a running search has counted so far. Every field is optional because a stage reports the
@@ -90,6 +92,8 @@ export interface RunProgress {
   readonly entitiesMatched?: number;
   readonly candidatesSurfaced?: number;
   readonly candidatesRecorded?: number;
+  // Results found in calls, texts, email, tasks and Magnus conversations.
+  readonly placeResults?: number;
 }
 
 // The number a person says out loud is drawn from the firm's conflicts check numbering scheme —
@@ -146,6 +150,7 @@ export function parseStoredRunRequest(json: string): StoredRunRequest | null {
     scope: {
       sources: strings(scopeRecord["sources"]) as ScopeRequest["sources"],
       strictness: scopeRecord["strictness"] as ScopeRequest["strictness"],
+      places: readPlacesRequest(scopeRecord["places"]),
     },
   };
 }
@@ -174,11 +179,19 @@ export function subjectPartiesOf(
 }
 
 // What a run was asked to search, from its stored request, before the firm's floor is applied.
-export function askedScopeOf(
-  requestJson: string,
-): { readonly sources: readonly string[]; readonly strictness: string } | null {
+export function askedScopeOf(requestJson: string): {
+  readonly sources: readonly string[];
+  readonly strictness: string;
+  readonly places: PlacesRequest;
+} | null {
   const scope = parseStoredRunRequest(requestJson)?.scope;
-  return scope === undefined ? null : { sources: [...scope.sources], strictness: scope.strictness };
+  return scope === undefined
+    ? null
+    : {
+        sources: [...scope.sources],
+        strictness: scope.strictness,
+        places: readPlacesRequest(scope.places),
+      };
 }
 
 // ---- the rows -----------------------------------------------------------------------------------
@@ -315,6 +328,7 @@ export function parseRunProgress(json: string | null): RunProgress {
     "entitiesMatched",
     "candidatesSurfaced",
     "candidatesRecorded",
+    "placeResults",
   ] as const) {
     const value = count(key);
     if (value !== undefined) progress[key] = value;

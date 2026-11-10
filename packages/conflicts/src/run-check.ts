@@ -22,6 +22,14 @@ import {
   type RunProgress,
   type RunStage,
 } from "./check-run.ts";
+import {
+  asksForAnyPlace,
+  NAME_FLOOR,
+  NUMBER_FLOOR,
+  readPartyNeedles,
+  searchContent,
+  type FoundIn,
+} from "./content-search.ts";
 import { assignTier, describeEvidence } from "./evidence.ts";
 import { expandGraph, WALK_CEILING, type ExpansionTruncation } from "./expansion.ts";
 import { findImputationHits, findMemberEntities } from "./imputation.ts";
@@ -33,7 +41,9 @@ import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings
 import {
   availabilityOf,
   MAGNUS_CONVERSATIONS_SOURCE,
+  MESSAGING_SOURCE,
   NICKNAME_EQUIVALENCE_SOURCE,
+  TASKS_SOURCE,
   PRIOR_FIRM_HISTORY_SOURCE,
 } from "./sources.ts";
 import {
@@ -246,6 +256,8 @@ async function search(
     tier: number;
     matchedFields: string[];
     path: unknown;
+    // Where in the firm's own records the party was found; absent for a Directory result.
+    foundIn?: FoundIn;
   }
   const similarityHits: CandidateHit[] = [];
 
@@ -341,11 +353,49 @@ async function search(
       }
     }
   }
+  // THE FIRM'S OWN RECORDS: calls, texts, email, tasks and Magnus conversations, searched for the
+  // parties the check was asked about. Not the walked closure: a related entity reached through the
+  // graph is a Directory finding, and looking for every one of them in every message would bury the
+  // parties actually named. Results share the write ceiling with the Directory's, after them, so the
+  // batch can never exceed what one transaction carries; a refusal is recorded like any other.
+  const places = scope.places;
+  let placeResultsFound = 0;
+  let placeResultsRefused = 0;
+  if (asksForAnyPlace(places)) {
+    await report("places", {
+      entitiesReached: expanded.length,
+      entitiesMatched: subjectFacts.size,
+      candidatesSurfaced: similarityHits.length,
+    });
+    const needles = await readPartyNeedles(context.database, [...seedIds], scope.nameRoles);
+    const found = await searchContent(context.database, needles, places);
+    const room = Math.max(0, CANDIDATE_WRITE_CEILING - hits.length);
+    placeResultsFound = found.length;
+    placeResultsRefused = Math.max(0, found.length - room);
+    for (const contentHit of found.slice(0, room)) {
+      hits.push({
+        entityId: contentHit.entityId,
+        sourceClass: "content",
+        coParty: false,
+        tier: contentHit.tier,
+        matchedFields: [...contentHit.matchedFields],
+        path: [],
+        foundIn: contentHit.foundIn,
+      });
+    }
+    await report("places", {
+      entitiesReached: expanded.length,
+      entitiesMatched: subjectFacts.size,
+      candidatesSurfaced: similarityHits.length,
+      placeResults: found.length,
+    });
+  }
   await report("candidates", {
     entitiesReached: expanded.length,
     entitiesMatched: subjectFacts.size,
     candidatesSurfaced: similarityHits.length,
     candidatesRecorded: hits.length,
+    ...(asksForAnyPlace(places) ? { placeResults: placeResultsFound } : {}),
   });
 
   const scopeRecord: Record<string, SourceAvailability> = {};
@@ -358,10 +408,11 @@ async function search(
   scopeRecord[NICKNAME_EQUIVALENCE_SOURCE] = (await nicknameCatalogueIsPopulated(context.database))
     ? "searched"
     : "unavailable";
-  // The assistant's conversations: a place the product holds and nothing indexes. Recorded so the
-  // check screen can list it as a place that was not searched rather than a place that does not
-  // exist.
-  scopeRecord[MAGNUS_CONVERSATIONS_SOURCE] = "unavailable";
+  // The firm's own records, recorded searched exactly when they were asked for. A place nobody asked
+  // for is absent, like a Directory technique nobody asked for, and reads as not searched.
+  if (places.messaging.length > 0) scopeRecord[MESSAGING_SOURCE] = "searched";
+  if (places.tasks.length > 0) scopeRecord[TASKS_SOURCE] = "searched";
+  if (places.magnus) scopeRecord[MAGNUS_CONVERSATIONS_SOURCE] = "searched";
 
   const triggerSource = input.triggerSource ?? null;
 
@@ -432,6 +483,25 @@ async function search(
     // tiers. `truncated: false` is the ordinary case and says the written hits are everything the
     // channels found; a row predating this record carries no `candidates` key at all, which reads as
     // the row not saying rather than as the search having been complete.
+    // WHAT WAS SEARCHED BEYOND THE DIRECTORY, and how, so a reader of the row knows what "searched"
+    // covered: which channels and task statuses, that names are compared whole and only from
+    // NAME_FLOOR characters, that numbers match on their last NUMBER_FLOOR-or-more digits, and that an
+    // email's body is not in reach. Absent on a run that asked for none of them.
+    ...(asksForAnyPlace(places)
+      ? {
+          places: {
+            messaging: places.messaging,
+            tasks: places.tasks,
+            magnus: places.magnus,
+            partiesSearched: [...seedIds].length,
+            nameFloor: NAME_FLOOR,
+            numberFloor: NUMBER_FLOOR,
+            emailBodiesSearched: false,
+            resultsFound: placeResultsFound,
+            resultsRefused: placeResultsRefused,
+          },
+        }
+      : {}),
     candidates: {
       candidateCap: CANDIDATE_WRITE_CEILING,
       truncated: candidateTruncation !== null,
@@ -483,6 +553,7 @@ async function search(
           matchedFieldsJson: JSON.stringify(hit.matchedFields),
           graphPathJson: JSON.stringify(hit.path),
           coParty: hit.coParty,
+          foundInJson: hit.foundIn === undefined ? null : JSON.stringify(hit.foundIn),
           createdAt: now,
         }),
       ),

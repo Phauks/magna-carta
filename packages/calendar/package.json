@@ -20,6 +20,7 @@
     "./link-statements": "./src/link-statements.ts",
     "./link-service": "./src/link-service.ts",
     "./continuance-service": "./src/continuance-service.ts",
+    "./series-service": "./src/series-service.ts",
     "./event-type-statements": "./src/event-type-statements.ts",
     "./event-type-service": "./src/event-type-service.ts",
     "./deadline-statements": "./src/deadline-statements.ts",

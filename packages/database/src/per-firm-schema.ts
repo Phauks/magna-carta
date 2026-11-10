@@ -121,7 +121,10 @@ import type {
   MatterTaskDocumentId,
   MatterTaskDeletionId,
   MatterTaskExternalLinkId,
+  MatterTaskAssigneeId,
+  MatterTaskChecklistItemId,
   MatterTaskId,
+  MatterTaskLinkId,
   MatterTypeId,
   MeetingAttendanceId,
   MeetingGuestInvitationId,
@@ -192,6 +195,9 @@ import type {
   UploadSessionId,
   UserId,
   UtbmsCodeId,
+  TaskListId,
+  TaskListStatusId,
+  TaskTeamId,
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
@@ -2907,6 +2913,12 @@ export const conflictsHit = sqliteTable(
     // (a co-party can be reached by the party OR the graph channel); it buckets the hit apart from a
     // conflict with a prior/other client so a reviewer can triage it separately.
     coParty: integer("co_party").notNull().default(0),
+    // Where in the firm's own records a content result was found: JSON {kind, id, matterId, at},
+    // the kind one of call, text, email, task or magnus_conversation. Identifiers and an instant
+    // only, never a subject line or a message, because this log outlives every record it points
+    // at. NULL on a Directory result, and on every row written before the firm's own records were
+    // searched.
+    foundInJson: text("found_in_json"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -7403,8 +7415,42 @@ export const matterTask = sqliteTable(
     // Reading the actor off the audit log would work and would make the cheapest question in the
     // feed ("did I do this?") a second query per row.
     updatedBy: text("updated_by").$type<UserId>(),
+    // WHICH OF THE FIRM'S LISTS THIS TASK IS ON, and where it stands on that list's own statuses.
+    // Every task is on exactly one list; the columns are nullable only because they were added to a
+    // table that already held rows, and the migration that added them put every one of those rows on
+    // the firm's first list. The write paths never leave either empty.
+    //
+    // A status is the firm's own word for where work stands, with a colour and a flow, and it says
+    // nothing about whether the work is FINISHED — that is `state`, and completing a task works from
+    // any status. `progress` above is retired by these two: it keeps its CHECK because removing a
+    // column from this table is the rebuild it cannot take, and nothing writes it any more.
+    listId: text("list_id")
+      .$type<TaskListId>()
+      .references(() => taskList.id),
+    statusId: text("status_id")
+      .$type<TaskListStatusId>()
+      .references(() => taskListStatus.id),
+    // A SUB-TASK is a whole task under another one. It shares its parent's list and matter, which the
+    // write paths set and move together, and it may have sub-tasks of its own to a bounded depth.
+    parentTaskId: text("parent_task_id")
+      .$type<MatterTaskId>()
+      .references((): AnySQLiteColumn => matterTask.id),
+    // When the work can start, as a civil date in the due date's own shape and for the same reason.
+    // It carries no zone of its own: it is read in the task's zone when there is one, and a start
+    // date is a planning fact rather than a moment anything fires at.
+    startsOn: text("starts_on"),
+    // Where the work happens: a room, an address, or a meeting link. Free text, because those three
+    // have nothing in common but being somewhere to go.
+    location: text("location"),
   },
   (table) => [
+    // The list's own read, and the band a Group By List draws.
+    index("matter_task_list_state_index").on(table.listId, table.state),
+    index("matter_task_status_index").on(table.statusId),
+    // A parent's sub-tasks, read on every row that has any.
+    index("matter_task_parent_index").on(table.parentTaskId),
+    check("matter_task_starts_on_shape_check", civilDateShape(table.startsOn, true)),
+    check("matter_task_parent_self_check", sql`${table.parentTaskId} != ${table.id}`),
     // The provenance read: which matters came off this plan.
     index("matter_task_plan_template_index").on(table.planTemplateId),
     // THE CHANGE FEED. "What moved since I last looked", as a keyset over the pair — the instant
@@ -7511,6 +7557,241 @@ export const matterTaskDocument = sqliteTable(
     // One document rides one task once. A second identical link is a row a person reads as the same
     // file twice, and detaching one would leave the other behind.
     uniqueIndex("matter_task_document_task_file_unique_index").on(table.taskId, table.fileId),
+  ],
+);
+
+// THE FIRM'S TASK LISTS. A firm keeps several — one for the partners, one for assignments, one per
+// kind of case — and every task sits on exactly one. A list has no visibility setting: every member
+// sees every task (owner ruling, 2026-11-09), and narrowing the screen to your own work is the
+// reader's Me Mode rather than a property of the list.
+//
+// Exactly one live list is the DEFAULT, where a task lands when nobody picks another; the partial
+// unique index holds "at most one" and the write paths hold "at least one". A list is retired rather
+// than deleted, because its tasks still point at it.
+export const taskList = sqliteTable(
+  "task_list",
+  {
+    id: text("id").primaryKey().$type<TaskListId>(), // taskList_ handle
+    name: text("name").notNull(),
+    // The order the lists are offered in. Gaps are fine; ties break on the name.
+    position: integer("position").notNull().default(0),
+    isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+    updatedAt: text("updated_at").notNull(),
+    retiredAt: text("retired_at"),
+  },
+  (table) => [
+    uniqueIndex("task_list_name_live_unique_index")
+      .on(table.name)
+      .where(sql`${table.retiredAt} IS NULL`),
+    uniqueIndex("task_list_default_unique_index")
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} = 1`),
+    check("task_list_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check(
+      "task_list_default_live_check",
+      sql`${table.isDefault} = 0 OR ${table.retiredAt} IS NULL`,
+    ),
+  ],
+);
+
+// A LIST'S OWN STATUSES: the firm's words for where work stands, each with a colour, in an order. The
+// first by position is where a new task on the list starts. A status says nothing about whether the
+// work is finished; completing is separate and works from any status.
+//
+// The colour is a CLOSED vocabulary the web side maps onto design tokens, so a firm picks a colour
+// without picking a value the design system never reviewed. Growing it is a migration on purpose.
+export const taskListStatus = sqliteTable(
+  "task_list_status",
+  {
+    id: text("id").primaryKey().$type<TaskListStatusId>(), // taskListStatus_ handle
+    listId: text("list_id")
+      .notNull()
+      .$type<TaskListId>()
+      .references(() => taskList.id),
+    name: text("name").notNull(),
+    colour: text("colour", {
+      enum: ["gray", "blue", "orange", "amber", "green", "purple", "red"],
+    })
+      .notNull()
+      .default("gray"),
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("task_list_status_list_index").on(table.listId, table.position),
+    uniqueIndex("task_list_status_list_name_unique_index").on(table.listId, table.name),
+    check("task_list_status_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check(
+      "task_list_status_colour_check",
+      sql`${table.colour} IN ('gray', 'blue', 'orange', 'amber', 'green', 'purple', 'red')`,
+    ),
+  ],
+);
+
+// THE FLOW: one row per move a list allows, from one of its statuses to another. A move the flow does
+// not hold is refused at the write. Completing and reopening are not moves and ignore it.
+export const taskListStatusTransition = sqliteTable(
+  "task_list_status_transition",
+  {
+    fromStatusId: text("from_status_id")
+      .notNull()
+      .$type<TaskListStatusId>()
+      .references(() => taskListStatus.id),
+    toStatusId: text("to_status_id")
+      .notNull()
+      .$type<TaskListStatusId>()
+      .references(() => taskListStatus.id),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fromStatusId, table.toStatusId] }),
+    index("task_list_status_transition_to_index").on(table.toStatusId),
+    check(
+      "task_list_status_transition_distinct_check",
+      sql`${table.fromStatusId} != ${table.toStatusId}`,
+    ),
+  ],
+);
+
+// A TEAM: a named group of members a task can be assigned to as one, so a matter's whole team is one
+// click rather than four. Assigning a team assigns whoever is on it when the list is read, so a new
+// member of the team sees its work without anybody reassigning anything.
+export const taskTeam = sqliteTable(
+  "task_team",
+  {
+    id: text("id").primaryKey().$type<TaskTeamId>(), // taskTeam_ handle
+    name: text("name").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+    updatedAt: text("updated_at").notNull(),
+    retiredAt: text("retired_at"),
+  },
+  (table) => [
+    uniqueIndex("task_team_name_live_unique_index")
+      .on(table.name)
+      .where(sql`${table.retiredAt} IS NULL`),
+    check("task_team_name_nonempty_check", sql`length(${table.name}) > 0`),
+  ],
+);
+
+export const taskTeamMember = sqliteTable(
+  "task_team_member",
+  {
+    teamId: text("team_id")
+      .notNull()
+      .$type<TaskTeamId>()
+      .references(() => taskTeam.id),
+    userId: text("user_id").notNull().$type<UserId>(),
+    addedAt: text("added_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.teamId, table.userId] }),
+    // "Which teams am I on", which Me Mode asks on every read.
+    index("task_team_member_user_index").on(table.userId),
+  ],
+);
+
+// A TASK'S ASSIGNEES: each one a member or a team, never both, in the order they were named. The
+// task's own `assignee_user_id` stays the first PERSON here, written in the same batch, because the
+// assignment notification, the mirror seam and the "what is on my plate" index all read it.
+export const matterTaskAssignee = sqliteTable(
+  "matter_task_assignee",
+  {
+    id: text("id").primaryKey().$type<MatterTaskAssigneeId>(), // matterTaskAssignee_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    userId: text("user_id").$type<UserId>(),
+    teamId: text("team_id")
+      .$type<TaskTeamId>()
+      .references(() => taskTeam.id),
+    position: integer("position").notNull().default(0),
+    addedAt: text("added_at").notNull(),
+    addedBy: text("added_by").$type<UserId>(),
+  },
+  (table) => [
+    index("matter_task_assignee_task_index").on(table.taskId, table.position),
+    index("matter_task_assignee_user_index").on(table.userId),
+    index("matter_task_assignee_team_index").on(table.teamId),
+    uniqueIndex("matter_task_assignee_task_user_unique_index")
+      .on(table.taskId, table.userId)
+      .where(sql`${table.userId} IS NOT NULL`),
+    uniqueIndex("matter_task_assignee_task_team_unique_index")
+      .on(table.taskId, table.teamId)
+      .where(sql`${table.teamId} IS NOT NULL`),
+    check(
+      "matter_task_assignee_one_kind_check",
+      sql`(${table.userId} IS NULL) != (${table.teamId} IS NULL)`,
+    ),
+  ],
+);
+
+// A TASK'S WATCHERS: members kept informed of the work without doing it, the way a letter is copied.
+export const matterTaskWatcher = sqliteTable(
+  "matter_task_watcher",
+  {
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    userId: text("user_id").notNull().$type<UserId>(),
+    addedAt: text("added_at").notNull(),
+    addedBy: text("added_by").$type<UserId>(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.taskId, table.userId] }),
+    index("matter_task_watcher_user_index").on(table.userId),
+  ],
+);
+
+// A TASK'S CHECKLIST: the small steps inside one piece of work, ticked off as they go. A step that
+// deserves its own assignee, dates or status is a sub-task instead.
+export const matterTaskChecklistItem = sqliteTable(
+  "matter_task_checklist_item",
+  {
+    id: text("id").primaryKey().$type<MatterTaskChecklistItemId>(), // matterTaskChecklistItem_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    text: text("text").notNull(),
+    position: integer("position").notNull().default(0),
+    doneAt: text("done_at"),
+    doneBy: text("done_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("matter_task_checklist_item_task_index").on(table.taskId, table.position),
+    check("matter_task_checklist_item_text_nonempty_check", sql`length(${table.text}) > 0`),
+    check(
+      "matter_task_checklist_item_done_shape_check",
+      sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`,
+    ),
+  ],
+);
+
+// AN ADDRESS A TASK POINTS AT: a court's filing page, a shared folder, a brief somewhere else. Not
+// the mirror's identity (that is matter_task_external_link) and not a matter file (that is
+// matter_task_document) — just somewhere a person goes to do the work.
+export const matterTaskLink = sqliteTable(
+  "matter_task_link",
+  {
+    id: text("id").primaryKey().$type<MatterTaskLinkId>(), // matterTaskLink_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    url: text("url").notNull(),
+    label: text("label"),
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    index("matter_task_link_task_index").on(table.taskId, table.position),
+    check("matter_task_link_url_nonempty_check", sql`length(${table.url}) > 0`),
   ],
 );
 
