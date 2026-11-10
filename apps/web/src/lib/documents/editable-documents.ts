@@ -77,19 +77,26 @@ export function openMethodOf(
   return officeEditorOpens(extensionOf(file.name)) ? "office-editor" : "preview";
 }
 
+/** The two readers a file can open in: the page reader and the player. */
+export type ViewerKind = "pdf" | "video";
+
 /**
  * The reader a file's FORMAT calls for where the file can be READ but not written, or null where
- * the format has no reader. Today that is the portable document: the firm's own engine draws its
- * pages, and nothing this application has can edit one.
+ * the format has no reader. A portable document opens in the reader the firm's own engine draws,
+ * and a recording opens in the player. Whether this browser can actually decode a particular
+ * recording is not decided here: the player page asks the server, which has read the file's track
+ * table, and offers the download where the answer is no.
  */
 export function viewerKindOf(
   file: Pick<EditableFileFacts, "name" | "sniffedContentType">,
-): "pdf" | null {
+): ViewerKind | null {
   const category = resolveFileContentCategory({
     contentType: file.sniffedContentType ?? undefined,
     fileName: file.name,
   });
-  return category === "pdf" ? "pdf" : null;
+  if (category === "pdf") return "pdf";
+  if (category === "video") return "video";
+  return null;
 }
 
 /** Where a file's editor lives. One address per document, opened beside the reader's work. */
@@ -102,8 +109,9 @@ export function editorHref(fileId: string): string {
  * promises: one invites a change and the other cannot take one, and an address that says `edit`
  * over a document nobody can edit is a lie the reader finds out by trying.
  */
-export function viewerHref(fileId: string): string {
-  return `/documents/${encodeURIComponent(fileId)}/view`;
+export function viewerHref(fileId: string, viewer: ViewerKind = "pdf"): string {
+  const segment = viewer === "video" ? "watch" : "view";
+  return `/documents/${encodeURIComponent(fileId)}/${segment}`;
 }
 
 /** What the one Open gesture does for a file. */
@@ -111,7 +119,7 @@ export type OpenDestination =
   /** Open the editor, beside the reader's work. */
   | { readonly kind: "editor"; readonly editor: EditorKind; readonly href: string }
   /** Open the read-only viewer, beside the reader's work. */
-  | { readonly kind: "viewer"; readonly viewer: "pdf"; readonly href: string }
+  | { readonly kind: "viewer"; readonly viewer: ViewerKind; readonly href: string }
   /** Open the preview panel — which, for a file with nothing to show, says why. */
   | { readonly kind: "preview" };
 
@@ -130,7 +138,8 @@ export function openDestinationOf(
   if (file.currentVersionId === null || file.status !== "clean") return { kind: "preview" };
   if (file.scanVerdict === "flagged") return { kind: "preview" };
   if (editor !== null) return { kind: "editor", editor, href: editorHref(file.id) };
-  return { kind: "viewer", viewer: "pdf", href: viewerHref(file.id) };
+  if (viewer === null) return { kind: "preview" };
+  return { kind: "viewer", viewer, href: viewerHref(file.id, viewer) };
 }
 
 /**

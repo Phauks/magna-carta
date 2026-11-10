@@ -444,3 +444,66 @@ fn empty_and_odd_content_still_composes() {
     let none = compose(&document(Vec::new()), &FontFamily::bundled()).unwrap();
     assert_eq!(none.page_count, 1);
 }
+
+#[test]
+fn the_json_form_composes_the_same_document_as_the_model() {
+    let json = r#"{
+        "title": "Matter summary",
+        "language": "en-US",
+        "created": { "year": 2026, "month": 11, "day": 10 },
+        "page": { "paper": "a4", "landscape": true, "marginLeft": 40 },
+        "footer": { "right": "Page {page} of {pages}" },
+        "blocks": [
+            { "type": "title", "text": "Intake record" },
+            { "type": "heading", "level": 2, "text": "Parties" },
+            { "type": "paragraph", "text": "Plain text. " , "spans": [{ "text": "Bold run", "bold": true }] },
+            { "type": "image", "image": 0, "width": 200, "alignment": "center", "caption": "Exhibit A" },
+            { "type": "fields", "fields": [{ "label": "Client", "value": "José Rivera" }] },
+            { "type": "table",
+              "columns": [{ "heading": "Date" }, { "heading": "Amount", "alignment": "end", "weight": 1 }],
+              "rows": [["2026-03-01", "150.00"]] },
+            { "type": "rule" },
+            { "type": "space", "height": 12 },
+            { "type": "pageBreak" },
+            { "type": "paragraph", "text": "Second page." }
+        ]
+    }"#;
+    let picture = png(300, 200);
+    let model = pdf_compose_core::document_from_json(json, &[&picture]).unwrap();
+    assert_eq!(model.page.width, PageSetup::a4().height);
+    assert_eq!(model.page.margin_left, 40.0);
+    assert_eq!(model.blocks.len(), 10);
+    let output = pdf_compose_core::compose_json(json, &[&picture], &FontFamily::bundled()).unwrap();
+    assert_eq!(output.page_count, 2);
+    let pages = page_texts(&output.pdf);
+    assert!(pages[0].contains("Plain text. Bold run"), "{}", pages[0]);
+    assert!(pages[0].contains("José Rivera"));
+    assert!(pages[0].contains("Page 1 of 2"));
+    assert!(pages[1].contains("Second page."));
+    assert_eq!(
+        output.pdf,
+        compose(&model, &FontFamily::bundled()).unwrap().pdf
+    );
+}
+
+#[test]
+fn a_json_document_that_is_wrong_is_refused_without_quoting_it() {
+    let fonts = FontFamily::bundled();
+    let misspelt = r#"{ "blocks": [{ "type": "paragraph", "text": "x", "alignement": "end" }] }"#;
+    assert!(matches!(
+        pdf_compose_core::compose_json(misspelt, &[], &fonts).unwrap_err(),
+        ComposeError::InvalidDocument { line: 1, .. }
+    ));
+    let unknown_block = r#"{ "blocks": [{ "type": "privileged-secret" }] }"#;
+    let error = pdf_compose_core::compose_json(unknown_block, &[], &fonts).unwrap_err();
+    assert!(!error.to_string().contains("privileged"), "{error}");
+    let no_picture = r#"{ "blocks": [{ "type": "image", "image": 3 }] }"#;
+    assert_eq!(
+        pdf_compose_core::compose_json(no_picture, &[], &fonts).unwrap_err(),
+        ComposeError::ImageMissing { index: 3 }
+    );
+    assert!(matches!(
+        pdf_compose_core::compose_json("not json", &[], &fonts).unwrap_err(),
+        ComposeError::InvalidDocument { .. }
+    ));
+}

@@ -53,6 +53,9 @@
 @import "../components/choice-row/choice-row.css";
 @import "../components/avatar/avatar.css";
 @import "../components/progress/progress.css";
+@import "../components/slider/slider.css";
+/* The player composes the slider, so its recipe follows it. */
+@import "../components/video-player/video-player.css";
 @import "../components/progress-steps/progress-steps.css";
 @import "../components/event-rail/event-rail.css";
 @import "../components/definition-list/definition-list.css";
