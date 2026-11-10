@@ -1,14 +1,22 @@
 {
-  // The SvelteKit single-page application, deployed on its own. This Worker holds NO script: it is
-  // an assets-only deployable, so a request for a page or a bundle is answered by Cloudflare's asset
-  // server and invokes nothing. That is the whole point of separating it — the API Worker
-  // (apps/api-worker) carries D1, R2, Queues, Durable Objects, the WebAssembly modules and every runtime
-  // secret, and a change to a button's label should not rebuild and redeploy any of that.
+  // The SvelteKit single-page application, deployed on its own. A request for a page is answered by
+  // Cloudflare's asset server and invokes nothing. That is the whole point of separating it — the
+  // API Worker (apps/api-worker) carries D1, R2, Queues, Durable Objects, the WebAssembly modules
+  // and every runtime secret, and a change to a button's label should not rebuild and redeploy any
+  // of that.
   //
-  // Deliberately empty of bindings and secrets, and it must stay that way. The browser bundle this
-  // serves is public bytes; anything bound here would be reachable from a deployable whose entire
-  // surface is "hand back a file", and the isolation is what makes it safe to deploy on a UI
-  // change alone.
+  // It holds ONE small script (src/index.ts), run only for /_app/* — the built application's own
+  // files. The script hands the request to the asset server and corrects two things about the
+  // answer: a content-hashed file under /_app/immutable/ is given a one-year lifetime, so a repeat
+  // visit asks for none of them again; and a file that is not there is answered 404, never with
+  // the application shell the single-page fallback would otherwise send in its place. The second
+  // is what makes the first safe — without it, a browser asking for a script during a deploy would
+  // cache HTML under that script's address for a year. The reasoning is in the script's header.
+  //
+  // Deliberately empty of every other binding and of secrets, and it must stay that way. ASSETS
+  // reaches only the public files this Worker already serves. Anything else bound here would be
+  // reachable from a deployable whose entire surface is "hand back a file", and the isolation is
+  // what makes it safe to deploy on a UI change alone.
   //
   // SINCE 2026-08-31 THIS IS THE WORKER THAT SERVES THE APPLICATION. The app's hostname was
   // converted from a custom domain on the API Worker to route patterns on the zone: this Worker
@@ -24,19 +32,24 @@
   // from it) and the one-gesture rollback (repoint the zone's /* route back to `magna-carta`).
   // Removing it needs replacements for both — see the note in apps/api-worker/wrangler.jsonc.
   //
-  // The version surface: this Worker cannot mount a route, so its build identity is the static
+  // The version surface: this Worker mounts no route of its own, so its build identity is the static
   // /__version file the SPA build emits (apps/web/scripts/emit-version-asset.mjs); the app
   // Worker's aggregate probes it over the WEB_SERVICE binding.
   // Runbook: docs/conventions/operations.md.
   "name": "magna-carta-web",
+  "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",
   // The build output of apps/web (adapter-static). `pnpm run build` in this directory builds that
   // package first, so the directory exists before wrangler reads it.
   // not_found_handling serves index.html for any path that matches no file, which is what makes a
   // deep link into a client-routed application resolve instead of 404ing.
+  // run_worker_first names the only paths that reach the script; every other request is still
+  // answered by the asset server alone, with no invocation.
   "assets": {
     "directory": "../web/build",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
+    "run_worker_first": ["/_app/*"],
   },
   // workers.dev serving stays on: this Worker's own direct URL, useful as a routing-independent
   // health check of the deployable itself (the served files are public bytes either way). Which

@@ -2,6 +2,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { countRecordIndexMatchesUpToStatement } from "@magna-carta/search/record-index-statements";
+import { withMarks } from "./marks.ts";
 import type {
   AcrossMattersDeclaration,
   AcrossMattersSearchRequest,
@@ -143,7 +144,9 @@ export async function runSearchAcrossMatters(
         const hasMore = rows.length > input.limit;
         const kept = hasMore ? rows.slice(0, input.limit) : rows;
         return group(source, declaration.matchedFields, {
-          hits: kept.map((row) => source.project(row)),
+          // Projected, then marked, as in a matter's own search: the last step, on the rows the
+          // limit kept, by the rule the source declared for the texts it shows.
+          hits: kept.map((row) => withMarks(source.marking, source.project(row), query)),
           hasMore,
           skipped: null,
         });

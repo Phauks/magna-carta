@@ -11,7 +11,7 @@ load-profile: in-progress
 tested: done
 branch: claude/project-thread-rixee1
 active-work: docs/active-work/claude/project-thread-rixee1.md
-next: the SEARCH_SERVICE binding once the search worker exists on the account, the owner's answer on whether calendar events are searched across matters, then the scope choices and marked words on the Search page
+next: the SEARCH_SERVICE binding once the search worker exists on the account, the owner's answer on whether calendar events are searched across matters, then the scope choices on the Search page
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
 adrs:
@@ -40,4 +40,6 @@ One structure for everything the platform searches, approved by the owner on 202
 
 **Built: a place that is behind can be rebuilt.** While any place of the record index reads Behind, the page offers Rebuild. The request (`POST /api/v1/firm/search-status/rebuild`) writes an audit row and an outbox message in one batch and does none of the work; the per-firm job queue's consumer counts when it runs and rebuilds the places that are behind at that moment, one place to a transaction. The message names no place, so a late or repeated delivery does only what is needed then. A completed rebuild writes its own audit row, and the status read says from those two rows whether a rebuild is still to run. No migration and no new binding.
 
-**Not built:** a rebuild of the file contents index (the daily repair pass is its equivalent) or of an older schema generation, a rebuild in steps for a very large firm, calendar events and the other four places a search across matters does not reach yet, marking the matched words in a quote, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).
+**Built: a result marks the words that answered.** Both searches say, on every hit, where the reader's words are in its title and its excerpt, found again on the server by the rules of the index that made the match (`packages/search/src/matched-text.ts`), and each source declares which rule each of its texts is marked by. A long note or narrative is cut to the stretch holding the most of the question where it used to be sent whole, so the words that answered are on screen and a page of results no longer carries every note in full. The step runs after the matter binding, the visibility predicate and the limit, and cannot add or drop a result.
+
+**Not built:** a rebuild of the file contents index (the daily repair pass is its equivalent) or of an older schema generation, a rebuild in steps for a very large firm, calendar events and the other four places a search across matters does not reach yet, the scope choices on the Search page, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).

@@ -13,6 +13,10 @@
    * NO TOTALS. A group says how many results are on screen and whether there are more, which the
    * server measured by reading one row past the limit. It never says "3 of 14": nothing counted
    * to fourteen.
+   *
+   * THE READER'S WORDS ARE MARKED WHERE THE SERVER FOUND THEM. Each hit says where they are in its
+   * title and its excerpt, and a long text arrives already cut to the stretch they are in. This
+   * component draws those marks and looks for nothing itself.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
@@ -29,6 +33,7 @@
   import { emptyGroupLine, presentationFor } from "$lib/matters/matter-search-presentation.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import type { MatterSummary } from "$lib/matters/matters-api.ts";
+  import MarkedText from "$lib/search/marked-text.svelte";
   import type { AcrossMattersGroup } from "$lib/search/search-across-matters-api.ts";
   import {
     OVERVIEW_LIMIT,
@@ -328,11 +333,13 @@
                           {formatInstant(hit.title)}
                         </time>
                       {:else}
-                        {hit.title}
+                        <MarkedText text={hit.title} marks={hit.titleMarks} />
                       {/if}
                     </span>
                     {#if hit.snippet !== null}
-                      <span class="line-clamp-2 text-sm text-text-muted">{hit.snippet}</span>
+                      <span class="line-clamp-2 text-sm text-text-muted">
+                        <MarkedText text={hit.snippet} marks={hit.snippetMarks} />
+                      </span>
                     {/if}
                     <span class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
                       <Badge variant="neutral">{matterLabel(hit.matter)}</Badge>
