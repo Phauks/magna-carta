@@ -27185,9 +27185,10 @@
             "type": "string",
             "enum": [
               "changed",
-              "removed"
+              "removed",
+              "not_sent"
             ],
-            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar."
+            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar. `not_sent`: the provider would not take the event, so there is no copy."
           },
           "sent": {
             "type": "object",
@@ -91196,7 +91197,7 @@
     },
     "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back": {
       "post": {
-        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.",
+        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.",
         "operationId": "calendarSync.putBackMyCopy",
         "tags": [
           "calendarSync"

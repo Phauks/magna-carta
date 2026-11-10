@@ -1,0 +1,1 @@
+ALTER TABLE `connection_sync_issue` ADD `provider_refused` integer DEFAULT false NOT NULL;

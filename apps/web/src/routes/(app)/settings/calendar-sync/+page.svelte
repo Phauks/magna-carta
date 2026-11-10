@@ -18,8 +18,10 @@
    * A COPY THE MEMBER CHANGED IN OUTLOOK IS A QUESTION, NOT A WRITE. Moving or deleting a copy
    * in their own calendar changes nothing in the firm's calendar, which everybody on the matter
    * shares. The copy appears in its own plate, above the rules, with what was sent beside what
-   * Outlook holds, and two answers: Put Back, or Leave It. The plate is absent while there is
-   * nothing to answer.
+   * Outlook holds, and two answers: Put Back, or Leave It. An event Outlook would not take at all
+   * sits in the same plate, because it is the same fact to the reader (Outlook does not have what
+   * Magna Carta has), with Try Again and Dismiss. The plate is absent while there is nothing to
+   * answer.
    *
    * WHEN THE PROVIDER CANNOT BE ASKED the page still shows what is saved, with each rule's
    * calendar under the name it had when saved, and offers no change: a rule can only be saved
@@ -181,7 +183,7 @@
         disabled={answering !== null}
         onclick={() => void answer(row, "putBack")}
       >
-        Put Back
+        {row.kind === "not_sent" ? "Try Again" : "Put Back"}
       </Button>
       <Button
         variant="ghost"
@@ -189,7 +191,7 @@
         disabled={answering !== null}
         onclick={() => void answer(row, "leave")}
       >
-        Leave It
+        {row.kind === "not_sent" ? "Dismiss" : "Leave It"}
       </Button>
     </div>
   {:else}
@@ -206,18 +208,18 @@
 
 <SettingsScrollRegion>
   {#if openIssues.length > 0}
-    <SettingsPlate heading="Changed in Outlook">
+    <SettingsPlate heading="Different in Outlook">
       <SettingsDescription>
-        You changed or deleted these in Outlook. Magna Carta's calendar was not changed. Put Back
-        writes the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as you made
-        it.
+        These are not the same in Outlook as in Magna Carta: you changed or deleted the copy there,
+        or Outlook would not take the event. Magna Carta's calendar was not changed. Put Back writes
+        the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as it is.
       </SettingsDescription>
       {#if answerRefusal !== null}
         <Alert.Root variant="danger">
           <Alert.Description>{answerRefusal}</Alert.Description>
         </Alert.Root>
       {/if}
-      <DataTable.Grid grid={issueGrid} caption="Events you changed in Outlook" cell={issueCell} />
+      <DataTable.Grid grid={issueGrid} caption="Events that are different in Outlook" cell={issueCell} />
     </SettingsPlate>
   {/if}
 
