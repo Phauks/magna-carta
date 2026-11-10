@@ -14,7 +14,7 @@
  * matter. A repeating task's next copy starts with an empty thread for the same reason.
  */
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { guarded, type EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -130,12 +130,17 @@ export async function editTaskComment(
   return {
     effect: {
       statements: [
-        updateTaskCommentStatement(database, {
-          id: comment.id,
-          authorUserId: options.actorUserId,
-          body,
-          now: options.clock.now(),
-        }),
+        // Matching no row means the comment was removed, or is not the actor's, between the read
+        // and this write: the rewording is refused rather than quietly dropped.
+        guarded(
+          updateTaskCommentStatement(database, {
+            id: comment.id,
+            authorUserId: options.actorUserId,
+            body,
+            now: options.clock.now(),
+          }),
+          "the comment was removed or is not the author's",
+        ),
         ...replaceCommentMentionsStatements(database, commentId, mentioned),
         commentAudit(database, options, "tasks.task.commentEdited", task, {
           commentId,

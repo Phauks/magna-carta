@@ -2,7 +2,6 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type {
   MatterTaskChecklistItemId,
-  MatterTaskCommentId,
   MatterTaskId,
   MatterTaskLinkId,
   TaskListId,
@@ -16,8 +15,6 @@ import {
   MoveTaskToListRequest,
   MoveTaskToStatusRequest,
   TaskAssigneesRequest,
-  TaskCommentRequest,
-  TaskCommentThread,
   TaskCompletionRequest,
   TaskRecurrenceRequest,
   TaskSubtaskTrees,
@@ -36,13 +33,6 @@ import {
   updateChecklistItem,
 } from "@magna-carta/tasks/organisation-service";
 import { setMatterTaskCompleted } from "@magna-carta/tasks/task-service";
-import {
-  addTaskComment,
-  deleteTaskComment,
-  editTaskComment,
-  readTaskCommentThread,
-} from "@magna-carta/tasks/comment-service";
-import { TaskValidationError } from "@magna-carta/tasks/validation";
 import { setMatterTaskRecurrence } from "@magna-carta/tasks/recurrence-service";
 import { readSubtaskTrees } from "@magna-carta/tasks/task-statements";
 import { MAX_SUBTASK_DEPTH, MAX_TASK_PAGE_SIZE } from "@magna-carta/tasks/types";
@@ -74,7 +64,7 @@ import {
 
 // The parts of a task that are rows or moves of their own: where it stands on its list, which list
 // it is on, whether it is finished, who it is assigned to and who watches it, its checklist, its
-// links, its comment thread, and the sub-tasks beneath it.
+// links, and the sub-tasks beneath it. Its comment thread is task-comments.ts.
 //
 // FINISHING IS NOT A STATUS. Completion works from any status and leaves the status where it stood,
 // so reopening a task puts it back exactly there; the list's flow governs moves between statuses
@@ -82,9 +72,6 @@ import {
 
 const checklistItemIdParam = z.object({
   itemId: identifierPathParam("matterTaskChecklistItem", "itemId"),
-});
-const taskCommentIdParam = z.object({
-  commentId: identifierPathParam("matterTaskComment", "commentId"),
 });
 const taskLinkIdParam = z.object({ linkId: identifierPathParam("matterTaskLink", "linkId") });
 
@@ -270,67 +257,6 @@ const removeTaskLinkRoute = defineOpenAPIRoute(inverseOf("removeTaskLink", "addT
   request: { headers: idempotencyKeyHeader, params: taskLinkIdParam },
   responses: acknowledgedResponses,
 });
-
-const readTaskCommentsRoute = defineOpenAPIRoute(readMeta("readTaskComments"), {
-  method: "get",
-  path: "/api/v1/tasks/{taskId}/comments",
-  description:
-    "The task's comment thread, oldest first: each comment, who wrote it, when, whether it has " +
-    "been reworded since, and the colleagues it names.",
-  request: { params: taskIdParam },
-  responses: {
-    200: {
-      description: "The thread",
-      content: { "application/json": { schema: TaskCommentThread } },
-    },
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    429: authErrors[429],
-  },
-});
-
-const addTaskCommentRoute = defineOpenAPIRoute(writeMeta("addTaskComment"), {
-  method: "post",
-  path: "/api/v1/tasks/{taskId}/comments",
-  description:
-    "Adds a comment to the end of the task's thread. Each colleague named in `mentionedUserIds` " +
-    "is told, and must be able to see the task. The people the task is assigned to and the people " +
-    "watching it are told too; the author is never told of their own comment.",
-  request: {
-    headers: idempotencyKeyHeader,
-    params: taskIdParam,
-    body: jsonBody(TaskCommentRequest),
-  },
-  responses: createdResponses,
-});
-
-const editTaskCommentRoute = defineOpenAPIRoute(inverseOf("editTaskComment"), {
-  method: "put",
-  path: "/api/v1/task-comments/{commentId}",
-  description:
-    "Rewords one of the member's own comments, and replaces who it names. The comment keeps its " +
-    "place and is marked edited. A colleague newly named is told; nobody else is told again.",
-  request: {
-    headers: idempotencyKeyHeader,
-    params: taskCommentIdParam,
-    body: jsonBody(TaskCommentRequest),
-  },
-  responses: acknowledgedResponses,
-});
-
-const deleteTaskCommentRoute = defineOpenAPIRoute(
-  inverseOf("deleteTaskComment", "addTaskComment"),
-  {
-    method: "delete",
-    path: "/api/v1/task-comments/{commentId}",
-    description:
-      "Removes one of the member's own comments from the thread. The firm's audit log keeps that " +
-      "it was written and removed, and never what it said.",
-    request: { headers: idempotencyKeyHeader, params: taskCommentIdParam },
-    responses: acknowledgedResponses,
-  },
-);
 
 export function registerTaskPartsRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
@@ -528,93 +454,6 @@ export function registerTaskPartsRoutes(
       const { linkId } = c.req.valid("param");
       return acknowledgeWrite(c, (database, options) =>
         removeTaskLink(database, linkId as MatterTaskLinkId, options),
-      );
-    },
-  );
-  app.openapi(
-    {
-      ...readTaskCommentsRoute,
-      middleware: chokepointMiddleware(chokepoint, readTaskCommentsRoute),
-    },
-    async (c) => {
-      const database = requireChokepointFirmContext(c).firmDatabase;
-      const userId = requireChokepointUserId(c);
-      const { taskId } = c.req.valid("param");
-      try {
-        const thread = await readTaskCommentThread(database, taskId as MatterTaskId, {
-          visibility: visibleMatterPredicate(),
-          actorUserId: userId,
-        });
-        return c.json(
-          {
-            data: thread.map((comment) => ({
-              id: comment.id,
-              taskId: comment.task_id,
-              authorUserId: comment.author_user_id,
-              body: comment.body,
-              createdAt: comment.created_at,
-              editedAt: comment.edited_at,
-              mentionedUserIds: [...comment.mentioned_user_ids],
-            })),
-          },
-          200,
-        );
-      } catch (caught) {
-        if (caught instanceof TaskValidationError) {
-          return problemJson(c, {
-            type: "not-found",
-            title: "Not found",
-            status: 404,
-            detail: caught.message,
-          });
-        }
-        throw caught;
-      }
-    },
-  );
-
-  app.openapi(
-    { ...addTaskCommentRoute, middleware: chokepointMiddleware(chokepoint, addTaskCommentRoute) },
-    async (c) => {
-      const { taskId } = c.req.valid("param");
-      const { body, mentionedUserIds } = c.req.valid("json");
-      return createWrite(c, async (database, options) => {
-        const { commentId, effect } = await addTaskComment(
-          database,
-          taskId as MatterTaskId,
-          { body, mentionedUserIds: (mentionedUserIds ?? []) as UserId[] },
-          options,
-        );
-        return { id: commentId, effect };
-      });
-    },
-  );
-
-  app.openapi(
-    { ...editTaskCommentRoute, middleware: chokepointMiddleware(chokepoint, editTaskCommentRoute) },
-    async (c) => {
-      const { commentId } = c.req.valid("param");
-      const { body, mentionedUserIds } = c.req.valid("json");
-      return acknowledgeWrite(c, (database, options) =>
-        editTaskComment(
-          database,
-          commentId as MatterTaskCommentId,
-          { body, mentionedUserIds: (mentionedUserIds ?? []) as UserId[] },
-          options,
-        ),
-      );
-    },
-  );
-
-  app.openapi(
-    {
-      ...deleteTaskCommentRoute,
-      middleware: chokepointMiddleware(chokepoint, deleteTaskCommentRoute),
-    },
-    async (c) => {
-      const { commentId } = c.req.valid("param");
-      return acknowledgeWrite(c, (database, options) =>
-        deleteTaskComment(database, commentId as MatterTaskCommentId, options),
       );
     },
   );
