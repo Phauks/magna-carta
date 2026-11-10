@@ -62,6 +62,10 @@ export type PreparedSearch =
       readonly kind: "candidates";
       readonly statements: readonly SqlStatement[];
       readonly arrange: (rows: readonly MatterSearchRawRow[]) => MatterSearchRawRow[];
+      // What the outside index's own store adds to the rows a reader is about to be shown, after
+      // the limit has cut the rest: an excerpt, read from where the text is kept. Run on the rows
+      // the statement returned and nothing else, so it cannot add a result, only say more about one.
+      readonly quote?: (rows: readonly MatterSearchRawRow[]) => Promise<MatterSearchRawRow[]>;
     };
 
 export interface MatterSearchSource {

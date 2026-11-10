@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { FileId } from "@magna-carta/identifiers/types";
+import {
+  insertIndexSplitMemberStatement,
+  insertIndexSplitStatement,
+} from "@magna-carta/data-access/index-split-statements";
+import type { FileId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { freshDatabase, seedMatter } from "./support.ts";
 import {
   getCurrentVersionForIntegrity,
   getFileSummary,
   getVersionForIntegrity,
   listCleanVersions,
+  listQuotableIndexedVersions,
   listVersionScanEvents,
 } from "../src/queries.ts";
 
@@ -210,5 +215,115 @@ describe("a file's scan history", () => {
     // A scan row records nothing about queuing, and must never be read as a failure to queue.
     expect(history[0]?.queued).toBeNull();
     expect(history[2]?.queued).toBeNull();
+  });
+});
+
+// A live row of the file contents index's catalog, for one document version or for a merged split.
+function split(
+  database: BatchDatabase,
+  row: { id: string; corpusId: string; documentId: string | null; version: number | null },
+) {
+  return insertIndexSplitStatement(database, {
+    id: row.id as IndexSplitId,
+    matterId: "matter_a" as MatterId,
+    corpusKind: "matter",
+    corpusId: row.corpusId,
+    documentId: row.documentId as FileId | null,
+    version: row.version,
+    objectKey: `search/${row.id}`,
+    documentCount: 1,
+    sizeBytes: 1,
+    schemaGeneration: 2,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  }).run();
+}
+
+describe("which version of a file a search result may quote", () => {
+  it("answers the version the index holds, as its own split or inside a merged one", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const own = await seedFileWithCleanVersion(database, matterId);
+    const merged = await seedFileWithCleanVersion(database, matterId);
+    const unindexed = await seedFileWithCleanVersion(database, matterId);
+    await split(database, {
+      id: "split_own",
+      corpusId: matterId,
+      documentId: own.fileId,
+      version: 1,
+    });
+    await split(database, {
+      id: "split_merged",
+      corpusId: matterId,
+      documentId: null,
+      version: null,
+    });
+    await insertIndexSplitMemberStatement(database, {
+      splitId: "split_merged" as IndexSplitId,
+      documentId: merged.fileId,
+      version: 1,
+    }).run();
+
+    const versions = await listQuotableIndexedVersions(database, matterId, [
+      own.fileId,
+      merged.fileId,
+      unindexed.fileId,
+    ]);
+
+    expect([...versions]).toEqual(
+      expect.arrayContaining([
+        [own.fileId, 1],
+        [merged.fileId, 1],
+      ]),
+    );
+    expect(versions.has(unindexed.fileId)).toBe(false);
+    expect(await listQuotableIndexedVersions(database, matterId, [])).toEqual(new Map());
+  });
+
+  it("answers nothing for a deleted file, another matter's file, or a version that is not clean", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const deleted = await seedFileWithCleanVersion(database, matterId);
+    const withdrawn = await seedFileWithCleanVersion(database, matterId);
+    const elsewhere = await seedFileWithCleanVersion(database, matterId);
+    const superseded = await seedFileWithCleanVersion(database, matterId);
+    await Promise.all(
+      [deleted, withdrawn, elsewhere].map((file, index) =>
+        split(database, {
+          id: `split_${index}`,
+          corpusId: matterId,
+          documentId: file.fileId,
+          version: 1,
+        }),
+      ),
+    );
+    await database
+      .prepare("UPDATE file SET deleted_at = '2026-02-01T00:00:00.000Z' WHERE id = ?1")
+      .bind(deleted.fileId)
+      .run();
+    await database
+      .prepare("UPDATE file_version SET status = 'quarantined' WHERE file_id = ?1")
+      .bind(withdrawn.fileId)
+      .run();
+    // A split that a merge has replaced is not what the index holds any more.
+    await split(database, {
+      id: "split_old",
+      corpusId: matterId,
+      documentId: superseded.fileId,
+      version: 1,
+    });
+    await database
+      .prepare(
+        "UPDATE index_split SET superseded_at = '2026-02-01T00:00:00.000Z' WHERE id = 'split_old'",
+      )
+      .run();
+
+    const all = [deleted.fileId, withdrawn.fileId, elsewhere.fileId, superseded.fileId];
+    // The index's rows are this matter's; the question names another. The file is not filed there.
+    expect(await listQuotableIndexedVersions(database, "matter_b" as MatterId, all)).toEqual(
+      new Map(),
+    );
+    expect([...(await listQuotableIndexedVersions(database, matterId, all))]).toEqual([
+      [elsewhere.fileId, 1],
+    ]);
   });
 });

@@ -41,6 +41,20 @@ export interface MatterFileContentsSearcher {
     // How many passages to return at most.
     readonly limit: number;
   }): Promise<FileContentsAnswer>;
+  // The sentence each of these files is quoted by: for each file, an excerpt of the passage named,
+  // where the reader's words are. Asked only for files the search's own statement has already
+  // returned, so nothing is quoted from a file the database refused. A file is simply absent from
+  // the answer when it cannot be quoted (its text was not kept, it has changed since it was
+  // indexed, the words are past what is read), and the result then names its pages alone. Never
+  // throws: a quote is an addition to an answer, and failing one must not cost the answer.
+  //
+  // Optional, because the text is kept by the application and a searcher without it still answers.
+  excerpts?(input: {
+    readonly matterId: MatterId;
+    // The reader's own text. The words are found again in the passage by the index's rules.
+    readonly readerText: string;
+    readonly files: readonly FileContentsPassage[];
+  }): Promise<ReadonlyMap<string, string>>;
 }
 
 // One file can match on many pages, and a search wants files. Asking for several passages per file
@@ -57,6 +71,8 @@ export function passagesToAskFor(fileLimit: number): number {
 export interface FileContentsCandidate {
   readonly fileId: string;
   readonly pages: readonly number[];
+  // The file's best passage, as the index named it: the one a result quotes from.
+  readonly bestChunkId: string;
 }
 
 const PAGE_CHUNK = /^page-(\d+)$/u;
@@ -67,21 +83,26 @@ export function candidatesFrom(
   passages: readonly FileContentsPassage[],
   fileLimit: number,
 ): FileContentsCandidate[] {
-  const pagesByFile = new Map<string, number[]>();
+  const byFile = new Map<string, { readonly pages: number[]; readonly bestChunkId: string }>();
   for (const passage of passages) {
-    let pages = pagesByFile.get(passage.fileId);
-    if (pages === undefined) {
-      if (pagesByFile.size >= fileLimit) continue;
-      pages = [];
-      pagesByFile.set(passage.fileId, pages);
+    let file = byFile.get(passage.fileId);
+    if (file === undefined) {
+      if (byFile.size >= fileLimit) continue;
+      // Passages arrive best first, so a file's first passage is its best.
+      file = { pages: [], bestChunkId: passage.chunkId };
+      byFile.set(passage.fileId, file);
     }
     const match = PAGE_CHUNK.exec(passage.chunkId);
     if (match === null) continue;
     // The index counts pages from zero; a reader counts from one.
     const page = Number(match[1]) + 1;
-    if (!pages.includes(page)) pages.push(page);
+    if (!file.pages.includes(page)) file.pages.push(page);
   }
-  return [...pagesByFile].map(([fileId, pages]) => ({ fileId, pages }));
+  return Array.from(byFile, ([fileId, file]) => ({
+    fileId,
+    pages: file.pages,
+    bestChunkId: file.bestChunkId,
+  }));
 }
 
 // How many pages a result names before it says how many more there are.
@@ -119,4 +140,37 @@ export function arrangeByCandidates(
     arranged.push({ ...row, secondary: secondary.length === 0 ? null : secondary.join(" · ") });
   }
   return arranged;
+}
+
+// Puts on each row the sentence its file is quoted by, for the rows that have one. The rows are the
+// ones a reader is about to be shown, and only those: a quote is read from the firm's storage, one
+// read or two a file, so it is not fetched for a row that is then cut off by the limit.
+export async function quoteCandidates(
+  rows: readonly MatterSearchRawRow[],
+  candidates: readonly FileContentsCandidate[],
+  request: {
+    readonly matterId: MatterId;
+    readonly readerText: string;
+    readonly searcher: MatterFileContentsSearcher;
+  },
+): Promise<MatterSearchRawRow[]> {
+  if (request.searcher.excerpts === undefined || rows.length === 0) return [...rows];
+  const bestChunkByFile = new Map(
+    candidates.map((candidate) => [candidate.fileId, candidate.bestChunkId]),
+  );
+  const files: FileContentsPassage[] = [];
+  for (const row of rows) {
+    const chunkId = bestChunkByFile.get(row.row_id);
+    if (chunkId !== undefined) files.push({ fileId: row.row_id, chunkId });
+  }
+  if (files.length === 0) return [...rows];
+  const excerpts = await request.searcher.excerpts({
+    matterId: request.matterId,
+    readerText: request.readerText,
+    files,
+  });
+  return rows.map((row) => {
+    const excerpt = excerpts.get(row.row_id);
+    return excerpt === undefined ? row : { ...row, snippet: excerpt };
+  });
 }

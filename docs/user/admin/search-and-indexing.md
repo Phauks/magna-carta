@@ -14,7 +14,8 @@ file is found by its name and its folder's name only.
 Turning it on does three things:
 
 - Every file added from then on is read when it arrives, and the words in it are added to an index
-  kept in your firm's own storage.
+  kept in your firm's own storage. The text that was read is kept beside it, also in your firm's
+  own storage, so that a result can quote the passage it matched.
 - The files your firm already holds are read in the background. The first hundred or so start
   straight away and the rest follow over the following days, the oldest first, so a large firm is
   not searchable in full on the first day.
@@ -32,8 +33,8 @@ firm's audit log.
 ## Turning it off
 
 With the switch off, no new file is read and **Inside Files** says "Off" in every matter's search.
-The index already built is kept, so turning the switch back on picks up where it stopped instead of
-reading every file again.
+The index already built, and the text kept beside it, stay in your firm's storage, so turning the
+switch back on picks up where it stopped instead of reading every file again.
 
 ## When the page says the search service is not connected
 

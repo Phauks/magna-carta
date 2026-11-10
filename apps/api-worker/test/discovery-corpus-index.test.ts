@@ -16,6 +16,7 @@ import type {
   ReviewSetId,
 } from "@magna-carta/identifiers/types";
 import { corpusOfReviewSet } from "@magna-carta/search/corpus";
+import { EXTRACTED_TEXT_PREFIX } from "@magna-carta/search/extracted-text";
 import { NATURAL_LANGUAGE_FEED_PREFIX } from "@magna-carta/search/natural-language-feed";
 import {
   naturalLanguageSearchEnabledDefinition,
@@ -377,6 +378,11 @@ describe("the review-set corpus with the index engine absent", () => {
       { chunkId: "page-0", text: "page one text", page: 1 },
       { chunkId: "page-1", text: "page two text", page: 2 },
     ]);
+
+    // No second copy of the text is kept for a result to quote from. A review document's text is
+    // the review pipeline's own object, under that pipeline's class, and it is the only one.
+    const kept = await env.R2.list({ prefix: `${EXTRACTED_TEXT_PREFIX}${reviewDocumentId}/` });
+    expect(kept.objects).toEqual([]);
 
     const backlog = await readReviewSetIndexBacklog(database, reviewSetId);
     expect(backlog.indexed).toBeGreaterThanOrEqual(1);

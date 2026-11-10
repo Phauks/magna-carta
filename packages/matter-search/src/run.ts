@@ -135,7 +135,8 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
       // The builder read one row past the limit. That extra row is the has-more probe and is never
       // returned — which is how a group says "there is more" without claiming a total nobody counted.
       const hasMore = rows.length > input.limit;
-      const kept = hasMore ? rows.slice(0, input.limit) : rows;
+      const cut = hasMore ? rows.slice(0, input.limit) : rows;
+      const kept = prepared?.quote === undefined ? cut : await prepared.quote(cut);
       return {
         source: source.key,
         section: source.sectionSlug,

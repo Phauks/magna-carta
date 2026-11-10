@@ -11,7 +11,7 @@ load-profile: in-progress
 tested: done
 branch: claude/project-thread-rixee1
 active-work: docs/active-work/claude/project-thread-rixee1.md
-next: the SEARCH_SERVICE binding once the search worker exists on the account, and keeping a file's extracted text so a result can quote its sentence, then the Search and Indexing status screen and the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one
+next: the SEARCH_SERVICE binding once the search worker exists on the account, then the Search and Indexing status screen and the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
 adrs:
@@ -32,4 +32,6 @@ One structure for everything the platform searches, approved by the owner on 202
 
 **Built: accents do not matter inside files.** The keyword engine composes a letter and its accent into one character (text taken out of a PDF often carries them apart), folds Latin letters to their unaccented form and lowercases, so "pena" finds "Peña" in a document as it does in a note. That is schema generation 2, taken before a production index exists. The engine writes out what it does to every letter (`crates/search-core/tests/fixtures/body-letter-folds.tsv`, held to the analyzer by a test), and the search box folds an unfinished word from a table rendered from that file, held to it by another. The address index, which is packaged in the same split format, now carries a generation of its own, so this change left its partitions readable.
 
-**Not built:** the status screen, the search across matters, the conflicts content search reading the index (its own stream), the kept text that would let a file result quote its sentence, the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).
+**Built: a file result quotes the passage it matched.** The index holds which words are on which page and not the sentences, so the index job keeps what it extracted, one object per indexed version of a matter's file in the firm's own bucket (`extracted-text/{fileId}/{version}`, a new object class), written before the catalog says the document is searchable. The search asks for quotes only for the rows it is about to show; one statement then answers which version the index holds, and only for a file on that matter, not deleted, whose version is clean. One passage is read by range and the reader's words are found in it again by the engine's own rules, so the excerpt goes out as the hit's existing snippet with no contract or interface change. A quote that cannot be read never fails a search. A review document's text is not copied.
+
+**Not built:** the status screen, the search across matters, the conflicts content search reading the index (its own stream), marking the matched words in a quote, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).

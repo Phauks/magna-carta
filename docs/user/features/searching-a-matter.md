@@ -43,9 +43,9 @@ row came back. Its plain public-record identifiers — a parcel number, a vehicl
 
 **Files are searched two ways, and the results keep them apart.** **Files** lists the files and
 folders whose _names_ match. **Inside Files** lists the documents whose _text_ matches, best match
-first, and says which pages the words were found on ("Pages 3 and 7"). Open the file and turn to the
-page; the result does not quote the sentence yet. See [Searching inside files](#searching-inside-files)
-below for what has to be switched on first.
+first, says which pages the words were found on ("Pages 3 and 7"), and quotes the sentence from the
+best of them. See [Searching inside files](#searching-inside-files) below for what has to be
+switched on first.
 
 Four sections do not answer yet — Fees, Trust, Emails and Overview — and each says so in the
 dropdown rather than being left out.
@@ -86,6 +86,14 @@ A result names the file, the folder it is in, and the pages that matched. When a
 matches on many pages, the three best are named and the rest are counted ("Pages 3, 7, 12 and 5
 more").
 
+Under the file's name the result **quotes the passage where your words are**, about two lines of
+it, taken from the page that matched best. It is there so you can tell whether this is the document
+you meant before you open it. One kind of result can name the file and quote nothing: a very long
+document that has no pages (a plain text file, a spreadsheet) when your words are far into it.
+
+The quote is the document's own text as it was read, so text recognized on a scanned page can carry
+the odd misread letter.
+
 Three things have to be true before **Inside Files** can answer, and the results tell you which one
 is missing instead of saying nothing matched:
 
@@ -100,7 +108,7 @@ is missing instead of saying nothing matched:
   and folder names were still searched; try again in a moment.
 
 A file that was deleted is found inside only when **Include deleted** is on, and is marked
-**Deleted**, the same as a file found by name.
+**Deleted**, the same as a file found by name. A deleted file is named and never quoted.
 
 ## Reading the results
 

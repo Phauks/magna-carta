@@ -9,7 +9,10 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { AUDIT_LOG_TABLE } from "@magna-carta/data-access/audit-statements";
-import { INDEX_SPLIT_TABLE } from "@magna-carta/data-access/index-split-statements";
+import {
+  INDEX_SPLIT_MEMBER_TABLE,
+  INDEX_SPLIT_TABLE,
+} from "@magna-carta/data-access/index-split-statements";
 import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import type {
   DocumentCheckoutId,
@@ -1432,6 +1435,45 @@ export async function listVersionsMissingFromSearchIndex(
     committed_at: string;
   }>();
   return results.map((row) => ({ versionId: row.id, committedAt: row.committed_at }));
+}
+
+// For each of a set of files, the version the matter's file contents index holds: the version whose
+// text a search result may quote. A file is answered for only when it is on this matter, is not
+// deleted, and that version is still clean, so a file that was moved, removed or held by the scan
+// since it was indexed is quoted from by nobody, whatever the index still says about it.
+//
+// The version comes from the catalog and not from the file's current version, because the two differ
+// for as long as a new version is waiting to be indexed, and the page an index match names is a page
+// of the version that was indexed. A version is live either as its own split or as a member of a
+// merged one; the newer wins in the moment a re-index leaves both.
+//
+// One statement for the whole set. The set is a page of search results, bounded by the caller.
+export async function listQuotableIndexedVersions(
+  database: SqlDatabase,
+  matterId: MatterId,
+  fileIds: readonly FileId[],
+): Promise<Map<FileId, number>> {
+  if (fileIds.length === 0) return new Map();
+  const placeholders = fileIds.map((_, index) => `?${index + 2}`).join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT held.document_id AS file_id, MAX(held.version) AS version FROM (` +
+        `SELECT s.document_id, s.version FROM ${INDEX_SPLIT_TABLE} s ` +
+        `WHERE s.corpus_id = ?1 AND s.superseded_at IS NULL AND s.document_id IN (${placeholders}) ` +
+        `UNION ALL ` +
+        `SELECT m.document_id, m.version FROM ${INDEX_SPLIT_MEMBER_TABLE} m ` +
+        `JOIN ${INDEX_SPLIT_TABLE} s ON s.id = m.split_id ` +
+        `WHERE s.corpus_id = ?1 AND s.superseded_at IS NULL AND m.superseded_at IS NULL ` +
+        `AND m.document_id IN (${placeholders})` +
+        `) held ` +
+        `JOIN ${FILE_TABLE} f ON f.id = held.document_id ` +
+        `JOIN ${FILE_VERSION_TABLE} v ON v.file_id = f.id AND v.version_number = held.version ` +
+        `WHERE f.matter_id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean' ` +
+        `GROUP BY held.document_id`,
+    )
+    .bind(matterId, ...fileIds)
+    .all<{ file_id: FileId; version: number }>();
+  return new Map(results.map((row) => [row.file_id, row.version]));
 }
 
 // The matter each of a set of files belongs to. The repair pass that stamps object metadata after the

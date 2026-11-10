@@ -232,12 +232,40 @@ match on file and folder names.
   differently on each, and differently again on an index that was asked and found nothing, so each
   is said.
 
-Two limits are recorded. A result names the file and the pages and **quotes nothing**, because the
-index stores which words are on which page and not the sentences, and a matter file's extracted text
-is not kept after it is indexed. Keeping it is step 6c. The second limit as first recorded, that
-the engine lowercased a word and left its accents, is closed: the engine composes a letter and its
-accent into one character, folds Latin letters to their unaccented form and lowercases, so a file
-search ignores accents as the record index does. That changed how every word is cut, so it is a new
+**A result quotes the sentence it matched, and the words come from the firm's storage, not from the
+index.** The index stores which words are on which page and not the sentences, and it is asked by a
+service that is believed about candidates and nothing else. So the index job keeps what it
+extracted: one object per indexed version of a matter's file, in the firm's own bucket, holding the
+same passages the split was built from. Three things follow from where it sits.
+
+- **It is written before the catalog says the document is searchable.** A failed write fails the
+  job and the queue retries it, so a search never returns a file it could not quote because of a
+  write nobody noticed. A version indexed before the text was kept simply has none, and its result
+  names its pages alone.
+- **It is read only for a row the search is about to show.** The search's own statement has by then
+  returned the file under the matter binding and the visibility predicate. The reader then asks one
+  more statement which version of each file the index holds, and it answers only for a file on this
+  matter, not deleted, whose indexed version is still clean. The passage the index named is read
+  from that version's object by range, and the reader's words are found in it again by the engine's
+  own rules for cutting and folding a word, so a match the engine made is a match the excerpt finds.
+- **It lives exactly as long as the version's own bytes.** It says nothing the version does not. A
+  review document is not written: its text is the review pipeline's own object, released when the
+  review set closes, and a second copy would outlive it.
+
+A quote is an addition to an answer. A missing object, a passage the words are not in, or storage
+that does not answer leaves the result naming its pages, and is never a failed search. The excerpt
+is plain text: the wire carries a string for every source, so the matched words are not marked yet.
+
+Three things are recorded and not solved. Nothing destroys a derived copy of a version today, the
+split, the natural-language feed object or the kept text, because nothing destroys a committed
+version: the purge point in `packages/file-manager/src/file-service.ts` is where all three go
+together when the retention engine calls it. Turning a firm's switch off stops new reading and
+deletes nothing. And a document read as one passage (plain text, a spreadsheet) is read to its
+first 256 kibibytes for a quote, so a match past that point names the file and quotes nothing.
+
+One limit recorded earlier is closed. The engine lowercased a word and left its accents; now it
+composes a letter and its accent into one character, folds Latin letters to their unaccented form
+and lowercases, so a file search ignores accents as the record index does. That changed how every word is cut, so it is a new
 schema generation, taken before the first production index existed because afterwards it means
 rebuilding every index. What remains recorded is the mechanism for that rebuild: the catalog keeps
 each split's generation, and nothing yet re-indexes the splits of an older one.
@@ -253,7 +281,7 @@ each split's generation, and nothing yet re-indexes the splits of an older one.
 | 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                           |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
 | 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Not built                                                                           |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                    |
 | 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                           |
 
 ## 6. Open with the owner

@@ -61,10 +61,19 @@ function foldOf(letter: string): string | undefined {
 // A word as the index holds it: each letter folded where the engine folds it, lowercased otherwise.
 // Letter by letter on purpose. The engine lowercases one character at a time, so a capital sigma is
 // the same letter wherever it stands in a word, and lowercasing the whole word would not agree.
-function asIndexed(word: string): string {
+export function asIndexed(word: string): string {
   let indexed = "";
   for (const letter of word) indexed += foldOf(letter) ?? letter.toLowerCase();
   return indexed;
+}
+
+// Every word of a text as the engine cuts it, and where each starts. The text is taken as given: a
+// caller that has not composed it yet composes it first, as the engine does.
+export function engineWordsOf(text: string): { readonly word: string; readonly start: number }[] {
+  return Array.from(text.matchAll(ENGINE_WORD), (match) => ({
+    word: match[0],
+    start: match.index,
+  }));
 }
 
 function byteLength(word: string): number {
