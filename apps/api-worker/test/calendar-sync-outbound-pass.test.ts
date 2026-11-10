@@ -565,12 +565,13 @@ interface IssueRow {
   state: string;
   sent_json: string;
   found_json: string | null;
+  provider_refused: number;
 }
 
 async function issues(): Promise<IssueRow[]> {
   const { results } = await firmDatabase
     .prepare(
-      "SELECT local_id, kind, state, sent_json, found_json FROM connection_sync_issue WHERE connection_id = ?1 ORDER BY local_id",
+      "SELECT local_id, kind, state, sent_json, found_json, provider_refused FROM connection_sync_issue WHERE connection_id = ?1 ORDER BY local_id",
     )
     .bind(CONNECTION)
     .all<IssueRow>();
@@ -828,7 +829,8 @@ describe("a repeating event", () => {
     provider.failNext("validation");
     expect(await pass(provider.port)).toMatchObject({ kind: "settled", report: { refused: 1 } });
     expect(await issues()).toMatchObject([
-      { local_id: SERIES, kind: "not_sent", state: "open", found_json: null },
+      // Stored as a copy the provider does not hold, flagged as one it never took.
+      { local_id: SERIES, kind: "removed", provider_refused: 1, state: "open", found_json: null },
     ]);
     expect(await links()).toMatchObject([{ local_id: SERIES, state: "failed" }]);
 

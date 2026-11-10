@@ -8379,11 +8379,16 @@ export const connectionSyncIssue = sqliteTable(
       .references(() => integrationConnection.id),
     localKind: text("local_kind", { enum: ["matter_event", "firm_event", "deadline"] }).notNull(),
     localId: text("local_id").notNull(),
-    kind: text("kind", { enum: ["changed", "removed", "not_sent"] }).notNull(),
+    // `removed` means the provider holds no copy: the member deleted it or, where
+    // `provider_refused` is set, the provider never took it.
+    kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
     state: text("state", { enum: ["open", "left"] }).notNull(),
     remoteVersionTag: text("remote_version_tag"), // the version of the copy the row is about
     sentJson: text("sent_json").notNull(),
-    foundJson: text("found_json"), // held only for a changed copy: the other two have no copy to read
+    foundJson: text("found_json"), // null when there is no copy to read
+    // The provider would not take the event at all, so there never was a copy. A column of its own
+    // and not a third `kind`: SQLite cannot widen a CHECK without rebuilding the table.
+    providerRefused: integer("provider_refused", { mode: "boolean" }).notNull().default(false),
     detectedAt: text("detected_at").notNull(),
     settledAt: text("settled_at"),
   },
@@ -8393,14 +8398,11 @@ export const connectionSyncIssue = sqliteTable(
       "connection_sync_issue_local_kind_check",
       sql`${table.localKind} IN ('matter_event', 'firm_event', 'deadline')`,
     ),
-    check(
-      "connection_sync_issue_kind_check",
-      sql`${table.kind} IN ('changed', 'removed', 'not_sent')`,
-    ),
+    check("connection_sync_issue_kind_check", sql`${table.kind} IN ('changed', 'removed')`),
     check("connection_sync_issue_state_check", sql`${table.state} IN ('open', 'left')`),
     check(
       "connection_sync_issue_found_shape_check",
-      sql`(${table.kind} = 'changed') = (${table.foundJson} IS NOT NULL)`,
+      sql`(${table.kind} = 'removed') = (${table.foundJson} IS NULL)`,
     ),
   ],
 );

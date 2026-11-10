@@ -40,8 +40,11 @@ export interface SyncIssueRow {
   readonly detected_at: string;
 }
 
+// The table holds two kinds and a flag; a reader is handed three kinds. `not_sent` is stored as a
+// copy the provider does not hold (`removed`) with `provider_refused` set, because the column's
+// vocabulary cannot be widened without rebuilding the table.
 const ISSUE_COLUMNS =
-  "local_kind, local_id, kind, state, remote_version_tag, sent_json, found_json, detected_at";
+  "local_kind, local_id, CASE WHEN provider_refused = 1 THEN 'not_sent' ELSE kind END AS kind, state, remote_version_tag, sent_json, found_json, detected_at";
 
 export function selectSyncIssuesStatement(
   database: SqlDatabase,
@@ -77,17 +80,18 @@ export function raiseSyncIssueStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${CONNECTION_SYNC_ISSUE_TABLE} (connection_id, local_kind, local_id, kind, state, remote_version_tag, sent_json, found_json, detected_at, settled_at) VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?6, ?7, ?8, NULL) ON CONFLICT (connection_id, local_kind, local_id) DO UPDATE SET kind = excluded.kind, state = 'open', remote_version_tag = excluded.remote_version_tag, sent_json = excluded.sent_json, found_json = excluded.found_json, detected_at = excluded.detected_at, settled_at = NULL`,
+      `INSERT INTO ${CONNECTION_SYNC_ISSUE_TABLE} (connection_id, local_kind, local_id, kind, state, remote_version_tag, sent_json, found_json, detected_at, settled_at, provider_refused) VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?6, ?7, ?8, NULL, ?9) ON CONFLICT (connection_id, local_kind, local_id) DO UPDATE SET kind = excluded.kind, state = 'open', remote_version_tag = excluded.remote_version_tag, sent_json = excluded.sent_json, found_json = excluded.found_json, detected_at = excluded.detected_at, settled_at = NULL, provider_refused = excluded.provider_refused`,
     )
     .bind(
       key.connectionId,
       key.localKind,
       key.localId,
-      issue.kind,
+      issue.kind === "not_sent" ? "removed" : issue.kind,
       issue.remoteVersionTag,
       issue.sentJson,
       issue.foundJson,
       now,
+      issue.kind === "not_sent" ? 1 : 0,
     );
 }
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1c681cbe-8ff2-407f-aecf-895f7f6da30b",
+  "id": "43977b3f-9e13-4336-a281-256897bd8398",
   "prevId": "77b7f5ad-1923-489e-96a4-2872daac45ae",
   "tables": {
     "account_balance": {
@@ -2423,6 +2423,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "provider_refused": {
+          "name": "provider_refused",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "detected_at": {
           "name": "detected_at",
           "type": "text",
@@ -2472,7 +2480,7 @@
         },
         "connection_sync_issue_kind_check": {
           "name": "connection_sync_issue_kind_check",
-          "value": "\"connection_sync_issue\".\"kind\" IN ('changed', 'removed', 'not_sent')"
+          "value": "\"connection_sync_issue\".\"kind\" IN ('changed', 'removed')"
         },
         "connection_sync_issue_state_check": {
           "name": "connection_sync_issue_state_check",
@@ -2480,7 +2488,7 @@
         },
         "connection_sync_issue_found_shape_check": {
           "name": "connection_sync_issue_found_shape_check",
-          "value": "(\"connection_sync_issue\".\"kind\" = 'changed') = (\"connection_sync_issue\".\"found_json\" IS NOT NULL)"
+          "value": "(\"connection_sync_issue\".\"kind\" = 'removed') = (\"connection_sync_issue\".\"found_json\" IS NULL)"
         }
       }
     },
