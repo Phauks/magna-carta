@@ -152,6 +152,7 @@ function recorder(remote = new Map<string, RemoteCopy>()): {
         const copy = remote.get(remoteId);
         return Promise.resolve(ok(copy === undefined ? null : snapshotOf(remoteId, copy)));
       },
+      listCalendarEvents: () => Promise.resolve(ok({ events: [], complete: true })),
       watchChanges: (request) =>
         Promise.resolve(ok({ watchId: "watch-1", expiresAt: request.expiresAt })),
       renewWatch: (watchId, expiresAt) => Promise.resolve(ok({ watchId, expiresAt })),

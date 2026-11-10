@@ -89,6 +89,26 @@ export interface ProviderWrittenEvents {
   readonly complete: boolean;
 }
 
+// One event in one of the member's calendars, whoever made it. A day of a series names the series
+// it belongs to, which is how a caller tells a day of a series this platform wrote from one the
+// member made themselves.
+export interface ProviderCalendarEvent extends ProviderEventSnapshot {
+  readonly seriesRemoteId: string | null;
+}
+
+// A calendar's events inside a window. `complete` is false when the provider had more than the
+// adapter was willing to page through, in which case an event missing from the list proves nothing.
+export interface ProviderCalendarEvents {
+  readonly events: readonly ProviderCalendarEvent[];
+  readonly complete: boolean;
+}
+
+// Two instants. An event that touches the time between them is inside.
+export interface ProviderEventWindow {
+  readonly fromInstant: string;
+  readonly toInstant: string;
+}
+
 // A standing request that the provider say when anything in the member's calendar changes, so a
 // change is picked up when it happens instead of at the next pass that happened to run. The notice
 // carries nothing about the change: it only says "look again", and the look is the ordinary pass.
@@ -139,6 +159,13 @@ export interface CalendarSyncPort {
   // One copy by its identifier, or null when the provider no longer has it. The answer that
   // settles whether a copy missing from the list is really gone.
   readEvent(remoteId: string): Promise<Dispatch<ProviderEventSnapshot | null>>;
+  // Everything in one calendar inside a window: the member's own events and this platform's copies
+  // alike, a series as one entry per day it falls on, an event called off left out. Null when the
+  // account no longer has the calendar. Nothing is changed at the provider.
+  listCalendarEvents(
+    calendarRemoteId: string,
+    window: ProviderEventWindow,
+  ): Promise<Dispatch<ProviderCalendarEvents | null>>;
   // Begins a watch on the member's whole calendar account.
   watchChanges(request: ProviderChangeWatchRequest): Promise<Dispatch<ProviderChangeWatch>>;
   // Keeps a watch going until a later instant. Null when the provider no longer has the watch, in
@@ -158,6 +185,7 @@ export const CALENDAR_SYNC_OPERATIONS = [
   "deleteEvent",
   "listWrittenEvents",
   "readEvent",
+  "listCalendarEvents",
   "watchChanges",
   "renewWatch",
   "stopWatch",

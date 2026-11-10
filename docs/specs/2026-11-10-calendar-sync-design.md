@@ -240,6 +240,26 @@ Magna Carta stores an RFC 5545 rule. Google uses the same text; Graph uses a str
 the Microsoft adapter converts both ways, with a test for every shape the repeat editor can produce.
 A rule Graph cannot hold is not sent and raises an issue.
 
+As built, events a member made in Outlook are read into `external_calendar_event`, private to that
+member. The member chooses which of their account's calendars are shown
+(`calendar_sync_shown_calendar`, replaced whole through
+`PUT /api/v1/me/calendar-sync/shown-calendars`); a calendar shared to them read-only is as good a
+choice as their own. At the end of each pass `apps/api-worker/src/calendar-sync/shown-calendars.ts`
+asks the provider for each chosen calendar's view of a window (a month back, a year ahead) and
+makes the table agree: a new event is written, one whose version tag changed is written again, and
+one the provider no longer lists is removed, unless the provider's list was cut short. A copy this
+platform wrote is left out, a single one by its identifier in `calendar_sync_link` and a day of a
+series by the series it belongs to. The window is asked through Graph's `calendarView`, which lays
+a series out as its days, so the table holds one row per day and no repeat rule; that is the one
+departure from the table as designed above, which carried a rule. A whole-day event is stored as
+civil days and a timed one as two instants, because the provider answers in its own zone and the
+reader's screen decides the day and hour. The read route
+(`GET /api/v1/me/calendar-sync/account-events`) finds the account through the session member and
+nothing a request names, and answers from the table without asking the provider. Colleagues see
+nothing, not even busy time, which leaves that open question as it was. Attaching one of these
+events to a matter is not built. The whole window is read again on each pass; a delta cursor is the
+next step if that proves slow.
+
 As built for Graph, a series leaves as one event carrying a `recurrence` pattern and range
 ([recurrencePattern](https://learn.microsoft.com/en-us/graph/api/resources/recurrencepattern?view=graph-rest-1.0),
 [recurrenceRange](https://learn.microsoft.com/en-us/graph/api/resources/recurrencerange?view=graph-rest-1.0)).

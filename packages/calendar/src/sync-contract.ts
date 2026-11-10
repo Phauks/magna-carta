@@ -1,3 +1,4 @@
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { z } from "zod";
 
 // What the connected-accounts routes accept and return, as plain zod named with `.meta({ id })`.
@@ -104,6 +105,15 @@ export const CalendarSyncRule = z
   })
   .meta({ id: "CalendarSyncRule" });
 
+export const CalendarSyncShownCalendar = z
+  .object({
+    calendarRemoteId: z.string(),
+    calendarName: z
+      .string()
+      .describe("The calendar's name when it was chosen, shown when the provider is unreachable."),
+  })
+  .meta({ id: "CalendarSyncShownCalendar" });
+
 export const CalendarSyncSettings = z
   .object({
     account: ConnectedAccount.nullable().describe(
@@ -118,6 +128,12 @@ export const CalendarSyncSettings = z
       ),
     subjects: z.array(CalendarSyncSubject),
     rules: z.array(CalendarSyncRule),
+    shownCalendars: z
+      .array(CalendarSyncShownCalendar)
+      .describe(
+        "The account's calendars the member chose to be shown their own events from. Empty until " +
+          "they choose one.",
+      ),
   })
   .meta({ id: "CalendarSyncSettings" });
 
@@ -196,3 +212,65 @@ export const CalendarSyncIssue = z
 export const CalendarSyncIssueList = z
   .object({ issues: z.array(CalendarSyncIssue) })
   .meta({ id: "CalendarSyncIssueList" });
+
+// A MEMBER'S OWN EVENTS, SHOWN BACK TO THEM: which calendars, and what is in them.
+
+// An account holds a handful of calendars; the cap exists so a request cannot be made of rows.
+const MAXIMUM_SHOWN_CALENDARS = 50;
+
+export const CalendarSyncShownCalendarsReplace = z
+  .object({
+    calendarRemoteIds: z
+      .array(z.string().min(1).max(512))
+      .max(MAXIMUM_SHOWN_CALENDARS)
+      .describe(
+        "The member's whole choice of calendars to be shown. A calendar absent from it is no " +
+          "longer read, and what was read from it is removed.",
+      ),
+  })
+  .meta({ id: "CalendarSyncShownCalendarsReplace" });
+
+const CIVIL_DAY = z.string().refine(isCivilDate, "must be a real day written YYYY-MM-DD");
+
+export const CalendarSyncAccountEventWindow = z
+  .object({
+    from: CIVIL_DAY.describe("The window's first day, as YYYY-MM-DD."),
+    to: CIVIL_DAY.describe("The window's last day, as YYYY-MM-DD."),
+  })
+  .meta({ id: "CalendarSyncAccountEventWindow" });
+
+export const CalendarSyncAccountEvent = z
+  .object({
+    id: z.string().describe("The provider's own identifier for the event."),
+    calendarRemoteId: z.string(),
+    calendarName: z.string().nullable(),
+    title: z.string(),
+    location: z.string().nullable(),
+    wholeDay: z.boolean(),
+    startsOn: z
+      .string()
+      .nullable()
+      .describe("The first day of a whole-day event, as YYYY-MM-DD. Null on a timed one."),
+    endsOn: z
+      .string()
+      .nullable()
+      .describe("The last day a whole-day event covers. Null on a timed one."),
+    startsAt: z
+      .string()
+      .nullable()
+      .describe(
+        "The instant a timed event starts. Null on a whole-day one. The reader's screen decides " +
+          "which day and hour that is.",
+      ),
+    endsAt: z.string().nullable(),
+  })
+  .meta({ id: "CalendarSyncAccountEvent" });
+
+export const CalendarSyncAccountEventList = z
+  .object({
+    events: z.array(CalendarSyncAccountEvent),
+    truncated: z
+      .boolean()
+      .describe("True when the window held more events than one answer carries."),
+  })
+  .meta({ id: "CalendarSyncAccountEventList" });
