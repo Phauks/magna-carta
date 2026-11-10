@@ -969,6 +969,9 @@ importers:
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract
+      '@magna-carta/mls':
+        specifier: workspace:*
+        version: link:../../packages/mls
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money

@@ -147,14 +147,12 @@ const CLIENT_DISPATCH = join(
  * not declare (so a rename cannot leave a stale exemption behind). An entry is a promise with a
  * deadline, not a way to land one end of a frame.
  */
-// The encrypted meeting's group frames are the second entry, on the same terms: the room's relay
-// landed first, and the browser's group client and frame transform are the next change.
 const AWAITING_THE_BROWSER: {
   readonly client: readonly string[];
   readonly room: readonly string[];
 } = {
-  client: ["captions", "mls-key-package", "mls-commit", "mls-proposal"],
-  room: ["caption", "mls-key-package", "mls-commit", "mls-welcome", "mls-proposal"],
+  client: ["captions"],
+  room: ["caption"],
 };
 
 const roomSource = readAll(ROOM_SOURCES);

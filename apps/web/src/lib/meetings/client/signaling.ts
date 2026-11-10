@@ -367,6 +367,12 @@ export interface RoomFrameHandlers {
    * told in exactly the words the room was told in and one code path plays both.
    */
   recording(frame: Record<string, unknown>): void;
+  /**
+   * One of an encrypted meeting's four key-group frames: a key package, a commit, a welcome or a
+   * proposal. Opaque bytes the room relays to the group's sockets alone; what they mean is the group
+   * client's (`encryption-group.ts`), and a meeting that is not encrypted never receives one.
+   */
+  group(frame: Record<string, unknown>): void;
   ended(frame: Record<string, unknown>): void;
   refused(frame: Record<string, unknown>): void;
   /**
@@ -661,6 +667,12 @@ export class MeetingSignaling {
         // Held behind the welcome like every frame about the room: the welcome itself carries the
         // recording running at arrival, so nothing said before it is lost by waiting for it.
         this.#handlers.recording(parsed);
+        return;
+      case "mls-key-package":
+      case "mls-commit":
+      case "mls-welcome":
+      case "mls-proposal":
+        this.#handlers.group(parsed);
         return;
       case "ended":
         this.#diagnostics.note({ kind: "ended" });

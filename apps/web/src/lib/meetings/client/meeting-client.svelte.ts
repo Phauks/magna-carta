@@ -132,6 +132,7 @@ import {
   type MeetingTrack,
   type MeetingTrackKind,
 } from "./signaling.ts";
+import type { EncryptionGroup } from "./encryption-group.ts";
 import {
   MeetingSubscriptions,
   RECONCILE_DEBOUNCE_MILLISECONDS,
@@ -753,6 +754,12 @@ export class MeetingClient {
   #questions: MeetingQuestionRelay = NO_QUESTION_RELAY;
   /** The stage every capture passes through on its way to the room. */
   readonly #effects: MediaEffectsStage;
+  /**
+   * This browser's place in an end-to-end encrypted meeting's key group, or null in a meeting that is
+   * not encrypted. Built when an encrypted meeting is joined; until then the key-group frames have
+   * nowhere to go, which is right, because the room sends them only to a group's members.
+   */
+  #encryptionGroup: EncryptionGroup | null = null;
 
   constructor(
     seams: MeetingClientSeams,
@@ -873,6 +880,9 @@ export class MeetingClient {
         // The announcement is the frame's whole content, so it is read whole and handed on; what it
         // means for the mark and whether it is news is the recording module's to decide.
         recording: (frame) => this.recording.noteFrame(readRecordingAnnouncement(frame)),
+        // An encrypted meeting's key-group frames, for the group client alone. A meeting that is not
+        // encrypted holds no group client and is never sent one.
+        group: (frame) => this.#encryptionGroup?.receive(frame),
         ended: () => {
           this.#leaving = true;
           this.state = "ended";
@@ -1629,6 +1639,8 @@ export class MeetingClient {
     stated: readonly MeetingParticipant[] = participants,
   ): void {
     this.participants = participants;
+    // An encrypted meeting's committer removes from the key group whoever the roster no longer holds.
+    this.#encryptionGroup?.noteLiveStays(participants.map((one) => one.participantId));
     this.#adoptPresenceFrom(participants, stated);
     this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
     this.#subscriptions.schedule();
@@ -1894,6 +1906,13 @@ export class MeetingClient {
     const reason = readString(frame, "reason") ?? "refused";
     if (FATAL_REFUSAL_REASONS.has(reason)) {
       this.#fail(reason);
+      return;
+    }
+    // The key group's two refusals are about the group's order, not about this meeting: a commit
+    // another member's beat, or a stay the group has not admitted yet. The group client recovers from
+    // both by itself, and nothing about them is the member's to read.
+    if (reason === "stale-epoch" || reason === "not-in-group") {
+      this.#encryptionGroup?.refused(reason);
       return;
     }
     // A directive from a socket holding no grant is not a fault in the wire and does not belong in

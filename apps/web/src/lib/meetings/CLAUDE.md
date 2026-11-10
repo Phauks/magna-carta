@@ -62,6 +62,20 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   reduction off, so the two never fight over the same sound, and publishes the filtered track in the
   microphone's place by the same `replaceTrack` swap. A filter that fails mid-meeting turns itself
   off and hands the member back to the browser's reduction with the reason in the panel.
+- `encryption-group.ts` — this browser's place in an end-to-end encrypted meeting's MLS key group,
+  over the engine in `@magna-carta/mls` (a seam, so a test drives the real WebAssembly engine): the
+  key package on arrival, founding when the room says so, the committer's one commit that admits
+  everybody waiting and removes everybody the roster no longer holds, applying other commits in the
+  room's order and discarding its own when another won (`stale-epoch`), and a host's pause as a
+  proposal. It hands each epoch's key to the frame cipher; membership and the pause are read from
+  the group state it verified, never from the room. Not yet built by the client: the meeting has no
+  `encrypted` flag until the next change, so the key-group frames have nowhere to go.
+- `frame-encryption.ts` and `frame-encryption.worker.ts` — the frame cipher (SFrame, RFC 9605) as
+  the `RTCRtpScriptTransform` runs it: a VP8 frame keeps its first bytes readable for the routing
+  service (ten on a keyframe, one otherwise) and authenticated, Opus is sealed whole, a frame that
+  does not open is DROPPED, and a frame in the clear is shown only while the group says encryption
+  is paused. Security code: the worker only moves frames and keys; the rules are in the pure module,
+  tested byte for byte in `test/meeting-encryption.test.ts`.
 - `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
   reader for what the room says about itself, and the two sentences a member reads when a host acts on
   them. A concern is a module, so none of it is a set of fields on the client.
