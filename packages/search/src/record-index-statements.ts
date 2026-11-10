@@ -194,6 +194,18 @@ export async function readRecordIndexPlaces(database: SqlDatabase): Promise<Reco
   }));
 }
 
+// Whether a place's index has fallen behind its records: the two counts differ. One definition, for
+// the screen that shows a place as behind and for the rebuild that puts it right, so a place the
+// screen names is exactly a place the rebuild takes.
+//
+// "Differ" and not "is short": an index holding a row its records no longer do is as wrong as one
+// missing a row, and a rebuild repairs both.
+export function recordIndexPlaceIsBehind(
+  place: Pick<RecordIndexPlace, "indexed" | "expected">,
+): boolean {
+  return place.indexed !== place.expected;
+}
+
 // Empties one source's index rows and derives them again from its records. Returned as statements
 // for the caller to run in ONE batch, so a reader never sees the source half-rebuilt.
 export function rebuildRecordIndexSourceStatements(

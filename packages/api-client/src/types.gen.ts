@@ -1178,6 +1178,11 @@ export type FirmSearchStatusResponse = {
     checkedAt: string;
     records: {
         places: Array<SearchStatusRecordPlace>;
+        rebuild: {
+            requestedAt: string | null;
+            finishedAt: string | null;
+            outstanding: boolean;
+        };
     };
     fileContents: {
         turnedOn: boolean;
@@ -1200,6 +1205,10 @@ export type SearchStatusRecordPlace = {
     readBy: Array<'matter-search' | 'conflicts-check'>;
     indexed: number;
     expected: number;
+};
+
+export type FirmSearchRebuildResponse = {
+    requestedAt: string;
 };
 
 export type ExportRenderRequest = {
@@ -13912,6 +13921,58 @@ export type FirmSearchStatusGetResponses = {
 };
 
 export type FirmSearchStatusGetResponse = FirmSearchStatusGetResponses[keyof FirmSearchStatusGetResponses];
+
+export type FirmSearchStatusRebuildData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-status/rebuild';
+};
+
+export type FirmSearchStatusRebuildErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchStatusRebuildError = FirmSearchStatusRebuildErrors[keyof FirmSearchStatusRebuildErrors];
+
+export type FirmSearchStatusRebuildResponses = {
+    /**
+     * The rebuild was asked for and is queued
+     */
+    202: FirmSearchRebuildResponse;
+};
+
+export type FirmSearchStatusRebuildResponse = FirmSearchStatusRebuildResponses[keyof FirmSearchStatusRebuildResponses];
 
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;

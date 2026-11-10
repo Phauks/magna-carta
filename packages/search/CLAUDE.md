@@ -66,6 +66,10 @@ ADR-0110, ADR-0111.)
 - `record-index-statements.ts` — the reads the index offers directly (ranked pointers, counts per
   source, and `readRecordIndexPlaces`: each source's indexed rows beside the records that belong
   in it) and its maintenance statements (rebuild one source, optimize)
+- `record-index-rebuild.ts` and `record-index-topics.ts` — a rebuild as the firm's records keep
+  it: the effect a request writes (an audit row and the outbox message that carries the work), the
+  row a completed rebuild leaves, and the read that says whether one is outstanding. The work
+  itself is `apps/api-worker/src/search/record-index-rebuild.ts`
 - `contract.ts` — the bodies of the firm's search status read and of the search across matters, as
   plain zod; the route modules in `apps/api-worker/src/http/routes/firm/search-status.ts` and
   `apps/api-worker/src/http/routes/matters/search-across-matters.ts` declare their routes over them
@@ -209,6 +213,11 @@ are the ones the production modules adopted; keep the two in step.
   belongs in the index through `recordIndexExpectedCountSelect`, the same row select the triggers
   and the rebuild are rendered from, so the count cannot disagree with them about what a record
   is. It reads every row of every source table: it is for a screen a person opened.
+- **A rebuild decides what to rebuild when it runs.** The message that asks for one carries
+  nothing. The consumer counts with `readRecordIndexPlaces` and takes the places
+  `recordIndexPlaceIsBehind` names, the same definition the screen shows a place as behind by, so
+  a late or repeated delivery does the work needed then and no more. Do not add a list of places
+  to the message. One place is one batch; never rebuild two places in one transaction.
 - **No compound SELECT of more than five terms.** A firm's database refuses one, and plain SQLite
   in a package test does not, so a statement that works here can fail in a firm. There are eight
   sources: a read across all of them is a column per source or a `GROUP BY`, never a `UNION ALL`

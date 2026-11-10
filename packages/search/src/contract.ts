@@ -38,7 +38,17 @@ export const FirmSearchStatusResponse = z
   .object({
     // When these numbers were counted.
     checkedAt: z.string(),
-    records: z.object({ places: z.array(SearchStatusRecordPlace) }),
+    records: z.object({
+      places: z.array(SearchStatusRecordPlace),
+      // The rebuild of the places that are behind, as the firm's audit log records it. These are
+      // moments and not figures: when a member last asked for one, and when one last ran to its
+      // end. A request with no finish at or after it is a rebuild still to run.
+      rebuild: z.object({
+        requestedAt: z.string().nullable(),
+        finishedAt: z.string().nullable(),
+        outstanding: z.boolean(),
+      }),
+    }),
     fileContents: z.object({
       // The firm's switch: whether the contents of its files are indexed at all.
       turnedOn: z.boolean(),
@@ -66,6 +76,17 @@ export const FirmSearchStatusResponse = z
   .meta({ id: "FirmSearchStatusResponse" });
 
 export type FirmSearchStatusBody = z.infer<typeof FirmSearchStatusResponse>;
+
+// What asking for a rebuild answers: that it was asked for, and when. The rebuild itself runs
+// afterwards from a queue, so there is no count here and nothing about what it will find.
+export const FirmSearchRebuildResponse = z
+  .object({
+    // When the request was recorded.
+    requestedAt: z.string(),
+  })
+  .meta({ id: "FirmSearchRebuildResponse" });
+
+export type FirmSearchRebuildBody = z.infer<typeof FirmSearchRebuildResponse>;
 
 // ---- the search across matters ----
 //

@@ -11,7 +11,7 @@ load-profile: in-progress
 tested: done
 branch: claude/project-thread-rixee1
 active-work: docs/active-work/claude/project-thread-rixee1.md
-next: the SEARCH_SERVICE binding once the search worker exists on the account, then a rebuild for a place the status screen shows behind, and the owner's answer on whether calendar events are searched across matters
+next: the SEARCH_SERVICE binding once the search worker exists on the account, the owner's answer on whether calendar events are searched across matters, then the scope choices and marked words on the Search page
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
 adrs:
@@ -38,4 +38,6 @@ One structure for everything the platform searches, approved by the owner on 202
 
 **Built: one search across every matter a member may see.** `GET /api/v1/search` reads the matter search's own registry through a second door: a source may declare an across-matters reading, built by a builder that binds no matter and composes the visible-matter predicate before the limit, and a source without one is reported as searched inside a matter only. Notes, time, costs and calls answer through the record index and file names by substring; the page at `/search`, reached from the top bar's last row, adds matters and people by name through the reads their own screens use. The limit the record index's measurements recorded is met by taking the newest 2,000 matches before joining and marking the answer broad when there were more: on 200,000 synthetic records a word every record holds took about 26 ms against 363 ms unbounded. It reuses `search:matter`, so there is no new permission and no migration. No count on the page is a total.
 
-**Not built:** a rebuild for a place the screen shows behind, calendar events and the other four places a search across matters does not reach yet, marking the matched words in a quote, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).
+**Built: a place that is behind can be rebuilt.** While any place of the record index reads Behind, the page offers Rebuild. The request (`POST /api/v1/firm/search-status/rebuild`) writes an audit row and an outbox message in one batch and does none of the work; the per-firm job queue's consumer counts when it runs and rebuilds the places that are behind at that moment, one place to a transaction. The message names no place, so a late or repeated delivery does only what is needed then. A completed rebuild writes its own audit row, and the status read says from those two rows whether a rebuild is still to run. No migration and no new binding.
+
+**Not built:** a rebuild of the file contents index (the daily repair pass is its equivalent) or of an older schema generation, a rebuild in steps for a very large firm, calendar events and the other four places a search across matters does not reach yet, marking the matched words in a quote, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).

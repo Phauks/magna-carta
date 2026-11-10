@@ -4642,10 +4642,36 @@
                 "items": {
                   "$ref": "#/components/schemas/SearchStatusRecordPlace"
                 }
+              },
+              "rebuild": {
+                "type": "object",
+                "properties": {
+                  "requestedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "finishedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "outstanding": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "requestedAt",
+                  "finishedAt",
+                  "outstanding"
+                ]
               }
             },
             "required": [
-              "places"
+              "places",
+              "rebuild"
             ]
           },
           "fileContents": {
@@ -4749,6 +4775,17 @@
           "readBy",
           "indexed",
           "expected"
+        ]
+      },
+      "FirmSearchRebuildResponse": {
+        "type": "object",
+        "properties": {
+          "requestedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestedAt"
         ]
       },
       "ExportRenderRequest": {
@@ -51696,6 +51733,121 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/search-status/rebuild": {
+      "post": {
+        "description": "Asks for the places of the firm's record index that have fallen behind their records to be rebuilt. The request is recorded and answered at once; the rebuild runs afterwards, counts what is behind when it runs and rebuilds those places from the firm's records. An index is a copy, so nothing a firm holds is changed. The search status read says when a request is still to run.",
+        "operationId": "firmSearchStatus.rebuild",
+        "tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-operationId": "firmSearchStatus.rebuild",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageSearchSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The rebuild was asked for and is queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmSearchRebuildResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageSearchSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was reused with a different request",
             "content": {
               "application/problem+json": {
                 "schema": {

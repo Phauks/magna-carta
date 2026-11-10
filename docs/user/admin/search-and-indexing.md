@@ -52,8 +52,8 @@ your firm's own records at the moment the page opens; **Count Again** counts the
 
 - **Records** covers notes, time, costs, calendar events, calls and texts, tasks and Magnus
   conversations. It reads **Up to Date** when the index holds exactly the records your firm does,
-  and **Behind** when it does not. Behind should not happen in ordinary use; if you see it, tell
-  support which place is behind.
+  and **Behind** when it does not. Behind should not happen in ordinary use. When it does, a
+  **Rebuild** line appears beneath it; see [Rebuilding a place that is behind](#rebuilding-a-place-that-is-behind).
 - **Inside Files** shows how many of your firm's files have had their words read. It reads **Turned
   Off** while the setting above is off, **Not Connected** while the platform's search service is not
   connected, **Partly Indexed** while some files are not in the index, and **Up to Date** when all
@@ -79,9 +79,33 @@ Three things the figures do not include:
 Names and numbers, such as a file's name, a party's name or an invoice number, are matched where
 they are kept and do not appear in the table, because they need no index.
 
+## Rebuilding a place that is behind
+
+An index is a copy of what your firm's records say. If a place reads **Behind**, the copy and the
+records disagree, and a search of that place can miss a record or find one that has since changed.
+
+1. Under **What Is Indexed**, find the **Rebuild** line beneath **Records**. It is there only while
+   a place is behind.
+2. Click **Rebuild**.
+
+The line changes to **Rebuild Asked For** with the time you asked. The rebuild starts within a few
+minutes and runs in the background, so you can leave the page. It reads the places that are behind
+again from your firm's records. It changes nothing your firm holds: no note, time entry or message
+is edited, and nothing is deleted.
+
+Click **Count Again** to see where it stands. When the rebuild has finished, the line goes away and
+Records reads **Up to Date**. If Rebuild Asked For is still showing after a quarter of an hour,
+click **Ask Again**, and if the place still reads Behind afterwards, tell support which place it
+is.
+
+The firm's audit log records who asked for a rebuild, and which places each rebuild read again.
+
+Rebuild covers the records. Files are different: the files not yet read are picked up by the daily
+background reading described above, and there is nothing to press for them.
+
 ## Who can change it
 
 Only a member whose role carries the right to manage the firm's search settings, which the firm's
 Owner and Administrator roles hold. Everybody else sees the firm's answer on the same page, stated
 as a fact rather than as a control they cannot use. What the indexes hold is shown to the same
-members who can change the setting.
+members who can change the setting, and the same members can ask for a rebuild.
