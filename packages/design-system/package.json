@@ -29,6 +29,7 @@
     "./data-table": "./src/lib/components/data-table/index.ts",
     "./date-picker": "./src/lib/components/date-picker/index.ts",
     "./date-range-picker": "./src/lib/components/date-range-picker/index.ts",
+    "./date-time-field": "./src/lib/components/date-time-field/index.ts",
     "./definition-list": "./src/lib/components/definition-list/index.ts",
     "./dialog": "./src/lib/components/dialog/index.ts",
     "./folder-glyph": "./src/lib/components/folder-glyph/index.ts",

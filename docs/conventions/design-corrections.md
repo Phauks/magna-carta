@@ -449,6 +449,20 @@ is usually the fastest way to understand the rule.
   the same words the picker offers — so a reader can tell a colleague from a contact from a name
   typed once. And a source is named plainly: "Staff", not "Firm member"; "Other", not "Someone
   else". _(the participant picker, 2026-09-18)_
+- **A moment is ONE field: the day and the time in one box, chosen from one panel.** The design
+  system's `DateTimeField` holds a day, a time of day, or both (`mode`); its button opens the month
+  beside a list of times, and in date-only or time-only mode the panel shows only that half. The list
+  steps in fifteen minutes but the field takes any minute, and a time off the step appears in the list
+  in its place. "No time" is the list's first row where a record allows it ("All day" on an event),
+  replacing the All Day checkbox. This supersedes the platform time control the entry below asked for,
+  which drew in a different shape from every field around it. _(the calendar's event form,
+  2026-11-09: "can we combine the date and the time into a single component (which allows for one or
+  both) ... the time is not good looking"; option B chosen 2026-11-10, "in certain instance only the
+  left and right would show up ... non 15 minute intervals will occur")_
+- **An event's end starts as its start.** Choosing the start date fills the end date with it, and a
+  start time on an event with no end time puts the end an hour later. An end the reader set is kept.
+  _(the calendar's event form, 2026-11-09: "when making an event, assume start and end date are the
+  same")_
 - **A moment is a date, a time FIELD, and its zone as a shortcode, on one line.** The day, the hour
   and the zone that hour is read in are one fact (the one-moment-one-line rule, applied): a platform
   time control rather than a box hoping for `HH:MM`, and "PST" rather than "America / Los Angeles",

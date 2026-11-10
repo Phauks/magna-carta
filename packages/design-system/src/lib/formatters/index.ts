@@ -48,3 +48,4 @@ export {
 } from "./person-name.ts";
 export { placeholderOf, readsAsFieldName } from "./placeholder.ts";
 export { formatVersion, type VersionOptions } from "./version.ts";
+export { formatWallClockTime, type WallClockOptions } from "./wall-clock.ts";

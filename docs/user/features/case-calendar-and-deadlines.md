@@ -164,18 +164,23 @@ On a matter's own calendar there is nothing to choose — the matter is the one 
 
 Give the event a title, a date, and the time zone it happens in. Everything else is optional.
 
-- **A time is optional, and All day says so.** Leave the times off — or tick **All day**, which
-  clears them and switches the time fields off — and the event is an all-day one, which is what a
-  filing is. Put a time on and the event sits at that hour. A setting that runs across days, such
-  as a three-day trial, is drawn in the all-day band at the top of the week and the day whatever
-  hours it carries, spanning its days, with its hours written on the entry.
+- **A time is optional, and All day says so.** Open **Starts** and choose **All day** at the top of
+  the list of times, and the event is an all-day one, which is what a filing is: the times are
+  cleared and **Ends** asks for a day alone. Choose a time instead and the event sits at that hour.
+  A setting that runs across days, such as a three-day trial, is drawn in the all-day band at the
+  top of the week and the day whatever hours it carries, spanning its days, with its hours written
+  on the entry.
 - **The time zone is the one the event happens in** — for a hearing, the court's. A Nevada firm
   appearing in a California court records a Los Angeles hearing, because that is where nine in the
   morning is nine in the morning. Nothing about your firm, the matter, or your office can work that
   out on its own, so you are asked.
-- **A range is a range.** Set an end date for a three-day trial; leave it off for a point in time.
-- **Starts and Ends ask the same two questions**, a date and a time each, on lines the same shape
-  so the second never shifts under the first. **Time zone** is asked once beneath them, because one
+- **The end starts out the same as the start.** Pick the start date and the end date takes the same
+  day; pick a start time and the end is set an hour later. Change either to make a longer event, such
+  as a three-day trial.
+- **Starts and Ends are one field each**, holding the day and the time together. Type into it, or
+  press the arrow at its end to open the month beside a list of times. The list steps in fifteen
+  minutes, but any minute can be typed (a hearing at 9:40 shows up in the list in its place), and the
+  Ends list says how long the event would run beside each time. **Time zone** is asked once beneath them, because one
   setting is read in one zone. Every zone reads the same way — "(UTC-08:00) Pacific Standard Time ·
   Los Angeles": how far it is from UTC on that day, its name, and its city — and the list runs west
   to east. Type a code, a city or a name to find it: PST, pacific and los angeles all land on the
