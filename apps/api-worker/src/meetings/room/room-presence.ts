@@ -44,7 +44,9 @@ export const PRESENCE_RELAY_INTERVAL_MILLISECONDS = 1000;
  * of fewer frames.
  *
  * Answers WHEN a held-back transition is due, or null when nothing is waiting — so the caller arms
- * the alarm for that instant. The arming is the caller's rather than this module's because a room
+ * the alarm for that instant — and whether `speaking` itself moved, which is the one fact live captions
+ * are opened and closed on (room-captions.ts). Whether it moved is answered from the record, so a frame
+ * restating what is stored moves nothing, and a held-back transition moved it the moment it was stored. The arming is the caller's rather than this module's because a room
  * has exactly one alarm and one module that reconciles deadlines into it.
  *
  * THE DEADLINE IS ANSWERED RATHER THAN THE FACT, and that is a cost rather than a nicety. A bare
@@ -62,18 +64,25 @@ export async function relayPresence(
   attendanceId: string,
   speaking: boolean,
   muted: boolean,
-): Promise<number | null> {
+): Promise<{ readonly dueAt: number | null; readonly speakingMoved: boolean }> {
   const now = Date.now();
   const outcome = await room.ctx.blockConcurrencyWhile(
-    async (): Promise<{ relayAt: string | null; dueAt: number | null; hand: boolean }> => {
+    async (): Promise<{
+      relayAt: string | null;
+      dueAt: number | null;
+      hand: boolean;
+      speakingMoved: boolean;
+    }> => {
       const participant = await readParticipant(room, attendanceId);
-      if (participant === undefined) return { relayAt: null, dueAt: null, hand: false };
+      if (participant === undefined) {
+        return { relayAt: null, dueAt: null, hand: false, speakingMoved: false };
+      }
       // A frame restating what the room already holds is not a transition, whatever the browser
       // believes, and relaying it would spend a frame on every other socket to say nothing. It also
       // clears nothing: a deferred transition is deferred because the room has not said it yet, and
       // a restatement of what is stored is not the room having said it.
       if (participant.speaking === speaking && participant.muted === muted) {
-        return { relayAt: null, dueAt: null, hand: false };
+        return { relayAt: null, dueAt: null, hand: false, speakingMoved: false };
       }
       // Read rather than taken from the frame: the hand is settled by its own path before this runs,
       // and the record is the one authority on it — a frame relaying what the browser CLAIMED would
@@ -90,6 +99,7 @@ export async function relayPresence(
       });
       return {
         hand,
+        speakingMoved: participant.speaking !== speaking,
         relayAt: due ? at : null,
         // The window this transition is waiting on, measured from the last relay — which is exactly
         // what `presenceFlushDeadlineOf` would answer for the record just written.
@@ -99,7 +109,9 @@ export async function relayPresence(
       };
     },
   );
-  if (outcome.relayAt === null) return outcome.dueAt;
+  if (outcome.relayAt === null) {
+    return { dueAt: outcome.dueAt, speakingMoved: outcome.speakingMoved };
+  }
   // Its own frame rather than a roster difference: this is the one change to a participant that
   // happens while nothing else about them has, and wrapping two booleans in a roster entry would
   // carry their name, their session and every track they publish to say one of them moved.
@@ -112,7 +124,7 @@ export async function relayPresence(
     presenceDeltaFrame(attendanceId, speaking, muted, outcome.hand, outcome.relayAt),
     socket,
   );
-  return null;
+  return { dueAt: null, speakingMoved: outcome.speakingMoved };
 }
 
 /**

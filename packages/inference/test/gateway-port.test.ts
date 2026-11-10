@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { createGatewayInferencePort, GATEWAY_ID, type AiBinding } from "../src/gateway.ts";
+import { PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID } from "../src/catalog.ts";
+import {
+  createGatewayInferencePort,
+  GATEWAY_ID,
+  ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS,
+  type AiBinding,
+} from "../src/gateway.ts";
 
 const FIRM = "firm_t" as FirmId;
 
@@ -215,6 +221,45 @@ describe("createGatewayInferencePort.generateStream", () => {
     await expect(drain).rejects.not.toThrow(/secret-stream-leak/);
     // Usage settles (resolves, does not hang) even though the stream failed mid-iteration.
     expect(await result.value.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
+
+  it("sends a model hosted on Cloudflare the default answer length, and a third-party model none", async () => {
+    // A streamed draft on a Workers AI model would otherwise stop at its 256-token default.
+    const inputs: unknown[] = [];
+    const ai: AiBinding = {
+      async run(_model, input) {
+        inputs.push(input);
+        return (async function* (): AsyncGenerator<string> {
+          yield "x";
+        })();
+      },
+    };
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    await port.generateStream({
+      modelId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+      prompt: "Draft.",
+      firmId: FIRM,
+    });
+    await port.generateStream({
+      modelId: "anthropic/claude-opus-5-5",
+      prompt: "Draft.",
+      firmId: FIRM,
+    });
+    await port.generate({
+      modelId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+      prompt: "x",
+      firmId: FIRM,
+    });
+    expect(inputs[0]).toEqual({
+      prompt: "Draft.",
+      stream: true,
+      max_tokens: ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS,
+    });
+    expect(inputs[1]).toEqual({ prompt: "Draft.", stream: true });
+    expect(inputs[2]).toEqual({
+      prompt: "x",
+      max_tokens: ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS,
+    });
   });
 
   it("rejects a non-ZDR model fail-closed without ever calling the binding", async () => {

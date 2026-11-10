@@ -6,6 +6,7 @@ import {
   type WaitingParticipant,
 } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
+import { recordingForWelcome } from "./room-recording.ts";
 import { announceRoster, rosterEntriesFor, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   recordAdmitted,
@@ -291,15 +292,23 @@ export async function participantsAdmitted(
       //
       // The roster is the one built for WHO IS BEING WELCOMED: a guest let in is sent it with the
       // identifiers taken out, on the rule every roster frame to their socket follows.
-      trySend(
+      //
+      // Somebody let in while a recording runs is told on arrival, exactly as one who walked
+      // straight in is: the announcement and the notice row are the consent, and a welcome from the
+      // door that carried neither would be a person recorded who was never told. The notice is
+      // written only once the welcome was handed to the socket, for the reason the walk-in's is.
+      const recording = await recordingForWelcome(room, attachment);
+      const welcomed = trySend(
         socket,
         welcomeFrame(
           attendanceId,
           rosterEntriesFor(roster, viewerKindOf(attachment)),
           roomState,
           [],
+          recording?.announcement ?? null,
         ),
       );
+      if (welcomed) recording?.welcomeSent();
       // IN THE ROOM FROM HERE, and `waiting` lowered in the same write: the attachment is what
       // room-frames.ts reads to decide whether this socket may signal at all.
       socket.serializeAttachment({ ...attachment, waiting: false, welcomed: true });

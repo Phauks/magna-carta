@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Communication } from "$lib/communications/communications-api.ts";
 import {
+  activityRequest,
   draftChannel,
   draftEndedAt,
   draftFromCommunication,
@@ -12,6 +13,7 @@ import {
   logDraftReady,
   logDraftRequest,
   logDraftShortfalls,
+  messageTaskTitle,
   updateDraftRequest,
   type LogDraft,
 } from "$lib/communications/log-draft.ts";
@@ -177,6 +179,10 @@ describe("a picture message is a text, not a third kind", () => {
     summary: "Client's own note about it",
     producer: "member",
     loggedByUserId: "user_1",
+    callerIdName: null,
+    outcome: null,
+    spamKind: null,
+    messageTaskId: null,
     createdAt: "2026-09-07T18:35:00.000Z",
     updatedAt: "2026-09-07T18:35:00.000Z",
   };
@@ -233,6 +239,10 @@ const base: Communication = {
   summary: null,
   producer: "member",
   loggedByUserId: "user_1",
+  callerIdName: null,
+  outcome: null,
+  spamKind: null,
+  messageTaskId: null,
   createdAt: "2026-09-07T18:35:00.000Z",
   updatedAt: "2026-09-07T18:35:00.000Z",
 };
@@ -347,5 +357,65 @@ describe("a number carries its extension", () => {
     );
     expect(editing.counterpartyNumber).toBe("(702) 555-0143");
     expect(editing.counterpartyExtension).toBe("4102");
+  });
+});
+
+describe("the Activity a new record carries", () => {
+  it("needs no notes on a spam call or one that rang out", () => {
+    expect(logDraftReady(draft({ description: "", outcome: "spam" }), NOW)).toBe(true);
+    expect(
+      logDraftReady(draft({ description: "", direction: "outbound", outcome: "noAnswer" }), NOW),
+    ).toBe(true);
+    expect(logDraftReady(draft({ description: "", outcome: "answered" }), NOW)).toBe(false);
+  });
+
+  it("wants the colleague a transfer or a message names", () => {
+    expect(
+      logDraftShortfalls(draft({ direction: "inbound", outcome: "transferred" }), NOW),
+    ).toContain("Who the call went to.");
+    expect(
+      logDraftShortfalls(draft({ direction: "inbound", outcome: "messageTaken" }), NOW),
+    ).toContain("Who the message is for.");
+  });
+
+  it("files a spam call as spam whatever the anchor said", () => {
+    const fields = activityRequest(
+      draft({ outcome: "spam", spamKind: "sales", anchor: "matter", matterId: "matter_x" }),
+      "America/Los_Angeles",
+    );
+    expect(fields).toMatchObject({ outcome: "spam", spamKind: "sales", matterId: null });
+    expect(fields.disposition).toBe("spam");
+  });
+
+  it("turns a message into a task line named for the caller", () => {
+    const fields = activityRequest(
+      draft({
+        direction: "inbound",
+        outcome: "messageTaken",
+        callerIdName: "Maria Lopez",
+        messageForUserId: "user_marisol",
+        messageByDate: "2026-09-10",
+        messageUrgent: true,
+      }),
+      "America/Los_Angeles",
+    );
+    expect(fields.message).toEqual({
+      forUserId: "user_marisol",
+      title: "Call back Maria Lopez",
+      dueOn: "2026-09-10",
+      timeZone: "America/Los_Angeles",
+      urgent: true,
+    });
+    expect(
+      messageTaskTitle(draft({ messageRequest: "willCallAgain", callerIdName: "Maria Lopez" })),
+    ).toBe("Maria Lopez will call again");
+  });
+
+  it("hands a transfer's member over as the member on the call", () => {
+    const fields = activityRequest(
+      draft({ direction: "inbound", outcome: "transferred", transferToUserId: "user_marisol" }),
+      "UTC",
+    );
+    expect(fields.memberUserId).toBe("user_marisol");
   });
 });

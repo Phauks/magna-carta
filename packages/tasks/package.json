@@ -25,7 +25,8 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/matters": "workspace:*"
+    "@magna-carta/matters": "workspace:*",
+    "@magna-carta/meetings": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

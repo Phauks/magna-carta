@@ -17,6 +17,7 @@ import type { SafeBrowseRouteDeps } from "./routes/tools/safe-browse.ts";
 import type { WhoisRouteDeps } from "./routes/tools/whois.ts";
 import { registerWopiHostRoutes } from "../editing/wopi-host.ts";
 import { registerSplitObjectHostRoutes } from "../search/split-object-host.ts";
+import { registerMeetingSinkRoute } from "../meetings/meeting-sink-route.ts";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
 import { workerPlugins } from "../plugins/registry.ts";
 import type { PluginRuntime } from "../plugins/runtime.ts";
@@ -160,6 +161,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // Container, which holds no session and no R2 credentials. This is where a ranged read by the engine
   // becomes a ranged R2 GET, and where a published split is stamped with its object dimensions.
   registerSplitObjectHostRoutes(app);
+  // The socket the media routing service dials to hand a recorder or a captioner a track's audio
+  // (/internal/meeting-audio/*) — OUTSIDE the chokepoint for the reason the two surfaces above are:
+  // the caller is a Cloudflare service with no session and no cookie. Guarded by a signed, short-lived
+  // token per track, and refusing any request that carries an Origin, so no page can ever reach it.
+  registerMeetingSinkRoute(app);
 
   // The /api/v1 surface: every domain module in the manifest, each a sub-app built by
   // createDomainApp and mounted at the root, each route composed through the chokepoint (the one

@@ -238,6 +238,14 @@ describe("GET /api/v1/me", () => {
         // seats' act (20260919T001020_seed-meetings-permissions).
         "meetings:host",
         "meetings:join",
+        // Whether the firm's meetings may be recorded, captioned and summarized at all reaches
+        // Owner/Admin alone, the firm:manageAiSettings bracket: recording one meeting is a
+        // practitioner's act, deciding for every meeting is the firm's
+        // (20261110T000108_seed-meeting-settings-permission).
+        "meetings:manageSettings",
+        // meetings:record is seeded to exactly the seats that hold meetings:host, so no firm's
+        // behaviour changes the day it lands (20261110T000101_meeting-recording-and-who-was-told).
+        "meetings:record",
         // Seeded onto EVERY default role including Read-only — the deliberate contrast with
         // trust:read (20260807T020000_notifications-delivery). Reading one's own feed is not a
         // privilege: it is scoped to the session's own user id and every row is filtered by matter
@@ -300,6 +308,7 @@ describe("GET /api/v1/me", () => {
         "tools:fileTypeVerifier",
         "tools:fileWorkbench",
         "tools:firmUsage",
+        "tools:legalCitations",
         "tools:metadataScrubber",
         "tools:ocr",
         "tools:propertyListings",

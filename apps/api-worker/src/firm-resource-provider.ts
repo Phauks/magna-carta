@@ -4,6 +4,7 @@ import {
   locationHintForRegion,
   type DataRegion,
 } from "@magna-carta/database/data-region";
+import { MEETING_RECORDING_STAGING_PREFIX } from "@magna-carta/meetings/recording-types";
 import { browserUploadCorsRules } from "./files/browser-upload-cors.ts";
 
 // The provisioning port: how the firm provisioner obtains a firm's physical resources. The
@@ -30,11 +31,13 @@ export interface FirmResourceProvider {
   // rather than replacing them (see the adapter).
   // The region must match what createBucket used — the notification PUTs target the SAME bucket.
   configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void>;
-  // Apply the firm bucket's object-expiry rules. The transient prefixes are regenerable caches, and
+  // Apply the firm bucket's lifecycle rules. The transient prefixes are regenerable caches, and
   // nothing else expires them: `bundles/` is rebuilt on demand from its manifest, `conversions/` is
   // re-derivable from the source document. Without these rules every artifact a firm has ever
-  // downloaded or converted accumulates in its bucket forever, metered and paid for. Idempotent (a
-  // PUT of the whole rule set), and re-runnable for the same reason notifications are.
+  // downloaded or converted accumulates in its bucket forever, metered and paid for. Staged meeting
+  // audio expires a day after the recording sweep's own retention as its backstop, and `files/` is
+  // never expired — only an upload abandoned there has its parts reclaimed. Idempotent (a PUT of the
+  // whole rule set), and re-runnable for the same reason notifications are.
   configureBucketLifecycle(firmId: FirmId, region: DataRegion): Promise<void>;
   // Apply the firm bucket's CORS policy. The file-manager upload PUTs bytes from the browser straight
   // to a presigned URL on the bucket — a cross-origin request — and a bucket with no policy refuses
@@ -121,21 +124,75 @@ const FILES_NOTIFICATION_PREFIX = "files/";
 // The R2 key prefix for bulk-uploaded objects — the notification rule targets the bulk-ingest queue.
 const BULK_NOTIFICATION_PREFIX = "bulk/";
 
-// The transient prefixes and how long an object under each may live. Both hold REGENERABLE artifacts:
-// a bundle is rebuilt from its manifest hash on the next request, and a conversion result is
-// re-derived from the source document. Expiry therefore costs a rebuild and never a document — which
-// is exactly why these prefixes can carry a rule and the firm's own files cannot.
-const LIFECYCLE_RULES = [
-  // A download bundle: the shelf hands out short-TTL signed URLs against it, so a week outlives every
-  // link ever minted for it.
-  { id: "expire-download-bundles", prefix: "bundles/", maxAgeSeconds: 7 * 24 * 60 * 60 },
-  // A conversion result: handed back as one presigned GET and never referenced again.
-  { id: "expire-conversion-results", prefix: "conversions/", maxAgeSeconds: 24 * 60 * 60 },
-] as const;
+const DAY_SECONDS = 24 * 60 * 60;
 
-// An upload the client began and never completed. R2 keeps its parts, and they are metered, so they
-// are reclaimed a day after the last one was written.
-const ABANDONED_MULTIPART_MAX_AGE_SECONDS = 24 * 60 * 60;
+// One prefix's lifecycle: when an object under it is deleted, if ever, and when an upload begun under
+// it and never completed is aborted. R2's lifecycle PUT replaces the bucket's whole rule set, so a rule
+// that is not in this list is removed from every bucket on its next provisioning run — a rule added by
+// hand does not survive, and a firm provisioned later never has it. Every rule a firm bucket needs
+// therefore lives here.
+interface BucketLifecycleRule {
+  readonly id: string;
+  readonly prefix: string;
+  // Absent means objects under the prefix are NEVER deleted by age — the firm's own documents.
+  readonly expireObjectsAfterSeconds?: number;
+  // A multipart upload nobody completed keeps its parts, and its parts are metered. Nothing else
+  // reclaims an upload whose record is gone, so every prefix written by multipart carries one.
+  readonly abortIncompleteUploadsAfterSeconds: number;
+}
+
+// A staged meeting-recording track. The recording sweep (meetings/recording-sweep.ts) keeps a failed
+// or abandoned recording's staged tracks for seven days after the recording SETTLED, because they are
+// the only copy of what was captured, and deletes a filed recording's leftovers a day after filing.
+// Lifecycle age counts from when the object was CREATED, which can precede the settling by as much as
+// the twelve-hour maximum recording plus its compose attempts — so the rule waits one day past the
+// sweep's seven, and can only ever take what the sweep has already let go of or never reached (a pass
+// that failed for that firm, a row that no longer names its object). The same horizon applies to an
+// open staged upload: a track's upload stays open for as long as the recording runs in case its
+// speaker returns, and until it is completed it IS the captured audio, so the abort must never be what
+// decides that copy is lost before the retention does.
+const MEETING_RECORDING_STAGING_LIFETIME_SECONDS = 8 * DAY_SECONDS;
+
+// An upload under `files/` nobody completed. The longest-lived legitimate one is a member's resumable
+// browser upload, whose session lives a day (routes/uploads.ts) before the daily stale-pending sweep
+// aborts it, and a meeting recording's composite, written as one multipart upload across a queue
+// invocation per window of audio — a twelve-hour recording is seventy-two of them, and the recording
+// sweep fails a compose after three thirty-minute stalls, so even a backlogged compose finishes or
+// fails within hours. Seven days is many times either, so a live upload is never cut off; what the
+// rule reclaims is only what no record will ever complete or abort (a compose that failed holding its
+// upload, a session whose row was lost), at the cost of a week's storage for those parts.
+const FILES_ABANDONED_UPLOAD_LIFETIME_SECONDS = 7 * DAY_SECONDS;
+
+const LIFECYCLE_RULES: readonly BucketLifecycleRule[] = [
+  // A download bundle: the shelf hands out short-TTL signed URLs against it, so a week outlives every
+  // link ever minted for it. Regenerable — rebuilt from its manifest hash on the next request.
+  {
+    id: "expire-download-bundles",
+    prefix: "bundles/",
+    expireObjectsAfterSeconds: 7 * DAY_SECONDS,
+    abortIncompleteUploadsAfterSeconds: DAY_SECONDS,
+  },
+  // A conversion result: handed back as one presigned GET and never referenced again. Regenerable —
+  // re-derived from the source document.
+  {
+    id: "expire-conversion-results",
+    prefix: "conversions/",
+    expireObjectsAfterSeconds: DAY_SECONDS,
+    abortIncompleteUploadsAfterSeconds: DAY_SECONDS,
+  },
+  {
+    id: "expire-meeting-recording-staging",
+    prefix: `${MEETING_RECORDING_STAGING_PREFIX}/`,
+    expireObjectsAfterSeconds: MEETING_RECORDING_STAGING_LIFETIME_SECONDS,
+    abortIncompleteUploadsAfterSeconds: MEETING_RECORDING_STAGING_LIFETIME_SECONDS,
+  },
+  // The firm's documents: never expired, only an abandoned upload's parts reclaimed.
+  {
+    id: "abort-abandoned-file-uploads",
+    prefix: FILES_NOTIFICATION_PREFIX,
+    abortIncompleteUploadsAfterSeconds: FILES_ABANDONED_UPLOAD_LIFETIME_SECONDS,
+  },
+];
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
@@ -455,20 +512,33 @@ export function createCloudflareRestFirmResourceProvider(
         "PUT",
         `${accountBase}/r2/buckets/${bucketName}/lifecycle`,
         {
-          rules: LIFECYCLE_RULES.map((rule) => ({
-            id: rule.id,
-            enabled: true,
-            conditions: { prefix: rule.prefix },
-            deleteObjectsTransition: {
-              condition: { type: "Age", maxAge: rule.maxAgeSeconds },
-            },
-            // A multipart upload the client abandoned holds its parts, and its parts are metered.
-            // Nothing else reclaims them, so every prefix that can be written by multipart carries
-            // the abort rule beside its expiry.
-            abortMultipartUploadsTransition: {
-              condition: { type: "Age", maxAge: ABANDONED_MULTIPART_MAX_AGE_SECONDS },
-            },
-          })),
+          rules: LIFECYCLE_RULES.map((rule) =>
+            Object.assign(
+              {
+                id: rule.id,
+                enabled: true,
+                conditions: { prefix: rule.prefix },
+              },
+              rule.expireObjectsAfterSeconds === undefined
+                ? {}
+                : {
+                    deleteObjectsTransition: {
+                      condition: {
+                        type: "Age",
+                        maxAge: rule.expireObjectsAfterSeconds,
+                      },
+                    },
+                  },
+              {
+                abortMultipartUploadsTransition: {
+                  condition: {
+                    type: "Age",
+                    maxAge: rule.abortIncompleteUploadsAfterSeconds,
+                  },
+                },
+              },
+            ),
+          ),
         },
         extraHeaders,
       );

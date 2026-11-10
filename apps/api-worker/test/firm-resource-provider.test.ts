@@ -7,6 +7,12 @@ import {
   firmResourceName,
 } from "../src/firm-resource-provider.ts";
 import { browserUploadCorsRules } from "../src/files/browser-upload-cors.ts";
+import { MEETING_RECORDING_STAGING_PREFIX } from "@magna-carta/meetings/recording-types";
+import {
+  FILED_STAGING_GRACE_MILLISECONDS,
+  UNSETTLED_STAGING_RETENTION_MILLISECONDS,
+} from "../src/meetings/recording-sweep.ts";
+import { MAXIMUM_RECORDING_HOURS } from "../src/meetings/sink-token.ts";
 
 describe("dev FirmResourceProvider (bucket-name adapter)", () => {
   it("createBucket answers a per-firm-unique deterministic name (the event→firm resolution key)", async () => {
@@ -319,6 +325,116 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     await usProvider.configureBucketNotifications(firmId, "us");
     expect(usStub.calls[0]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
     expect(usStub.calls[1]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+  });
+});
+
+// The shape the REST adapter PUTs to the bucket's lifecycle endpoint.
+interface LifecycleRuleBody {
+  readonly id: string;
+  readonly enabled: boolean;
+  readonly conditions: { readonly prefix: string };
+  readonly deleteObjectsTransition?: { readonly condition: { readonly maxAge: number } };
+  readonly abortMultipartUploadsTransition?: { readonly condition: { readonly maxAge: number } };
+}
+
+async function appliedLifecycleRules(region: "us" | "eu" = "us") {
+  const stub = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
+  const firmId = newIdentifier("firm");
+  await restProvider(stub).configureBucketLifecycle(firmId, region);
+  const call = stub.calls[0];
+  const rules = (call?.body as { rules: readonly LifecycleRuleBody[] }).rules;
+  const byPrefix = (prefix: string): LifecycleRuleBody => {
+    const rule = rules.find((candidate) => candidate.conditions.prefix === prefix);
+    if (rule === undefined) throw new Error(`no lifecycle rule for ${prefix}`);
+    return rule;
+  };
+  return { call, firmId, rules, byPrefix };
+}
+
+const DAY_SECONDS = 24 * 60 * 60;
+
+// R2's lifecycle PUT replaces the bucket's whole rule set, so a rule that is not in the provider's
+// list is gone from every bucket the next time provisioning reaches it. Every rule a firm bucket needs
+// is therefore pinned here, against the code that depends on it.
+describe("FirmResourceProvider — the bucket's lifecycle rules", () => {
+  it("dev adapter: configureBucketLifecycle is a no-op (Miniflare has no lifecycle engine)", async () => {
+    await expect(
+      createDevFirmResourceProvider().configureBucketLifecycle(newIdentifier("firm"), "us"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("REST adapter: PUTs the whole rule set onto the firm's bucket, jurisdiction header riding for an EU firm", async () => {
+    const us = await appliedLifecycleRules("us");
+    expect(us.call?.method).toBe("PUT");
+    expect(us.call?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/r2/buckets/${await firmResourceName(us.firmId)}/lifecycle`,
+    );
+    expect(us.call?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+    expect(us.rules.map((rule) => rule.conditions.prefix)).toEqual([
+      "bundles/",
+      "conversions/",
+      `${MEETING_RECORDING_STAGING_PREFIX}/`,
+      "files/",
+    ]);
+    expect(us.rules.every((rule) => rule.enabled)).toBe(true);
+    const eu = await appliedLifecycleRules("eu");
+    expect(eu.call?.headers["cf-r2-jurisdiction"]).toBe("eu");
+  });
+
+  it("keeps the regenerable caches' expiries", async () => {
+    const { byPrefix } = await appliedLifecycleRules();
+    expect(byPrefix("bundles/").deleteObjectsTransition?.condition.maxAge).toBe(7 * DAY_SECONDS);
+    expect(byPrefix("conversions/").deleteObjectsTransition?.condition.maxAge).toBe(DAY_SECONDS);
+  });
+
+  it("expires staged meeting audio only after the recording sweep's own retention has run out", async () => {
+    const { byPrefix } = await appliedLifecycleRules();
+    const staging = byPrefix(`${MEETING_RECORDING_STAGING_PREFIX}/`);
+    const expiryMilliseconds = (staging.deleteObjectsTransition?.condition.maxAge ?? 0) * 1000;
+    // Lifecycle age counts from the object's creation, and the sweep's retention from the recording
+    // settling — up to a whole maximum-length recording later. The rule must outlast both, or it
+    // deletes the only copy of a failed recording's audio while the sweep still promises to keep it.
+    const maximumRecordingMilliseconds = MAXIMUM_RECORDING_HOURS * 60 * 60 * 1000;
+    expect(expiryMilliseconds).toBeGreaterThanOrEqual(
+      UNSETTLED_STAGING_RETENTION_MILLISECONDS + maximumRecordingMilliseconds,
+    );
+    expect(expiryMilliseconds).toBeGreaterThan(FILED_STAGING_GRACE_MILLISECONDS);
+    // A bounded backstop, not an indefinite one: within two days of the sweep's figure.
+    expect(expiryMilliseconds).toBeLessThanOrEqual(
+      UNSETTLED_STAGING_RETENTION_MILLISECONDS + 2 * DAY_SECONDS * 1000,
+    );
+    // An open staged upload is the captured audio until it completes, so it is never aborted sooner.
+    expect(staging.abortMultipartUploadsTransition?.condition.maxAge).toBe(
+      staging.deleteObjectsTransition?.condition.maxAge,
+    );
+  });
+
+  it("never expires a firm's documents, and aborts an abandoned upload under files/ only after a week", async () => {
+    const { byPrefix } = await appliedLifecycleRules();
+    const files = byPrefix("files/");
+    expect(files.deleteObjectsTransition).toBeUndefined();
+    // Past the one-day browser upload session and the hours a twelve-hour recording's compose can
+    // take even when retried, so the rule cannot cut off an upload something will still complete.
+    expect(files.abortMultipartUploadsTransition?.condition.maxAge).toBe(7 * DAY_SECONDS);
+  });
+
+  it("carries an abandoned-upload abort on every prefix", async () => {
+    const { rules } = await appliedLifecycleRules();
+    for (const rule of rules) {
+      expect(rule.abortMultipartUploadsTransition?.condition.maxAge).toBeGreaterThan(0);
+    }
+  });
+
+  it("REST adapter: an API refusal surfaces as the named failure rather than a completed step", async () => {
+    const stub = stubFetch([
+      {
+        status: 400,
+        body: { success: false, errors: [{ code: 10043, message: "bad rule" }] },
+      },
+    ]);
+    await expect(
+      restProvider(stub).configureBucketLifecycle(newIdentifier("firm"), "us"),
+    ).rejects.toThrow(/configureBucketLifecycle failed: HTTP 400/);
   });
 });
 

@@ -1,0 +1,22 @@
+-- A SUMMARY'S PUT-OFF RUN IS KNOWN TO BE COMING, AND A CALL THE MODEL WILL NEVER TAKE STOPS BEING RETRIED.
+--
+-- Two columns on meeting_summary, both ADDED rather than rebuilt (it is a parent table: its action items
+-- reference it), and both handles of time and position — no content:
+--
+--   model_failure_call  the call of the run, counted from zero, at which the model last refused for now.
+--                       Nothing the binding throws says whether a refusal is an outage or an input the
+--                       model will never take (a part past its context, content it filters), so every
+--                       one is retried. But a run whose earlier calls were all answered has shown the
+--                       model is up: when the next run is refused at that same call again, the
+--                       summary fails with an Error ID instead of re-spending every earlier call ten
+--                       times over.
+--   retry_at            when the run a refusal put off is due. The refusal lets go of the claim, so
+--                       without it a member asking for the summary while the retry waits read it as
+--                       stranded and sent another message — a second chain of attempts beside the
+--                       first, and a third on the next press. A run is not claimed before it is due,
+--                       and a request in between sends nothing.
+--
+-- contract: nothing is dropped and nothing is rebuilt. Two nullable columns are added; every existing
+-- summary reads as having no refusal placed and no run put off, which is what its row already says.
+ALTER TABLE `meeting_summary` ADD `model_failure_call` integer CHECK (`model_failure_call` IS NULL OR `model_failure_call` >= 0);--> statement-breakpoint
+ALTER TABLE `meeting_summary` ADD `retry_at` text;

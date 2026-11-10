@@ -318,6 +318,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // so this seat carries both keys, where Billing joins and does not host.
         "meetings:host",
         "meetings:join",
+        // meetings:record is seeded to exactly the seats that hold meetings:host, so no firm's
+        // behaviour changes the day it lands (20261110T000101_meeting-recording-and-who-was-told).
+        "meetings:record",
         // A paralegal writes the note about the call they took, so this role carries both note keys.
         // Deleting rides notes:write rather than taking a key of its own: a member trusted to write
         // the firm's record of a case is trusted to remove what should not be in it. Billing and
@@ -353,6 +356,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // A paralegal answers "how much of this client's money do we hold"; moving it is
         // trust:manage, which they deliberately do not have.
         "trust:read",
+        "tools:legalCitations",
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
@@ -427,6 +431,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:ocr",
         "tools:safeBrowse",
         "tools:speedTest",
+        "tools:legalCitations",
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
@@ -476,6 +481,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:ocr",
         "tools:safeBrowse",
         "tools:speedTest",
+        "tools:legalCitations",
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and

@@ -112,3 +112,54 @@ export type CommunicationDisposition = (typeof COMMUNICATION_DISPOSITIONS)[numbe
 export function isCommunicationDisposition(value: string): value is CommunicationDisposition {
   return (COMMUNICATION_DISPOSITIONS as readonly string[]).includes(value);
 }
+
+// ---------------------------------------------------------------------------------------------
+// What happened on the line.
+// ---------------------------------------------------------------------------------------------
+
+// THE OUTCOME OF A CALL, which is a different fact from where its record is filed (owner ruling,
+// 2026-11-09: the Activity a call records, in formal words, with spam among them). Each direction has
+// its own set, because what can happen to a call the firm took and to one it placed are different
+// things: an incoming call is answered, passed to somebody else, left as a message, or was never a
+// real call at all; an outgoing one reached somebody, reached their voicemail, or rang out.
+export const INBOUND_CALL_OUTCOMES = Object.freeze([
+  "answered",
+  "transferred",
+  "messageTaken",
+  "spam",
+] as const);
+export const OUTBOUND_CALL_OUTCOMES = Object.freeze([
+  "connected",
+  "voicemailLeft",
+  "noAnswer",
+] as const);
+export const CALL_OUTCOMES = Object.freeze([
+  ...INBOUND_CALL_OUTCOMES,
+  ...OUTBOUND_CALL_OUTCOMES,
+] as const);
+export type CallOutcome = (typeof CALL_OUTCOMES)[number];
+
+export function isCallOutcome(value: string): value is CallOutcome {
+  return (CALL_OUTCOMES as readonly string[]).includes(value);
+}
+
+// The outcomes that need no notes and no length to be worth recording. A call that rang out, or one
+// that was a robocall, is fully described by saying so, and refusing it until somebody types a
+// summary would teach people to type "spam" into the summary instead.
+export const SELF_DESCRIBING_OUTCOMES: ReadonlySet<CallOutcome> = new Set([
+  "spam",
+  "noAnswer",
+  "voicemailLeft",
+] as const);
+
+// Which kind of unwanted call it was. Counted apart when the same number rings again, because a
+// wrong number is an honest mistake and a scam is a warning.
+export const SPAM_KINDS = Object.freeze(["sales", "wrongNumber", "scam"] as const);
+export type SpamKind = (typeof SPAM_KINDS)[number];
+
+export function isSpamKind(value: string): value is SpamKind {
+  return (SPAM_KINDS as readonly string[]).includes(value);
+}
+
+// The name a caller gave, as somebody typed it. A name, not a paragraph.
+export const MAX_CALLER_ID_NAME_LENGTH = 200;

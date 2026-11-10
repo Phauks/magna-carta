@@ -16,11 +16,13 @@
  * WHAT IS NOT ASSERTED is anything about pixels. These render under happy-dom.
  */
 import { flushSync, mount, unmount, type ComponentProps } from "svelte";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  awaitsAnswerFrom,
   isAcceptableAnswer,
   isOpenablePoll,
   MeetingPolls,
+  membersWhoCanAnswer,
   readPoll,
   readPollTally,
   type MeetingPollSeams,
@@ -37,6 +39,7 @@ type PanelProps = ComponentProps<typeof Panel>;
 function poll(over: Partial<MeetingPollView> = {}): MeetingPollView {
   return {
     pollId: "meetingPoll_1",
+    askedByUserId: "usr_host",
     question: "Which date works for the hearing?",
     anonymous: false,
     maxChoices: 1,
@@ -58,10 +61,13 @@ class Seams implements MeetingPollSeams {
   pages: MeetingPollView[][] = [[]];
   readonly answered: { pollId: string; optionIds: readonly string[] }[] = [];
   answerWith: MeetingPollView | null = null;
+  /** How many pages have been asked for, across every read. */
+  reads = 0;
 
   list(
     cursor: string | null,
   ): Promise<MeetingWrite<{ polls: MeetingPollView[]; nextCursor: string | null }>> {
+    this.reads += 1;
     const index = cursor === null ? 0 : Number(cursor);
     const nextCursor = index + 1 < this.pages.length ? String(index + 1) : null;
     return Promise.resolve({ kind: "ok", value: { polls: this.pages[index] ?? [], nextCursor } });
@@ -87,8 +93,10 @@ class Seams implements MeetingPollSeams {
     return Promise.reject(new Error("not asked"));
   }
 
-  every(): () => void {
-    return () => {};
+  /** A real interval, so a case on fake timers can let a minute pass and count what was read. */
+  every(milliseconds: number, tick: () => void): () => void {
+    const ticking = setInterval(tick, milliseconds);
+    return () => clearInterval(ticking);
   }
 }
 
@@ -165,6 +173,28 @@ describe("what a poll will take", () => {
   });
 });
 
+describe("who a poll can be answered by", () => {
+  it("counts the members in the room and never a guest, who has no way to answer", () => {
+    expect(
+      membersWhoCanAnswer([
+        { userId: "usr_1", kind: "member" },
+        { userId: "usr_2", kind: "member" },
+        { userId: "", kind: "guest" },
+        { userId: "", kind: "guest" },
+      ]),
+    ).toBe(2);
+  });
+
+  it("reads a row without a kind by the member identity a guest does not have", () => {
+    // A member's roster names a guest with no member handle, which the browser reads as empty.
+    expect(membersWhoCanAnswer([{ userId: "usr_1" }, { userId: "usr_2" }, { userId: "" }])).toBe(2);
+  });
+
+  it("takes the row's kind over the handle where the two disagree", () => {
+    expect(membersWhoCanAnswer([{ userId: "usr_1", kind: "guest" }])).toBe(0);
+  });
+});
+
 describe("the polls a room holds", () => {
   it("never lets a count go backwards, whichever door it came through", async () => {
     const seams = new Seams();
@@ -219,6 +249,24 @@ describe("the polls a room holds", () => {
     expect(seams.answered).toEqual([]);
   });
 
+  it("asks a host who did not open a poll to answer it, and counts it and announces it", () => {
+    const polls = new MeetingPolls(new Seams(), () => "usr_co_host");
+    polls.notePollOpened(poll({ askedByUserId: "usr_host" }));
+
+    expect(awaitsAnswerFrom(polls.polls[0] ?? poll(), "usr_co_host")).toBe(true);
+    expect(polls.waitingForAnswer).toBe(1);
+    expect(polls.openedUnseen).toBe(1);
+  });
+
+  it("neither counts nor announces the poll this member opened, whose answers they are watching", () => {
+    const polls = new MeetingPolls(new Seams(), () => "usr_host");
+    // The room's copy can land before the host's own write has answered.
+    polls.notePollOpened(poll({ askedByUserId: "usr_host" }));
+
+    expect(polls.waitingForAnswer).toBe(0);
+    expect(polls.openedUnseen).toBe(0);
+  });
+
   it("counts a poll that opened while the panel was shut, once, and forgets it when the panel opens", () => {
     const polls = new MeetingPolls(new Seams());
     polls.notePollOpened(poll());
@@ -230,6 +278,59 @@ describe("the polls a room holds", () => {
     expect(polls.openedUnseen).toBe(0);
     polls.notePollOpened(poll({ pollId: "meetingPoll_2" }));
     expect(polls.openedUnseen).toBe(0);
+  });
+});
+
+describe("when the polls are read", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reads once on arrival, and not at all through a minute of a healthy socket", async () => {
+    const seams = new Seams();
+    const polls = new MeetingPolls(seams);
+    polls.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(seams.reads).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(seams.reads).toBe(1);
+    polls.stop();
+  });
+
+  it("reads once when the panel opens", async () => {
+    const seams = new Seams();
+    const polls = new MeetingPolls(seams);
+    polls.start();
+    await vi.advanceTimersByTimeAsync(0);
+
+    polls.noteOpened();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(seams.reads).toBe(2);
+    polls.stop();
+  });
+
+  it("reads slowly while the socket is down, and once more when it is back", async () => {
+    const seams = new Seams();
+    const polls = new MeetingPolls(seams);
+    polls.start();
+    await vi.advanceTimersByTimeAsync(0);
+
+    polls.noteSocketLost();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(seams.reads).toBe(2);
+
+    polls.noteSocketRestored();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(seams.reads).toBe(3);
+    // And the backstop is gone with the outage.
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(seams.reads).toBe(3);
+    polls.stop();
   });
 });
 
@@ -250,7 +351,7 @@ describe("the polls panel", () => {
       subject: { facts: ["Hearing preparation"] },
       polls: [poll()],
       hosting: false,
-      inRoom: 30,
+      membersInRoom: 30,
       onOpenPoll: () => Promise.resolve(true),
       onAnswer: (pollId: string, optionIds: readonly string[]) => {
         asked.push(`answer:${pollId}:${optionIds.join(",")}`);
@@ -357,7 +458,10 @@ describe("the polls panel", () => {
   });
 
   it("offers a host the form, Close Poll, and who answered on a poll that shows names", () => {
-    instance = mount(Panel, { target, props: props({ hosting: true }) });
+    instance = mount(Panel, {
+      target,
+      props: props({ hosting: true, viewerUserId: "usr_host" }),
+    });
     flushSync();
 
     expect(document.body.textContent).toContain("New Poll");
@@ -365,9 +469,26 @@ describe("the polls panel", () => {
     expect(buttonReading("See Who Answered")).toBeDefined();
     // Two options to start, and nothing to open until the host has written a question.
     expect(buttonReading("Open Poll")?.disabled).toBe(true);
-    // A host watches the answers arrive rather than answering their own question.
+    // The host who asked watches the answers to their own question arrive.
     expect(document.body.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
     expect(buttonReading("Answer")).toBeUndefined();
+  });
+
+  it("lets a host answer a poll another host opened, like anybody", async () => {
+    instance = mount(Panel, {
+      target,
+      props: props({ hosting: true, viewerUserId: "usr_co_host" }),
+    });
+    flushSync();
+
+    expect(document.body.querySelector('[role="radiogroup"]')).not.toBeNull();
+    expect(document.body.querySelector('[role="progressbar"]')).toBeNull();
+    const radios = [...document.body.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    radios[0]?.click();
+    flushSync();
+    buttonReading("Answer")?.click();
+    await settle();
+    expect(asked).toEqual(["answer:meetingPoll_1:meetingPollOption_1"]);
   });
 
   it("offers no See Who Answered on a poll that does not show names", () => {

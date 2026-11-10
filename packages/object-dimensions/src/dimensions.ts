@@ -82,7 +82,13 @@ export type MatterScopedObjectClass =
   // handed over, and which of it could not be read — that survive the review set and are never
   // regenerated. A collection rule that could not tell the two apart would delete the evidence and
   // keep the cache.
-  | "review-load-record";
+  | "review-load-record"
+  // One participant's audio from a meeting recording, staged as raw linear PCM while the recording
+  // runs and kept until the composed document and its transcript have settled. Privileged content in
+  // the plainest sense — a conversation on the matter — so it is stamped with that matter like the
+  // document it is composed into, and apart from it, because a staged track is the raw material and
+  // the filed recording is the record: a rule that expires one must be able to leave the other alone.
+  | "meeting-recording-track";
 
 // Classes for objects the firm owns that belong to no single matter. Stamping the class on these is
 // what makes "this object has no matter" a recorded fact rather than an absence indistinguishable from
@@ -133,6 +139,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "review-extracted-text",
   "review-document-metadata",
   "review-load-record",
+  "meeting-recording-track",
 ];
 
 export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [

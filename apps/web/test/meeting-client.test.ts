@@ -26,6 +26,7 @@ import {
   refusalStatement,
   SUPERSEDED_REASON,
   waitingPlaceStatement,
+  WITHDRAWN_REASON,
   type MeetingClientSeams,
   type MeetingMedium,
 } from "$lib/meetings/client/meeting-client.svelte.ts";
@@ -2336,6 +2337,23 @@ describe("a host putting this member out of the meeting", () => {
   });
 });
 
+describe("the firm withdrawing the link a guest arrived on", () => {
+  it("ends the meeting here, with the reason the screen names it by, rather than a setback", async () => {
+    const { client, socket, peerConnection, captured } = harness();
+    await client.publish();
+
+    socket.deliver({ v: 1, type: "refused", reason: "withdrawn" });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe(WITHDRAWN_REASON);
+    // Not the band that reports a frame the room refused and carried on without: the room has let
+    // this guest go, and a screen drawing the room under a warning would say they were still in it.
+    expect(client.lastRefusal).toBeNull();
+    expect(captured.getTracks().every((track) => track.stopped)).toBe(true);
+    expect(peerConnection.closed).toBe(true);
+  });
+});
+
 /*
  * WAITING AT THE DOOR.
  *
@@ -2803,5 +2821,72 @@ describe("a poll and a question on the wire", () => {
       },
     });
     expect(questions.waiting).toBe(0);
+  });
+});
+
+describe("a recording on the wire", () => {
+  const announcement = {
+    state: "started",
+    recordingId: "meetingRecording_1",
+    by: { userId: "usr_2", displayName: "Rosalind Chase" },
+    at: "2026-09-20T15:00:00.000Z",
+  };
+
+  it("reads the recording a welcome carries as one running, and the absence of one as none", () => {
+    const late = harness("attendance_1", "video", false);
+    late.socket.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: "attendance_1",
+      roster: [],
+      recording: announcement,
+    });
+    expect(late.client.recording.running?.recordingId).toBe("meetingRecording_1");
+    expect(late.client.recording.notice?.occasion).toBe("arrival");
+
+    const early = harness();
+    expect(early.client.recording.running).toBeNull();
+    expect(early.client.recording.notice).toBeNull();
+  });
+
+  it("does not read a recording frame that arrives before the welcome", () => {
+    const { client, socket } = harness("attendance_1", "video", false);
+    socket.deliver({ v: 1, type: "recording", ...announcement });
+    expect(client.recording.running).toBeNull();
+    socket.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [] });
+    expect(client.recording.running).toBeNull();
+  });
+
+  it("hands a start and a stop to the recording, and ignores a frame that names no recording", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "recording", state: "started", at: announcement.at });
+    expect(client.recording.running).toBeNull();
+
+    socket.deliver({ v: 1, type: "recording", ...announcement });
+    expect(client.recording.running?.recordingId).toBe("meetingRecording_1");
+
+    socket.deliver({ v: 1, type: "recording", ...announcement, state: "stopped" });
+    expect(client.recording.running).toBeNull();
+    expect(client.recording.notice?.occasion).toBe("stopped");
+  });
+
+  it("starts and stops through the routes the screen wired, and through nothing otherwise", async () => {
+    const { client } = harness();
+    expect(await client.startRecording()).toBe("refused");
+
+    const asked: string[] = [];
+    client.recordThrough({
+      start: () => {
+        asked.push("start");
+        return Promise.resolve({ kind: "ok", value: {} });
+      },
+      stop: () => {
+        asked.push("stop");
+        return Promise.resolve({ kind: "ok", value: {} });
+      },
+    });
+    expect(await client.startRecording()).toBe("committed");
+    expect(await client.stopRecording()).toBe(true);
+    expect(asked).toEqual(["start", "stop"]);
   });
 });

@@ -30,6 +30,7 @@ import Gauge from "@lucide/svelte/icons/gauge";
 import Globe from "@lucide/svelte/icons/globe";
 import Shield from "@lucide/svelte/icons/shield";
 import Microscope from "@lucide/svelte/icons/microscope";
+import Scale from "@lucide/svelte/icons/scale";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
 import type { ToolManifest } from "@magna-carta/tools/types";
@@ -65,6 +66,10 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     description: "Open the official register where a lawyer's standing is verified.",
     stage: "alpha",
   },
+  "legal-citations": {
+    description: "Paste a link or a citation and get it in the court's citation format.",
+    stage: "alpha",
+  },
   shipping: { description: "Rate and buy postage for a mailing.", stage: "alpha" },
   "network-speed-test": {
     description: "Measure this connection's download, upload, latency, and quality.",
@@ -93,6 +98,7 @@ export const TOOL_ICONS: Record<string, Component> = {
   globe: Globe,
   shield: Shield,
   microscope: Microscope,
+  scale: Scale,
 };
 
 // Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as
@@ -132,6 +138,17 @@ export function toolIcon(tool: ToolManifest): Component {
  */
 const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
   "network-speed-test": ["bandwidth", "throughput", "ping", "latency", "internet", "connection"],
+  "legal-citations": [
+    "cite",
+    "citation",
+    "bluebook",
+    "indigo book",
+    "table of authorities",
+    "case law",
+    "statute",
+    "short form",
+    "id.",
+  ],
   "whois-lookup": ["registrant", "registration", "dns", "nameserver", "domain owner"],
   "attorney-license-lookup": [
     "bar",

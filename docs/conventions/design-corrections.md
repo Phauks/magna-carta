@@ -553,6 +553,36 @@ is usually the fastest way to understand the rule.
   carrying all three, not a category control that reveals a second field once it is answered.
   Answering a question in two steps makes a reader answer it twice. _(the call log's Belongs to,
   2026-09-08)_
+- **A record that starts from a phone number is built around the number.** The number is usually
+  the only fact the person taking a call has, so it leads the form, what was said comes straight
+  after it (where somebody still on the line is typing), and when it happened folds to one line
+  because it is almost always now. Everything that FOLLOWS from the number — who it belongs to,
+  their open matters, earlier calls with it — sits beside the form as the window's Identification
+  and History tabs, and asks nothing until the number is whole. A contact on many matters gets a
+  search over them rather than a long list (a public defender's office can have a hundred). _(the
+  call log, 2026-11-09: "most of the information people get is the phone number, and maybe a caller
+  ID"; "i like how we can gain some information ... look up information once number is set")_
+  - **Two fixed words are pressed, not picked.** Call / Text and Incoming / Outgoing are buttons in
+    a group, the pressed one marked (`$lib/components/button-choice.svelte`). This narrows the
+    typed-into rule above to lists that can grow: a two-word answer that never changes is faster
+    pressed. _(the call log, 2026-11-09: "make the call text, incoming/outgoing as a toggle")_
+  - **Several calls at once, listed down the left.** A second call arriving while the first is
+    being written down gets its own entry in the same window; saving one, or starting an intake from
+    one, leaves the others standing, and the window closes on the last. _(the call log, 2026-11-09:
+    "handle multiple numbers coming in at the same time"; "calls should be on the leftside, not above
+    it"; "save and start an intake needs to be a safe operation for the other calls")_
+  - **Start An Intake is in the header's menu, and the commit is Save.** A second commit-shaped
+    button beside Save was pressed in its place; the intake is a rarer act and reads as one from the
+    menu. The previewed number under the heading is the number alone, in italics. _(the call log,
+    2026-11-09)_
+  - **Activity, in formal words, with spam among them.** What happened on a call is its own
+    pressed choice, per direction: Answered, Transferred, Message Taken, Spam for a call taken;
+    Connected, Voicemail Left, No Answer for one placed. A transfer names the colleague, who becomes
+    the member on the call; a message names who it is for, what was asked, by when and whether it
+    is urgent, and becomes a task in their list; spam names its kind and files the call as spam by
+    itself. The caller's own name is a separate optional field, "Caller ID (optional)", never a
+    Directory record. _(the call log, 2026-11-09: "what happened and associated buttons beneath are
+    so informal. Change it to Activity"; "add a way to show it was spam")_
 - **A telephone number's ghost text is its country's own grouping** — `(XXX) XXX-XXXX` here, and
   whatever the chosen country writes anywhere else. It is the ONE placeholder in the product that is
   not simply its field's name: the grouping cannot be said anywhere else, it is what tells a reader

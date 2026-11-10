@@ -17,16 +17,28 @@
  * WHETHER THIS MEMBER HAS UPVOTED IS THE READ'S TO SAY, and their own upvote's. The frames are the
  * same for every socket: a tally says how many, never who, so a frame never moves the control's own
  * state — only the read and this member's own press do.
+ *
+ * THE RELAY IS THE PATH AND THE READ IS NOT A CLOCK. While the socket is carrying the room's frames,
+ * nothing here reads on a timer: three hundred browsers re-reading a queue every few seconds is a
+ * steady load on the firm's record and a steady spend of its rate budget, to learn what the frames
+ * already said. The queue is read whole when the member arrives and again when the socket comes
+ * back (the frames it missed are exactly what a forward walk cannot see); opening the panel reads
+ * only what was asked after the last row the read reached; and only while the socket is DOWN does a
+ * slow read stand in for the frames.
  */
 import type { Failure } from "$lib/api/problem.ts";
 import type { MeetingWrite } from "../meetings-api.ts";
 import { isRecord, readString } from "./signaling.ts";
 
 /**
- * How often the queue is read again behind the relay. The backstop pace chat stretches to, for the
- * reason chat keeps one: the read is what catches a browser up on a frame it did not get.
+ * How often the queue is read while the socket is DOWN, and only then.
+ *
+ * Slow on purpose: the screen is saying the room stopped answering and offering Rejoin, so this is
+ * what keeps an open panel honest meanwhile rather than a substitute for the room. A socket that
+ * fails for everybody at once — the room itself going away — is three hundred browsers on this
+ * clock together, which is why it is a minute and not the transcript's fifteen seconds.
  */
-export const QUESTIONS_BACKSTOP_INTERVAL_MILLISECONDS = 15_000;
+export const QUESTIONS_BACKSTOP_INTERVAL_MILLISECONDS = 60_000;
 
 /** The longest question, in characters. The record refuses a longer one. */
 export const MAX_MEETING_QUESTION_LENGTH = 1000;
@@ -58,6 +70,15 @@ export interface MeetingQuestionView {
   readonly upvotedByMe: boolean;
 }
 
+/**
+ * A place in the queue on the record's own key: the instant a question was asked and its handle. The
+ * list route takes it as `since` with `sinceId` and answers what comes after — or from — it.
+ */
+export interface MeetingQuestionPosition {
+  readonly askedAt: string;
+  readonly questionId: string;
+}
+
 /** One page of the queue, oldest first, and where the next page starts. */
 export interface MeetingQuestionPageView {
   readonly questions: readonly MeetingQuestionView[];
@@ -66,7 +87,15 @@ export interface MeetingQuestionPageView {
 
 /** The edges this module reaches the outside world through. */
 export interface MeetingQuestionSeams {
-  list: (cursor: string | null) => Promise<MeetingWrite<MeetingQuestionPageView>>;
+  /**
+   * One page, from the beginning or from a cursor, and — where `after` is given — only what was
+   * asked at or after that place. The route may answer the place's own row again; it is merged by
+   * handle, so it is the same row twice rather than two.
+   */
+  list: (
+    cursor: string | null,
+    after?: MeetingQuestionPosition | null,
+  ) => Promise<MeetingWrite<MeetingQuestionPageView>>;
   ask: (body: string) => Promise<MeetingWrite<MeetingQuestionView>>;
   upvote: (questionId: string) => Promise<MeetingWrite<MeetingQuestionView>>;
   withdrawUpvote: (questionId: string) => Promise<MeetingWrite<MeetingQuestionView>>;
@@ -85,6 +114,16 @@ export interface MeetingQuestionRelay {
   noteQuestionUpdated: (question: MeetingQuestionView) => void;
   noteQuestionTally: (upvotes: ReadonlyMap<string, number>) => void;
 }
+
+/**
+ * How a row's upvote count is taken.
+ *
+ * `higher` keeps the larger of the two, for a copy this browser cannot place in time against the
+ * tally frames: a relayed copy, a write's answer, a page read forward. `stated` takes the count as
+ * it is said, which two doors may do: a tally frame, which arrives in the room's own order, and a
+ * whole read asked while no tally frame for that question was arriving.
+ */
+type CountRule = "higher" | "stated";
 
 /** A relay nobody is listening to, for a client with no question panel beside it. */
 export const NO_QUESTION_RELAY: MeetingQuestionRelay = {
@@ -180,26 +219,47 @@ export class MeetingQuestions implements MeetingQuestionRelay {
   readonly waiting = $derived(this.questions.filter(isWaiting).length);
 
   readonly #seams: MeetingQuestionSeams;
+  /** The slow read that stands in for the frames while the socket is down. Null while it is up. */
   #stopTicking: (() => void) | null = null;
   #refreshing = false;
+  /** True between `start` and `stop`: a meeting this module is following. */
+  #following = false;
+  /**
+   * The last row a READ reached, which is where the next forward read starts.
+   *
+   * The read's own place and never the newest row held: a relayed copy can name a question asked
+   * after one whose frame this browser never got, and starting from the copy would skip the one in
+   * between for good. Null until a whole read has succeeded, and then a forward read is not offered.
+   */
+  #readThrough: MeetingQuestionPosition | null = null;
+  /**
+   * When each question's count was last moved by a tally frame, on a counter of frames rather than a
+   * clock: a whole read that a frame arrived during cannot say which of the two is newer.
+   */
+  #talliedAt = new Map<string, number>();
+  #tallies = 0;
 
   constructor(seams: MeetingQuestionSeams) {
     this.#seams = seams;
   }
 
-  /** Start following the queue: read it whole, then again on the backstop tick. */
+  /**
+   * Start following the queue: read it whole, once. The room's frames carry it from there, so
+   * nothing ticks while the socket is up.
+   */
   start(): void {
     this.stop();
+    this.#following = true;
     this.reading = true;
-    this.#stopTicking = this.#seams.every(QUESTIONS_BACKSTOP_INTERVAL_MILLISECONDS, () => {
-      void this.refresh();
-    });
     void this.refresh();
   }
 
   stop(): void {
     this.#stopTicking?.();
     this.#stopTicking = null;
+    this.#following = false;
+    this.#readThrough = null;
+    this.#talliedAt = new Map();
     this.questions = [];
     this.#refreshing = false;
     this.reading = false;
@@ -209,9 +269,37 @@ export class MeetingQuestions implements MeetingQuestionRelay {
     this.writeFailure = null;
   }
 
-  /** The panel is showing, which is when a fresh read is worth its cost. */
+  /**
+   * The panel is showing, which is when a read is worth its cost — and only what was asked since the
+   * last row the read reached, because while the socket is up the frames have said the rest.
+   */
   noteOpened(): void {
-    if (this.#stopTicking !== null) void this.refresh();
+    if (!this.#following) return;
+    if (this.#readThrough === null) void this.refresh();
+    else void this.#readForward(this.#readThrough);
+  }
+
+  /**
+   * The socket went away under a member still on the room's screen. Nothing relayed reaches this
+   * browser now, so the slow read stands in for the frames until it comes back.
+   */
+  noteSocketLost(): void {
+    if (!this.#following || this.#stopTicking !== null) return;
+    this.#stopTicking = this.#seams.every(QUESTIONS_BACKSTOP_INTERVAL_MILLISECONDS, () => {
+      void this.refresh();
+    });
+  }
+
+  /**
+   * The socket is carrying frames again. The slow read stops, and the queue is read whole once:
+   * what changed while it was down — a mark, a redaction, an upvote taken back — changed rows this
+   * browser already holds, which a forward read would never reach.
+   */
+  noteSocketRestored(): void {
+    if (!this.#following || this.#stopTicking === null) return;
+    this.#stopTicking();
+    this.#stopTicking = null;
+    void this.refresh();
   }
 
   /**
@@ -225,7 +313,8 @@ export class MeetingQuestions implements MeetingQuestionRelay {
   async refresh(): Promise<void> {
     if (this.#refreshing) return;
     this.#refreshing = true;
-    const outcome = await this.#readFrom(null, [], MAX_QUESTION_PAGES_READ);
+    const askedAt = this.#tallies;
+    const outcome = await this.#readFrom(null, null, [], MAX_QUESTION_PAGES_READ);
     this.#refreshing = false;
     this.reading = false;
     if (outcome.kind !== "ok") {
@@ -233,20 +322,60 @@ export class MeetingQuestions implements MeetingQuestionRelay {
       return;
     }
     this.readFailure = null;
-    this.#adopt(outcome.value, "stated");
+    this.#noteReadThrough(outcome.value);
+    // The read is the record, so its counts stand as stated — an upvote taken back is how a count
+    // comes DOWN — except on a question a tally frame moved while this read was on its way, where
+    // which of the two is newer cannot be told and the higher is kept.
+    const settled: MeetingQuestionView[] = [];
+    const raced: MeetingQuestionView[] = [];
+    for (const question of outcome.value) {
+      const tallied = this.#talliedAt.get(question.questionId);
+      if (tallied !== undefined && tallied >= askedAt) raced.push(question);
+      else settled.push(question);
+    }
+    this.#adopt(settled, "stated", "stated");
+    this.#adopt(raced, "stated", "higher");
+  }
+
+  /**
+   * Read only what was asked from a place onward. The route answers the place's own row again, and
+   * merging by handle makes that the same row rather than a second one.
+   */
+  async #readForward(from: MeetingQuestionPosition): Promise<void> {
+    if (this.#refreshing) return;
+    this.#refreshing = true;
+    const outcome = await this.#readFrom(null, from, [], MAX_QUESTION_PAGES_READ);
+    this.#refreshing = false;
+    if (outcome.kind !== "ok") {
+      this.readFailure = outcome.failure;
+      return;
+    }
+    this.readFailure = null;
+    this.#noteReadThrough(outcome.value);
+    this.#adopt(outcome.value, "stated", "higher");
+  }
+
+  /** Remember the furthest row a read reached, on the record's own key. */
+  #noteReadThrough(read: readonly MeetingQuestionView[]): void {
+    const last = read.toSorted(inOrderAsked).at(-1);
+    if (last === undefined) return;
+    const held = this.#readThrough;
+    if (held !== null && inOrderAsked(asPosition(last), held) <= 0) return;
+    this.#readThrough = { askedAt: last.askedAt, questionId: last.questionId };
   }
 
   async #readFrom(
     cursor: string | null,
+    after: MeetingQuestionPosition | null,
     gathered: readonly MeetingQuestionView[],
     pagesLeft: number,
   ): Promise<MeetingWrite<readonly MeetingQuestionView[]>> {
     if (pagesLeft === 0) return { kind: "ok", value: gathered };
-    const outcome = await this.#seams.list(cursor);
+    const outcome = await this.#seams.list(cursor, after);
     if (outcome.kind !== "ok") return outcome;
     const next = [...gathered, ...outcome.value.questions];
     if (outcome.value.nextCursor === null) return { kind: "ok", value: next };
-    return this.#readFrom(outcome.value.nextCursor, next, pagesLeft - 1);
+    return this.#readFrom(outcome.value.nextCursor, after, next, pagesLeft - 1);
   }
 
   /** Put a question to the room. Answers whether the record has it, so the composer clears then. */
@@ -261,7 +390,7 @@ export class MeetingQuestions implements MeetingQuestionRelay {
       this.writeFailure = outcome.failure;
       return false;
     }
-    this.#adopt([outcome.value], "stated");
+    this.#adopt([outcome.value], "stated", "higher");
     return true;
   }
 
@@ -290,7 +419,10 @@ export class MeetingQuestions implements MeetingQuestionRelay {
       return false;
     }
     // The press itself is what says whose upvote it is, whatever the row that came back carries.
-    this.#adopt([{ ...outcome.value, upvotedByMe: !held.upvotedByMe }], "stated");
+    // The COUNT keeps the higher: the row was read as this write committed, and a tally frame for
+    // somebody else's upvote may already have landed past it. Taking an upvote back still shows,
+    // because the room relays the count after it on its next frame.
+    this.#adopt([{ ...outcome.value, upvotedByMe: !held.upvotedByMe }], "stated", "higher");
     return true;
   }
 
@@ -311,35 +443,47 @@ export class MeetingQuestions implements MeetingQuestionRelay {
       this.writeFailure = outcome.failure;
       return false;
     }
-    this.#adopt([outcome.value], "kept");
+    this.#adopt([outcome.value], "kept", "higher");
     return true;
   }
 
   /** A question the room relayed as it was asked. */
   noteQuestionAsked(question: MeetingQuestionView): void {
-    this.#adopt([question], "kept");
+    this.#adopt([question], "kept", "higher");
   }
 
   /**
-   * A question the room says was answered, unmarked or taken back — the whole question again, which
-   * replaces what this browser holds. Whether this member upvoted it is the one thing a relayed copy
-   * cannot say, so that is kept.
+   * A question the room says was answered, unmarked or taken back — the whole question again, and
+   * the mark and the redaction on it always apply. Its COUNT is a reading taken when that act
+   * committed, which may be older than a tally frame already here, so the higher is kept. Whether
+   * this member upvoted it is the one thing a relayed copy cannot say, so that is kept too.
    */
   noteQuestionUpdated(question: MeetingQuestionView): void {
-    this.#adopt([question], "kept");
+    this.#adopt([question], "kept", "higher");
   }
 
-  /** The room's once-a-second upvote counts. The order moves here, without a read. */
+  /**
+   * The room's once-a-second upvote counts. The order moves here, without a read.
+   *
+   * A TALLY FRAME IS TAKEN AS STATED, AND IT IS THE WAY A COUNT COMES DOWN. An upvote can be taken
+   * back, so a count is not monotone the way a poll's is, and every other door here keeps the higher
+   * of two counts it cannot place in time. The frames can be placed: they reach this socket in the
+   * order the room sent them, and the room keeps a high-water mark per question — the instant the
+   * route read the count it last sent — and drops any tally at or behind it, so no frame states an
+   * older reading than one before it. The next frame after a withdrawal therefore states the count
+   * after it. A whole read is the other way down: on reconnect and while the socket is down.
+   */
   noteQuestionTally(upvotes: ReadonlyMap<string, number>): void {
     if (upvotes.size === 0) return;
+    this.#tallies += 1;
     const changed: MeetingQuestionView[] = [];
     for (const question of this.questions) {
       const count = upvotes.get(question.questionId);
-      if (count !== undefined && count !== question.upvotes) {
-        changed.push({ ...question, upvotes: count });
-      }
+      if (count === undefined) continue;
+      this.#talliedAt.set(question.questionId, this.#tallies);
+      if (count !== question.upvotes) changed.push({ ...question, upvotes: count });
     }
-    this.#adopt(changed, "kept");
+    this.#adopt(changed, "kept", "stated");
   }
 
   /**
@@ -348,9 +492,13 @@ export class MeetingQuestions implements MeetingQuestionRelay {
    * `stated` rows come from the read or from this member's own write, and say whether this member
    * has upvoted; `kept` rows come from the relay, which never does, so the control keeps what it
    * already knew. A redaction never goes backwards either: a row once taken back stays blank
-   * whichever door a later copy of it came through.
+   * whichever door a later copy of it came through. The count follows `counts` — see `CountRule`.
    */
-  #adopt(arriving: readonly MeetingQuestionView[], mine: "stated" | "kept"): void {
+  #adopt(
+    arriving: readonly MeetingQuestionView[],
+    mine: "stated" | "kept",
+    counts: CountRule,
+  ): void {
     if (arriving.length === 0) return;
     const held = new Map(
       this.questions.map((question) => [question.questionId, question] as const),
@@ -366,6 +514,8 @@ export class MeetingQuestions implements MeetingQuestionRelay {
         ...question,
         body: redactedAt === null ? question.body : "",
         redactedAt,
+        upvotes:
+          counts === "stated" ? question.upvotes : Math.max(before.upvotes, question.upvotes),
         upvotedByMe: mine === "stated" ? question.upvotedByMe : before.upvotedByMe,
       });
     }
@@ -373,8 +523,14 @@ export class MeetingQuestions implements MeetingQuestionRelay {
   }
 }
 
+/** A row's place on the record's own key. */
+function asPosition(question: MeetingQuestionView): MeetingQuestionPosition {
+  return { askedAt: question.askedAt, questionId: question.questionId };
+}
+
 /** The order the record states: oldest first, and by the row's own handle within one instant. */
-function inOrderAsked(first: MeetingQuestionView, second: MeetingQuestionView): number {
+function inOrderAsked(first: MeetingQuestionPosition, second: MeetingQuestionPosition): number {
   if (first.askedAt !== second.askedAt) return first.askedAt < second.askedAt ? -1 : 1;
+  if (first.questionId === second.questionId) return 0;
   return first.questionId < second.questionId ? -1 : 1;
 }
