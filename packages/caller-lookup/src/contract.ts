@@ -41,6 +41,19 @@ export const CallerAreaCode = z
         "Where the area code was issued — a state, a province or a city. Where the number was " +
         "issued, never where the caller is.",
     }),
+    place: z
+      .string()
+      .nullable()
+      .meta({
+        description:
+          "The town the number's exchange was assigned to, as the numbering data writes it " +
+          '("Las Vegas, NV"). Null where that data does not subdivide the area code.',
+      }),
+    timeZone: z.string().nullable().meta({
+      description:
+        "The IANA time zone the number was issued under. Null where the area code spans several.",
+      example: "America/Los_Angeles",
+    }),
   })
   .meta({ id: "CallerAreaCode" });
 
@@ -54,13 +67,18 @@ export const KeptCallerIdentity = z
     carrierName: z.string().nullable(),
     lookedUpAt: z.iso.datetime(),
   })
-  .meta({ id: "CallerIdentity", description: "A caller ID the firm already paid for, or null." });
+  .meta({ id: "CallerIdentity", description: "A caller ID the firm already paid for." });
 
 export const CallerLookup = z
   .object({
     directoryMatches: z.array(CallerDirectoryMatch),
     areaCode: CallerAreaCode.nullable(),
-    callerIdentity: KeptCallerIdentity.nullable(),
+    // A union with null rather than .nullable(): .nullable() folds the null into the shared
+    // CallerIdentity component, so the same name would carry two shapes across the contract.
+    callerIdentity: z.union([KeptCallerIdentity, z.null()]).meta({
+      description:
+        "A caller ID the firm already paid for, or null when it has none for the number.",
+    }),
     paidLookup: z.enum(["available", "unavailable", "not-covered"]).meta({
       description:
         "Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; " +

@@ -5371,7 +5371,7 @@ export type ConflictsCheckSummary = {
     createdByUserId: string | null;
     runCount: number;
     latestRunId: string | null;
-    runStatus: 'queued' | 'running' | 'completed' | 'failed' | null;
+    runStatus: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
     latestRunAt: string | null;
     trigger: string | null;
     triggerSource: string | null;
@@ -5430,7 +5430,7 @@ export type ConflictsNumberedCheck = {
 export type ConflictsRunSummary = {
     id: string;
     ordinal: number;
-    status: 'queued' | 'running' | 'completed' | 'failed';
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
     stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
     progress: ConflictsRunProgress;
     trigger: string;
@@ -5440,6 +5440,11 @@ export type ConflictsRunSummary = {
     startedAt: string | null;
     finishedAt: string | null;
     failure: string | null;
+    cancelledByUserId: string | null;
+    askedScope: {
+        sources: Array<string>;
+        strictness: string;
+    } | null;
     hitCount: number | null;
     subjectParties: Array<ConflictsSubjectParty>;
 };
@@ -5664,6 +5669,11 @@ export type ConflictsWaiverRequest = {
     confirmedInWriting: boolean;
     documentFileId?: string | null;
     givenOn: string;
+};
+
+export type ConflictsCancelledRun = {
+    id: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 };
 
 export type TimelineEntryPage = {
@@ -6495,7 +6505,10 @@ export type MyDayResponse = {
 export type CallerLookup = {
     directoryMatches: Array<CallerDirectoryMatch>;
     areaCode: CallerAreaCode;
-    callerIdentity: CallerIdentity;
+    /**
+     * A caller ID the firm already paid for, or null when it has none for the number.
+     */
+    callerIdentity: CallerIdentity | null;
     /**
      * Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country.
      */
@@ -6517,10 +6530,18 @@ export type CallerAreaCode = {
      * Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is.
      */
     region: string;
+    /**
+     * The town the number's exchange was assigned to, as the numbering data writes it ("Las Vegas, NV"). Null where that data does not subdivide the area code.
+     */
+    place: string | null;
+    /**
+     * The IANA time zone the number was issued under. Null where the area code spans several.
+     */
+    timeZone: string | null;
 } | null;
 
 /**
- * A caller ID the firm already paid for, or null.
+ * A caller ID the firm already paid for.
  */
 export type CallerIdentity = {
     /**
@@ -6530,7 +6551,7 @@ export type CallerIdentity = {
     lineType: 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other' | null;
     carrierName: string | null;
     lookedUpAt: string;
-} | null;
+};
 
 export type CallerLookupRequest = {
     /**
@@ -27226,6 +27247,61 @@ export type ConflictsMatterPostureResponses = {
 };
 
 export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
+
+export type ConflictsCancelRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel';
+};
+
+export type ConflictsCancelRunErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the run is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsCancelRunError = ConflictsCancelRunErrors[keyof ConflictsCancelRunErrors];
+
+export type ConflictsCancelRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: ConflictsCancelledRun;
+};
+
+export type ConflictsCancelRunResponse = ConflictsCancelRunResponses[keyof ConflictsCancelRunResponses];
 
 export type CalendarMatterTimelineData = {
     body?: never;

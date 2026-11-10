@@ -266,6 +266,11 @@
     },
     {
       "rule": "hand-composed-modal",
+      "file": "apps/web/src/lib/about/about-window.svelte",
+      "reason": "not an act and not a record \u2014 a colophon. The owner chose, over the mockups on 2026-11-09, a two-column window whose ink column runs to the panel's edge with no heading bar or action bar; the reading ActionDialog would add both. It asks nothing, keeps no typing, and dismisses by the corner close and Escape as every dialog does. It stays; the allowance records that the shell was considered and left alone."
+    },
+    {
+      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",
       "reason": "not an act asked of a reader \u2014 a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
     },

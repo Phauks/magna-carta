@@ -969,6 +969,9 @@ importers:
       '@magna-carta/safe-browse':
         specifier: workspace:*
         version: link:../../packages/safe-browse
+      '@magna-carta/segmentation':
+        specifier: workspace:*
+        version: link:../../packages/segmentation
       '@magna-carta/tools':
         specifier: workspace:*
         version: link:../../packages/tools

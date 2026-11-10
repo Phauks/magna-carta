@@ -32,7 +32,7 @@ empty, and none is made.
 ## 3. Shape
 
 - **`packages/caller-lookup`** — the port (`CallerLookupPort`, typed outcomes, never a throw), the
-  deferred port, the Telnyx adapter with an injected transport, and the area-code table. No `env`.
+  deferred port, the Telnyx adapter with an injected transport, and the area-code, exchange and time zone tables. No `env`.
 - **`apps/api-worker/src/caller-lookup/caller-lookup-engine.ts`** — Telnyx when `TELNYX_API_KEY` is
   set, the deferred port otherwise. Absent is the shipped state: the free answers still arrive and no
   button is shown.

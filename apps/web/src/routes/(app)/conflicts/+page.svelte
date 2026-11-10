@@ -157,4 +157,4 @@
   </div>
 </div>
 
-<NewCheckDialog bind:open={composerOpen} chooseMatter {permissions} {onRan} />
+<NewCheckDialog bind:open={composerOpen} {permissions} {onRan} />

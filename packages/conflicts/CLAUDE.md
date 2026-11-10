@@ -89,7 +89,7 @@ and never calls external services.
   so the posture read and the check read can never explain the same row differently
 - `src/report-text.ts` — `describeCheck`: the pure statement list for one check — what ran with what
   settings over how many entities, what did not run and why, and what surfaced. Zero hits ends
-  `"Nothing surfaced."`
+  `"0 results."`
 - `src/sources.ts` — the one home for what a check can search, what it cannot, and why:
   `availabilityOf` (the write side), `unavailabilityReason` and `displayNameForSource` (the read side)
 - `src/topics.ts` — the two outbox topics this package publishes, as one frozen set:
@@ -196,7 +196,7 @@ and never calls external services.
      boolean. `neverChecked` is the one boolean, and it reports whether a search happened — never what
      one concluded. A caller that wants a single word writes it itself and owns it.
   2. **A zero-hit check reports the search ending, not a clearance.** `describeCheck` finishes
-     `"Nothing surfaced."`, which is a fact about the machine's own behaviour. Facts about the machine
+     `"0 results."`, which is a fact about the machine's own behaviour. Facts about the machine
      are the only assertions this package makes: these channels ran, this source has no corpus, this
      many candidates surfaced.
   3. **`cleared` survives only as a `DISPOSITION_KINDS` value** — a named human's conclusion about one
@@ -262,7 +262,7 @@ and never calls external services.
   consequence); and it lives outside both matchers, so `test/matcher-equivalence.test.ts` still proves
   the batched path returns exactly the per-entity path's hit set rather than the same narrowed one.
   The record travels the road `traversal` already does — check row, posture read, report sentence —
-  and a run whose cap refused everything deliberately does **not** end `"Nothing surfaced."`, which is
+  and a run whose cap refused everything deliberately does **not** end `"0 results."`, which is
   a fact about the machine having written everything it found. Re-measured by
   `conflictsCandidateBounds` in `packages/fixtures/src/load-profile/conflicts-measurements.ts`; two
   baselines at different profile scales are the corpus sweep.

@@ -3,8 +3,9 @@
    * Who a typed number belongs to, said under the number as soon as it is a whole one.
    *
    * THREE ANSWERS, CHEAPEST FIRST. The firm's own Directory — a contact who has this number, offered
-   * with one press to put on the record. Then where the area code was issued, which is free and always
-   * there for a North American number. Then the caller ID the telephone network holds, which costs a
+   * with one press to put on the record. Then where the number was issued (the state, the town its
+   * exchange was assigned to, and the time there), which is free and always there for a North
+   * American number. Then the caller ID the telephone network holds, which costs a
    * fraction of a cent a query: it is a button, never automatic, and once anybody at the firm has
    * pressed it for a number the answer is kept and shown here for nothing.
    *
@@ -20,6 +21,7 @@
   import {
     areaCodeLine,
     callerIdentityLine,
+    localTimeLine,
     lookUpCallerIdentity,
     lookupNumberFor,
     readCallerLookup,
@@ -51,6 +53,16 @@
   let answer = $state<CallerLookup | null>(null);
   let pressing = $state(false);
   let pressFailed = $state(false);
+
+  // The clock where the number was issued is read for "is it a sensible hour to call back", so it
+  // keeps time while the window is open rather than freezing at the moment the number was typed.
+  let now = $state(new Date());
+  $effect(() => {
+    const timer = setInterval(() => {
+      now = new Date();
+    }, 30_000);
+    return () => clearInterval(timer);
+  });
 
   // Settled before it is sent, as the Directory's duplicate check is: a whole number arrives one
   // keystroke at a time, and the last digit is the one worth asking about.
@@ -121,6 +133,10 @@
       <div class="flex flex-wrap items-center gap-x-12 gap-y-4 text-xs text-text-muted">
         {#if known.areaCode !== null}
           <span>{areaCodeLine(known.areaCode)}</span>
+          {@const localTime = localTimeLine(known.areaCode, now)}
+          {#if localTime !== null}
+            <span>{localTime}</span>
+          {/if}
         {/if}
         {#if known.callerIdentity !== null}
           <span>Caller ID: <span class="text-text-default">{callerIdentityLine(known.callerIdentity)}</span></span>

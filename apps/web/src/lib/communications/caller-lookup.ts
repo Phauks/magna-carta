@@ -16,6 +16,7 @@ import {
   type CallerIdentityLookup,
   type CallerLookup,
 } from "@magna-carta/api-client";
+import { formatTimeOfDay } from "@magna-carta/design-system/formatters";
 import { outcomeOf } from "$lib/api/api-client.ts";
 import type { ApiOutcome } from "$lib/api/request.ts";
 
@@ -96,7 +97,33 @@ export function callerIdentityLine(identity: CallerIdentity): string {
   return identity.lineType === null ? name : `${name} · ${lineTypeLabel(identity.lineType)}`;
 }
 
-/** The area code as a reader says it: where the number was issued, never where the caller is. */
-export function areaCodeLine(areaCode: { areaCode: string; region: string }): string {
-  return `${areaCode.areaCode} · ${areaCode.region} number`;
+/** The free answer about where a number was issued, as the contract carries it. */
+export type CallerAreaCode = NonNullable<CallerLookup["areaCode"]>;
+
+/**
+ * Where the number was issued, as a reader says it: "702 · Henderson, Nevada number".
+ *
+ * The town comes from the exchange and the state from the area code. The numbering data writes the
+ * town with a postal abbreviation ("Henderson, NV"); that is dropped for the region's full name,
+ * which the line already carries, and a town that IS the region (Washington in "Washington D.C.")
+ * is not said twice. Worded as where the number was issued, never where the caller is: a mobile
+ * number keeps its exchange when its owner moves.
+ */
+export function areaCodeLine(areaCode: CallerAreaCode): string {
+  const town = areaCode.place?.replace(/, [A-Z]{2}$/, "") ?? null;
+  const where =
+    town === null || town === "" || areaCode.region.includes(town)
+      ? areaCode.region
+      : `${town}, ${areaCode.region}`;
+  return `${areaCode.areaCode} · ${where} number`;
+}
+
+/**
+ * The time where the number was issued, for deciding whether now is a sensible hour to call back:
+ * "3:19 PM PST there". Null where the number's zone is not known, which is better than a clock in the
+ * wrong zone.
+ */
+export function localTimeLine(areaCode: CallerAreaCode, now: Date): string | null {
+  if (areaCode.timeZone === null) return null;
+  return `${formatTimeOfDay(now, { timeZone: areaCode.timeZone, zoneName: true })} there`;
 }

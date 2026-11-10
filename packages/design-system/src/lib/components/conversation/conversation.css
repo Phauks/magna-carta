@@ -3,9 +3,13 @@
    * Conversation — a transcript, presented as a record.
    *
    * The whole surface is a WORK SURFACE: it is read closely, at length, usually while the reader is
-   * deciding whether to rely on what it says. So identity recedes. No bubbles, no avatars, no fills
-   * behind the turns, no alignment carrying meaning; the only status colour in the component is the
-   * thin edge on a turn that failed and the subtle chip on the note that says why.
+   * deciding whether to rely on what it says. In the default `record` arrangement identity
+   * recedes: no bubbles, no marks, no fills behind the turns, no alignment carrying meaning. The
+   * `exchange` arrangement (at the foot of this file) is for a conversation several members hold
+   * with the assistant at once, where who asked what IS the thing a reader needs first — the
+   * owner's ruling on the Magnus page, recorded in docs/conventions/magnus-rulings.md. Either way
+   * the only status colour in the component is the thin edge on a turn that failed and the subtle
+   * chip on the note that says why.
    *
    * The root is a column: the transcript takes the free height and scrolls inside it, the composer
    * sits at the foot and does not move. The zero minimum on both is what lets a flex child shrink
@@ -161,5 +165,128 @@
     align-items: center;
     justify-content: end;
     gap: var(--mc-space-8);
+  }
+  /*
+   * The column a turn's parts stack in, and the row of acts beneath them. In the record arrangement
+   * they add nothing a reader sees: the column is the turn's own and the acts sit at its start.
+   */
+  .mc-conversation-turn-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-conversation-turn-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mc-space-4);
+    color: var(--mc-text-muted);
+  }
+  /* A mark has no place in the record arrangement, so a caller that passes one there sees nothing. */
+  .mc-conversation-turn-mark {
+    display: none;
+  }
+
+  /*
+   * THE EXCHANGE ARRANGEMENT. Members on the trailing side, the assistant on the leading side, each
+   * turn led by a round mark. The member's words sit in a quiet raised panel because they are short
+   * and are the heading of the exchange; the assistant's answer is unboxed prose at the reading
+   * measure, because it is what gets read at length, and a box around a long answer is a frame the
+   * eye has to keep crossing. The hairline between turns and the reserved status rail go: the marks
+   * and the sides separate the turns, and a failed turn says so in its warning note.
+   */
+  .mc-conversation-transcript[data-arrangement="exchange"] {
+    gap: var(--mc-space-20);
+    padding-block: var(--mc-space-24);
+  }
+  [data-arrangement="exchange"] .mc-conversation-turn {
+    flex-direction: row;
+    align-items: start;
+    gap: var(--mc-space-12);
+    padding-block: var(--mc-space-0);
+    padding-inline-start: var(--mc-space-0);
+    border-inline-start-width: var(--mc-space-0);
+  }
+  [data-arrangement="exchange"] .mc-conversation-turn + .mc-conversation-turn {
+    border-block-start-width: var(--mc-space-0);
+  }
+  [data-arrangement="exchange"] .mc-conversation-turn[data-speaker="member"] {
+    flex-direction: row-reverse;
+  }
+  [data-arrangement="exchange"] .mc-conversation-turn-content {
+    flex: auto;
+    max-inline-size: var(--mc-size-prose);
+  }
+  [data-arrangement="exchange"]
+    .mc-conversation-turn[data-speaker="member"]
+    .mc-conversation-turn-content {
+    flex: initial;
+    align-items: end;
+  }
+  [data-arrangement="exchange"] .mc-conversation-turn-mark {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-32);
+    block-size: var(--mc-space-32);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    user-select: none;
+  }
+  /* The assistant's letter: the product's own blackletter M, gold on the chrome ink, the same
+     pairing the brand mark wears in the sidebar. */
+  [data-arrangement="exchange"]
+    .mc-conversation-turn[data-speaker="magnus"]
+    .mc-conversation-turn-mark {
+    background-color: var(--mc-chrome-surface);
+    color: var(--mc-chrome-accent);
+    font-family: var(--mc-font-blackletter);
+    font-size: var(--mc-font-size-lg);
+    font-weight: var(--mc-weight-regular);
+  }
+  /* A name, not a record label: sentence case at the body's size, so a full name reads as one. */
+  [data-arrangement="exchange"] .mc-conversation-turn-speaker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mc-space-8);
+    color: var(--mc-text-default);
+    font-size: var(--mc-font-size-sm);
+    letter-spacing: var(--mc-tracking-normal);
+    text-transform: none;
+  }
+  [data-arrangement="exchange"]
+    .mc-conversation-turn[data-speaker="member"]
+    .mc-conversation-turn-speaker {
+    justify-content: end;
+  }
+  [data-arrangement="exchange"]
+    .mc-conversation-turn[data-speaker="member"]
+    .mc-conversation-turn-body {
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+    background-color: var(--mc-surface-raised);
+    font-weight: var(--mc-weight-regular);
+  }
+  [data-arrangement="exchange"]
+    .mc-conversation-turn[data-speaker="magnus"]
+    .mc-conversation-turn-body {
+    font-size: var(--mc-font-size-md);
+  }
+  [data-arrangement="exchange"]
+    .mc-conversation-turn[data-speaker="member"]
+    .mc-conversation-turn-actions {
+    justify-content: end;
   }
 }
