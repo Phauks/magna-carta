@@ -33,7 +33,8 @@
     "./waiver": "./src/waiver.ts",
     "./check-run": "./src/check-run.ts",
     "./check-numbering": "./src/check-numbering.ts",
-    "./content-search": "./src/content-search.ts"
+    "./content-search": "./src/content-search.ts",
+    "./file-search": "./src/file-search.ts"
   },
   "scripts": {
     "test": "vp test run"

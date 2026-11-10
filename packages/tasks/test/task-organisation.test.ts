@@ -262,6 +262,119 @@ describe("assignees, teams and watchers", () => {
   });
 });
 
+describe("who is told", () => {
+  function told(effect: { outboxMessages: readonly { topic: string; payload: unknown }[] }) {
+    return effect.outboxMessages.map((message) => ({
+      topic: message.topic,
+      ...(message.payload as Record<string, unknown>),
+    }));
+  }
+
+  it("tells each member of a team the task is assigned to, once, and never the actor", async () => {
+    const database = setup();
+    const team = await createTaskTeam(
+      database,
+      { name: "Litigation Team", memberUserIds: [COLLEAGUE, ACTOR] },
+      options,
+    );
+    await commit(database, team.effect);
+    const taskId = await task(database);
+    const set = await setTaskAssignees(
+      database,
+      taskId,
+      [{ userId: COLLEAGUE }, { teamId: team.teamId }],
+      options,
+    );
+    expect(told(set.effect)).toEqual([
+      expect.objectContaining({ topic: "tasks.task.assigned", assigneeUserId: COLLEAGUE }),
+    ]);
+    await commit(database, set.effect);
+    // The team is already on the task, so naming it again tells nobody a second time.
+    const again = await setTaskAssignees(database, taskId, [{ teamId: team.teamId }], options);
+    expect(told(again.effect).filter((row) => row.topic === "tasks.task.reassigned")).toEqual([]);
+  });
+
+  it("tells a team's members when a task is created for the team", async () => {
+    const database = setup();
+    const team = await createTaskTeam(
+      database,
+      { name: "Litigation Team", memberUserIds: [COLLEAGUE] },
+      options,
+    );
+    await commit(database, team.effect);
+    const created = await createMatterTask(
+      database,
+      { matterId: MATTER, title: "Draft the responses", assignees: [{ teamId: team.teamId }] },
+      options,
+    );
+    expect(told(created.effect)).toEqual([
+      expect.objectContaining({ topic: "tasks.task.assigned", assigneeUserId: COLLEAGUE }),
+    ]);
+  });
+
+  it("tells a watcher they are copied in, then when the task is completed and reopened", async () => {
+    const database = setup();
+    const created = await createMatterTask(
+      database,
+      { matterId: MATTER, title: "Draft the responses", watcherUserIds: [COLLEAGUE, ACTOR] },
+      options,
+    );
+    expect(told(created.effect)).toEqual([
+      expect.objectContaining({
+        topic: "tasks.task.watchedChange",
+        change: "watching",
+        watcherUserIds: [COLLEAGUE],
+      }),
+    ]);
+    await commit(database, created.effect);
+    const done = await setMatterTaskCompleted(database, created.taskId, true, options);
+    expect(told(done.effect)).toEqual([
+      expect.objectContaining({ change: "completed", watcherUserIds: [COLLEAGUE] }),
+    ]);
+    await commit(database, done.effect);
+    const reopened = await setMatterTaskCompleted(database, created.taskId, false, options);
+    expect(told(reopened.effect)).toEqual([
+      expect.objectContaining({ change: "reopened", watcherUserIds: [COLLEAGUE] }),
+    ]);
+  });
+
+  it("tells watchers of a status move and a change of hands, and only new watchers that they watch", async () => {
+    const database = setup();
+    const taskId = await task(database, { watcherUserIds: [COLLEAGUE] });
+    const [, second] = await readTaskListStatuses(database, [DEFAULT_TASK_LIST_ID as never]);
+    if (second === undefined) throw new Error("the default list has a second status");
+    const moved = await moveTaskToStatus(database, taskId, second.id, options);
+    expect(told(moved.effect)).toEqual([
+      expect.objectContaining({ change: "statusChanged", watcherUserIds: [COLLEAGUE] }),
+    ]);
+    const handed = await setTaskAssignees(database, taskId, [{ userId: ACTOR }], options);
+    expect(told(handed.effect)).toEqual([
+      expect.objectContaining({ change: "assigneesChanged", watcherUserIds: [COLLEAGUE] }),
+    ]);
+    const watchers = await setTaskWatchers(database, taskId, [COLLEAGUE, ACTOR], options);
+    expect(told(watchers.effect)).toEqual([]);
+  });
+
+  it("names the firm-side topic for a task on no matter", async () => {
+    const database = setup();
+    const created = await createMatterTask(
+      database,
+      { matterId: null, title: "Renew the policy", watcherUserIds: [COLLEAGUE] },
+      options,
+    );
+    expect(told(created.effect)).toEqual([
+      expect.objectContaining({ topic: "tasks.firmTask.watchedChange", matterId: null }),
+    ]);
+  });
+
+  it("tells nobody when only the actor is watching", async () => {
+    const database = setup();
+    const taskId = await task(database, { watcherUserIds: [ACTOR] });
+    const done = await setMatterTaskCompleted(database, taskId, true, options);
+    expect(done.effect.outboxMessages).toEqual([]);
+  });
+});
+
 describe("sub-tasks", () => {
   it("puts a sub-task on its parent's list and matter, whatever the caller passed", async () => {
     const database = setup();

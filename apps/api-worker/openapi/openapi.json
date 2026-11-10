@@ -22481,6 +22481,19 @@
               },
               "magnus": {
                 "type": "boolean"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "consultations",
+                    "open",
+                    "closed",
+                    "archived"
+                  ]
+                },
+                "maxItems": 4
               }
             },
             "required": [
@@ -22966,6 +22979,19 @@
                   },
                   "magnus": {
                     "type": "boolean"
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "consultations",
+                        "open",
+                        "closed",
+                        "archived"
+                      ]
+                    },
+                    "maxItems": 4
                   }
                 },
                 "required": [
@@ -23368,7 +23394,8 @@
                   "text",
                   "email",
                   "task",
-                  "magnus_conversation"
+                  "magnus_conversation",
+                  "file"
                 ]
               },
               "id": {

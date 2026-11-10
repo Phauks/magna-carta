@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DIMENSIONS, NEEDS_WASM, parseList, selectDimensions } from "./plan.mjs";
+import { DIMENSIONS, NEEDS_WASM, parseList, parseShard, selectDimensions } from "./plan.mjs";
 
 describe("selectDimensions", () => {
   it("runs everything, in the declared order, by default", () => {
@@ -44,5 +44,24 @@ describe("parseList", () => {
   it("refuses a flag with no value", () => {
     expect(() => parseList(["--skip"], "--skip")).toThrow(/needs a comma-separated list/);
     expect(() => parseList(["--skip", "--all"], "--skip")).toThrow(/needs a comma-separated list/);
+  });
+});
+
+describe("parseShard", () => {
+  it("is null when no slice was asked for, so a local run is the whole suite", () => {
+    expect(parseShard(undefined)).toBeNull();
+    expect(parseShard("  ")).toBeNull();
+  });
+
+  it("accepts i/n and hands back the runner's own spelling", () => {
+    expect(parseShard("2/4")).toBe("2/4");
+    expect(parseShard(" 4/4 ")).toBe("4/4");
+    expect(parseShard("1/1")).toBe("1/1");
+  });
+
+  it("refuses a slice that could not exist rather than running everything or nothing", () => {
+    for (const value of ["0/4", "5/4", "2", "2/0", "a/b", "1/4/2", "-1/4"]) {
+      expect(() => parseShard(value)).toThrow(/is not a slice/);
+    }
   });
 });

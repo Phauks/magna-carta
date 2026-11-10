@@ -21,7 +21,12 @@
  * values, so they can be reasoned about without a component.
  */
 import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
-import type { MessagingChannel, Strictness, TaskMatterStatus } from "./conflicts-api.ts";
+import type {
+  FileMatterStatus,
+  MessagingChannel,
+  Strictness,
+  TaskMatterStatus,
+} from "./conflicts-api.ts";
 import { OPENING_DRAFT, type CheckDraftValues } from "./check-request.ts";
 
 export class CheckDraft implements CheckDraftValues {
@@ -34,6 +39,7 @@ export class CheckDraft implements CheckDraftValues {
   messaging = $state<MessagingChannel[]>([...OPENING_DRAFT.messaging]);
   tasks = $state<TaskMatterStatus[]>([...OPENING_DRAFT.tasks]);
   magnus = $state(OPENING_DRAFT.magnus);
+  files = $state<FileMatterStatus[]>([...OPENING_DRAFT.files]);
 
   /** The subjects as the contract wants them. Reading it tracks the picker, as a derived should. */
   get subjectEntityIds(): readonly string[] {
