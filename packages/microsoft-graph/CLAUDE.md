@@ -13,7 +13,9 @@ random bytes, so every branch runs in a test with no network.
   is sent to, trading the returned code for tokens, and refreshing. `MICROSOFT_CALENDAR_SCOPES` is
   the whole calendar grant
 - `src/calendar-sync-adapter.ts` — `CalendarSyncPort` (defined in `packages/calendar/src/sync-port.ts`)
-  over Microsoft Graph
+  over Microsoft Graph. Every event it writes carries `WRITTEN_COPY_PROPERTY_ID`, and the read back
+  asks for events carrying it and nothing else, so no event the member made is ever read. Changing
+  that identifier orphans every copy already written
 
 ## Local rules
 

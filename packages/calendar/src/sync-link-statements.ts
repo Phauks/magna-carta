@@ -112,6 +112,38 @@ export function markSyncLinkFailedStatement(
     .bind(key.connectionId, key.localKind, key.localId, agreedHash, now);
 }
 
+// The copy at the provider no longer matches what was sent and is to be sent again. Clearing the
+// digest is the whole instruction: the next pass finds the event differs from what was agreed and
+// writes it.
+// fitness:unguarded-write — zero rows means the copy was taken back in the meantime, and there is then nothing to send again
+export function clearSyncLinkAgreementStatement(
+  database: SqlDatabase,
+  key: SyncLinkKey,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${CALENDAR_SYNC_LINK_TABLE} SET agreed_hash = '', updated_at = ?4 WHERE connection_id = ?1 AND local_kind = ?2 AND local_id = ?3`,
+    )
+    .bind(key.connectionId, key.localKind, key.localId, now);
+}
+
+// The provider's tag moved and the copy still reads as it was sent (a reminder dismissed, a
+// category set). The new tag is kept so the same non-change is not examined on every pass.
+// fitness:unguarded-write — zero rows means the member disconnected mid-pass, and there is then nothing to record
+export function recordSyncLinkVersionStatement(
+  database: SqlDatabase,
+  key: SyncLinkKey,
+  remoteVersionTag: string,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${CALENDAR_SYNC_LINK_TABLE} SET remote_version_tag = ?4, updated_at = ?5 WHERE connection_id = ?1 AND local_kind = ?2 AND local_id = ?3`,
+    )
+    .bind(key.connectionId, key.localKind, key.localId, remoteVersionTag, now);
+}
+
 // fitness:unguarded-write — a repeat is meant to be a no-op: zero rows means the link was already gone
 export function deleteSyncLinkStatement(database: SqlDatabase, key: SyncLinkKey): SqlStatement {
   return database

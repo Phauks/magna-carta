@@ -486,6 +486,131 @@ describe("sending to the member's calendar", () => {
   });
 });
 
+describe("a copy the member changed in their own calendar", () => {
+  const ISSUES_URL = `${ORIGIN}/api/v1/me/calendar-sync/issues`;
+  const stamp = "2026-11-10T12:00:00.000Z";
+  const sent = {
+    title: "Motion hearing",
+    location: null,
+    startsOn: "2026-12-01",
+    startsAtTime: "09:30",
+    endsOn: "2026-12-01",
+    endsAtTime: "09:30",
+    timeZone: "America/Chicago",
+  };
+  let connectionId = "";
+
+  async function raise(localId: string, kind: "changed" | "removed"): Promise<void> {
+    await firmDatabase
+      .prepare(
+        "INSERT OR REPLACE INTO calendar_sync_link (connection_id, local_kind, local_id, calendar_remote_id, transaction_id, remote_event_id, remote_version_tag, agreed_hash, state, created_at, updated_at) VALUES (?1, 'matter_event', ?2, 'cal-court', ?2, ?2, 'v1', 'agreed', 'synced', ?3, ?3)",
+      )
+      .bind(connectionId, localId, stamp)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT OR REPLACE INTO connection_sync_issue (connection_id, local_kind, local_id, kind, state, remote_version_tag, sent_json, found_json, detected_at) VALUES (?1, 'matter_event', ?2, ?3, 'open', NULL, ?4, ?5, ?6)",
+      )
+      .bind(
+        connectionId,
+        localId,
+        kind,
+        JSON.stringify(sent),
+        kind === "removed" ? null : JSON.stringify({ ...sent, startsAtTime: "14:00" }),
+        stamp,
+      )
+      .run();
+  }
+
+  async function answer(cookie: string, localId: string, verb: string): Promise<Response> {
+    return await app.request(
+      `${ISSUES_URL}/matter_event/${localId}/${verb}`,
+      { method: "POST", headers: headers(cookie) },
+      PROVISIONED,
+    );
+  }
+
+  async function linkOf(localId: string) {
+    return await firmDatabase
+      .prepare("SELECT agreed_hash FROM calendar_sync_link WHERE local_id = ?1")
+      .bind(localId)
+      .first<{ agreed_hash: string }>();
+  }
+
+  beforeAll(async () => {
+    connectionId = (await readSettings(memberCookie)).account?.id ?? "";
+    await firmDatabase.prepare("DELETE FROM connection_sync_issue").run();
+  });
+
+  it("lists the member's own open questions with both sides, and nobody else's", async () => {
+    await raise("matterEvent_issue0000000001", "changed");
+    const mine = await app.request(ISSUES_URL, { headers: headers(memberCookie) }, PROVISIONED);
+    expect(mine.status).toBe(200);
+    expect(await readJson(mine)).toEqual({
+      issues: [
+        {
+          localKind: "matter_event",
+          localId: "matterEvent_issue0000000001",
+          kind: "changed",
+          sent,
+          found: { ...sent, startsAtTime: "14:00" },
+          detectedAt: stamp,
+        },
+      ],
+    });
+    const theirs = await app.request(
+      ISSUES_URL,
+      { headers: headers(colleagueCookie) },
+      PROVISIONED,
+    );
+    expect(await readJson(theirs)).toEqual({ issues: [] });
+    // Another member cannot answer it either.
+    expect((await answer(colleagueCookie, "matterEvent_issue0000000001", "leave")).status).toBe(
+      404,
+    );
+  });
+
+  it("puts a changed copy back by having the next pass write it again", async () => {
+    const response = await answer(memberCookie, "matterEvent_issue0000000001", "put-back");
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toEqual({ issues: [] });
+    expect(await linkOf("matterEvent_issue0000000001")).toEqual({ agreed_hash: "" });
+    await settleBackgroundWork();
+    // Answered once. A second answer finds no open question.
+    expect((await answer(memberCookie, "matterEvent_issue0000000001", "put-back")).status).toBe(
+      404,
+    );
+  });
+
+  it("puts a deleted copy back by forgetting it was ever sent", async () => {
+    await raise("matterEvent_issue0000000002", "removed");
+    expect((await answer(memberCookie, "matterEvent_issue0000000002", "put-back")).status).toBe(
+      200,
+    );
+    expect(await linkOf("matterEvent_issue0000000002")).toBeNull();
+    await settleBackgroundWork();
+  });
+
+  it("leaves a copy as the member made it, and keeps the answer", async () => {
+    await raise("matterEvent_issue0000000003", "changed");
+    const response = await answer(memberCookie, "matterEvent_issue0000000003", "leave");
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toEqual({ issues: [] });
+    expect(await linkOf("matterEvent_issue0000000003")).toEqual({ agreed_hash: "agreed" });
+    const row = await firmDatabase
+      .prepare("SELECT state FROM connection_sync_issue WHERE local_id = ?1")
+      .bind("matterEvent_issue0000000003")
+      .first<{ state: string }>();
+    expect(row?.state).toBe("left");
+    const audit = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS count FROM audit_log WHERE event IN ('calendar_sync.copy_put_back', 'calendar_sync.copy_left')",
+      )
+      .first<{ count: number }>();
+    expect(audit?.count).toBe(3);
+  });
+});
+
 describe("disconnecting", () => {
   it("takes the member's rules and the record of their copies with the account", async () => {
     const settings = await readSettings(memberCookie);
@@ -498,7 +623,7 @@ describe("disconnecting", () => {
     expect(response.status).toBe(200);
     const left = await firmDatabase
       .prepare(
-        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) AS count",
+        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) + (SELECT COUNT(*) FROM connection_sync_issue) AS count",
       )
       .first<{ count: number }>();
     expect(left?.count).toBe(0);

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
-import { createMicrosoftCalendarAdapter, graphEventBody } from "../src/calendar-sync-adapter.ts";
+import {
+  createMicrosoftCalendarAdapter,
+  graphEventBody,
+  WRITTEN_COPY_PROPERTY_ID,
+} from "../src/calendar-sync-adapter.ts";
 
 function serving(pages: Record<string, { status: number; body: unknown }>): {
   http: HttpClient;
@@ -144,6 +148,7 @@ describe("writing events through the Microsoft calendar adapter", () => {
       isAllDay: false,
       start: { dateTime: "2026-12-01T09:30:00", timeZone: "America/Chicago" },
       end: { dateTime: "2026-12-01T11:00:00", timeZone: "America/Chicago" },
+      singleValueExtendedProperties: [{ id: WRITTEN_COPY_PROPERTY_ID, value: "1" }],
     });
   });
 
@@ -224,5 +229,117 @@ describe("writing events through the Microsoft calendar adapter", () => {
         .create({ credential })
         .deleteEvent("evt-1"),
     ).toMatchObject({ ok: false, problem: { category: "rate_limit" } });
+  });
+});
+
+describe("reading back the copies this platform wrote", () => {
+  const filter = `singleValueExtendedProperties/Any(ep: ep/id eq '${WRITTEN_COPY_PROPERTY_ID}' and ep/value eq '1')`;
+  const list =
+    `https://graph.microsoft.com/v1.0/me/events?$filter=${encodeURIComponent(filter)}` +
+    "&$select=id,changeKey,subject,location,isAllDay,start,end&$top=100";
+  const timed = {
+    id: "evt-1",
+    changeKey: "v7",
+    subject: "Motion hearing",
+    location: { displayName: "Courtroom 4" },
+    isAllDay: false,
+    start: { dateTime: "2026-12-01T15:30:00.0000000", timeZone: "UTC" },
+    end: { dateTime: "2026-12-01T17:00:00.0000000", timeZone: "UTC" },
+  };
+
+  it("marks every event it writes, so only its own copies can be asked for", () => {
+    const body = graphEventBody({
+      title: "Motion hearing",
+      notes: null,
+      location: null,
+      startsOn: "2026-12-01",
+      startsAtTime: "09:30",
+      endsOn: null,
+      endsAtTime: null,
+      timeZone: "America/Chicago",
+    });
+    expect(body.singleValueExtendedProperties).toEqual([
+      { id: WRITTEN_COPY_PROPERTY_ID, value: "1" },
+    ]);
+  });
+
+  it("asks for the marked events only, and reads a timed and a whole-day copy", async () => {
+    const second = "https://graph.microsoft.com/v1.0/me/events?$skip=100";
+    const { http, sent } = serving({
+      [list]: { status: 200, body: { value: [timed], "@odata.nextLink": second } },
+      [second]: {
+        status: 200,
+        body: {
+          value: [
+            {
+              id: "evt-2",
+              subject: "Deadline: Answer due",
+              location: { displayName: "" },
+              isAllDay: true,
+              start: { dateTime: "2026-12-15T00:00:00.0000000", timeZone: "UTC" },
+              end: { dateTime: "2026-12-17T00:00:00.0000000", timeZone: "UTC" },
+            },
+          ],
+        },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listWrittenEvents()).toEqual({
+      ok: true,
+      value: {
+        complete: true,
+        events: [
+          {
+            remoteId: "evt-1",
+            versionTag: "v7",
+            title: "Motion hearing",
+            location: "Courtroom 4",
+            when: {
+              kind: "instants",
+              startsAtMilliseconds: Date.UTC(2026, 11, 1, 15, 30),
+              endsAtMilliseconds: Date.UTC(2026, 11, 1, 17, 0),
+            },
+          },
+          {
+            remoteId: "evt-2",
+            versionTag: null,
+            title: "Deadline: Answer due",
+            location: null,
+            // The provider's end is the midnight after the last day.
+            when: { kind: "days", startsOn: "2026-12-15", endsOn: "2026-12-16" },
+          },
+        ],
+      },
+    });
+    expect(sent.map((request) => request.url)).toEqual([list, second]);
+    expect(sent.every((request) => request.headers.Prefer === 'IdType="ImmutableId"')).toBe(true);
+  });
+
+  it("refuses a list holding a time in a zone it did not ask for", async () => {
+    const { http } = serving({
+      [list]: {
+        status: 200,
+        body: {
+          value: [{ ...timed, start: { dateTime: "2026-12-01T09:30:00", timeZone: "Central" } }],
+        },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listWrittenEvents()).toMatchObject({
+      ok: false,
+      problem: { category: "validation" },
+    });
+  });
+
+  it("reads one copy by its identifier, and answers null for one that is gone", async () => {
+    const one =
+      "https://graph.microsoft.com/v1.0/me/events/evt-1?$select=id,changeKey,subject,location,isAllDay,start,end";
+    const { http } = serving({ [one]: { status: 200, body: timed } });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.readEvent("evt-1")).toMatchObject({
+      ok: true,
+      value: { remoteId: "evt-1", versionTag: "v7" },
+    });
+    expect(await port.readEvent("evt-gone")).toEqual({ ok: true, value: null });
   });
 });

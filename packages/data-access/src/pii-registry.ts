@@ -215,6 +215,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent integration_connection; identifiers and a digest, holding no event content",
   },
+  // A copy a member changed or deleted in their own calendar. It names a person only through its
+  // connection. Both sides of the difference are held as text: the event as it was sent to that
+  // member, and what their own calendar holds now.
+  {
+    table: "connection_sync_issue",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; holds the copy as sent to the member and as their calendar has it",
+  },
   // What the firm lets leave for members' calendars. The rule is the firm's and outlives whoever
   // last saved it; the reference to that member is configuration provenance.
   {

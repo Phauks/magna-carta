@@ -27071,6 +27071,156 @@
           "limits"
         ]
       },
+      "CalendarSyncIssueList": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncIssue"
+            }
+          }
+        },
+        "required": [
+          "issues"
+        ]
+      },
+      "CalendarSyncIssue": {
+        "type": "object",
+        "properties": {
+          "localKind": {
+            "type": "string",
+            "enum": [
+              "matter_event",
+              "firm_event",
+              "deadline"
+            ]
+          },
+          "localId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "changed",
+              "removed"
+            ],
+            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar."
+          },
+          "sent": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startsOn": {
+                "type": "string",
+                "description": "The first day, as YYYY-MM-DD."
+              },
+              "startsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The wall-clock start as HH:MM, or null when the copy takes the whole day."
+              },
+              "endsOn": {
+                "type": "string",
+                "description": "The last day the copy covers, as YYYY-MM-DD."
+              },
+              "endsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timeZone": {
+                "type": "string",
+                "description": "The zone the event was recorded in. Both sides of a difference are read in it."
+              }
+            },
+            "required": [
+              "title",
+              "location",
+              "startsOn",
+              "startsAtTime",
+              "endsOn",
+              "endsAtTime",
+              "timeZone"
+            ],
+            "description": "The event as it was sent to the member's calendar, at the detail the firm allows."
+          },
+          "found": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startsOn": {
+                "type": "string",
+                "description": "The first day, as YYYY-MM-DD."
+              },
+              "startsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The wall-clock start as HH:MM, or null when the copy takes the whole day."
+              },
+              "endsOn": {
+                "type": "string",
+                "description": "The last day the copy covers, as YYYY-MM-DD."
+              },
+              "endsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timeZone": {
+                "type": "string",
+                "description": "The zone the event was recorded in. Both sides of a difference are read in it."
+              }
+            },
+            "required": [
+              "title",
+              "location",
+              "startsOn",
+              "startsAtTime",
+              "endsOn",
+              "endsAtTime",
+              "timeZone"
+            ],
+            "description": "The copy as the member's calendar holds it now. Null when the copy is gone."
+          },
+          "detectedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "localKind",
+          "localId",
+          "kind",
+          "sent",
+          "found",
+          "detectedAt"
+        ]
+      },
       "CalendarSeriesInWindow": {
         "type": "object",
         "properties": {
@@ -90752,6 +90902,278 @@
           },
           "422": {
             "description": "A subject or calendar named cannot be used; `errors` says which subject and why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/issues": {
+      "get": {
+        "description": "The copies in the session member's own calendar that no longer match what was sent, or are gone, and that the member has not yet answered.",
+        "operationId": "calendarSync.listMyIssues",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.listMyIssues",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's open questions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncIssueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back": {
+      "post": {
+        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.",
+        "operationId": "calendarSync.putBackMyCopy",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.putBackMyCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "matter_event",
+                "firm_event",
+                "deadline"
+              ]
+            },
+            "required": true,
+            "name": "localKind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "localId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's open questions after the answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncIssueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave": {
+      "post": {
+        "description": "Keeps the copy in the member's calendar as they made it, or leaves it deleted, and closes the question. The copy is written again only when the firm's event next changes.",
+        "operationId": "calendarSync.leaveMyCopy",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.leaveMyCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "matter_event",
+                "firm_event",
+                "deadline"
+              ]
+            },
+            "required": true,
+            "name": "localKind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "localId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's open questions after the answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncIssueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -136,9 +136,25 @@ account with a rule for a pass, the per-account object folds requests into one p
 later, and it runs a safety pass every six hours for what no trigger covers (an event entering the
 window, a matter assignment changing). `calendar_sync_link` is keyed by connection, kind and local
 id; it is written in a `pending` state with the request's `transactionId` before Microsoft is asked,
-so a create whose answer was lost is repeated under the same identifier. `connection_sync_state`
-and `connection_sync_issue` wait for the direction back. A copy a member deleted in Outlook is left
-deleted, and a repeating series is not sent until section 7 is built.
+so a create whose answer was lost is repeated under the same identifier. A repeating series is not
+sent until section 7 is built.
+
+As built, the first step of the direction back notices and does not apply. Every copy is written
+with a named extended property of the platform's own, and a pass that has nothing left to send asks
+Graph for the events carrying it
+([filtering by an extended property](https://learn.microsoft.com/en-us/graph/api/singlevaluelegacyextendedproperty-get?view=graph-rest-1.0)),
+so an event the member made themselves is never read. A copy whose `changeKey` is the one our own
+write was given is untouched. Otherwise its title, location, days and times are compared with the
+event as it would be sent now, read in the event's own zone; notes are not compared, because Graph
+hands a body back reformatted. A difference becomes a `connection_sync_issue` row, keyed as the link
+is, holding both sides, and the member answers it on Calendar Sync with Put Back or Leave It. A copy
+missing from the list is confirmed by asking for it by identifier before it is called deleted. A
+deadline's copy is written back without asking. The rows of the conflict table in section 6 that
+apply a remote change to the Magna Carta event are not built: whether one member's edit in Outlook
+may move an event everyone on the matter shares is an open owner question. Reading every marked
+event on each pass replaces the delta cursor for now, so `connection_sync_state` is still unbuilt
+(`apps/api-worker/src/calendar-sync/provider-changes.ts`,
+`packages/calendar/src/sync-issue-statements.ts`).
 
 For deadlines the narrow scope means the matters the member is responsible for and the wide one
 every matter they are assigned to, because a deadline names no person.

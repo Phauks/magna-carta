@@ -46,6 +46,31 @@ export type ProviderEventPresence =
   | { readonly found: true; readonly versionTag: string | null }
   | { readonly found: false };
 
+// One copy as the provider holds it now, read back in the calendar's terms. A whole-day copy is
+// civil dates with an inclusive last day; a timed one is two instants, because the provider answers
+// in its own zone and only the caller knows which zone the event was written in.
+export interface ProviderEventSnapshot {
+  readonly remoteId: string;
+  readonly versionTag: string | null;
+  readonly title: string;
+  readonly location: string | null;
+  readonly when:
+    | { readonly kind: "days"; readonly startsOn: string; readonly endsOn: string }
+    | {
+        readonly kind: "instants";
+        readonly startsAtMilliseconds: number;
+        readonly endsAtMilliseconds: number;
+      };
+}
+
+// The copies this platform wrote that the provider still holds. `complete` is false when the
+// provider had more than the adapter was willing to page through, in which case a copy missing
+// from the list proves nothing.
+export interface ProviderWrittenEvents {
+  readonly events: readonly ProviderEventSnapshot[];
+  readonly complete: boolean;
+}
+
 export interface CalendarSyncPort {
   listCalendars(): Promise<Dispatch<readonly ProviderCalendar[]>>;
   // `transactionId` is chosen by the caller and repeated on a retry, so a create whose answer was
@@ -61,6 +86,12 @@ export interface CalendarSyncPort {
   ): Promise<Dispatch<ProviderEventPresence>>;
   // Deleting a copy that is already gone succeeds: the caller wanted it gone.
   deleteEvent(remoteId: string): Promise<Dispatch<null>>;
+  // Every copy this platform wrote into the account, whichever calendar it sits in. Only those:
+  // an event the member made themselves is never read by this method.
+  listWrittenEvents(): Promise<Dispatch<ProviderWrittenEvents>>;
+  // One copy by its identifier, or null when the provider no longer has it. The answer that
+  // settles whether a copy missing from the list is really gone.
+  readEvent(remoteId: string): Promise<Dispatch<ProviderEventSnapshot | null>>;
 }
 
 // The operation names an adapter's capability descriptor declares, so a caller can ask what an
@@ -71,5 +102,7 @@ export const CALENDAR_SYNC_OPERATIONS = [
   "createEvent",
   "updateEvent",
   "deleteEvent",
+  "listWrittenEvents",
+  "readEvent",
 ] as const;
 export type CalendarSyncOperation = (typeof CALENDAR_SYNC_OPERATIONS)[number];

@@ -15,14 +15,24 @@
    * A CHANGE IS ONE ROW AT A TIME, through its own window, committed at once: the catalog-page
    * pattern, where there is no staged page-wide draft to save or lose.
    *
+   * A COPY THE MEMBER CHANGED IN OUTLOOK IS A QUESTION, NOT A WRITE. Moving or deleting a copy
+   * in their own calendar changes nothing in the firm's calendar, which everybody on the matter
+   * shares. The copy appears in its own plate, above the rules, with what was sent beside what
+   * Outlook holds, and two answers: Put Back, or Leave It. The plate is absent while there is
+   * nothing to answer.
+   *
    * WHEN THE PROVIDER CANNOT BE ASKED the page still shows what is saved, with each rule's
    * calendar under the name it had when saved, and offers no change: a rule can only be saved
    * against the account's calendars as they stand.
    */
   import { createQuery, useQueryClient } from "@tanstack/svelte-query";
   import {
+    calendarSyncListMyIssuesOptions,
+    calendarSyncListMyIssuesQueryKey,
     calendarSyncReadMineOptions,
     calendarSyncReadMineQueryKey,
+    type CalendarSyncIssue,
+    type CalendarSyncIssueList,
     type CalendarSyncSettings,
   } from "@magna-carta/api-client";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
@@ -32,7 +42,8 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { saveMyRules } from "$lib/calendar-sync/sync-settings-api.ts";
+  import { issueKey, syncIssueColumns } from "$lib/calendar-sync/sync-issues.ts";
+  import { answerSyncIssue, saveMyRules } from "$lib/calendar-sync/sync-settings-api.ts";
   import {
     destinationChoices,
     memberSyncColumns,
@@ -70,6 +81,35 @@
       itemNoun: { singular: "event type", plural: "event types" },
     }),
   );
+
+  const issues = createQuery(() => calendarSyncListMyIssuesOptions());
+  const openIssues = $derived(issues.data?.issues ?? []);
+  const issueGrid = $derived(
+    DataTable.createDataTableGrid<CalendarSyncIssue>({
+      columns: syncIssueColumns,
+      rows: () => openIssues,
+      rowKey: issueKey,
+      itemNoun: { singular: "event", plural: "events" },
+    }),
+  );
+  // The copy being answered for, so its two buttons cannot be pressed twice.
+  let answering = $state<string | null>(null);
+  let answerRefusal = $state<string | null>(null);
+
+  async function answer(issue: CalendarSyncIssue, choice: "putBack" | "leave"): Promise<void> {
+    answering = issueKey(issue);
+    answerRefusal = null;
+    const outcome = await answerSyncIssue(issue, choice);
+    answering = null;
+    if (outcome.kind === "refused") {
+      answerRefusal = outcome.detail ?? "Your answer was not saved. Nothing changed.";
+      return;
+    }
+    queryClient.setQueryData<CalendarSyncIssueList>(
+      calendarSyncListMyIssuesQueryKey(),
+      outcome.value,
+    );
+  }
 
   let changing = $state<MemberSyncRow | null>(null);
   let changeOpen = $state(false);
@@ -132,6 +172,31 @@
   {/if}
 {/snippet}
 
+{#snippet issueCell({ row, column, text }: DataTable.GridCellContext<CalendarSyncIssue>)}
+  {#if column.id === SYNC_ACTIONS_COLUMN_ID}
+    <div class="flex items-center gap-4">
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={answering !== null}
+        onclick={() => void answer(row, "putBack")}
+      >
+        Put Back
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={answering !== null}
+        onclick={() => void answer(row, "leave")}
+      >
+        Leave It
+      </Button>
+    </div>
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
 <SettingsMasthead
   sectionId="calendar-sync"
   title="Calendar Sync"
@@ -140,6 +205,22 @@
 />
 
 <SettingsScrollRegion>
+  {#if openIssues.length > 0}
+    <SettingsPlate heading="Changed in Outlook">
+      <SettingsDescription>
+        You changed or deleted these in Outlook. Magna Carta's calendar was not changed. Put Back
+        writes the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as you made
+        it.
+      </SettingsDescription>
+      {#if answerRefusal !== null}
+        <Alert.Root variant="danger">
+          <Alert.Description>{answerRefusal}</Alert.Description>
+        </Alert.Root>
+      {/if}
+      <DataTable.Grid grid={issueGrid} caption="Events you changed in Outlook" cell={issueCell} />
+    </SettingsPlate>
+  {/if}
+
   <SettingsPlate heading="From Magna Carta to Outlook">
     <SettingsDescription>
       Nothing syncs unless a row below says so. A new event type starts as Not Synced until you

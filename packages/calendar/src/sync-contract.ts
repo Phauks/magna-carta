@@ -152,3 +152,46 @@ export const CalendarSyncFirmLimitsSet = z
       .describe("The subjects to set. A subject not named keeps the limit it has."),
   })
   .meta({ id: "CalendarSyncFirmLimitsSet" });
+
+// COPIES A MEMBER CHANGED IN THEIR OWN CALENDAR: what was sent, and what is there now.
+
+export const CalendarSyncCopyReading = z
+  .object({
+    title: z.string(),
+    location: z.string().nullable(),
+    startsOn: z.string().describe("The first day, as YYYY-MM-DD."),
+    startsAtTime: z
+      .string()
+      .nullable()
+      .describe("The wall-clock start as HH:MM, or null when the copy takes the whole day."),
+    endsOn: z.string().describe("The last day the copy covers, as YYYY-MM-DD."),
+    endsAtTime: z.string().nullable(),
+    timeZone: z
+      .string()
+      .describe("The zone the event was recorded in. Both sides of a difference are read in it."),
+  })
+  .meta({ id: "CalendarSyncCopyReading" });
+
+export const CalendarSyncIssue = z
+  .object({
+    localKind: z.enum(["matter_event", "firm_event", "deadline"]),
+    localId: z.string(),
+    kind: z
+      .enum(["changed", "removed"])
+      .describe(
+        "`changed`: the copy in the member's calendar no longer reads as it was sent. " +
+          "`removed`: the copy is no longer in the member's calendar.",
+      ),
+    sent: CalendarSyncCopyReading.describe(
+      "The event as it was sent to the member's calendar, at the detail the firm allows.",
+    ),
+    found: CalendarSyncCopyReading.nullable().describe(
+      "The copy as the member's calendar holds it now. Null when the copy is gone.",
+    ),
+    detectedAt: z.string(),
+  })
+  .meta({ id: "CalendarSyncIssue" });
+
+export const CalendarSyncIssueList = z
+  .object({ issues: z.array(CalendarSyncIssue) })
+  .meta({ id: "CalendarSyncIssueList" });

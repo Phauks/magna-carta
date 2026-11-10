@@ -5,10 +5,19 @@
  * edit sends one update; a cancelled event, a removed rule and a closed subject each take the copy
  * back; a create whose answer was lost is repeated under the same identifier; and a refused sign-in
  * stops the pass where it stands.
+ *
+ * And for what the member does to a copy afterwards: a copy left alone raises nothing; a copy moved
+ * or deleted becomes one question for the member and no write anywhere; a deadline's copy is put
+ * back without asking; and a question whose event changes or is cancelled goes away.
  */
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { CalendarSyncPort, ProviderEventWrite } from "@magna-carta/calendar/sync-port";
+import type {
+  CalendarSyncPort,
+  ProviderEventSnapshot,
+  ProviderEventWrite,
+} from "@magna-carta/calendar/sync-port";
+import { instantForCivilDateTime } from "@magna-carta/civil-time/time-zone";
 import type { FirmId, IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import { adapterError, ok } from "@magna-carta/integrations/dispatch";
 import { integrationProblem } from "@magna-carta/integrations/problem";
@@ -32,9 +41,53 @@ type Call =
   | { op: "update"; remoteId: string; event: ProviderEventWrite }
   | { op: "delete"; remoteId: string };
 
-function recorder(): { port: CalendarSyncPort; calls: Call[]; failNext: (kind: string) => void } {
+interface RemoteCopy {
+  event: ProviderEventWrite;
+  versionTag: string;
+}
+
+// The copy as a provider would hand it back: a whole day as civil dates, a timed copy as instants.
+function snapshotOf(remoteId: string, copy: RemoteCopy): ProviderEventSnapshot {
+  const event = copy.event;
+  const lastDay = event.endsOn ?? event.startsOn;
+  return {
+    remoteId,
+    versionTag: copy.versionTag,
+    title: event.title,
+    location: event.location,
+    when:
+      event.startsAtTime === null
+        ? { kind: "days", startsOn: event.startsOn, endsOn: lastDay }
+        : {
+            kind: "instants",
+            startsAtMilliseconds: instantForCivilDateTime(
+              event.startsOn,
+              event.startsAtTime,
+              event.timeZone,
+            ),
+            endsAtMilliseconds: instantForCivilDateTime(
+              lastDay,
+              event.endsAtTime ?? event.startsAtTime,
+              event.timeZone,
+            ),
+          },
+  };
+}
+
+// A provider played from memory. `remote` is the member's calendar: a test that hands the same map
+// to two recorders is the same account on two passes, and a test that edits the map is the member
+// changing a copy themselves.
+function recorder(remote = new Map<string, RemoteCopy>()): {
+  port: CalendarSyncPort;
+  calls: Call[];
+  remote: Map<string, RemoteCopy>;
+  listed: { complete: boolean; hide: Set<string> };
+  failNext: (kind: string) => void;
+} {
   const calls: Call[] = [];
+  const listed = { complete: true, hide: new Set<string>() };
   let failing: string | null = null;
+  let writes = 0;
   const refusal = () => {
     const kind = failing;
     failing = null;
@@ -45,6 +98,8 @@ function recorder(): { port: CalendarSyncPort; calls: Call[]; failNext: (kind: s
   };
   return {
     calls,
+    remote,
+    listed,
     failNext: (kind) => {
       failing = kind;
     },
@@ -52,17 +107,40 @@ function recorder(): { port: CalendarSyncPort; calls: Call[]; failNext: (kind: s
       listCalendars: () => Promise.resolve(ok([])),
       createEvent: (calendar, event, transactionId) => {
         calls.push({ op: "create", calendar, event, transactionId });
-        return Promise.resolve(
-          refusal() ?? ok({ remoteId: `remote-${transactionId}`, versionTag: "v1" }),
-        );
+        const refused = refusal();
+        if (refused !== null) return Promise.resolve(refused);
+        const remoteId = `remote-${transactionId}`;
+        remote.set(remoteId, { event, versionTag: "v1" });
+        return Promise.resolve(ok({ remoteId, versionTag: "v1" }));
       },
       updateEvent: (remoteId, event) => {
         calls.push({ op: "update", remoteId, event });
-        return Promise.resolve(refusal() ?? ok({ found: true as const, versionTag: "v2" }));
+        const refused = refusal();
+        if (refused !== null) return Promise.resolve(refused);
+        if (!remote.has(remoteId)) return Promise.resolve(ok({ found: false as const }));
+        const versionTag = `w${(writes += 1)}`;
+        remote.set(remoteId, { event, versionTag });
+        return Promise.resolve(ok({ found: true as const, versionTag }));
       },
       deleteEvent: (remoteId) => {
         calls.push({ op: "delete", remoteId });
-        return Promise.resolve(refusal() ?? ok(null));
+        const refused = refusal();
+        if (refused !== null) return Promise.resolve(refused);
+        remote.delete(remoteId);
+        return Promise.resolve(ok(null));
+      },
+      listWrittenEvents: () =>
+        Promise.resolve(
+          ok({
+            events: [...remote]
+              .filter(([remoteId]) => !listed.hide.has(remoteId))
+              .map(([remoteId, copy]) => snapshotOf(remoteId, copy)),
+            complete: listed.complete,
+          }),
+        ),
+      readEvent: (remoteId) => {
+        const copy = remote.get(remoteId);
+        return Promise.resolve(ok(copy === undefined ? null : snapshotOf(remoteId, copy)));
       },
     },
   };
@@ -190,6 +268,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   nextTransaction = 0;
   for (const table of [
+    "connection_sync_issue",
     "calendar_sync_link",
     "calendar_sync_rule",
     "calendar_sync_firm_limit",
@@ -342,16 +421,17 @@ describe("one account's outbound pass", () => {
       true,
     );
     await setRule(hearingTypeId, "cal-court", "mine");
-    await pass(recorder().port);
+    const account = recorder().remote;
+    await pass(recorder(account).port);
 
-    const unchanged = recorder();
+    const unchanged = recorder(account);
     await pass(unchanged.port);
     expect(unchanged.calls).toEqual([]);
 
     await run(
       "UPDATE matter_event SET starts_on = '2026-12-03' WHERE id = 'matterEvent_outbound000001'",
     );
-    const edited = recorder();
+    const edited = recorder(account);
     expect(await pass(edited.port)).toMatchObject({ report: { updated: 1 } });
     expect(edited.calls).toMatchObject([
       { op: "update", remoteId: "remote-txn-1", event: { startsOn: "2026-12-03" } },
@@ -360,7 +440,7 @@ describe("one account's outbound pass", () => {
     await run(
       "UPDATE matter_event SET status = 'cancelled' WHERE id = 'matterEvent_outbound000001'",
     );
-    const cancelled = recorder();
+    const cancelled = recorder(account);
     await pass(cancelled.port);
     expect(cancelled.calls).toEqual([{ op: "delete", remoteId: "remote-txn-1" }]);
     expect(await links()).toEqual([]);
@@ -472,5 +552,185 @@ describe("one account's outbound pass", () => {
     const quiet = recorder();
     await pass(quiet.port);
     expect(quiet.calls).toEqual([]);
+  });
+});
+
+interface IssueRow {
+  local_id: string;
+  kind: string;
+  state: string;
+  sent_json: string;
+  found_json: string | null;
+}
+
+async function issues(): Promise<IssueRow[]> {
+  const { results } = await firmDatabase
+    .prepare(
+      "SELECT local_id, kind, state, sent_json, found_json FROM connection_sync_issue WHERE connection_id = ?1 ORDER BY local_id",
+    )
+    .bind(CONNECTION)
+    .all<IssueRow>();
+  return results;
+}
+
+// The member changing a copy in their own calendar: the provider gives it a tag of its own.
+function memberEdits(
+  remote: Map<string, RemoteCopy>,
+  remoteId: string,
+  change: Partial<ProviderEventWrite>,
+  versionTag = "member-1",
+): void {
+  const copy = remote.get(remoteId);
+  if (copy === undefined) throw new Error(`no copy ${remoteId}`);
+  remote.set(remoteId, { event: { ...copy.event, ...change }, versionTag });
+}
+
+describe("what a member did to a copy in their own calendar", () => {
+  const HEARING = "matterEvent_outbound000001";
+
+  async function sendHearing() {
+    await seedEvent(HEARING, MATTER, hearingTypeId, "Motion hearing", "2026-12-01", true);
+    await setRule(hearingTypeId, "cal-court", "mine");
+    const provider = recorder();
+    expect(await pass(provider.port)).toMatchObject({ report: { created: 1, flagged: 0 } });
+    return provider;
+  }
+
+  it("raises nothing for a copy nobody touched, pass after pass", async () => {
+    const provider = await sendHearing();
+    const again = recorder(provider.remote);
+    expect(await pass(again.port)).toMatchObject({
+      kind: "settled",
+      report: { flagged: 0, putBack: 0 },
+    });
+    expect(again.calls).toEqual([]);
+    expect(await issues()).toEqual([]);
+  });
+
+  it("asks the member about a copy they moved, once, and writes nothing anywhere", async () => {
+    const provider = await sendHearing();
+    memberEdits(provider.remote, "remote-txn-1", { startsAtTime: "14:00", endsAtTime: "15:30" });
+
+    const second = recorder(provider.remote);
+    expect(await pass(second.port)).toMatchObject({ kind: "settled", report: { flagged: 1 } });
+    expect(second.calls).toEqual([]);
+    const [issue] = await issues();
+    expect(issue).toMatchObject({ local_id: HEARING, kind: "changed", state: "open" });
+    expect(JSON.parse(issue?.sent_json ?? "{}")).toMatchObject({
+      title: "Motion hearing",
+      startsOn: "2026-12-01",
+      startsAtTime: "09:30",
+      endsAtTime: "11:00",
+    });
+    // Read back on the wall clock of the zone the hearing was recorded in.
+    expect(JSON.parse(issue?.found_json ?? "{}")).toMatchObject({
+      startsOn: "2026-12-01",
+      startsAtTime: "14:00",
+      endsAtTime: "15:30",
+      timeZone: "America/Chicago",
+    });
+    const event = await firmDatabase
+      .prepare("SELECT starts_at_time FROM matter_event WHERE id = ?1")
+      .bind(HEARING)
+      .first<{ starts_at_time: string }>();
+    expect(event?.starts_at_time).toBe("09:30");
+
+    // The member answered "leave it". The same copy is not raised again.
+    await run("UPDATE connection_sync_issue SET state = 'left', settled_at = ?1", NOW);
+    const third = recorder(provider.remote);
+    expect(await pass(third.port)).toMatchObject({ report: { flagged: 0 } });
+    expect(third.calls).toEqual([]);
+    expect((await issues()).map((row) => row.state)).toEqual(["left"]);
+
+    // They move it again: that is a new question.
+    memberEdits(provider.remote, "remote-txn-1", { startsAtTime: "16:00" }, "member-2");
+    expect(await pass(recorder(provider.remote).port)).toMatchObject({ report: { flagged: 1 } });
+    expect((await issues()).map((row) => row.state)).toEqual(["open"]);
+  });
+
+  it("raises nothing when the provider's tag moved and the copy reads as it was sent", async () => {
+    const provider = await sendHearing();
+    // A reminder dismissed: a new tag, and the title handed back with a trailing space.
+    memberEdits(provider.remote, "remote-txn-1", { title: "Motion hearing " }, "reminder-1");
+    expect(await pass(recorder(provider.remote).port)).toMatchObject({ report: { flagged: 0 } });
+    expect(await issues()).toEqual([]);
+    const link = await firmDatabase
+      .prepare("SELECT remote_version_tag FROM calendar_sync_link WHERE local_id = ?1")
+      .bind(HEARING)
+      .first<{ remote_version_tag: string }>();
+    expect(link?.remote_version_tag).toBe("reminder-1");
+  });
+
+  it("asks about a copy the member deleted, and only once the provider confirms it is gone", async () => {
+    const provider = await sendHearing();
+    // Missing from the list and still there when asked for by itself: not gone.
+    const hidden = recorder(provider.remote);
+    hidden.listed.hide.add("remote-txn-1");
+    expect(await pass(hidden.port)).toMatchObject({ report: { flagged: 0 } });
+    expect(await issues()).toEqual([]);
+
+    provider.remote.delete("remote-txn-1");
+    const after = recorder(provider.remote);
+    expect(await pass(after.port)).toMatchObject({ kind: "settled", report: { flagged: 1 } });
+    expect(after.calls).toEqual([]);
+    expect(await issues()).toMatchObject([
+      { local_id: HEARING, kind: "removed", found_json: null },
+    ]);
+    // The copy stays deleted and the question is not raised twice.
+    const later = recorder(provider.remote);
+    expect(await pass(later.port)).toMatchObject({ report: { flagged: 0, created: 0 } });
+    expect(later.calls).toEqual([]);
+  });
+
+  it("puts a deadline's copy back without asking", async () => {
+    await run(
+      "INSERT INTO matter_deadline (id, matter_id, title, due_on, due_at_time, time_zone, source, state, recorded_at, created_at, updated_at) VALUES ('matterDeadline_outbound00001', ?1, 'Answer due', '2026-12-15', NULL, 'America/Chicago', 'member', 'open', ?2, ?2, ?2)",
+      MATTER,
+      NOW,
+    );
+    await setRule("deadline", "cal-main", "mine");
+    const provider = recorder();
+    await pass(provider.port);
+    memberEdits(provider.remote, "remote-txn-1", { startsOn: "2026-12-16", endsOn: "2026-12-16" });
+
+    const second = recorder(provider.remote);
+    expect(await pass(second.port)).toMatchObject({ report: { flagged: 0, putBack: 1 } });
+    expect(second.calls).toMatchObject([{ op: "update", event: { startsOn: "2026-12-15" } }]);
+    expect(await issues()).toEqual([]);
+    // And the pass after that finds nothing to do.
+    const third = recorder(provider.remote);
+    expect(await pass(third.port)).toMatchObject({ report: { putBack: 0 } });
+    expect(third.calls).toEqual([]);
+  });
+
+  it("drops a question when the event changes, and when the event is cancelled", async () => {
+    const provider = await sendHearing();
+    memberEdits(provider.remote, "remote-txn-1", { startsAtTime: "14:00" });
+    await pass(recorder(provider.remote).port);
+    expect(await issues()).toHaveLength(1);
+
+    // The firm's calendar moves the hearing: its version is written over the member's.
+    await run("UPDATE matter_event SET starts_on = '2026-12-02' WHERE id = ?1", HEARING);
+    const moved = recorder(provider.remote);
+    expect(await pass(moved.port)).toMatchObject({ report: { updated: 1, flagged: 0 } });
+    expect(await issues()).toEqual([]);
+
+    memberEdits(provider.remote, "remote-txn-1", { startsAtTime: "15:00" }, "member-3");
+    await pass(recorder(provider.remote).port);
+    expect(await issues()).toHaveLength(1);
+    await run("UPDATE matter_event SET status = 'cancelled' WHERE id = ?1", HEARING);
+    await pass(recorder(provider.remote).port);
+    expect(await issues()).toEqual([]);
+    expect(await links()).toEqual([]);
+  });
+
+  it("concludes nothing when the provider will not hand back the list", async () => {
+    const provider = await sendHearing();
+    provider.remote.delete("remote-txn-1");
+    const failing = recorder(provider.remote);
+    failing.port.listWrittenEvents = () =>
+      Promise.resolve(adapterError(integrationProblem("validation", 502, "unreadable")));
+    expect(await pass(failing.port)).toMatchObject({ kind: "settled", report: { flagged: 0 } });
+    expect(await issues()).toEqual([]);
   });
 });
