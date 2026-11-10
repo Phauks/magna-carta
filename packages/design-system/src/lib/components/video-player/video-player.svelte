@@ -118,6 +118,15 @@
     if (startAt > 0) video.currentTime = clampPosition(startAt, video.duration);
   }
 
+  /*
+   * A browser that cannot decode a recording's picture does not always say so: given HEVC it has no
+   * decoder for, a browser can play the sound under a blank frame and report no error at all. Once
+   * the first frame is due, a picture with no width is that case, and it is refused the same way.
+   */
+  function onLoadedData(): void {
+    if (video !== null && video.videoWidth === 0) onError();
+  }
+
   function onError(): void {
     if (failed) return;
     failed = true;
@@ -209,6 +218,7 @@
       preload="metadata"
       playsinline
       onloadedmetadata={onLoadedMetadata}
+      onloadeddata={onLoadedData}
       onerror={onError}
       onclick={togglePlayback}
     ></video>
