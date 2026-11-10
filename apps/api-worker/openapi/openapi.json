@@ -26490,6 +26490,293 @@
           "status"
         ]
       },
+      "CalendarSyncSettings": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "microsoft"
+                ]
+              },
+              "accountLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The account as the provider names it: the member's own sign-in address there."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "connected",
+                  "degraded",
+                  "needs_reauth",
+                  "disabled"
+                ]
+              },
+              "connectedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "provider",
+              "accountLabel",
+              "status",
+              "connectedAt"
+            ],
+            "description": "The member's connected account, or null when they have connected none."
+          },
+          "calendars": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncProviderCalendar"
+            },
+            "description": "The account's calendars as the provider lists them now. Null when there is no account or the provider could not be asked, in which case rules can be read and not changed."
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncSubject"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncRule"
+            }
+          }
+        },
+        "required": [
+          "account",
+          "calendars",
+          "subjects",
+          "rules"
+        ]
+      },
+      "CalendarSyncProviderCalendar": {
+        "type": "object",
+        "properties": {
+          "remoteId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "remoteId",
+          "name",
+          "isDefault",
+          "canWrite"
+        ]
+      },
+      "CalendarSyncSubject": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "An event type's id, or `deadline` for deadlines as one kind."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "eventType",
+              "deadline"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The event type's name. Null for the deadline kind."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "litigation",
+              "transaction",
+              "firm",
+              "other",
+              null
+            ]
+          },
+          "mayLeave": {
+            "type": "boolean",
+            "description": "Whether the firm lets this subject be synced at all."
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "full",
+              "minimal"
+            ],
+            "description": "How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else."
+          }
+        },
+        "required": [
+          "subject",
+          "kind",
+          "name",
+          "category",
+          "mayLeave",
+          "detail"
+        ]
+      },
+      "CalendarSyncRule": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "An event type's id, or `deadline` for deadlines as one kind."
+          },
+          "calendarRemoteId": {
+            "type": "string"
+          },
+          "calendarName": {
+            "type": "string",
+            "description": "The calendar's name when the rule was saved, shown when the provider is unreachable."
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "mine",
+              "my_matters"
+            ],
+            "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on."
+          }
+        },
+        "required": [
+          "subject",
+          "calendarRemoteId",
+          "calendarName",
+          "scope"
+        ]
+      },
+      "CalendarSyncRulesReplace": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "description": "An event type's id, or `deadline` for deadlines as one kind."
+                },
+                "calendarRemoteId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "mine",
+                    "my_matters"
+                  ],
+                  "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on."
+                }
+              },
+              "required": [
+                "subject",
+                "calendarRemoteId",
+                "scope"
+              ]
+            },
+            "maxItems": 500,
+            "description": "The member's whole rule set. A subject absent from it is not synced."
+          }
+        },
+        "required": [
+          "rules"
+        ]
+      },
+      "CalendarSyncFirmLimits": {
+        "type": "object",
+        "properties": {
+          "subjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncSubject"
+            }
+          }
+        },
+        "required": [
+          "subjects"
+        ]
+      },
+      "CalendarSyncFirmLimitsSet": {
+        "type": "object",
+        "properties": {
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "description": "An event type's id, or `deadline` for deadlines as one kind."
+                },
+                "mayLeave": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string",
+                  "enum": [
+                    "full",
+                    "minimal"
+                  ],
+                  "description": "How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else."
+                }
+              },
+              "required": [
+                "subject",
+                "mayLeave",
+                "detail"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 500,
+            "description": "The subjects to set. A subject not named keeps the limit it has."
+          }
+        },
+        "required": [
+          "limits"
+        ]
+      },
       "CalendarSeriesInWindow": {
         "type": "object",
         "properties": {
@@ -89453,6 +89740,360 @@
         }
       }
     },
+    "/api/v1/me/calendar-sync": {
+      "get": {
+        "description": "The session member's calendar sync settings: their connected account, that account's calendars, every event type with the firm's limit on it, and the member's own rules. Nothing syncs for a subject that has no rule.",
+        "operationId": "calendarSync.readMine",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.readMine",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's calendar sync settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/rules": {
+      "put": {
+        "description": "Replaces the session member's whole set of calendar sync rules. A subject absent from the set is not synced. Refused when a rule names a subject the firm does not let leave, or a calendar the member's account does not have or cannot write to.",
+        "operationId": "calendarSync.replaceMyRules",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.replaceMyRules",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarSyncRulesReplace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's calendar sync settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has no connected account",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A subject or calendar named cannot be used; `errors` says which subject and why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The member's provider could not be asked for their calendars, so nothing was saved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar-sync/firm-limits": {
+      "get": {
+        "description": "The firm's limit on calendar sync: for every event type and for deadlines, whether it may be copied to a member's own calendar and with how much detail. A subject the firm has never set may leave in full detail.",
+        "operationId": "calendarSync.readFirmLimits",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.readFirmLimits",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manageSyncPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncFirmLimits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the firm's limit on the subjects named and leaves the rest as they were. Stopping a subject from leaving removes every member's rule for it in the same write.",
+        "operationId": "calendarSync.setFirmLimits",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.setFirmLimits",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manageSyncPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarSyncFirmLimitsSet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's limits after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncFirmLimits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A subject or calendar named cannot be used; `errors` says which subject and why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/calendar/series": {
       "get": {
         "description": "The repeating settings that fall inside a window, each with the days inside it that it falls on. A series is one record carrying its rule; the days are worked out when the window is read and never stored. A day somebody changed or called off on its own is left out of its series here, because the event standing in for that day is an ordinary event the other calendar reads return. Read across the firm a matter's series carries no title, as the firm calendar carries none; read for one matter, it does. Narrow by side, by matter, and by member exactly as the firm calendar narrows.",
@@ -126702,6 +127343,9 @@
     },
     {
       "name": "calendar"
+    },
+    {
+      "name": "calendarSync"
     },
     {
       "name": "communications"

@@ -2,6 +2,8 @@
 // packages/database, so the diff that renames one never touches this package.
 import {
   calendarEventLink,
+  calendarSyncFirmLimit,
+  calendarSyncRule,
   firmEvent,
   firmEventParticipant,
   firmResource,
@@ -65,6 +67,16 @@ import {
   insertFirmResourceStatement,
   selectFirmResourcesStatement,
 } from "../src/resource-statements.ts";
+import {
+  CALENDAR_SYNC_FIRM_LIMIT_TABLE,
+  CALENDAR_SYNC_RULE_TABLE,
+  deleteSyncRulesForSubjectStatement,
+  deleteSyncRulesStatement,
+  insertSyncRuleStatement,
+  selectSyncFirmLimitsStatement,
+  selectSyncRulesStatement,
+  upsertSyncFirmLimitStatement,
+} from "../src/sync-rule-statements.ts";
 import { visibleMatterPredicate } from "../src/visibility.ts";
 
 // Fitness function (the ledger pattern): the raw SQL in this package must track
@@ -470,5 +482,44 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
       new Set([CALENDAR_EVENT_LINK_TABLE, ...columnsOf(calendarEventLink)]),
       "link",
     );
+  });
+
+  it("every column the calendar sync SQL names exists in the schema", () => {
+    expect(getTableConfig(calendarSyncRule).name).toBe(CALENDAR_SYNC_RULE_TABLE);
+    expect(getTableConfig(calendarSyncFirmLimit).name).toBe(CALENDAR_SYNC_FIRM_LIMIT_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const ruleColumns = new Set([CALENDAR_SYNC_RULE_TABLE, ...columnsOf(calendarSyncRule)]);
+    for (const statement of [
+      selectSyncRulesStatement(stub, connectionId),
+      deleteSyncRulesStatement(stub, connectionId),
+      deleteSyncRulesForSubjectStatement(stub, "deadline"),
+      insertSyncRuleStatement(
+        stub,
+        connectionId,
+        { subject: "deadline", calendarRemoteId: "c", calendarName: "C", scope: "mine" },
+        "t",
+      ),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), ruleColumns, "sync rule");
+    }
+    const limitColumns = new Set([
+      CALENDAR_SYNC_FIRM_LIMIT_TABLE,
+      ...columnsOf(calendarSyncFirmLimit),
+      // The row an upsert proposes, as SQLite names it.
+      "conflict",
+      "do",
+      "excluded",
+    ]);
+    for (const statement of [
+      selectSyncFirmLimitsStatement(stub),
+      upsertSyncFirmLimitStatement(
+        stub,
+        { subject: "deadline", mayLeave: true, detail: "full" },
+        USER_ID,
+        "t",
+      ),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), limitColumns, "sync firm limit");
+    }
   });
 });

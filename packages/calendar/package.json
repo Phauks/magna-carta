@@ -34,6 +34,8 @@
     "./settings": "./src/settings.ts",
     "./sync-contract": "./src/sync-contract.ts",
     "./sync-port": "./src/sync-port.ts",
+    "./sync-rule-service": "./src/sync-rule-service.ts",
+    "./sync-rule-statements": "./src/sync-rule-statements.ts",
     "./contract": "./src/contract.ts"
   },
   "scripts": {

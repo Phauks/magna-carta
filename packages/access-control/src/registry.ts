@@ -287,6 +287,7 @@ export const PERMISSIONS = [
   // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
   "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
   "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
+  "calendar:manageSyncPolicy", // set which event types may leave for members' own calendars at a provider, and with how much detail
   // Matter notes — what the firm wrote down about a case that no other record holds. Two keys, on the
   // ordinary read/write split: a note is attorney work product and the most candid text the firm
   // produces, so "may read this matter's notes" is a grant a firm makes deliberately and separately
