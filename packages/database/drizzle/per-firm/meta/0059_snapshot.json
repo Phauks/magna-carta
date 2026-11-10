@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "02a7b31e-6b7b-4d60-9942-71956b897965",
+  "id": "43977b3f-9e13-4336-a281-256897bd8398",
   "prevId": "77b7f5ad-1923-489e-96a4-2872daac45ae",
   "tables": {
     "account_balance": {
@@ -2422,6 +2422,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "provider_refused": {
+          "name": "provider_refused",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "detected_at": {
           "name": "detected_at",
@@ -19146,132 +19154,6 @@
           "value": "(\"matter_task_checklist_item\".\"done_at\" IS NULL) = (\"matter_task_checklist_item\".\"done_by\" IS NULL)"
         }
       }
-    },
-    "matter_task_comment": {
-      "name": "matter_task_comment",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "author_user_id": {
-          "name": "author_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "edited_at": {
-          "name": "edited_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_task_comment_task_index": {
-          "name": "matter_task_comment_task_index",
-          "columns": [
-            "task_id",
-            "created_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_task_comment_task_id_matter_task_id_fk": {
-          "name": "matter_task_comment_task_id_matter_task_id_fk",
-          "tableFrom": "matter_task_comment",
-          "tableTo": "matter_task",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_task_comment_body_nonempty_check": {
-          "name": "matter_task_comment_body_nonempty_check",
-          "value": "length(\"matter_task_comment\".\"body\") > 0"
-        }
-      }
-    },
-    "matter_task_comment_mention": {
-      "name": "matter_task_comment_mention",
-      "columns": {
-        "comment_id": {
-          "name": "comment_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "matter_task_comment_mention_comment_id_matter_task_comment_id_fk": {
-          "name": "matter_task_comment_mention_comment_id_matter_task_comment_id_fk",
-          "tableFrom": "matter_task_comment_mention",
-          "tableTo": "matter_task_comment",
-          "columnsFrom": [
-            "comment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "matter_task_comment_mention_comment_id_user_id_pk": {
-          "columns": [
-            "comment_id",
-            "user_id"
-          ],
-          "name": "matter_task_comment_mention_comment_id_user_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "matter_task_deletion": {
       "name": "matter_task_deletion",

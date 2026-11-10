@@ -96,15 +96,15 @@
     </div>
 
     <div class="flex items-start gap-24">
-      <nav aria-label="Product area" class="flex w-3xs shrink-0 flex-col gap-4">
-        <FieldLabel as="h2" class="px-8 pb-4">Product Area</FieldLabel>
+      <nav aria-label="Topic" class="flex w-3xs shrink-0 flex-col gap-4">
+        <FieldLabel as="h2" class="px-8 pb-4">Topic</FieldLabel>
         <button
           type="button"
           aria-current={selectedArea === null ? "true" : undefined}
           onclick={() => (selectedArea = null)}
           class="flex justify-between rounded-md px-8 py-4 text-left text-sm hover:bg-surface-default aria-[current=true]:bg-surface-selected aria-[current=true]:font-semibold"
         >
-          All Areas <span class="text-text-subtle tabular-nums">{totalAcrossAreas}</span>
+          All Topics <span class="text-text-subtle tabular-nums">{totalAcrossAreas}</span>
         </button>
         {#each PRODUCT_AREAS as area (area.slug)}
           <button

@@ -1,8 +1,8 @@
 <script lang="ts">
   /*
    * Writing a post. The order of the fields is the board's first confidentiality control: the
-   * composer asks which part of the software the post is about before anything is written, and
-   * there is no general area to pick.
+   * composer asks for the post's topic, one of the product areas, before anything is written, and
+   * there is no general topic to pick.
    *
    * The notice is shown until the member dismisses it for good — once, not on every post, because
    * a notice on every post is read for a week and then not at all. Text that looks like a case
@@ -26,6 +26,8 @@
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
+  import * as Select from "@magna-carta/design-system/select";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import LifeBuoy from "@lucide/svelte/icons/life-buoy";
   import Pencil from "@lucide/svelte/icons/pencil";
@@ -67,12 +69,14 @@
     onSendToSupport?: () => void;
   } = $props();
 
+  const TOPIC_ITEMS = PRODUCT_AREAS.map((area) => ({ value: area.slug, label: area.label }));
+
   const findings = $derived(detectConfidentialDetail(body));
   const titleFindings = $derived(detectConfidentialDetail(title));
   const flagged = $derived([...titleFindings, ...findings]);
   const refusal = $derived(
     category === null
-      ? "Which part of the software this is about."
+      ? "A topic."
       : title.trim().length < 8
         ? "A title of at least eight characters."
         : body.trim() === ""
@@ -146,21 +150,24 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-20">
-      <fieldset class="flex flex-col gap-8" disabled={busy}>
-        <legend class="pb-8 text-sm font-semibold">Which part of the software is this about?</legend>
-        <div class="flex flex-wrap gap-8">
-          {#each PRODUCT_AREAS as area (area.slug)}
-            <button
-              type="button"
-              aria-pressed={category === area.slug}
-              onclick={() => (category = area.slug)}
-              class="rounded-full border border-border-default bg-surface-default px-12 py-4 text-sm hover:border-border-strong aria-pressed:border-action-primary aria-pressed:bg-surface-selected aria-pressed:font-semibold"
-            >
-              {area.label}
-            </button>
-          {/each}
-        </div>
-      </fieldset>
+      <div class="flex flex-col gap-8">
+        <Label id="community-topic-label">Topic</Label>
+        <Select.Root
+          type="single"
+          items={TOPIC_ITEMS}
+          disabled={busy}
+          bind:value={() => category ?? "", (picked) => (category = picked || null)}
+        >
+          <Select.Trigger aria-labelledby="community-topic-label">
+            <Select.Value placeholder={placeholderOf("Topic")} />
+          </Select.Trigger>
+          <Select.Content>
+            {#each TOPIC_ITEMS as item (item.value)}
+              <Select.Item value={item.value} label={item.label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
 
       <div class="flex flex-col gap-8">
         <Label id="community-kind-label">Kind</Label>

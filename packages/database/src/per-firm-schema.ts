@@ -8404,7 +8404,7 @@ export const calendarSyncLink = sqliteTable(
 );
 
 // One copy a member should look at: the copy in their own calendar no longer matches what was sent,
-// or is gone. One row per copy, keyed as its link is, so a copy never has two open questions. The
+// or is gone, or the provider refused to take it (`not_sent`). One row per copy, keyed as its link is, so a copy never has two open questions. The
 // row carries both sides as they stood when the difference was found (the event as sent, at the
 // detail the firm allows, and what the provider holds now), because the page that shows it must not
 // read the event again past the firm's limit. `left` is the member's answer "leave it as it is": the
@@ -8418,11 +8418,16 @@ export const connectionSyncIssue = sqliteTable(
       .references(() => integrationConnection.id),
     localKind: text("local_kind", { enum: ["matter_event", "firm_event", "deadline"] }).notNull(),
     localId: text("local_id").notNull(),
+    // `removed` means the provider holds no copy: the member deleted it or, where
+    // `provider_refused` is set, the provider never took it.
     kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
     state: text("state", { enum: ["open", "left"] }).notNull(),
     remoteVersionTag: text("remote_version_tag"), // the version of the copy the row is about
     sentJson: text("sent_json").notNull(),
-    foundJson: text("found_json"), // null when the copy is gone
+    foundJson: text("found_json"), // null when there is no copy to read
+    // The provider would not take the event at all, so there never was a copy. A column of its own
+    // and not a third `kind`: SQLite cannot widen a CHECK without rebuilding the table.
+    providerRefused: integer("provider_refused", { mode: "boolean" }).notNull().default(false),
     detectedAt: text("detected_at").notNull(),
     settledAt: text("settled_at"),
   },
