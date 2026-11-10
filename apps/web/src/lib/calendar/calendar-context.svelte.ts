@@ -219,13 +219,13 @@ export class CalendarContext {
     await this.#inFlight;
   }
 
-  async #readOwnAccount(): Promise<void> {
-    this.hasOwnAccountCalendars = await readHasOwnAccountCalendars(todayCivil());
+  async #readOwnAccount(fetchImpl: typeof fetch): Promise<void> {
+    this.hasOwnAccountCalendars = await readHasOwnAccountCalendars(todayCivil(), fetchImpl);
   }
 
   async #read(fetchImpl: typeof fetch): Promise<void> {
     await Promise.all([
-      this.#readOwnAccount(),
+      this.#readOwnAccount(fetchImpl),
       this.#readSession(fetchImpl),
       this.#readEventTypes(fetchImpl),
       this.#readMembers(fetchImpl),

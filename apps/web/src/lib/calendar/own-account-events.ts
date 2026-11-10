@@ -18,13 +18,15 @@ import type { ApiOutcome } from "$lib/api/request.ts";
 
 export type OwnAccountEvent = CalendarSyncAccountEvent;
 
-export async function readOwnAccountEvents(window: {
-  readonly from: string;
-  readonly to: string;
-}): Promise<ApiOutcome<CalendarSyncAccountEventList>> {
+export async function readOwnAccountEvents(
+  window: { readonly from: string; readonly to: string },
+  // The fetch the caller was handed, so this read travels with the rest of the caller's reads.
+  fetchImpl?: typeof fetch,
+): Promise<ApiOutcome<CalendarSyncAccountEventList>> {
   try {
     const { data } = await calendarSyncListMyAccountEvents({
       query: { from: window.from, to: window.to },
+      ...(fetchImpl === undefined ? {} : { fetch: fetchImpl }),
       throwOnError: true,
     });
     return { kind: "ok", value: data };
@@ -38,7 +40,11 @@ export async function readOwnAccountEvents(window: {
  * window so the answer costs a read of nothing. A failure reads as "no": a row that could be
  * turned on and paint nothing is the one thing the catalog refuses to list.
  */
-export async function readHasOwnAccountCalendars(today: string): Promise<boolean> {
-  const outcome = await readOwnAccountEvents({ from: today, to: today });
-  return outcome.kind === "ok" && outcome.value.shownCalendars.length > 0;
+export async function readHasOwnAccountCalendars(
+  today: string,
+  fetchImpl?: typeof fetch,
+): Promise<boolean> {
+  const outcome = await readOwnAccountEvents({ from: today, to: today }, fetchImpl);
+  // An answer of any other shape reads as "no" too, for the same reason a failure does.
+  return outcome.kind === "ok" && (outcome.value?.shownCalendars?.length ?? 0) > 0;
 }
