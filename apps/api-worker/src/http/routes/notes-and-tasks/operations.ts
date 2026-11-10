@@ -43,6 +43,7 @@ export const OPERATIONS: readonly string[] = [
   "tasks.retireTaskTeam",
   "tasks.setTaskAssignees",
   "tasks.setTaskCompletion",
+  "tasks.setTaskRecurrence",
   "tasks.setTaskStatusFlow",
   "tasks.setTaskWatchers",
   "tasks.unarchiveTask",

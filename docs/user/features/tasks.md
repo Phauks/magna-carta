@@ -72,6 +72,41 @@ its priority when it is not Normal, how much of its checklist and its sub-tasks 
 is assigned to. Sub-tasks are not cards of their own: open the task to see them. Me Mode, search,
 Show Completed and Show Archived work the same way on the board as on the list.
 
+## Repeating Tasks
+
+A task can repeat: a monthly trust reconciliation, a weekly file review. Open the task and turn on
+**Repeats** below its dates, then choose how often and when it ends, the same way you would for a
+repeating calendar entry. A task repeats from its due date, so give it one first. A sub-task repeats
+with its parent rather than on its own.
+
+**Next One** decides when the next copy appears:
+
+- **Appears when this one is marked complete** (the usual choice). The next copy is made the moment
+  you complete this one, so the work never doubles up.
+- **Appears on its start date, even if this one is still open.** The next copy arrives on its own
+  start date (or its due date, if it has no start date) whether or not this one is done, for work
+  that is owed on the day however the last round went.
+
+Under the choice, the window says when the next one is due and when it will appear. On an existing
+task, press **Save Repeat** to keep a change.
+
+Only the current copy is in the list, marked with a repeat icon. Later ones do not exist until it is
+their turn, so the list never fills with a year of copies.
+
+**What the next copy carries:** what to do and the detail, the list (at its first status), the
+priority and the location, everyone assigned and watching, the checklist with every line unticked,
+and the links. Its start and due dates are the same distance apart as this one's. Sub-tasks,
+attached documents and time are not copied, because they belong to this round of the work. The
+people it is assigned to are told it is theirs.
+
+**Moving the due date of a repeating task** asks how far the move goes:
+
+- **This Task Only** moves this copy. The next one still falls where the repeat says.
+- **This And Later Ones** moves the repeat with it, so later copies follow the new date.
+
+A due date changed from the list itself moves this copy only. To take the due date off a repeating
+task, turn off **Repeats** first.
+
 ## Me Mode
 
 Everyone in the firm sees every task, apart from tasks on matters they are walled off from. **Me
@@ -313,7 +348,7 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no recurring task and no comment thread on a task. A timer cannot yet be started from a task.
+There is no comment thread on a task. A timer cannot yet be started from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

@@ -1,6 +1,7 @@
 import { CIVIL_DATE_PATTERN, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
 import { isWallClockTime } from "@magna-carta/civil-time/wall-clock";
+import { formatRecurrence, parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import {
   DEFAULT_PLAN_DUE_ANCHOR,
   MAX_ARCHIVE_REASON_LENGTH,
@@ -25,6 +26,9 @@ import {
   type TaskDue,
   type TaskPriority,
   type TaskRung,
+  DEFAULT_TASK_RECURRENCE_MODE,
+  TASK_RECURRENCE_MODES,
+  type TaskRecurrenceMode,
 } from "./types.ts";
 
 // Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
@@ -130,7 +134,11 @@ export type TaskValidationCode =
   | "task-checklist-too-long"
   | "task-link-invalid"
   | "task-link-unknown"
-  | "task-too-many-links";
+  | "task-too-many-links"
+  // Repeating.
+  | "task-recurrence-invalid"
+  | "task-recurrence-needs-due-date"
+  | "task-recurrence-subtask";
 
 export class TaskValidationError extends Error {
   constructor(
@@ -485,4 +493,30 @@ export function normalizeTaskLink(
     );
   }
   return { url: trimmed, label: normalizedLabel.length === 0 ? null : normalizedLabel };
+}
+
+/**
+ * A repeat rule as a caller sent it: the stored line, or null for a task that happens once.
+ *
+ * Refused unless @magna-carta/civil-time can read it, and stored as that package writes it, so the
+ * column only ever holds a rule the task window can show and edit. A line with parts this product
+ * does not offer is refused rather than stored and half-understood.
+ */
+export function normalizeTaskRecurrence(
+  rule: string | null | undefined,
+  mode: string | null | undefined,
+): { rule: string; mode: TaskRecurrenceMode } | null {
+  if (rule === null || rule === undefined || rule.trim() === "") return null;
+  const parsed = parseRecurrence(rule);
+  if (parsed === null) {
+    refuse("task-recurrence-invalid", "that is not a repeat this product can show");
+  }
+  if (parsed.end.kind === "on" && !isCivilDate(parsed.end.date)) {
+    refuse("task-recurrence-invalid", "a repeat ends on a date on the calendar");
+  }
+  const resolvedMode = mode ?? DEFAULT_TASK_RECURRENCE_MODE;
+  if (!(TASK_RECURRENCE_MODES as readonly string[]).includes(resolvedMode)) {
+    refuse("task-recurrence-invalid", `${resolvedMode} is not a way for the next copy to appear`);
+  }
+  return { rule: formatRecurrence(parsed), mode: resolvedMode as TaskRecurrenceMode };
 }
