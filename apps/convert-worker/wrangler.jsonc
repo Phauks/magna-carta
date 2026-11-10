@@ -38,11 +38,22 @@
       "max_instances": 3,
       "instance_type": "standard-2",
     },
+    {
+      // The pure-Rust audio/video transcode engine (POST /convert, GET /ready on port 8080). It
+      // decodes on one thread pool and encodes on another, and spools the source, a payload file and
+      // the rendition to disk, so it takes the largest instance: four vCPUs, twelve gibibytes, and
+      // the disk a two-gibibyte source needs three times over. A starting point, not a measurement.
+      "class_name": "TranscodeEngineContainer",
+      "image": "../../containers/transcode/Dockerfile",
+      "max_instances": 3,
+      "instance_type": "standard-4",
+    },
   ],
   "durable_objects": {
     "bindings": [
       { "name": "RASTER_ENGINE", "class_name": "RasterEngineContainer" },
       { "name": "LIBREOFFICE_ENGINE", "class_name": "LibreOfficeEngineContainer" },
+      { "name": "TRANSCODE_ENGINE", "class_name": "TranscodeEngineContainer" },
     ],
   },
   // SQLite-backed DO classes introduced by migration tag. Each tag is append-only: v1 is never
@@ -50,6 +61,7 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RasterEngineContainer"] },
     { "tag": "v2", "new_sqlite_classes": ["LibreOfficeEngineContainer"] },
+    { "tag": "v3", "new_sqlite_classes": ["TranscodeEngineContainer"] },
   ],
   // No cron triggers: the Containers scale to zero after their sleepAfter (they bill only while a
   // conversion runs). Conversions are bursty/on-demand, so a warm-poke cron would pay for an
