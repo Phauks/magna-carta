@@ -29,11 +29,13 @@ import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { addCalendarDays, civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import type { IntegrationProblem } from "@magna-carta/integrations/problem";
+import { noticeProviderChanges } from "./provider-changes.ts";
 
 // ONE PASS OVER ONE MEMBER'S CONNECTED ACCOUNT: MAKE THEIR CALENDAR AGREE WITH THEIR RULES.
 //
-// The decision is made in @magna-carta/calendar/sync-outbound, from what is in the firm's database
-// and nothing else. This module is the part that touches things: it reads the inputs, asks the
+// The decision of what to send is made in @magna-carta/calendar/sync-outbound, from what is in the
+// firm's database and nothing else. Once everything is sent, ./provider-changes.ts looks at what
+// the member did to the copies and raises each difference as a question for them. This module is the part that touches things: it reads the inputs, asks the
 // provider for each difference in turn, and records what the provider answered. Every write to the
 // link table happens beside the provider call it describes, so a pass that stops anywhere leaves a
 // table the next pass can continue from.
@@ -63,6 +65,10 @@ export interface OutboundPassReport {
   updated: number;
   removed: number;
   refused: number;
+  // Copies a member changed or deleted in their own calendar, raised as questions for them.
+  flagged: number;
+  // Deadline copies a member changed, written again as they were sent.
+  putBack: number;
 }
 
 export interface OutboundPassInput {
@@ -128,7 +134,14 @@ function stopFor(problem: IntegrationProblem | undefined): "sign-in-again" | "un
 
 export async function runOutboundPass(input: OutboundPassInput): Promise<OutboundPassOutcome> {
   const { database, connectionId, port } = input;
-  const report: OutboundPassReport = { created: 0, updated: 0, removed: 0, refused: 0 };
+  const report: OutboundPassReport = {
+    created: 0,
+    updated: 0,
+    removed: 0,
+    refused: 0,
+    flagged: 0,
+    putBack: 0,
+  };
 
   const [rules, subjects, links, candidates] = await Promise.all([
     readSyncRules(database, connectionId),
@@ -239,5 +252,25 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     const stop = await apply(step);
     if (stop !== null) return { kind: stop, report };
   }
-  return { kind: steps.length > STEPS_PER_PASS ? "more" : "settled", report };
+  if (steps.length > STEPS_PER_PASS) return { kind: "more", report };
+
+  // Everything that should be out is out. Now look at what the member did to the copies. A pass
+  // with more to send does not look: it would be comparing against copies it is about to write.
+  const noticed = await noticeProviderChanges({
+    database,
+    connectionId,
+    port,
+    desired,
+    digestFor: (copy) => digests.get(copy) ?? "",
+    stamp: input.now().toISOString(),
+  });
+  report.flagged = noticed.report.flagged;
+  report.putBack = noticed.report.putBack;
+  if (noticed.kind === "stopped") {
+    // A provider that will not hand back one list is not a reason to try again every few minutes:
+    // everything is sent, and the next safety pass looks again.
+    const stop = stopFor(noticed.problem);
+    if (stop !== null) return { kind: stop, report };
+  }
+  return { kind: "settled", report };
 }

@@ -12,6 +12,12 @@ import {
   subjectName,
   syncingSummary,
 } from "../src/lib/calendar-sync/sync-settings.ts";
+import {
+  foundText,
+  issueKey,
+  syncIssueColumns,
+  whenText,
+} from "../src/lib/calendar-sync/sync-issues.ts";
 
 const hearing = {
   subject: "matterEventType_hearing",
@@ -115,5 +121,52 @@ describe("what the pages state", () => {
     expect(memberSyncColumns(false).map((column) => column.id)).not.toContain("actions");
     expect(memberSyncColumns(true).map((column) => column.id)).toContain("actions");
     expect(firmLimitColumns(false).map((column) => column.id)).not.toContain("actions");
+  });
+});
+
+describe("a copy the member changed in Outlook", () => {
+  const sent = {
+    title: "Motion hearing",
+    location: "Courtroom 4",
+    startsOn: "2026-12-01",
+    startsAtTime: "09:30",
+    endsOn: "2026-12-01",
+    endsAtTime: "11:00",
+    timeZone: "America/Chicago",
+  };
+  const issue = {
+    localKind: "matter_event",
+    localId: "matterEvent_1",
+    kind: "changed",
+    sent,
+    found: { ...sent, startsAtTime: "14:00", endsAtTime: "15:30" },
+    detectedAt: "2026-11-10T12:00:00.000Z",
+  } as const;
+
+  it("states when each side happens, on the event's own wall clock", () => {
+    expect(whenText(sent)).toContain("9:30 AM to 11:00 AM");
+    expect(whenText({ ...sent, startsAtTime: null, endsAtTime: null })).not.toContain("AM");
+    expect(
+      whenText({ ...sent, startsAtTime: null, endsAtTime: null, endsOn: "2026-12-03" }),
+    ).toContain(" to ");
+  });
+
+  it("names only what differs in Outlook", () => {
+    expect(foundText(issue)).toContain("2:00 PM to 3:30 PM");
+    expect(foundText(issue)).not.toContain("Titled");
+    expect(
+      foundText({ ...issue, found: { ...sent, title: "Hearing (moved)", location: null } }),
+    ).toBe('Titled "Hearing (moved)" · No location');
+    expect(foundText({ ...issue, kind: "removed", found: null })).toBe("Deleted in Outlook");
+  });
+
+  it("keys a row by its copy and offers its answers in a trailing column", () => {
+    expect(issueKey(issue)).toBe("matter_event:matterEvent_1");
+    expect(syncIssueColumns().map((column) => column.label)).toEqual([
+      "Event",
+      "In Magna Carta",
+      "In Outlook",
+      "Actions",
+    ]);
   });
 });

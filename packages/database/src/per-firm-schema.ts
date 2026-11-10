@@ -8364,6 +8364,44 @@ export const calendarSyncLink = sqliteTable(
   ],
 );
 
+// One copy a member should look at: the copy in their own calendar no longer matches what was sent,
+// or is gone. One row per copy, keyed as its link is, so a copy never has two open questions. The
+// row carries both sides as they stood when the difference was found (the event as sent, at the
+// detail the firm allows, and what the provider holds now), because the page that shows it must not
+// read the event again past the firm's limit. `left` is the member's answer "leave it as it is": the
+// row stays so the same version of the copy is not raised a second time.
+export const connectionSyncIssue = sqliteTable(
+  "connection_sync_issue",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    localKind: text("local_kind", { enum: ["matter_event", "firm_event", "deadline"] }).notNull(),
+    localId: text("local_id").notNull(),
+    kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
+    state: text("state", { enum: ["open", "left"] }).notNull(),
+    remoteVersionTag: text("remote_version_tag"), // the version of the copy the row is about
+    sentJson: text("sent_json").notNull(),
+    foundJson: text("found_json"), // null when the copy is gone
+    detectedAt: text("detected_at").notNull(),
+    settledAt: text("settled_at"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.localKind, table.localId] }),
+    check(
+      "connection_sync_issue_local_kind_check",
+      sql`${table.localKind} IN ('matter_event', 'firm_event', 'deadline')`,
+    ),
+    check("connection_sync_issue_kind_check", sql`${table.kind} IN ('changed', 'removed')`),
+    check("connection_sync_issue_state_check", sql`${table.state} IN ('open', 'left')`),
+    check(
+      "connection_sync_issue_found_shape_check",
+      sql`(${table.kind} = 'removed') = (${table.foundJson} IS NULL)`,
+    ),
+  ],
+);
+
 // Who is at a firm meeting: mostly members, sometimes a Directory entity (the bank's relationship
 // manager), sometimes an external who belongs in nobody's conflicts corpus (a visiting CLE speaker).
 // A second table rather than a nullable firm_event_id on matter_event_participant, because that

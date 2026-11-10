@@ -5,6 +5,7 @@ import {
   calendarSyncFirmLimit,
   calendarSyncLink,
   calendarSyncRule,
+  connectionSyncIssue,
   firmEvent,
   firmEventParticipant,
   firmResource,
@@ -69,6 +70,8 @@ import {
   selectFirmResourcesStatement,
 } from "../src/resource-statements.ts";
 import {
+  clearSyncLinkAgreementStatement,
+  recordSyncLinkVersionStatement,
   CALENDAR_SYNC_LINK_TABLE,
   deleteSyncLinkStatement,
   deleteSyncLinksStatement,
@@ -77,6 +80,16 @@ import {
   markSyncLinkSyncedStatement,
   selectSyncLinksStatement,
 } from "../src/sync-link-statements.ts";
+import {
+  CONNECTION_SYNC_ISSUE_TABLE,
+  deleteSyncIssueStatement,
+  deleteSyncIssuesStatement,
+  deleteSyncIssuesWithoutLinkStatement,
+  leaveSyncIssueStatement,
+  raiseSyncIssueStatement,
+  selectSyncIssueStatement,
+  selectSyncIssuesStatement,
+} from "../src/sync-issue-statements.ts";
 import {
   CALENDAR_SYNC_FIRM_LIMIT_TABLE,
   CALENDAR_SYNC_RULE_TABLE,
@@ -555,8 +568,40 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
       markSyncLinkFailedStatement(stub, key, "h", "t"),
       deleteSyncLinkStatement(stub, key),
       deleteSyncLinksStatement(stub, connectionId),
+      clearSyncLinkAgreementStatement(stub, key, "t"),
+      recordSyncLinkVersionStatement(stub, key, "v", "t"),
     ]) {
       expectOnlyKnownIdentifiers(sqlOf(statement), linkColumns, "sync link");
+    }
+  });
+
+  it("every column the sync issue SQL names exists in the schema", () => {
+    expect(getTableConfig(connectionSyncIssue).name).toBe(CONNECTION_SYNC_ISSUE_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const key = { connectionId, localKind: "matter_event", localId: "matterEvent_x" } as const;
+    const issueColumns = new Set([
+      CONNECTION_SYNC_ISSUE_TABLE,
+      ...columnsOf(connectionSyncIssue),
+      // The sweep of questions whose copy was taken back reads the link table beside it.
+      CALENDAR_SYNC_LINK_TABLE,
+      "link",
+      "excluded",
+    ]);
+    for (const statement of [
+      selectSyncIssuesStatement(stub, connectionId),
+      selectSyncIssueStatement(stub, key),
+      raiseSyncIssueStatement(
+        stub,
+        key,
+        { kind: "changed", remoteVersionTag: null, sentJson: "{}", foundJson: "{}" },
+        "t",
+      ),
+      leaveSyncIssueStatement(stub, key, "t"),
+      deleteSyncIssueStatement(stub, key),
+      deleteSyncIssuesWithoutLinkStatement(stub, connectionId),
+      deleteSyncIssuesStatement(stub, connectionId),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), issueColumns, "sync issue");
     }
   });
 });

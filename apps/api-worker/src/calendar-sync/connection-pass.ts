@@ -121,7 +121,10 @@ export async function runConnectionPass(
   });
   if (opened.kind === "sign-in-again") return markSignInAgain();
   if (opened.kind === "unavailable") {
-    return { kind: "unavailable", report: { created: 0, updated: 0, removed: 0, refused: 0 } };
+    return {
+      kind: "unavailable",
+      report: { created: 0, updated: 0, removed: 0, refused: 0, flagged: 0, putBack: 0 },
+    };
   }
 
   const outcome = await runOutboundPass({

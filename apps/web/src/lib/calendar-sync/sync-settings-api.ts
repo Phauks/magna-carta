@@ -3,9 +3,13 @@
  * spelled here. Each answers what the server said back, or the refusal in the server's own words.
  */
 import {
+  calendarSyncLeaveMyCopy,
+  calendarSyncPutBackMyCopy,
   calendarSyncReplaceMyRules,
   calendarSyncSetFirmLimits,
   type CalendarSyncFirmLimits,
+  type CalendarSyncIssue,
+  type CalendarSyncIssueList,
   type CalendarSyncSettings,
 } from "@magna-carta/api-client";
 
@@ -34,5 +38,19 @@ export async function setFirmLimit(limit: {
   detail: "full" | "minimal";
 }): Promise<SaveOutcome<CalendarSyncFirmLimits>> {
   const { data, error } = await calendarSyncSetFirmLimits({ body: { limits: [limit] } });
+  return data === undefined ? refusal(error) : { kind: "saved", value: data };
+}
+
+// A member's answer to one copy they changed in their own calendar: have it written again as
+// Magna Carta has the event, or keep it as they made it. Either answers with the questions left.
+export async function answerSyncIssue(
+  issue: Pick<CalendarSyncIssue, "localKind" | "localId">,
+  answer: "putBack" | "leave",
+): Promise<SaveOutcome<CalendarSyncIssueList>> {
+  const path = { localKind: issue.localKind, localId: issue.localId };
+  const { data, error } =
+    answer === "putBack"
+      ? await calendarSyncPutBackMyCopy({ path })
+      : await calendarSyncLeaveMyCopy({ path });
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
 }

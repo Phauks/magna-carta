@@ -37,9 +37,24 @@ change to the calendar in Magna Carta.
 - Nobody is invited. The copy is a plain entry in your own calendar, and Outlook emails no one.
 - Events from a month back to two years ahead are kept in step.
 
-Magna Carta is the record. If you edit a copy in Outlook, your edit stays until the event next
-changes in Magna Carta, and is then replaced. If you delete a copy in Outlook, it is not put back;
-set the row to **Not Synced** and then back to a calendar to get it again.
+## If you change a copy in Outlook
+
+Magna Carta is the record, and an event there is shared by everyone on the matter. Moving, renaming
+or deleting your copy in Outlook changes nothing in Magna Carta. Instead the copy appears on this
+page under **Changed in Outlook**, with what Magna Carta has beside what Outlook has, and two
+answers:
+
+- **Put Back** writes the event to Outlook again as Magna Carta has it. A deleted copy is made
+  again.
+- **Leave It** keeps Outlook as you made it. The copy is replaced only when the event next changes
+  in Magna Carta, and a deleted copy stays deleted.
+
+The section is absent when there is nothing to answer. It can take a few hours for a change you
+made in Outlook to appear here.
+
+A deadline is different: if you change a deadline's copy in Outlook, Magna Carta puts it back
+without asking, so a deadline never reads a day off in your calendar. To change the event itself,
+change it in Magna Carta.
 
 If you disconnect your account, the copies already in Outlook stay there, and Magna Carta stops
 updating them.
