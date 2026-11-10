@@ -67,6 +67,7 @@
   import { resultCountText } from "$lib/conflicts/check-results.ts";
   import {
     PLACE_STATE_LABELS,
+    placeSettingsText,
     statusCaption,
     statusPlaces,
     type PlaceState,
@@ -356,7 +357,7 @@
   const detailsCaption = $derived.by(() => {
     if (run === null) return "";
     const parties = run.subjectParties.length;
-    const searchable = SEARCH_LOCATIONS.filter((entry) => entry.searchable).length;
+    const searchable = places.filter((place) => place.state !== "not-searched").length;
     return [
       `${String(parties)} ${parties === 1 ? "party" : "parties"}`,
       `${String(searchable)} of ${String(SEARCH_LOCATIONS.length)} locations`,
@@ -591,10 +592,11 @@
                 <DefinitionList.Root>
                   {#each SEARCH_LOCATIONS as entry (entry.location)}
                     <DefinitionList.Row term={entry.label}>
-                      {#if !entry.searchable}
-                        Not searched
-                      {:else}
+                      {#if entry.location === "directory"}
                         {directorySettings === "" ? "As the firm's floor sets it" : directorySettings}
+                      {:else}
+                        {placeSettingsText(entry.location, run?.askedScope?.places ?? null) ??
+                          "Not searched"}
                       {/if}
                     </DefinitionList.Row>
                   {/each}

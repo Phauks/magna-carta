@@ -114,13 +114,29 @@ describe("nothing limits the search", () => {
     expect(request?.scope).toEqual({
       sources: ["party", "graph", "imputation"],
       strictness: "balanced",
+      places: {
+        messaging: ["calls", "texts", "email"],
+        tasks: ["consultations", "open", "closed", "archived"],
+        magnus: true,
+      },
     });
     expect(Object.keys(OPENING_DRAFT)).toEqual([
       "subjectEntityIds",
       "searchRelationships",
       "searchOwnPeople",
       "nameMatching",
+      "messaging",
+      "tasks",
+      "magnus",
     ]);
+  });
+
+  it("asks for only the messaging channels and task statuses left on", () => {
+    const { request } = composeCheck(
+      draft({ messaging: ["texts"], tasks: [], magnus: false }),
+      surface(),
+    );
+    expect(request?.scope.places).toEqual({ messaging: ["texts"], tasks: [], magnus: false });
   });
 });
 
@@ -136,5 +152,7 @@ describe("the close guard's answer", () => {
   it("has something to lose when only a setting was moved", () => {
     const moved = { ...OPENING_DRAFT, nameMatching: "over_inclusive" } as const;
     expect(composeCheck(moved, surface()).started).toBe(true);
+    expect(composeCheck({ ...OPENING_DRAFT, magnus: false }, surface()).started).toBe(true);
+    expect(composeCheck({ ...OPENING_DRAFT, tasks: ["open"] }, surface()).started).toBe(true);
   });
 });

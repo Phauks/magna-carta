@@ -26,6 +26,24 @@ describe("forwardOcr", () => {
     expect(await response.json()).toEqual({ pages: [] });
   });
 
+  it("carries the query string through, so a page window reaches the engine", async () => {
+    let seen: Request | undefined;
+    const container = {
+      async fetch(request: Request) {
+        seen = request;
+        return Response.json({ pages: [], pageCount: 250 });
+      },
+    };
+    await forwardOcr(
+      new Request("https://worker.example/ocr?firstPage=200&force=true", {
+        method: "POST",
+        body: "bytes",
+      }),
+      container,
+    );
+    expect(seen?.url).toBe("http://ocr/ocr?firstPage=200&force=true");
+  });
+
   it("re-targets the searchable path and streams the container's PDF back verbatim", async () => {
     let seen: Request | undefined;
     const container = {

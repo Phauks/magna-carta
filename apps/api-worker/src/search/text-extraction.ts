@@ -71,7 +71,40 @@ const RecognitionSchema = z.object({
       lines: z.array(z.object({ text: z.string() })),
     }),
   ),
+  // How many pages the document has in all. Optional because an engine build from before windows
+  // existed does not report it; that engine also refuses a long document outright, so an absent
+  // count can only mean the one response already holds every page.
+  pageCount: z.number().int().nonnegative().optional(),
 });
+
+// The recognition engine walks at most this many pages in one request (`MAX_PAGES` in
+// containers/ocr/src/lib.rs), so that no single request holds an engine every firm shares for longer
+// than that. A longer document is read a window at a time.
+const RECOGNITION_WINDOW_PAGES = 100;
+
+// The most windows one document is read in: 50,000 pages, the same ceiling the native readers apply.
+// It exists because the page count is the engine's reading of a number declared in the file, and a
+// loop bounded only by that number is bounded by the document.
+const MAXIMUM_RECOGNITION_WINDOWS = 500;
+
+// The first page of the next window to ask for, or undefined when there is nothing left to ask.
+// When the caller wants particular pages, the window starts at the next wanted page rather than at the
+// next multiple of the window size: a 900-page born-digital filing with one scanned exhibit at the back
+// is one request, not nine.
+function nextWindowStart(
+  from: number,
+  pageCount: number,
+  wanted: ReadonlySet<number> | undefined,
+): number | undefined {
+  if (wanted === undefined) return from < pageCount ? from : undefined;
+  let next: number | undefined;
+  for (const pageIndex of wanted) {
+    if (pageIndex >= from && pageIndex < pageCount && (next === undefined || pageIndex < next)) {
+      next = pageIndex;
+    }
+  }
+  return next;
+}
 
 // The discovery engine's reading, validated at the same trust boundary and for the same reason. The
 // engine reports more than this (digests, the entry listing of an archive); only what routing and the
@@ -205,9 +238,45 @@ async function recognizedPages(
   bytes: Uint8Array,
   wanted: ReadonlySet<number> | undefined,
 ): Promise<{ pages: ExtractedPage[] } | TextExtractionFailureResult> {
+  const pages: ExtractedPage[] = [];
+  // The page count is not known until the first response, so the first window starts at the first
+  // wanted page (or at the front) and every later one is placed from the count that response reported.
+  let firstPage = nextWindowStart(0, Number.MAX_SAFE_INTEGER, wanted) ?? 0;
+  for (let windows = 0; windows < MAXIMUM_RECOGNITION_WINDOWS; windows++) {
+    const window = await recognizedWindow(ocr, bytes, firstPage);
+    if ("failure" in window) return window;
+    for (const page of window.pages) {
+      if (wanted !== undefined && !wanted.has(page.pageIndex)) continue;
+      pages.push({ pageIndex: page.pageIndex, provenance: "ocr" as const, lines: page.lines });
+    }
+    if (window.pageCount === undefined) return { pages };
+    const next = nextWindowStart(firstPage + RECOGNITION_WINDOW_PAGES, window.pageCount, wanted);
+    if (next === undefined) return { pages };
+    firstPage = next;
+  }
+  // Past the ceiling the document is refused whole rather than indexed as its first 50,000 pages: a
+  // reading that stops partway with nothing to say so is the failure this loop exists to remove.
+  return {
+    failure: unextractable(
+      "the document has more pages than recognition will read",
+      "limitExceeded",
+    ),
+  };
+}
+
+type RecognitionWindow = z.infer<typeof RecognitionSchema>;
+
+// One request to the recognition engine, for the window of pages starting at `firstPage`.
+async function recognizedWindow(
+  ocr: Pick<Fetcher, "fetch">,
+  bytes: Uint8Array,
+  firstPage: number,
+): Promise<RecognitionWindow | TextExtractionFailureResult> {
   let response: Response;
   try {
-    response = await ocr.fetch(new Request("http://ocr/ocr", { method: "POST", body: bytes }));
+    response = await ocr.fetch(
+      new Request(`http://ocr/ocr?firstPage=${firstPage}`, { method: "POST", body: bytes }),
+    );
   } catch (error) {
     return {
       failure: extractionAdapterError(
@@ -237,15 +306,7 @@ async function recognizedPages(
       failure: extractionAdapterError("recognition response did not validate", "recognitionFailed"),
     };
   }
-  return {
-    pages: parsed.data.pages
-      .filter((page) => wanted === undefined || wanted.has(page.pageIndex))
-      .map((page) => ({
-        pageIndex: page.pageIndex,
-        provenance: "ocr" as const,
-        lines: page.lines,
-      })),
-  };
+  return parsed.data;
 }
 
 interface TextExtractionFailureResult {
