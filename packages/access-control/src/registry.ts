@@ -123,6 +123,7 @@ export const PERMISSIONS = [
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
   "tools:decryption", // decrypt locked files (PDF/ZIP/OOXML), recover lost passwords, and remove a PDF's owner/permissions ("editing") restrictions from a document that opens without a prompt
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
+  "tools:legalCitations", // legal citations — read a link or rough citation and format it in a court's citation format
   "tools:aiTextDetection", // AI-text detection — likelihood that text was machine-generated (a signal, not proof)
   // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
   // check-out / reconciliation flow. Each document route is matter-scoped (RouteMeta resource: "matter").
