@@ -28,3 +28,9 @@ than by turning the rule off:
 - Two stories asserted more than they meant: the day-lanes story now expects the deposition held in
   two calendars twice, and the exchange story reads which side a turn sits on from its mark, not from
   the width of the member's question.
+
+## Public
+
+**Screen readers and voice control now say the words a control shows.** A folder in the file tree
+is named with its file count, a small calendar's month heading starts with the month it shows, and
+the Error ID on a failure message reads the ID and what pressing it does, so you can say what you see.
