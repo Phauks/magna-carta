@@ -2902,6 +2902,12 @@ export const conflictsHit = sqliteTable(
     // (a co-party can be reached by the party OR the graph channel); it buckets the hit apart from a
     // conflict with a prior/other client so a reviewer can triage it separately.
     coParty: integer("co_party").notNull().default(0),
+    // Where in the firm's own records a content result was found: JSON {kind, id, matterId, at},
+    // the kind one of call, text, email, task or magnus_conversation. Identifiers and an instant
+    // only, never a subject line or a message, because this log outlives every record it points
+    // at. NULL on a Directory result, and on every row written before the firm's own records were
+    // searched.
+    foundInJson: text("found_in_json"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [

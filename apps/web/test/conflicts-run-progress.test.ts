@@ -35,7 +35,27 @@ describe("where a run is", () => {
   it("marks the stages before the reported one done, the reported one active, the rest pending", () => {
     const steps = runProgressSteps(run());
     expect(steps.map((step) => step.status)).toEqual(["done", "active", "pending", "pending"]);
+    // A run asked for none of the firm's own records skips the stage that searches them.
+    expect(steps).toHaveLength(RUN_STAGES.length - 1);
+  });
+
+  it("shows the search of calls, texts, email, tasks and Magnus on a run that asked for it", () => {
+    const steps = runProgressSteps(
+      run({
+        stage: "places",
+        progress: { placeResults: 3 },
+        askedScope: {
+          sources: ["party"],
+          strictness: "balanced",
+          places: { messaging: [], tasks: [], magnus: true },
+        },
+      }),
+    );
     expect(steps).toHaveLength(RUN_STAGES.length);
+    expect(steps[3]).toEqual({
+      label: `${RUN_STAGE_VOCABULARY.places} — 3 results found`,
+      status: "active",
+    });
   });
 
   it("says what each stage has counted so far, beside its name", () => {
