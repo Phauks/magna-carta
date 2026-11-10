@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseRecordQuery,
   RECORD_INDEX_MATCH_CONDITION,
+  RECORD_QUERY_MATTERS_LIMIT,
   recordIdsMatchingSubquery,
   recordIndexLeadingFrom,
   recordMatchExpression,
@@ -87,9 +88,33 @@ describe("recordMatchExpression", () => {
     ).toBe(`scope:"nomatter" AND {title body}:("easement")`);
   });
 
+  it("names several matters as alternatives in the scope column", () => {
+    const other = "matter_recordIndexOther0000000000" as MatterId;
+    expect(
+      recordMatchExpression("easement ", { sourceKeys: ["notes"], matters: [MATTER, other] }),
+    ).toBe(
+      `scope:("${matterScopeToken(MATTER)}" OR "${matterScopeToken(other)}") AND {title body}:("easement")`,
+    );
+    // One matter given by name wins over a list.
+    expect(
+      recordMatchExpression("easement ", { sourceKeys: ["notes"], matter: MATTER, matters: [] }),
+    ).toBe(`scope:"${matterScopeToken(MATTER)}" AND {title body}:("easement")`);
+  });
+
+  it("refuses a list of matters longer than one question may name", () => {
+    const matters = Array.from(
+      { length: RECORD_QUERY_MATTERS_LIMIT + 1 },
+      (_, index) => `matter_${index}` as MatterId,
+    );
+    expect(() => recordMatchExpression("easement", { sourceKeys: ["notes"], matters })).toThrow(
+      /at most \d+ matters, not \d+/u,
+    );
+  });
+
   it("is null when there is nothing to match or nowhere to look", () => {
     expect(recordMatchExpression("  ", { sourceKeys: ["notes"] })).toBeNull();
     expect(recordMatchExpression("easement", { sourceKeys: [] })).toBeNull();
+    expect(recordMatchExpression("easement", { sourceKeys: ["notes"], matters: [] })).toBeNull();
   });
 
   it("refuses a source that was never declared", () => {

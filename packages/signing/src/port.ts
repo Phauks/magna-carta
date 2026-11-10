@@ -7,7 +7,12 @@
 // both sides of the service binding serialize identically and never drift.
 
 import { fromBase64, toBase64 } from "./bytes.ts";
-import type { CertificateOfCompletion, SignerCompletion } from "./esign.ts";
+import type {
+  CertificateOfCompletion,
+  SignerCompletion,
+  SigningEnvelope,
+  SigningEvent,
+} from "./esign.ts";
 
 /** Signature-dictionary fields the caller may set (the engine adds the signing time itself). */
 export interface SealMetadata {
@@ -29,6 +34,13 @@ export interface SealRequest {
   readonly signingTime: string;
   /** Optional signature-dictionary fields. */
   readonly seal?: SealMetadata;
+  /** What was sent for signature, printed at the top of the certificate. */
+  readonly envelope?: SigningEnvelope;
+  /**
+   * The steps the signing request observed and stored (sent, viewed, declined and so on), for the
+   * certificate's audit log. Each signer's consent and signature and the seal need not be repeated.
+   */
+  readonly events?: readonly SigningEvent[];
 }
 
 /** The sealed result. */
@@ -41,6 +53,11 @@ export interface SealResponse {
   readonly certificate: CertificateOfCompletion;
   /** The rendered plain-text Certificate of Completion (the artifact stored with the seal). */
   readonly certificateText: string;
+  /**
+   * The Certificate of Completion as a PDF: the confirmation sheet and audit log, itself sealed with
+   * the platform certificate. Filed beside the signed document.
+   */
+  readonly certificatePdf: Uint8Array;
 }
 
 /** The platform sealing service. One implementation runs in the sign-worker; the app worker holds
@@ -58,6 +75,8 @@ interface WireSealRequest {
   signers: readonly SignerCompletion[];
   signingTime: string;
   seal?: SealMetadata;
+  envelope?: SigningEnvelope;
+  events?: readonly SigningEvent[];
 }
 
 interface WireSealResponse {
@@ -65,6 +84,7 @@ interface WireSealResponse {
   documentHashSha256: string;
   certificate: CertificateOfCompletion;
   certificateText: string;
+  certificatePdf: string;
 }
 
 export function encodeSealRequest(request: SealRequest): string {
@@ -73,6 +93,8 @@ export function encodeSealRequest(request: SealRequest): string {
     signers: request.signers,
     signingTime: request.signingTime,
     seal: request.seal,
+    envelope: request.envelope,
+    events: request.events,
   };
   return JSON.stringify(wire);
 }
@@ -84,6 +106,8 @@ export function decodeSealRequest(json: string): SealRequest {
     signers: wire.signers,
     signingTime: wire.signingTime,
     seal: wire.seal,
+    ...(wire.envelope !== undefined ? { envelope: wire.envelope } : {}),
+    ...(wire.events !== undefined ? { events: wire.events } : {}),
   };
 }
 
@@ -93,6 +117,7 @@ export function encodeSealResponse(response: SealResponse): string {
     documentHashSha256: response.documentHashSha256,
     certificate: response.certificate,
     certificateText: response.certificateText,
+    certificatePdf: toBase64(response.certificatePdf),
   };
   return JSON.stringify(wire);
 }
@@ -104,5 +129,6 @@ export function decodeSealResponse(json: string): SealResponse {
     documentHashSha256: wire.documentHashSha256,
     certificate: wire.certificate,
     certificateText: wire.certificateText,
+    certificatePdf: fromBase64(wire.certificatePdf),
   };
 }

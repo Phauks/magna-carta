@@ -12600,6 +12600,12 @@
                         "signerId": {
                           "type": "string"
                         },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
                         "adoption": {
                           "type": "string",
                           "enum": [
@@ -12649,6 +12655,9 @@
                         "observedIp": {
                           "type": "string"
                         },
+                        "userAgent": {
+                          "type": "string"
+                        },
                         "proofReference": {
                           "type": "string"
                         }
@@ -12664,6 +12673,85 @@
                     "attribution"
                   ]
                 }
+              },
+              "envelope": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "pageCount": {
+                    "type": "integer"
+                  },
+                  "sender": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "created",
+                        "sent",
+                        "delivered",
+                        "reminded",
+                        "viewed",
+                        "identity-verified",
+                        "consented",
+                        "signed",
+                        "declined",
+                        "reassigned",
+                        "voided",
+                        "completed",
+                        "sealed"
+                      ]
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "actor": {
+                      "type": "string"
+                    },
+                    "observedIp": {
+                      "type": "string"
+                    },
+                    "userAgent": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "at"
+                  ]
+                }
               }
             },
             "required": [
@@ -12674,13 +12762,17 @@
           },
           "certificateText": {
             "type": "string"
+          },
+          "certificatePdfBase64": {
+            "type": "string"
           }
         },
         "required": [
           "sealedPdfBase64",
           "documentHashSha256",
           "certificate",
-          "certificateText"
+          "certificateText",
+          "certificatePdfBase64"
         ]
       },
       "SessionLaunchResponse": {
@@ -27185,9 +27277,10 @@
             "type": "string",
             "enum": [
               "changed",
-              "removed"
+              "removed",
+              "not_sent"
             ],
-            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar."
+            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar. `not_sent`: the provider would not take the event, so there is no copy."
           },
           "sent": {
             "type": "object",
@@ -67164,7 +67257,7 @@
     },
     "/api/v1/documents/seal": {
       "post": {
-        "description": "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records. The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.",
+        "description": "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records: the structured record, its plain text, and a sealed PDF sheet listing each signer and the audit log (consent, signature and seal, each with its server-observed time and address). The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.",
         "operationId": "esign.seal",
         "tags": [
           "esign"
@@ -67204,6 +67297,16 @@
                             "signerId": {
                               "type": "string",
                               "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "email": {
+                              "type": "string",
+                              "maxLength": 320,
+                              "format": "email"
                             },
                             "adoption": {
                               "type": "string",
@@ -67270,6 +67373,11 @@
                       ]
                     },
                     "minItems": 1
+                  },
+                  "documentTitle": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
                   },
                   "seal": {
                     "type": "object",
@@ -69636,7 +69744,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
+        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client. `mine=true` narrows to the matters the session member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on.",
         "operationId": "matters.list",
         "tags": [
           "matters"
@@ -69703,6 +69811,27 @@
             },
             "required": false,
             "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "clientEntityId",
             "in": "query"
           },
           {
@@ -73968,7 +74097,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.",
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
         "operationId": "search.acrossMatters",
         "tags": [
           "search"
@@ -74023,6 +74152,27 @@
             },
             "required": false,
             "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "clientEntityId",
             "in": "query"
           }
         ],
@@ -91196,7 +91346,7 @@
     },
     "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back": {
       "post": {
-        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.",
+        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.",
         "operationId": "calendarSync.putBackMyCopy",
         "tags": [
           "calendarSync"

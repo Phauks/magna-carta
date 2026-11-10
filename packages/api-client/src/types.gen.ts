@@ -2956,6 +2956,8 @@ export type DocumentSealResponse = {
         signers: Array<{
             intent: {
                 signerId: string;
+                name?: string;
+                email?: string;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -2966,11 +2968,31 @@ export type DocumentSealResponse = {
             attribution: {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 observedIp?: string;
+                userAgent?: string;
                 proofReference?: string;
             };
         }>;
+        envelope?: {
+            id: string;
+            title?: string;
+            pageCount?: number;
+            sender?: {
+                name: string;
+                email?: string;
+            };
+            createdAt?: string;
+        };
+        events?: Array<{
+            kind: 'created' | 'sent' | 'delivered' | 'reminded' | 'viewed' | 'identity-verified' | 'consented' | 'signed' | 'declined' | 'reassigned' | 'voided' | 'completed' | 'sealed';
+            at: string;
+            actor?: string;
+            observedIp?: string;
+            userAgent?: string;
+            detail?: string;
+        }>;
     };
     certificateText: string;
+    certificatePdfBase64: string;
 };
 
 export type SessionLaunchResponse = {
@@ -6403,9 +6425,9 @@ export type CalendarSyncIssue = {
     localKind: 'matter_event' | 'firm_event' | 'deadline';
     localId: string;
     /**
-     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar.
+     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar. `not_sent`: the provider would not take the event, so there is no copy.
      */
-    kind: 'changed' | 'removed';
+    kind: 'changed' | 'removed' | 'not_sent';
     /**
      * The event as it was sent to the member's calendar, at the detail the firm allows.
      */
@@ -20303,6 +20325,8 @@ export type EsignSealData = {
         signers: Array<{
             intent: {
                 signerId: string;
+                name?: string;
+                email?: string;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -20315,6 +20339,7 @@ export type EsignSealData = {
                 proofReference?: string;
             };
         }>;
+        documentTitle?: string;
         seal?: {
             name?: string;
             reason?: string;
@@ -21300,6 +21325,8 @@ export type MattersListData = {
         locationId?: string;
         responsibleMemberId?: string;
         search?: string;
+        mine?: 'true';
+        clientEntityId?: string;
         cursor?: string;
         pageSize?: number;
     };
@@ -23165,6 +23192,8 @@ export type SearchAcrossMattersData = {
         q: string;
         in?: string | Array<string>;
         limit?: number;
+        mine?: 'true';
+        clientEntityId?: string;
     };
     url: '/api/v1/search';
 };

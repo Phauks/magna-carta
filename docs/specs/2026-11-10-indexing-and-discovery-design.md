@@ -6,7 +6,8 @@ and 2 of the build order below are built by the change that adds this file. The 
 contents in a matter's search ahead of steps 3 and 4 the same day; its reading half is built (step
 6a below). The status screen's counts (section 4.1) and the search across matters (section 4.2)
 followed, then the queued rebuild of a place that reads Behind (section 4.1), then the marking of
-a reader's words in a result (section 4.3). The build order in section 5 says what is not built.
+a reader's words in a result (section 4.3), then the reader's choice of which matters a search
+across matters asks (section 4.4). The build order in section 5 says what is not built.
 **Scope:** How the platform finds things: which indexes exist, what each one is for, who may ask
 each one what, and the order the missing parts are built in. It adds one index — the **record
 index**, over the text held in a firm's own database rows — and fixes the rules every index and
@@ -417,8 +418,8 @@ predicate and each place's own read permission in both cases.
 Its last row sends whatever was typed to the page at `/search`, where the question and the chosen
 place ride in the address.
 
-Not built in this step: the scope choices other than every matter the reader can see (one client,
-only my own matters), and the places the table above answers "No" for.
+Not built in this step: the places the table above answers "No" for. The reader's choice of
+matters (one client, only my own matters) is section 4.4.
 
 ### 4.3 Where the words are in a result
 
@@ -467,19 +468,88 @@ the text are dropped, and the text is shown whole.
 Not built: marking a matter's title or a person's name in the two groups the Search page reads
 from the matters listing and the directory, which carry no marks of their own.
 
+### 4.4 Which matters a search across matters asks
+
+A reader may ask fewer matters than they can see, and never more. The Search page carries a
+**Search In** row with four choices.
+
+| Choice               | What is asked                                                    | In the address    |
+| -------------------- | ---------------------------------------------------------------- | ----------------- |
+| Everything I Can See | Every matter the reader may see                                  | nothing           |
+| My Matters           | Matters the reader is responsible for or currently assigned to   | `scope=mine`      |
+| One Client           | Matters one person or organization is a client on                | `client=<entity>` |
+| One Matter           | That matter's own search, opened with the question already asked | the matter's own  |
+
+**What the two narrowings mean is stated once.** "Mine" is the matter's responsible member, or a
+matter assignment that has not ended. It is the reading the calendar's sync already uses for "my
+matters" (`packages/calendar/src/sync-link-statements.ts`), so two screens cannot disagree about
+whose a matter is. "One client's" is any live party row on the matter in the client role, so a
+co-client's matters are theirs too. Both are declared in
+`packages/matters/src/matter-narrowing.ts` and read by the search and by the matters listing alike.
+
+**A narrowing is a choice, never a permission.** It is composed inside the visible-matter predicate
+with AND (`narrowedVisibility` in `packages/matter-search/src/narrowing.ts`), and the composed
+predicate keeps the marker that proves a statement ran the visibility check. A reader who names a
+client whose matters they cannot see, or who is assigned to a matter since walled off from them,
+gets nothing from it. No request value says who "me" is: the route takes it from the session.
+
+**A narrowed search is not left behind the firm-wide cap.** The cap of section 4.2 takes the
+firm's newest 2,000 matches before anything is checked. Asked of three matters, that would answer
+"nothing" for a word those matters hold in records older than the firm's newest 2,000. So a
+narrowed search first reads which matters it reaches (one statement, driven from the narrowing's
+own index), and when there are at most 25 it names them to the record index, which then takes the
+newest 2,000 matches on those matters. `broad` is counted the same way, over those matters. With
+more than 25 the index is asked as it is firm-wide and the narrowed predicate decides afterwards,
+so the answer may be marked `broad` as before. A narrowing that reaches no matter builds no
+statement and answers empty.
+
+The limit of 25 was measured, not guessed
+(`packages/matter-search/scripts/measure-across-matters.mts`, 200,000 records over 400 matters, on
+the machine that built this):
+
+| Question                             | 1 matter | 5 matters | 25 matters | 150 matters, not named |
+| ------------------------------------ | -------- | --------- | ---------- | ---------------------- |
+| A word one record in a hundred holds | 1.4 ms   | 2.6 ms    | 9.1 ms     | 7.5 ms                 |
+| A word every record holds            | 43.9 ms  | 40.8 ms   | 35.0 ms    | 26.9 ms                |
+| File names holding two letters       |          | 2.2 ms    |            | 59.1 ms                |
+
+Naming a matter costs the index a lookup per matter per word. At a first limit of 100 the
+one-in-a-hundred word cost 28.8 ms over 100 named matters against about 7 ms asked firm-wide, so
+the limit came down to where naming costs about what not naming does. A word every record holds
+costs more named than not (the index walks each matter's whole list to find its newest), which is
+the price of a complete answer and stays under 50 ms. File names read no index and are simply
+cheaper narrowed, because the narrowing drives the read.
+
+**People are not asked under a narrowing.** The directory is the firm's, not a matter's, and
+"people on my matters" is a different question from a name search. The page lists People under
+Not Searched with the mark Firm-Wide. Matters are asked through the matters listing, which takes
+the same two narrowings (`mine`, `clientEntityId` on `GET /api/v1/matters`).
+
+**One matter is that matter's own search.** It reaches more of the matter than this page does (the
+words inside its files, parties, calendar, billing, custody), so choosing a matter goes there with
+the question in the address. A fourth reading here would have been the weaker of two searches of
+the same matter.
+
+**The row sits beneath the field.** The proposal drew the choice inside the field. The screen
+search field is one design-system component used on every list screen, and two of the four
+choices need a second field (which client, which matter), so the row is its own line.
+
+No migration, no new permission and no new route: two optional query parameters on
+`GET /api/v1/search` and the same two on `GET /api/v1/matters`.
+
 ## 5. Build order
 
-| Step | What                                                                                        | State                                                                               |
-| ---- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 1    | This specification and its decision record                                                  | Built                                                                               |
-| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index    |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, with matters and people by name; words marked (4.2, 4.3)     |
-| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                               |
-| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
-| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                    |
-| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                           |
+| Step | What                                                                                        | State                                                                                |
+| ---- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1    | This specification and its decision record                                                  | Built                                                                                |
+| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index     |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, matters and people by name, words marked, Search In (4.2-4.4) |
+| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                       |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md)  |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                     |
+| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                            |
 
 ## 6. Open with the owner
 

@@ -65,7 +65,8 @@ ADR-0110, ADR-0111.)
 - `record-index-query.ts` — a reader's text taken apart into tokens and rebuilt as a match, and the
   three forms a consumer composes the index into its own statement in: leading, beside another
   condition, and the newest matches up to a cap, which is the form a read with no matter to narrow
-  by uses
+  by uses. A scope names one matter, or up to `RECORD_QUERY_MATTERS_LIMIT` of them, a limit that
+  was measured: each matter named costs the index a lookup per word
 - `record-index-statements.ts` — the reads the index offers directly (ranked pointers, counts per
   source, and `readRecordIndexPlaces`: each source's indexed rows beside the records that belong
   in it) and its maintenance statements (rebuild one source, optimize)

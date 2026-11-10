@@ -1,8 +1,9 @@
-import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { DocumentSealRequest, DocumentSealResponse } from "@magna-carta/signing/contract";
 import type { SignerCompletion } from "@magna-carta/signing/esign";
 import type { SealPort, SealRequest } from "@magna-carta/signing/port";
 import type { Bindings } from "../../../bindings.ts";
@@ -39,79 +40,6 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// The ESIGN/UETA signer completion record, mirrored as a request schema. The attribution ladder and
-// adoption set are the packages/signing enums — kept in lockstep with @magna-carta/signing/esign.
-const AttributionLevel = z.enum([
-  "email-link",
-  "access-code",
-  "id-verified",
-  "portal-authenticated",
-  "firm-authenticated",
-]);
-
-const SignerCompletionInput = z.object({
-  intent: z.object({
-    signerId: z.string().min(1),
-    adoption: z.enum(["typed", "drawn", "uploaded"]),
-    affirmedAt: z.string().min(1),
-  }),
-  consent: z.object({
-    disclosureVersion: z.string().min(1),
-    consentedAt: z.string().min(1),
-  }),
-  attribution: z.object({
-    level: AttributionLevel,
-    // observedIp is server-observed, never client-self-reported (see @magna-carta/signing/esign):
-    // any value the client sends is ignored and overwritten with the connecting IP in the handler.
-    proofReference: z.string().optional(),
-  }),
-});
-
-const DocumentSealRequest = z.object({
-  documentBase64: z.string().min(1),
-  signers: z.array(SignerCompletionInput).min(1),
-  // Optional signature-dictionary fields. contentsCapacity is deliberately not exposed — it is an
-  // internal engine reservation detail, not a caller concern.
-  seal: z
-    .object({
-      name: z.string().optional(),
-      reason: z.string().optional(),
-      location: z.string().optional(),
-      contactInfo: z.string().optional(),
-    })
-    .optional(),
-});
-
-const SignerCompletionOutput = z.object({
-  intent: z.object({
-    signerId: z.string(),
-    adoption: z.enum(["typed", "drawn", "uploaded"]),
-    affirmedAt: z.string(),
-  }),
-  consent: z.object({ disclosureVersion: z.string(), consentedAt: z.string() }),
-  attribution: z.object({
-    level: AttributionLevel,
-    observedIp: z.string().optional(),
-    proofReference: z.string().optional(),
-  }),
-});
-
-const DocumentSealResponse = z
-  .object({
-    // The sealed PDF: the input preserved as its prefix, with the CMS embedded in /Contents.
-    sealedPdfBase64: z.string(),
-    // Lowercase hex SHA-256 of the signed byte range — the association to the record.
-    documentHashSha256: z.string(),
-    // The assembled Certificate of Completion (structured), plus its rendered plain-text form.
-    certificate: z.object({
-      documentHashSha256: z.string(),
-      sealedAt: z.string(),
-      signers: z.array(SignerCompletionOutput),
-    }),
-    certificateText: z.string(),
-  })
-  .openapi("DocumentSealResponse");
-
 export const documentSealMeta: RouteMeta = {
   operationId: "esign.seal",
   surface: "app",
@@ -131,7 +59,9 @@ const sealRoute = defineOpenAPIRoute(documentSealMeta, {
   description:
     "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over " +
     "the document with the platform signing identity, returning the sealed PDF, the sealed-range " +
-    "digest, and a Certificate of Completion assembled from the supplied signer records. The seal " +
+    "digest, and a Certificate of Completion assembled from the supplied signer records: the " +
+    "structured record, its plain text, and a sealed PDF sheet listing each signer and the audit " +
+    "log (consent, signature and seal, each with its server-observed time and address). The seal " +
     "makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is " +
     "stored here; only a redacted audit record is written.",
   request: {
@@ -189,7 +119,7 @@ export function registerDocumentSealRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const { documentBase64, signers, seal } = c.req.valid("json");
+      const { documentBase64, signers, seal, documentTitle } = c.req.valid("json");
 
       // Enforce the firm's inspectable-size cap before decoding the base64 body. The base64
       // representation is ~33% larger than the binary, so the decoded byte count is approximately
@@ -224,23 +154,32 @@ export function registerDocumentSealRoutes(
       // server-observed connecting IP, not a client self-report (see @magna-carta/signing/esign).
       const signingTime = new Date().toISOString();
       const observedIp = c.req.header("CF-Connecting-IP");
+      const userAgent = c.req.header("User-Agent");
       const attributedSigners: SignerCompletion[] = signers.map((signer) => ({
         intent: signer.intent,
         consent: signer.consent,
         attribution: {
           level: signer.attribution.level,
           ...(observedIp !== undefined ? { observedIp } : {}),
+          ...(userAgent !== undefined ? { userAgent } : {}),
           ...(signer.attribution.proofReference !== undefined
             ? { proofReference: signer.attribution.proofReference }
             : {}),
         },
       }));
 
+      // The certificate's reference is the identifier of the audit row this seal is logged under,
+      // so the sheet a firm files and the firm's own audit trail name the same record.
+      const auditLogId = newIdentifier("auditLog");
       const request: SealRequest = {
         document,
         signers: attributedSigners,
         signingTime,
         ...(seal !== undefined ? { seal } : {}),
+        envelope: {
+          id: auditLogId,
+          ...(documentTitle !== undefined ? { title: documentTitle } : {}),
+        },
       };
 
       const sealPort = sealPortOverride ?? resolveSealPort(c.env.SIGN_SERVICE);
@@ -273,7 +212,6 @@ export function registerDocumentSealRoutes(
       // Write the chain-of-custody audit row before returning. Metadata carries the actor id, the
       // sealed-range digest, and the signer count — never the document content or the sealed bytes.
       const now = new Date().toISOString();
-      const auditLogId = newIdentifier("auditLog");
       await commitEffectBatch(
         firm.firmDatabase,
         {
@@ -306,8 +244,13 @@ export function registerDocumentSealRoutes(
           // The certificate models an immutable record, so its signer list is a readonly array;
           // the response body is a plain JSON value, so copy it into a mutable one here rather
           // than weakening the record's own type.
-          certificate: { ...sealed.certificate, signers: [...sealed.certificate.signers] },
+          certificate: {
+            ...sealed.certificate,
+            signers: [...sealed.certificate.signers],
+            events: [...(sealed.certificate.events ?? [])],
+          },
           certificateText: sealed.certificateText,
+          certificatePdfBase64: encodeBase64(sealed.certificatePdf),
         },
         200,
       );
