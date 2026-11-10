@@ -579,6 +579,81 @@ describe("an opted-in firm", () => {
     expect((await readJson<ProblemBody>(response)).type).toContain("websocket-upgrade-required");
   });
 
+  it("keeps a conversation in a member's own folder and pin, which is theirs alone", async () => {
+    const folderName = "Henderson lease research";
+    const made = await post("/api/v1/magnus/folders", { name: folderName });
+    expect(made.status).toBe(201);
+    const folder = await readJson<{ id: string; name: string }>(made);
+    expect(folder.id).toMatch(/^magnusFolder_/);
+    expect(folder.name).toBe(folderName);
+
+    const conversationId = await startConversation();
+    const shelve = (body: unknown, cookie = ownerCookie) =>
+      SELF.fetch(`https://example.com/api/v1/magnus/conversations/${conversationId}/shelf`, {
+        method: "PUT",
+        headers: headers(cookie, true),
+        body: JSON.stringify(body),
+      });
+
+    // A conversation nobody has moved is in General and unpinned.
+    const before = await readJson<{ conversation: { folderId: string | null; pinnedAt: unknown } }>(
+      await get(`/api/v1/magnus/conversations/${conversationId}`),
+    );
+    expect(before.conversation).toMatchObject({ folderId: null, pinnedAt: null });
+
+    const shelved = await shelve({ folderId: folder.id, pinned: true });
+    expect(shelved.status).toBe(200);
+    const shelf = await readJson<{ folderId: string; pinnedAt: string }>(shelved);
+    expect(shelf.folderId).toBe(folder.id);
+    expect(shelf.pinnedAt).not.toBeNull();
+
+    const inFolder = await readJson<{ data: Array<{ id: string; folderId: string | null }> }>(
+      await get(`/api/v1/magnus/conversations?folder=${folder.id}`),
+    );
+    expect(inFolder.data.map((row) => row.id)).toEqual([conversationId]);
+    const general = await readJson<{ data: Array<{ id: string }> }>(
+      await get("/api/v1/magnus/conversations?folder=general"),
+    );
+    expect(general.data.some((row) => row.id === conversationId)).toBe(false);
+    const pinned = await readJson<{ data: Array<{ id: string }> }>(
+      await get("/api/v1/magnus/conversations?pinned=true"),
+    );
+    expect(pinned.data.map((row) => row.id)).toContain(conversationId);
+
+    // Moving a pinned conversation keeps the instant it was pinned.
+    const moved = await readJson<{ pinnedAt: string }>(
+      await shelve({ folderId: null, pinned: true }),
+    );
+    expect(moved.pinnedAt).toBe(shelf.pinnedAt);
+
+    // Another member's folder is reported as absent, and so is the folder route on it.
+    const theirs = await post("/api/v1/magnus/folders", { name: "Mine" }, attorneyCookie);
+    const theirFolder = await readJson<{ id: string }>(theirs);
+    expect((await shelve({ folderId: theirFolder.id, pinned: false })).status).toBe(404);
+    expect((await patch(`/api/v1/magnus/folders/${theirFolder.id}`, { name: "x" })).status).toBe(
+      404,
+    );
+    const listedFolders = await readJson<{ data: Array<{ id: string }> }>(
+      await get("/api/v1/magnus/folders"),
+    );
+    expect(listedFolders.data.map((row) => row.id)).toEqual([folder.id]);
+
+    // Removing a folder puts what was in it back in General and removes no conversation.
+    await shelve({ folderId: folder.id, pinned: false });
+    expect((await remove(`/api/v1/magnus/folders/${folder.id}`)).status).toBe(200);
+    const afterRemoval = await readJson<{ conversation: { folderId: string | null } }>(
+      await get(`/api/v1/magnus/conversations/${conversationId}`),
+    );
+    expect(afterRemoval.conversation.folderId).toBeNull();
+
+    // The audit rows say a folder existed, never what it was called.
+    const { results } = await firmDatabase
+      .prepare("SELECT metadata FROM audit_log WHERE event LIKE 'magnus.folder_%'")
+      .all<{ metadata: string | null }>();
+    expect(results.length).toBeGreaterThan(0);
+    for (const row of results) expect(row.metadata ?? "").not.toContain("Henderson");
+  });
+
   it("NO audit row anywhere carries what a member typed", async () => {
     const conversationId = await startConversation();
     const secret = "Alvarez pretrial order in Judge Kim's court";

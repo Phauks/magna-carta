@@ -219,8 +219,23 @@ they still need to look better, so their styling is expected to change.
   every page) and Delete (`apps/web/src/lib/magnus/conversation-menu.svelte`). It is a menu on the
   conversation's head row, not items in the screen header's page menu, because the page's address is
   the whole workspace and only the head row knows which conversation is open; the address now names
-  it as `?conversation=<id>`, so the link opens it directly. Share, Pin and Move to a Folder wait for
-  their tables, and Download Transcript gains the artifacts `.zip` when artifacts exist.
+  it as `?conversation=<id>`, so the link opens it directly. Pin and Move to a Folder are built with
+  the shelf (R2.12, below). Share waits for its table, and Download Transcript gains the artifacts
+  `.zip` when artifacts exist.
+
+- **R2.12 is still open, with folders, pins and sections built.** The rail is Pinned, then the
+  member's folders, then General, each a section that folds with the caret pointing right while
+  closed (`apps/web/src/lib/magnus/magnus-rail.svelte`). Each section is its own read of the server's
+  listing in the chosen order (`?folder=<id>`, `?folder=general`, `?pinned=true`), so no section is
+  a page sorted on the client (R1); a folder is read when it is first opened. A folder and a pin are
+  the READER's, not the conversation's: two tables keyed by the member (`magnus_folder`,
+  `magnus_conversation_shelf`), so a supervisor reading a conversation keeps it in their own folder
+  or none, and a folder decides nothing about who can read what. A folder's name is never audited,
+  like a conversation's title. A search reads the whole record as one list. Still open in R2.12: the
+  split New control, and sort by matter number (the matter order sorts by the matter's title).
+- **R2.13 holds by construction, and is still open for choosing a folder at the start.** A
+  conversation in no folder is in General, so a new one is in General without a row. Choosing a
+  folder or matter in the New control comes with the split New control.
 
 - **R2.1 changes the design-system component, not only the page.** The Conversation component was
   written as a record with no alignment carrying meaning, and the meetings chat still reads that way.
@@ -233,5 +248,5 @@ they still need to look better, so their styling is expected to change.
   sharing work (R2.11).
 - **Still to settle before the open rows that change what Magnus reads** (R2.16 to R2.21): the member
   disclosure has to move to a new version, with a decision record, because Magnus reading the matter
-  is a change in what it can see; folders and pins need tables and routes; retrieval waits on the
+  is a change in what it can see; retrieval waits on the
   ethical-wall filter experiment.

@@ -22,6 +22,11 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- A member's own Magnus folders --------------------------------------------------------------
+  "magnus.listFolders":
+    "One member's own folders, read whole into their conversation list. The create route in " +
+    "apps/api-worker/src/http/routes/magnus/shelf.ts refuses a folder past MEMBER_FOLDERS_MAX (100, " +
+    "packages/magnus/src/shelf.ts), and listFolders reads at most that many plus one.",
   // --- How the firm organises its task work -----------------------------------------------------
   "tasks.listTaskLists":
     "The firm's live task lists with their statuses and flow. createTaskList in " +

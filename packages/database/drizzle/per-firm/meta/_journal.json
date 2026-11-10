@@ -414,6 +414,13 @@
       "when": 1794290322427,
       "tag": "20261110T055842_connection-sync-issue",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1794298767966,
+      "tag": "20261110T081928_magnus-folders-and-pins",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-
 import type {
   FileId,
   MagnusConversationId,
+  MagnusFolderId,
   MagnusTurnId,
   MatterId,
   UserId,
@@ -48,6 +49,9 @@ export const MAGNUS_CONVERSATION_ATTACHMENT_TABLE = "magnus_conversation_attachm
 const MATTER_TABLE = "matter";
 const FILE_TABLE = "file";
 const FILE_VERSION_TABLE = "file_version";
+// Where a member keeps each conversation (./shelf.ts owns it). Spelled here rather than imported
+// because shelf.ts composes conversation writes and this module must stay below it.
+const SHELF_TABLE = "magnus_conversation_shelf";
 
 interface ConversationDatabaseRow {
   id: string;
@@ -236,6 +240,16 @@ export interface ListConversationsOptions {
   readonly sort?: ConversationSort;
   readonly cursor?: SortCursor | CompositeSortCursor;
   readonly limit?: number;
+  /**
+   * Whose shelf each row is read against: the folder it sits in and whether it is pinned are that
+   * member's, never the author's (./shelf.ts). Absent = no shelf is read and every row reads as
+   * General and unpinned, which is the administrative read across members.
+   */
+  readonly shelfMember?: UserId;
+  // Narrows to one of the shelf member's folders, or to General (no folder). Needs `shelfMember`.
+  readonly folder?: MagnusFolderId | "general";
+  // Narrows to the conversations the shelf member has pinned. Needs `shelfMember`.
+  readonly pinnedOnly?: boolean;
 }
 
 /**
@@ -251,6 +265,9 @@ export function searchesContent(options: ListConversationsOptions): boolean {
 // without knowing how the key is composed. For the date order it is simply `createdAt`.
 export interface ListedConversationRow extends ConversationRow {
   readonly sortKey: string;
+  // Where the shelf member keeps it: null folder is General, null pin is not pinned.
+  readonly folderId: MagnusFolderId | null;
+  readonly pinnedAt: string | null;
 }
 
 // THE SORT KEYS, as SQL expressions over the joined row. Each is ONE string so the keyset can compare
@@ -287,6 +304,15 @@ export async function listConversations(
 ): Promise<readonly ListedConversationRow[]> {
   const conditions: string[] = ["c.state <> 'deleted'"];
   const bindings: unknown[] = [];
+  const shelfMember = options.shelfMember;
+  if (shelfMember !== undefined) {
+    if (options.folder === "general") conditions.push("s.folder_id IS NULL");
+    else if (options.folder !== undefined) {
+      conditions.push("s.folder_id = ?");
+      bindings.push(options.folder);
+    }
+    if (options.pinnedOnly === true) conditions.push("s.pinned_at IS NOT NULL");
+  }
   if (options.createdBy !== undefined) {
     conditions.push("c.created_by = ?");
     bindings.push(options.createdBy);
@@ -349,14 +375,29 @@ export async function listConversations(
   }
   const limit = options.limit ?? DEFAULT_PAGE_SIZE;
   bindings.push(limit);
-  const join = sort === "matter" ? `LEFT JOIN ${MATTER_TABLE} m ON m.id = c.matter_id` : "";
+  const matterJoin = sort === "matter" ? `LEFT JOIN ${MATTER_TABLE} m ON m.id = c.matter_id` : "";
+  // The shelf is an OUTER join on the reader: a conversation nobody has moved or pinned has no row
+  // and must still list, in General. Without a shelf member the join matches nothing, so every row
+  // reads as General and unpinned. Its one binding comes first because the join precedes the WHERE.
+  const shelfJoin = `LEFT JOIN ${SHELF_TABLE} s ON s.conversation_id = c.id AND s.member_id = ?`;
   const { results } = await database
     .prepare(
-      `SELECT c.id, c.title, c.created_by, c.matter_id, c.state, c.created_at, c.updated_at, c.deleted_at, ${keyExpression ?? "c.created_at"} AS sort_key FROM ${MAGNUS_CONVERSATION_TABLE} c ${join} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ?`,
+      `SELECT c.id, c.title, c.created_by, c.matter_id, c.state, c.created_at, c.updated_at, c.deleted_at, s.folder_id, s.pinned_at, ${keyExpression ?? "c.created_at"} AS sort_key FROM ${MAGNUS_CONVERSATION_TABLE} c ${matterJoin} ${shelfJoin} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ?`,
     )
-    .bind(...bindings)
-    .all<ConversationDatabaseRow & { sort_key: string }>();
-  return results.map((row) => ({ ...toConversationRow(row), sortKey: row.sort_key }));
+    .bind(shelfMember ?? null, ...bindings)
+    .all<
+      ConversationDatabaseRow & {
+        sort_key: string;
+        folder_id: string | null;
+        pinned_at: string | null;
+      }
+    >();
+  return results.map((row) => ({
+    ...toConversationRow(row),
+    sortKey: row.sort_key,
+    folderId: row.folder_id as MagnusFolderId | null,
+    pinnedAt: row.pinned_at,
+  }));
 }
 
 // ---------------------------------------------------------------------------------------------

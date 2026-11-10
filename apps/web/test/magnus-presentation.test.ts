@@ -45,6 +45,8 @@ function conversation(title: string | null, updatedAt: string = STARTED_AT): Mag
     state: "active",
     createdAt: STARTED_AT,
     updatedAt,
+    folderId: null,
+    pinnedAt: null,
   };
 }
 

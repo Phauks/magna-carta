@@ -223,6 +223,9 @@ describe("schema conformance (fitness functions)", () => {
       "calendar_sync_link",
       // A question about a copy is keyed as the copy is, so a copy never has two.
       "connection_sync_issue",
+      // Where one member keeps one conversation: a member keeps a conversation in one place, so the
+      // pair IS the shelf and a surrogate key would let it sit in two folders at once.
+      "magnus_conversation_shelf",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

@@ -128,11 +128,31 @@ itself:
 
 - **Copy Link** and **Open in New Tab** give a link that opens this conversation directly. Anyone who
   follows it still needs to be allowed to read the conversation.
+- **Pin** puts the conversation at the top of your list, under Pinned. **Unpin** takes it off.
 - **Rename** puts the name into a field where it stands.
+- **Move to a Folder** puts it in one of your folders, or back in General.
 - **Save to a Different Matter** moves it, as described below.
 - **Download Transcript** saves the whole conversation as a Markdown file: who asked, when, and
   every message, oldest first, including the earlier messages that are not on screen yet.
 - **Delete** removes it after you confirm.
+
+## Folders and Pinned Conversations
+
+Your list of conversations in the Magnus workspace is in sections, and each one folds: press a
+section's name to open or close it.
+
+- **Pinned** comes first and holds what you have pinned. A pinned conversation also stays in its
+  own folder, so you find it in both places.
+- **Your folders** come next, closed until you open one. Make a folder with **Add Folder** at the top
+  of the list. The three dots beside a folder's name rename it or remove it.
+- **General** comes last and holds every conversation that is in no folder. A new conversation
+  starts in General.
+
+Removing a folder moves its conversations back to General; it deletes no conversation. Folders and
+pins are yours alone: nobody else sees them, and putting a conversation in a folder does not change
+who can read it. The matter it is kept on decides that, as described below.
+
+When you search, the list shows every conversation that matches in one list, wherever you keep it.
 
 ## Keeping a Conversation on a Matter
 

@@ -111,6 +111,28 @@ export interface MagnusConversation {
   state: MagnusConversationState;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Which of the READER's folders it sits in; null is General. Where a member keeps a conversation
+   * is theirs alone: it decides nothing about who may read it, and nobody else sees it.
+   */
+  folderId: string | null;
+  /** When the reader pinned it; null when they have not. */
+  pinnedAt: string | null;
+}
+
+/** One of the member's own folders. General is not one: it is where a conversation in no folder sits. */
+export interface MagnusFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Where the reader keeps one conversation, as the server recorded it. */
+export interface MagnusShelf {
+  conversationId: string;
+  folderId: string | null;
+  pinnedAt: string | null;
 }
 
 /** Who is speaking. There is deliberately no third speaker. */
@@ -250,6 +272,10 @@ export interface ConversationListFilters {
   search?: string;
   /** The order the record is read in. Absent means newest first. */
   sort?: ConversationSort;
+  /** One of the reader's folders by its id, or "general" for the conversations in none. */
+  folder?: string;
+  /** Only what the reader has pinned. */
+  pinned?: boolean;
 }
 
 function conversationQuery(filters: ConversationListFilters, cursor?: string): string {
@@ -262,6 +288,8 @@ function conversationQuery(filters: ConversationListFilters, cursor?: string): s
     query.set("search", filters.search.trim());
   }
   if (filters.sort !== undefined && filters.sort !== "date") query.set("sort", filters.sort);
+  if (filters.folder !== undefined) query.set("folder", filters.folder);
+  if (filters.pinned === true) query.set("pinned", "true");
   return query.size === 0 ? "" : `?${query.toString()}`;
 }
 
@@ -426,6 +454,67 @@ export function acknowledgeDisclosure(
     method: "POST",
     idempotencyKey,
   });
+}
+
+/** The member's own folders, by name. */
+export function listFolders(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<{ data: MagnusFolder[] }>> {
+  return requestJson(fetchImpl, "/api/v1/magnus/folders");
+}
+
+export function createFolder(
+  fetchImpl: typeof fetch,
+  name: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusFolder>> {
+  return requestJson(fetchImpl, "/api/v1/magnus/folders", {
+    method: "POST",
+    body: { name },
+    idempotencyKey,
+  });
+}
+
+export function renameFolder(
+  fetchImpl: typeof fetch,
+  folderId: string,
+  name: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusFolder>> {
+  return requestJson(fetchImpl, `/api/v1/magnus/folders/${encodeURIComponent(folderId)}`, {
+    method: "PATCH",
+    body: { name },
+    idempotencyKey,
+  });
+}
+
+/** Removes a folder. What was in it goes back to General; no conversation is removed. */
+export function deleteFolder(
+  fetchImpl: typeof fetch,
+  folderId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, `/api/v1/magnus/folders/${encodeURIComponent(folderId)}`, {
+    method: "DELETE",
+    idempotencyKey,
+  });
+}
+
+/**
+ * Says where the reader keeps one conversation: a folder (null is General) and whether it is
+ * pinned. Both halves at once, so a move and a pin are never half applied.
+ */
+export function shelveConversation(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  shelf: { folderId: string | null; pinned: boolean },
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusShelf>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/shelf`,
+    { method: "PUT", body: shelf, idempotencyKey },
+  );
 }
 
 /** A fresh idempotency key per submitted write, so a retry of THAT write is the same write. */

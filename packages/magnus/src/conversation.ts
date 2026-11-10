@@ -28,6 +28,7 @@ import {
   moveConversationStatement,
   renameConversationStatement,
 } from "./statements.ts";
+import { deleteConversationShelvesStatement } from "./shelf.ts";
 
 // Conversation lifecycle as statement compositions. Every function here is pure: it reads no clock,
 // mints no identifier without the injected random source, calls nothing external, and returns an
@@ -210,6 +211,7 @@ export function deleteConversation(
     statements: [
       deleteConversationTurnsStatement(database, input.conversationId),
       deleteConversationAttachmentsStatement(database, input.conversationId),
+      deleteConversationShelvesStatement(database, input.conversationId),
       markConversationDeletedStatement(database, { id: input.conversationId, now }),
       conversationDeletedAudit(database, context, {
         conversationId: input.conversationId,

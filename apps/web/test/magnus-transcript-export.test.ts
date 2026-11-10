@@ -23,6 +23,8 @@ function conversation(title: string | null): MagnusConversation {
     state: "active",
     createdAt: STARTED_AT,
     updatedAt: STARTED_AT,
+    folderId: null,
+    pinnedAt: null,
   };
 }
 
