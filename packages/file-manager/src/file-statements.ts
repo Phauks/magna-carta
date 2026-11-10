@@ -376,6 +376,22 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
     );
 }
 
+// Records a version's inline-playability verdict the first time a reader needs it. The verdict is a
+// fact about immutable bytes, so it is written once and never revised: the `inline_playable IS NULL`
+// guard lets two readers racing on the same version both compute it and only the first write land.
+// fitness:unguarded-write — a lost race to a reader that already recorded the same verdict is the outcome wanted
+export function recordInlinePlayableStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+  verdict: "playable" | "download-only" | "indeterminate",
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET inline_playable = ?2 WHERE id = ?1 AND status = 'clean' AND inline_playable IS NULL`,
+    )
+    .bind(versionId, verdict);
+}
+
 // The in-batch precondition assertion for a version-lifecycle batch. Every statement that MOVES a
 // version's status is guarded (`… AND status = 'pending'`), which makes that one statement replay-safe
 // — but a D1 batch is a transaction, not a chain: the statements that DEPEND on the move (the meter

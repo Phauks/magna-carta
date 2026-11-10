@@ -85,6 +85,12 @@ export interface MatterTask {
   startsOn: string | null;
   /** Where the work happens: a room, an address, or a meeting link. */
   location: string | null;
+  /**
+   * How the task repeats, where it does. Only the current copy exists; the next is made when this
+   * one is completed, or on the next copy's own start date, as `mode` says. `nextTaskId` is the copy
+   * made from this one, once there is one.
+   */
+  recurrence: TaskRecurrence | null;
   /** Everyone the work is assigned to, people and teams, in the order they were named. */
   assignees: TaskAssignee[];
   /** People kept informed of the work without doing it. */
@@ -227,8 +233,25 @@ export interface TaskDueInput {
  * omitted link is a cleared link rather than an unchanged one, which is what makes an edit form that
  * does not offer the link fields responsible for carrying them through.
  */
+/** When a repeating task's next copy appears. */
+export type TaskRecurrenceMode = "completed" | "scheduled";
+
+export interface TaskRecurrence {
+  /** The rule in RFC 5545's grammar, as `@magna-carta/civil-time/recurrence` writes it. */
+  rule: string;
+  mode: TaskRecurrenceMode;
+  /** The day of the series this copy stands for. */
+  occurrenceOn: string;
+  nextTaskId: string | null;
+}
+
 export interface TaskContentInput extends TaskDueInput {
   title: string;
+  /**
+   * For a repeating task whose due date moves: `this` moves this copy only, `later` moves the
+   * series with it. Left out, it is `this`.
+   */
+  recurrenceScope?: "this" | "later";
   /** Left out, the task keeps what it has; null clears it. */
   startsOn?: string | null;
   location?: string | null;
@@ -557,6 +580,20 @@ export function setTaskCompletion(
   return requestJson(fetchImpl, taskPath(taskId, "completion"), {
     method: "PUT",
     body: { completed },
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/** Sets how a task repeats, or stops it repeating (`rule` null). */
+export function setTaskRecurrence(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  rule: string | null,
+  mode: TaskRecurrenceMode,
+): Acknowledged {
+  return requestJson(fetchImpl, taskPath(taskId, "recurrence"), {
+    method: "PUT",
+    body: { rule, mode },
     idempotencyKey: newWriteKey(),
   });
 }

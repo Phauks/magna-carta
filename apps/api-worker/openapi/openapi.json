@@ -27338,6 +27338,39 @@
               "null"
             ]
           },
+          "recurrence": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "scheduled"
+                ]
+              },
+              "occurrenceOn": {
+                "type": "string"
+              },
+              "nextTaskId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "rule",
+              "mode",
+              "occurrenceOn",
+              "nextTaskId"
+            ]
+          },
           "assignees": {
             "type": "array",
             "items": {
@@ -27415,6 +27448,7 @@
           "parentTaskId",
           "startsOn",
           "location",
+          "recurrence",
           "assignees",
           "watcherUserIds",
           "checklist",
@@ -28034,6 +28068,13 @@
               "null"
             ],
             "maxLength": 500
+          },
+          "recurrenceScope": {
+            "type": "string",
+            "enum": [
+              "this",
+              "later"
+            ]
           }
         },
         "required": [
@@ -28383,6 +28424,29 @@
         },
         "required": [
           "completed"
+        ]
+      },
+      "SetMatterTaskRecurrenceRequest": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "scheduled"
+            ]
+          }
+        },
+        "required": [
+          "rule"
         ]
       },
       "SetMatterTaskAssigneesRequest": {
@@ -94842,6 +94906,144 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SetMatterTaskCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/recurrence": {
+      "put": {
+        "description": "Sets how the task repeats, or stops it repeating. Only the current copy of a repeating task exists; the next is made when this one is completed, or on the next copy's own start date, as `mode` says. A repeat needs a due date, and a sub-task repeats only with its parent.",
+        "operationId": "tasks.setTaskRecurrence",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.setTaskRecurrence",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.setTaskRecurrence"
+        },
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMatterTaskRecurrenceRequest"
               }
             }
           }

@@ -84,6 +84,12 @@ describe("viewerKindOf", () => {
     expect(viewerKindOf({ name: "scan.pdf", sniffedContentType: null })).toBe("pdf");
   });
 
+  it("names the player for a recording, by content type or by name", () => {
+    expect(viewerKindOf({ name: "deposition.mp4", sniffedContentType: "video/mp4" })).toBe("video");
+    expect(viewerKindOf({ name: "clip.mov", sniffedContentType: null })).toBe("video");
+    expect(viewerKindOf({ name: "clip.webm", sniffedContentType: "video/webm" })).toBe("video");
+  });
+
   it("names no reader for a format the editors already take, or for anything else", () => {
     expect(viewerKindOf({ name: "brief.docx", sniffedContentType: null })).toBeNull();
     expect(viewerKindOf({ name: "notes.txt", sniffedContentType: null })).toBeNull();
@@ -119,6 +125,20 @@ describe("openDestinationOf", () => {
     ).toEqual({ kind: "viewer", viewer: "pdf", href: "/documents/file_01/view" });
   });
 
+  it("opens the player for a clean, committed recording", () => {
+    expect(
+      openDestinationOf(clean({ name: "deposition.mp4", sniffedContentType: "video/mp4" })),
+    ).toEqual({ kind: "viewer", viewer: "video", href: "/documents/file_01/watch" });
+  });
+
+  it("previews a recording a re-scan flagged, like any other withheld file", () => {
+    expect(
+      openDestinationOf(
+        clean({ name: "deposition.mp4", sniffedContentType: "video/mp4", scanVerdict: "flagged" }),
+      ),
+    ).toEqual({ kind: "preview" });
+  });
+
   it("previews a portable document whose bytes are withheld, like any other", () => {
     const withheld = { name: "scan.pdf", sniffedContentType: "application/pdf" };
     expect(openDestinationOf(clean({ ...withheld, scanVerdict: "flagged" }))).toEqual({
@@ -144,6 +164,7 @@ describe("editorHref and viewerHref", () => {
     expect(editorHref("file_01")).toBe("/documents/file_01/edit");
     expect(editorHref("a b")).toBe("/documents/a%20b/edit");
     expect(viewerHref("file_01")).toBe("/documents/file_01/view");
+    expect(viewerHref("file_01", "video")).toBe("/documents/file_01/watch");
   });
 
   it("never send a document to the same address twice, so the promise each makes is distinct", () => {

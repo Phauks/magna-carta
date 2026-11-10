@@ -34,6 +34,7 @@ function task(over: Partial<MatterTask> = {}): MatterTask {
     parentTaskId: null,
     startsOn: null,
     location: null,
+    recurrence: null,
     assignees: [],
     watcherUserIds: [],
     checklist: [],

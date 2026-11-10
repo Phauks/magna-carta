@@ -6367,6 +6367,12 @@ export type MatterTaskDetail = {
     parentTaskId: string | null;
     startsOn: string | null;
     location: string | null;
+    recurrence: {
+        rule: string;
+        mode: 'completed' | 'scheduled';
+        occurrenceOn: string;
+        nextTaskId: string | null;
+    } | null;
     assignees: Array<MatterTaskAssignee>;
     watcherUserIds: Array<string>;
     checklist: Array<MatterTaskChecklistItem>;
@@ -6514,6 +6520,7 @@ export type EditMatterTaskRequest = {
     timeZone?: string | null;
     startsOn?: string | null;
     location?: string | null;
+    recurrenceScope?: 'this' | 'later';
 };
 
 export type ReassignMatterTaskRequest = {
@@ -6604,6 +6611,11 @@ export type MoveMatterTaskToListRequest = {
 
 export type SetMatterTaskCompletionRequest = {
     completed: boolean;
+};
+
+export type SetMatterTaskRecurrenceRequest = {
+    rule: string | null;
+    mode?: 'completed' | 'scheduled';
 };
 
 export type SetMatterTaskAssigneesRequest = {
@@ -31914,6 +31926,60 @@ export type TasksSetTaskCompletionResponses = {
 };
 
 export type TasksSetTaskCompletionResponse = TasksSetTaskCompletionResponses[keyof TasksSetTaskCompletionResponses];
+
+export type TasksSetTaskRecurrenceData = {
+    body: SetMatterTaskRecurrenceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/recurrence';
+};
+
+export type TasksSetTaskRecurrenceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksSetTaskRecurrenceError = TasksSetTaskRecurrenceErrors[keyof TasksSetTaskRecurrenceErrors];
+
+export type TasksSetTaskRecurrenceResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksSetTaskRecurrenceResponse = TasksSetTaskRecurrenceResponses[keyof TasksSetTaskRecurrenceResponses];
 
 export type TasksSetTaskAssigneesData = {
     body: SetMatterTaskAssigneesRequest;

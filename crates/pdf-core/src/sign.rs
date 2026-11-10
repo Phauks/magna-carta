@@ -406,7 +406,7 @@ fn emit_signature_dict(
         if let Some(v) = value {
             out.extend_from_slice(format!(" /{key} ").as_bytes());
             serialize_object(
-                &Object::String(v.clone().into_bytes(), StringFormat::Literal),
+                &Object::String(pdf_text_string(v), StringFormat::Literal),
                 out,
             );
         }
@@ -610,6 +610,20 @@ fn serialize_name(name: &[u8], out: &mut Vec<u8>) {
 /// A PDF literal string `( … )`: escape the delimiters and backslash, keep printable ASCII,
 /// and octal-escape everything else. Balanced-parenthesis shortcuts are not used — every
 /// paren is escaped, which is always valid.
+/// `text` as a PDF text string. ASCII is written as it stands. Anything else is UTF-16
+/// big-endian behind a byte-order mark, the one form every reader takes: raw UTF-8 bytes
+/// are read as PDFDocEncoding, which turns "José" into "JosÃ©" in the signature panel.
+fn pdf_text_string(text: &str) -> Vec<u8> {
+    if text.is_ascii() {
+        return text.as_bytes().to_vec();
+    }
+    let mut bytes = vec![0xFE, 0xFF];
+    for unit in text.encode_utf16() {
+        bytes.extend_from_slice(&unit.to_be_bytes());
+    }
+    bytes
+}
+
 fn serialize_literal_string(bytes: &[u8], out: &mut Vec<u8>) {
     out.push(b'(');
     for &b in bytes {
@@ -659,6 +673,15 @@ fn hex_encode(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_signer_name_with_an_accent_is_written_as_utf16() {
+        assert_eq!(pdf_text_string("Jose"), b"Jose");
+        assert_eq!(
+            pdf_text_string("José"),
+            [0xFE, 0xFF, 0, b'J', 0, b'o', 0, b's', 0, 0xE9]
+        );
+    }
     use lopdf::{dictionary, Stream};
 
     /// A minimal, valid single-page PDF with a classic xref, built to round-trip through the
