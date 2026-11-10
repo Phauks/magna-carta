@@ -750,16 +750,39 @@ which does not return until the group is confirmed empty and says what it had to
 
 ### The hosted run — `ci.yml`, and the two workflows beside it
 
-[`ci.yml`](../../.github/workflows/ci.yml) is one job, named `gate` (the name the `main` ruleset
-requires). It checks out the full history, resolves the diff base (a pull request is measured from the
-first parent of GitHub's merge commit, a push from the commit it replaced), asks `pnpm gate --plan`
-what will run, installs only what that plan needs, and runs `pnpm gate --base <that base>`. The
-summary lands on the run's page. Minutes are paid, so it spends them carefully: one job rather than a
-fan-out, a newer push cancels a pull request's stale run (a run on `main` or `beta` is never
-cancelled, so every landed push gets a verdict), and the slow inputs are cached (the pnpm store and
-linked workspace through [`.github/actions/setup`](../../.github/actions/setup/action.yml), the WASM
-artefacts keyed on their Rust sources, the cargo registry, the Playwright browser). `wasm-pack`, the
-browser and the container disk clean-up are skipped outright when the plan does not reach them.
+[`ci.yml`](../../.github/workflows/ci.yml) runs the one command on several machines. The test battery
+was 52 to 74 of the 60 to 86 minutes a hosted run took on 2026-11-09, so it is divided and everything
+else runs beside it:
+
+- **`prepare`** resolves the diff base (a pull request is measured from the first parent of GitHub's
+  merge commit, a push from the commit it replaced), asks `pnpm gate --plan` what will run, and builds
+  the WASM artefacts once when no cached copy matches the Rust sources.
+- **`checks`** runs `pnpm gate --skip tests`: every dimension except the battery.
+- **`tests`** runs `pnpm gate --only wasm,tests` four times, each with `MAGNA_CARTA_TEST_SHARD` set to
+  one slice (`1/4` to `4/4`). The gate passes that to the test runner as `--shard`, which assigns
+  every test file to exactly one slice. A change the plan says reaches no code starts none of them.
+- **`gate`** is the name the `main` ruleset requires. It runs no check: it is green only when every
+  job above is. It runs under `always()`, because a skipped job counts as a passed required check.
+
+Each job's summary lands on the run's page. Minutes are paid, so it spends them carefully: the
+fan-out costs about ten billed minutes a run and returns the verdict sooner, a newer push cancels a
+pull request's stale run (a run on `main` or `beta` is never cancelled, so every landed push gets a
+verdict), and the slow inputs are cached (the pnpm store and linked workspace through
+[`.github/actions/setup`](../../.github/actions/setup/action.yml), the WASM artefacts keyed on their
+Rust sources, the cargo registry, the Playwright browser). `wasm-pack`, the browser and the container
+disk clean-up are skipped outright when the plan does not reach them.
+
+**A cache is saved by its own step, right after the thing it holds is built.** The combined
+`actions/cache` step saves in a post-job hook that runs only when the job succeeded. On 2026-11-09 no
+hosted run succeeded, because the battery was red on `main`, so the WASM cache was never written and
+every run compiled the artefacts from cold (251 to 320 seconds each). The workflow therefore uses
+`actions/cache/restore` and `actions/cache/save` as separate steps, and `cache-on-failure` for cargo.
+The same rule applies to any cache added later: one that only a green run writes is absent exactly
+when runs are slowest.
+
+**A local run is unchanged.** `MAGNA_CARTA_TEST_SHARD` is unset on a laptop, so `pnpm gate` runs the
+whole suite. Setting it to `i/n` by hand runs one slice, which is useful for reproducing a hosted
+slice's failure; a value that is not a possible slice is refused before anything runs.
 
 [`pr-upkeep.yml`](../../.github/workflows/pr-upkeep.yml) runs every 30 minutes and after every push to
 `main` or `beta`. A pull request that conflicts with its base gets no `pull_request` workflows at all,

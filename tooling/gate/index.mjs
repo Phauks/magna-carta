@@ -80,7 +80,7 @@ import { runAudit } from "./audit.mjs";
 import { budgetFor, resolveScale, SCALE_VARIABLE } from "./budget.mjs";
 import { acceptanceFor, changedContainers, classify } from "./classify.mjs";
 import { GOVERNANCE_STEPS } from "./governance.mjs";
-import { NEEDS_WASM, parseList, selectDimensions } from "./plan.mjs";
+import { NEEDS_WASM, parseList, parseShard, selectDimensions, SHARD_VARIABLE } from "./plan.mjs";
 import { runStep } from "./run-step.mjs";
 import { runStartupCheck } from "./startup.mjs";
 
@@ -112,6 +112,16 @@ try {
 let scale;
 try {
   scale = resolveScale(process.env[SCALE_VARIABLE]);
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+
+// One slice of the test battery, when the caller is one of several machines sharing it (the hosted
+// run). Resolved here for the same reason as the scale: a mistyped slice fails before anything runs.
+let shard;
+try {
+  shard = parseShard(process.env[SHARD_VARIABLE]);
 } catch (error) {
   console.error(error.message);
   process.exit(2);
@@ -207,6 +217,11 @@ if (scale === null) {
   );
 } else if (scale !== 1) {
   console.log(`gate: step time budgets scaled x${String(scale)} (${SCALE_VARIABLE})`);
+}
+if (shard !== null && toRun.includes("tests")) {
+  console.log(
+    `gate: the test battery runs slice ${shard} only (${SHARD_VARIABLE}) — the other slices are other runs`,
+  );
 }
 for (const [name, reason] of skipped) console.log(`gate: skipping ${name} — ${reason}`);
 console.log("");
@@ -470,9 +485,16 @@ const dimensions = {
     runSteps("tests", [
       {
         // Through the single-flight guard, never a bare `vp test`: two runs in one worktree wedge.
-        name: "pnpm test (the whole suite: node, Miniflare, Chromium)",
+        name:
+          shard === null
+            ? "pnpm test (the whole suite: node, Miniflare, Chromium)"
+            : `pnpm test (slice ${shard} of the suite: node, Miniflare, Chromium)`,
         command: "node",
-        arguments: ["tooling/test-single-flight/index.mjs", "run"],
+        arguments: [
+          "tooling/test-single-flight/index.mjs",
+          "run",
+          ...(shard === null ? [] : [`--shard=${shard}`]),
+        ],
       },
     ]),
 };
