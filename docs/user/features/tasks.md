@@ -107,6 +107,25 @@ people it is assigned to are told it is theirs.
 A due date changed from the list itself moves this copy only. To take the due date off a repeating
 task, turn off **Repeats** first.
 
+## Comments
+
+The **Comments** tab in a task's window is where colleagues talk about the work: a question for
+whoever picks it up, a note that the client called back, an answer. Comments read top to bottom in
+the order they were written, and there are no replies to replies.
+
+To name a colleague, type **@** or press **Name Someone** and pick them. Their name shows in bold,
+and they are told. The line under the box says who else will be told: everyone the task is assigned
+to (each member of an assigned team) and everyone watching it. A colleague you name is told once,
+not twice, and you are never told about your own comment. You can only name someone who can see the
+task.
+
+You can change or delete your own comments, and nobody else's. A changed comment says **Edited**.
+Naming someone new while you change a comment tells them; nobody else is told again.
+
+Comments are a conversation, not the matter's record. Anything the file must keep belongs in a
+note on the matter. A repeating task's next copy starts with no comments, and deleting a task
+deletes its comments.
+
 ## Me Mode
 
 Everyone in the firm sees every task, apart from tasks on matters they are walled off from. **Me
@@ -163,6 +182,8 @@ somebody who cannot open that matter.
 - **When you are added as a watcher**, you are told, and from then on you hear when the task is
   marked complete or reopened, moves to another status, is assigned to different people, or has its
   due date moved. Changing a task's wording tells nobody.
+- **When somebody comments on a task** you are assigned to or watching, you are told. When a
+  comment names you with @, you are told that you were named instead.
 - **Nobody is told about their own change.**
 
 These arrive in your notifications under Tasks, and you can choose how they reach you in your
@@ -348,7 +369,7 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no comment thread on a task. A timer cannot yet be started from a task.
+A timer cannot yet be started from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

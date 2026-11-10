@@ -100,6 +100,7 @@
   } from "./tasks-api.ts";
   import { formatRecurrence, type RecurrenceRule } from "@magna-carta/civil-time/recurrence";
   import TaskRepeatField from "./task-repeat-field.svelte";
+  import TaskComments from "./task-comments.svelte";
   import { storedRule } from "./task-recurrence.ts";
 
   let {
@@ -114,6 +115,7 @@
     matterTitle,
     matterTitleOf,
     authorName,
+    viewerUserId = null,
     nameOf,
     assignableMembers = [],
     attachableFolders = [],
@@ -146,6 +148,8 @@
     matterTitleOf?: (matterId: string | null) => string;
     /** Whose name goes on a task written here. Stated, never chosen: the writer is the author. */
     authorName: string;
+    /** Who is reading, so their own comments offer Edit and Delete. */
+    viewerUserId?: string | null;
     nameOf: (userId: string | null) => string;
     assignableMembers?: readonly FirmMemberSummary[];
     attachableFolders?: readonly AttachableDocumentFolder[];
@@ -164,6 +168,7 @@
   } = $props();
 
   const creating = $derived(task === null);
+  const COMMENTS_TAB_KEY = "comments";
 
   // A NEW task's fields. An existing task is read straight from the record and written field by field.
   let titleText = $state("");
@@ -191,6 +196,7 @@
   let newLinkUrl = $state("");
   let newLinkLabel = $state("");
 
+  let commentCount = $state(0);
   let saving = $state(false);
   let saveFailure = $state<StatedFailure | null>(null);
   let printOpen = $state(false);
@@ -1031,6 +1037,20 @@
   </div>
 {/snippet}
 
+{#snippet commentsTab()}
+  {#if task !== null}
+    <TaskComments
+      {task}
+      {viewerUserId}
+      members={assignableMembers}
+      {teams}
+      {nameOf}
+      {writeRefusal}
+      bind:count={commentCount}
+    />
+  {/if}
+{/snippet}
+
 {#snippet attachmentsTab()}
   <RecordAttachments
     {attachments}
@@ -1116,6 +1136,10 @@
   menu={task === null ? undefined : menu}
   editControl={false}
   tabs={[
+    // A new task has no thread yet: comments are about work that exists.
+    ...(task === null
+      ? []
+      : [{ key: COMMENTS_TAB_KEY, label: "Comments", count: commentCount, content: commentsTab }]),
     {
       key: ATTACHMENTS_TAB_KEY,
       label: "Attachments",
@@ -1123,7 +1147,7 @@
       content: attachmentsTab,
     },
   ] satisfies RecordWindowTab[]}
-  defaultTab={ATTACHMENTS_TAB_KEY}
+  defaultTab={task === null ? ATTACHMENTS_TAB_KEY : COMMENTS_TAB_KEY}
   editDisabledReason={writeRefusal}
   saveDisabledReason={saveRefusal}
   {unsavedChanges}

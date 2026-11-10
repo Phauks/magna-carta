@@ -6892,6 +6892,25 @@ export type AddMatterTaskLinkRequest = {
     label?: string | null;
 };
 
+export type MatterTaskCommentThread = {
+    data: Array<MatterTaskComment>;
+};
+
+export type MatterTaskComment = {
+    id: string;
+    taskId: string;
+    authorUserId: string;
+    body: string;
+    createdAt: string;
+    editedAt: string | null;
+    mentionedUserIds: Array<string>;
+};
+
+export type MatterTaskCommentRequest = {
+    body: string;
+    mentionedUserIds?: Array<string>;
+};
+
 export type MyDayResponse = {
     billableMinutes: number;
     nonBillableMinutes: number;
@@ -33110,6 +33129,207 @@ export type TasksRemoveTaskLinkResponses = {
 };
 
 export type TasksRemoveTaskLinkResponse = TasksRemoveTaskLinkResponses[keyof TasksRemoveTaskLinkResponses];
+
+export type TasksReadTaskCommentsData = {
+    body?: never;
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/comments';
+};
+
+export type TasksReadTaskCommentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReadTaskCommentsError = TasksReadTaskCommentsErrors[keyof TasksReadTaskCommentsErrors];
+
+export type TasksReadTaskCommentsResponses = {
+    /**
+     * The thread
+     */
+    200: MatterTaskCommentThread;
+};
+
+export type TasksReadTaskCommentsResponse = TasksReadTaskCommentsResponses[keyof TasksReadTaskCommentsResponses];
+
+export type TasksAddTaskCommentData = {
+    body: MatterTaskCommentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/comments';
+};
+
+export type TasksAddTaskCommentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAddTaskCommentError = TasksAddTaskCommentErrors[keyof TasksAddTaskCommentErrors];
+
+export type TasksAddTaskCommentResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAddTaskCommentResponse = TasksAddTaskCommentResponses[keyof TasksAddTaskCommentResponses];
+
+export type TasksDeleteTaskCommentData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        commentId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-comments/{commentId}';
+};
+
+export type TasksDeleteTaskCommentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksDeleteTaskCommentError = TasksDeleteTaskCommentErrors[keyof TasksDeleteTaskCommentErrors];
+
+export type TasksDeleteTaskCommentResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksDeleteTaskCommentResponse = TasksDeleteTaskCommentResponses[keyof TasksDeleteTaskCommentResponses];
+
+export type TasksEditTaskCommentData = {
+    body: MatterTaskCommentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        commentId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-comments/{commentId}';
+};
+
+export type TasksEditTaskCommentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksEditTaskCommentError = TasksEditTaskCommentErrors[keyof TasksEditTaskCommentErrors];
+
+export type TasksEditTaskCommentResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksEditTaskCommentResponse = TasksEditTaskCommentResponses[keyof TasksEditTaskCommentResponses];
 
 export type MyDayGetData = {
     body?: never;

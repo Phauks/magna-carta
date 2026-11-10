@@ -285,6 +285,13 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
     title: "A firm task you watch changed",
     detail: watchedTaskDetail,
   },
+  "tasks.task.commented": { title: "New comment on your task", detail: taskDetail },
+  "tasks.firmTask.commented": { title: "New comment on your firm task", detail: taskDetail },
+  "tasks.task.commentMentioned": { title: "You were named in a task comment", detail: taskDetail },
+  "tasks.firmTask.commentMentioned": {
+    title: "You were named in a firm task comment",
+    detail: taskDetail,
+  },
   "deadlines.deadline.due": { title: "Deadline due" },
   "deadlines.deadline.overdue": { title: "Deadline overdue", detail: overdueBy },
   "custody.review.due": { title: "Custody review due", detail: overdueBy },

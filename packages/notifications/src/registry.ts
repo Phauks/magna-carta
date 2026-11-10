@@ -32,6 +32,10 @@ import {
   FIRM_WATCHED_TASK_CHANGED_TOPIC,
   WATCHED_TASK_CHANGED_TOPIC,
   WATCHED_TASK_CHANGES,
+  FIRM_TASK_COMMENTED_TOPIC,
+  FIRM_TASK_COMMENT_MENTIONED_TOPIC,
+  TASK_COMMENTED_TOPIC,
+  TASK_COMMENT_MENTIONED_TOPIC,
 } from "@magna-carta/tasks/notifications";
 import { TASK_PRIORITIES } from "@magna-carta/tasks/types";
 import {
@@ -834,7 +838,106 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     emailContent: "category-count",
     deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
   },
+  // SOMEBODY COMMENTED ON A TASK. Two pairs, split on the matter as the others are. The first tells
+  // the people the task is assigned to and the people watching it, as information. The second tells
+  // the colleagues the comment names with @, and asks for attention, because being named is being
+  // asked. A member named is told by the second alone. Neither carries a word of the comment.
+  {
+    key: "tasks.task.commented",
+    category: "tasks",
+    severity: "informational",
+    mandatory: false,
+    audience: "named-members",
+    audiencePayloadKey: "recipientUserIds",
+    includeActor: false,
+    subscribesTo: TASK_COMMENTED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // How urgent the task is, and nothing of what was said: the comment is read behind the link.
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES } },
+    buildFacts: commentFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("tasks"),
+  },
+  {
+    key: "tasks.firmTask.commented",
+    category: "tasks",
+    severity: "informational",
+    mandatory: false,
+    audience: "named-members",
+    audiencePayloadKey: "recipientUserIds",
+    includeActor: false,
+    subscribesTo: FIRM_TASK_COMMENTED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    // How urgent the task is, and nothing of what was said: the comment is read behind the link.
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES } },
+    buildFacts: commentFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
+  },
+  {
+    key: "tasks.task.commentMentioned",
+    category: "tasks",
+    severity: "attention",
+    mandatory: false,
+    audience: "named-members",
+    audiencePayloadKey: "recipientUserIds",
+    includeActor: false,
+    subscribesTo: TASK_COMMENT_MENTIONED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // How urgent the task is, and nothing of what was said: the comment is read behind the link.
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES } },
+    buildFacts: commentFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("tasks"),
+  },
+  {
+    key: "tasks.firmTask.commentMentioned",
+    category: "tasks",
+    severity: "attention",
+    mandatory: false,
+    audience: "named-members",
+    audiencePayloadKey: "recipientUserIds",
+    includeActor: false,
+    subscribesTo: FIRM_TASK_COMMENT_MENTIONED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    // How urgent the task is, and nothing of what was said: the comment is read behind the link.
+    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES } },
+    buildFacts: commentFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
+  },
 ];
+
+// The one fact a comment notice carries, held to its closed vocabulary.
+function commentFacts(payload: Readonly<Record<string, unknown>>): Facts {
+  const priority = payload["priority"];
+  return {
+    priority:
+      typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+        ? priority
+        : "normal",
+  };
+}
 
 // The two facts a watched-task notice carries, each held to its closed vocabulary.
 function watchedChangeFacts(payload: Readonly<Record<string, unknown>>): Facts {
