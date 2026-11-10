@@ -74,6 +74,9 @@
       "path": "packages/caller-lookup/tsconfig.build.json"
     },
     {
+      "path": "packages/citations/tsconfig.build.json"
+    },
+    {
       "path": "packages/civil-time/tsconfig.build.json"
     },
     {

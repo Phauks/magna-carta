@@ -281,6 +281,13 @@
       "when": 1794262936986,
       "tag": "20261109T234343_a-conflicts-run-can-be-cancelled",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794265220285,
+      "tag": "20261109T235619_legal-citations-tool-permission",
+      "breakpoints": true
     }
   ]
 }

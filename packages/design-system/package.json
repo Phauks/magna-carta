@@ -69,6 +69,7 @@
     "./navigation-layout": "./src/lib/components/navigation-layout/index.ts",
     "./password-input": "./src/lib/components/password-input/index.ts",
     "./verification-code-input": "./src/lib/components/verification-code-input/index.ts",
+    "./formatted-citation": "./src/lib/components/formatted-citation/index.ts",
     "./popover": "./src/lib/components/popover/index.ts",
     "./print-sheet": "./src/lib/components/print-sheet/index.ts",
     "./print-sheet/projection": "./src/lib/components/print-sheet/projection.ts",

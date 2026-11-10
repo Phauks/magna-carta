@@ -466,6 +466,7 @@ describe("end-to-end", () => {
         "tools:fileTypeVerifier",
         "tools:fileWorkbench",
         "tools:firmUsage",
+        "tools:legalCitations",
         "tools:metadataScrubber",
         "tools:ocr",
         "tools:propertyListings",
