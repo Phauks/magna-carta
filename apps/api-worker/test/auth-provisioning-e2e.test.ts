@@ -353,6 +353,9 @@ describe("end-to-end", () => {
         // Seeded to Admin alone by 20260907T090000_seed-report-policy-permission.
         "firm:manageReportPolicy",
         "firm:manageScanPolicy",
+        // Whether the contents of the firm's files are indexed for search: Owner/Admin alone, the
+        // firm:manageScanPolicy bracket (seed-search-settings-permission).
+        "firm:manageSearchSettings",
         "firm:manageSecrets",
         // The roster read, seeded to every default role including Read-only — the same universal
         // shape as notifications:read below, and the deliberate opposite of firm:manageMembers

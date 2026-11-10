@@ -16,6 +16,7 @@ import { registerMatterTypesRoutes } from "./matter-types.ts";
 import { registerNumberingRoutes } from "./numbering.ts";
 import { registerReleaseChannelRoute } from "./release-channel.ts";
 import { registerScanPolicyRoutes } from "./scan-policy.ts";
+import { registerFirmSearchSettingsRoutes } from "./search-settings.ts";
 
 // The firm's settings tier: profile, the per-domain policies, numbering, custom fields, the classification types, and the beta release-channel door.
 //
@@ -50,5 +51,8 @@ export function mountFirm(app: AppRouter, chokepoint: Chokepoint, _deps: DomainD
   // plus the assistant's daily ceiling and the stated facts about the model in force. The only
   // writer of those gates — until this landed, a firm could not open either one.
   registerFirmAiSettingsRoutes(domain, chokepoint);
+  // The firm's search settings: whether the contents of its files are indexed. The only writer of the
+  // switch the ingest path and a matter's search both read.
+  registerFirmSearchSettingsRoutes(domain, chokepoint);
   app.route("/", domain);
 }

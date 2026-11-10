@@ -241,17 +241,17 @@ index exists and a great deal after.
 
 ## 5. Build order
 
-| Step | What                                                                                        | State                                                                            |
-| ---- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 1    | This specification and its decision record                                                  | Built                                                                            |
-| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                            |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Not built                                                                        |
-| 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                        |
-| 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                        |
-| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                   |
-| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Needs the owner's Cloudflare steps in [`../deploy-queue.md`](../deploy-queue.md) |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Not built                                                                        |
-| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                        |
+| Step | What                                                                                        | State                                                                               |
+| ---- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1    | This specification and its decision record                                                  | Built                                                                               |
+| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Not built                                                                           |
+| 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                           |
+| 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                           |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Not built                                                                           |
+| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                           |
 
 ## 6. Open with the owner
 

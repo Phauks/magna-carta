@@ -61,6 +61,13 @@ export const PERMISSIONS = [
   // firm:manageScanPolicy bracket. It also covers the assistant's daily ceiling, which is a spend
   // control on the same traffic and belongs with the decision that opened it.
   "firm:manageAiSettings", // read and update the firm's AI settings: the third-party processing gate, the assistant gate, and its daily ceiling
+  // Whether the words inside the firm's files are indexed for search at all. Its own key rather than
+  // firm:manageScanPolicy beside it in the Documents settings: scanning is something the platform
+  // does TO an upload, while indexing copies the text of every file the firm holds into a second
+  // place that a search reads. That is the firm's decision about its own corpus, and the person who
+  // tunes the scanner has not thereby been asked to make it. Binds resource: "firm" — the switch is
+  // one answer for the whole firm and names no matter.
+  "firm:manageSearchSettings", // read and update the firm's search settings: whether the contents of its files are indexed
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.

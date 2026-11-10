@@ -38,6 +38,7 @@ export type SettingsPermissionArea =
   | "reports"
   | "meetings"
   | "ai"
+  | "search"
   | "retention";
 
 /**
@@ -69,6 +70,10 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   // Its own key rather than firm:manageMembers: consenting to privileged client content leaving
   // the platform is not an act of administering who works here.
   ai: "firm:manageAiSettings",
+  // Whether the words inside the firm's files are indexed. Its own key rather than
+  // firm:manageScanPolicy: scanning is done to an upload, indexing copies the text of every file
+  // the firm holds into a second place, and that is a separate decision.
+  search: "firm:manageSearchSettings",
   // How long a closed matter's paper file is kept: the firm's policy, not a choice for whoever is
   // closing a matter.
   retention: "matters:manageRetention",

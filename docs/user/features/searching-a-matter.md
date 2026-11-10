@@ -92,9 +92,11 @@ is missing instead of saying nothing matched:
 
 - **"Soon"** means the part of the product that reads inside documents is not switched on yet. File
   and folder names were still searched.
-- **"Off"** means your firm has not turned on indexing of its files. An administrator decides that
-  for the whole firm. Once it is on, new files are read as they are added, and the files already on
-  your matters are read over the following day.
+- **"Off"** means your firm has not turned on searching inside its files. An administrator decides
+  that for the whole firm, in Settings under
+  [Search and Indexing](../admin/search-and-indexing.md). Once it is on, new files are read as they
+  are added, and the files already on your matters are read over the following days, the oldest
+  first.
 - **"Unavailable"** means the service that reads inside documents did not answer this time. File
   and folder names were still searched; try again in a moment.
 
