@@ -2,7 +2,13 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { MatterId } from "@magna-carta/identifiers/types";
-import type { AnswerShape, MatterSearchHit, MatterSearchRawRow } from "../types.ts";
+import type { MatterFileContentsSearcher } from "../file-contents.ts";
+import type {
+  AnswerShape,
+  MatterSearchHit,
+  MatterSearchRawRow,
+  SourceSkipReason,
+} from "../types.ts";
 
 // The read layer's one piece of machinery: a matter-search SOURCE is a declaration, not a write-path
 // obligation. A subsystem becomes searchable by declaring where its rows live, how to read a bounded
@@ -37,7 +43,26 @@ export interface SourceSearchRequest {
   // not silently passed the flag: a retracted note's body must stay unmatchable whatever a caller
   // asks for, and that is settled in packages/notes rather than re-decided here.
   readonly includeDeleted: boolean;
+  // How a source reaches the index of the words inside this matter's files, which lives outside the
+  // firm's database. Supplied by the application, which holds the service binding; absent wherever
+  // nothing supplied one, and a source that needs it then reports itself unavailable.
+  readonly fileContents?: MatterFileContentsSearcher | null;
 }
+
+// What a source that asks something OUTSIDE the firm's database found out before any statement ran.
+//
+// Such a source never answers from what the outside index said. The index names candidates; the
+// source then issues an ordinary bounded statement over its own table, with those candidates as one
+// more condition, and that statement binds the matter and composes the visibility predicate exactly
+// as every other source's does. `arrange` is the one thing the index's answer still decides: the
+// ORDER the surviving rows are read in, and what the index knew about each that the table does not.
+export type PreparedSearch =
+  | { readonly kind: "skipped"; readonly reason: SourceSkipReason }
+  | {
+      readonly kind: "candidates";
+      readonly statements: readonly SqlStatement[];
+      readonly arrange: (rows: readonly MatterSearchRawRow[]) => MatterSearchRawRow[];
+    };
 
 export interface MatterSearchSource {
   // Stable, and a WIRE CONTRACT: it appears in responses and in the `in` filter, so it is permanent
@@ -68,6 +93,9 @@ export interface MatterSearchSource {
   // The bounded statements for this request. Returns an empty array when the request cannot match,
   // so the caller issues nothing rather than a query that cannot hit.
   readonly buildStatements: (request: SourceSearchRequest) => readonly SqlStatement[];
+  // Declared only by a source that must ask something outside the firm's database first. When it is
+  // present the runner calls it INSTEAD of `buildStatements`.
+  readonly prepare?: (request: SourceSearchRequest) => Promise<PreparedSearch>;
   readonly project: (row: MatterSearchRawRow) => MatterSearchHit;
 }
 

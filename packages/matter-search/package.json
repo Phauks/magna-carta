@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./types": "./src/types.ts",
+    "./file-contents": "./src/file-contents.ts",
     "./registry": "./src/sources/registry.ts",
     "./build": "./src/sources/build.ts",
     "./sources": "./src/sources/all.ts",

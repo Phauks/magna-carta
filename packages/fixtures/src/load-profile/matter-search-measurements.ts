@@ -41,7 +41,14 @@ export interface MatterSearchPlanInput {
 // Every statement every registered source builds, labelled by source key. Reading them from the
 // REGISTRY rather than listing them is what makes this gate grow with the search: a source added
 // without an index-served matter filter fails here without anybody remembering to add it.
-export function matterSearchHotPathPlans(input: MatterSearchPlanInput): LabeledPlan[] {
+//
+// A source that asks an index outside the database first is planned the same way: it is handed an
+// index that names a full page of candidate files, and the statement it then builds over the firm's
+// own table is what is planned. What the index itself costs is not a database plan and is measured
+// where the engine is (crates/search-eval).
+export async function matterSearchHotPathPlans(
+  input: MatterSearchPlanInput,
+): Promise<LabeledPlan[]> {
   const plans: LabeledPlan[] = [];
   for (const source of matterSearchSources.all()) {
     const captured: { sql: string; bindings: readonly unknown[] }[] = [];
@@ -66,14 +73,27 @@ export function matterSearchHotPathPlans(input: MatterSearchPlanInput): LabeledP
         return statement as ReturnType<SqlDatabase["prepare"]>;
       },
     };
-    source.buildStatements({
+    const request = {
       database: recorder,
       matterId: input.matterId,
       query: input.query,
       visibility: visibleMatterPredicate(),
-      limit: 50,
+      limit: PLANNED_LIMIT,
       includeDeleted: false,
-    });
+      fileContents: {
+        query: () =>
+          Promise.resolve({
+            kind: "passages" as const,
+            // One more file than the limit, which is the most the source ever asks the table for.
+            passages: Array.from({ length: PLANNED_LIMIT + 1 }, (_unused, index) => ({
+              fileId: `file_planned${String(index).padStart(4, "0")}`,
+              chunkId: "page-0",
+            })),
+          }),
+      },
+    };
+    if (source.prepare === undefined) source.buildStatements(request);
+    else await source.prepare(request);
     captured.forEach((statement, index) => {
       plans.push({
         label:
@@ -86,6 +106,8 @@ export function matterSearchHotPathPlans(input: MatterSearchPlanInput): LabeledP
   }
   return plans;
 }
+
+const PLANNED_LIMIT = 50;
 
 // Plans allowed to carry a full table scan. EMPTY, and it should stay that way: a matter search that
 // scans a table scans every firm-wide row of it, which is the one shape this whole measurement

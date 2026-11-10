@@ -22,6 +22,7 @@
     "./natural-language-settings": "./src/natural-language-settings.ts",
     "./natural-language-statements": "./src/natural-language-statements.ts",
     "./natural-language-topics": "./src/natural-language-topics.ts",
+    "./keyword-query": "./src/keyword-query.ts",
     "./record-index-query": "./src/record-index-query.ts",
     "./record-index-schema": "./src/record-index-schema.ts",
     "./record-index-sources": "./src/record-index-sources.ts",

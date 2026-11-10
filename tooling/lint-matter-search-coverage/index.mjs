@@ -42,11 +42,14 @@ function sectionDeclarations(text) {
     const slug = /slug:\s*"([^"]+)"/u.exec(block);
     if (slug === null) continue;
     const source = /searchSource:\s*(null|"([^"]+)")/u.exec(block);
+    const beside = /searchSourcesBeside:\s*\[([^\]]*)\]/u.exec(block);
     const waitingOn = /searchWaitingOn:\s*$|searchWaitingOn:\s*"/mu.test(block);
     declarations.push({
       slug: slug[1],
       declared: source !== null,
       sourceKey: source?.[2] ?? null,
+      besideKeys:
+        beside === null ? [] : [...beside[1].matchAll(/"([^"]+)"/gu)].map((match) => match[1]),
       hasReason: waitingOn,
     });
   }
@@ -89,12 +92,27 @@ for (const section of sections) {
     }
     continue;
   }
-  if (!keys.has(section.sourceKey)) {
+  // The source the section names, and any it names beside it: a section searched in two ways sends
+  // both keys, and either one being unknown is the same defect.
+  for (const key of [section.sourceKey, ...section.besideKeys]) {
+    if (keys.has(key)) continue;
     failures.push(
-      `${SECTIONS}: section "${section.slug}" names search source "${section.sourceKey}", which no ` +
+      `${SECTIONS}: section "${section.slug}" names search source "${key}", which no ` +
         `source in ${SOURCES} answers to. That is a scope option sending a query nothing can serve.`,
     );
   }
+}
+
+// The other direction: a registered source no section sends. It would answer under "Everything on
+// this matter" and never under the section it belongs to, which reads as the section holding less
+// than the matter does.
+const sent = new Set(sections.flatMap((section) => [section.sourceKey, ...section.besideKeys]));
+for (const key of keys) {
+  if (sent.has(key)) continue;
+  failures.push(
+    `${SOURCES}: source "${key}" is registered and no section in ${SECTIONS} names it, as ` +
+      `\`searchSource\` or in \`searchSourcesBeside\`. A search scoped to its section would not ask it.`,
+  );
 }
 
 if (failures.length > 0) {

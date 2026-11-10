@@ -19,9 +19,15 @@ export type SourceSkipReason =
   // The query is shorter than this source can answer usefully — a trigram index needs three
   // characters, a substring scan needs two.
   | "query-too-short"
-  // The source's own backing service is not reachable. The file source reports this while the
-  // keyword engine is undeployed, so "we did not look inside your files" is never silence.
-  | "engine-unavailable";
+  // The source's own backing service was asked and did not answer. A fault, and usually a passing
+  // one, so "we did not look inside your files" is never silence.
+  | "engine-unavailable"
+  // The source's backing service is not part of this deployment yet. Not a fault and not passing:
+  // nothing a reader does, and no second try, changes it.
+  | "engine-not-connected"
+  // The firm has not turned on the index this source reads. Different from the engine being
+  // unreachable, because this one a firm's administrator can change.
+  | "not-indexed";
 
 // One row of a source's result, as the raw shape its own SELECT produced. Every source projects
 // into the same fixed column set, which is what lets one builder compose every statement.

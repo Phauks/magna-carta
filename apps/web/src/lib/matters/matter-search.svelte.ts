@@ -36,7 +36,11 @@ function scopeForSection(section: MatterSection): SearchScope {
       waitingOn: section.searchWaitingOn ?? "Not searchable yet",
     };
   }
-  return { value: section.slug, label: section.label, sources: [section.searchSource] };
+  return {
+    value: section.slug,
+    label: section.label,
+    sources: [section.searchSource, ...(section.searchSourcesBeside ?? [])],
+  };
 }
 
 /**
