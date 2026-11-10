@@ -33,6 +33,8 @@ const SETTINGS_PATH = "/api/v1/firm/search-settings";
 const ROW = "search.file-contents-indexed";
 
 const STATUS_PATH = "/api/v1/firm/search-status";
+const REBUILD_PATH = "/api/v1/firm/search-status/rebuild";
+const REBUILD_REQUESTED_AT = "2026-11-10T14:20:00.000Z";
 
 const FRESH_FIRM: SearchSettings = { fileContentsIndexed: false, searchServiceConnected: false };
 const INDEXING: SearchSettings = { fileContentsIndexed: true, searchServiceConnected: true };
@@ -59,6 +61,7 @@ const CATCHING_UP: SearchStatus = {
         expected: 9133,
       },
     ],
+    rebuild: { requestedAt: null, finishedAt: null, outstanding: false },
   },
   fileContents: {
     turnedOn: true,
@@ -80,16 +83,31 @@ interface Sent {
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 let sent: Sent[];
+/** The Idempotency-Key each rebuild request carried, in the order they were sent. */
+let rebuildKeys: (string | null)[];
 
 /**
  * Answer the settings route with `settings`, and a PATCH with them merged with what was sent.
  * The status route answers `status` where one is given, and is not there at all where none is.
+ * Asking for a rebuild is answered with the moment it was recorded, where the status route exists.
  */
 function serve(settings: SearchSettings, status?: SearchStatus): void {
   let current = settings;
-  const answer = async (method: string, path: string, body: string | null): Promise<Response> => {
+  const answer = async (
+    method: string,
+    path: string,
+    body: string | null,
+    idempotencyKey: string | null,
+  ): Promise<Response> => {
     const parsed: unknown = body === null || body === "" ? null : JSON.parse(body);
     sent.push({ method, path, body: parsed });
+    if (path === REBUILD_PATH && method === "POST" && status !== undefined) {
+      rebuildKeys.push(idempotencyKey);
+      return new Response(JSON.stringify({ requestedAt: REBUILD_REQUESTED_AT }), {
+        status: 202,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (path === STATUS_PATH && status !== undefined) {
       return new Response(JSON.stringify(status), {
         status: 200,
@@ -109,9 +127,15 @@ function serve(settings: SearchSettings, status?: SearchStatus): void {
         init?.method ?? "GET",
         new URL(request, ORIGIN).pathname,
         typeof init?.body === "string" ? init.body : null,
+        new Headers(init?.headers).get("idempotency-key"),
       );
     }
-    return answer(request.method, new URL(request.url).pathname, await request.text());
+    return answer(
+      request.method,
+      new URL(request.url).pathname,
+      await request.text(),
+      request.headers.get("idempotency-key"),
+    );
   }) as unknown as typeof fetch;
   client.setConfig({ baseUrl: ORIGIN, fetch: stub });
   vi.stubGlobal("fetch", stub);
@@ -164,6 +188,7 @@ function remount(): void {
 
 beforeEach(() => {
   sent = [];
+  rebuildKeys = [];
   target = document.createElement("div");
   document.body.append(target);
 });
@@ -343,6 +368,93 @@ describe("what the indexes hold, beneath the setting", () => {
     await mountAs(["search:matter"], INDEXING, CATCHING_UP);
     expect(sent.some((call) => call.path === STATUS_PATH)).toBe(false);
     expect(target.textContent).not.toContain("What Is Indexed");
+  });
+});
+
+describe("rebuilding a place that is behind", () => {
+  const UP_TO_DATE: SearchStatus = {
+    ...CATCHING_UP,
+    records: {
+      ...CATCHING_UP.records,
+      places: CATCHING_UP.records.places.map((place) => ({ ...place, expected: place.indexed })),
+    },
+  };
+
+  function button(label: string): HTMLButtonElement | undefined {
+    return [...target.querySelectorAll("button")].find(
+      (candidate) => candidate.textContent?.trim() === label,
+    );
+  }
+
+  function row(id: string): Element | null {
+    return target.querySelector(`#settings-row-${CSS.escape(id)}`);
+  }
+
+  it("offers Rebuild beneath Records while a place is behind", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    expect(row("search.status.records")?.nextElementSibling).toBe(row("search.status.rebuild"));
+    expect(words(row("search.status.rebuild")?.textContent)).toContain(
+      "Nothing the firm holds is changed.",
+    );
+    expect(button("Rebuild")).toBeDefined();
+  });
+
+  it("offers nothing to press while every place is up to date", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, UP_TO_DATE);
+    expect(row("search.status.rebuild")).toBeNull();
+    expect(row("search.status.rebuild-asked-for")).toBeNull();
+    expect(button("Rebuild")).toBeUndefined();
+  });
+
+  it("asks once on a press, names no place, and then says when it was asked for", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    button("Rebuild")?.click();
+    await settle();
+
+    expect(sent.filter((call) => call.path === REBUILD_PATH)).toEqual([
+      { method: "POST", path: REBUILD_PATH, body: null },
+    ]);
+    expect(rebuildKeys).toHaveLength(1);
+    expect(rebuildKeys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // The counts were not asked for again: nothing in them has changed yet.
+    expect(sent.filter((call) => call.path === STATUS_PATH)).toHaveLength(1);
+
+    expect(row("search.status.rebuild")).toBeNull();
+    const askedFor = words(row("search.status.rebuild-asked-for")?.textContent);
+    expect(askedFor).toContain("Rebuild Asked For");
+    expect(askedFor).toContain("Count again to see where it stands.");
+    expect(askedFor).toContain("2026");
+    // The place still reads Behind until a count says otherwise.
+    expect(words(row("search.status.records")?.textContent)).toContain("Behind");
+  });
+
+  it("says a rebuild is outstanding when the server says so, on a page opened afterwards", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, {
+      ...CATCHING_UP,
+      records: {
+        ...CATCHING_UP.records,
+        rebuild: { requestedAt: REBUILD_REQUESTED_AT, finishedAt: null, outstanding: true },
+      },
+    });
+    expect(row("search.status.rebuild")).toBeNull();
+    expect(row("search.status.rebuild-asked-for")).not.toBeNull();
+    expect(button("Ask Again")).toBeDefined();
+  });
+
+  it("says the rebuild was not asked for when the request fails", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    // The status stands; the route to ask on is gone.
+    vi.stubGlobal("fetch", (async () => new Response(null, { status: 500 })) as typeof fetch);
+    client.setConfig({
+      baseUrl: ORIGIN,
+      fetch: (async () => new Response(null, { status: 500 })) as typeof fetch,
+    });
+    button("Rebuild")?.click();
+    await settle();
+    expect(words(target.textContent)).toContain("The Rebuild Was Not Asked For");
+    // Still offered, and nothing claims it was asked for.
+    expect(button("Rebuild")).toBeDefined();
+    expect(row("search.status.rebuild-asked-for")).toBeNull();
   });
 });
 

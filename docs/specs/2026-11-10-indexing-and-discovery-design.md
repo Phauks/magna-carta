@@ -5,7 +5,8 @@
 and 2 of the build order below are built by the change that adds this file. The owner moved file
 contents in a matter's search ahead of steps 3 and 4 the same day; its reading half is built (step
 6a below). The status screen's counts (section 4.1) and the search across matters (section 4.2)
-followed. The build order in section 5 says what is not built.
+followed, then the queued rebuild of a place that reads Behind (section 4.1). The build order in
+section 5 says what is not built.
 **Scope:** How the platform finds things: which indexes exist, what each one is for, who may ask
 each one what, and the order the missing parts are built in. It adds one index — the **record
 index**, over the text held in a firm's own database rows — and fixes the rules every index and
@@ -303,9 +304,35 @@ By" column cannot drift from the code.
 The read is proportional to what the firm holds: one pass over each indexed table and one over the
 live files. On a synthetic firm of 200,000 files with three quarters indexed the files count took
 about a quarter of a second in an in-memory SQLite database, so it is asked once when the page
-opens and again only when a member presses Count Again. It is not for polling. Rebuilding a place
-that reads Behind is not on the screen yet: a rebuild is work in proportion to the place and
-belongs on a queue, not on a request.
+opens and again only when a member presses Count Again. It is not for polling.
+
+**A place that reads Behind can be rebuilt, from a queue.** While any place is behind, a row
+beneath Records offers Rebuild. A rebuild is work in proportion to the place, so the request
+(`POST /api/v1/firm/search-status/rebuild`, the same permission) does none of it: in one batch it
+writes an audit row naming who asked and a message on the firm's outbox, and answers at once. The
+per-firm job queue's consumer does the work
+(`apps/api-worker/src/search/record-index-rebuild.ts`), and four choices in it are deliberate:
+
+- **The message names no place.** The consumer counts again when it runs and rebuilds the places
+  that are behind at that moment. A list carried from the request would describe the past by the
+  time it arrived, and a redelivered message would rebuild a place the first delivery had put
+  right. As built, a second delivery counts, finds nothing behind and rebuilds nothing.
+- **One place is one transaction**, so a search never reads a place half rebuilt, and the places
+  are separate transactions so a large place does not hold the others inside its own.
+- **"Behind" has one definition** (`recordIndexPlaceIsBehind`), shared by the screen and the
+  rebuild, so a place the screen names is exactly a place the rebuild takes. It is "the counts
+  differ", in either direction.
+- **Whether a rebuild is outstanding is read from the audit log.** A completed rebuild writes its
+  own row, with the keys of the places it took and no actor. A request with no completion at or
+  after it is a rebuild still to run, and the status read says so, which is how the page shows
+  "Rebuild Asked For" to a member who opens it later. These are moments and not figures, so the
+  rule that nothing is stored still holds for every count.
+
+The outbox is relayed every five minutes, so a rebuild starts within that and the page says "within
+a few minutes". The cost of the work is the fill's: four to six seconds per 200,000 records where
+the index's shape was measured (section 3). Two things are not built: a rebuild for the file
+contents index, whose equivalent is the daily repair pass, and a rebuild in steps for a firm past
+roughly a million indexed records, which should not run one place as one transaction.
 
 A firm's database refuses a compound SELECT of more than five terms, and there are eight sources,
 so the expected counts are one row with a column per source and not a row per source.
@@ -400,7 +427,7 @@ answers "No" for.
 | ---- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | 1    | This specification and its decision record                                                  | Built                                                                               |
 | 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Counts and standings built (section 4.1); the rebuild action is not                 |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index    |
 | 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, with matters and people by name (section 4.2)                |
 | 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                               |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |

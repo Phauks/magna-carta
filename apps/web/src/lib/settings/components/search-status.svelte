@@ -3,10 +3,15 @@
    * What the firm's indexes hold, beneath the search settings: the standing of each of the three
    * indexes, then the one table of indexed places with what each holds and who reads it.
    *
-   * READ, NEVER WRITTEN. Nothing here changes anything; it is the page's answer to "is what I
-   * turned on working", and every figure is counted by the server from the firm's own records at
-   * the moment of the read (search-status-api.ts). The count reads every indexed record once, so
-   * the page asks when it opens and again only when somebody presses Count Again.
+   * COUNTED, NEVER REMEMBERED. It is the page's answer to "is what I turned on working", and every
+   * figure is counted by the server from the firm's own records at the moment of the read
+   * (search-status-api.ts). The count reads every indexed record once, so the page asks when it
+   * opens and again only when somebody presses Count Again.
+   *
+   * ONE THING TO PRESS, and only when there is a reason. While a place reads Behind, a row beneath
+   * Records offers Rebuild. Pressing it asks the server to rebuild what is behind; the work runs in
+   * the background, so the row then says when it was asked for and stays until a rebuild has
+   * finished. The counts are not asked for again on a press: nothing in them has changed yet.
    *
    * THE SETTINGS ANATOMY, not a dashboard: two plates in the rule rhythm of the page above them.
    * The indexes are engraved rows whose control column carries a standing and its figure; the
@@ -30,11 +35,14 @@
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
-  import { readSearchStatus } from "$lib/settings/search-status-api.ts";
+  import { readSearchStatus, requestSearchIndexRebuild } from "$lib/settings/search-status-api.ts";
   import {
     COUNTED_DEFINITION,
     FILE_CONTENTS_INDEX_DEFINITION,
     fileContentsStanding,
+    REBUILD_ASKED_FOR_DEFINITION,
+    REBUILD_DEFINITION,
+    rebuildOffer,
     RECORD_INDEX_DEFINITION,
     recordIndexStanding,
     recordsIndexed,
@@ -44,6 +52,7 @@
     searchablePlaceColumns,
     searchablePlaceRows,
     searchByMeaningStanding,
+    withRebuildRequested,
     type SearchablePlaceRow,
     type SearchStatus,
   } from "$lib/settings/search-status.ts";
@@ -51,6 +60,8 @@
   let status = $state<SearchStatus | null>(null);
   let readFailure = $state<Failure | null>(null);
   let counting = $state(false);
+  let asking = $state(false);
+  let askFailure = $state<Failure | null>(null);
 
   // The newest count wins: a slow answer to an earlier press never lands over a later one.
   let asked = 0;
@@ -72,6 +83,20 @@
   $effect(() => {
     void count();
   });
+
+  // One key to a press, so a press the network delivers twice asks once.
+  async function askForRebuild(): Promise<void> {
+    if (asking) return;
+    asking = true;
+    const outcome = await requestSearchIndexRebuild(fetch, crypto.randomUUID());
+    asking = false;
+    if (outcome.kind !== "ok") {
+      askFailure = outcome.failure;
+      return;
+    }
+    askFailure = null;
+    if (status !== null) status = withRebuildRequested(status, outcome.value.requestedAt);
+  }
 
   const grid = DataTable.createDataTableGrid<SearchablePlaceRow>({
     columns: searchablePlaceColumns,
@@ -106,6 +131,41 @@
       )}
     {/snippet}
   </SettingsRow>
+  {#if rebuildOffer(read) === "offered"}
+    <SettingsRow definition={REBUILD_DEFINITION}>
+      {#snippet control()}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={asking}
+          onclick={() => void askForRebuild()}
+        >
+          Rebuild
+        </Button>
+      {/snippet}
+    </SettingsRow>
+  {:else if rebuildOffer(read) === "asked-for"}
+    <SettingsRow definition={REBUILD_ASKED_FOR_DEFINITION}>
+      {#snippet control()}
+        <!-- Stacked as the Counted row is. Ask Again stays, for a rebuild that never arrived. -->
+        <div class="flex flex-col items-end gap-4">
+          {#if read.records.rebuild.requestedAt !== null}
+            <p class="text-sm font-medium whitespace-nowrap tabular-nums">
+              {formatInstant(read.records.rebuild.requestedAt)}
+            </p>
+          {/if}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={asking}
+            onclick={() => void askForRebuild()}
+          >
+            Ask Again
+          </Button>
+        </div>
+      {/snippet}
+    </SettingsRow>
+  {/if}
   <SettingsRow definition={FILE_CONTENTS_INDEX_DEFINITION}>
     {#snippet control()}
       {@render standing(fileContentsStanding(read), filesFigure(read))}
@@ -180,6 +240,14 @@
           title="The Indexes Were Not Counted Again"
           fallback="The indexes were not counted again. What is shown was counted and stands."
           onRetry={() => void count()}
+        />
+      {/if}
+      {#if askFailure !== null}
+        <FailureNotice
+          failure={askFailure}
+          title="The Rebuild Was Not Asked For"
+          fallback="The rebuild was not asked for. Nothing was changed."
+          onRetry={() => void askForRebuild()}
         />
       {/if}
       {@render indexRows(status)}

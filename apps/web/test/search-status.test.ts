@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import {
   FILE_CONTENTS_PLACE_KEY,
   fileContentsStanding,
+  rebuildOffer,
   recordIndexStanding,
   recordPlaceStanding,
   recordsIndexed,
@@ -25,6 +26,7 @@ import {
   searchablePlaceRows,
   searchByMeaningStanding,
   searchReadersText,
+  withRebuildRequested,
   type SearchStatus,
 } from "$lib/settings/search-status.ts";
 
@@ -50,6 +52,7 @@ function status(overrides: Partial<SearchStatus> = {}): SearchStatus {
           expected: 40,
         },
       ],
+      rebuild: { requestedAt: null, finishedAt: null, outstanding: false },
     },
     fileContents: {
       turnedOn: true,
@@ -88,6 +91,7 @@ describe("a record place's standing", () => {
       recordIndexStanding({
         ...behind,
         records: {
+          ...behind.records,
           places: [notes, { ...messaging, expected: 41 }] as SearchStatus["records"]["places"],
         },
       }),
@@ -96,6 +100,64 @@ describe("a record place's standing", () => {
 
   it("adds up what the record index holds across every place", () => {
     expect(recordsIndexed(status())).toBe(52);
+  });
+});
+
+describe("what the page offers about a rebuild", () => {
+  function behind(rebuild: Partial<SearchStatus["records"]["rebuild"]> = {}): SearchStatus {
+    const base = status();
+    const [notes, messaging] = base.records.places;
+    return {
+      ...base,
+      records: {
+        places: [notes, { ...messaging, expected: 41 }] as SearchStatus["records"]["places"],
+        rebuild: { ...base.records.rebuild, ...rebuild },
+      },
+    };
+  }
+
+  it("offers nothing while every place is up to date and nothing is outstanding", () => {
+    expect(rebuildOffer(status())).toBe("none");
+  });
+
+  it("offers a rebuild while a place is behind and nobody has asked", () => {
+    expect(rebuildOffer(behind())).toBe("offered");
+  });
+
+  it("says one was asked for while it is outstanding, whether or not a place still reads behind", () => {
+    const asked = { requestedAt: "2026-11-10T14:20:00.000Z", outstanding: true };
+    expect(rebuildOffer(behind(asked))).toBe("asked-for");
+    const base = status();
+    expect(
+      rebuildOffer({
+        ...base,
+        records: { ...base.records, rebuild: { ...base.records.rebuild, ...asked } },
+      }),
+    ).toBe("asked-for");
+  });
+
+  it("offers again once a rebuild has finished and a place is behind", () => {
+    expect(
+      rebuildOffer(
+        behind({
+          requestedAt: "2026-11-10T14:20:00.000Z",
+          finishedAt: "2026-11-10T14:22:00.000Z",
+          outstanding: false,
+        }),
+      ),
+    ).toBe("offered");
+  });
+
+  it("marks a recorded request as outstanding and leaves every count as it was", () => {
+    const before = behind({ finishedAt: "2026-11-09T08:00:00.000Z" });
+    const after = withRebuildRequested(before, "2026-11-10T14:20:00.000Z");
+    expect(after.records.rebuild).toEqual({
+      requestedAt: "2026-11-10T14:20:00.000Z",
+      finishedAt: "2026-11-09T08:00:00.000Z",
+      outstanding: true,
+    });
+    expect(after.records.places).toEqual(before.records.places);
+    expect(after.fileContents).toEqual(before.fileContents);
   });
 });
 
@@ -172,6 +234,7 @@ describe("the table of indexed places", () => {
     const rows = searchablePlaceRows({
       ...base,
       records: {
+        ...base.records,
         places: [{ ...notes, indexed: 13 }] as SearchStatus["records"]["places"],
       },
     });
