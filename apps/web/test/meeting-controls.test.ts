@@ -48,6 +48,7 @@ function applied(over: Partial<AppliedEffects> = {}): AppliedEffects {
     background: "none",
     backgroundByProduct: false,
     imageChosen: false,
+    noiseRemoval: "unavailable",
     refusal: null,
     ...over,
   };
@@ -168,7 +169,7 @@ describe("the Effects control", () => {
 
     buttonReading("Blur")?.click();
     flushSync();
-    expect(changed).toEqual([{ background: "blur", reduceNoise: true }]);
+    expect(changed).toEqual([{ background: "blur", reduceNoise: true, removeNoise: false }]);
     expect(changeKinds).toEqual(["background"]);
   });
 
@@ -177,7 +178,7 @@ describe("the Effects control", () => {
       target,
       props: bar({
         // The machine blurred a camera the product may set; the member asked for their own background.
-        effectSettings: { background: "none", reduceNoise: true },
+        effectSettings: { background: "none", reduceNoise: true, removeNoise: false },
         appliedEffects: applied({ blur: "on" }),
       }),
     });
@@ -187,7 +188,7 @@ describe("the Effects control", () => {
     document.body.querySelector<HTMLButtonElement>('[role="switch"]')?.click();
     flushSync();
 
-    expect(changed).toEqual([{ background: "none", reduceNoise: false }]);
+    expect(changed).toEqual([{ background: "none", reduceNoise: false, removeNoise: false }]);
     expect(changeKinds).toEqual(["microphone"]);
   });
 
@@ -210,7 +211,7 @@ describe("the Effects control", () => {
 
     buttonReading("Image")?.click();
     flushSync();
-    expect(changed).toEqual([{ background: "image", reduceNoise: true }]);
+    expect(changed).toEqual([{ background: "image", reduceNoise: true, removeNoise: false }]);
   });
 
   it("asks for a picture before standing anybody in front of nothing", () => {
@@ -233,7 +234,7 @@ describe("the Effects control", () => {
       target,
       props: bar({
         // The member asked for noise reduction and the browser declined it.
-        effectSettings: { background: "none", reduceNoise: true },
+        effectSettings: { background: "none", reduceNoise: true, removeNoise: false },
         appliedEffects: applied({
           audio: {
             noiseSuppression: false,

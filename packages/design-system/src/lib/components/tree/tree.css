@@ -3,9 +3,11 @@
    * Tree (Tier 1). A quiet folder tree on a work surface: muted rows, a chevron twisty, a folder
    * glyph, and a calm selected state (a filled row, no loud chrome — identity stays at the edges).
    * Indentation is structural: each nested role="group" adds one step of padding-inline-start, so
-   * depth compounds naturally through the DOM nesting with no per-level length math. The focus ring
-   * is the house flush shape, drawn on the row of the focused treeitem. Expansion is instant (the
-   * design language forbids animating layout); only the twisty glyph swaps between chevrons.
+   * depth compounds naturally through the DOM nesting with no per-level length math. A group is
+   * the sibling of its parent's treeitem, not its child, so the group still nests inside the
+   * parent's <li> and the indent still compounds. The focus ring
+   * is the house flush shape, drawn on the focused treeitem, which is the row. Expansion is instant
+   * (the design language forbids animating layout); only the twisty glyph swaps between chevrons.
    *
    * NO ROW CHANGES SIZE WITH ITS STATE. Every state that can turn on — selected, marked as the
    * object of a drag or a menu — paints inside space the row already reserves: the inline-start
@@ -32,11 +34,10 @@
     padding-inline-end: var(--mc-space-0);
   }
 
-  /* The treeitem is a block; its focus ring and selected fill live on the row, so children (the
-     nested group) are never covered by the parent's state. */
-  .mc-tree-item {
+  /* The node's container. The treeitem is its row, and the nested group is the row's sibling, so
+     a parent's focus ring and selected fill never cover its children. */
+  .mc-tree-node {
     display: block;
-    outline-style: none;
   }
   .mc-tree-item-row {
     display: flex;
@@ -70,14 +71,14 @@
   }
   /* Selected — a tinted row and the one thin gilt edge the work surface is allowed. The edge
      occupies width the row already reserves, so selecting moves nothing. */
-  .mc-tree-item[aria-selected="true"] > .mc-tree-item-row {
+  .mc-tree-item[aria-selected="true"] {
     background-color: var(--mc-accent-subtle);
     border-inline-start-color: var(--mc-accent-default);
     color: var(--mc-text-default);
   }
   /* The object of a gesture in progress: the row a menu was opened on. The neutral wash keeps it
      distinct from a chosen row; its stronger edge says it is transient. */
-  .mc-tree-item[data-tree-marked="true"] > .mc-tree-item-row {
+  .mc-tree-item[data-tree-marked="true"] {
     background-color: var(--mc-action-secondary-hover);
     border-inline-start-color: var(--mc-accent-strong);
   }
@@ -87,8 +88,8 @@
   .mc-tree-item-row[data-item-drop-marked="true"] {
     background-color: var(--mc-action-secondary-hover);
   }
-  /* The house flush focus ring, on the focused treeitem's row. */
-  .mc-tree-item:focus-visible > .mc-tree-item-row {
+  /* The house flush focus ring, on the focused treeitem (the row). */
+  .mc-tree-item:focus-visible {
     outline-color: var(--mc-focus-ring);
     outline-width: var(--mc-focus-ring-width);
   }
@@ -103,7 +104,7 @@
     block-size: var(--mc-space-16);
     color: var(--mc-text-subtle);
   }
-  .mc-tree-item[aria-expanded] > .mc-tree-item-row > .mc-tree-item-twisty:hover {
+  .mc-tree-item[aria-expanded] > .mc-tree-item-twisty:hover {
     color: var(--mc-text-default);
   }
   .mc-tree-item-twisty-icon {

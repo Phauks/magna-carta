@@ -26,6 +26,15 @@
     FolderTreeView,
   } from "../lib/components/folder-tree/index.ts";
 
+  /**
+   * A folder row by its label. The row's name also says the file count it shows ("Pleadings 12
+   * files"), so a story that means the folder matches the label and whatever count follows it.
+   * The labels here are plain words, so the label goes into the pattern as it is.
+   */
+  function folderNamed(label: string): RegExp {
+    return new RegExp("^" + label + "( \\d+ files?)?$");
+  }
+
   const FOLDERS: FolderTreeNode[] = [
     {
       id: "pleadings",
@@ -128,18 +137,20 @@
     await step("One control opens and closes, and says which it will do", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Expand All" }));
       await waitFor(() =>
-        expect(canvas.getByRole("treeitem", { name: "North Elevation" })).toBeVisible(),
+        expect(
+          canvas.getByRole("treeitem", { name: folderNamed("North Elevation") }),
+        ).toBeVisible(),
       );
       await expect(canvas.queryByRole("button", { name: "Expand All" })).toBeNull();
       await userEvent.click(canvas.getByRole("button", { name: "Collapse All" }));
       await waitFor(() =>
-        expect(canvas.queryByRole("treeitem", { name: "Depositions" })).toBeNull(),
+        expect(canvas.queryByRole("treeitem", { name: folderNamed("Depositions") })).toBeNull(),
       );
     });
 
     await step("Folders state how many files they hold", async () => {
       await expect(
-        canvas.getByRole("treeitem", { name: "Correspondence" }),
+        canvas.getByRole("treeitem", { name: folderNamed("Correspondence") }),
       ).toHaveTextContent("31");
     });
 
@@ -150,10 +161,10 @@
 
     await step("A folder that was given a colour draws its glyph in that colour", async () => {
       const coloured = canvas
-        .getByRole("treeitem", { name: "Discovery" })
+        .getByRole("treeitem", { name: folderNamed("Discovery") })
         .querySelector('.mc-folder-tree-icon[data-folder-color="red"]') as HTMLElement;
       const plain = canvas
-        .getByRole("treeitem", { name: "Correspondence" })
+        .getByRole("treeitem", { name: folderNamed("Correspondence") })
         .querySelector('.mc-folder-tree-icon[data-folder-color="none"]') as HTMLElement;
       await expect(coloured).toBeInTheDocument();
       await expect(getComputedStyle(coloured).color).not.toBe(getComputedStyle(plain).color);
@@ -161,11 +172,9 @@
 
     await step("The root row is exactly as tall as a folder row, measured as rendered", async () => {
       const home = canvas
-        .getByRole("treeitem", { name: "Home" })
-        .querySelector(".mc-tree-item-row") as HTMLElement;
+        .getByRole("treeitem", { name: "Home" });
       const folder = canvas
-        .getByRole("treeitem", { name: "Correspondence" })
-        .querySelector(".mc-tree-item-row") as HTMLElement;
+        .getByRole("treeitem", { name: folderNamed("Correspondence") });
       await expect(home.getBoundingClientRect().height).toBeCloseTo(
         folder.getBoundingClientRect().height,
         1,
@@ -229,11 +238,10 @@
   {template}
   play={async ({ canvas, step }) => {
     await step("Deep nesting stays walkable and the selected folder reads as selected", async () => {
-      await expect(canvas.getByRole("treeitem", { name: "Production Band 3" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(canvas.getByRole("treeitem", { name: "Set 4" })).toBeVisible();
+      await expect(
+        canvas.getByRole("treeitem", { name: folderNamed("Production Band 3") }),
+      ).toHaveAttribute("aria-selected", "true");
+      await expect(canvas.getByRole("treeitem", { name: folderNamed("Set 4") })).toBeVisible();
     });
   }}
 />
@@ -275,7 +283,7 @@
   tags={["!dev", "!autodocs"]}
   {template}
   play={async ({ canvas, step }) => {
-    const discovery = canvas.getByRole("treeitem", { name: "Discovery" });
+    const discovery = canvas.getByRole("treeitem", { name: folderNamed("Discovery") });
 
     await step("The caret closes and opens the folder, and selects nothing", async () => {
       const caret = discovery.querySelector("[data-tree-twisty]") as HTMLElement;
@@ -289,7 +297,7 @@
 
     await step("Selecting a folder moves nothing on the rail", async () => {
       const label = discovery.querySelector(".mc-tree-item-label") as HTMLElement;
-      const neighbour = canvas.getByRole("treeitem", { name: "Correspondence" });
+      const neighbour = canvas.getByRole("treeitem", { name: folderNamed("Correspondence") });
       const before = label.getBoundingClientRect();
       const neighbourBefore = neighbour.getBoundingClientRect();
 
@@ -318,7 +326,7 @@
   }}
   {template}
   play={async ({ args, canvas, step }) => {
-    const privileged = canvas.getByRole("treeitem", { name: "Privileged" });
+    const privileged = canvas.getByRole("treeitem", { name: folderNamed("Privileged") });
 
     await step("Right-clicking a folder in the rail opens a menu", async () => {
       await fireEvent.contextMenu(privileged, { clientX: 24, clientY: 24 });
@@ -435,19 +443,17 @@
   }}
   {template}
   play={async ({ args, canvas, step }) => {
-    const photographs = canvas.getByRole("treeitem", { name: "Site Photographs" });
-    const correspondence = canvas.getByRole("treeitem", { name: "Correspondence" });
-    const inside = canvas.getByRole("treeitem", { name: "North Elevation" });
+    const photographs = canvas.getByRole("treeitem", { name: folderNamed("Site Photographs") });
+    const correspondence = canvas.getByRole("treeitem", { name: folderNamed("Correspondence") });
+    const inside = canvas.getByRole("treeitem", { name: folderNamed("North Elevation") });
     const transfer = new DataTransfer();
     const drag = (kind: string, target: HTMLElement) =>
       target.dispatchEvent(
         new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: transfer }),
       );
 
-    // The mark lands on the ROW, not on the treeitem: a treeitem holds its open children, and a
-    // mark painted on it would run down the whole branch beneath the destination.
-    const rowOf = (item: HTMLElement) =>
-      item.querySelector<HTMLElement>(":scope > .mc-tree-item-row") as HTMLElement;
+    // The mark lands on the treeitem, which is the ROW: its open children are a sibling group, so
+    // a mark never runs down the whole branch beneath the destination.
 
     await step("Every folder row is a drag source", async () => {
       await expect(photographs).toHaveAttribute("draggable", "true");
@@ -456,15 +462,15 @@
     await step("A folder is never told it may land inside itself", async () => {
       drag("dragstart", photographs);
       drag("dragover", inside);
-      await waitFor(() => expect(rowOf(inside)).not.toHaveAttribute("data-item-drop-marked"));
+      await waitFor(() => expect(inside).not.toHaveAttribute("data-item-drop-marked"));
       drag("dragover", photographs);
-      await waitFor(() => expect(rowOf(photographs)).not.toHaveAttribute("data-item-drop-marked"));
+      await waitFor(() => expect(photographs).not.toHaveAttribute("data-item-drop-marked"));
     });
 
     await step("A folder it can go into is marked, and dropping reports the move", async () => {
       drag("dragover", correspondence);
       await waitFor(() =>
-        expect(rowOf(correspondence)).toHaveAttribute("data-item-drop-marked", "true"),
+        expect(correspondence).toHaveAttribute("data-item-drop-marked", "true"),
       );
       drag("drop", correspondence);
       await waitFor(() =>
@@ -479,7 +485,7 @@
       const home = canvas.getByRole("treeitem", { name: "Home" });
       drag("dragstart", photographs);
       drag("dragover", home);
-      await waitFor(() => expect(rowOf(home)).toHaveAttribute("data-item-drop-marked", "true"));
+      await waitFor(() => expect(home).toHaveAttribute("data-item-drop-marked", "true"));
       drag("drop", home);
       await waitFor(() =>
         expect(args.onMoveFolder).toHaveBeenCalledWith({

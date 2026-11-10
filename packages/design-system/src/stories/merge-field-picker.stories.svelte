@@ -112,7 +112,7 @@
 <Story
   name="Merge field picker"
   play={async ({ canvas, step }) => {
-    const trigger = canvas.getByRole("button", { name: "Merge field" });
+    const trigger = canvas.getByRole("combobox", { name: "Merge field" });
     const body = within(document.body);
 
     await step("Opening shows the fields grouped by where their values come from", async () => {
@@ -122,7 +122,7 @@
       await expect(body.getByText("Location")).toBeVisible();
     });
 
-    const search = body.getByRole("combobox");
+    const search = body.getByRole("combobox", { name: "Search merge fields" });
 
     await step("Searching matches the human label, not just the key", async () => {
       await userEvent.type(search, "mailing");
@@ -165,18 +165,18 @@
     const body = within(document.body);
 
     await step("An invalid picker announces itself to assistive technology", async () => {
-      const invalid = canvas.getByRole("button", { name: "Unresolved field" });
+      const invalid = canvas.getByRole("combobox", { name: "Unresolved field" });
       await expect(invalid).toHaveAttribute("aria-invalid", "true");
     });
 
     await step("A disabled picker cannot be opened", async () => {
-      const off = canvas.getByRole("button", { name: "Locked field" });
+      const off = canvas.getByRole("combobox", { name: "Locked field" });
       await expect(off).toBeDisabled();
     });
 
     await step("A query matching nothing says so, then a real query brings the list back", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: "Unresolved field" }));
-      const search = body.getByRole("combobox");
+      await userEvent.click(canvas.getByRole("combobox", { name: "Unresolved field" }));
+      const search = body.getByRole("combobox", { name: "Search merge fields" });
       await userEvent.type(search, "zzzzzz");
       await expect(await body.findByText("No merge field matches that search.")).toBeVisible();
       await userEvent.clear(search);

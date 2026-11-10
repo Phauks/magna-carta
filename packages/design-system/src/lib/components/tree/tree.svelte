@@ -3,7 +3,7 @@
    * Tree — a folder tree with the full WAI-ARIA tree view keyboard model (Tier 1: native elements,
    * NO Bits UI — bits-ui 2.18.1 ships no Tree primitive, so the roving-tabindex/typeahead behaviour
    * is built here). Data-driven from a `items` array of TreeNode, rendered as a nested
-   * role="tree" > role="treeitem" > role="group" structure with `aria-level`, `aria-setsize`,
+   * role="tree" > treeitem row + role="group" structure with `aria-level`, `aria-setsize`,
    * `aria-posinset`, `aria-expanded`, and `aria-selected`.
    *
    * Keyboard (WAI-ARIA tree view): a single roving tabindex (one treeitem is tabbable, the rest are
@@ -55,6 +55,7 @@
     markedId = undefined,
     icon,
     trailing,
+    itemLabel,
     onSelect,
     ref = $bindable(null),
     class: className,
@@ -86,6 +87,13 @@
     icon?: Snippet<[TreeItemContext]>;
     /** Draws content at the row's end — a count, a mark, a status. */
     trailing?: Snippet<[TreeItemContext]>;
+    /**
+     * The treeitem's accessible name, where the row shows more than its label. Defaults to the
+     * label. Whatever a `trailing` snippet draws as text has to be in it too, in the order it
+     * reads, because a name must contain the words a reader sees on the row (a file count of 12
+     * beside "Pleadings" makes the name "Pleadings 12 files", never "Pleadings").
+     */
+    itemLabel?: (context: TreeItemContext) => string;
     /** Called with the node id whenever a node is activated (selected). */
     onSelect?: (id: string) => void;
   } = $props();
@@ -197,7 +205,7 @@
     if (id !== null) activeId = id;
   }
 
-  // Click is delegated to the tree root (which also owns keydown) so the treeitem <li> carries no
+  // Click is delegated to the tree root (which also owns keydown) so the treeitem row carries no
   // handler of its own — the nearest treeitem to the pointer is the one activated.
   function onclick(event: MouseEvent) {
     const id = treeItemId(event.target);
@@ -280,21 +288,27 @@
     {@const expanded = hasChildren && expandedSet.has(node.id)}
     {@const selected = node.id === selectedId}
     {@const context = { node, level, hasChildren, expanded, selected } satisfies TreeItemContext}
-    <li
-      role="treeitem"
-      aria-level={level}
-      aria-setsize={list.length}
-      aria-posinset={index + 1}
-      aria-selected={selected}
-      aria-expanded={hasChildren ? expanded : undefined}
-      aria-label={node.label}
-      tabindex={node.id === effectiveActiveId ? 0 : -1}
-      draggable={draggableItems ? true : undefined}
-      data-tree-item-id={node.id}
-      data-tree-marked={node.id === markedId ? "true" : undefined}
-      class="mc-tree-item"
-    >
-      <span class="mc-tree-item-row">
+    <!-- The <li> is only the node's container. The treeitem is the ROW, and the open branch is
+         its sibling group rather than its child: an accessible name has to contain the text a
+         reader can see inside the element it names (WCAG 2.5.3, Label in Name), and a treeitem
+         that wrapped its own children would show every descendant's label inside itself. The
+         hierarchy the DOM no longer nests is stated outright by aria-level, aria-setsize and
+         aria-posinset, which is the job those attributes exist for. -->
+    <li role="none" class="mc-tree-node">
+      <div
+        role="treeitem"
+        aria-level={level}
+        aria-setsize={list.length}
+        aria-posinset={index + 1}
+        aria-selected={selected}
+        aria-expanded={hasChildren ? expanded : undefined}
+        aria-label={itemLabel ? itemLabel(context) : node.label}
+        tabindex={node.id === effectiveActiveId ? 0 : -1}
+        draggable={draggableItems ? true : undefined}
+        data-tree-item-id={node.id}
+        data-tree-marked={node.id === markedId ? "true" : undefined}
+        class="mc-tree-item mc-tree-item-row"
+      >
         <span class="mc-tree-item-twisty" data-tree-twisty="">
           {#if hasChildren}
             {#if expanded}
@@ -315,7 +329,7 @@
         {#if trailing}
           <span class="mc-tree-item-trailing">{@render trailing(context)}</span>
         {/if}
-      </span>
+      </div>
       {#if hasChildren && expanded && node.children}
         <ul role="group" class="mc-tree-group">
           {@render nodes(node.children, level + 1)}

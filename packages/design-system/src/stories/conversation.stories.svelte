@@ -550,7 +550,20 @@ And is a scanned signature enough?`;
         ?.getBoundingClientRect();
       if (memberBox === undefined || assistantBox === undefined) throw new Error("content expected");
       await expect(memberBox.right).toBeGreaterThan(assistantBox.left + assistantBox.width / 2);
-      await expect(assistantBox.left).toBeLessThan(memberBox.left);
+      // The sides are read off the marks, which are the same size whatever the turn says. A
+      // member's words can run the width of the column, so the left edge of their panel says how
+      // long the question was, not which side it sits on.
+      const memberMark = member
+        .querySelector(".mc-conversation-turn-mark")
+        ?.getBoundingClientRect();
+      const assistantMark = assistant
+        .querySelector(".mc-conversation-turn-mark")
+        ?.getBoundingClientRect();
+      if (memberMark === undefined || assistantMark === undefined) {
+        throw new Error("marks expected");
+      }
+      await expect(assistantMark.right).toBeLessThanOrEqual(assistantBox.left);
+      await expect(memberMark.left).toBeGreaterThanOrEqual(memberBox.right);
     });
 
     await step("The marks are presentation; the names are what is read", async () => {
