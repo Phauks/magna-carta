@@ -31,6 +31,7 @@
     "./sources/registry": "./src/sources/registry.ts",
     "./sources/all": "./src/sources/all.ts",
     "./settings": "./src/settings.ts",
+    "./sync-port": "./src/sync-port.ts",
     "./contract": "./src/contract.ts"
   },
   "scripts": {
@@ -42,6 +43,7 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/integrations": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "zod": "catalog:"
   },
