@@ -20,6 +20,10 @@
    * name. The page reads top-level tasks, then every sub-task under the tasks on it; sorting orders
    * siblings among themselves so a sub-task never drifts from the task it belongs to, and a band is
    * chosen by the top of the tree for the same reason.
+   *
+   * THE SAME TASKS AS A BOARD, one list at a time (task-board.svelte). The switch changes how the
+   * tasks are drawn and which list is read, and nothing about what a task is or what can be done to
+   * it: a card opens the same window, and a move is the same status write the pill makes.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -44,6 +48,9 @@
   import TaskStatusMenu from "$lib/matters/task-status-menu.svelte";
   import TaskDateField from "$lib/matters/task-date-field.svelte";
   import TaskSettingsDialog from "$lib/matters/task-settings-dialog.svelte";
+  import TaskBoard from "$lib/matters/task-board.svelte";
+  import LayoutList from "@lucide/svelte/icons/list";
+  import Kanban from "@lucide/svelte/icons/square-kanban";
   import { attachableFoldersFor } from "$lib/matters/record-attachable-documents.ts";
   import { SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
@@ -159,6 +166,14 @@
   let rowSize = $state<"small" | "medium" | "large">("medium");
   const ROW_SCALE = { small: 0.875, medium: 1, large: 1.25 } as const;
 
+  // THE BOARD: the same tasks drawn one list at a time, a column per status.
+  let display = $state<"list" | "board">("list");
+  /** The list the board shows. Unset, the firm's default list. */
+  let boardListId = $state<string | null>(null);
+  const boardList = $derived(
+    lists.find((list) => list.id === boardListId) ?? lists.find((list) => list.isDefault) ?? lists[0],
+  );
+
   const ME_MODE_LABELS: Record<MeMode, string> = {
     assigned: "Assigned To Me",
     watching: "Watching",
@@ -184,6 +199,8 @@
     ...(showArchived ? { includeArchived: true } : {}),
     ...(appliedSearch === "" ? {} : { search: appliedSearch }),
     ...(meMode === "everyone" ? {} : { mine: meMode }),
+    // The board reads its one list whole, rather than finding it in a page of every list.
+    ...(display === "board" && boardList !== undefined ? { listIds: [boardList.id] } : {}),
   });
 
   /** Opens the window on a new task, for a screen whose create control lives outside this list. */
@@ -434,6 +451,12 @@
       });
   }
 
+  function showAs(next: "list" | "board"): void {
+    if (display === next) return;
+    display = next;
+    reload();
+  }
+
   function toggleFold(taskId: string): void {
     const next = new Set(folded);
     if (next.has(taskId)) next.delete(taskId);
@@ -484,6 +507,48 @@
       </DropdownMenu.RadioGroup>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
+  <!-- LIST OR BOARD: how the same tasks are drawn. -->
+  <div class="inline-flex gap-2" role="group" aria-label="Show tasks as">
+    <Button
+      variant={display === "list" ? "primary" : "secondary"}
+      aria-pressed={display === "list"}
+      onclick={() => showAs("list")}
+    >
+      <LayoutList aria-hidden="true" />
+      List
+    </Button>
+    <Button
+      variant={display === "board" ? "primary" : "secondary"}
+      aria-pressed={display === "board"}
+      disabled={isSample}
+      onclick={() => showAs("board")}
+    >
+      <Kanban aria-hidden="true" />
+      Board
+    </Button>
+  </div>
+  {#if display === "board"}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
+        {boardList?.name ?? "Choose A List"}
+        <ChevronDown aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        <DropdownMenu.RadioGroup
+          value={boardList?.id ?? ""}
+          onValueChange={(value) => {
+            boardListId = value;
+            reload();
+          }}
+        >
+          <DropdownMenu.GroupHeading>List</DropdownMenu.GroupHeading>
+          {#each lists as list (list.id)}
+            <DropdownMenu.RadioItem value={list.id}>{list.name}</DropdownMenu.RadioItem>
+          {/each}
+        </DropdownMenu.RadioGroup>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  {:else}
   <DataTable.GroupByMenu options={GROUP_BY_OPTIONS} bind:value={groupBy} />
   <!-- THE VIEW: one line or two, how large, and which columns. -->
   <DropdownMenu.Root>
@@ -522,6 +587,7 @@
       </DropdownMenu.Group>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
+  {/if}
   {#if canManage}
     <Button
       variant="ghost"
@@ -758,6 +824,24 @@
         onRetry={loadMore}
       />
     {/if}
+    {#if display === "board"}
+      <TaskBoard
+        tasks={allTasks}
+        list={boardList}
+        {context}
+        disabled={!canWrite || isSample || saving}
+        onOpen={(task) => openWindow(task, null)}
+        onMove={(task, statusId) =>
+          void rowWrite(() => moveTaskToStatus(fetch, task.id, statusId), "The task was not moved.")}
+        onComplete={(task) =>
+          void rowWrite(() => setTaskCompletion(fetch, task.id, true), "The task was not completed.")}
+      />
+      {#if taskList.nextCursor !== null}
+        <div class="flex justify-center">
+          <DataTable.LoadMore noun="tasks" more={true} loading={taskList.loadingMore} onLoad={loadMore} />
+        </div>
+      {/if}
+    {:else}
     <DataTable.Grid
       {grid}
       class="min-h-0 flex-1"
@@ -777,6 +861,7 @@
         />
       {/snippet}
     </DataTable.GridFooter>
+    {/if}
   {/if}
 
   <!-- WHAT IS NO LONGER OWED IS ASKED FOR WHERE THE OPEN WORK ENDS. Two questions, not one: a task

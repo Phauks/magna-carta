@@ -74,6 +74,9 @@ describe("schema conformance (fitness functions)", () => {
       // The firm's limit is keyed by what it limits: an event type's id, or deadlines as one kind.
       calendar_sync_firm_limit: "subject",
       platform_operator: "user_id",
+      // The community board's display identity: one per person, keyed by the GLOBAL user handle,
+      // the same idiom as platform_operator.
+      community_profile: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
       // A class's structured attributes are one-to-one WITH the asset and have no identity of their
@@ -207,6 +210,8 @@ describe("schema conformance (fitness functions)", () => {
       // What a conversation has been given to read: the pair IS the fact, and a file is attached to
       // a conversation once, so a surrogate key would let the same attachment exist twice.
       "magnus_conversation_attachment",
+      // A community vote: one per person per post, so the pair IS the vote.
+      "community_vote",
       // A list's flow, a team's membership and a task's watchers are each the pair itself: a move is
       // allowed once, a member is on a team once, a member watches a task once.
       "task_list_status_transition",
