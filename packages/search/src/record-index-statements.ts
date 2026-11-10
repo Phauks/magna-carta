@@ -7,9 +7,14 @@ import {
 import {
   RECORD_TEXT_ENTRY_TABLE,
   RECORD_TEXT_FTS_TABLE,
+  recordIndexExpectedCountSelect,
   recordIndexRebuildStatements,
 } from "./record-index-schema.ts";
-import { recordIndexSource, recordIndexSources } from "./record-index-sources.ts";
+import {
+  recordIndexSource,
+  recordIndexSources,
+  type RecordIndexReader,
+} from "./record-index-sources.ts";
 
 // The reads and the one maintenance write the record index offers directly. A consumer that owns a
 // table of its own composes `recordIdsMatchingSubquery` into its own statement instead
@@ -112,6 +117,50 @@ export async function readRecordIndexCounts(database: SqlDatabase): Promise<Reco
     label: source.label,
     matchedFields: source.matchedFields,
     indexed: indexedBySource.get(source.key) ?? 0,
+  }));
+}
+
+export interface RecordIndexPlace extends RecordIndexCount {
+  readonly readBy: readonly RecordIndexReader[];
+  // How many of the source's records belong in the index today, counted from the records. Equal to
+  // `indexed` unless the copy has fallen behind them.
+  readonly expected: number;
+}
+
+// How many records each declared source should have in the index, counted from its own table: one
+// statement answering one row, with a column per source in declaration order (`expected_0`,
+// `expected_1`, and so on).
+//
+// A column per source and not a row per source, because a row per source is a compound SELECT with
+// one term each, and the database a firm's records live in refuses a compound of more than five
+// terms. There are more sources than that today.
+export function countRecordIndexExpectedStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT ${recordIndexSources
+      .map((source, index) => `(${recordIndexExpectedCountSelect(source)}) AS expected_${index}`)
+      .join(", ")}`,
+  );
+}
+
+// Every declared source with how many of its records are indexed and how many should be, in
+// declaration order: the list a firm is shown of what is searchable, and the check that the index
+// still agrees with the records it was derived from.
+//
+// The second count reads every row of every source table, so this is for a screen a person opened.
+export async function readRecordIndexPlaces(database: SqlDatabase): Promise<RecordIndexPlace[]> {
+  const [counts, expected] = await Promise.all([
+    readRecordIndexCounts(database),
+    countRecordIndexExpectedStatement(database).all<Record<string, number>>(),
+  ]);
+  const expectedRow = expected.results[0] ?? {};
+  // `counts` is in declaration order, the order the statement's columns are in.
+  return counts.map((count, index) => ({
+    sourceKey: count.sourceKey,
+    label: count.label,
+    matchedFields: count.matchedFields,
+    indexed: count.indexed,
+    readBy: recordIndexSource(count.sourceKey).readBy,
+    expected: expectedRow[`expected_${index}`] ?? 0,
   }));
 }
 

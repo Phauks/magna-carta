@@ -47,6 +47,7 @@ export const OPERATIONS: readonly string[] = [
   "firmReportPolicy.update",
   "firmSearchSettings.get",
   "firmSearchSettings.update",
+  "firmSearchStatus.get",
   "firmTimePolicy.get",
   "firmTimePolicy.update",
   "firmUsage.get",

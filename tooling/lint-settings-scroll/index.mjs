@@ -45,6 +45,7 @@ const REGISTER_PAGES = [
   ["notifications", "the member's per-category notification preferences"],
   ["offices", "the firm's offices"],
   ["resources", "the firm's bookable resources"],
+  ["search-and-indexing", "the places the firm's indexes hold, one place to a row"],
   ["users", "the firm's members"],
 ];
 

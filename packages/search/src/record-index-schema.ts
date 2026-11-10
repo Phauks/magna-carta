@@ -204,6 +204,18 @@ export function recordIndexFillStatements(source: RecordIndexSource): string[] {
   return writeStatements(source, "1");
 }
 
+// How many of a source's records belong in the index today: the same select its rows are derived
+// from, counted. Compared with how many index rows the source has, it says whether the copy has
+// fallen behind the records, which a trigger-written index should never do and a status screen
+// should be able to show it has not.
+//
+// It reads every row of the source's table, words included, so it is for a screen a person opened
+// and never for a loop.
+export function recordIndexExpectedCountSelect(source: RecordIndexSource): string {
+  assertRecordIndexSources([source]);
+  return `SELECT COUNT(*) FROM (${rowSelect(source, "1")})`;
+}
+
 // Empties one source's index rows and derives them again. The index is a copy, so this is always
 // safe: nothing is lost that the records themselves do not still hold.
 export function recordIndexRebuildStatements(source: RecordIndexSource): string[] {

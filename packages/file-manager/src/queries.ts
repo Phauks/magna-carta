@@ -9,7 +9,10 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { AUDIT_LOG_TABLE } from "@magna-carta/data-access/audit-statements";
-import { INDEX_SPLIT_TABLE } from "@magna-carta/data-access/index-split-statements";
+import {
+  INDEX_SPLIT_MEMBER_TABLE,
+  INDEX_SPLIT_TABLE,
+} from "@magna-carta/data-access/index-split-statements";
 import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import type {
   DocumentCheckoutId,
@@ -1357,8 +1360,33 @@ export async function loadIndexableVersion(
   };
 }
 
+// Whether the file contents index holds a version, written over the aliases `v` (file_version) that
+// every statement below reads it under. A version is held either as its own live split, or as a live
+// member of a live merged split: compaction retires the small per-document splits it merges and
+// leaves the membership as the only record that the version is searchable, so a predicate that looked
+// at the first form alone would call every compacted document missing.
+//
+// ONE spelling, shared by the read that finds what to index and the read that counts what is indexed,
+// so a firm is never shown "nothing waiting" while the repair pass still has work, or the reverse.
+// Both probes go through an index on the document (`index_split_document_index`,
+// `index_split_member_document_index`).
+const VERSION_HELD_BY_SEARCH_INDEX =
+  `(EXISTS (SELECT 1 FROM ${INDEX_SPLIT_TABLE} s ` +
+  `WHERE s.document_id = v.file_id AND s.version = v.version_number AND s.superseded_at IS NULL) ` +
+  `OR EXISTS (SELECT 1 FROM ${INDEX_SPLIT_MEMBER_TABLE} m ` +
+  `JOIN ${INDEX_SPLIT_TABLE} s ON s.id = m.split_id ` +
+  `WHERE m.document_id = v.file_id AND m.version = v.version_number ` +
+  `AND m.superseded_at IS NULL AND s.superseded_at IS NULL))`;
+
+// The versions the file contents index is FOR, over the aliases `v` (file_version) and `f` (file):
+// the current version of a live file, committed and clean. A superseded version is not in the corpus
+// by design, and a pending, quarantined or deleted one is never read by anything.
+const VERSION_BELONGS_IN_SEARCH_INDEX =
+  `v.status = 'clean' AND v.committed_at IS NOT NULL ` +
+  `AND f.deleted_at IS NULL AND f.current_version_id = v.id`;
+
 // The re-extraction sweep's candidates: files whose CURRENT version is committed and clean but which
-// the search catalog holds no live split for. That set is exactly the documents missing from the
+// the search catalog does not hold. That set is exactly the documents missing from the
 // searchable corpus, whatever put them there — a job that failed, a job whose extraction engine could
 // not read the document at the time, an enqueue that never fired because the best-effort call after
 // ingest commit lost its race, or a firm that turned indexing on after its documents were already
@@ -1392,12 +1420,8 @@ export function listVersionsMissingFromSearchIndexStatement(
   const statement = database.prepare(
     `SELECT v.id, v.committed_at ` +
       `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
-      `WHERE v.status = 'clean' AND v.committed_at IS NOT NULL ` +
-      `AND f.deleted_at IS NULL AND f.current_version_id = v.id ` +
-      `AND NOT EXISTS (` +
-      `SELECT 1 FROM ${INDEX_SPLIT_TABLE} s ` +
-      `WHERE s.document_id = v.file_id AND s.version = v.version_number AND s.superseded_at IS NULL` +
-      `) ` +
+      `WHERE ${VERSION_BELONGS_IN_SEARCH_INDEX} ` +
+      `AND NOT ${VERSION_HELD_BY_SEARCH_INDEX} ` +
       cursorPredicate +
       `ORDER BY v.committed_at, v.id ` +
       `LIMIT ?1`,
@@ -1432,6 +1456,86 @@ export async function listVersionsMissingFromSearchIndex(
     committed_at: string;
   }>();
   return results.map((row) => ({ versionId: row.id, committedAt: row.committed_at }));
+}
+
+// How much of a firm's files the file contents index holds: how many files belong in it, how many of
+// those it holds, and when it last took one in.
+//
+// `belonging - held` is what is NOT indexed, and that is all it says. It is not a queue: a file whose
+// text nothing can read (a scan with no text layer while no recognition engine is bound, bytes no
+// extractor understands) leaves no catalog row behind and stays in that number for good. A screen
+// showing it says "not indexed", never "waiting".
+export interface SearchIndexCoverage {
+  readonly belonging: number;
+  readonly held: number;
+  // When the newest live split of a matter's files was published, or null where there is none.
+  readonly lastIndexedAt: string | null;
+}
+
+// WHAT IT COSTS: one row per live file, each with at most two probes by document. That is the whole
+// file table for a firm, so this is a read for a screen a person opened and never for a request path
+// or a loop.
+export async function readSearchIndexCoverage(database: SqlDatabase): Promise<SearchIndexCoverage> {
+  const [counts, newest] = await Promise.all([
+    database
+      .prepare(
+        `SELECT COUNT(*) AS belonging, ` +
+          `COALESCE(SUM(CASE WHEN ${VERSION_HELD_BY_SEARCH_INDEX} THEN 1 ELSE 0 END), 0) AS held ` +
+          `FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id ` +
+          `WHERE ${VERSION_BELONGS_IN_SEARCH_INDEX}`,
+      )
+      .all<{ belonging: number; held: number }>(),
+    database
+      .prepare(
+        `SELECT MAX(created_at) AS newest FROM ${INDEX_SPLIT_TABLE} ` +
+          `WHERE corpus_kind = 'matter' AND superseded_at IS NULL`,
+      )
+      .all<{ newest: string | null }>(),
+  ]);
+  return {
+    belonging: counts.results[0]?.belonging ?? 0,
+    held: counts.results[0]?.held ?? 0,
+    lastIndexedAt: newest.results[0]?.newest ?? null,
+  };
+}
+
+// For each of a set of files, the version the matter's file contents index holds: the version whose
+// text a search result may quote. A file is answered for only when it is on this matter, is not
+// deleted, and that version is still clean, so a file that was moved, removed or held by the scan
+// since it was indexed is quoted from by nobody, whatever the index still says about it.
+//
+// The version comes from the catalog and not from the file's current version, because the two differ
+// for as long as a new version is waiting to be indexed, and the page an index match names is a page
+// of the version that was indexed. A version is live either as its own split or as a member of a
+// merged one; the newer wins in the moment a re-index leaves both.
+//
+// One statement for the whole set. The set is a page of search results, bounded by the caller.
+export async function listQuotableIndexedVersions(
+  database: SqlDatabase,
+  matterId: MatterId,
+  fileIds: readonly FileId[],
+): Promise<Map<FileId, number>> {
+  if (fileIds.length === 0) return new Map();
+  const placeholders = fileIds.map((_, index) => `?${index + 2}`).join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT held.document_id AS file_id, MAX(held.version) AS version FROM (` +
+        `SELECT s.document_id, s.version FROM ${INDEX_SPLIT_TABLE} s ` +
+        `WHERE s.corpus_id = ?1 AND s.superseded_at IS NULL AND s.document_id IN (${placeholders}) ` +
+        `UNION ALL ` +
+        `SELECT m.document_id, m.version FROM ${INDEX_SPLIT_MEMBER_TABLE} m ` +
+        `JOIN ${INDEX_SPLIT_TABLE} s ON s.id = m.split_id ` +
+        `WHERE s.corpus_id = ?1 AND s.superseded_at IS NULL AND m.superseded_at IS NULL ` +
+        `AND m.document_id IN (${placeholders})` +
+        `) held ` +
+        `JOIN ${FILE_TABLE} f ON f.id = held.document_id ` +
+        `JOIN ${FILE_VERSION_TABLE} v ON v.file_id = f.id AND v.version_number = held.version ` +
+        `WHERE f.matter_id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean' ` +
+        `GROUP BY held.document_id`,
+    )
+    .bind(matterId, ...fileIds)
+    .all<{ file_id: FileId; version: number }>();
+  return new Map(results.map((row) => [row.file_id, row.version]));
 }
 
 // The matter each of a set of files belongs to. The repair pass that stamps object metadata after the

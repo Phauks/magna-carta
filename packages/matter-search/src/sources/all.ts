@@ -12,7 +12,12 @@ import {
   type SourceSearchRequest,
 } from "./registry.ts";
 import { keywordQueryText } from "@magna-carta/search/keyword-query";
-import { arrangeByCandidates, candidatesFrom, passagesToAskFor } from "../file-contents.ts";
+import {
+  arrangeByCandidates,
+  candidatesFrom,
+  passagesToAskFor,
+  quoteCandidates,
+} from "../file-contents.ts";
 import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 
 // The declared sources. Each is a read-side declaration — where the rows live, how to read a bounded
@@ -228,9 +233,11 @@ const filesSource: MatterSearchSource = {
 // application asks the index for this matter's corpus and no other, and a review document is not a
 // row of the `file` table this statement reads.
 //
-// No excerpt yet, and the reason is where the text is kept: the index holds which words are on which
-// page and not the sentences, and a matter file's extracted text is not stored anywhere to quote
-// from. A result names the file and the pages; the reader opens it there.
+// The statement selects no excerpt, and a result may still carry one. The index holds which words
+// are on which page and not the sentences, and a document's text is not in the firm's database, so
+// there is nothing for SQL to select. The sentence is read afterwards, from where the application
+// keeps each indexed version's text, for the rows this statement returned and a reader is about to
+// be shown (`quoteCandidates`). A file that cannot be quoted names its pages alone.
 function fileContentsStatement(request: SourceSearchRequest, fileIds: readonly string[]) {
   const conditions = [`${FILE_TABLE}.id IN (${fileIds.map(() => "?").join(", ")})`];
   // The same rule as a name match: a deleted file answers only when asked for, and arrives marked.
@@ -260,7 +267,9 @@ const fileContentsSource: MatterSearchSource = {
   permission: null,
   answerShape: "ranked",
   matchedFields: ["the text inside files"],
-  declaresSnippet: false,
+  // The sentence the words were found in. Any member of the firm may open the file it comes from,
+  // on the screen the result links to.
+  declaresSnippet: true,
   minimumQueryLength: 2,
   supportsDeleted: true,
   // Nothing to build without the index's answer. The statement is `fileContentsStatement`, built in
@@ -293,6 +302,12 @@ const fileContentsSource: MatterSearchSource = {
         ),
       ],
       arrange: (rows) => arrangeByCandidates(rows, candidates),
+      quote: (rows) =>
+        quoteCandidates(rows, candidates, {
+          matterId: request.matterId,
+          readerText: request.query,
+          searcher,
+        }),
     };
   },
   project: projectInto("file-contents", "files"),

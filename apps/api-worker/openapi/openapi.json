@@ -4628,6 +4628,129 @@
           }
         }
       },
+      "FirmSearchStatusResponse": {
+        "type": "object",
+        "properties": {
+          "checkedAt": {
+            "type": "string"
+          },
+          "records": {
+            "type": "object",
+            "properties": {
+              "places": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SearchStatusRecordPlace"
+                }
+              }
+            },
+            "required": [
+              "places"
+            ]
+          },
+          "fileContents": {
+            "type": "object",
+            "properties": {
+              "turnedOn": {
+                "type": "boolean"
+              },
+              "serviceConnected": {
+                "type": "boolean"
+              },
+              "filesBelonging": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "filesIndexed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastIndexedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dailyCatchUpLimit": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "turnedOn",
+              "serviceConnected",
+              "filesBelonging",
+              "filesIndexed",
+              "lastIndexedAt",
+              "dailyCatchUpLimit"
+            ]
+          },
+          "searchByMeaning": {
+            "type": "object",
+            "properties": {
+              "turnedOn": {
+                "type": "boolean"
+              },
+              "serviceConnected": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "turnedOn",
+              "serviceConnected"
+            ]
+          }
+        },
+        "required": [
+          "checkedAt",
+          "records",
+          "fileContents",
+          "searchByMeaning"
+        ]
+      },
+      "SearchStatusRecordPlace": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "readBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "matter-search",
+                "conflicts-check"
+              ]
+            }
+          },
+          "indexed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "matchedFields",
+          "readBy",
+          "indexed",
+          "expected"
+        ]
+      },
       "ExportRenderRequest": {
         "type": "object",
         "properties": {
@@ -51353,6 +51476,80 @@
           },
           "422": {
             "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/search-status": {
+      "get": {
+        "description": "What the firm's search indexes hold, counted when asked: for each searchable place, how many records are indexed and how many should be; how many of the firm's files have their contents indexed; and whether search by meaning is turned on. Reads every indexed record once, so it is for a status screen and not for polling.",
+        "operationId": "firmSearchStatus.get",
+        "tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-operationId": "firmSearchStatus.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageSearchSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "What the firm's search indexes hold now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmSearchStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageSearchSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -128080,6 +128277,9 @@
     },
     {
       "name": "firmSearchSettings"
+    },
+    {
+      "name": "firmSearchStatus"
     },
     {
       "name": "firmTimePolicy"

@@ -27,6 +27,18 @@ import { enqueueVersionForIndexing } from "./enqueue-index.ts";
 // enqueueVersionForIndexing, so a firm with indexing off produces no message from this walk for the
 // same reason it produces none at commit.
 
+// The most index jobs the daily repair pass starts for one firm. A firm's entire back catalogue can
+// be missing from the index (after a firm first turns indexing on, most plainly), so this cap is
+// what keeps one daily fire bounded and lets the backlog drain over several days instead of flooding
+// the queue in one burst. Sized above the tiering sweep's cap because enqueuing is far cheaper per
+// document than rewriting an R2 object.
+//
+// It lives here, beside the walk, and not with the sweep because a firm is TOLD this number: the
+// status read beside the firm's search settings reports it, so a firm with a large back catalogue
+// can see why the count of files not yet indexed falls by about this much a day instead of all at
+// once. A route may not import the background side, and both may import this.
+export const DAILY_INDEX_BACKLOG_ENQUEUE_CAP = 1000;
+
 export interface IndexBacklogBudget {
   // The most index jobs one walk will START.
   readonly enqueueCap: number;

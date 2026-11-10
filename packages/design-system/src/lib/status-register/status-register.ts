@@ -97,7 +97,15 @@ export type StatusKey =
   | "community-completed"
   | "community-not-on-the-roadmap"
   | "community-duplicate"
-  | "community-answered";
+  | "community-answered"
+  // How one of the firm's search indexes stands against the records and files it is a copy of.
+  // Prefixed because "behind" and "turned off" are ordinary words other vocabularies may want.
+  | "index-up-to-date"
+  | "index-behind"
+  | "index-partly-indexed"
+  | "index-turned-on"
+  | "index-turned-off"
+  | "index-not-connected";
 
 /**
  * How a status shows itself.
@@ -412,6 +420,49 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     meaning: "The person who asked marked a reply as the answer.",
     presentation: "chip",
   },
+
+  // A search index against what it is a copy of. Only Behind asks for anything: it is the one
+  // state in which a search can miss a record the firm holds. Turned Off and Not Connected are
+  // level, quiet facts, because neither is a fault.
+  "index-up-to-date": {
+    label: "Up to Date",
+    tone: "success",
+    meaning: "The index holds everything it should.",
+    presentation: "chip",
+  },
+  "index-behind": {
+    label: "Behind",
+    tone: "warning",
+    meaning:
+      "The index does not hold exactly the records the firm does, so a search here can miss one. Rebuilding this place's index repairs it.",
+    presentation: "chip",
+  },
+  "index-partly-indexed": {
+    label: "Partly Indexed",
+    tone: "info",
+    meaning:
+      "Some files are not in the index: files still waiting to be read, and files with no words that can be read, such as a scanned page.",
+    presentation: "chip",
+  },
+  "index-turned-on": {
+    label: "Turned On",
+    tone: "success",
+    meaning: "The firm has turned this on.",
+    presentation: "chip",
+  },
+  "index-turned-off": {
+    label: "Turned Off",
+    tone: "neutral",
+    meaning: "The firm has not turned this on, so nothing is read for it.",
+    presentation: "chip",
+  },
+  "index-not-connected": {
+    label: "Not Connected",
+    tone: "neutral",
+    meaning:
+      "The platform service this runs on is not connected yet, so nothing is searchable here whatever the firm's setting says.",
+    presentation: "chip",
+  },
 };
 
 /**
@@ -459,6 +510,18 @@ export const STATUS_VOCABULARIES = {
   ],
   /** Whether a community question has its accepted answer. */
   communityQuestion: ["community-new", "community-answered"],
+  /**
+   * How a search index stands. Behind leads because it is the only one that asks for something;
+   * the settled states follow, and the two that say nothing is being read come last.
+   */
+  searchIndexStanding: [
+    "index-behind",
+    "index-partly-indexed",
+    "index-up-to-date",
+    "index-turned-on",
+    "index-turned-off",
+    "index-not-connected",
+  ],
 } as const satisfies Readonly<Record<string, readonly StatusKey[]>>;
 
 export type StatusVocabulary = keyof typeof STATUS_VOCABULARIES;
