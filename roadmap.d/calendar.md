@@ -25,11 +25,11 @@
 - id: calendar.events.recurrence
   name: Repeating settings
   scope: A calendar setting that happens more than once, held as one row carrying an RFC 5545 rule and expanded at read time, on both the matter and the firm scope.
-  status: partial
+  status: shipped
   surface: screen
   spec: docs/specs/2026-09-15-calendar-places-people-and-recurrence-design.md
-  notes: Partial because the rule is stored, returned, shown and edited but the occurrences are not painted on the grid yet; the read-time expansion and the this-occurrence-or-series question an edit has to ask are the next slice. Nothing here computes a deadline — a recurring event is not a docketing rule.
-  evidence: recurrence_rule on matter_event and firm_event (20260916T000000_event-recurrence), threaded through packages/calendar's statement modules, services and event-shape asserts and refused at the write as calendar-invalid-recurrence; the grammar in packages/civil-time/src/recurrence.ts, which the record form and the calendar service both depend on so one reading of a valid rule serves both; edited in apps/web/src/lib/calendar/recurrence-field.svelte and read out in recurrence-sentence.ts.
+  notes: Painted on every day it falls on across the firm, member, matter and firm-event calendars; changing or cancelling one day asks whether the change is to that day, that day and every later one, or the whole series. Nothing here computes a deadline — a recurring event is not a docketing rule.
+  evidence: recurrence_rule on matter_event and firm_event (20260916T000000_event-recurrence), threaded through packages/calendar's statement modules, services and event-shape asserts and refused at the write as calendar-invalid-recurrence; the grammar in packages/civil-time/src/recurrence.ts, which the record form and the calendar service both depend on so one reading of a valid rule serves both; edited in apps/web/src/lib/calendar/recurrence-field.svelte and read out in recurrence-sentence.ts; expanded at read time by packages/calendar/src/series-service.ts behind GET /api/v1/calendar/series, and one day or every later day changed through POST /api/v1/events/{eventId}/occurrences and /api/v1/firm-events/{firmEventId}/occurrences (apps/api-worker/src/http/routes/calendar/series.ts), asked in apps/web/src/lib/calendar/entry-window.svelte over occurrence-change.ts.
   audience: public
   public-name: Repeating events
   public-summary: Record a hearing or a firm meeting once and have it repeat — weekly, every second Tuesday, the third Tuesday of the month — with the rule read back to you in words before you save it.
@@ -200,10 +200,11 @@
 - id: calendar.sync
   name: Two-way Google/Outlook sync
   scope: Two-way calendar synchronization via the email/calendar plugin.
-  status: not-started
+  status: designed
   slices: integration-port-system
   adrs: ADR-0091
-  evidence: No calendar adapter; the integration port system it will plug into is shipped.
+  spec: docs/specs/2026-11-10-calendar-sync-design.md
+  evidence: Design accepted 2026-11-10 (per-member, rule-driven, off by default, Outlook first). No calendar adapter yet; the integration port system it will plug into is shipped.
   audience: public
   public-name: Two-way calendar sync
   public-summary: Keep the firm's calendar and your Google or Outlook calendar in step, in both directions.

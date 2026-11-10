@@ -17,8 +17,10 @@ import { PRIORITY_LABELS, RUNG_LABELS, describeTimeLogged, type MatterTask } fro
 export interface TaskSheetContext extends PrintSheetDates {
   /** The matter the task belongs to, or what to call the firm's own work where it has none. */
   readonly matterTitle: string;
-  /** Who it is with, as a name. Never an account identifier. */
+  /** Who it is with, as names. Never an account identifier. */
   readonly assigneeName: string;
+  /** The status it stands at on its list, where the list has been read. */
+  readonly statusName?: string;
   /** Who wrote it, as a name. */
   readonly authorName: string;
   /** Who finished it, where anybody has. */
@@ -55,10 +57,10 @@ export function dueLine(task: MatterTask, date: (isoDate: string) => string): st
  */
 function outcomeFields(task: MatterTask, context: TaskSheetContext) {
   return [
-    ...(task.rung === "done" && task.completedAt !== null
+    ...(task.completedAt !== null
       ? [
-          { label: "Done By", value: context.completedByName ?? "Not recorded" },
-          { label: "Done", value: context.instant(task.completedAt) },
+          { label: "Completed By", value: context.completedByName ?? "Not recorded" },
+          { label: "Completed", value: context.instant(task.completedAt) },
         ]
       : []),
     ...(task.archivedAt === null
@@ -87,9 +89,16 @@ export function taskSheet(task: MatterTask, context: TaskSheetContext): PrintShe
         id: "standing",
         kind: "fields",
         fields: [
-          { label: "State", value: RUNG_LABELS[task.rung] },
+          {
+            label: "Status",
+            value: `${context.statusName ?? RUNG_LABELS[task.rung]}${task.completedAt === null ? "" : ", Complete"}`,
+          },
           { label: "Assigned To", value: context.assigneeName },
+          ...(task.startsOn === null
+            ? []
+            : [{ label: "Start", value: context.date(task.startsOn) }]),
           { label: "Due", value: due ?? "Not scheduled" },
+          ...(task.location === null ? [] : [{ label: "Location", value: task.location }]),
           { label: "Priority", value: PRIORITY_LABELS[task.priority] },
           { label: "Created By", value: context.authorName },
           { label: "Created", value: context.instant(task.createdAt) },

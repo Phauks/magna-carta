@@ -49,6 +49,7 @@
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { SAMPLE_SENTENCE, sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import * as Select from "@magna-carta/design-system/select";
   import Textarea from "@magna-carta/design-system/textarea";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
@@ -58,6 +59,8 @@
   import {
     cancelFirmEvent,
     cancelMatterEvent,
+    changeFirmEventOccurrence,
+    changeMatterEventOccurrence,
     continueMatterEvent,
     deadlineStateBadgeLabel,
     deadlineStateLabel,
@@ -116,6 +119,15 @@
     type EntryReferenceKind,
   } from "./entry-reference.ts";
   import EntryRoomsTab from "./entry-rooms-tab.svelte";
+  import {
+    atOccurrence,
+    effectiveScope,
+    seriesChangeChoices,
+    seriesChangeRefusal,
+    seriesWideFields,
+    type SeriesChangeScope,
+    type SeriesDates,
+  } from "./occurrence-change.ts";
   import { shortfallFor, type Shortfall } from "./shortfall.ts";
   import {
     deadlineUpdateOf,
@@ -192,6 +204,14 @@
   });
 
   let record = $state<EntryRecord | null>(null);
+  /*
+   * Where the record is one day of a repeating series: which day, and the series' own dates kept
+   * aside. The record itself is held AT that day (`atOccurrence`), so the pane, the heading and the
+   * print sheet all say the Tuesday that was pressed; the series' dates are what a change to every
+   * day moves. Both null on everything that does not repeat.
+   */
+  let occurrenceDay = $state<string | null>(null);
+  let seriesDates = $state<SeriesDates | null>(null);
   let reading = $state(false);
   let readFailure = $state<StatedFailure | null>(null);
   /** A deadline the window has no way to read: no matter and no day to read it through. */
@@ -296,6 +316,18 @@
     }
 
     if (generation !== readGeneration) return;
+    let day: string | null = null;
+    let dates: SeriesDates | null = null;
+    if (next !== null && next.kind !== "deadline" && next.event.recurrenceRule !== null) {
+      day = target.occurrenceOn ?? next.event.startsOn;
+      dates = { startsOn: next.event.startsOn, endsOn: next.event.endsOn };
+      next =
+        next.kind === "event"
+          ? { ...next, event: atOccurrence(next.event, day) }
+          : { ...next, event: atOccurrence(next.event, day) };
+    }
+    occurrenceDay = day;
+    seriesDates = dates;
     record = next;
     unreachableDeadline = unreachable;
     readFailure = failure === null ? null : stated(failure, "The record could not be read.");
@@ -431,6 +463,13 @@
   async function save(): Promise<void> {
     saveAttempted = true;
     if (record === null || saving || shortfall !== undefined) return;
+    // One day of a series: how far the change reaches is asked before anything is written.
+    if (occurrenceDay !== null && record.kind !== "deadline") {
+      scopeChoice = "this";
+      verbFailure = null;
+      scopeOpen = true;
+      return;
+    }
     saving = true;
     saveFailure = null;
     // Every attempt carries its own key: a retry of the same attempt is answered with the first
@@ -529,6 +568,107 @@
     }
   }
 
+  // ---- one day of a series, or more --------------------------------------------------------------
+
+  let scopeOpen = $state(false);
+  let scopeChoice = $state<SeriesChangeScope>("this");
+  let cancelScope = $state<SeriesChangeScope>("this");
+  const scopeChoices = $derived(occurrenceDay === null ? [] : seriesChangeChoices(occurrenceDay));
+
+  /** Whether the edit wrote a different repeat rule from the one the series runs on. */
+  const ruleChanged = $derived.by((): boolean => {
+    if (record === null || record.kind === "deadline") return false;
+    if (record.kind === "event" && eventDraft !== null) {
+      return (eventDraftRequest(eventDraft).recurrenceRule ?? null) !== record.event.recurrenceRule;
+    }
+    if (record.kind === "firmEvent" && firmEventDraft !== null) {
+      return (
+        (firmEventDraftRequest(firmEventDraft).recurrenceRule ?? null) !== record.event.recurrenceRule
+      );
+    }
+    return false;
+  });
+  const scopeRefusal = $derived(seriesChangeRefusal(scopeChoice, ruleChanged));
+
+  /**
+   * Where the window goes once a change to part of a series has landed: the event standing in for
+   * the one day, or the series that now runs from it. A change to every day stays on the record.
+   */
+  function followTo(id: string): void {
+    if (record === null || record.kind === "deadline") return;
+    current = { kind: record.kind, recordId: id };
+  }
+
+  async function commitScopedSave(): Promise<ActionOutcome> {
+    if (record === null || record.kind === "deadline" || occurrenceDay === null) return "refused";
+    if (seriesDates === null || scopeRefusal !== undefined) return "refused";
+    const scope = effectiveScope(scopeChoice, occurrenceDay, seriesDates);
+    const key = crypto.randomUUID();
+    let landedId: string | null = null;
+    let failure: Failure | null = null;
+    if (record.kind === "event" && eventDraft !== null) {
+      const fields = eventUpdateOf(eventDraftRequest(eventDraft), { edited: participantsEdited });
+      if (scope === "all") {
+        const outcome = await updateMatterEvent(
+          fetch,
+          record.event.id,
+          seriesWideFields(fields, seriesDates, occurrenceDay),
+          key,
+        );
+        if (outcome.kind !== "ok") failure = outcome.failure;
+      } else {
+        const outcome = await changeMatterEventOccurrence(
+          fetch,
+          record.event.id,
+          { occurrenceOn: occurrenceDay, scope, change: { kind: "update", fields } },
+          key,
+        );
+        if (outcome.kind === "ok") landedId = outcome.value.id;
+        else failure = outcome.failure;
+      }
+    } else if (record.kind === "firmEvent" && firmEventDraft !== null) {
+      const fields = firmEventUpdateOf(firmEventDraftRequest(firmEventDraft), {
+        edited: participantsEdited,
+      });
+      if (scope === "all") {
+        const outcome = await updateFirmEvent(
+          fetch,
+          record.event.id,
+          seriesWideFields(fields, seriesDates, occurrenceDay),
+          key,
+        );
+        if (outcome.kind !== "ok") failure = outcome.failure;
+      } else {
+        const outcome = await changeFirmEventOccurrence(
+          fetch,
+          record.event.id,
+          { occurrenceOn: occurrenceDay, scope, change: { kind: "update", fields } },
+          key,
+        );
+        if (outcome.kind === "ok") landedId = outcome.value.id;
+        else failure = outcome.failure;
+      }
+    }
+    if (failure !== null) {
+      return verbRefused(
+        failure,
+        "The change was not saved.",
+        "Nothing answered. The change was not saved and the series is unchanged.",
+      );
+    }
+    // The room a location names is held for the record that carries it. A change to every day moves
+    // the series' own bookings exactly as a plain correction does; a day changed on its own is a new
+    // event, and its room is held from its own window.
+    if (scope === "all") await reconcileRooms();
+    editing = false;
+    participantsEdited = false;
+    saveAttempted = false;
+    onChanged();
+    if (landedId === null) reread();
+    else followTo(landedId);
+    return "committed";
+  }
+
   /** Abandoning: the window has already left editing; the fields go back to the seed. */
   function forgetChanges(): void {
     saveFailure = null;
@@ -556,6 +696,7 @@
 
   function openCancel(): void {
     cancelReason = "";
+    cancelScope = "this";
     verbFailure = null;
     cancelOpen = true;
   }
@@ -602,6 +743,31 @@
     if (record === null || record.kind === "deadline") return "refused";
     const reason = optionalText(cancelReason);
     const key = crypto.randomUUID();
+    if (occurrenceDay !== null && seriesDates !== null) {
+      const scope = effectiveScope(cancelScope, occurrenceDay, seriesDates);
+      if (scope !== "all") {
+        const request = {
+          occurrenceOn: occurrenceDay,
+          scope,
+          change: { kind: "cancel" as const, statusReason: reason },
+        };
+        const scoped =
+          record.kind === "event"
+            ? await changeMatterEventOccurrence(fetch, record.event.id, request, key)
+            : await changeFirmEventOccurrence(fetch, record.event.id, request, key);
+        if (scoped.kind !== "ok") {
+          return verbRefused(
+            scoped.failure,
+            "The setting was not cancelled.",
+            "Nothing answered. The setting was not cancelled and stays as it was.",
+          );
+        }
+        onChanged();
+        if (scope === "this") followTo(scoped.value.id);
+        else reread();
+        return "committed";
+      }
+    }
     const outcome =
       record.kind === "event"
         ? await cancelMatterEvent(fetch, record.event.id, reason, key)
@@ -1511,6 +1677,53 @@
   {heading}{#if dateLine !== null}, {dateLine}{/if}
 {/snippet}
 
+{#snippet scopeQuestion(
+  name: string,
+  value: SeriesChangeScope,
+  choose: (value: SeriesChangeScope) => void,
+  busy: boolean,
+)}
+  <!-- How far a change to one day of a series reaches. Asked every time, never guessed: the wrong
+       answer is a firm's calendar quietly moving. -->
+  <div class="flex flex-col gap-8">
+    <p id="{name}-label" class="text-sm">
+      {heading} repeats. Which events should this apply to?
+    </p>
+    <RadioGroup.Root
+      {value}
+      onValueChange={(picked) => choose(picked as SeriesChangeScope)}
+      disabled={busy}
+      aria-labelledby="{name}-label"
+    >
+      {#each scopeChoices as choice (choice.value)}
+        <div class="flex items-start gap-8">
+          <RadioGroup.Item value={choice.value} id="{name}-{choice.value}" />
+          <div class="flex flex-col">
+            <Label for="{name}-{choice.value}">{choice.label}</Label>
+            <span class="text-xs text-text-muted">{choice.detail}</span>
+          </div>
+        </div>
+      {/each}
+    </RadioGroup.Root>
+  </div>
+{/snippet}
+
+<ActionDialog
+  bind:open={scopeOpen}
+  heading="Change a Repeating Event"
+  subtitle={recordSubtitle}
+  notice={verbNotice}
+  commitLabel="Save"
+  commitBusyLabel="Saving"
+  commitRefusal={scopeRefusal}
+  unsavedChanges={false}
+  onCommit={commitScopedSave}
+>
+  {#snippet fields({ busy })}
+    {@render scopeQuestion("entry-change-scope", scopeChoice, (value) => (scopeChoice = value), busy)}
+  {/snippet}
+</ActionDialog>
+
 <ActionDialog
   bind:open={cancelOpen}
   heading={current?.kind === "firmEvent" ? "Cancel This Event" : "Cancel This Setting"}
@@ -1522,6 +1735,9 @@
   onCommit={commitCancel}
 >
   {#snippet fields({ busy })}
+    {#if occurrenceDay !== null}
+      {@render scopeQuestion("entry-cancel-scope", cancelScope, (value) => (cancelScope = value), busy)}
+    {/if}
     <div class="flex flex-col gap-4">
       <Label for="entry-cancel-reason">Reason</Label>
       <Textarea id="entry-cancel-reason" rows={2} disabled={busy} bind:value={cancelReason} />

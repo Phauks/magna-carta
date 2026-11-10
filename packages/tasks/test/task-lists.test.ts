@@ -253,12 +253,12 @@ describe("my work", () => {
     expect(onMatter).toHaveLength(0);
   });
 
-  it("hides another member's matterless task from this member's list", async () => {
+  it("shows another member's matterless task on this member's list", async () => {
     const database = migratedDatabase();
     seedFirm(database.raw);
     const mine = await createMatterTask(
       database.database,
-      { matterId: null, title: "Review the associate's performance" },
+      { matterId: null, title: "Renew the malpractice policy" },
       options,
     );
     await commit(database.database, mine.effect);
@@ -267,6 +267,6 @@ describe("my work", () => {
       visibility,
       viewerUserId: COLLEAGUE,
     }).all<ListRow>();
-    expect(results).toHaveLength(0);
+    expect(results).toHaveLength(1);
   });
 });

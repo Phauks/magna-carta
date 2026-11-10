@@ -23,6 +23,12 @@ export type CalendarValidationCode =
   // — and a rule from elsewhere that the form could not present is refused rather than stored as a
   // series nobody can see the end of.
   | "calendar-invalid-recurrence"
+  // A change to one day of a series asked of an event that is not a series this platform can read,
+  // of a day the series never falls on, or of a day somebody already changed — in which case the
+  // event standing in for that day is what gets edited.
+  | "calendar-not-a-series"
+  | "calendar-not-an-occurrence"
+  | "calendar-occurrence-already-changed"
   // A participant whose kind names a column that is empty.
   | "calendar-invalid-participant"
   // A deadline sourced from the statutory catalog before any verified catalog exists. It stays a
