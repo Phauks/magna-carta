@@ -239,8 +239,13 @@ export function recordIndexNewestMatch(
   recordIndexSourceKey: string,
   table: string,
 ): RecordIndexNewestMatch | null {
-  // No matter in the scope: the index is asked for the words alone.
-  const expression = recordMatchExpression(request.query, { sourceKeys: [recordIndexSourceKey] });
+  // No one matter in the scope. The index is asked for the words alone, or for the words on the
+  // matters a narrowed search could name, which keeps its cap to those matters' records. An empty
+  // list is a narrowing that reaches no matter: there is nothing to ask and no statement is built.
+  const expression = recordMatchExpression(request.query, {
+    sourceKeys: [recordIndexSourceKey],
+    ...(request.indexMatterIds === undefined ? {} : { matters: request.indexMatterIds }),
+  });
   if (expression === null) return null;
   return {
     from: recordIndexNewestMatchesFrom(recordIndexSourceKey, table),

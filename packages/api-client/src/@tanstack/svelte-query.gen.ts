@@ -4381,7 +4381,7 @@ export const emailsRevokeCaptureAddressMutation = (options?: Partial<Options<Ema
 };
 
 /**
- * Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records. The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.
+ * Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records: the structured record, its plain text, and a sealed PDF sheet listing each signer and the audit log (consent, signature and seal, each with its server-observed time and address). The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.
  */
 export const esignSealMutation = (options?: Partial<Options<EsignSealData>>): MutationOptions<EsignSealResponse, EsignSealError, Options<EsignSealData>> => {
     const mutationOptions: MutationOptions<EsignSealResponse, EsignSealError, Options<EsignSealData>> = {
@@ -4837,7 +4837,7 @@ export const assembliesStatusOptions = (options: Options<AssembliesStatusData>) 
 export const mattersListQueryKey = (options?: Options<MattersListData>) => createQueryKey('mattersList', options);
 
 /**
- * Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.
+ * Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client. `mine=true` narrows to the matters the session member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on.
  */
 export const mattersListOptions = (options?: Options<MattersListData>) => queryOptions<MattersListResponse, MattersListError, MattersListResponse, ReturnType<typeof mattersListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -4855,7 +4855,7 @@ export const mattersListOptions = (options?: Options<MattersListData>) => queryO
 export const mattersListInfiniteQueryKey = (options?: Options<MattersListData>): QueryKey<Options<MattersListData>> => createQueryKey('mattersList', options, true);
 
 /**
- * Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.
+ * Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client. `mine=true` narrows to the matters the session member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on.
  */
 export const mattersListInfiniteOptions = (options?: Options<MattersListData>) => infiniteQueryOptions<MattersListResponse, MattersListError, InfiniteData<MattersListResponse>, QueryKey<Options<MattersListData>>, string | Pick<QueryKey<Options<MattersListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -5595,7 +5595,7 @@ export const matterSearchSearchOptions = (options: Options<MatterSearchSearchDat
 export const searchAcrossMattersQueryKey = (options: Options<SearchAcrossMattersData>) => createQueryKey('searchAcrossMatters', options);
 
 /**
- * Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.
+ * Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.
  */
 export const searchAcrossMattersOptions = (options: Options<SearchAcrossMattersData>) => queryOptions<SearchAcrossMattersResponse, SearchAcrossMattersError, SearchAcrossMattersResponse, ReturnType<typeof searchAcrossMattersQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -8590,7 +8590,7 @@ export const calendarSyncListMyIssuesOptions = (options?: Options<CalendarSyncLi
 });
 
 /**
- * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.
+ * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.
  */
 export const calendarSyncPutBackMyCopyMutation = (options?: Partial<Options<CalendarSyncPutBackMyCopyData>>): MutationOptions<CalendarSyncPutBackMyCopyResponse, CalendarSyncPutBackMyCopyError, Options<CalendarSyncPutBackMyCopyData>> => {
     const mutationOptions: MutationOptions<CalendarSyncPutBackMyCopyResponse, CalendarSyncPutBackMyCopyError, Options<CalendarSyncPutBackMyCopyData>> = {

@@ -152,6 +152,7 @@ export default defineConfig({
       "apps/address-worker/vitest.config.ts",
       "apps/api-worker/vitest.node.config.ts",
       "apps/status-worker/vitest.config.ts",
+      "apps/web-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
       "apps/discovery-worker/vitest.config.ts",
@@ -343,9 +344,9 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
       },
-      // The PDF composer. Deliberately NOT in the composite above and in no Worker's build script:
-      // nothing imports @magna-carta/pdf-compose yet, so no deploy should pay to compile it or be
-      // able to fail on it. The first Worker to import the package adds this task to its own build.
+      // The PDF composer. Deliberately NOT in the composite above: only a Worker that imports
+      // @magna-carta/pdf-compose should pay to compile it or be able to fail on it. The sign Worker
+      // does (it composes the Certificate of Completion) and names this task in its own build.
       "rust-wasm-build-pdf-compose": {
         command:
           "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",

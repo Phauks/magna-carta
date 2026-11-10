@@ -6,6 +6,8 @@ import {
 } from "@magna-carta/calendar/visibility";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
+import { narrowedVisibility, type MatterNarrowing } from "../src/narrowing.ts";
 import { runSearchAcrossMatters } from "../src/run-across-matters.ts";
 import { matterSearchSources } from "../src/sources/all.ts";
 import type { AcrossMattersGroup, AcrossMattersSearchAnswer } from "../src/types.ts";
@@ -66,6 +68,7 @@ interface AskOptions {
   readonly limit?: number;
   readonly candidateCap?: number;
   readonly visibility?: VisibleMatterPredicate;
+  readonly narrowing?: MatterNarrowing;
 }
 
 function ask(
@@ -82,6 +85,7 @@ function ask(
     permissions: options.permissions ?? ALL_PERMISSIONS,
     limit: options.limit ?? 25,
     ...(options.candidateCap === undefined ? {} : { candidateCap: options.candidateCap }),
+    ...(options.narrowing === undefined ? {} : { narrowing: options.narrowing }),
   });
 }
 
@@ -281,6 +285,138 @@ describe("a reader's text across matters", () => {
     const files = groupOf(answer, "files");
     expect(files.hits).toHaveLength(2);
     expect(files.hasMore).toBe(true);
+  });
+});
+
+// A reader's own narrowing: fewer matters than they may see, and never more.
+describe("a search across matters narrowed by its reader", () => {
+  // The shape a caller hands in: a list the database works out, and the matter tested against it.
+  function mattersNamed(...matterIds: readonly string[]): MatterNarrowing {
+    return {
+      fragmentFor: (matterIdExpression) =>
+        `${matterIdExpression} IN (${matterIds.map(() => "?").join(", ")})`,
+      bindings: matterIds,
+    };
+  }
+
+  function seedMatter(raw: Raw, id: string): void {
+    raw.exec(
+      `INSERT INTO matter (id, title, status, responsible_member_id, system_key, opened_at, ` +
+        `created_at, updated_at) VALUES ('${id}', 'Narrowed', 'open', '${ACTOR}', NULL, ` +
+        `'${INSTANT}', '${INSTANT}', '${INSTANT}')`,
+    );
+  }
+
+  it("answers from the matters it names and no others, in every kind of source", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", { narrowing: mattersNamed(OTHER_MATTER) });
+    expect(hitIds(answer, "notes")).toEqual(["matterNote_decoy"]);
+    expect(hitIds(answer, "files")).toEqual(["file_decoy", "folder_decoy"]);
+    for (const group of answer.groups) {
+      for (const hit of group.hits) expect(hit.matterId).toBe(OTHER_MATTER);
+    }
+  });
+
+  it("cannot reach a matter the reader may not see by naming it", async () => {
+    const { database } = seededDatabase();
+    // The platform's holding matter, and a matter the predicate excludes, both named outright.
+    const answer = await ask(database, "easement", {
+      narrowing: mattersNamed(HOLDING_MATTER, OTHER_MATTER, MATTER),
+      visibility: visibleMatterPredicateExcluding([OTHER_MATTER]),
+    });
+    const matters = new Set(
+      answer.groups.flatMap((group) => group.hits.map((hit) => hit.matterId)),
+    );
+    expect([...matters]).toEqual([MATTER]);
+  });
+
+  it("is answered in full where the same words across the firm are cut at the cap", async () => {
+    const { database, raw } = seededDatabase();
+    // Written last on the OTHER matter, so they are the newest entries in the index and take
+    // every place under a cap of two.
+    seedNote(raw, { id: "matterNote_newer", matterId: OTHER_MATTER, body: "Easement, again." });
+    seedNote(raw, {
+      id: "matterNote_newest",
+      matterId: OTHER_MATTER,
+      body: "Easement, once more.",
+    });
+    const firmWide = await ask(database, "easement", { candidateCap: 2 });
+    expect(firmWide.broad).toBe(true);
+    expect(hitIds(firmWide, "notes")).toEqual(["matterNote_newer", "matterNote_newest"]);
+    // The one matter's own two notes are older than both, and are all there when it is named.
+    const narrowed = await ask(database, "easement", {
+      candidateCap: 2,
+      narrowing: mattersNamed(MATTER),
+    });
+    expect(narrowed.broad).toBe(false);
+    expect(hitIds(narrowed, "notes")).toEqual(["matterNote_easement", "matterNote_occurred"]);
+  });
+
+  it("says broad when the named matters themselves hold more than the cap", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", {
+      candidateCap: 1,
+      narrowing: mattersNamed(MATTER),
+    });
+    expect(answer.broad).toBe(true);
+    expect(hitIds(answer, "notes")).toHaveLength(1);
+  });
+
+  it("answers nothing, and is not broad, when it reaches no matter", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", {
+      narrowing: mattersNamed("matter_thatDoesNotExist0000000000"),
+    });
+    expect(answer.broad).toBe(false);
+    for (const group of answer.groups) expect(group.hits).toEqual([]);
+    // Asked and empty, which is a different answer from not asked.
+    expect(groupOf(answer, "notes").skipped).toBeNull();
+  });
+
+  it("names as many matters to the index as one question takes", async () => {
+    const { database, raw } = seededDatabase();
+    const many = Array.from(
+      { length: RECORD_QUERY_MATTERS_LIMIT - 1 },
+      (_, index) => `matter_narrowed${String(index).padStart(4, "0")}`,
+    );
+    for (const id of many) seedMatter(raw, id);
+    seedNote(raw, { id: "matterNote_far", matterId: many.at(-1)!, body: "A far easement." });
+    // The newest entry is on a matter outside the narrowing, and would take the one place.
+    seedNote(raw, { id: "matterNote_outside", matterId: OTHER_MATTER, body: "Easement, last." });
+    const answer = await ask(database, "far easement", {
+      candidateCap: 1,
+      narrowing: mattersNamed(MATTER, ...many),
+    });
+    expect(answer.broad).toBe(false);
+    expect(hitIds(answer, "notes")).toEqual(["matterNote_far"]);
+  });
+
+  it("asks the firm-wide way past that, and still answers only from its matters", async () => {
+    const { database, raw } = seededDatabase();
+    const many = Array.from(
+      { length: RECORD_QUERY_MATTERS_LIMIT + 1 },
+      (_, index) => `matter_narrowed${String(index).padStart(4, "0")}`,
+    );
+    for (const id of many) seedMatter(raw, id);
+    seedNote(raw, { id: "matterNote_far", matterId: many.at(-1)!, body: "A far easement." });
+    const answer = await ask(database, "easement", { narrowing: mattersNamed(...many) });
+    expect(hitIds(answer, "notes")).toEqual(["matterNote_far"]);
+    // Under the firm's cap the newest match is elsewhere, the answer says so, and the narrowing
+    // still holds.
+    seedNote(raw, { id: "matterNote_outside", matterId: OTHER_MATTER, body: "Easement, last." });
+    const capped = await ask(database, "easement", {
+      candidateCap: 1,
+      narrowing: mattersNamed(...many),
+    });
+    expect(capped.broad).toBe(true);
+    expect(hitIds(capped, "notes")).toEqual([]);
+  });
+
+  it("keeps the predicate's marker, so a narrowed statement is held to the predicate", () => {
+    const narrowed = narrowedVisibility(visibility, mattersNamed(MATTER));
+    expect(narrowed.marker).toBe(VISIBLE_MATTER_MARKER);
+    expect(narrowed.fragmentFor("matter_note.matter_id")).toContain(VISIBLE_MATTER_MARKER);
+    expect(narrowed.bindings).toEqual([MATTER]);
   });
 });
 

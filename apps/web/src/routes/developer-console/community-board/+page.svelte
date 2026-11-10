@@ -23,6 +23,7 @@
     "When we reverse a payment for Hendricks v. Lowell, matter 2026-CV-0412, the invoice goes back to unpaid and the client sees it again.",
   );
   let composerTitle = $state("Reverse a trust payment without voiding the invoice");
+  let composerDisplayName = $state("Dana R.");
   let composerCategory: string | null = $state("trust-and-reconciliation");
 </script>
 
@@ -55,7 +56,8 @@
         bind:body={composerBody}
         bind:title={composerTitle}
         bind:category={composerCategory}
-        displayName="Dana R."
+        bind:displayName={composerDisplayName}
+        onRenameDisplayName={async () => null}
       />
     {/if}
   {/if}

@@ -93,6 +93,10 @@ export interface MatterListQuery {
   scope: MatterScope;
   /** Free text over title, number and client — the server's own search, not a client-side narrow. */
   search?: string;
+  /** Only the matters the reader is responsible for or currently assigned to. */
+  mine?: boolean;
+  /** Only the matters this person or organization is a client on. */
+  clientEntityId?: string;
   cursor?: string;
 }
 
@@ -110,6 +114,8 @@ export function listMatters(
   if (query.scope !== "caseload") parameters.set("status", query.scope);
   const search = query.search?.trim() ?? "";
   if (search !== "") parameters.set("search", search);
+  if (query.mine === true) parameters.set("mine", "true");
+  if (query.clientEntityId !== undefined) parameters.set("clientEntityId", query.clientEntityId);
   if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
   const suffix = parameters.toString();
   return requestJson(fetchImpl, `/api/v1/matters${suffix === "" ? "" : `?${suffix}`}`);

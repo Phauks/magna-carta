@@ -9,6 +9,10 @@
  * And for what the member does to a copy afterwards: a copy left alone raises nothing; a copy moved
  * or deleted becomes one question for the member and no write anywhere; a deadline's copy is put
  * back without asking; and a question whose event changes or is cancelled goes away.
+ *
+ * And for a series: it leaves as one event carrying its rule, whenever it began; a changed day
+ * leaves as its own event and is named as skipped on the series; a series that has run its course
+ * is not sent; and one the provider will not take is a question for the member, not a silence.
  */
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -561,12 +565,13 @@ interface IssueRow {
   state: string;
   sent_json: string;
   found_json: string | null;
+  provider_refused: number;
 }
 
 async function issues(): Promise<IssueRow[]> {
   const { results } = await firmDatabase
     .prepare(
-      "SELECT local_id, kind, state, sent_json, found_json FROM connection_sync_issue WHERE connection_id = ?1 ORDER BY local_id",
+      "SELECT local_id, kind, state, sent_json, found_json, provider_refused FROM connection_sync_issue WHERE connection_id = ?1 ORDER BY local_id",
     )
     .bind(CONNECTION)
     .all<IssueRow>();
@@ -732,5 +737,115 @@ describe("what a member did to a copy in their own calendar", () => {
       Promise.resolve(adapterError(integrationProblem("validation", 502, "unreadable")));
     expect(await pass(failing.port)).toMatchObject({ kind: "settled", report: { flagged: 0 } });
     expect(await issues()).toEqual([]);
+  });
+});
+
+describe("a repeating event", () => {
+  const SERIES = "matterEvent_outbound0series";
+
+  async function seedSeries(startsOn: string, rule: string): Promise<void> {
+    await seedEvent(SERIES, MATTER, hearingTypeId, "Status conference", startsOn, true);
+    await run("UPDATE matter_event SET recurrence_rule = ?1 WHERE id = ?2", rule, SERIES);
+    await setRule(hearingTypeId, "cal-court", "mine");
+  }
+
+  it("leaves as one event with its rule, though it began before the window", async () => {
+    // Weekly since the start of the year: far outside the month the window reaches back.
+    await seedSeries("2026-01-06", "FREQ=WEEKLY");
+    const provider = recorder();
+    expect(await pass(provider.port)).toMatchObject({ kind: "settled", report: { created: 1 } });
+    expect(provider.calls).toMatchObject([
+      {
+        op: "create",
+        event: {
+          title: "Status conference",
+          startsOn: "2026-01-06",
+          repeats: { line: "FREQ=WEEKLY", skippedDays: [] },
+        },
+      },
+    ]);
+    // And nothing more on the next pass.
+    const again = recorder(provider.remote);
+    await pass(again.port);
+    expect(again.calls).toEqual([]);
+  });
+
+  it("sends a changed day as its own event and names it as skipped on the series", async () => {
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+
+    // The 1 December conference is moved to the afternoon: a row of its own stands in for it.
+    await seedEvent(
+      "matterEvent_outbound0changed",
+      MATTER,
+      hearingTypeId,
+      "Status conference (moved)",
+      "2026-12-01",
+      true,
+    );
+    await run(
+      "UPDATE matter_event SET recurrence_parent_id = ?1, recurrence_occurrence_on = '2026-12-01', starts_at_time = '14:00', ends_at_time = '15:00' WHERE id = 'matterEvent_outbound0changed'",
+      SERIES,
+    );
+    const second = recorder(provider.remote);
+    expect(await pass(second.port)).toMatchObject({ report: { created: 1, updated: 1 } });
+    expect(second.calls).toMatchObject([
+      { op: "update", event: { repeats: { skippedDays: ["2026-12-01"] } } },
+      { op: "create", event: { title: "Status conference (moved)", startsAtTime: "14:00" } },
+    ]);
+    expect(second.calls[1]?.op === "create" && second.calls[1].event.repeats).toBeUndefined();
+
+    // The 8th is called off: a cancelled row, which is skipped on the series and sent nowhere.
+    await seedEvent(
+      "matterEvent_outbound0calledoff",
+      MATTER,
+      hearingTypeId,
+      "Status conference",
+      "2026-12-08",
+      true,
+    );
+    await run(
+      "UPDATE matter_event SET recurrence_parent_id = ?1, recurrence_occurrence_on = '2026-12-08', status = 'cancelled' WHERE id = 'matterEvent_outbound0calledoff'",
+      SERIES,
+    );
+    const third = recorder(provider.remote);
+    await pass(third.port);
+    expect(third.calls).toMatchObject([
+      { op: "update", event: { repeats: { skippedDays: ["2026-12-01", "2026-12-08"] } } },
+    ]);
+  });
+
+  it("does not send a series whose last day is behind the window", async () => {
+    await seedSeries("2026-01-06", "FREQ=WEEKLY;COUNT=4");
+    const provider = recorder();
+    await pass(provider.port);
+    expect(provider.calls).toEqual([]);
+  });
+
+  it("tells the member when the provider will not take an event, and tries again only when asked", async () => {
+    await seedSeries("2026-12-01", "FREQ=WEEKLY");
+    const provider = recorder();
+    provider.failNext("validation");
+    expect(await pass(provider.port)).toMatchObject({ kind: "settled", report: { refused: 1 } });
+    expect(await issues()).toMatchObject([
+      // Stored as a copy the provider does not hold, flagged as one it never took.
+      { local_id: SERIES, kind: "removed", provider_refused: 1, state: "open", found_json: null },
+    ]);
+    expect(await links()).toMatchObject([{ local_id: SERIES, state: "failed" }]);
+
+    // Not tried again by itself, and the question stays.
+    const quiet = recorder(provider.remote);
+    await pass(quiet.port);
+    expect(quiet.calls).toEqual([]);
+    expect(await issues()).toHaveLength(1);
+
+    // The member presses Try Again, which clears what was agreed. This time it is taken.
+    await run("UPDATE calendar_sync_link SET agreed_hash = '' WHERE local_id = ?1", SERIES);
+    await run("DELETE FROM connection_sync_issue");
+    const retried = recorder(provider.remote);
+    expect(await pass(retried.port)).toMatchObject({ report: { created: 1 } });
+    expect(await issues()).toEqual([]);
+    expect(await links()).toMatchObject([{ local_id: SERIES, state: "synced" }]);
   });
 });

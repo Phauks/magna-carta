@@ -47,6 +47,9 @@
       "path": "apps/status-worker/tsconfig.test.json"
     },
     {
+      "path": "apps/web-worker/tsconfig.test.json"
+    },
+    {
       "path": "packages/access-control/tsconfig.test.json"
     },
     {

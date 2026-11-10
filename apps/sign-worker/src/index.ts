@@ -1,12 +1,16 @@
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
+import composeWasmModule from "@magna-carta/pdf-compose/src/pkg/pdf_compose_core_bg.wasm";
 import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
 import { decodeSealRequest, encodeSealResponse } from "@magna-carta/signing";
 
 import { resolvePlatformIdentity, type SignWorkerEnv } from "./platform-identity.ts";
 import { performSeal } from "./seal-service.ts";
 
-// Wrangler bundles the `.wasm` import as a WebAssembly.Module (typed by src/wasm-modules.d.ts).
-const pdfWasm = pdfWasmModule as unknown as WebAssembly.Module;
+// Wrangler bundles each `.wasm` import as a WebAssembly.Module (typed by src/wasm-modules.d.ts).
+const engines = {
+  pdf: pdfWasmModule,
+  compose: composeWasmModule,
+};
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -41,7 +45,7 @@ export default {
     }
 
     try {
-      const response = await performSeal(sealRequest, identity, pdfWasm);
+      const response = await performSeal(sealRequest, identity, engines);
       return new Response(encodeSealResponse(response), {
         status: 200,
         headers: { "content-type": "application/json" },

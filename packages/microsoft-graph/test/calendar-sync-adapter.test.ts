@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { ProviderEventWrite } from "@magna-carta/calendar/sync-port";
+import { parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import {
   createMicrosoftCalendarAdapter,
   graphEventBody,
+  graphRecurrenceOf,
   WRITTEN_COPY_PROPERTY_ID,
 } from "../src/calendar-sync-adapter.ts";
 
@@ -341,5 +344,158 @@ describe("reading back the copies this platform wrote", () => {
       value: { remoteId: "evt-1", versionTag: "v7" },
     });
     expect(await port.readEvent("evt-gone")).toEqual({ ok: true, value: null });
+  });
+});
+
+describe("a series, as Microsoft Graph repeats it", () => {
+  // 2026-12-01 is the first Tuesday of the month.
+  function series(line: string, startsOn = "2026-12-01"): ProviderEventWrite {
+    return {
+      title: "Status conference",
+      notes: null,
+      location: null,
+      startsOn,
+      startsAtTime: "09:30",
+      endsOn: null,
+      endsAtTime: "10:00",
+      timeZone: "America/Chicago",
+      repeats: { line, rule: parseRecurrence(line), skippedDays: [] },
+    };
+  }
+  const noEnd = { type: "noEnd", startDate: "2026-12-01", recurrenceTimeZone: "America/Chicago" };
+
+  it("is nothing at all for an event that happens once", () => {
+    const once = { ...series("FREQ=DAILY"), repeats: null };
+    expect(graphRecurrenceOf(once)).toBeUndefined();
+    expect(graphEventBody(once)).not.toHaveProperty("recurrence");
+  });
+
+  // Every shape the repeat editor writes, beside the pattern Graph is sent.
+  it.each([
+    ["FREQ=DAILY", { type: "daily", interval: 1 }],
+    ["FREQ=DAILY;INTERVAL=3", { type: "daily", interval: 3 }],
+    [
+      "FREQ=WEEKLY",
+      { type: "weekly", interval: 1, daysOfWeek: ["tuesday"], firstDayOfWeek: "sunday" },
+    ],
+    [
+      "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH",
+      {
+        type: "weekly",
+        interval: 2,
+        daysOfWeek: ["tuesday", "thursday"],
+        firstDayOfWeek: "sunday",
+      },
+    ],
+    ["FREQ=MONTHLY", { type: "absoluteMonthly", interval: 1, dayOfMonth: 1 }],
+    [
+      "FREQ=MONTHLY;INTERVAL=3;BYSETPOS=BYDAY",
+      { type: "relativeMonthly", interval: 3, daysOfWeek: ["tuesday"], index: "first" },
+    ],
+    ["FREQ=YEARLY", { type: "absoluteYearly", interval: 1, dayOfMonth: 1, month: 12 }],
+  ])("%s", (line, pattern) => {
+    expect(graphRecurrenceOf(series(line))).toEqual({ pattern, range: noEnd });
+  });
+
+  it("ends a series after a count, on a date, or never", () => {
+    expect(graphRecurrenceOf(series("FREQ=WEEKLY;COUNT=12"))).toMatchObject({
+      range: { type: "numbered", startDate: "2026-12-01", numberOfOccurrences: 12 },
+    });
+    expect(graphRecurrenceOf(series("FREQ=WEEKLY;UNTIL=20270301"))).toMatchObject({
+      range: { type: "endDate", startDate: "2026-12-01", endDate: "2027-03-01" },
+    });
+    expect(graphRecurrenceOf(series("FREQ=WEEKLY"))).toMatchObject({ range: { type: "noEnd" } });
+  });
+
+  it("puts the rule on the event it sends", () => {
+    expect(graphEventBody(series("FREQ=DAILY"))).toMatchObject({
+      subject: "Status conference",
+      recurrence: { pattern: { type: "daily", interval: 1 } },
+    });
+  });
+
+  // Where the two calendars could put the series on different days, it is not sent at all.
+  it.each([
+    [
+      "a weekly rule that leaves out the day the series starts on",
+      "FREQ=WEEKLY;BYDAY=WE",
+      "2026-12-01",
+    ],
+    ["a monthly rule on a day February does not have", "FREQ=MONTHLY", "2026-12-31"],
+    ["a yearly rule on the 29th of February", "FREQ=YEARLY", "2028-02-29"],
+    ["a monthly rule on a fifth weekday", "FREQ=MONTHLY;BYSETPOS=BYDAY", "2026-12-29"],
+    ["a rule this platform cannot read", "FREQ=HOURLY", "2026-12-01"],
+  ])("refuses %s, and asks Microsoft nothing", async (_name, line, startsOn) => {
+    const event = series(line, startsOn);
+    expect(graphRecurrenceOf(event)).toBeNull();
+    const { http, sent } = serving({});
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.createEvent("cal-1", event, "txn-1")).toMatchObject({
+      ok: false,
+      problem: { category: "validation" },
+    });
+    expect(await port.updateEvent("evt-1", event)).toMatchObject({
+      ok: false,
+      problem: { category: "validation" },
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it("takes a skipped day out of the series after writing it, and only that day", async () => {
+    const event = {
+      ...series("FREQ=WEEKLY"),
+      repeats: { ...series("FREQ=WEEKLY").repeats!, skippedDays: ["2026-12-08"] },
+    };
+    const instances =
+      "https://graph.microsoft.com/v1.0/me/events/evt-1/instances?startDateTime=2026-12-07T00:00:00" +
+      "&endDateTime=2026-12-10T00:00:00&$select=id,changeKey,subject,location,isAllDay,start,end&$top=50";
+    const sent: HttpRequest[] = [];
+    const http: HttpClient = {
+      request: (input) => {
+        sent.push(input);
+        const body =
+          input.url === instances
+            ? {
+                value: [
+                  // 09:30 in Chicago on the 8th, which is 15:30 UTC.
+                  {
+                    id: "occurrence-8th",
+                    start: { dateTime: "2026-12-08T15:30:00.0000000", timeZone: "UTC" },
+                    end: { dateTime: "2026-12-08T16:00:00.0000000", timeZone: "UTC" },
+                  },
+                  // A day the member moved to late evening: the 9th in UTC, still the 8th's
+                  // neighbour and not the skipped day in Chicago.
+                  {
+                    id: "occurrence-9th",
+                    start: { dateTime: "2026-12-09T15:30:00.0000000", timeZone: "UTC" },
+                    end: { dateTime: "2026-12-09T16:00:00.0000000", timeZone: "UTC" },
+                  },
+                ],
+              }
+            : { id: "evt-1", changeKey: "v1" };
+        return Promise.resolve({ status: 200, json: () => Promise.resolve(body) });
+      },
+    };
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.createEvent("cal-1", event, "txn-1")).toEqual({
+      ok: true,
+      value: { remoteId: "evt-1", versionTag: "v1" },
+    });
+    expect(sent.map((request) => `${request.method} ${request.url}`)).toEqual([
+      "POST https://graph.microsoft.com/v1.0/me/calendars/cal-1/events",
+      `GET ${instances}`,
+      "DELETE https://graph.microsoft.com/v1.0/me/events/occurrence-8th",
+    ]);
+
+    sent.length = 0;
+    expect(await port.updateEvent("evt-1", event)).toMatchObject({ ok: true });
+    expect(sent.map((request) => request.method)).toEqual(["PATCH", "GET", "DELETE"]);
+  });
+
+  it("tells a copy that was a series it now happens once", async () => {
+    const { http, sent } = serving({});
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    await port.updateEvent("evt-1", { ...series("FREQ=DAILY"), repeats: null });
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toMatchObject({ recurrence: null });
   });
 });

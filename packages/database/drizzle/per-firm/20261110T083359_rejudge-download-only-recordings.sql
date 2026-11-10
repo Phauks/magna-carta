@@ -1,0 +1,15 @@
+-- EVERY RECORDING REFUSED INLINE IS JUDGED AGAIN AT ITS NEXT PREVIEW.
+--
+-- The rule that judges whether a recording plays in a browser (packages/file-manager/src/inline-playable.ts)
+-- used to refuse HEVC video and every Matroska file that was not WebM. It now lets both through
+-- whenever their tracks carry codecs a current browser can decode, and leaves the last word to the
+-- player, which offers the download when the reader's own browser cannot play the file. A verdict is
+-- written once and kept, so a recording refused under the old rule would stay refused under the new
+-- one forever.
+--
+-- Clearing the verdict sends the recording back through the judgement the next time anybody opens
+-- it (apps/api-worker/src/files/inline-playable-assessment.ts judges any clean version whose verdict
+-- is NULL). Only refusals are cleared: a recording already judged playable stays playable under the
+-- new rule, and one never judged is NULL already. A recording that is still refused under the new
+-- rule (ProRes, AC-3 sound) is simply refused again, at the cost of one read of its track table.
+UPDATE `file_version` SET `inline_playable` = NULL WHERE `inline_playable` = 'download-only';
