@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/community",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./vocabulary": "./src/vocabulary.ts",
+    "./confidentiality-detector": "./src/confidentiality-detector.ts",
+    "./display": "./src/display.ts",
+    "./ranking": "./src/ranking.ts",
+    "./sql-database": "./src/sql-database.ts",
+    "./board-statements": "./src/board-statements.ts",
+    "./board-service": "./src/board-service.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -3,6 +3,9 @@ import { sql } from "drizzle-orm";
 import type {
   AccountId,
   AuthAuditId,
+  CommunityCommentId,
+  CommunityFlagId,
+  CommunityPostId,
   FirmId,
   IdempotencyRecordId,
   InvitationId,
@@ -508,6 +511,190 @@ export const aiSearchInstance = sqliteTable(
     check(
       "ai_search_instance_state_check",
       sql`${table.state} IN ('provisioning', 'ready', 'tearing-down', 'absent')`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------------
+// THE COMMUNITY BOARD — the public, cross-firm feature-request and question board served on its own
+// host. These are the only control-plane tables written by people at many firms about the SAME rows,
+// which is why they live here rather than in any firm's own database: a shared board is cross-firm by
+// definition. Nothing here may ever hold privileged content, and nothing flows into these tables
+// automatically — every row is something a person chose to post. Queries live in
+// @magna-carta/community, which may not import the firm-scoped data-access layer.
+//
+// Status, kind, category and moderation vocabularies are TypeScript-only enums (no CHECK) on purpose:
+// community_post is a parent table, and a parent's CHECK can never be widened without a rebuild that
+// a durable object refuses. The vocabularies live in packages/community/src/vocabulary.ts.
+
+// A person's board identity. A SEPARATE record from the account, so the name the board shows is never
+// the account's name column: renaming here touches one row and no read path ever renders the real
+// name by accident. The firm is never stored here and never displayed.
+export const communityProfile = sqliteTable("community_profile", {
+  userId: text("user_id")
+    .primaryKey()
+    .$type<UserId>()
+    .references(() => user.id),
+  displayName: text("display_name").notNull(),
+  // Set when a moderator first approves something this person wrote. Until then every post and
+  // comment they write is held for review, so nothing from a brand-new account is public before a
+  // human has seen it.
+  approvedAt: text("approved_at"), // ISO-8601 instant
+  // Whether the first-post confidentiality notice has been dismissed for good.
+  noticeDismissedAt: text("notice_dismissed_at"), // ISO-8601 instant
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
+  updatedAt: text("updated_at").notNull(), // ISO-8601 instant
+});
+
+// One request or question. The body has exactly ONE home — this row — so an author's delete is one
+// UPDATE that blanks it, and no edit history is ever kept that could leave an over-identifying first
+// draft readable.
+export const communityPost = sqliteTable(
+  "community_post",
+  {
+    id: text("id").primaryKey().$type<CommunityPostId>(), // communityPost_ handle, never shown
+    // The public number in every URL. Dense and assigned at insert (max + 1 under a unique index), so
+    // a URL never carries a row identifier and never leaks how many rows exist beyond the count.
+    number: integer("number").notNull(),
+    kind: text("kind", { enum: ["request", "question"] }).notNull(),
+    category: text("category").notNull(), // a product-area slug; there is no general category
+    status: text("status").notNull(), // request pipeline; questions stay "new" or "answered"
+    title: text("title").notNull(),
+    body: text("body").notNull(), // markdown; never quoted into an email
+    authorUserId: text("author_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id),
+    // The firm the author belonged to WHEN they wrote this. Recorded at write time because firm
+    // membership changes and cannot be reconstructed later; held for ranking and moderation and
+    // rendered never.
+    authorFirmId: text("author_firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    // published | held (first post, or the format detector fired) | hidden (a confidentiality flag,
+    // or spam reports from enough distinct firms) | deleted (the author removed it) | removed (a
+    // moderator removed it).
+    moderationState: text("moderation_state").notNull(),
+    // Why a held post was held: "first-post" or "detector". Null once published.
+    heldReason: text("held_reason"),
+    duplicateOfPostId: text("duplicate_of_post_id").$type<CommunityPostId>(),
+    // A declined request carries a reason from a closed set plus prose, never a bare status.
+    declineReason: text("decline_reason"),
+    declineNote: text("decline_note"),
+    // The accepted answer on a question.
+    acceptedCommentId: text("accepted_comment_id").$type<CommunityCommentId>(),
+    // Denormalized counts, recomputed from the vote and comment rows in the same batch as the change
+    // that moved them, so they can never drift from what the rows say.
+    voteCount: integer("vote_count").notNull().default(0),
+    firmVoteCount: integer("firm_vote_count").notNull().default(0),
+    commentCount: integer("comment_count").notNull().default(0),
+    // When a team member first set a status on it. Null means untriaged, which is what the thirty-day
+    // triage clock reads.
+    triagedAt: text("triaged_at"), // ISO-8601 instant
+    statusChangedAt: text("status_changed_at"), // ISO-8601 instant
+    // When a shipped request links to the public changelog entry that announced it.
+    linkedChangelogAnchor: text("linked_changelog_anchor"),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    updatedAt: text("updated_at").notNull(), // ISO-8601 instant
+    lastActivityAt: text("last_activity_at").notNull(), // ISO-8601 instant; trending reads it
+  },
+  (table) => [
+    uniqueIndex("community_post_number_unique_index").on(table.number),
+    index("community_post_board_index").on(
+      table.moderationState,
+      table.kind,
+      table.category,
+      table.status,
+    ),
+    index("community_post_author_index").on(table.authorUserId),
+  ],
+);
+
+// One vote: upvote only, one per person per post. Only ever COUNTED — no read path anywhere returns
+// who voted. The firm is recorded at write time so ranking can count distinct firms.
+export const communityVote = sqliteTable(
+  "community_vote",
+  {
+    postId: text("post_id")
+      .notNull()
+      .$type<CommunityPostId>()
+      .references(() => communityPost.id),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id),
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    uniqueIndex("community_vote_post_user_unique_index").on(table.postId, table.userId),
+    index("community_vote_user_index").on(table.userId),
+  ],
+);
+
+// One reply on a post. Same single-home rule as the post body.
+export const communityComment = sqliteTable(
+  "community_comment",
+  {
+    id: text("id").primaryKey().$type<CommunityCommentId>(), // communityComment_ handle
+    postId: text("post_id")
+      .notNull()
+      .$type<CommunityPostId>()
+      .references(() => communityPost.id),
+    body: text("body").notNull(),
+    authorUserId: text("author_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id),
+    authorFirmId: text("author_firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    // A reply written by the Magna Carta team renders distinctly and carries the badge.
+    isTeamResponse: integer("is_team_response", { mode: "boolean" }).notNull().default(false),
+    moderationState: text("moderation_state").notNull(),
+    heldReason: text("held_reason"),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    updatedAt: text("updated_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [index("community_comment_post_index").on(table.postId, table.createdAt)],
+);
+
+// One reader's report against a post or a comment. A confidentiality flag hides on the FIRST report;
+// spam and abuse need reports from several distinct firms, which is why the firm is recorded.
+export const communityFlag = sqliteTable(
+  "community_flag",
+  {
+    id: text("id").primaryKey().$type<CommunityFlagId>(), // communityFlag_ handle
+    postId: text("post_id")
+      .notNull()
+      .$type<CommunityPostId>()
+      .references(() => communityPost.id),
+    commentId: text("comment_id")
+      .$type<CommunityCommentId>()
+      .references(() => communityComment.id), // null when the flag is on the post itself
+    reason: text("reason").notNull(), // confidential | spam | abuse
+    reporterUserId: text("reporter_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id),
+    reporterFirmId: text("reporter_firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    resolvedAt: text("resolved_at"), // ISO-8601 instant; set when a moderator restores or removes
+  },
+  (table) => [
+    uniqueIndex("community_flag_reporter_unique_index").on(
+      table.postId,
+      table.commentId,
+      table.reporterUserId,
+      table.reason,
     ),
   ],
 );
