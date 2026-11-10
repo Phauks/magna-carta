@@ -103,6 +103,51 @@ export interface MeetingRoomState {
   // everybody else learns a lobby was opened mid-meeting. Nobody at the door reads it: a waiting
   // socket is never sent a room state at all.
   readonly lobby: MeetingLobbyMode;
+  // WHETHER LIVE CAPTIONS ARE RUNNING, and which host turned them on. ABSENT while they are off — the
+  // room sends nothing rather than null, so a room nobody captions sends the room state it always did —
+  // and a reader treats null the same way. A fact about the room rather than about anybody in it — a
+  // host turns them on for everybody, as a spotlight is set for everybody — so it rides here and
+  // arrives on every welcome. Turning captions off is a room state without it.
+  readonly captions?: MeetingCaptionsState | null;
+}
+
+/**
+ * LIVE CAPTIONS ARE ON, and who said so.
+ *
+ * `by` is the STAY of the host who turned them on, as a spotlight's is, so a guest's copy names a stay
+ * and never a firm user. `at` is the room's instant. Turning them off is the field going back to null:
+ * the room says what is true now, not what happened.
+ */
+export interface MeetingCaptionsState {
+  readonly by: string;
+  readonly at: string;
+}
+
+/**
+ * ONE CAPTION — words somebody is saying, heard by the platform's caption model as they say them.
+ *
+ * A DISPLAY, NEVER A RECORD. The room stores none of them and neither does anything else; a browser that
+ * joins mid-sentence sees the next one and nothing before it, and the transcript is where the past
+ * lives. So nothing here is a handle to look anything up by.
+ *
+ * `segmentId` names one stretch of one person's speech. Every INTERIM caption for that stretch carries
+ * it and replaces the last one a browser drew for it; the FINAL caption carries it once more and
+ * settles it, and nothing for that segment follows. The next stretch has a new one. It is opaque and
+ * unique for the life of the meeting, which is all a browser needs to key a line by.
+ *
+ * WHO IS SPEAKING IS THE TRACK, NOT A GUESS: `participantId` is the stay whose audio was heard, and
+ * `displayName` is the name the roster gives them — a guest's is the name typed at the door. `userId`
+ * is the member behind the stay on a member's socket, and NULL on a guest's socket and for a guest
+ * speaker, the rule every frame naming a firm user follows.
+ */
+export interface MeetingCaption {
+  readonly participantId: string;
+  readonly userId: string | null;
+  readonly displayName: string;
+  readonly segmentId: string;
+  readonly text: string;
+  readonly final: boolean;
+  readonly at: string;
 }
 
 /**
@@ -327,4 +372,40 @@ export interface MeetingQuestionSnapshot {
 export interface MeetingQuestionUpvoteCount {
   readonly questionId: string;
   readonly upvotes: number;
+}
+
+/**
+ * WHO PRESSED RECORD, OR STOP — named on the announcement so the room hears it from somebody.
+ *
+ * `userId` is the member's own identifier on a member's socket and NULL on a guest's, which is the
+ * rule every frame naming a firm user follows: somebody from outside the firm is told a name and never
+ * an identifier. The whole actor is null when nobody acted — every track was lost, or the recorder
+ * disappeared — because inventing somebody to blame would be a record of an act nobody took.
+ */
+export interface MeetingRecordingActor {
+  readonly userId: string | null;
+  readonly displayName: string;
+}
+
+/**
+ * THE ANNOUNCEMENT, which the owner's ruling makes the consent mechanism: a recording started, or it
+ * stopped. The same shape rides the `recording` frame the room broadcasts at each transition and the
+ * `recording` field of a welcome — always `started` there, because a welcome only carries a recording
+ * that is running — so a late arrival is told in exactly the vocabulary the room was told in, and one
+ * code path in the browser plays both.
+ *
+ * `at` is the instant of the transition: when it started, on a start and on every welcome; when it
+ * stopped, on a stop. The server's instant, never a browser's.
+ *
+ * `recordingId` is the recording's record handle on a member's socket and NULL on a guest's: it names a
+ * row in the firm's own database, and a guest is told that a recording started or stopped, never the
+ * handle of the firm's record — the rule `by.userId` keeps. A browser therefore tells one announcement
+ * from the next by the TRANSITION (started after stopped, or the first started it hears), never by the
+ * handle, so a guest's copy and a member's behave alike.
+ */
+export interface MeetingRecordingAnnouncement {
+  readonly state: "started" | "stopped";
+  readonly recordingId: string | null;
+  readonly by: MeetingRecordingActor | null;
+  readonly at: string;
 }

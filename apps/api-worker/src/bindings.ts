@@ -330,6 +330,13 @@ export type Bindings = {
   // echoed to a caller: Smarty takes them in the query string, so the adapter never quotes a URL.
   SMARTY_AUTH_ID?: string;
   SMARTY_AUTH_TOKEN?: string;
+  // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
+  // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
+  // the free Directory match and area-code region and offers no paid lookup at all. Production sets
+  // it with `wrangler secret put TELNYX_API_KEY`, and doing so is what switches the button on — and
+  // starts the per-query bill. Not in wrangler.jsonc's secrets.required, for the same reason as the
+  // Turnstile key. Never logged, never echoed to a caller.
+  TELNYX_API_KEY?: string;
   // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
   // default — serve, unprotected, and count it) or "fail-closed" (refuse). Public deployment
   // configuration, not a secret: bound via wrangler.jsonc vars. An unset or unrecognized value takes
@@ -356,4 +363,32 @@ export type Bindings = {
   // with the routing service and keeps the roster; it holds no media and stores nothing anybody
   // said. Addressed by the SESSION firm id at the route, never a path value.
   MEETING_ROOM: DurableObjectNamespace<import("./meetings/meeting-room.ts").MeetingRoom>;
+  // One recording's sink, keyed `${firmId}:${recordingId}`: the Durable Object the routing service's
+  // WebSocket adapters dial, one socket per recorded track, which stages each track's audio in the
+  // firm's own bucket. Not hibernating — it receives fifty frames a second per track while it works.
+  // Optional, because a deployment that does not bind it cannot record, and the start route answers
+  // 503 `meeting-recording-not-configured` rather than failing deeper in.
+  MEETING_RECORDER?: DurableObjectNamespace<
+    import("./meetings/meeting-recorder.ts").MeetingRecorder
+  >;
+  // One meeting's live captions, keyed `${firmId}:${meetingId}`: the routing service's adapters dial
+  // it for whoever is speaking, and it streams their audio to the caption model. Optional for the
+  // recorder's reason.
+  MEETING_CAPTIONER?: DurableObjectNamespace<
+    import("./meetings/meeting-captioner.ts").MeetingCaptioner
+  >;
+  // The secret the recorder signs each track's sink address with (meetings/sink-token.ts) — its own,
+  // rather than AUTH_SECRET, because the token rides an address and the secret behind it must be one
+  // whose rotation costs nothing but the recordings running at that moment. Optional, and ABSENT IS
+  // THE SHIPPED STATE until the owner has proved the routing service preserves the sink address and
+  // set it with `wrangler secret put MEETING_SINK_SIGNING_KEY`: absent, recording answers 503 and the
+  // Record control is not offered. Never logged, never echoed, never sent anywhere.
+  MEETING_SINK_SIGNING_KEY?: string;
+  // The queue a stopped recording is handed to for composing (meetings/recording-compose-consumer.ts):
+  // one message per bounded window of the mix, each re-enqueuing the next, so an hours-long recording
+  // is composed off every request path and inside a queue consumer's budget. Optional, and NOT BOUND
+  // in wrangler.jsonc until its queue exists in the account: Workers Builds fails a deploy that binds
+  // a queue which does not exist. A recording stopped while it is absent waits in `composing`, and the
+  // sweep hands it on once it is bound.
+  MEETING_RECORDING_COMPOSE?: Queue;
 };

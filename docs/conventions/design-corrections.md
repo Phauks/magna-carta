@@ -553,6 +553,36 @@ is usually the fastest way to understand the rule.
   carrying all three, not a category control that reveals a second field once it is answered.
   Answering a question in two steps makes a reader answer it twice. _(the call log's Belongs to,
   2026-09-08)_
+- **A record that starts from a phone number is built around the number.** The number is usually
+  the only fact the person taking a call has, so it leads the form, what was said comes straight
+  after it (where somebody still on the line is typing), and when it happened folds to one line
+  because it is almost always now. Everything that FOLLOWS from the number — who it belongs to,
+  their open matters, earlier calls with it — sits beside the form as the window's Identification
+  and History tabs, and asks nothing until the number is whole. A contact on many matters gets a
+  search over them rather than a long list (a public defender's office can have a hundred). _(the
+  call log, 2026-11-09: "most of the information people get is the phone number, and maybe a caller
+  ID"; "i like how we can gain some information ... look up information once number is set")_
+  - **Two fixed words are pressed, not picked.** Call / Text and Incoming / Outgoing are buttons in
+    a group, the pressed one marked (`$lib/components/button-choice.svelte`). This narrows the
+    typed-into rule above to lists that can grow: a two-word answer that never changes is faster
+    pressed. _(the call log, 2026-11-09: "make the call text, incoming/outgoing as a toggle")_
+  - **Several calls at once, listed down the left.** A second call arriving while the first is
+    being written down gets its own entry in the same window; saving one, or starting an intake from
+    one, leaves the others standing, and the window closes on the last. _(the call log, 2026-11-09:
+    "handle multiple numbers coming in at the same time"; "calls should be on the leftside, not above
+    it"; "save and start an intake needs to be a safe operation for the other calls")_
+  - **Start An Intake is in the header's menu, and the commit is Save.** A second commit-shaped
+    button beside Save was pressed in its place; the intake is a rarer act and reads as one from the
+    menu. The previewed number under the heading is the number alone, in italics. _(the call log,
+    2026-11-09)_
+  - **Activity, in formal words, with spam among them.** What happened on a call is its own
+    pressed choice, per direction: Answered, Transferred, Message Taken, Spam for a call taken;
+    Connected, Voicemail Left, No Answer for one placed. A transfer names the colleague, who becomes
+    the member on the call; a message names who it is for, what was asked, by when and whether it
+    is urgent, and becomes a task in their list; spam names its kind and files the call as spam by
+    itself. The caller's own name is a separate optional field, "Caller ID (optional)", never a
+    Directory record. _(the call log, 2026-11-09: "what happened and associated buttons beneath are
+    so informal. Change it to Activity"; "add a way to show it was spam")_
 - **A telephone number's ghost text is its country's own grouping** — `(XXX) XXX-XXXX` here, and
   whatever the chosen country writes anywhere else. It is the ONE placeholder in the product that is
   not simply its field's name: the grouping cannot be said anywhere else, it is what tells a reader
@@ -1031,15 +1061,18 @@ is usually the fastest way to understand the rule.
   rides the one component every screen already builds its title from rather than being added screen
   by screen — a favourite control thirty screens have to opt into is a favourite control that covers
   twenty. _(favourites, 2026-09-16)_
-- **Every page has a menu beside its star, and the star stays out of it.** The `…` on the title's
-  row holds what is about the page rather than work on it: Copy Link and Open in New Tab on every
-  screen, then the screen's own secondary page-level items (`pageMenu` on `ScreenHeader`) — a
-  hand-off to the settings page behind it, a history it can forget. Moving the star into the menu
-  was considered and declined, because the gold star is the only thing that tells a member the page
-  is already a favourite, and a menu hides that answer. Search, create, filters and the screen's
-  main action never move in, and an unwired item stays on the row marked Soon rather than going
-  behind the glyph. A screen being redesigned passes its page-level extras here instead of growing
-  its own header overflow. _(page menu, 2026-11-09)_
+- **Every page has a menu beside its title, and the favourite lives in it.** The `…` on the
+  title's row holds what is about the page rather than work on it: Add to Favorites (Remove from
+  Favorites, with the star filled gold, once saved), Copy Link and Open in New Tab on every screen,
+  then the screen's own secondary page-level items (`pageMenu` on `ScreenHeader`) — a hand-off to
+  the settings page behind it, a history it can forget. The star first shipped beside the menu, on
+  the reasoning that a gold star at rest is how a member sees a page is already a favourite; the
+  owner moved it into the menu the same day ("move star to page ... menu"), trading that at-rest
+  signal for one control by every title — the Favorites group in the sidebar is where a member
+  sees what they have saved. Search, create, filters and the screen's main action never move in,
+  and an unwired item stays on the row marked Soon rather than going behind the glyph. A screen
+  being redesigned passes its page-level extras here instead of growing its own header overflow.
+  _(page menu, 2026-11-09)_
 - **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
   truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
   inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
@@ -1566,6 +1599,24 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
+
+The owner, reviewing in-app About pages and then About windows:
+
+- **Three page layouts that described the product, and a plainer rewrite of the best of them, were
+  all turned down: "so much of the stuff is weirdly written."** Somebody signed in already knows
+  what Magna Carta is, and a tagline and principles written to fill a page read as marketing. The
+  in-app About states facts about the copy in front of the reader and carries no product prose;
+  describing the product is the public site's job.
+- **It is a window, opened from Websites > About Magna Carta**, standing in for the public site
+  until that has an address, as the Changelog screen does for its own site.
+- **"Two columns with links on right and other stuff on left."** The owner chose the variant whose
+  left column is the chrome-register ink panel carrying the brand mark and the facts (version,
+  released, signed in as, firm, environment, browser) with Copy Version Details at its foot, and
+  whose right column groups the links under What's New, Help and Legal.
+- **"You can remove the up to date part."** The version row states the commit and nothing about
+  whether a newer build is live; the version chip already says that.
 
 ### 2026-11-09 — the numbering editor: preview beside current, parts that drag, and counts that need no padding
 
@@ -3453,8 +3504,12 @@ designed together on his instruction). What was said, and what each part general
   became the one grid; its Everything/Unread toggle and category select were removed, not moved,
   because the Status and Category columns already answer both. Already covered by _A list of
   records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
-  the notification centre was the last register still hand-built as a list. Grouping arrives with the
-  grid's own group-by, which the task stream builds once for every register.
+  the notification centre was the last register still hand-built as a list. Grouping is the grid's
+  own group-by (`DataTable.GroupByMenu` and the state's `grouping`): Day by default, then Category,
+  Priority, Matter, Read State and No Grouping. Day bands are the reader's own calendar days, read
+  "Today" and "Yesterday" and then the date, and their order flips with the table's sort direction.
+  Opened, the dismissed shelf is always the last band, whatever the grouping; in a flat list it stays
+  the quieted run at the foot. Home: `apps/web/src/lib/notifications/notification-grouping.ts`.
 - **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
   ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
   among them** — after them whatever the sort, quieter, with the act that undoes setting it aside

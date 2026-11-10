@@ -56,6 +56,8 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure recognition over the uploaded PDF — returns the same document with an invisible searchable text layer; nothing is stored, no firm data is written.",
   "emailInspector.inspect":
     "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
+  "communications.callerLookup":
+    "Read-shaped POST: what is known about a typed telephone number at no cost (the Directory records that list it, its area code's region, a caller ID already kept). The number is a client's, so it rides the body rather than a logged URL; nothing is written and nothing is paid for. The paid lookup is the separate, audited communications.callerIdentity.",
   "addressLookup.suggest":
     "Read-shaped POST: asks the address service for addresses matching what has been typed (the typed text is a client's address, so it rides the body rather than a logged URL) — no write, nothing kept.",
   "addressLookup.resolve":

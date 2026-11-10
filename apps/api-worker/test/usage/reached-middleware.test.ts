@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import { usageReachedMiddleware } from "../../src/http/usage-reached-middleware.ts";

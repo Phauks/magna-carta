@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The RFC 9457 problem module and the problem-type URI registry.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
@@ -163,6 +164,14 @@ describe("problem-type URI registry", () => {
         "meeting-removed",
         "meeting-lobby-full",
         "meeting-not-admitted",
+        "meeting-recording-not-configured",
+        "meeting-recording-already-running",
+        "meeting-recording-not-running",
+        "meeting-recording-needs-matter",
+        "meeting-recording-too-many-tracks",
+        "meeting-transcript-not-ready",
+        "meeting-summary-not-ready",
+        "meeting-summary-action-item-tasked",
         "guest-link-not-valid",
         "guest-link-expired",
         "guest-link-revoked",

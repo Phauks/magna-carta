@@ -28,6 +28,8 @@ import {
 } from "../src/lib/meetings/guest-api.ts";
 import { isGuestPageAddress } from "../src/lib/meetings/guest-render-boundary.svelte";
 import type { GuestDeviceSeams } from "../src/lib/meetings/client/guest-devices.ts";
+import { ANNOUNCEMENT_REWRITE_MILLISECONDS } from "../src/lib/meetings/client/recording.svelte.ts";
+import { pageRecordingSounds } from "../src/lib/meetings/client/recording-sounds.ts";
 import GuestErrorPage from "../src/routes/join/+error.svelte";
 import { page } from "./stubs/app-state.ts";
 import Harness from "./guest-meeting-harness.svelte";
@@ -111,6 +113,57 @@ class FakeSocket {
   /** The connection going away underneath the page, which is not anybody leaving. */
   drop(): void {
     this.#listeners.get("close")?.({ data: "" });
+  }
+}
+
+/** A gain ramp the fake device accepts and ignores: what is counted is the note, not its shape. */
+const noRamp = (): void => {};
+
+/**
+ * An audio device as Safari hands one to a page: suspended when it is made, running only once a
+ * resume is honoured, and counting every note asked of it rather than playing it.
+ */
+class FakeAudioContext {
+  static made: FakeAudioContext[] = [];
+  /** Whether a resume is honoured — as it is inside a press, and is not outside one on Safari. */
+  static honoursResume = false;
+  state: "suspended" | "running" | "closed" = "suspended";
+  currentTime = 0;
+  readonly destination = {};
+  resumes = 0;
+  notes = 0;
+  constructor() {
+    FakeAudioContext.made.push(this);
+  }
+  resume(): Promise<void> {
+    this.resumes += 1;
+    if (FakeAudioContext.honoursResume) this.state = "running";
+    return Promise.resolve();
+  }
+  close(): Promise<void> {
+    this.state = "closed";
+    return Promise.resolve();
+  }
+  createOscillator(): Record<string, unknown> {
+    return {
+      type: "",
+      frequency: { value: 0 },
+      connect: (node: unknown) => node,
+      start: () => {
+        this.notes += 1;
+      },
+      stop: () => {},
+    };
+  }
+  createGain(): Record<string, unknown> {
+    return {
+      gain: {
+        setValueAtTime: noRamp,
+        linearRampToValueAtTime: noRamp,
+        exponentialRampToValueAtTime: noRamp,
+      },
+      connect: (node: unknown) => node,
+    };
   }
 }
 
@@ -320,6 +373,8 @@ afterEach(() => {
   if (instance !== undefined) void unmount(instance);
   instance = undefined;
   target.remove();
+  // The page's one tone device outlives a screen by design; each case starts with none open.
+  pageRecordingSounds.release();
   vi.unstubAllGlobals();
   client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
 });
@@ -572,6 +627,62 @@ describe("after pressing Join", () => {
     expect(arrival?.credentials).toBe("omit");
   });
 
+  it("builds nothing from a poll or a question the room relays, and offers neither panel", async () => {
+    await draw();
+    const socket = await enterTheRoom();
+
+    socket?.deliver({
+      v: 1,
+      type: "poll-opened",
+      poll: {
+        id: "meetingPoll_1",
+        meetingId: "meeting_1",
+        askedByUserId: null,
+        question: "Which date works for the hearing?",
+        anonymous: false,
+        maxChoices: 1,
+        openedAt: "2026-09-24T18:05:00.000Z",
+        closedAt: null,
+        closedByUserId: null,
+        options: [
+          { optionId: "meetingPollOption_1", position: 0, label: "Thursday", count: 0 },
+          { optionId: "meetingPollOption_2", position: 1, label: "Friday", count: 0 },
+        ],
+        respondents: 0,
+      },
+    });
+    socket?.deliver({
+      v: 1,
+      type: "question-asked",
+      question: {
+        id: "meetingQuestion_1",
+        meetingId: "meeting_1",
+        participantKind: "member",
+        participantId: "attendance_2",
+        userId: null,
+        body: "When is the filing due?",
+        askedAt: "2026-09-24T18:06:00.000Z",
+        answeredAt: null,
+        answeredByUserId: null,
+        redactedAt: null,
+        redactedByUserId: null,
+        upvotes: 0,
+      },
+    });
+    await settle();
+
+    // Answering and asking are a member's routes, so a guest is shown neither, and nothing is read.
+    const names = controlNames();
+    expect(names.some((name) => name.startsWith("Polls"))).toBe(false);
+    expect(names.some((name) => name.startsWith("Q&A") || name.startsWith("Questions"))).toBe(
+      false,
+    );
+    expect(document.body.textContent).not.toContain("Which date works for the hearing?");
+    expect(document.body.textContent).not.toContain("When is the filing due?");
+    expect(document.body.textContent).not.toContain("A poll is open");
+    expect(requests.some((request) => /polls|questions/.test(request.path))).toBe(false);
+  });
+
   it("goes back to the door, not into the room, when a guest who was in it comes back", async () => {
     serve({
       arrival: [
@@ -618,6 +729,31 @@ describe("after pressing Join", () => {
     await settle();
     expect(target.textContent).not.toContain("Waiting to Be Let In");
     expect(controlNames()).toContain("Leave");
+  });
+
+  it("says the firm withdrew the link when the room lets a guest go for it, and offers no way back in", async () => {
+    await draw();
+    const socket = await enterTheRoom();
+    expect(controlNames()).toContain("Leave");
+
+    socket?.deliver({ v: 1, type: "refused", reason: "withdrawn" });
+    await settle();
+
+    // The link's own refusal, in the words the link says it in when pressed again.
+    expect(target.textContent).toContain("This Link Was Withdrawn");
+    expect(target.textContent).toContain("The firm withdrew this link.");
+    // Neither the removal sentence nor the connection-lost surface: nobody took this guest out, and
+    // nothing went wrong with the connection.
+    expect(target.textContent).not.toContain("You Were Removed From This Meeting");
+    expect(target.textContent).not.toContain("The Room Stopped Answering");
+    expect(controlNames()).not.toContain("Rejoin");
+    expect(controlNames()).not.toContain("Leave");
+
+    // The grant went with the link, so leaving the page closes nothing a second time.
+    if (instance !== undefined) void unmount(instance);
+    instance = undefined;
+    await settle();
+    expect(requests.some((request) => request.path === "/api/v1/guest/departures")).toBe(false);
   });
 
   it("says a locked room is locked under the control, and leaves the door standing", async () => {
@@ -785,5 +921,171 @@ describe("a guest's page that breaks", () => {
     expect(text).toContain("client_ABCDEFGH");
     expect(target.innerHTML).not.toContain(TOKEN);
     expect(target.querySelectorAll("a")).toHaveLength(0);
+  });
+});
+
+describe("a recording, as a guest meets it", () => {
+  const recording = {
+    state: "started",
+    // A guest's copy of the announcement names no firm record: no handle for the recording, and no
+    // member handle for who started it. The mark, the banner and the tone are owed all the same.
+    recordingId: null,
+    by: { userId: null, displayName: "Rosalind Chase" },
+    at: "2026-09-24T18:05:00Z",
+  };
+
+  function recordingMark(): Element | null {
+    return target.querySelector("[data-recording-mark]");
+  }
+
+  /** Let the live region's rewrite land: it is emptied at a transition and written a moment later. */
+  async function rewritten(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ANNOUNCEMENT_REWRITE_MILLISECONDS + 20));
+    await settle();
+  }
+
+  it("is marked in the guest's header from the announcement until the stop, and announced", async () => {
+    await draw();
+    const socket = await enterTheRoom();
+    expect(recordingMark()).toBeNull();
+
+    socket?.deliver({ v: 1, type: "recording", ...recording });
+    await settle();
+    await rewritten();
+    expect(recordingMark()?.textContent).toContain("Recording");
+    expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "Rosalind Chase started recording this meeting.",
+    );
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+    expect(document.body.innerHTML).not.toContain("meetingRecording_");
+    // A guest holds no grant on the room, so neither act is offered to them.
+    const names = controlNames();
+    expect(names).not.toContain("Record");
+    expect(names).not.toContain("Stop Recording");
+    expect(document.body.innerHTML).not.toContain("usr_");
+
+    // The member's own banner component: Dismiss takes the banner and leaves the mark.
+    target
+      .querySelector<HTMLButtonElement>('[data-recording-notice] button[aria-label="Dismiss"]')
+      ?.click();
+    await settle();
+    expect(target.querySelector("[data-recording-notice]")).toBeNull();
+    expect(recordingMark()).not.toBeNull();
+
+    socket?.deliver({ v: 1, type: "recording", ...recording, state: "stopped" });
+    await settle();
+    await rewritten();
+    expect(recordingMark()).toBeNull();
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording stopped",
+    );
+  });
+
+  it("is told on being let in while a recording runs, from the welcome", async () => {
+    await draw();
+    pressJoin();
+    await settle();
+    const socket = sockets.at(-1);
+    socket?.deliver({ v: 1, type: "admitted", at: "2026-09-24T18:06:00Z" });
+    socket?.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: ARRIVAL.participantId,
+      roster: [],
+      roomState: { spotlight: null, locked: false },
+      recording,
+    });
+    await settle();
+    await rewritten();
+
+    expect(recordingMark()).not.toBeNull();
+    expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "This meeting is being recorded.",
+    );
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+  });
+
+  /** Let a guest in on the newest socket, with a welcome that carries the running recording. */
+  async function admitIntoTheRecording(): Promise<FakeSocket | undefined> {
+    const socket = sockets.at(-1);
+    socket?.deliver({ v: 1, type: "admitted", at: "2026-09-24T18:06:00Z" });
+    socket?.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: ARRIVAL.participantId,
+      roster: [],
+      roomState: { spotlight: null, locked: false },
+      recording,
+    });
+    await settle();
+    await rewritten();
+    return socket;
+  }
+
+  it("opens and resumes the tone's audio inside the Join press, and plays no tone it cannot play now", async () => {
+    FakeAudioContext.made = [];
+    FakeAudioContext.honoursResume = false;
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    await draw();
+    expect(FakeAudioContext.made).toHaveLength(0);
+
+    pressJoin();
+    // Inside the press itself, before the arrival's write is answered.
+    expect(FakeAudioContext.made).toHaveLength(1);
+    const device = FakeAudioContext.made[0];
+    expect(device?.resumes).toBe(1);
+
+    await settle();
+    await admitIntoTheRecording();
+    // Still suspended: the announcement is on screen and in the region, and the tone is not played.
+    expect(device?.notes).toBe(0);
+    expect(target.querySelector("[data-recording-notice]")).not.toBeNull();
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+
+    // A press in the room wakes it, and the tone that could not sound then is not played late.
+    FakeAudioContext.honoursResume = true;
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(device?.state).toBe("running");
+    await settle();
+    expect(device?.notes).toBe(0);
+  });
+
+  it("is told again on screen after a reconnect into the same recording, without a second tone", async () => {
+    FakeAudioContext.made = [];
+    FakeAudioContext.honoursResume = true;
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    await draw();
+    pressJoin();
+    await settle();
+    const first = await admitIntoTheRecording();
+    const device = FakeAudioContext.made[0];
+    // The two rising notes of the arrival, once.
+    expect(device?.notes).toBe(2);
+    target
+      .querySelector<HTMLButtonElement>('[data-recording-notice] button[aria-label="Dismiss"]')
+      ?.click();
+    await settle();
+    expect(target.querySelector("[data-recording-notice]")).toBeNull();
+
+    first?.drop();
+    await settle();
+    press("Rejoin");
+    await settle();
+    await admitIntoTheRecording();
+
+    // The room wrote this welcome down as another occasion the guest was told, and so does the page.
+    expect(target.querySelector("[data-recording-notice]")?.textContent).toContain(
+      "This meeting is being recorded.",
+    );
+    expect(target.querySelector('[aria-live="assertive"]')?.textContent?.trim()).toBe(
+      "Recording in progress",
+    );
+    expect(device?.notes).toBe(2);
   });
 });

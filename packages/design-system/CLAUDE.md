@@ -209,6 +209,15 @@ is still an `ActionDialog` inside it, not a panel of its own.
   done WITH the thing shown (copy its link, download a copy), and it follows the "a menu earns its
   glyph" ruling in `docs/conventions/design-corrections.md`: a caller with fewer than two live items
   passes no menu.
+- **A primary pane that carries a section rail stops at `size.record-form`, not `size.record-pane`.**
+  The frame recognises it by `data-record-rail` on the rail's container
+  (`.mc-modal-frame-pane:has([data-record-rail])`, `styles/recipes/modal-frame.css`), so the rail
+  is added to the pane's measure instead of being taken out of the fields beside it. A pane alone in
+  its frame still fills it.
+- **`ActionDialog` takes an optional `leading` snippet, drawn before the heading** (in
+  `.mc-modal-frame-lead`, `styles/recipes/modal-frame.css`). It is for one small square that names
+  what the panel is about, such as the directory record's picture; it is not a second toolbar, so
+  actions still go in `menu` or the footer.
 - **Where a modal panel sits on the screen is one module, in four named parts, and no panel
   touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
   (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:

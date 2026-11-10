@@ -992,3 +992,38 @@
   spec: docs/specs/2026-06-28-engine-host-framework-design.md
   evidence: crates/engine-host; file-repair is the first container-on-harness engine, email-core rides the same seam.
   notes: Status fragment marks tested todo.
+
+- id: documents.legal-citations
+  name: Legal citations
+  scope: One pure citation engine behind a stand-alone tool and embeddable components; Uniform System from The Indigo Book, per-court formats, link-first reading with typed overrides.
+  status: partial
+  spec: docs/specs/2026-11-09-legal-citations-design.md
+  evidence: packages/citations; the FormattedCitation design-system component; apps/web /legal-citations (Build). Provider lookups, Check a Document, Table of Authorities and the Magnus and editor consumers are not built.
+
+- id: documents.legal-citations.engine
+  name: Citation engine (@magna-carta/citations)
+  scope: Recognizes links and rough citations, keeps per-field provenance with typed overrides, formats full, short and Id. forms, and resolves per-court formats.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-11-09-legal-citations-design.md
+  evidence: packages/citations/src and its tests; consumed by apps/web/src/routes/(app)/legal-citations.
+
+- id: documents.legal-citations.build-tool
+  name: Legal Citations tool, Build
+  scope: Paste a link or citation, see the read fields with their provenance, override any, copy the formatted forms in the chosen court format.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Legal Citations
+  public-summary: Paste a link or a rough citation and get it formatted for your court, ready to copy.
+  evidence: apps/web/src/routes/(app)/legal-citations/+page.svelte; packages/design-system formatted-citation.
+
+- id: documents.legal-citations.lookups
+  name: Citation provider lookups
+  scope: Worker adapters that fill a case's name, court and year from CourtListener and govinfo, and Westlaw and Lexis through the legal-research port.
+  status: designed
+
+- id: documents.legal-citations.checker
+  name: Check a Document and Table of Authorities
+  scope: Find every citation in a document, flag form errors with the rule, offer fixes, and build a table of authorities.
+  status: designed

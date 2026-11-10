@@ -31,7 +31,27 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
   // one shared link is one bucket however many people hold it. Twenty a minute is far more than a
   // bad connection's retries and far fewer than a link forwarded to a crowd would spend.
   "guest-arrival": { limit: 20, windowSeconds: 60 },
+  // A member pressing a question's upvote, or taking it back. Keyed by the MEMBER rather than by the
+  // firm (MEMBER_SCOPED_BUCKETS below), because the act is one person's and so is the loop that
+  // abuses it: a browser re-sending upvote and withdrawal as fast as it can would otherwise spend
+  // the whole firm's default budget, and every colleague's next read would meet a 429 they did
+  // nothing to earn. Thirty a minute is a member working down a five-hundred-question queue at
+  // reading pace twice over, and a small fraction of what a loop sends.
+  "meeting-question-upvote": { limit: 30, windowSeconds: 60 },
 };
+
+/**
+ * The buckets keyed by the MEMBER who sent the request rather than by their firm.
+ *
+ * Every other bucket on an authenticated route is the firm's, so one firm cannot spend another's.
+ * That is the wrong unit for an act whose abuse is one person's: a member looping on it spends the
+ * budget the firm's other members share. A bucket named here is keyed by the session's own user
+ * within its firm instead — still server-derived, never a value the caller picks — and it stands in
+ * place of the firm's bucket for that route, so the loop meets its own ceiling and nobody else's.
+ */
+export const MEMBER_SCOPED_BUCKETS: ReadonlySet<RateLimitBucket> = new Set([
+  "meeting-question-upvote",
+]);
 
 // Definition-time guard: the deny branch reads the oldest in-window timestamp assuming a full
 // window holds at least one entry, which is only true while every bucket's limit >= 1; a

@@ -1,0 +1,18 @@
+-- THE FIRM'S MEETING SETTINGS GET AN OWNER.
+--
+-- `meetings:manageSettings` gates the four firm switches in packages/meetings/src/settings.ts:
+-- whether a meeting may be recorded at all, whether live captions may run, whether a recorded
+-- meeting's transcript is summarized, and how many people one recording hears at once. Until this
+-- key existed nothing a firm could reach wrote any of them, so every firm's recording and summaries
+-- stayed off.
+--
+-- Owner/Admin ALONE, and none of the seats that hold meetings:record. Recording one meeting is a
+-- practitioner's act on a room they are running; deciding that every meeting in the firm may be
+-- recorded, captioned by a speech model or summarized by a reasoning model is the firm's decision
+-- about where its privileged conversations go, which is the bracket firm:manageAiSettings sits in.
+--
+-- The house seed shape, plain and unqualified: a migration applies once per lineage, tracked by the
+-- journal, so there is nothing for an OR IGNORE to guard against — and the fitness scan in
+-- tooling/lint-ungranted-permissions reads exactly this form to prove the permission is reachable by
+-- somebody. The role_id is the Owner/Admin role from the baseline's member-rbac seed.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_meetingsSettingsOwner', 'role_Gw-zKO8hOHQuNv2bWokMp', 'meetings:manageSettings');

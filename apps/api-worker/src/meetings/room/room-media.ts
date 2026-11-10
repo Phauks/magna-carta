@@ -1,3 +1,4 @@
+import { captionParticipantGone } from "./room-captions.ts";
 import {
   closedFrame,
   layeredFrame,
@@ -74,9 +75,10 @@ export type SessionOutcome =
  * exactly why this may: a room cannot hibernate while a frame is still being served, and a publish or
  * a subscription writes the session to the record, or gives it up, before its frame is done. The one
  * way an opening outlives its frame is an act the service refused, or one that writes nothing (a
- * layer change, a renegotiation, a close); it is then this participant's next frame that finds it.
- * A room that wakes without it reads no session on the record and opens another — which, for a
- * session nothing was ever negotiated into, costs the service nothing and the browser nothing.
+ * layer change, a renegotiation, a close); it is then this participant's next frame that finds it —
+ * until a reconnect of the stay (`abandonAnsweredOpening`) or hibernation clears it. A room that
+ * wakes without it reads no session on the record and opens another; the one it lost had either
+ * nothing negotiated into it, or an act the service refused, and the next frame starts clean.
  */
 interface SessionOpening {
   /** The answer every frame from this participant that arrives while the call is out waits on. */
@@ -641,11 +643,20 @@ export async function releaseParticipant(room: RoomContext, attendanceId: string
   // the call answers `absent` to whoever is waiting on it, and an act already under way finds the
   // opening abandoned when it comes to write and closes what it put into the session.
   const unrecorded = abandonOpening(room, attendanceId);
-  if (!removed) return;
+  if (!removed) {
+    // No roster entry to remove — the grace sweep, or an earlier act, took it — but a session the
+    // service opened for this stay and no record names is still being billed. It is closed either
+    // way; with a record it goes out below with the rest of their media.
+    if (unrecorded !== null) await closeUnrecordedSession(room, unrecorded);
+    return;
+  }
   announceRoster(room, await storedParticipants(room), { left: [attendanceId] });
   // A spotlight on an empty chair would leave every browser drawing the large tile for somebody who
   // is not here and asking the routing service for their full layer.
   await clearSpotlightFor(room, [attendanceId]);
+  // And a caption session for somebody who has gone would go on billing the caption model for a
+  // microphone nobody is speaking into; it closes now rather than when its audio goes quiet.
+  await captionParticipantGone(room, attendanceId);
   if (participant !== undefined) {
     await releaseMedia(
       room,
@@ -668,6 +679,49 @@ function abandonOpening(room: RoomContext, attendanceId: string): string | null 
   if (opening === undefined || opening.abandoned) return null;
   opening.abandoned = true;
   return opening.sessionId;
+}
+
+/**
+ * A NEW SOCKET HAS TAKEN THIS STAY OVER: the opening the old one left behind is given up if the
+ * service has already ANSWERED it, and its session is returned for the caller to close.
+ *
+ * An answered opening is a session the old connection could have offered into — and if it did, and
+ * the act was refused or wrote nothing, the opening is still here, bound to a socket that has gone.
+ * Left in place, the returning browser's first publish would find it, see it bound to somebody else,
+ * give it up and be refused, with nothing to tell it to publish again. Given up here, that first
+ * frame finds the mark, reads no session on the freshly reset record, and opens one of its own.
+ *
+ * An opening the service has NOT answered yet is kept, deliberately: no session exists for the old
+ * connection to have put anything into, the old socket is closed before the answer can arrive (so it
+ * cannot claim it), and the returning browser inherits the call rather than paying for a second one —
+ * which is what somebody reloading at a spinner while the service is slow most needs.
+ *
+ * Synchronous, so the caller runs it inside the same gate that resets the record: no frame can find
+ * the old opening against the new record.
+ */
+export function abandonAnsweredOpening(room: RoomContext, attendanceId: string): string | null {
+  const opening = openingsByRoom.get(room.ctx)?.get(attendanceId);
+  if (opening === undefined || opening.abandoned || opening.sessionId === null) return null;
+  return abandonOpening(room, attendanceId);
+}
+
+/**
+ * Closes a session the service opened and no record names — best effort, for the reason
+ * `releaseMedia` is: what is being stopped is a cost, and a failure is money rather than a record
+ * being wrong.
+ */
+export async function closeUnrecordedSession(room: RoomContext, sessionId: string): Promise<void> {
+  const sfu = sfuClientForEnv(room.env);
+  if (sfu === null) return;
+  await closeSessionQuietly(room, sfu, sessionId);
+}
+
+/**
+ * Empties this room's openings as hibernation would. For the tests that hold a room in exactly that
+ * state; nothing in the room calls it, because the runtime does it by discarding the instance.
+ */
+export function forgetSessionOpeningsForTests(state: DurableObjectState): void {
+  openingsByRoom.delete(state);
 }
 
 /**

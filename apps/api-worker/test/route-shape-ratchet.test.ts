@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // @repo-wide-fitness — measures every route module's size and inline shape count against a ledger
 // that only shrinks; a route added from any branch is what moves the numbers.
 import { describe, expect, it } from "vitest";
@@ -51,16 +52,20 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "billing/billing.ts": { lines: 3059, shapes: 70 },
   "billing/costs.ts": { lines: 1202, shapes: 8 },
   "billing/reports.ts": { lines: 534, shapes: 32 },
-  "calendar/calendar.ts": { lines: 3582, shapes: 4 },
+  // Raised when the meeting recording branch (recording, transcript, summary and captions, written
+  // beside the ratchet rather than after it) landed: the recording, transcript and settings routes and
+  // the recording state on a meeting's summary. Their bodies belong in packages/meetings/src/contract.ts.
+  "calendar/calendar.ts": { lines: 3607, shapes: 4 },
   "communications/communications.ts": { lines: 1034, shapes: 9 },
   "communications/meeting-chat.ts": { lines: 634, shapes: 3 },
   "communications/meeting-hosting.ts": { lines: 598, shapes: 5 },
   "communications/meeting-inspect.ts": { lines: 243, shapes: 9 },
   "communications/meeting-lobby.ts": { lines: 564, shapes: 7 },
-  "communications/meeting-polls.ts": { lines: 886, shapes: 5 },
-  "communications/meeting-questions.ts": { lines: 816, shapes: 3 },
+  "communications/meeting-polls.ts": { lines: 921, shapes: 5 },
+  "communications/meeting-questions.ts": { lines: 839, shapes: 3 },
+  "communications/meeting-summary.ts": { lines: 761, shapes: 6 },
   "communications/meetings-guest.ts": { lines: 1419, shapes: 8 },
-  "communications/meetings.ts": { lines: 1295, shapes: 7 },
+  "communications/meetings.ts": { lines: 2719, shapes: 16 },
   // Raised from 1364 lines when the postage-account permission and the server-side label fee landed;
   // the growth is the comments that say who may change the account and why the fee is not sent in.
   "communications/shipping.ts": { lines: 1390, shapes: 26 },

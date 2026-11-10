@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The rate-limiter seam — named buckets as data, an in-memory sliding-window limiter behind the
 // RateLimiter interface. The chokepoint owns the 429 problem reply; this module only returns the
 // check verdict.
@@ -7,7 +8,11 @@
 // the wall — the sign-in ladder is the surface that made that a real problem — so `limit` and
 // `remaining` are part of the verdict rather than something the chokepoint reconstructs.
 import { describe, expect, it } from "vitest";
-import { BUCKETS, createInMemoryRateLimiter } from "../../src/http/chokepoint/rate-limiter";
+import {
+  BUCKETS,
+  createInMemoryRateLimiter,
+  MEMBER_SCOPED_BUCKETS,
+} from "../../src/http/chokepoint/rate-limiter";
 import { ATTEMPT_LIMIT } from "../../src/http/auth-attempt-budget";
 
 // A controllable epoch-milliseconds clock, matching the repo's injected-function precedent
@@ -31,7 +36,14 @@ describe("BUCKETS", () => {
       expensive: { limit: 10, windowSeconds: 60 },
       "incident-report": { limit: 5, windowSeconds: 300 },
       "guest-arrival": { limit: 20, windowSeconds: 60 },
+      "meeting-question-upvote": { limit: 30, windowSeconds: 60 },
     });
+  });
+
+  it("keys exactly the upvote bucket by the member rather than by the firm", () => {
+    // A bucket named here stands in for the firm's on its route, so the list is the whole of where
+    // one member's loop is bounded on its own — widening it is a decision, not a side effect.
+    expect([...MEMBER_SCOPED_BUCKETS]).toEqual(["meeting-question-upvote"]);
   });
 
   it("keeps the auth bucket above the credential ladder it shares a visitor with", () => {

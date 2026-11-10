@@ -85,5 +85,17 @@ package deliberately does not depend on.
   browser sends nothing new on the socket for any of them. The two tallies (`poll-tally`,
   `question-tally`) are coalesced by the room to a frame a second and carry the latest count, not a
   difference.
+- **A caption is a display, and its frame says so.** `caption` carries the words, who said them (the
+  stay, the roster's name, and the member's identifier on a member's socket only) and a `segmentId`
+  that every interim of one stretch of speech shares and its final settles — opaque, so a browser keys a
+  line by it and never orders by it. The room stores none and sends each once; a browser that misses
+  one draws the next. Whether captions are on is the room state's `captions`, ABSENT while off, and the
+  host's switch is the `captions` client frame, refused `captions-unavailable` where the firm or the
+  deployment does not allow them. The pace of captions (coalesced interims, the room-wide budget) is the
+  server's alone and deliberately not here: a browser draws whatever arrives.
+- **A frame whose browser half lands in a later change is LISTED, never silently half-wired.**
+  `AWAITING_THE_BROWSER` in `test/frames-have-handlers.test.ts` names `captions` and `caption` while the
+  caption strip is unbuilt; the room-side and builder checks still read them, and the register fails
+  the moment the browser names one — so the entry comes off in the change that wires it.
 - **The version is stated, never negotiated.** `MEETING_PROTOCOL_VERSION` rides on every frame in
   both directions and is bumped only when a shape changes incompatibly.

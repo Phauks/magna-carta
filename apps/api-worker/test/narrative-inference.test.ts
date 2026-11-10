@@ -1,6 +1,9 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  CaptionStream,
+  CaptionStreamInput,
   ConversationInput,
   EmbedInput,
   EmbeddingResult,
@@ -8,6 +11,8 @@ import type {
   GenerateResult,
   InferencePort,
   StreamResult,
+  TranscribeInput,
+  TranscriptionResult,
 } from "@magna-carta/inference/port";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import {
@@ -59,6 +64,14 @@ function recordingPort(calls: GenerateInput[]): InferencePort {
     embed: async (input: EmbedInput): Promise<Dispatch<EmbeddingResult>> => {
       calls.push(input as unknown as GenerateInput);
       throw new Error("embed must not be reached when the gate is off");
+    },
+    transcribe: async (input: TranscribeInput): Promise<Dispatch<TranscriptionResult>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("transcribe must not be reached when the gate is off");
+    },
+    openCaptionStream: async (input: CaptionStreamInput): Promise<Dispatch<CaptionStream>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("openCaptionStream must not be reached when the gate is off");
     },
   };
 }

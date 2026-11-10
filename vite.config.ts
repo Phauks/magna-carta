@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -134,10 +135,19 @@ export default defineConfig({
   // vitest.config.ts must be added here (`pnpm run lint:test-registration` audits that). The standalone
   // sibling workers below run default-pool unit tests (faked container/R2 bindings — no Miniflare).
   test: {
+    // A ceiling on concurrent test workers for every project that does not set its own (the Workers
+    // projects cap their VMs separately). Vitest's default is one worker per CPU less one, so memory
+    // grows with the core count rather than with the work: each fork measured 130 to 410 MB, plus
+    // about 2 GB for the main process, so a 16-core box ran fifteen of them. Eight keeps a full run
+    // within about 5 GB; MC_TEST_MAX_WORKERS raises or lowers it for one machine.
+    maxWorkers: Number(
+      process.env.MC_TEST_MAX_WORKERS ?? Math.max(1, Math.min(availableParallelism() - 1, 8)),
+    ),
     projects: [
       "apps/web/vitest.config.ts",
       "apps/api-worker/vitest.config.ts",
       "apps/address-worker/vitest.config.ts",
+      "apps/api-worker/vitest.node.config.ts",
       "apps/status-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
@@ -246,7 +256,11 @@ export default defineConfig({
       // package's tests and their dependency closure. The pdf package's build needs its wasm artifact
       // present (`vp run rust-wasm-build`), same as any type-check of pdf.
       typecheck: {
-        command: "tsc -b tsconfig.build.json tsconfig.test.json",
+        // An explicit heap, so whether this passes does not depend on the machine's RAM. Node sizes its
+        // default heap from system memory: 2,096 MB on a 15 GB cloud sandbox, against a measured cold
+        // peak of 1,943 MB (the api-worker program alone holds 1.8 GB). 4 GB leaves room to grow.
+        command:
+          "node --max-old-space-size=4096 node_modules/typescript/bin/tsc -b tsconfig.build.json tsconfig.test.json",
       },
       // Regenerate the reference graph from package.json workspace deps. Run after adding a package or
       // changing a package's @magna-carta/* dependencies; `--check` (used by the future gate) fails if
@@ -263,8 +277,9 @@ export default defineConfig({
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
       // each host package dir (the import paths packages/{pdf,decryption,email,seven-zip}/src
-      // expect). All four are built because build-all bundles all of the consumers: the SPA imports
-      // pdf-core (the in-browser PDF reader), and apps/api-worker imports pdf-core, decryption-core
+      // expect). All five are built because build-all bundles all of the consumers: the SPA imports
+      // pdf-core (the in-browser PDF reader) and segmentation-core (the meeting room's background
+      // Worker), and apps/api-worker imports pdf-core, decryption-core
       // (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess), email-core and
       // seven-zip-core (the archive browse route's 7z reader) — omitting any makes the worker
       // or SPA bundle fail with ENOENT on the missing .wasm. Build
@@ -275,7 +290,7 @@ export default defineConfig({
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
-      // often) needs pdf-core alone, and its build script asks for exactly that. The composite below is
+      // often) needs pdf-core and segmentation-core alone, and its build script asks for exactly those. The composite below is
       // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
       // crate keeps its own cache entry rather than one
       // all-or-nothing entry.
@@ -285,6 +300,7 @@ export default defineConfig({
           "vp run rust-wasm-build-decryption",
           "vp run rust-wasm-build-email",
           "vp run rust-wasm-build-seven-zip",
+          "vp run rust-wasm-build-segmentation",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -302,6 +318,13 @@ export default defineConfig({
       "rust-wasm-build-seven-zip": {
         command:
           "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
+      },
+      // The meeting's person segmentation, for background blur and image backgrounds: the SPA's
+      // meeting room loads it in its background Worker, so both the composite above and the
+      // interface Worker's own build ask for it.
+      "rust-wasm-build-segmentation": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/segmentation/src/pkg -f crates/segmentation-core/wasm.Dockerfile crates",
       },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that

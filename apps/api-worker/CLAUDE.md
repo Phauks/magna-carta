@@ -119,6 +119,7 @@ Worker.
 
 ## Local rules
 
+- **A test that reaches no Workers runtime API runs in plain Node.** To opt in, put `// @node-runtime` among its header comments (`vitest.node-runtime.ts` reads it). Each file in the Workers project costs about 25 s of VM boot and app preload, while a Node file costs milliseconds. Opt a file in only when it passes under Node: `crypto.subtle.timingSafeEqual`, `DigestStream`, WebAssembly imports and `cloudflare:*` exist only in workerd. The config rejects a directive on a file that imports `cloudflare:*`.
 - **Every `/api/v1` route goes through the chokepoint.** Register with `defineOpenAPIRoute` + a full
   `RouteMeta`; a route mounted without meta (or naming an unregistered permission) throws at startup.
   Changing a route's responses or any `x-mc-*` meta changes the contract — re-emit the snapshot and the
@@ -254,8 +255,13 @@ Still an operator step **for the shared platform bucket**: add the R2 lifecycle 
 `conversions/` prefix (~24 h) — conversion results are transient presigned-GET artifacts, and until
 the rule exists they accumulate ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)). A firm's OWN
 bucket no longer needs the step: `firm-resource-provider.ts` applies the `bundles/` and
-`conversions/` expiries (and the abandoned-multipart abort) at provisioning, unconditionally on every
-run that reaches the bucket step — and, in the same step, the **browser-upload CORS policy** from
+`conversions/` expiries, the `meeting-recordings/` staging expiry (eight days: a day past the
+recording sweep's seven-day retention, because lifecycle age runs from the object's creation and the
+sweep's from the recording settling), an abandoned-multipart abort on every one of them, and a
+seven-day abort on `files/` that never expires an object — at provisioning, unconditionally on every
+run that reaches the bucket step. **The lifecycle PUT replaces the bucket's whole rule set**, so a
+rule added by hand is gone on the next run: every rule a firm bucket needs lives in `LIFECYCLE_RULES`.
+In the same step it applies the **browser-upload CORS policy** from
 `src/files/browser-upload-cors.ts`, without which the file-manager upload's presigned PUT dies at the
 preflight and the firm cannot upload at all. Buckets provisioned before 2026-09-03 take that policy
 by hand: `pnpm run emit-r2-cors` prints it as the dashboard's JSON (the deploy runbook, section 15).

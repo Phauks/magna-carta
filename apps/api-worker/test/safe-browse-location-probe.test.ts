@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The trace reader is the one piece of the location probe that runs without a browser, and the one
 // whose mistake would be silent: a misread `loc=` would report a country the browser was never in.
 import { describe, expect, it } from "vitest";

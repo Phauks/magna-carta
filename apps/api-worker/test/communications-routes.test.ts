@@ -33,6 +33,7 @@ import {
 let firmId: FirmId;
 let ownerCookie: string;
 let attorneyCookie: string;
+let attorneyUserId: UserId;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
 const OPEN_MATTER = "matter_commsRouteOpen0000000" as MatterId;
@@ -142,6 +143,7 @@ beforeAll(async () => {
     roleId: assertIdentifier(attorneyRoleId, "role"),
   }).run();
   attorneyCookie = await signInForSessionCookie("call-log-attorney@example.com");
+  attorneyUserId = attorney.userId as UserId;
 
   // Three anchors, one per answer the routing rule has to give: an ordinary open matter, an INTAKE
   // (no number of any kind, and the anchor a first phone call actually lands on), and a closed one.
@@ -496,5 +498,54 @@ describe("the end of a call, which is not its length", () => {
       summary: "A call that cannot have happened this way.",
     });
     expect(refused.status).toBe(422);
+  });
+});
+
+describe("what happened on the line, and what came of it", () => {
+  it("leaves a message as a task in the colleague's list, saved with the call", async () => {
+    const id = await logCall(ownerCookie, {
+      summary: "Wants to know whether the hearing moved.",
+      callerIdName: "Maria Lopez",
+      outcome: "messageTaken",
+      message: {
+        forUserId: attorneyUserId,
+        title: "Call back Maria Lopez",
+        dueOn: "2026-12-01",
+        timeZone: "America/Los_Angeles",
+        urgent: true,
+      },
+    });
+    const read = await get(`/api/v1/communications/${id}`, ownerCookie);
+    const record = await readJson<{
+      outcome: string;
+      callerIdName: string;
+      messageTaskId: string | null;
+    }>(read);
+    expect(record.outcome).toBe("messageTaken");
+    expect(record.callerIdName).toBe("Maria Lopez");
+    expect(record.messageTaskId).not.toBeNull();
+    const task = await firmDatabase
+      .prepare("SELECT title, assignee_user_id, priority, due_on FROM matter_task WHERE id = ?1")
+      .bind(record.messageTaskId)
+      .first<{ title: string; assignee_user_id: string; priority: string; due_on: string }>();
+    expect(task).toMatchObject({
+      title: "Call back Maria Lopez",
+      assignee_user_id: attorneyUserId,
+      priority: "urgent",
+      due_on: "2026-12-01",
+    });
+  });
+
+  it("files a spam call as spam on its own", async () => {
+    const id = await logCall(ownerCookie, {
+      summary: null,
+      durationSeconds: null,
+      outcome: "spam",
+      spamKind: "sales",
+    });
+    const record = await readJson<{ disposition: string; spamKind: string }>(
+      await get(`/api/v1/communications/${id}`, ownerCookie),
+    );
+    expect(record).toMatchObject({ disposition: "spam", spamKind: "sales" });
   });
 });

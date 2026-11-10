@@ -1,8 +1,10 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerAddressLookupRoutes } from "./address-lookup.ts";
+import { registerConflictsRunRoutes } from "./conflicts-runs.ts";
 import { registerConflictsRoutes } from "./conflicts.ts";
 import { registerDirectoryRoutes } from "./directory.ts";
+import { registerEntityPhotoRoutes } from "./entity-photo.ts";
 
 // The directory of persons and organizations, and the conflicts-of-interest check run over it.
 //
@@ -19,11 +21,15 @@ export function mountDirectory(
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(domain, chokepoint);
+  // A record's picture: a person's photograph or an organization's logo, with its bytes.
+  registerEntityPhotoRoutes(domain, chokepoint);
   // Address autocomplete: offers for what has been typed, and a chosen offer resolved into parts.
   // Dormant until an engine is provisioned.
   registerAddressLookupRoutes(domain, chokepoint);
   // The conflicts-of-interest check surface: run a check against the directory corpus, read a
   // completed check back with its hits, and record a reviewer's disposition of a hit.
   registerConflictsRoutes(domain, chokepoint);
+  // Stopping a run in flight.
+  registerConflictsRunRoutes(domain, chokepoint);
   app.route("/", domain);
 }

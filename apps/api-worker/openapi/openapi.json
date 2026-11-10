@@ -22037,6 +22037,64 @@
           }
         }
       },
+      "DirectoryEntityPhotoResponse": {
+        "type": "object",
+        "properties": {
+          "photo": {
+            "$ref": "#/components/schemas/DirectoryEntityPhoto"
+          }
+        },
+        "required": [
+          "photo"
+        ]
+      },
+      "DirectoryEntityPhoto": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "description": "The SHA-256 of the bytes."
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "widthPixels": {
+            "type": "integer"
+          },
+          "heightPixels": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "contentType",
+          "sizeBytes",
+          "widthPixels",
+          "heightPixels",
+          "updatedAt"
+        ]
+      },
+      "SetDirectoryEntityPhotoRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "imageBase64"
+        ]
+      },
       "AddressSuggestionsResponse": {
         "oneOf": [
           {
@@ -22474,6 +22532,7 @@
               "running",
               "completed",
               "failed",
+              "cancelled",
               null
             ]
           },
@@ -22761,7 +22820,8 @@
               "queued",
               "running",
               "completed",
-              "failed"
+              "failed",
+              "cancelled"
             ]
           },
           "stage": {
@@ -22816,6 +22876,33 @@
               "null"
             ]
           },
+          "cancelledByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "askedScope": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "strictness": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sources",
+              "strictness"
+            ]
+          },
           "hitCount": {
             "type": [
               "integer",
@@ -22842,6 +22929,8 @@
           "startedAt",
           "finishedAt",
           "failure",
+          "cancelledByUserId",
+          "askedScope",
           "hitCount",
           "subjectParties"
         ]
@@ -23821,6 +23910,28 @@
           "givenByEntityId",
           "confirmedInWriting",
           "givenOn"
+        ]
+      },
+      "ConflictsCancelledRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
         ]
       },
       "TimelineEntryPage": {
@@ -27070,6 +27181,218 @@
           "unloggedDay"
         ]
       },
+      "CallerLookup": {
+        "type": "object",
+        "properties": {
+          "directoryMatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallerDirectoryMatch"
+            }
+          },
+          "areaCode": {
+            "$ref": "#/components/schemas/CallerAreaCode"
+          },
+          "callerIdentity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallerIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A caller ID the firm already paid for, or null when it has none for the number."
+          },
+          "paidLookup": {
+            "type": "string",
+            "enum": [
+              "available",
+              "unavailable",
+              "not-covered"
+            ],
+            "description": "Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country."
+          }
+        },
+        "required": [
+          "directoryMatches",
+          "areaCode",
+          "callerIdentity",
+          "paidLookup"
+        ]
+      },
+      "CallerDirectoryMatch": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when the record holds no name at all; a reader shows the gap."
+          }
+        },
+        "required": [
+          "entityId",
+          "entityKind",
+          "displayName"
+        ]
+      },
+      "CallerAreaCode": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "areaCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string",
+            "description": "Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is."
+          },
+          "place": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The town the number's exchange was assigned to, as the numbering data writes it (\"Las Vegas, NV\"). Null where that data does not subdivide the area code."
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The IANA time zone the number was issued under. Null where the area code spans several.",
+            "example": "America/Los_Angeles"
+          }
+        },
+        "required": [
+          "areaCode",
+          "region",
+          "place",
+          "timeZone"
+        ]
+      },
+      "CallerIdentity": {
+        "type": "object",
+        "properties": {
+          "callerName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name the carriers' caller-name database holds, as it holds it. Null when it holds none."
+          },
+          "lineType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "mobile",
+              "fixed",
+              "fixedOrMobile",
+              "voip",
+              "tollFree",
+              "other",
+              null
+            ]
+          },
+          "carrierName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lookedUpAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "callerName",
+          "lineType",
+          "carrierName",
+          "lookedUpAt"
+        ],
+        "description": "A caller ID the firm already paid for."
+      },
+      "CallerLookupRequest": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "pattern": "^\\+[1-9][0-9]{6,14}$",
+            "description": "The number in E.164 — a plus, the country calling code and the national number, digits only. The form builds it from the number field and its country.",
+            "example": "+17025550142"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "CallerIdentityLookup": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "found"
+                ]
+              },
+              "callerIdentity": {
+                "$ref": "#/components/schemas/CallerIdentity"
+              }
+            },
+            "required": [
+              "outcome",
+              "callerIdentity"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "not-covered"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          }
+        ],
+        "description": "`found` is the kept answer, which may hold no name. `not-covered` and `unavailable` are answers, not failures: nothing was asked and nothing was charged."
+      },
       "CommunicationPage": {
         "type": "object",
         "properties": {
@@ -27221,6 +27544,46 @@
               "null"
             ]
           },
+          "callerIdName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "answered",
+              "transferred",
+              "messageTaken",
+              "spam",
+              "connected",
+              "voicemailLeft",
+              "noAnswer",
+              null
+            ]
+          },
+          "spamKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sales",
+              "wrongNumber",
+              "scam",
+              null
+            ]
+          },
+          "messageTaskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -27250,6 +27613,10 @@
           "summary",
           "producer",
           "loggedByUserId",
+          "callerIdName",
+          "outcome",
+          "spamKind",
+          "messageTaskId",
           "createdAt",
           "updatedAt"
         ]
@@ -27377,6 +27744,44 @@
               "noAction",
               null
             ]
+          },
+          "callerIdName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "answered",
+              "transferred",
+              "messageTaken",
+              "spam",
+              "connected",
+              "voicemailLeft",
+              "noAnswer",
+              null
+            ]
+          },
+          "spamKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sales",
+              "wrongNumber",
+              "scam",
+              null
+            ]
+          },
+          "message": {
+            "$ref": "#/components/schemas/CallMessageRequest"
           }
         },
         "required": [
@@ -27384,6 +27789,45 @@
           "direction",
           "counterpartyNumber",
           "occurredAt"
+        ]
+      },
+      "CallMessageRequest": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "forUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "urgent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "forUserId",
+          "title"
         ]
       },
       "CommunicationAcknowledged": {
@@ -27660,6 +28104,23 @@
           },
           "configured": {
             "type": "boolean"
+          },
+          "recordingState": {
+            "type": "string",
+            "enum": [
+              "none",
+              "recording",
+              "composing",
+              "filed",
+              "failed",
+              "abandoned"
+            ]
+          },
+          "recordingConfigured": {
+            "type": "boolean"
+          },
+          "captionsAvailable": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -27679,7 +28140,10 @@
           "liveCount",
           "locked",
           "lobby",
-          "configured"
+          "configured",
+          "recordingState",
+          "recordingConfigured",
+          "captionsAvailable"
         ]
       },
       "JoinedMeeting": {
@@ -27851,6 +28315,546 @@
           "waitingFrom",
           "admittedAt",
           "endedReason"
+        ]
+      },
+      "MeetingRecordingSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "meetingId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "recording",
+              "composing",
+              "filed",
+              "failed",
+              "abandoned"
+            ]
+          },
+          "startedBy": {
+            "$ref": "#/components/schemas/MeetingRecordingActor"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "stoppedBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingRecordingActor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stoppedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stopReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "member",
+              "host",
+              "meeting-ended",
+              "sink-lost",
+              "ceiling",
+              "abandoned",
+              "start-failed",
+              null
+            ]
+          },
+          "trackCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "capturedSeconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transcriptId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summaryState": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "refused",
+              null
+            ]
+          },
+          "failureErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "meetingId",
+          "state",
+          "startedBy",
+          "startedAt",
+          "stoppedBy",
+          "stoppedAt",
+          "stopReason",
+          "trackCount",
+          "capturedSeconds",
+          "fileId",
+          "transcriptId",
+          "summaryState",
+          "failureErrorId"
+        ]
+      },
+      "MeetingRecordingActor": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName"
+        ]
+      },
+      "MeetingRecordingPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRecordingListEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MeetingRecordingListEntry": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MeetingRecordingSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "document": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MeetingRecordingDocument"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "transcript": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MeetingTranscriptMark"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "summary": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MeetingSummaryMark"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "document",
+              "transcript",
+              "summary"
+            ]
+          }
+        ]
+      },
+      "MeetingRecordingDocument": {
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "available",
+              "held",
+              "replaced",
+              "removed",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "versionId",
+          "state"
+        ]
+      },
+      "MeetingTranscriptMark": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ]
+          },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "fileId"
+        ]
+      },
+      "MeetingSummaryMark": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "refused"
+            ]
+          },
+          "refusalReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "not-eligible",
+              "disabled",
+              "transcript-empty",
+              null
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "refusalReason"
+        ]
+      },
+      "MeetingRecordingNoticePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRecordingNoticeEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MeetingRecordingNoticeEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest",
+              "attendee"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "start",
+              "arrival",
+              "stop"
+            ]
+          },
+          "deliveredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "participantKind",
+          "participantId",
+          "userId",
+          "displayName",
+          "reason",
+          "deliveredAt"
+        ]
+      },
+      "MeetingTranscriptPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingTranscriptSegment"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/MeetingTranscriptSummary"
+          },
+          "linesWithheld": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "removed",
+              "held",
+              "unavailable",
+              null
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor",
+          "transcript",
+          "linesWithheld"
+        ]
+      },
+      "MeetingTranscriptSegment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "gap"
+            ]
+          },
+          "startedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "endedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingTranscriptSpeaker"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "kind",
+          "startedMs",
+          "endedMs",
+          "text",
+          "speaker"
+        ]
+      },
+      "MeetingTranscriptSpeaker": {
+        "type": "object",
+        "properties": {
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest",
+              "attendee"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participantKind",
+          "participantId",
+          "userId",
+          "displayName"
+        ]
+      },
+      "MeetingTranscriptSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "recordingId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "segmentCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "wordCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failureErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "recordingId",
+          "state",
+          "language",
+          "segmentCount",
+          "wordCount",
+          "fileId",
+          "failureErrorId",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "MeetingMessage": {
@@ -28301,6 +29305,246 @@
         "required": [
           "answered"
         ]
+      },
+      "MeetingSummaryView": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/MeetingSummaryHeader"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actionItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingSummaryActionItem"
+            }
+          },
+          "withheld": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "removed",
+              "held",
+              "unavailable",
+              null
+            ]
+          }
+        },
+        "required": [
+          "summary",
+          "text",
+          "actionItems",
+          "withheld"
+        ]
+      },
+      "MeetingSummaryHeader": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "transcriptId": {
+            "type": "string"
+          },
+          "recordingId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "refused"
+            ]
+          },
+          "refusalReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "not-eligible",
+              "disabled",
+              "transcript-empty",
+              null
+            ]
+          },
+          "failureErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modelId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "transcriptId",
+          "recordingId",
+          "state",
+          "refusalReason",
+          "failureErrorId",
+          "modelId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MeetingSummaryActionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingSummaryActionItemOwner"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "text",
+          "owner",
+          "dueOn",
+          "taskId"
+        ]
+      },
+      "MeetingSummaryActionItemOwner": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName"
+        ]
+      },
+      "CreatedMeetingActionItemTask": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "actionItem": {
+            "$ref": "#/components/schemas/MeetingSummaryActionItem"
+          }
+        },
+        "required": [
+          "taskId",
+          "actionItem"
+        ]
+      },
+      "CreateMeetingActionItemTaskRequest": {
+        "type": "object",
+        "properties": {
+          "assignToOwner": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "FirmMeetingSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "recordingEnabled": {
+            "type": "boolean"
+          },
+          "captionsEnabled": {
+            "type": "boolean"
+          },
+          "summariesEnabled": {
+            "type": "boolean"
+          },
+          "recordedTrackCeiling": {
+            "type": "integer"
+          },
+          "recordedTrackCeilingMaximum": {
+            "type": "integer"
+          },
+          "recordingServiceConfigured": {
+            "type": "boolean"
+          },
+          "aiProcessingEligible": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "recordingEnabled",
+          "captionsEnabled",
+          "summariesEnabled",
+          "recordedTrackCeiling",
+          "recordedTrackCeilingMaximum",
+          "recordingServiceConfigured",
+          "aiProcessingEligible"
+        ]
+      },
+      "PatchFirmMeetingSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "recordingEnabled": {
+            "type": "boolean"
+          },
+          "captionsEnabled": {
+            "type": "boolean"
+          },
+          "summariesEnabled": {
+            "type": "boolean"
+          },
+          "recordedTrackCeiling": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 11
+          }
+        }
       },
       "MeetingHostGrants": {
         "type": "object",
@@ -79817,6 +81061,419 @@
         }
       }
     },
+    "/api/v1/directory/entities/{id}/photo": {
+      "get": {
+        "description": "A record's picture, as facts about it: what the bytes are, how large, and when they were set. Null where the record holds none. The bytes themselves are a separate read.",
+        "operationId": "directory.entityPhoto",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.entityPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record's picture, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets a record's picture, replacing whatever it held. The bytes are read to decide what they are, a PNG or a JPEG and nothing else, so nothing is stored that a screen will refuse to draw.",
+        "operationId": "directory.setEntityPhoto",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.setEntityPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDirectoryEntityPhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record's picture after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityPhotoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a record's picture. A record that holds none is answered the same way: the act says what is true afterwards, not what was true before.",
+        "operationId": "directory.removeEntityPhoto",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.removeEntityPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "directory.setEntityPhoto"
+        },
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record holds no picture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityPhotoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/photo/content": {
+      "get": {
+        "description": "The bytes of a record's picture, in the type they were read to be when stored. Rides the session like every other read and is never publicly addressable.",
+        "operationId": "directory.entityPhotoContent",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.entityPhotoContent",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/address-lookup/suggestions": {
       "post": {
         "description": "Offers real addresses for what has been typed so far, in the country the address is in. A read-shaped POST: it reads and writes nothing, and takes a body rather than a query string because what it is sent is a client's address.",
@@ -81258,6 +82915,139 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel": {
+      "post": {
+        "description": "Stops a run that has not finished. The run is kept in the check's history as cancelled, naming who stopped it, and records no result: whatever it had not finished is not searched. A run that had already settled is left exactly as it settled, and the answer says how.",
+        "operationId": "conflicts.cancelRun",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.cancelRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run as it now stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsCancelledRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the run is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -88979,6 +90769,235 @@
         }
       }
     },
+    "/api/v1/communications/caller-lookup": {
+      "post": {
+        "description": "Everything known about a number that costs nothing: the Directory records that list it, the region its area code was issued for, and any caller ID the firm already looked up. A read-shaped POST: it reads and writes nothing, and takes a body because what it is sent is a client's telephone number.",
+        "operationId": "communications.callerLookup",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.callerLookup",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallerLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What is known about the number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerLookup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks communications:log",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/communications/caller-lookup/caller-identity": {
+      "post": {
+        "description": "Asks the carriers' caller-name database who a number belongs to, and keeps the answer so the number is never paid for twice. Each call that reaches the network is a billed query; a number the firm already looked up is answered from the kept answer without one.",
+        "operationId": "communications.callerIdentity",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.callerIdentity",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallerLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The caller ID, or why there is none to ask for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerIdentityLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks communications:log",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The caller-name service did not answer, or refused. Nothing was kept; pressing again asks again.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/communications": {
       "get": {
         "description": "The firm's calls and texts, most recent first, across every matter the member may see plus the ones that belong to no matter yet. Narrow with scope: routed is everything already filed, unrouted is the queue waiting to be filed. The unrouted rows require the review capability — without it, scope=unrouted is refused and the other scopes simply omit them.",
@@ -91244,6 +93263,573 @@
         }
       }
     },
+    "/api/v1/meetings/{meetingId}/recording": {
+      "post": {
+        "description": "Starts recording a meeting's audio. Needs the recording permission and a member running this meeting: a member who is not hosting it is refused 403 meeting-not-host. Everybody in the room — guests included — is told at once, and everybody who arrives while it runs is told on arrival; who was told, and when, is recorded. Refused for a meeting on a firm event (there is no matter to file the recording into), for a room already being recorded, and for a room with more participants publishing audio than one recording may hear (counted by participant, not by track). Answers 503 where this deployment or this firm cannot record.",
+        "operationId": "meetings.startRecording",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.startRecording",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:record",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The recording has started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRecordingSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The meeting is on a firm event, which has no matter to file a recording into",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "This deployment, or this firm, cannot record a meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Stops the meeting's running recording. A member holding the recording permission may stop it, and so may a member running this meeting without it. Every adapter is closed, every track's audio is kept, the room is told, and the recording moves on to be composed into one document on the matter.",
+        "operationId": "meetings.stopRecording",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.stopRecording",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A stopped recording is not resumed. Pressing Record again starts a new recording, with its own announcement to the room and its own record of who was told."
+        },
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recording has stopped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRecordingSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The meeting is on a firm event, which has no matter to file a recording into",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "This deployment, or this firm, cannot record a meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings": {
+      "get": {
+        "description": "This meeting's recordings, newest first: who started and stopped each, what it captured, and where it stands. The audio itself is a document on the matter once filed, reached through the File Manager's own access; each filed recording names the version it filed and whether that version is still being scanned, can be opened, is held, was replaced, or is gone.",
+        "operationId": "meetings.listRecordings",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listRecordings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's recordings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRecordingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/notices": {
+      "get": {
+        "description": "Who was told about one recording, and when: a row for every stay the room announced the start to, every arrival told while it ran, and every stay told it stopped — guests included. The consent record, oldest first.",
+        "operationId": "meetings.recordingNotices",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.recordingNotices",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this recording's notices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRecordingNoticePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript": {
+      "get": {
+        "description": "The transcript of one filed recording: where it stands and, once it is ready, its lines in order — each attributed to the participant whose microphone it came from, with a gap line wherever somebody could not be heard. Paged by cursor. The lines are served only while the transcript's filed document exists, is not in the trash and is not held by the scan; otherwise the header is answered with no lines and linesWithheld says why. Every page of lines served is audited, naming identifiers and never the words. A recording with no transcript, a recording in another meeting, and a meeting the member cannot reach are all not found.",
+        "operationId": "meetings.recordingTranscript",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.recordingTranscript",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The transcript's header and one page of its lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingTranscriptPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/meetings/{meetingId}/socket": {
       "get": {
         "description": "Opens the meeting's signaling socket. The server sends a welcome carrying the caller's own participant handle and the current roster, then a roster frame on every change; the client publishes, subscribes, renegotiates and closes tracks over it, and { \"type\": \"ping\" } is a keepalive. Requires an Upgrade: websocket request and an open stay in the meeting — join first. An upgrade carrying another site's Origin is refused: a browser will open a socket cross-origin with the member's cookie, where it would refuse to let that page read any other call here.",
@@ -92181,7 +94767,7 @@
     },
     "/api/v1/meetings/{meetingId}/polls/{pollId}/answers": {
       "post": {
-        "description": "Answers a poll from the caller's open stay — being in the room is the whole of the permission, so a member who has left is answered as one who is not in the meeting. One participation per member per poll, however many options it chooses, and an answer cannot be changed: a second is 409 `meeting-poll-already-answered`, including from a later stay after leaving and rejoining.",
+        "description": "Answers a poll from the caller's open stay — being in the room is the whole of the permission, so a member who has left is answered as one who is not in the meeting. One participation per member per poll, however many options it chooses, and an answer cannot be changed: a second is 409 `meeting-poll-already-answered`, including from a later stay after leaving and rejoining. A retry under the same Idempotency-Key is answered with the poll as it stands now, whatever choices the retry carries: the key's record keeps nothing the choice could be read back out of, so it cannot tell two bodies apart.",
         "operationId": "meetings.answerPoll",
         "tags": [
           "meetings"
@@ -92534,7 +95120,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -92566,7 +95152,7 @@
         }
       },
       "get": {
-        "description": "A meeting's question queue, oldest first and paged on (asked_at, id) — the record's own stable key. Sort by upvotes in the client over the page it holds: a cursor over a count that changes while the reader pages would repeat and skip rows. `since` with `sinceId` continues from the last question a panel holds, on the same key as the cursor. A question that has been taken back is still returned, with an empty body beside who removed it and when.",
+        "description": "A meeting's question queue, oldest first and paged on (asked_at, id) — the record's own stable key. Sort by upvotes in the client over the page it holds: a cursor over a count that changes while the reader pages would repeat and skip rows. `since` with `sinceId` continues from the last question a panel holds, on the same key as the cursor. `since` alone is INCLUSIVE — it returns every question asked at or after that instant, so one committed in the same millisecond as the last one held is never skipped — and the caller drops the ids it already holds. A question that has been taken back is still returned, with an empty body beside who removed it and when.",
         "operationId": "meetings.listQuestions",
         "tags": [
           "meetings"
@@ -92676,7 +95262,7 @@
     },
     "/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes": {
       "post": {
-        "description": "Upvotes a question from the caller's open stay. One per member, and idempotent: a member who has already upvoted it — from this stay or an earlier one — answers 200 unchanged.",
+        "description": "Upvotes a question from the caller's open stay. One per member, and idempotent: a member who has already upvoted it — from this stay or an earlier one — answers 200 unchanged. A question that has been taken back takes no upvotes: 409. Upvoting and withdrawing share a rate limit of the caller's own, apart from the firm's.",
         "operationId": "meetings.upvoteQuestion",
         "tags": [
           "meetings"
@@ -92688,7 +95274,7 @@
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
+        "x-mc-rateLimit": "meeting-question-upvote",
         "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "meetings"
@@ -92775,7 +95361,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -92809,7 +95395,7 @@
     },
     "/api/v1/meetings/{meetingId}/questions/{questionId}/upvotes/withdrawal": {
       "post": {
-        "description": "Takes the caller's upvote back — an upvote that cannot be withdrawn is a vote, not a signal. A member with no upvote on it answers 200 unchanged.",
+        "description": "Takes the caller's upvote back — an upvote that cannot be withdrawn is a vote, not a signal. A member with no upvote on it answers 200 unchanged. Still allowed on a question that has been taken back, so a member can always clear a signal they gave.",
         "operationId": "meetings.withdrawQuestionUpvote",
         "tags": [
           "meetings"
@@ -92821,7 +95407,7 @@
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
+        "x-mc-rateLimit": "meeting-question-upvote",
         "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "meetings"
@@ -92908,7 +95494,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -93051,7 +95637,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -93184,7 +95770,7 @@
             }
           },
           "409": {
-            "description": "The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress",
+            "description": "The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -93205,6 +95791,580 @@
           },
           "429": {
             "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary": {
+      "get": {
+        "description": "The summary of one recording's transcript: where it stands and, once it is ready, its text and its action items in order — each with the member who undertook it where the model named them exactly, the date it is due where the transcript stated one, and the task made of it. The words are served only while the transcript's filed document exists, is not in the trash and is not held by the scan; otherwise withheld says why. Every read of the words is audited, naming identifiers and never a sentence. A recording with no summary, a recording in another meeting, and a meeting the member cannot reach are all not found.",
+        "operationId": "meetings.recordingSummary",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.recordingSummary",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingSummaryView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, recording, transcript or summary this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Asks for the summary of a recording's ready transcript to be written again — or written for the first time, where the transcript has none. A summary already being written is left to finish, and asking again sends it on if it was stranded. The firm's settings are read when it is run: a firm that has not switched summaries on, or whose chosen model it has not allowed its content to reach, is answered with a refused summary rather than an error. Writing it again replaces the text and the action items; a task already made of an action item is kept. A transcript whose filed document is in the trash, held by the scan or gone is not read again. A retry with the same Idempotency-Key is answered with the summary as it stands now.",
+        "operationId": "meetings.rerunSummary",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.rerunSummary",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The summary is being written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingSummaryView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, recording, transcript or summary this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The task the action item would become is not one the task subsystem accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary/action-items/{actionItemId}/task": {
+      "post": {
+        "description": "Makes a task of one action item of a ready summary, through the task subsystem's own create path: on the recording's matter, titled with the item, due on the date the transcript stated (read in the meeting's own time zone), and — unless assignToOwner is false — in the owner's name. Needs the task-write permission and the meeting-join permission; putting it in another member's name needs the task-assign permission too. An item is made a task once; a retry with the same Idempotency-Key is answered with the task the first request made.",
+        "operationId": "meetings.createSummaryActionItemTask",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.createSummaryActionItemTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingRecording_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingSummaryActionItem_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "actionItemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMeetingActionItemTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The task, and the action item now naming it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMeetingActionItemTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting, recording, transcript or summary this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The task the action item would become is not one the task subsystem accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/meetings/settings": {
+      "get": {
+        "description": "Reads the firm's meeting settings: whether a meeting may be recorded, whether live captions may run, whether a recorded meeting is summarized, and the most people one recording hears at once, with the highest that ceiling may be set. Beside them, two facts this route never writes: whether this deployment's recording service is configured (a recording cannot start until it is), and whether the firm's third-party AI processing is on (a summary needs it as well). Every switch is off until a firm turns it on.",
+        "operationId": "firmMeetingSettings.get",
+        "tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-operationId": "firmMeetingSettings.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's meeting settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmMeetingSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks meetings:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's meeting settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. The recorded-track ceiling is a whole number from 1 to the maximum the read reports. Returns the settings after the write.",
+        "operationId": "firmMeetingSettings.update",
+        "tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-operationId": "firmMeetingSettings.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmMeetingSettings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmMeetingSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's meeting settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmMeetingSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks meetings:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -118222,6 +121382,9 @@
     },
     {
       "name": "firmAiSettings"
+    },
+    {
+      "name": "firmMeetingSettings"
     },
     {
       "name": "firmNotificationPolicy"

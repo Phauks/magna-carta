@@ -25,6 +25,8 @@ import type { CommunicationChannel, CommunicationDirection } from "./types.ts";
 import {
   CommunicationValidationError,
   assertOneAnchor,
+  normalizeCallOutcome,
+  normalizeCallerIdName,
   normalizeContent,
   normalizeCounterpartyNumber,
   normalizeDisposition,
@@ -91,21 +93,54 @@ export interface LogCommunicationInput {
   // moment somebody writes it down, and making them file it first and set it aside second would be
   // two acts for one fact.
   readonly disposition?: string | null;
+  // The name the caller gave, as somebody typed it.
+  readonly callerIdName?: string | null;
+  // What happened on the line, and on a spam call which kind it was (types.ts).
+  readonly outcome?: string | null;
+  readonly spamKind?: string | null;
 }
+
+// THE MESSAGE A CALL LEFT FOR SOMEBODY, made by whoever owns that kind of record. A message taken on
+// a call becomes a task in the named member's list, and this package does not know what a task is:
+// the caller supplies the write, is told the call's number and anchor so the task can say which call
+// it came from, and hands back the task's id, which the call keeps. Both go into ONE batch, so a call
+// is never saved with a message that was lost, nor a message left behind by a call that was not.
+export type MessageTaskWriter = (call: {
+  readonly communicationId: CommunicationId;
+  readonly referenceNumber: string;
+  readonly matterId: MatterId | null;
+}) => Promise<{ readonly taskId: string; readonly effect: EffectWrite }>;
 
 export async function logCommunication(
   database: SqlDatabase,
   input: LogCommunicationInput,
   options: CommunicationServiceOptions,
+  messageTask?: MessageTaskWriter,
 ): Promise<{ communicationId: CommunicationId; effect: EffectWrite }> {
   const now = options.clock.now();
   const counterpartyNumber = normalizeCounterpartyNumber(input.counterpartyNumber);
   const occurredAt = normalizeOccurredAt(input.occurredAt, now);
   const endedAt = normalizeEndedAt(input.endedAt, input.channel, occurredAt);
-  const content = normalizeContent(input);
   const matterId = input.matterId ?? null;
-  const disposition = normalizeDisposition(input.disposition);
+  const facts = normalizeCallOutcome({
+    channel: input.channel,
+    direction: input.direction,
+    outcome: input.outcome,
+    spamKind: input.spamKind,
+    matterId,
+    memberUserId: input.memberUserId,
+  });
+  const content = normalizeContent({ ...input, outcome: facts.outcome });
+  const callerIdName = normalizeCallerIdName(input.callerIdName);
+  // A spam call IS set aside as spam; saying so twice is not asked of anybody.
+  const disposition = facts.outcome === "spam" ? "spam" : normalizeDisposition(input.disposition);
   assertOneAnchor(matterId, disposition);
+  if (messageTask !== undefined && facts.outcome !== "messageTaken") {
+    throw new CommunicationValidationError(
+      "communication-message-without-outcome",
+      "a message is left on a call whose outcome is that a message was taken",
+    );
+  }
 
   if (matterId !== null) {
     await assertRoutable(database, matterId, options.visibility);
@@ -127,11 +162,17 @@ export async function logCommunication(
   const referenceNumber = plan.number;
 
   const communicationId = newIdentifier("communication", options.randomSource);
+  const message =
+    messageTask === undefined
+      ? null
+      : await messageTask({ communicationId, referenceNumber, matterId });
   return {
     communicationId,
     effect: {
       statements: [
         ...schemeDrawOpeningStatements(database, COMMUNICATION_NUMBERING_TABLES, plan),
+        // The task first, so the call that names it is written after the row it names.
+        ...(message?.effect.statements ?? []),
         insertCommunicationStatement(database, {
           id: communicationId,
           referenceNumber,
@@ -150,6 +191,10 @@ export async function logCommunication(
           body: content.body,
           summary: content.summary,
           disposition,
+          callerIdName,
+          outcome: facts.outcome,
+          spamKind: facts.spamKind,
+          messageTaskId: message?.taskId ?? null,
           loggedByUserId: options.actorUserId,
           now,
         }),
@@ -173,10 +218,14 @@ export async function logCommunication(
             // The number the firm quotes. An identifier rather than content, and the one thing an
             // auditor reading this row can match against a message slip on a desk.
             referenceNumber,
+            // Enums and an identifier: what happened, never what was said.
+            outcome: facts.outcome,
+            spamKind: facts.spamKind,
+            messageTaskId: message?.taskId ?? null,
           },
         }),
       ],
-      outboxMessages: [],
+      outboxMessages: [...(message?.effect.outboxMessages ?? [])],
     },
   };
 }

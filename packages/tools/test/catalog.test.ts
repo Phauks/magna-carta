@@ -31,6 +31,7 @@ describe("tool catalog", () => {
       "attorney-license-lookup",
       "business-entity-lookup",
       "county-property-records",
+      "legal-citations",
       "property-listing-links",
       "network-speed-test",
       "safe-website-viewer",

@@ -42,10 +42,15 @@
   import Button from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import { toast } from "@magna-carta/design-system/toast";
+  import Contact from "@lucide/svelte/icons/contact";
   import Download from "@lucide/svelte/icons/download";
+  import FileText from "@lucide/svelte/icons/file-text";
+  import FileType from "@lucide/svelte/icons/file-type";
   import Link from "@lucide/svelte/icons/link";
   import Mail from "@lucide/svelte/icons/mail";
-  import { saveExport } from "$lib/export/tabular-export.ts";
+  import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
+  import { RemoteRenderError, renderRemoteExport } from "$lib/export/render-remote.ts";
+  import { renderTextExport } from "$lib/export/render-text.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
@@ -64,7 +69,13 @@
     entityMergedIntoIdentifier,
     entityRecordHref,
   } from "./entity-presentation.ts";
-  import { CONTACT_CARD_CONTENT_TYPE, contactCard, contactCardFilename } from "./contact-card.ts";
+  import {
+    CONTACT_CARD_CONTENT_TYPE,
+    contactCard,
+    contactCardFilename,
+    readContactCardPhoto,
+  } from "./contact-card.ts";
+  import { readRecordPrintoutParts, recordPrintout } from "./record-printout.ts";
   import { entitySectionsFor, type EntitySection } from "./entity-sections.ts";
   import {
     entityWindowHeading,
@@ -85,6 +96,7 @@
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import { RECORD_PANEL_BODY_STYLE } from "./record-panel.ts";
   import RecordSections from "./record-sections.svelte";
+  import EntityPhoto from "./entity-photo.svelte";
 
   let {
     open = $bindable(false),
@@ -246,12 +258,42 @@
   async function downloadContactCard(): Promise<void> {
     const shown = entity;
     if (shown === null) return;
-    const outcome = await readDirectoryContactPoints(fetch, entityId);
+    const [outcome, picture] = await Promise.all([
+      readDirectoryContactPoints(fetch, entityId),
+      readContactCardPhoto(fetch, entityId),
+    ]);
     if (outcome.kind !== "ok") {
       toast.error("The contact card could not be made, because the contact details could not be read.");
       return;
     }
-    await saveExport(contactCard(shown, outcome.value), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
+    await saveExport(contactCard(shown, outcome.value, picture), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
+  }
+
+  /**
+   * The record as a printout, in the reports' own formats: a PDF from the server's renderer, or
+   * plain text built here. Every list is read in full at the moment of the press.
+   */
+  async function downloadPrintout(format: "pdf" | "text"): Promise<void> {
+    const shown = entity;
+    if (shown === null) return;
+    const parts = await readRecordPrintoutParts(fetch, shown, entityId);
+    if (parts === null) {
+      toast.error("The record could not be downloaded, because part of it could not be read.");
+      return;
+    }
+    const printout = recordPrintout(parts);
+    if (format === "text") {
+      await saveExport(renderTextExport(printout), exportFilename(printout, "txt"), "text/plain;charset=utf-8");
+      return;
+    }
+    try {
+      const file = await renderRemoteExport(printout, "pdf");
+      await saveExport(file, exportFilename(printout, "pdf"), "application/pdf");
+    } catch (error) {
+      toast.error(
+        error instanceof RemoteRenderError ? error.message : "The PDF could not be made. Try again.",
+      );
+    }
   }
   const sections = $derived(entity === null ? [] : entitySectionsFor(entity.kind));
 </script>
@@ -307,6 +349,10 @@
   </DataTable.Root>
 {/snippet}
 
+{#snippet recordPhoto()}
+  <EntityPhoto {entityId} {name} {mayEdit} />
+{/snippet}
+
 {#snippet recordMenu()}
   <DropdownMenu.Item onSelect={() => void copyLink()}>
     <Link class="size-16" aria-hidden="true" />
@@ -317,10 +363,27 @@
     Email Link
   </DropdownMenu.Item>
   <DropdownMenu.Separator />
-  <DropdownMenu.Item onSelect={() => void downloadContactCard()}>
-    <Download class="size-16" aria-hidden="true" />
-    Download Contact Card
-  </DropdownMenu.Item>
+  <DropdownMenu.Sub>
+    <!-- The menu opens against the window's right edge, so the formats open inward, to the left. -->
+    <DropdownMenu.SubTrigger submenuSide="left">
+      <Download class="size-16" aria-hidden="true" />
+      Download
+    </DropdownMenu.SubTrigger>
+    <DropdownMenu.SubContent side="left">
+      <DropdownMenu.Item onSelect={() => void downloadPrintout("pdf")}>
+        <FileText class="size-16" aria-hidden="true" />
+        PDF
+      </DropdownMenu.Item>
+      <DropdownMenu.Item onSelect={() => void downloadPrintout("text")}>
+        <FileType class="size-16" aria-hidden="true" />
+        Plain Text
+      </DropdownMenu.Item>
+      <DropdownMenu.Item onSelect={() => void downloadContactCard()}>
+        <Contact class="size-16" aria-hidden="true" />
+        Contact Card (.vcf)
+      </DropdownMenu.Item>
+    </DropdownMenu.SubContent>
+  </DropdownMenu.Sub>
 {/snippet}
 
 <ActionDialog
@@ -331,6 +394,7 @@
   width="record"
   context={hasStanding ? standingPane : undefined}
   menu={entity !== null ? recordMenu : undefined}
+  leading={entity !== null ? recordPhoto : undefined}
   {onDismiss}
 >
   {#snippet notice()}

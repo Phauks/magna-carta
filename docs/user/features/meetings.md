@@ -5,7 +5,9 @@ hear everybody in the room, share your screen, and read back afterwards who was 
 part of Magna Carta, so your firm needs no separate conferencing account and the record of the meeting
 sits on the event it belongs to. People at your firm join from the event; a client, opposing counsel or
 anybody else on the event can be sent a link that brings them to the meeting's door, where a host lets
-them in. There is no recording or transcript, and no telephone number to dial in on._
+them in. A meeting on a matter can be recorded, with everybody in it told, and a recording on the matter
+gets a written transcript that names who said what, and a summary with its action items. There is no
+telephone number to dial in on._
 
 ## What it does
 
@@ -26,10 +28,12 @@ knowing an address, and nothing about a meeting reveals a matter you would not o
 from outside the firm comes in only on a link a host sent them, and only as far as the door until a
 host lets them in — see **Inviting a guest** below.
 
-**What was said is not kept; who was there is.** Nothing in the meeting is recorded — no video, no
-audio, no transcript, no chat. What the record keeps is attendance: each person who joined, when they
-joined and when they left. That is the part a file needs six months later, and it is the part that
-lives beside the documents and the correspondence rather than in somebody's memory.
+**Who was there is kept; what was said is kept only if somebody records it.** Unless a meeting is
+recorded, nothing said out loud is kept, and nothing on video ever is. What the record always keeps is
+attendance: each person who joined, when they joined and when they left, plus the meeting's chat. That
+is the part a file needs six months later, and it is the part that lives beside the documents and the
+correspondence rather than in somebody's memory. Recording the sound of a meeting is a separate,
+deliberate act, and everybody in the room is told when it happens; see **Recording a meeting** below.
 
 ## Starting a meeting
 
@@ -90,7 +94,7 @@ meeting and would rather not go looking for the event it belongs to. It has thre
   event they belong to, in that event's own time zone. **Join** works here too, so you can be first
   into a room rather than waiting for somebody else to arrive.
 - **Recently ended** — what finished in the last thirty days, with when it ended, **Attendance** for
-  who was in the room, and a way back to the event.
+  who was in the room, **Recordings** where the meeting was recorded, and a way back to the event.
 
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
 matter, the row links back to it.
@@ -216,9 +220,11 @@ Two more ways for a room to talk to whoever is running it, and unlike a hand or 
 are kept on the meeting's record**, the way chat is. A poll is a host asking the room a question with
 set answers; a question is the room asking the host.
 
-**Polls** in the control bar opens the polls. A number on the control counts the open polls you have
-not answered yet, and when a poll opens while the panel is shut you are told once, in a short note at
+**Polls** in the control bar opens the polls. A number on the control counts the open polls waiting
+for your answer, and when one opens while the panel is shut you are told once, in a short note at
 the corner of the screen, so a poll does not sit unanswered because nobody was looking at a button.
+The polls and the questions keep themselves up to date while you are in the room; opening a panel
+also checks for anything new.
 
 Each poll is a card. Where you may choose one answer the options are a set of round buttons; where
 you may choose several they are tick boxes, and the card says how many you may pick. **Answer**
@@ -234,7 +240,9 @@ The card says it before you answer, so you know what you are answering into.
 **Asking the room (hosts).** Whoever is running the meeting sees **New Poll** at the top of the same
 panel: the question, between two and ten answers (add and remove them as you go), whether to show
 names with answers, and how many answers each person may choose. **Open Poll** puts it in front of the
-room at once, and the result moves as people answer. Several polls can be open together. **Close
+room at once, and your card shows the result, moving as people answer. A poll another host opened is
+a question to you as much as to anybody: you answer it first, the number on **Polls** counts it, and
+you see its result once you have answered. Several polls can be open together. **Close
 Poll** asks first, because a closed poll takes no more answers and cannot be opened again. On a poll
 that shows names, **See Who Answered** lists each person and what they chose.
 
@@ -264,15 +272,24 @@ some browsers apply these without saying so, and then the line says your browser
 itself. The switch shows what the browser actually did, so if it could not do what you asked, the
 switch stays where it was and the panel says so.
 
-**Background blur** depends on your browser and your computer, and most browsers do not offer it to
-a website at all. Where yours does, the panel offers **None** and **Blur**. Where your computer
-controls blur itself (some laptops do this in their own settings), the panel tells you whether it is
-on and that it is set there. Where neither is possible, the panel says "Background blur is not
-available in this browser." In a call there is no picture, so there is no background to choose.
+**Your background** can be left as it is, blurred, or replaced with a picture. Open **Effects** and
+choose **None**, **Blur** or **Image**. The first time you choose **Image**, the panel asks you to pick
+a picture from your computer (PNG, JPEG or WebP); after that, **Image** uses the same picture until
+you pick a different one. The picture is kept in your browser and is never uploaded: the people in
+the meeting see you in front of it, and nobody receives the picture itself.
+
+Blurring and replacing are done by your own computer while you are in the meeting, so a slower
+computer may send a slightly lower frame rate with an effect on. If the effect stops working, your
+camera carries on as it is and the panel tells you why; you are never left with no picture because an
+effect failed. On a browser too old to draw the effect, the panel offers whatever the browser itself
+offers instead, or says "Background blur is not available in this browser." In a call there is no
+picture, so there is no background to choose. Turning **Reduce background noise** on or off never
+changes your background: only pressing **None**, **Blur** or **Image** does that.
 
 **Your choice is remembered on this computer**, and applied every time you join a meeting from it.
 It is kept by this browser rather than on your account, because what a computer can do is a fact
-about that computer: a laptop that cannot blur should not be told you always blur.
+about that computer: a laptop that cannot blur should not be told you always blur. The picture you
+chose for **Image** is remembered the same way.
 
 ## Large meetings
 
@@ -461,8 +478,9 @@ a bad connection and not enough for a link forwarded to a crowd.
 
 **A link that went to the wrong place.** **Send a new link** replaces it: a fresh e-mail goes out and
 the old link stops working at once, including for anybody in the meeting on it. **Withdraw** stops it
-working without sending another. Both ask first. A withdrawn link stays on the list, marked as
-withdrawn, because that somebody was invited and then was not is part of the record.
+working without sending another, and a guest in the meeting on it leaves the room at once and is told
+the firm withdrew the link. Both ask first. A withdrawn link stays on the list, marked as withdrawn,
+because that somebody was invited and then was not is part of the record.
 
 **Taking somebody off the event does not take back their link.** A link already sent keeps working
 until it expires or is withdrawn, so it stays in the Guests panel under the name it was sent to,
@@ -476,7 +494,8 @@ under a name you do not know, that is the moment to find out who it is, before t
 **What a guest can do in the meeting**: see and hear everybody, turn their microphone and camera on
 and off, share their screen, raise their hand and react, write in the meeting's chat, and leave. What
 a guest writes is kept on the meeting's record like every other line, and a guest cannot take a line
-back. They cannot end the meeting, let
+back. **Polls and questions are for your firm's members**: a guest does not see the Polls or Q&A
+controls, and cannot answer a poll or ask a question. They cannot end the meeting, let
 anybody in, or see anything else in Magna Carta: there is no way from their screen to any other part
 of it. Everything a host can do to a member — muting, asking to unmute, spotlighting, removing —
 works the same on a guest. Removing a guest, or turning one away at the door, also stops their link
@@ -503,7 +522,8 @@ This part is for the person outside the firm who was sent a link.
    kept by the firm as part of the meeting's record.
 
 If you leave, or your connection drops, the same link takes you back to the door until it stops
-working. You come back to the door even if you had already been let in, and a host lets you in
+working. If the firm withdraws your link while you are in the meeting, you leave the room and the page
+says the firm withdrew the link; there is nothing to rejoin, and the firm can send you a new one. You come back to the door even if you had already been let in, and a host lets you in
 again. If the meeting is locked when you arrive, the page says so and you can try again once the
 host opens it.
 
@@ -515,6 +535,199 @@ newer one, it has been used too many times, or the meeting is over. The firm can
 in each case. If the page itself goes wrong, it says so and gives an Error ID the firm can quote;
 reload the page, or ask the firm for a new link. A link that was forwarded to you gets you only as far as the door; the host sees the name it
 was sent to beside yours and decides whether to let you in.
+
+## Recording a meeting
+
+A meeting on a matter can be recorded. Only the sound is recorded, never the picture or anything
+shared on screen.
+
+**Who can record.** The **Record** control is in the control bar for somebody who holds the
+permission to record meetings and is hosting this one. Anybody hosting the meeting can stop a
+recording, whether or not they could have started it. Everybody else in the room sees whether a
+recording is running and has no control over it. A meeting on a firm event cannot be recorded, because
+a recording is kept on a matter; there the control is shown disabled with a line saying so.
+
+**Starting.** Press **Record**. A panel asks you to confirm, and says that everybody in the room,
+guests included, will be told. Press **Record** in the panel to start. If your firm has not switched
+recording on, **Record** is shown disabled with the line "Recording is not switched on for this firm
+yet." and nothing can be started (see [Your firm's meeting settings](#your-firms-meeting-settings)). The panel says so if the meeting is already being recorded, or if
+there are too many people speaking in the room for one recording to hold.
+
+**What everybody is told.** The moment a recording starts, everybody in the room hears a short tone,
+hears the words "Recording in progress" where their browser can speak them, and sees a banner saying
+who started it. Somebody using a screen reader is told the same words. Anybody who joins while the
+recording runs is told the same way as they arrive. The banner can be dismissed; the **Recording**
+mark beside the meeting's title cannot, and stays for as long as the recording runs. If your
+connection drops and you come straight back into the same recording, the banner and the mark return
+but the tone does not sound a second time. If you join from a calendar event or from the Meetings
+page, the press on **Join** is what lets your browser play the tone; if you arrive some other way,
+such as by reloading the page, some browsers (Safari among them) stay silent until you next press
+something in the room, and you are told by the banner alone until then.
+
+**Stopping.** Press **Stop Recording** in the control bar. Everybody hears one lower tone, is told
+"Recording stopped", and the mark goes. Ending the meeting stops the recording too.
+
+**After a recording stops.** The recording is put together into one audio file, with everybody who
+spoke while it ran on it, guests included, and added to the matter's documents. It arrives in the
+matter's **Files** the way an upload does: it is checked by the same safety scan as anything else
+added to the matter, it cannot be opened until the check has finished, and if the check holds it,
+it stays held like any other held file. Putting a recording together takes a little while after it
+stops; a long meeting takes longer. Only the sound is in it.
+
+**What has been recorded.** **Recordings** at the top of the meeting's screen lists every recording
+made in it, newest first: what has become of it, when it started and who started it, and when and how
+it stopped. The same list opens from **Recordings** on the meeting's row under **Recently ended** on
+the Meetings page, so a recording can be found after the meeting is over without going back into the
+room. Somebody hosting meetings can open a recording's row in the room to see who was told about it
+and when: everybody who was in the room when it started, everybody who arrived while it ran, and
+everybody who was there when it stopped. That list is the firm's record that people were told.
+
+What each recording's state means:
+
+- **Recording** — it is running now.
+- **Being Put Together** — it has stopped and is being made into one audio file. Nothing is lost
+  while it waits; it moves on by itself.
+- **Added to the Matter** — it is in the matter's Files. Once the safety check has finished,
+  **Open** in its row opens that file in a new tab, where your browser plays it; it is the matter's
+  own document, not a copy, so it is also found, downloaded and shared from the Files section like
+  any other document. Where it cannot be opened, the row says why instead: **Being Checked** while
+  the check runs, **Held** when the check held it, **Replaced by a Later Version** when somebody has
+  since added a newer version of that file, **Removed from the Matter** when the file is in the
+  trash, and **Not Available** when it cannot be reached from here.
+- **Failed** — it could not be put together, or nothing at all was captured, so no document was
+  added. The row shows an **Error ID**; quote it to your administrator or to support.
+- **Interrupted** — the recording was cut off partway through, without anybody stopping it, and
+  nothing from it was added to the matter. Its row says so in its own words.
+
+How a recording stopped is said in its own words: who pressed **Stop Recording**; "The meeting
+ended"; "The sound was lost", when every voice it was hearing dropped and did not come back; "It
+reached the longest a recording may run"; "It stopped when nobody had been heard for a while", when
+nobody in the room was speaking for a long while, in which case the recording is still put together
+and added to the matter; "It was interrupted, and nothing was added to the matter", for an
+**Interrupted** recording; and "It could not start", when the recording was stopped before
+anybody's voice was captured because it could not be begun properly. A recording that could not
+start captured nothing.
+
+### Reading a recording's transcript
+
+Once a recording is added to the matter, a transcript of it is made: everything said while it ran,
+in the order it was said, with each line under the name of the person who said it. It is made from
+each person's own microphone, so a line is never put under the wrong name, and a guest's lines are
+marked as a guest's. Making a transcript takes a little while after the recording reaches the
+matter; a long meeting takes longer.
+
+The **Transcript** column of the Recordings list says where each recording's transcript stands:
+
+- **Being Made** — it is still being written. You can open it to watch; the panel turns into the
+  transcript by itself when it is ready, and the list catches up at the same moment.
+- **Read** — it is ready. Pressing it opens the transcript over the list.
+- **Could Not Be Made** — the transcript failed. Open it to see the **Error ID**, and quote that to
+  your administrator or to support. The recording itself is not affected.
+
+In the transcript, each line carries where it was said in the recording, as minutes and seconds
+from the start (with the hour in front once a recording runs past an hour), so you can find the same
+moment in the audio. Where somebody could not be heard, because their connection dropped, the room
+was too full for their sound to be kept, or what was captured could not be read back, the
+transcript says so in a highlighted line: whose audio is missing, and for how long. A recording in
+which nobody was heard at all says that nothing was heard. A long transcript arrives in parts;
+**Load more lines** at the end brings the next part.
+
+The transcript is also added to the matter's **Files**, beside the recording, as a captions file
+(it ends in `.vtt`) that most media players can show alongside the audio. **Open Document** at the
+top of the transcript opens that file in a new tab. It is the matter's own document, so it is also
+found, downloaded and shared from the Files section like any other.
+
+Because the transcript's lines are the same words as that file, they are shown only while the file
+can be opened. If the file has been moved to the trash, is held by the safety check, or cannot be
+reached from here, the transcript says **Transcript Withheld** and why: **Removed from the Matter**,
+**Held**, or **Not Available**.
+
+What a transcript says is part of the matter's record and is treated as privileged, like the
+recording itself.
+
+### Reading a recording's summary
+
+Once a transcript is ready, a summary of it is written: a short account of what the meeting covered,
+and a numbered list of the action items people agreed to. The summary is written by the platform from
+the transcript, so it is a characterization of the conversation and not a record of it; the panel
+says so above the text. When you need to know exactly what somebody said, read the transcript.
+
+The **Summary** column of the Recordings list says where each recording's summary stands:
+
+- **Being Written**: it is still being written. You can open it to watch; the panel turns into the
+  summary by itself when it is ready, and the list catches up at the same moment.
+- **Read**: it is ready. Pressing it opens the summary over the list.
+- **Could Not Be Written**: the summary failed. Open it to see the **Error ID**, and quote that to
+  your administrator or to support. The recording and the transcript are not affected.
+- **Not Written**: no summary was written, and the panel says why. Either meeting summaries are
+  switched off for your firm (an administrator switches them on in **Settings**, under **Meetings**),
+  or AI processing is not switched on for your firm (an administrator
+  switches it on in **Settings**, under **AI and the Assistant**), or nothing was said in the
+  recording.
+
+Each action item shows who it belongs to and when it is due. An owner is named only when the meeting
+named a member of the firm exactly; otherwise the item says **No owner**. A due date is shown only
+when somebody in the meeting stated the day, so "next Friday" is not turned into a date.
+
+**Making a task of an action item.** Press **Create Task** on an item. Nothing is made yet: a
+confirmation opens showing the task and who it will be assigned to, the item's owner or nobody. If you
+do not want the task in the owner's name, untick **Assign to** before pressing **Create Task** there.
+Putting a task in another member's name needs the permission to assign tasks (`tasks:assign`); without it, the box is
+unavailable and the task is made with nobody's name on it. The task is made on the meeting's matter
+like any other task, due on the item's date, and the item then offers **Open Task**, which takes you
+to it in the matter's **Tasks** section. An item can be made into a task once: if somebody else got
+there first, the item says so and links to their task.
+
+**Writing it again.** Somebody who can host meetings sees **Re-run** at the top of the summary. It
+asks first, because writing the summary again replaces its text and its action items; tasks already
+made from the old items are kept. Re-run is also how a summary that seems stuck at **Being Written**
+is started again.
+
+If the transcript's captions file has been moved to the trash, is held by the safety check, or cannot
+be reached from here, the summary says **Summary Withheld** and why, in the transcript's own words.
+The summary is treated as privileged, like the transcript it was written from.
+
+### If you are a guest
+
+You are told about a recording exactly as everybody else is: the tone, the words, the banner and the
+**Recording** mark beside the meeting's title for as long as it runs. A guest cannot start or stop a
+recording. Your voice is in the recording while you are in the room, what you say is in its
+written transcript under the name you gave at the door, and both are kept by the firm with the
+matter's documents. If you do not want to be recorded, you can leave the meeting
+with **Leave** at any time, and tell the firm.
+
+## Your firm's meeting settings
+
+Whether your firm's meetings can be recorded, summarized and captioned is decided once, for the whole
+firm, in **Settings** under **Practice › Meetings**. Every switch there is off until somebody turns it
+on. The page belongs to the people who hold the permission to manage meeting settings, which a firm's
+owners and administrators hold; holding the permission to record a meeting is not enough to change
+it. Somebody without it who opens the page is told the settings could not be read.
+
+- **Record Meetings** lets a meeting on a matter be recorded. Everybody in the meeting is told when a
+  recording starts, and so is everybody who joins while it runs, and the audio is added to the
+  matter's documents. While it is off, **Record** in a meeting is shown disabled with the line
+  "Recording is not switched on for this firm yet."
+- **People Recorded at Once** is the most people one recording hears at the same time, from 1 to 11.
+  Eleven is the most because that is as many voices as the recorder can hold in memory at once, so it
+  cannot be set higher. A recording cannot be started in a meeting with more people in it than this,
+  and anybody who joins after the limit is reached is not heard on the recording; the transcript says
+  whose audio is missing.
+- **Summarize Recorded Meetings** writes a summary and its action items from each recorded meeting's
+  transcript. A summary also needs your firm's AI processing, which is set separately under **AI and
+  the Assistant**. Beneath this switch the page says whether that is on, with a link to it; while it
+  is off, no summary is written, whatever this switch says.
+- **Live Captions** lets what is being said be shown as text while a meeting is live. A meeting does
+  not have to be recorded to show captions, and captions themselves are not kept. Captions are still
+  not yet shown in the meeting (see [What is not built yet](#what-is-not-built-yet)), so this switch
+  changes nothing you can see until they are.
+
+**When recording still cannot start.** Recording also needs the platform's recording service to be
+set up for your firm. That is done by the platform, not by your firm. Until it is, the page says so
+beneath **Record Meetings**, and no meeting can start a recording even with the switch on.
+
+Changes are staged and saved together with **Save**, and every save is kept in the firm's audit log
+with who made it and when.
 
 ## Ending a meeting
 
@@ -545,8 +758,9 @@ often the floor was cleared. Those are the mechanics of a conversation and they 
 Putting somebody out of a meeting, shutting the door and changing who is running the room are the
 three that stay, because each of them is a thing somebody may later need to ask about.
 
-That is the whole of it, apart from the chat, which is kept in full. There is no duration you can
-bill from directly and no note of what was said out loud — if the meeting is worth an entry on the
+That is the whole of it, apart from the chat, which is kept in full, and a recording's transcript
+where the meeting was recorded. There is no duration you can bill from directly, and a meeting that
+was not recorded keeps no note of what was said out loud — if the meeting is worth an entry on the
 file, record your time and write a matter note the way you would after a meeting in a conference
 room.
 
@@ -556,17 +770,16 @@ room.
   in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
   shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
   them in the Directory and put that record on the event in their place.
-- **Recording and transcripts.** Nothing is captured, and this is not simply a switch waiting to be
-  flipped: recording a conversation needs everybody's consent in about a dozen states, and the part of
-  Magna Carta that knows which rule applies where is still being designed.
+- **Captions on screen, and translation.** A recording gets a transcript and a summary once it is on
+  the matter, but captions are not yet shown while the meeting runs, and the transcript is in the
+  language that was spoken and is not translated. Video is never recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
   want an unscheduled meeting, record the event first and start the meeting on it.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
-- **Background replacement, and blur where the browser does not offer it.** Blurring or replacing a
-  background on a computer whose browser cannot do it itself needs processing the product does not
-  carry yet. Until it does, Effects says plainly where blur is not available.
+- **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own
+  computer; there is no built-in set to pick from yet.
 
 ## Related
 

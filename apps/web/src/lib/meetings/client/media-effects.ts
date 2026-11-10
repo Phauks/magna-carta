@@ -34,9 +34,17 @@
  */
 import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
 
+/** What can stand behind a member. */
+export type BackgroundChoice = "none" | "blur" | "image";
+
 /** What a member has asked for. Held per browser, because what is possible is a fact about a machine. */
 export interface MediaEffectSettings {
-  readonly background: "none" | "blur";
+  /**
+   * What is behind the member: their own room, a blur of it, or a picture they chose. The picture
+   * itself is not part of this choice; it is kept apart (effects/background-image-store.ts) because
+   * it is a file rather than a word.
+   */
+  readonly background: BackgroundChoice;
   readonly reduceNoise: boolean;
 }
 
@@ -86,22 +94,67 @@ export interface AppliedEffects {
    * it or nothing does, and null where the machine decides and does not say.
    */
   readonly platformBlur: boolean | null;
+  /**
+   * What is behind the member as the room sees it. Under the pass-through this is only ever the
+   * browser's own blur or nothing; under the product's own treatment it is whichever was chosen.
+   */
+  readonly background: BackgroundChoice;
+  /**
+   * Whether the product draws the background itself, so every choice (none, blur, a picture) can be
+   * offered whatever the camera does. False where only the browser's own blur, if any, is available.
+   */
+  readonly backgroundByProduct: boolean;
+  /** Whether a picture has been chosen in this browser, so "Image" can be offered without asking for one. */
+  readonly imageChosen: boolean;
   /** Present only when an effect was asked for and could not be given, in the product's own words. */
   readonly refusal: string | null;
 }
 
+/**
+ * Which half of the Effects panel a change came from, where the caller knows.
+ *
+ * A change to the microphone says nothing about the background, so it must never move the blur — and
+ * a press on a background row says something about the background even where it names the background
+ * the member had already asked for, because something outside the product (the machine's own camera
+ * settings) may have moved the blur since, and the row the member pressed is the one that is not lit.
+ */
+export type EffectsChange = "background" | "microphone";
+
 /** A capture as the stage hands it on: what to publish, what was applied, and the acts it owns. */
 export interface EffectedCapture {
-  /** The stream to publish. Under the pass-through this is the captured stream itself. */
+  /**
+   * The stream to publish. Under the pass-through this is the captured stream itself; under the
+   * product's own background treatment its picture is the treated track while a treatment runs, and
+   * the camera's own while none does. It is read again after every change.
+   */
   readonly stream: MediaStream;
   /** What the browser reported once the effects were asked for. */
   readonly applied: AppliedEffects;
-  /** Change an effect without capturing again, where the effect allows it, and read the result. */
-  update(settings: MediaEffectSettings): Promise<AppliedEffects>;
+  /**
+   * Change an effect without capturing again, where the effect allows it, and read the result.
+   *
+   * The blur is touched only where the BACKGROUND is what changed — the background asked for differs
+   * from the one asked for last, or the change says it came from a background row — and never
+   * because the blur the camera reports differs from the request. The camera's report is not the
+   * member's: a blur the machine turned on is one the member never touched, and turning noise
+   * reduction off must not turn it off with it.
+   */
+  update(settings: MediaEffectSettings, change?: EffectsChange): Promise<AppliedEffects>;
   /** Mute at the SOURCE as well as the output, so a camera light actually goes out. */
   setSourceEnabled(kind: "audio" | "video", enabled: boolean): void;
   /** Stop every track this stage owns, including any it captured itself. */
   close(): void;
+  /**
+   * Hear about a change the stage made on its own or as part of an update: a different stream to
+   * publish (the treated picture started or stopped), or a different reading (a treatment that
+   * stopped working). Optional, because the pass-through never changes either on its own.
+   */
+  onChange?(listener: (stream: MediaStream, applied: AppliedEffects) => void): void;
+  /**
+   * Stand the member in front of this picture. Optional, because only the product's own treatment
+   * can; the stage takes ownership of the bitmap.
+   */
+  chooseBackgroundImage?(image: ImageBitmap): Promise<AppliedEffects>;
 }
 
 export interface MediaEffectsStage {
@@ -279,6 +332,9 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
           audio: readAudioTreatment(stream.getAudioTracks()[0]),
           blur,
           platformBlur: blur === "platform-controlled" ? reportedBlur : null,
+          background: blur === "on" ? "blur" : "none",
+          backgroundByProduct: false,
+          imageChosen: false,
           refusal,
         };
       }
@@ -287,13 +343,19 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
       // asked for here, and only where somebody chose it: an untouched camera is left untouched.
       const firstRefusal = settings.background === "blur" ? await askForBlur(true) : null;
       let applied = read(firstRefusal);
+      /** What the member last asked for, which is what a change is measured against. */
+      let requested = settings;
 
       return {
         stream,
         get applied(): AppliedEffects {
           return applied;
         },
-        async update(next): Promise<AppliedEffects> {
+        async update(next, change): Promise<AppliedEffects> {
+          const backgroundChanged =
+            change === "background" ||
+            (change === undefined && next.background !== requested.background);
+          requested = next;
           let refusal: string | null = null;
           const [microphone] = stream.getAudioTracks();
           if (acceptsConstraints(microphone)) {
@@ -304,7 +366,9 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
             }
           }
           const wantsBlur = next.background === "blur";
-          if (applied.blur === "on" || applied.blur === "off") {
+          // Measured against what the camera reports as well, so a background row pressed for the
+          // blur the camera already has asks for nothing.
+          if (backgroundChanged && (applied.blur === "on" || applied.blur === "off")) {
             const blurred = applied.blur === "on";
             if (blurred !== wantsBlur) refusal = (await askForBlur(wantsBlur)) ?? refusal;
           }

@@ -5220,6 +5220,26 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
+export type DirectoryEntityPhotoResponse = {
+    photo: DirectoryEntityPhoto;
+};
+
+export type DirectoryEntityPhoto = {
+    /**
+     * The SHA-256 of the bytes.
+     */
+    sha256: string;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type SetDirectoryEntityPhotoRequest = {
+    imageBase64: string;
+};
+
 /**
  * `suggestions` may be empty, which means the country is covered and nothing matched. `no-coverage` means the service holds no addresses for that country, which is not the same thing and must not be shown as though it were. `unavailable` means no address service is provisioned: a person types the address themselves, exactly as before.
  */
@@ -5351,7 +5371,7 @@ export type ConflictsCheckSummary = {
     createdByUserId: string | null;
     runCount: number;
     latestRunId: string | null;
-    runStatus: 'queued' | 'running' | 'completed' | 'failed' | null;
+    runStatus: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
     latestRunAt: string | null;
     trigger: string | null;
     triggerSource: string | null;
@@ -5410,7 +5430,7 @@ export type ConflictsNumberedCheck = {
 export type ConflictsRunSummary = {
     id: string;
     ordinal: number;
-    status: 'queued' | 'running' | 'completed' | 'failed';
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
     stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
     progress: ConflictsRunProgress;
     trigger: string;
@@ -5420,6 +5440,11 @@ export type ConflictsRunSummary = {
     startedAt: string | null;
     finishedAt: string | null;
     failure: string | null;
+    cancelledByUserId: string | null;
+    askedScope: {
+        sources: Array<string>;
+        strictness: string;
+    } | null;
     hitCount: number | null;
     subjectParties: Array<ConflictsSubjectParty>;
 };
@@ -5644,6 +5669,11 @@ export type ConflictsWaiverRequest = {
     confirmedInWriting: boolean;
     documentFileId?: string | null;
     givenOn: string;
+};
+
+export type ConflictsCancelledRun = {
+    id: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 };
 
 export type TimelineEntryPage = {
@@ -6333,6 +6363,76 @@ export type MyDayResponse = {
     unloggedDay: boolean;
 };
 
+export type CallerLookup = {
+    directoryMatches: Array<CallerDirectoryMatch>;
+    areaCode: CallerAreaCode;
+    /**
+     * A caller ID the firm already paid for, or null when it has none for the number.
+     */
+    callerIdentity: CallerIdentity | null;
+    /**
+     * Whether a caller-ID lookup may be asked for. `unavailable` means none is provisioned; `not-covered` means no caller-name data exists for numbers in this country.
+     */
+    paidLookup: 'available' | 'unavailable' | 'not-covered';
+};
+
+export type CallerDirectoryMatch = {
+    entityId: string;
+    entityKind: 'person' | 'organization';
+    /**
+     * Null when the record holds no name at all; a reader shows the gap.
+     */
+    displayName: string | null;
+};
+
+export type CallerAreaCode = {
+    areaCode: string;
+    /**
+     * Where the area code was issued — a state, a province or a city. Where the number was issued, never where the caller is.
+     */
+    region: string;
+    /**
+     * The town the number's exchange was assigned to, as the numbering data writes it ("Las Vegas, NV"). Null where that data does not subdivide the area code.
+     */
+    place: string | null;
+    /**
+     * The IANA time zone the number was issued under. Null where the area code spans several.
+     */
+    timeZone: string | null;
+} | null;
+
+/**
+ * A caller ID the firm already paid for.
+ */
+export type CallerIdentity = {
+    /**
+     * The name the carriers' caller-name database holds, as it holds it. Null when it holds none.
+     */
+    callerName: string | null;
+    lineType: 'mobile' | 'fixed' | 'fixedOrMobile' | 'voip' | 'tollFree' | 'other' | null;
+    carrierName: string | null;
+    lookedUpAt: string;
+};
+
+export type CallerLookupRequest = {
+    /**
+     * The number in E.164 — a plus, the country calling code and the national number, digits only. The form builds it from the number field and its country.
+     */
+    number: string;
+};
+
+/**
+ * `found` is the kept answer, which may hold no name. `not-covered` and `unavailable` are answers, not failures: nothing was asked and nothing was charged.
+ */
+export type CallerIdentityLookup = {
+    outcome: 'found';
+    callerIdentity: CallerIdentity;
+} | {
+    outcome: 'not-covered';
+} | {
+    outcome: 'unavailable';
+};
+
 export type CommunicationPage = {
     data: Array<CommunicationDetail>;
     nextCursor: string | null;
@@ -6360,6 +6460,10 @@ export type CommunicationDetail = {
     summary: string | null;
     producer: 'member' | 'carrier';
     loggedByUserId: string | null;
+    callerIdName: string | null;
+    outcome: 'answered' | 'transferred' | 'messageTaken' | 'spam' | 'connected' | 'voicemailLeft' | 'noAnswer' | null;
+    spamKind: 'sales' | 'wrongNumber' | 'scam' | null;
+    messageTaskId: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -6389,7 +6493,19 @@ export type LogCommunicationRequest = {
     body?: string | null;
     summary?: string | null;
     disposition?: 'spam' | 'firmBusiness' | 'noAction' | null;
+    callerIdName?: string | null;
+    outcome?: 'answered' | 'transferred' | 'messageTaken' | 'spam' | 'connected' | 'voicemailLeft' | 'noAnswer' | null;
+    spamKind?: 'sales' | 'wrongNumber' | 'scam' | null;
+    message?: CallMessageRequest;
 };
+
+export type CallMessageRequest = {
+    forUserId: string;
+    title: string;
+    dueOn?: string | null;
+    timeZone?: string | null;
+    urgent?: boolean;
+} | null;
 
 export type CommunicationAcknowledged = {
     ok: true;
@@ -6451,6 +6567,9 @@ export type MeetingSummary = {
     locked: boolean;
     lobby: 'off' | 'on';
     configured: boolean;
+    recordingState: 'none' | 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
+    recordingConfigured: boolean;
+    captionsAvailable: boolean;
 };
 
 export type JoinedMeeting = {
@@ -6487,6 +6606,108 @@ export type MeetingAttendanceEntry = {
     waitingFrom: string | null;
     admittedAt: string | null;
     endedReason: 'left' | 'socket-lost' | 'removed' | 'denied' | null;
+};
+
+export type MeetingRecordingSummary = {
+    id: string;
+    meetingId: string;
+    state: 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
+    startedBy: MeetingRecordingActor;
+    startedAt: string;
+    stoppedBy: MeetingRecordingActor | null;
+    stoppedAt: string | null;
+    stopReason: 'member' | 'host' | 'meeting-ended' | 'sink-lost' | 'ceiling' | 'abandoned' | 'start-failed' | null;
+    trackCount: number;
+    capturedSeconds: number | null;
+    fileId: string | null;
+    transcriptId: string | null;
+    summaryState: 'pending' | 'ready' | 'failed' | 'refused' | null;
+    failureErrorId: string | null;
+};
+
+export type MeetingRecordingActor = {
+    userId: string;
+    displayName: string;
+};
+
+export type MeetingRecordingPage = {
+    data: Array<MeetingRecordingListEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingRecordingListEntry = MeetingRecordingSummary & {
+    document: MeetingRecordingDocument | null;
+    transcript: MeetingTranscriptMark | null;
+    summary: MeetingSummaryMark | null;
+};
+
+export type MeetingRecordingDocument = {
+    versionId: string;
+    state: 'pending' | 'available' | 'held' | 'replaced' | 'removed' | 'unavailable';
+};
+
+export type MeetingTranscriptMark = {
+    id: string;
+    state: 'pending' | 'ready' | 'failed';
+    fileId: string | null;
+};
+
+export type MeetingSummaryMark = {
+    id: string;
+    state: 'pending' | 'ready' | 'failed' | 'refused';
+    refusalReason: 'not-eligible' | 'disabled' | 'transcript-empty' | null;
+};
+
+export type MeetingRecordingNoticePage = {
+    data: Array<MeetingRecordingNoticeEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingRecordingNoticeEntry = {
+    id: string;
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+    reason: 'start' | 'arrival' | 'stop';
+    deliveredAt: string;
+};
+
+export type MeetingTranscriptPage = {
+    data: Array<MeetingTranscriptSegment>;
+    nextCursor: string | null;
+    transcript: MeetingTranscriptSummary;
+    linesWithheld: 'removed' | 'held' | 'unavailable' | null;
+};
+
+export type MeetingTranscriptSegment = {
+    id: string;
+    ordinal: number;
+    kind: 'speech' | 'gap';
+    startedMs: number;
+    endedMs: number;
+    text: string;
+    speaker: MeetingTranscriptSpeaker | null;
+};
+
+export type MeetingTranscriptSpeaker = {
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+};
+
+export type MeetingTranscriptSummary = {
+    id: string;
+    recordingId: string;
+    state: 'pending' | 'ready' | 'failed';
+    language: string | null;
+    segmentCount: number | null;
+    wordCount: number | null;
+    fileId: string | null;
+    failureErrorId: string | null;
+    createdAt: string;
+    updatedAt: string;
 };
 
 export type MeetingMessage = {
@@ -6594,6 +6815,65 @@ export type MeetingQuestionPage = {
 
 export type SetMeetingQuestionAnsweredRequest = {
     answered: boolean;
+};
+
+export type MeetingSummaryView = {
+    summary: MeetingSummaryHeader;
+    text: string | null;
+    actionItems: Array<MeetingSummaryActionItem>;
+    withheld: 'removed' | 'held' | 'unavailable' | null;
+};
+
+export type MeetingSummaryHeader = {
+    id: string;
+    transcriptId: string;
+    recordingId: string;
+    state: 'pending' | 'ready' | 'failed' | 'refused';
+    refusalReason: 'not-eligible' | 'disabled' | 'transcript-empty' | null;
+    failureErrorId: string | null;
+    modelId: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type MeetingSummaryActionItem = {
+    id: string;
+    ordinal: number;
+    text: string;
+    owner: MeetingSummaryActionItemOwner | null;
+    dueOn: string | null;
+    taskId: string | null;
+};
+
+export type MeetingSummaryActionItemOwner = {
+    userId: string;
+    displayName: string;
+};
+
+export type CreatedMeetingActionItemTask = {
+    taskId: string;
+    actionItem: MeetingSummaryActionItem;
+};
+
+export type CreateMeetingActionItemTaskRequest = {
+    assignToOwner?: boolean;
+};
+
+export type FirmMeetingSettingsResponse = {
+    recordingEnabled: boolean;
+    captionsEnabled: boolean;
+    summariesEnabled: boolean;
+    recordedTrackCeiling: number;
+    recordedTrackCeilingMaximum: number;
+    recordingServiceConfigured: boolean;
+    aiProcessingEligible: boolean;
+};
+
+export type PatchFirmMeetingSettingsRequest = {
+    recordingEnabled?: boolean;
+    captionsEnabled?: boolean;
+    summariesEnabled?: boolean;
+    recordedTrackCeiling?: number;
 };
 
 export type MeetingHostGrants = {
@@ -26191,6 +26471,184 @@ export type DirectorySetPersonLifeDatesResponses = {
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
 
+export type DirectoryRemoveEntityPhotoData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectoryRemoveEntityPhotoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryRemoveEntityPhotoError = DirectoryRemoveEntityPhotoErrors[keyof DirectoryRemoveEntityPhotoErrors];
+
+export type DirectoryRemoveEntityPhotoResponses = {
+    /**
+     * The record holds no picture
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectoryRemoveEntityPhotoResponse = DirectoryRemoveEntityPhotoResponses[keyof DirectoryRemoveEntityPhotoResponses];
+
+export type DirectoryEntityPhotoData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectoryEntityPhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityPhotoError = DirectoryEntityPhotoErrors[keyof DirectoryEntityPhotoErrors];
+
+export type DirectoryEntityPhotoResponses = {
+    /**
+     * The record's picture, or null
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectoryEntityPhotoResponse2 = DirectoryEntityPhotoResponses[keyof DirectoryEntityPhotoResponses];
+
+export type DirectorySetEntityPhotoData = {
+    body: SetDirectoryEntityPhotoRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo';
+};
+
+export type DirectorySetEntityPhotoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySetEntityPhotoError = DirectorySetEntityPhotoErrors[keyof DirectorySetEntityPhotoErrors];
+
+export type DirectorySetEntityPhotoResponses = {
+    /**
+     * The record's picture after the write
+     */
+    200: DirectoryEntityPhotoResponse;
+};
+
+export type DirectorySetEntityPhotoResponse = DirectorySetEntityPhotoResponses[keyof DirectorySetEntityPhotoResponses];
+
+export type DirectoryEntityPhotoContentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/photo/content';
+};
+
+export type DirectoryEntityPhotoContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record is unknown, or it holds no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityPhotoContentError = DirectoryEntityPhotoContentErrors[keyof DirectoryEntityPhotoContentErrors];
+
+export type DirectoryEntityPhotoContentResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type DirectoryEntityPhotoContentResponse = DirectoryEntityPhotoContentResponses[keyof DirectoryEntityPhotoContentResponses];
+
 export type AddressLookupSuggestData = {
     body: AddressSuggestionsRequest;
     path?: never;
@@ -26830,6 +27288,61 @@ export type ConflictsMatterPostureResponses = {
 };
 
 export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
+
+export type ConflictsCancelRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel';
+};
+
+export type ConflictsCancelRunErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the run is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsCancelRunError = ConflictsCancelRunErrors[keyof ConflictsCancelRunErrors];
+
+export type ConflictsCancelRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: ConflictsCancelledRun;
+};
+
+export type ConflictsCancelRunResponse = ConflictsCancelRunResponses[keyof ConflictsCancelRunResponses];
 
 export type CalendarMatterTimelineData = {
     body?: never;
@@ -29968,6 +30481,103 @@ export type MyDayGetResponses = {
 
 export type MyDayGetResponse = MyDayGetResponses[keyof MyDayGetResponses];
 
+export type CommunicationsCallerLookupData = {
+    body: CallerLookupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/caller-lookup';
+};
+
+export type CommunicationsCallerLookupErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks communications:log
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CommunicationsCallerLookupError = CommunicationsCallerLookupErrors[keyof CommunicationsCallerLookupErrors];
+
+export type CommunicationsCallerLookupResponses = {
+    /**
+     * What is known about the number
+     */
+    200: CallerLookup;
+};
+
+export type CommunicationsCallerLookupResponse = CommunicationsCallerLookupResponses[keyof CommunicationsCallerLookupResponses];
+
+export type CommunicationsCallerIdentityData = {
+    body: CallerLookupRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/caller-lookup/caller-identity';
+};
+
+export type CommunicationsCallerIdentityErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks communications:log
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The caller-name service did not answer, or refused. Nothing was kept; pressing again asks again.
+     */
+    502: Problem;
+};
+
+export type CommunicationsCallerIdentityError = CommunicationsCallerIdentityErrors[keyof CommunicationsCallerIdentityErrors];
+
+export type CommunicationsCallerIdentityResponses = {
+    /**
+     * The caller ID, or why there is none to ask for
+     */
+    200: CallerIdentityLookup;
+};
+
+export type CommunicationsCallerIdentityResponse = CommunicationsCallerIdentityResponses[keyof CommunicationsCallerIdentityResponses];
+
 export type CommunicationsListData = {
     body?: never;
     path?: never;
@@ -30927,6 +31537,247 @@ export type MeetingsAttendanceResponses = {
 
 export type MeetingsAttendanceResponse = MeetingsAttendanceResponses[keyof MeetingsAttendanceResponses];
 
+export type MeetingsStopRecordingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recording';
+};
+
+export type MeetingsStopRecordingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The meeting is on a firm event, which has no matter to file a recording into
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment, or this firm, cannot record a meeting
+     */
+    503: Problem;
+};
+
+export type MeetingsStopRecordingError = MeetingsStopRecordingErrors[keyof MeetingsStopRecordingErrors];
+
+export type MeetingsStopRecordingResponses = {
+    /**
+     * The recording has stopped
+     */
+    200: MeetingRecordingSummary;
+};
+
+export type MeetingsStopRecordingResponse = MeetingsStopRecordingResponses[keyof MeetingsStopRecordingResponses];
+
+export type MeetingsStartRecordingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recording';
+};
+
+export type MeetingsStartRecordingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The meeting is on a firm event, which has no matter to file a recording into
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment, or this firm, cannot record a meeting
+     */
+    503: Problem;
+};
+
+export type MeetingsStartRecordingError = MeetingsStartRecordingErrors[keyof MeetingsStartRecordingErrors];
+
+export type MeetingsStartRecordingResponses = {
+    /**
+     * The recording has started
+     */
+    201: MeetingRecordingSummary;
+};
+
+export type MeetingsStartRecordingResponse = MeetingsStartRecordingResponses[keyof MeetingsStartRecordingResponses];
+
+export type MeetingsListRecordingsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings';
+};
+
+export type MeetingsListRecordingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListRecordingsError = MeetingsListRecordingsErrors[keyof MeetingsListRecordingsErrors];
+
+export type MeetingsListRecordingsResponses = {
+    /**
+     * One page of this meeting's recordings
+     */
+    200: MeetingRecordingPage;
+};
+
+export type MeetingsListRecordingsResponse = MeetingsListRecordingsResponses[keyof MeetingsListRecordingsResponses];
+
+export type MeetingsRecordingNoticesData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/notices';
+};
+
+export type MeetingsRecordingNoticesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingNoticesError = MeetingsRecordingNoticesErrors[keyof MeetingsRecordingNoticesErrors];
+
+export type MeetingsRecordingNoticesResponses = {
+    /**
+     * One page of this recording's notices
+     */
+    200: MeetingRecordingNoticePage;
+};
+
+export type MeetingsRecordingNoticesResponse = MeetingsRecordingNoticesResponses[keyof MeetingsRecordingNoticesResponses];
+
+export type MeetingsRecordingTranscriptData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript';
+};
+
+export type MeetingsRecordingTranscriptErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingTranscriptError = MeetingsRecordingTranscriptErrors[keyof MeetingsRecordingTranscriptErrors];
+
+export type MeetingsRecordingTranscriptResponses = {
+    /**
+     * The transcript's header and one page of its lines
+     */
+    200: MeetingTranscriptPage;
+};
+
+export type MeetingsRecordingTranscriptResponse = MeetingsRecordingTranscriptResponses[keyof MeetingsRecordingTranscriptResponses];
+
 export type MeetingsSocketData = {
     body?: never;
     path: {
@@ -31485,7 +32336,7 @@ export type MeetingsAskQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -31540,7 +32391,7 @@ export type MeetingsUpvoteQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -31595,7 +32446,7 @@ export type MeetingsWithdrawQuestionUpvoteErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -31650,7 +32501,7 @@ export type MeetingsSetQuestionAnsweredErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -31705,7 +32556,7 @@ export type MeetingsRedactQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -31728,6 +32579,246 @@ export type MeetingsRedactQuestionResponses = {
 };
 
 export type MeetingsRedactQuestionResponse = MeetingsRedactQuestionResponses[keyof MeetingsRedactQuestionResponses];
+
+export type MeetingsRecordingSummaryData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary';
+};
+
+export type MeetingsRecordingSummaryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingSummaryError = MeetingsRecordingSummaryErrors[keyof MeetingsRecordingSummaryErrors];
+
+export type MeetingsRecordingSummaryResponses = {
+    /**
+     * The summary
+     */
+    200: MeetingSummaryView;
+};
+
+export type MeetingsRecordingSummaryResponse = MeetingsRecordingSummaryResponses[keyof MeetingsRecordingSummaryResponses];
+
+export type MeetingsRerunSummaryData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary';
+};
+
+export type MeetingsRerunSummaryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The task the action item would become is not one the task subsystem accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRerunSummaryError = MeetingsRerunSummaryErrors[keyof MeetingsRerunSummaryErrors];
+
+export type MeetingsRerunSummaryResponses = {
+    /**
+     * The summary is being written
+     */
+    202: MeetingSummaryView;
+};
+
+export type MeetingsRerunSummaryResponse = MeetingsRerunSummaryResponses[keyof MeetingsRerunSummaryResponses];
+
+export type MeetingsCreateSummaryActionItemTaskData = {
+    body: CreateMeetingActionItemTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        recordingId: string;
+        actionItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary/action-items/{actionItemId}/task';
+};
+
+export type MeetingsCreateSummaryActionItemTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The task the action item would become is not one the task subsystem accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsCreateSummaryActionItemTaskError = MeetingsCreateSummaryActionItemTaskErrors[keyof MeetingsCreateSummaryActionItemTaskErrors];
+
+export type MeetingsCreateSummaryActionItemTaskResponses = {
+    /**
+     * The task, and the action item now naming it
+     */
+    201: CreatedMeetingActionItemTask;
+};
+
+export type MeetingsCreateSummaryActionItemTaskResponse = MeetingsCreateSummaryActionItemTaskResponses[keyof MeetingsCreateSummaryActionItemTaskResponses];
+
+export type FirmMeetingSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/meetings/settings';
+};
+
+export type FirmMeetingSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks meetings:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmMeetingSettingsGetError = FirmMeetingSettingsGetErrors[keyof FirmMeetingSettingsGetErrors];
+
+export type FirmMeetingSettingsGetResponses = {
+    /**
+     * The firm's meeting settings
+     */
+    200: FirmMeetingSettingsResponse;
+};
+
+export type FirmMeetingSettingsGetResponse = FirmMeetingSettingsGetResponses[keyof FirmMeetingSettingsGetResponses];
+
+export type FirmMeetingSettingsUpdateData = {
+    body: PatchFirmMeetingSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/meetings/settings';
+};
+
+export type FirmMeetingSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks meetings:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmMeetingSettingsUpdateError = FirmMeetingSettingsUpdateErrors[keyof FirmMeetingSettingsUpdateErrors];
+
+export type FirmMeetingSettingsUpdateResponses = {
+    /**
+     * The firm's meeting settings after the write
+     */
+    200: FirmMeetingSettingsResponse;
+};
+
+export type FirmMeetingSettingsUpdateResponse = FirmMeetingSettingsUpdateResponses[keyof FirmMeetingSettingsUpdateResponses];
 
 export type MeetingsHostsData = {
     body?: never;

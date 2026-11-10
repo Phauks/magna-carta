@@ -8,6 +8,10 @@ import {
   meetingRoomClientReport,
   meetingRoomPublished,
   meetingRoomRefused,
+  meetingRecorderStopped,
+  meetingRecorderTrack,
+  meetingRecordingAnnounced,
+  meetingRecordingSinkRefused,
   migrationApplied,
   operationFailed,
   outboxDeadLettered,
@@ -205,12 +209,42 @@ describe("event catalog", () => {
     expect(event.fields["outboundRid"]).toBe("q");
   });
 
-  it("every meetings event is named under the room's family or the guest lane's", () => {
-    // Two families and no third: the room's own events, and the guest lane's refusals, which happen
-    // at the chokepoint before any room is addressed and so cannot honestly be called room events.
+  it("every meetings event is named under one of the subsystem's four families", () => {
+    // Four families and no fifth: the room's own events; the guest lane's refusals, which happen at
+    // the chokepoint before any room is addressed and so cannot honestly be called room events; the
+    // recording's announcement and sink, which belong to a recording rather than to the room that
+    // announced it; and the recorder's own, which is a separate object from the room altogether.
     const family = EVENT_NAMES.filter((name) => name.startsWith("meetings."));
     expect(family.length).toBeGreaterThan(15);
     for (const name of family)
-      expect(name.startsWith("meetings.room.") || name.startsWith("meetings.guest.")).toBe(true);
+      expect(
+        name.startsWith("meetings.room.") ||
+          name.startsWith("meetings.guest.") ||
+          name.startsWith("meetings.recording.") ||
+          name.startsWith("meetings.recorder."),
+      ).toBe(true);
+  });
+
+  it("a recording event has no slot for a track name, a display name, a token or an object key", () => {
+    const recordingFamily = [
+      meetingRecordingAnnounced,
+      meetingRecorderTrack,
+      meetingRecorderStopped,
+      meetingRecordingSinkRefused,
+    ];
+    for (const builder of recordingFamily) {
+      const event = builder(
+        { correlationId: "correlation_recordingRedaction00", now: "2026-10-02T12:00:00.000Z" },
+        {
+          trackName: "meetingAttendance_x:microphone",
+          displayName: "A Member",
+          token: "signed.token",
+          stagingKey: "meeting-recordings/x/y/z.pcm",
+        } as never,
+      );
+      for (const forbidden of ["trackName", "displayName", "token", "stagingKey"]) {
+        expect(event.fields).not.toHaveProperty(forbidden);
+      }
+    }
   });
 });

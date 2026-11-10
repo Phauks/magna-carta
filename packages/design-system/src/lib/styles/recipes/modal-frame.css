@@ -87,6 +87,13 @@
     border-block-end-width: var(--mc-border-width-default);
     border-block-end-color: var(--mc-border-default);
   }
+  /* A picture before the heading: the record's face, centred on the heading and its subtitle. */
+  .mc-modal-frame-lead {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-16);
+    min-inline-size: var(--mc-space-0);
+  }
   .mc-modal-frame-identity {
     display: flex;
     flex-direction: column;
@@ -188,6 +195,15 @@
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-normal);
+  }
+  /*
+   * A pane that carries a section rail down its left side (the directory's New Person and record
+   * window mark theirs `data-record-rail`) stops later: at size.record-form, which is the record's
+   * own measure plus the rail. Otherwise the rail is paid for out of the fields beside it.
+   */
+  .mc-modal-frame-pane:has([data-record-rail]) {
+    inline-size: var(--mc-size-record-form);
+    max-inline-size: var(--mc-size-record-form);
   }
   /* Alone in the body, the pane has no context to hand its surplus to, so it takes the frame. */
   .mc-modal-frame-pane:only-child {

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { perFirmMigrations, perFirmHeadSchemaVersion } from "../src/per-firm-migrations.ts";
 import perFirmJournal from "@magna-carta/database/drizzle/per-firm/meta/_journal.json" with { type: "json" };

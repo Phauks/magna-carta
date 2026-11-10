@@ -260,6 +260,97 @@
       "when": 1794252337493,
       "tag": "20261109T192537_attorney-sub-roles",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1794260036973,
+      "tag": "20261109T213357_a-looked-up-caller-identity-is-kept",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794265957034,
+      "tag": "20261109T231237_a-directory-record-carries-a-picture",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1794262936986,
+      "tag": "20261109T234343_a-conflicts-run-can-be-cancelled",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794265220285,
+      "tag": "20261109T235619_legal-citations-tool-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1794263965274,
+      "tag": "20261110T000018_a-call-records-what-happened-on-the-line",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1794265958034,
+      "tag": "20261110T000101_meeting-recording-and-who-was-told",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1794265959034,
+      "tag": "20261110T000102_meeting-recording-compose-cursor",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1794265960034,
+      "tag": "20261110T000103_meeting-recording-segments-and-compose-claim",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1794265961034,
+      "tag": "20261110T000104_meeting-transcript",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1794265962034,
+      "tag": "20261110T000105_meeting-transcript-model-failures-and-milliseconds",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794265963034,
+      "tag": "20261110T000106_meeting-summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794265964034,
+      "tag": "20261110T000107_meeting-summary-retry-and-failed-call",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1794265965034,
+      "tag": "20261110T000108_seed-meeting-settings-permission",
+      "breakpoints": true
     }
   ]
 }

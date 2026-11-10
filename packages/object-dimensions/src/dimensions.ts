@@ -82,7 +82,13 @@ export type MatterScopedObjectClass =
   // handed over, and which of it could not be read — that survive the review set and are never
   // regenerated. A collection rule that could not tell the two apart would delete the evidence and
   // keep the cache.
-  | "review-load-record";
+  | "review-load-record"
+  // One participant's audio from a meeting recording, staged as raw linear PCM while the recording
+  // runs and kept until the composed document and its transcript have settled. Privileged content in
+  // the plainest sense — a conversation on the matter — so it is stamped with that matter like the
+  // document it is composed into, and apart from it, because a staged track is the raw material and
+  // the filed recording is the record: a rule that expires one must be able to leave the other alone.
+  | "meeting-recording-track";
 
 // Classes for objects the firm owns that belong to no single matter. Stamping the class on these is
 // what makes "this object has no matter" a recorded fact rather than an absence indistinguishable from
@@ -110,7 +116,11 @@ export type FirmScopedObjectClass =
   // A member's own picture, as their colleagues see them. It belongs to the firm's roster rather
   // than to any matter, and stays firm-scoped for the same reason the member row does: it is what
   // THIS firm shows beside this person's work.
-  | "member-photo";
+  | "member-photo"
+  // A directory person's photograph or an organization's logo: what the firm recognises a client, a
+  // witness or a counterparty by. Firm-scoped rather than matter-scoped because one record stands on
+  // many matters and the picture is the record's, not any one matter's.
+  | "directory-photo";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -129,6 +139,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "review-extracted-text",
   "review-document-metadata",
   "review-load-record",
+  "meeting-recording-track",
 ];
 
 export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
@@ -141,6 +152,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "shipping-label",
   "export-snapshot",
   "member-photo",
+  "directory-photo",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [

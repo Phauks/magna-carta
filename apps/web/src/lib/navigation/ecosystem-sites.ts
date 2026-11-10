@@ -26,6 +26,7 @@ import BookOpen from "@lucide/svelte/icons/book-open";
 import CodeXml from "@lucide/svelte/icons/code-xml";
 import ScrollText from "@lucide/svelte/icons/scroll-text";
 import ShieldCheck from "@lucide/svelte/icons/shield-check";
+import { aboutWindow } from "$lib/about/about-window.svelte.ts";
 
 export interface EcosystemSite {
   readonly id: string;
@@ -40,6 +41,11 @@ export interface EcosystemSite {
    * Absent for a site the application has no copy of.
    */
   readonly route?: string;
+  /**
+   * An in-application window that stands in for this site while `href` is null, opened by calling
+   * it. Absent for a site the application has no window for.
+   */
+  readonly opensWindow?: () => void;
   readonly icon: Component;
 }
 
@@ -65,7 +71,10 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     id: "about",
     label: "About Magna Carta",
     description: "The public magna-carta.com site",
+    // The public site is not deployed yet; the About window states this copy's version and links
+    // to the changelog, help and the legal pages in the meantime.
     href: null,
+    opensWindow: () => aboutWindow.open(),
     icon: Globe,
   },
   {

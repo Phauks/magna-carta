@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // Slice 0·5b hardening: the fail-closed chokepoint-context accessors. The chokepoint stashes the
 // tenancy variables (chokepointUserId / chokepointFirmId / chokepointFirmContext) only on the
 // non-public, session-present path. The context-variable TYPES declare them non-optional, so a

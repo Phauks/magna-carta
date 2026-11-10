@@ -12,10 +12,16 @@
  * it including none.
  */
 import { flushSync, mount, unmount } from "svelte";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@magna-carta/api-client/client";
 import { queryClient } from "../src/lib/api/screen-data.ts";
 import { sessionPermissions } from "../src/lib/access/session-permissions.svelte.ts";
+import { browserMeetingSeams } from "../src/lib/meetings/client/meeting-client.svelte.ts";
+import {
+  MeetingRecording,
+  readRecordingAnnouncement,
+} from "../src/lib/meetings/client/recording.svelte.ts";
+import { pageRecordingSounds } from "../src/lib/meetings/client/recording-sounds.ts";
 import Harness from "./meeting-entry-harness.svelte";
 
 /** An origin for the client's relative operation paths, which Node cannot resolve on its own. */
@@ -135,6 +141,25 @@ describe("a member who may join", () => {
 
     expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Join Call (0)");
   });
+
+  it("is shown the room's Recording mark beside Join while a recording runs, and not otherwise", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, recordingState: "recording" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("[data-recording-mark]")?.textContent).toContain("Recording");
+    expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Join Meeting (0)");
+  });
+
+  it("carries no mark for a room whose recording has stopped", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, recordingState: "composing" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("[data-recording-mark]")).toBeNull();
+  });
 });
 
 describe("a room whose host has shut the door", () => {
@@ -150,6 +175,16 @@ describe("a room whose host has shut the door", () => {
     expect(control?.textContent?.trim()).toBe("Locked");
     expect(control?.disabled).toBe(true);
     expect(control?.getAttribute("title")).toContain("locked");
+  });
+
+  it("still says the room is being recorded: the people inside are, whoever may come in", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, locked: true, recordingState: "recording" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("[data-recording-mark]")).not.toBeNull();
+    expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Locked");
   });
 });
 
@@ -212,5 +247,106 @@ describe("a member who may host, on an entry with no room yet", () => {
     expect(started).toEqual([
       { eventKind: "matter", eventId: "matterEvent_1", medium: "video", lobby: "on" },
     ]);
+  });
+});
+
+/** A gain ramp the fake device accepts and ignores: what is counted is the note, not its shape. */
+const noRamp = (): void => {};
+
+/**
+ * An audio device as Safari hands one to a page: suspended when made, running once a resume is
+ * honoured — which a press in progress is — and counting every note asked of it.
+ */
+class FakeAudioContext {
+  static made: FakeAudioContext[] = [];
+  state: "suspended" | "running" | "closed" = "suspended";
+  currentTime = 0;
+  readonly destination = {};
+  resumes = 0;
+  notes = 0;
+  constructor() {
+    FakeAudioContext.made.push(this);
+  }
+  resume(): Promise<void> {
+    this.resumes += 1;
+    this.state = "running";
+    return Promise.resolve();
+  }
+  close(): Promise<void> {
+    this.state = "closed";
+    return Promise.resolve();
+  }
+  createOscillator(): Record<string, unknown> {
+    return {
+      type: "",
+      frequency: { value: 0 },
+      connect: (node: unknown) => node,
+      start: () => {
+        this.notes += 1;
+      },
+      stop: () => {},
+    };
+  }
+  createGain(): Record<string, unknown> {
+    return {
+      gain: {
+        setValueAtTime: noRamp,
+        linearRampToValueAtTime: noRamp,
+        exponentialRampToValueAtTime: noRamp,
+      },
+      connect: (node: unknown) => node,
+    };
+  }
+}
+
+describe("the recording tone, woken by the press that leads into a room", () => {
+  beforeEach(() => {
+    FakeAudioContext.made = [];
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+  });
+
+  afterEach(() => {
+    pageRecordingSounds.release();
+    vi.unstubAllGlobals();
+  });
+
+  it("wakes the page's device on Join, and the room's first chime plays on that same device", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, RUNNING_MEETING);
+    const rendered = await draw();
+    expect(FakeAudioContext.made).toHaveLength(0);
+
+    rendered.querySelector("button")?.click();
+    // Inside the press, before the navigation it causes: the room's arrival runs after it is over.
+    expect(FakeAudioContext.made).toHaveLength(1);
+    const device = FakeAudioContext.made[0];
+    expect(device?.resumes).toBe(1);
+    expect(device?.state).toBe("running");
+
+    // The room's client takes its sounds from the browser's seams, and chimes on the woken device
+    // rather than opening one of its own outside any press.
+    const room = new MeetingRecording(browserMeetingSeams().createRecordingSounds?.());
+    room.noteWelcome(
+      readRecordingAnnouncement({
+        state: "started",
+        recordingId: "meetingRecording_1",
+        by: { userId: "usr_2", displayName: "Rosalind Chase" },
+        at: "2026-09-18T13:05:00.000Z",
+      }),
+    );
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(device?.notes).toBe(2);
+  });
+
+  it("wakes it on Start too, before the room is asked for", async () => {
+    sessionHolding(["meetings:join", "meetings:host"]);
+    answerWith(404, { type: "meeting-not-found", title: "No meeting", status: 404 });
+    const rendered = await draw();
+
+    [...rendered.querySelectorAll("button")]
+      .find((control) => control.textContent?.trim() === "Start Call")
+      ?.click();
+    expect(FakeAudioContext.made).toHaveLength(1);
+    expect(FakeAudioContext.made[0]?.state).toBe("running");
   });
 });

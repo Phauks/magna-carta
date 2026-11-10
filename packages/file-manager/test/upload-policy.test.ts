@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import {
+  IN_MEMORY_INSPECTION_CEILING_BYTES,
   inspectableSizeCapDefinition,
+  readInspectableSizeCap,
   archiveCapsDefinition,
   liveMaxFileCountDefinition,
   liveMaxTotalBytesDefinition,
@@ -13,8 +15,39 @@ import {
 import { freshDatabase } from "./support.ts";
 
 describe("scan caps", () => {
-  it("defaults the inspectable-size cap to 2 GiB", () => {
-    expect(inspectableSizeCapDefinition.defaultValue).toBe(2 * 1024 * 1024 * 1024);
+  // The cap decides what the ingest gate holds whole in a 128 MB Worker isolate, so its default is the
+  // in-memory ceiling — tens of MiB — and never the multi-gigabyte figure that sent every long meeting
+  // recording out of memory.
+  it("defaults the inspectable-size cap to the 40 MiB in-memory ceiling", () => {
+    expect(IN_MEMORY_INSPECTION_CEILING_BYTES).toBe(40 * 1024 * 1024);
+    expect(inspectableSizeCapDefinition.defaultValue).toBe(IN_MEMORY_INSPECTION_CEILING_BYTES);
+  });
+  it("reads an unset firm's cap as the ceiling", async () => {
+    expect(await readInspectableSizeCap(freshDatabase())).toBe(IN_MEMORY_INSPECTION_CEILING_BYTES);
+  });
+  it("lets a firm tighten the cap below the ceiling", async () => {
+    const database = freshDatabase();
+    await database.batch([
+      writeFirmSettingStatement(
+        database,
+        inspectableSizeCapDefinition,
+        1024 * 1024,
+        "2026-10-02T00:00:00.000Z",
+      ),
+    ]);
+    expect(await readInspectableSizeCap(database)).toBe(1024 * 1024);
+  });
+  it("never reads a stored cap above the ceiling as anything but the ceiling", async () => {
+    const database = freshDatabase();
+    await database.batch([
+      writeFirmSettingStatement(
+        database,
+        inspectableSizeCapDefinition,
+        2 * 1024 * 1024 * 1024,
+        "2026-10-02T00:00:00.000Z",
+      ),
+    ]);
+    expect(await readInspectableSizeCap(database)).toBe(IN_MEMORY_INSPECTION_CEILING_BYTES);
   });
   it("defaults the archive caps to safe limits", () => {
     expect(archiveCapsDefinition.defaultValue).toEqual({

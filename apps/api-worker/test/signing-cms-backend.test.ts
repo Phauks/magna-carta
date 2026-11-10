@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // Runtime-compatibility guard: the @magna-carta/signing CMS layer must run on the real Workers
 // runtime (workerd, via @cloudflare/vitest-plugin), not only under node. The CMS logic and its
 // thorough coverage live in the package's own tests; this proves the same code seals and verifies on

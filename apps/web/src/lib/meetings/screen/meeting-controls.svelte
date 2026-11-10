@@ -32,6 +32,14 @@
    * THE POLLS AND Q&A CONTROLS CARRY THEIR OWN COUNTS, on the lobby's argument: a poll nobody has
    * answered and a question nobody has taken are both things a member learns about by SEEING a number
    * on a control they were not looking at, never by opening a panel to check.
+   *
+   * RECORD AND STOP ARE ONE CONTROL, read from either side like every toggle here, and it is drawn
+   * only for somebody who could press it: a member holding the right to record AND a grant on this
+   * room may start one, and anybody holding a grant may stop one, because a host can already end the
+   * meeting and ending it stops the recording. Everybody else sees the mark in the header and no
+   * control, on this band's own rule that a control nobody may use is absent rather than disabled.
+   * The one disabled state is a meeting that can never be recorded — a firm event has no matter to
+   * keep a recording on — and it says so where the control would be.
    */
   import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import MessageCircleQuestionMark from "@lucide/svelte/icons/message-circle-question-mark";
@@ -43,6 +51,8 @@
   import Lock from "@lucide/svelte/icons/lock";
   import LockOpen from "@lucide/svelte/icons/lock-open";
   import Mic from "@lucide/svelte/icons/mic";
+  import Circle from "@lucide/svelte/icons/circle";
+  import CircleStop from "@lucide/svelte/icons/circle-stop";
   import Presentation from "@lucide/svelte/icons/presentation";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import PhoneOff from "@lucide/svelte/icons/phone-off";
@@ -57,6 +67,7 @@
   import ChoiceRow from "@magna-carta/design-system/choice-row";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FailureBand from "@magna-carta/design-system/failure-band";
+  import FileInput from "@magna-carta/design-system/file-input";
   import Label from "@magna-carta/design-system/label";
   import * as Popover from "@magna-carta/design-system/popover";
   import Switch from "@magna-carta/design-system/switch";
@@ -71,6 +82,7 @@
     DEFAULT_EFFECT_SETTINGS,
     platformBlurStatement,
     type AppliedEffects,
+    type EffectsChange,
     type MediaEffectSettings,
   } from "$lib/meetings/client/media-effects.ts";
   import type { Snippet } from "svelte";
@@ -94,6 +106,13 @@
     effectSettings = DEFAULT_EFFECT_SETTINGS,
     pollsWaiting = 0,
     questionsWaiting = 0,
+    recording = false,
+    mayStartRecording = false,
+    mayStopRecording = false,
+    recordingUnavailable = null,
+    stoppingRecording = false,
+    onRecord,
+    onStopRecording,
     onToggleMicrophone,
     onToggleCamera,
     onToggleSharing,
@@ -108,6 +127,7 @@
     onClearSpotlight,
     onOpenHosts,
     onChangeEffects,
+    onChooseBackgroundImage,
     onOpenPolls,
     onOpenQuestions,
     onLeave,
@@ -179,6 +199,23 @@
     pollsWaiting?: number;
     /** How many questions are still waiting for an answer. On the Q&A control, for the same reason. */
     questionsWaiting?: number;
+    /** Whether the room has announced a recording running, which is what the control says next. */
+    recording?: boolean;
+    /** Whether this member may start a recording: the right to record, and a grant on this room. */
+    mayStartRecording?: boolean;
+    /** Whether this member may stop a running one: the right to record, or any grant on this room. */
+    mayStopRecording?: boolean;
+    /**
+     * Why this meeting can never be recorded, where it cannot. The Record control is then drawn
+     * disabled with this sentence beside it, rather than offered and refused.
+     */
+    recordingUnavailable?: string | null;
+    /** True while a stop is in flight, so the control cannot be pressed twice. */
+    stoppingRecording?: boolean;
+    /** Ask to start recording. The room screen asks for confirmation before anything is sent. */
+    onRecord?: () => void;
+    /** Stop the running recording. Nothing is lost by stopping, so it is not asked twice. */
+    onStopRecording?: () => void;
     onToggleMicrophone: () => void;
     onToggleCamera: () => void;
     onToggleSharing: () => void;
@@ -217,9 +254,16 @@
     onOpenHosts?: () => void;
     /**
      * Change what is done to this member's own sound and picture. The room screen remembers the
-     * choice and hands it to the client, which asks the tracks and reads back what they did.
+     * choice and hands it to the client, which asks the tracks and reads back what they did. The
+     * second argument says which half of the panel the change came from, so a change to the
+     * microphone never moves a blur the member did not touch.
      */
-    onChangeEffects?: (settings: MediaEffectSettings) => void;
+    onChangeEffects?: (settings: MediaEffectSettings, change: EffectsChange) => void;
+    /**
+     * Stand this member in front of a picture from their own computer. The file never leaves their
+     * browser; the room sees only the composite.
+     */
+    onChooseBackgroundImage?: (file: File) => void;
     /** Open the polls. Absent where the room screen offers no polls panel. */
     onOpenPolls?: () => void;
     /** Open the question queue. Absent where the room screen offers no queue. */
@@ -264,15 +308,36 @@
     appliedEffects?.audio.noiseSuppression ?? effectSettings.reduceNoise,
   );
 
+  /**
+   * Whether the member pressed Image before any picture was chosen, so the panel is asking for one.
+   * Choosing Image with nothing to show would publish nothing different, so the picture comes first.
+   */
+  let askingForImage = $state(false);
+
   function chooseBackground(background: MediaEffectSettings["background"]): void {
     if (appliedEffects === null) return;
-    const current = appliedEffects.blur === "on" ? "blur" : "none";
-    if (background === current) return;
-    onChangeEffects?.({ ...effectSettings, background });
+    if (background === "image" && !appliedEffects.imageChosen) {
+      askingForImage = true;
+      return;
+    }
+    askingForImage = false;
+    if (background === appliedEffects.background) return;
+    onChangeEffects?.({ ...effectSettings, background }, "background");
   }
 
+  function chooseImageFile(file: File | null): void {
+    if (file === null) return;
+    askingForImage = false;
+    onChooseBackgroundImage?.(file);
+  }
+
+  /*
+   * Said to be about the microphone, so the stage leaves the camera alone: measured against what the
+   * camera reports instead, a blur the machine turned on would be "corrected" off by a member who
+   * only asked for less noise.
+   */
   function chooseNoiseReduction(reduceNoise: boolean): void {
-    onChangeEffects?.({ ...effectSettings, reduceNoise });
+    onChangeEffects?.({ ...effectSettings, reduceNoise }, "microphone");
   }
 </script>
 
@@ -306,7 +371,37 @@
           <h3 id="meeting-effects-background" class="text-xs font-medium text-text-muted">
             Background
           </h3>
-          {#if applied.blur === "on" || applied.blur === "off"}
+          {#if applied.backgroundByProduct}
+            <div class="flex flex-col gap-4">
+              <ChoiceRow
+                selected={applied.background === "none" && !askingForImage}
+                onclick={() => chooseBackground("none")}
+              >
+                None
+              </ChoiceRow>
+              <ChoiceRow
+                selected={applied.background === "blur" && !askingForImage}
+                onclick={() => chooseBackground("blur")}
+              >
+                Blur
+              </ChoiceRow>
+              <ChoiceRow
+                selected={applied.background === "image" || askingForImage}
+                onclick={() => chooseBackground("image")}
+              >
+                Image
+              </ChoiceRow>
+            </div>
+            {#if applied.background === "image" || askingForImage}
+              <!-- The picture stays in this browser. It is cut down and kept here, and the room
+                   only ever sees the member standing in front of it. -->
+              <FileInput
+                accept="image/png,image/jpeg,image/webp"
+                aria-label={applied.imageChosen ? "Choose a different picture" : "Choose a picture"}
+                onchange={(event) => chooseImageFile(event.currentTarget.files?.[0] ?? null)}
+              />
+            {/if}
+          {:else if applied.blur === "on" || applied.blur === "off"}
             <div class="flex flex-col gap-4">
               <ChoiceRow
                 selected={applied.blur === "off"}
@@ -511,6 +606,35 @@
         <Badge variant="primary">{questionsWaiting}</Badge>
       {/if}
     </Button>
+  {/if}
+
+  {#if recording && mayStopRecording && onStopRecording !== undefined}
+    <!-- Stop, while the room says a recording runs. Before the menu rather than at the end of the
+         band, for the lobby control's reason: the end is an anchor, and this control comes and goes
+         with the recording. -->
+    <Button variant="secondary" disabled={stoppingRecording} onclick={onStopRecording}>
+      <CircleStop class="size-16" aria-hidden="true" />
+      Stop Recording
+    </Button>
+  {:else if !recording && mayStartRecording && onRecord !== undefined}
+    {#if recordingUnavailable === null}
+      <Button variant="secondary" onclick={onRecord}>
+        <Circle class="size-16 fill-current text-status-danger" aria-hidden="true" />
+        Record
+      </Button>
+    {:else}
+      <!-- A meeting that can never be recorded keeps the control in its place, disabled, with the
+           reason beside it in words rather than on a hover a touch screen never shows. -->
+      <span class="flex items-center gap-8">
+        <Button variant="secondary" disabled aria-describedby="meeting-recording-unavailable">
+          <Circle class="size-16" aria-hidden="true" />
+          Record
+        </Button>
+        <span id="meeting-recording-unavailable" class="text-xs text-text-muted">
+          {recordingUnavailable}
+        </span>
+      </span>
+    {/if}
   {/if}
 
   {#if hosting && onOpenLobby !== undefined}

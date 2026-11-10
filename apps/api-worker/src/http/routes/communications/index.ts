@@ -1,5 +1,6 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerCallerLookupRoutes } from "./caller-lookup.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
 import { registerMeetingsRoutes } from "./meetings.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
@@ -9,6 +10,8 @@ import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
+import { registerMeetingSummaryRoutes } from "./meeting-summary.ts";
 import { emailAdapterForEnv } from "../../../auth-instance.ts";
 
 // The call and text log, and the shipping surface the carrier plugin mounts through this module's file.
@@ -23,6 +26,9 @@ export function mountCommunications(
   deps: DomainDeps = {},
 ): void {
   const domain = createDomainApp();
+  // Who is on the other end of a number, asked as one is typed into a call record. Ahead of the log's
+  // own routes so its literal paths are matched before the record-id pattern beside them.
+  registerCallerLookupRoutes(domain, chokepoint);
   registerCommunicationsRoutes(domain, chokepoint);
   // Meetings — the room a member opens on a calendar event, who was in it, and when each of them
   // arrived and left. Beside the call and text log because it is the same question about a
@@ -40,6 +46,14 @@ export function mountCommunications(
   // the commit.
   registerMeetingPollRoutes(domain, chokepoint);
   registerMeetingQuestionRoutes(domain, chokepoint);
+  // A recorded meeting's summary — a reasoning model's characterization of its transcript, kept as
+  // rows beside the record it summarizes — read, written again, and its action items made into tasks
+  // through the task subsystem's own create path.
+  registerMeetingSummaryRoutes(domain, chokepoint);
+  // The firm's meeting settings: whether its meetings may be recorded, captioned and summarized, and
+  // how many people one recording hears at once. The only writer of those switches, which the
+  // recording start route, the recorder and the summary consumer read.
+  registerMeetingSettingsRoutes(domain, chokepoint);
   // Who is running a meeting, and the acts that need somebody's name against them afterwards —
   // removing a participant, shutting the door, handing the room over. A file of its own because
   // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the

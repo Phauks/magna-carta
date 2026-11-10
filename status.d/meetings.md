@@ -9,9 +9,9 @@ built: in-progress by="Claude"
 ui: in-progress by="Claude"
 load-profile: n/a
 tested: in-progress by="Claude"
-branch: claude/focused-edison-ylxfiy
-active-work: docs/active-work/claude/focused-edison-ylxfiy.md
-next: Recording on the audio-only path behind the announcement and the mark, then captions and the transcript, then breakout rooms, webinars and booking pages from their designs
+branch: claude/project-thread-ezg0ip
+active-work:
+next: Recording, transcripts, summaries and captions are built and switched off until the owner steps in the operations runbook (Turning meeting recording on) are done; then noise suppression, personal rooms and end-to-end encryption
 link-spec: docs/specs/2026-09-18-meetings-design.md
 link-plan:
 adrs:
@@ -83,3 +83,24 @@ per-second bucket the reactions already had, now shared, so three hundred answer
 frame. Every participant column accepts a webinar's attendee as well as a member and a guest, and
 every poll and question row carries a breakout room by value, both now while the migration is
 unlanded. The server half is built and tested; the panels are the web half, in build beside it.
+
+Recording's first slice is the sink and the consent mechanism, and it is built on the server side. The
+owner ruled the announcement and the mark the consent mechanism, so they are a mechanism with a record:
+the room broadcasts a `recording` frame to every welcomed socket, guests included, the instant a start
+or stop commits, tells every later arrival on their welcome, and writes a notice row for each stay it
+told — one batch per fan-out, every stay named by kind and by value so a guest is on the consent record
+exactly as a member is. Start and stop are routes on a new `meetings:record` key seeded to the hosting
+seats, and the room is told before any audio is captured. The audio leaves the routing service through
+its WebSocket adapter into a non-hibernating `MeetingRecorder` per recording, which stages each track as
+mono PCM in the firm's own bucket and reconciles against the room for arrivals, departures, the track
+ceiling and lost sockets. It is switched off until the owner proves the routing service keeps the sink
+address intact and sets the signing key.
+
+Composing and filing is the second slice, and its server half is built. A stopped recording is handed to
+a queue consumer that mixes its staged tracks into one mono WAV a ten-minute window per message — each
+track at its own offset, a lost track silent after the loss, two loud speakers clamped rather than
+wrapped — keeps its cursor on the recording's row, and files the result onto the matter through the same
+upload pipeline, scan and status gate every document crosses; the staged tracks go once it is filed. A
+sweep on the ten-minute cron abandons a recording whose recorder stopped working and clears the mark,
+hands a stalled compose on and fails it with an Error ID after three attempts, and releases staged audio
+nothing needs after its window.

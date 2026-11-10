@@ -898,3 +898,54 @@ The United States is answered from an index the platform builds itself, with no 
 **What never appears anywhere.** As in §19: the query is a client's address. The Containers log no query text and no address, their error bodies carry engine vocabulary only, and the routes stay POSTs.
 
 **Switching it off.** Remove the `ADDRESS_SERVICE` binding from the app worker. US lookups then go to Smarty if its pair is set, and to nothing otherwise. The worker, bucket and index can stay; with no queries the Containers sleep and bill nothing, and the cron keeps the index fresh for the day the binding returns. To stop the monthly build as well, remove the cron trigger from `apps/address-worker/wrangler.jsonc`.
+
+## 21. Caller ID lookup — switching it on (Telnyx)
+
+The call record's number field says who a typed number belongs to. The Directory match and the area code's region are free and always on. The **Look Up Caller ID** button is a paid Telnyx Number Lookup, and it ships **off**: with no `TELNYX_API_KEY`, the Worker answers the paid operation `unavailable`, no button is shown, and nothing calls out.
+
+**Switching it on**
+
+1. Create a Telnyx account under `ops@magnacarta.esq` (credentials into the Bitwarden vault) and add a balance. Number Lookup refuses to run on a negative balance, and only the organization owner may use it.
+2. **Mission Control → API Keys**: create a key.
+3. Set it on `magna-carta-api`: `wrangler secret put TELNYX_API_KEY`.
+4. Open **Messaging → New Message**, type a whole US number, and press **Look Up Caller ID**. The caller ID line replaces the button; typing the same number again shows it without the button.
+
+The name is not in `secrets.required` (§3), deliberately, for the same reason as the Smarty pair.
+
+**Watching it**
+
+- `communications.caller_lookup` in the telemetry dataset, with `engine` (`telnyx` / `deferred`) and `outcome` (`found` / `cached` / `not-covered` / `unavailable` / `failed`). Each `found` is a billed query (caller name plus carrier); `cached` cost nothing.
+- `outcome: failed` climbing means Telnyx is refusing — usually a revoked key or an empty balance. The person is told the lookup did not answer and nothing is kept, so their next press asks again.
+- **The Telnyx balance is the only hard spending ceiling.** Keep it at the amount you are prepared to spend; the Worker's rate limit is per isolate.
+
+**What never appears anywhere.** The number is a client's: the routes are POSTs (the invocation log records full URLs), the audit row records only that a lookup was paid for, and no metric dimension can hold the number or the name.
+
+**Switching it off.** `wrangler secret delete TELNYX_API_KEY`. The button disappears on the next read; answers already kept stay visible, because the firm paid for them.
+
+## 22. Turning meeting recording on (recording, transcripts, summaries, live captions)
+
+The code is deployed switched off. Nothing records until every step below is done, and until then the
+start route answers `503 meeting-recording-not-configured` and no Record control is offered
+(`recordingDeploymentConfigured` in `apps/api-worker/src/http/routes/communications/meetings.ts`
+reads all of it). Do them in this order:
+
+1. **Create the queue and its dead-letter queue.** `wrangler queues create magna-carta-production-meeting-recording-compose`
+   and `wrangler queues create magna-carta-production-meeting-recording-compose-deadletter`. One queue
+   carries all three kinds of work: composing a stopped recording into one file, transcribing it, and
+   summarizing the transcript.
+2. **Bind the queue, in a change of its own.** Add `MEETING_RECORDING_COMPOSE` to `queues.producers` in
+   `apps/api-worker/wrangler.jsonc`, and a consumer for the same queue with `max_batch_size: 1`,
+   `max_concurrency: 10` and the dead-letter queue above. It is not bound today because a deploy that
+   binds a queue the account does not have fails, and a merge to `main` deploys; the comment where the
+   producer goes says so.
+3. **Prove the sink against the live Realtime application.** Confirm the routing service's WebSocket
+   adapter dials `/internal/meeting-audio/<token>` with the path intact (the token rides the path, never
+   a query string), and that the audio envelope's field numbers are 1, 2 and 5 as
+   `packages/meetings/src/pcm-frame.ts` reads them.
+4. **Route `/internal/*` to the app Worker.** `run_worker_first` already lists it; add the zone route if
+   the hostname's routes do not reach it (section 12, _Which address does a Worker answer on_).
+5. **Set the sink signing key.** `wrangler secret put MEETING_SINK_SIGNING_KEY` with a fresh random
+   value. It signs the token the routing service presents when it dials the recorder.
+6. **A firm switches it on.** Its Owner or Admin turns recording (and, separately, summaries and
+   captions) on under Settings › Practice › Meetings. Summaries also need the firm's AI processing
+   switched on.

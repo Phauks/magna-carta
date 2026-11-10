@@ -28,6 +28,7 @@
     sections,
     configured = true,
     onAttendance,
+    onRecordings,
   }: {
     /** The three scopes, each with what its own read came back with. */
     sections: Record<MeetingScope, MeetingSectionState>;
@@ -38,6 +39,8 @@
     configured?: boolean;
     /** Open the record of who was in an ended meeting, which the page holds. */
     onAttendance?: (meeting: MeetingSummary) => void;
+    /** Open what was recorded in an ended meeting, which the page holds as well. */
+    onRecordings?: (meeting: MeetingSummary) => void;
   } = $props();
 </script>
 
@@ -54,6 +57,7 @@
         onRetry={state.onRetry}
         onLoadMore={state.onLoadMore}
         onAttendance={scope === "recent" ? onAttendance : undefined}
+        onRecordings={scope === "recent" ? onRecordings : undefined}
       />
     {/each}
   </div>

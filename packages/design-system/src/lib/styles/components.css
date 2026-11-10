@@ -27,6 +27,7 @@
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";
 @import "../components/badge/badge.css";
+@import "../components/formatted-citation/formatted-citation.css";
 @import "../components/file-icon/file-icon.css";
 @import "../components/brand-mark/brand-mark.css";
 @import "../components/empty-state/empty-state.css";
@@ -58,6 +59,7 @@
 /* The transcript reads in the same record register the event rail does, and dresses only native
    elements of its own, so it sits beside it and overrides nothing. */
 @import "../components/conversation/conversation.css";
+@import "../components/source-quote/source-quote.css";
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";

@@ -44,6 +44,9 @@
   //                       reason: the caller is a Container holding no session.
   //   /__dev/*          — the throwaway local demo page (apps/api-worker/src/http/routes/developer/dev-web-tools-demo.ts),
   //                       which answers 404 unless DEV_DEMO_TOOLS is set.
+  //   /internal/*       — the socket the media routing service dials to hand a meeting recorder a
+  //                       track's audio (apps/api-worker/src/routes/meeting-sink.ts): cookieless,
+  //                       signed-token-guarded, and refusing any request that carries an Origin.
   // It stays an explicit list rather than inverting to `true` with exceptions so the SPA's own files
   // keep being served by the asset server — free, and off this Worker's CPU and invocation count.
   // apps/api-worker/test/worker-first-routing-scan.test.ts reads this array against the app's live Hono
@@ -52,7 +55,7 @@
   // SINCE THE 2026-08-31 CUTOVER this block is the LOCAL-DEV VEHICLE AND THE ROLLBACK FALLBACK, not
   // how the deployed site serves its interface. The app's address is split by route pattern on the
   // zone: magna-carta-web (the assets-only sibling, same ../web/build output) serves every path, and
-  // this Worker is routed only the four families above — so the zone's route list and
+  // this Worker is routed only the five families above — so the zone's route list and
   // run_worker_first must name the SAME families, and a new family means a new zone route (an
   // operator step, docs/conventions/operations.md) in the same breath as the line here. The block
   // stays because `wrangler dev` and the Playwright e2e suite serve the whole app from it on :8787,
@@ -64,7 +67,7 @@
     "directory": "../web/build",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/wopi/*", "/search-objects/*", "/__dev/*"],
+    "run_worker_first": ["/api/*", "/wopi/*", "/search-objects/*", "/__dev/*", "/internal/*"],
   },
   // Public, non-secret config. FILES_ORIGIN is the cookieless preview/download host; bound here (not
   // .dev.vars) because it is a hostname, not a credential. In production this becomes
@@ -127,6 +130,13 @@
   // R2_S3_ACCESS_KEY_ID / R2_S3_SECRET_ACCESS_KEY: the R2 S3 API token the upload presigner signs
   // direct-to-R2 URLs with, "Apply to all buckets in this account" — every firm has its own bucket,
   // and a token scoped to one cannot sign for any other.
+  //
+  // OPTIONAL, AND DELIBERATELY NOT REQUIRED: MEETING_SINK_SIGNING_KEY, the secret a meeting recorder
+  // signs each track's sink address with (src/meetings/sink-token.ts). Absent is the shipped state:
+  // recording answers 503 meeting-recording-not-configured and offers no Record control, exactly as
+  // REALTIME_SFU_APP_ID / REALTIME_SFU_APP_SECRET absent means no meetings at all. Listing it here
+  // would fail every deploy until the owner has proved the routing service keeps the sink address
+  // intact and set it with `wrangler secret put MEETING_SINK_SIGNING_KEY`.
   "secrets": {
     "required": [
       "AUTH_SECRET",
@@ -202,6 +212,14 @@
       // the firm's consent gates, builds the bounded window, calls the one inference chokepoint, and
       // settles the turn. Model work never runs on the request path.
       { "binding": "MAGNUS", "queue": "magna-carta-production-magnus" },
+      // NOT YET BOUND: MEETING_RECORDING_COMPOSE, the meeting-recording queue. The recorder enqueues one
+      // message when a stopped recording has every track staged, the consumer re-enqueues it for each
+      // next window of the mix, and the transcript and summary ride the same queue as two more kinds
+      // of message. A deploy that binds a queue the account does not have fails, and a merge to main
+      // deploys, so the producer and its consumer below are added in the change that follows the
+      // queue's creation (docs/conventions/operations.md, "Turning meeting recording on"). Until then
+      // the binding is absent, the recorder stages nothing it cannot hand on, and no Record control is
+      // offered.
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -468,6 +486,18 @@
       // themselves are routed between browsers and never reach this Worker, so nothing anybody said
       // is ever in this object's storage.
       { "name": "MEETING_ROOM", "class_name": "MeetingRoom" },
+      // One recording's sink: keyed firmId:recordingId. The routing service's WebSocket adapters dial
+      // it, one socket per recorded track, and it stages each track's audio in the firm's own bucket.
+      // NOT hibernating — it receives fifty frames a second per track while it works — and it writes no
+      // audio to its own storage, only each track's upload and counters.
+      { "name": "MEETING_RECORDER", "class_name": "MeetingRecorder" },
+      // One meeting's live captions: keyed firmId:meetingId. The routing service's WebSocket adapters
+      // dial it for whoever is speaking, and it streams their audio to the caption model and hands the
+      // words to the room. A sibling of the recorder rather than a part of it: captions belong to the
+      // meeting and run with or without a recording, and the recorder's memory is already spent on its
+      // eleven tracks. NOT hibernating while a session is open; it stores no audio and no words, only
+      // the handles of the adapters it holds open and counts.
+      { "name": "MEETING_CAPTIONER", "class_name": "MeetingCaptioner" },
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
@@ -480,8 +510,10 @@
   // coordinator DO; v5-document-assembly-job the document-assembly job coordinator DO;
   // v6-magnus-conversation the assistant's per-conversation push object; v7-discovery-load-job the
   // discovery load fan-out coordinator; v8-search-compaction-job the split-compaction coordinator;
-  // v9-meeting-room one meeting's signaling room (the most recent class, appended last). Never
-  // modify an applied tag — only append a new one.
+  // v9-meeting-room one meeting's signaling room; v10-safe-browse-session one member's live browsing
+  // session; v11-meeting-recorder one recording's sink; v12-meeting-captioner one meeting's live
+  // captions (the most recent class, appended last). Never modify an applied tag — only append a new
+  // one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
     { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
@@ -495,6 +527,8 @@
     { "tag": "v8-search-compaction-job", "new_sqlite_classes": ["SearchCompactionJob"] },
     { "tag": "v9-meeting-room", "new_sqlite_classes": ["MeetingRoom"] },
     { "tag": "v10-safe-browse-session", "new_sqlite_classes": ["SafeBrowseSession"] },
+    { "tag": "v11-meeting-recorder", "new_sqlite_classes": ["MeetingRecorder"] },
+    { "tag": "v12-meeting-captioner", "new_sqlite_classes": ["MeetingCaptioner"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
