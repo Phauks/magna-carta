@@ -1,13 +1,12 @@
-import {
-  listVersionsMissingFromSearchIndex,
-  type SearchIndexCandidateCursor,
-} from "@magna-carta/file-manager/queries";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../../bindings.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
-import { enqueueVersionForIndexing } from "../../search/enqueue-index.ts";
+import {
+  DAILY_INDEX_BACKLOG_ENQUEUE_CAP,
+  enqueueFirmIndexBacklog,
+} from "../../search/index-backlog.ts";
 
 // The repair pass for documents that are not in the searchable corpus and should be.
 //
@@ -57,9 +56,9 @@ import { enqueueVersionForIndexing } from "../../search/enqueue-index.ts";
 // One pass's per-firm cap. A firm's entire back catalogue can be missing from the index — that is
 // exactly the case after this fix, and after a firm first turns indexing on — so the cap is what keeps
 // one daily fire bounded and lets the backlog drain over several days instead of flooding the queue in
-// one burst. Sized above the tiering sweep's cap because enqueuing is far cheaper per document than
-// rewriting an R2 object.
-const REEXTRACTION_SWEEP_PER_FIRM_CAP = 1000;
+// one burst. The number itself is declared beside the walk in search/index-backlog.ts, because the
+// firm's search status read reports it and a route may not import this module.
+const REEXTRACTION_SWEEP_PER_FIRM_CAP = DAILY_INDEX_BACKLOG_ENQUEUE_CAP;
 
 // How many candidates one pass will LOOK AT per firm, as distinct from how many it will enqueue. A
 // candidate the coordinator declines costs one Durable Object call and no extraction, no queue message,
@@ -103,39 +102,16 @@ export async function runReextractionSweep(
   let examined = 0;
   for (const firm of firms) {
     try {
-      let cursor: SearchIndexCandidateCursor | undefined;
-      let enqueuedForFirm = 0;
-      let examinedForFirm = 0;
-      while (enqueuedForFirm < perFirmCap && examinedForFirm < scanCeiling) {
-        const page = await listVersionsMissingFromSearchIndex(
-          firm.database,
-          Math.min(pageSize, scanCeiling - examinedForFirm),
-          cursor,
-        );
-        if (page.length === 0) break;
-        for (const candidate of page) {
-          // Through the same seam an ingest commit uses, not a hand-rolled enqueue: it is the one place
-          // that reads the firm's indexing switch, resolves the version's facts, and starts the
-          // coordinator. A firm with indexing off produces no message here for the same reason it
-          // produces none at commit.
-          const outcome = await enqueueVersionForIndexing(
-            env,
-            firm.firmId,
-            candidate.versionId,
-            firm.database,
-          );
-          examinedForFirm++;
-          // `started`, not merely "resolved to a message": a version the coordinator declined — already
-          // in flight, or out of attempts against this engine generation — cost nothing and must not
-          // spend the pass's budget.
-          if (outcome?.started === true) enqueuedForFirm++;
-          // THE CURSOR MOVES ON EVERY CANDIDATE, not only the enqueued ones. That is the whole
-          // difference between a pass that drains a catalogue and one that re-reads its head forever.
-          cursor = { committedAt: candidate.committedAt, versionId: candidate.versionId };
-          if (enqueuedForFirm >= perFirmCap) break;
-        }
-        if (page.length < pageSize) break;
-      }
+      // The walk itself is search/index-backlog.ts, shared with the settings route that starts a
+      // firm's first files the moment it turns indexing on. It enqueues through the same seam an
+      // ingest commit uses, advances its cursor past every candidate it examines, and counts only
+      // the work it actually started against the cap.
+      const { enqueued: enqueuedForFirm, examined: examinedForFirm } =
+        await enqueueFirmIndexBacklog(env, firm.firmId, firm.database, {
+          enqueueCap: perFirmCap,
+          scanCeiling,
+          pageSize,
+        });
       enqueued += enqueuedForFirm;
       examined += examinedForFirm;
       firmsProcessed++;

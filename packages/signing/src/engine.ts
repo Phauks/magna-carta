@@ -28,6 +28,21 @@ export interface PrepareSealOptions {
   readonly signingTime?: string;
   /** Bytes reserved for the CMS; the `/Contents` hex is twice this. Defaults to the engine's own. */
   readonly contentsCapacity?: number;
+  /** A box drawn on the page that shows the signature. Omit to sign invisibly. */
+  readonly appearance?: SealAppearance;
+}
+
+/**
+ * A visible signature: a bordered box holding lines of text, drawn inside the signed revision so
+ * its text cannot be changed afterwards without breaking the signature.
+ */
+export interface SealAppearance {
+  /** The 0-based page the box is drawn on. */
+  readonly page: number;
+  /** The box in points, `[left, bottom, right, top]`, from the page's bottom-left corner. */
+  readonly rect: readonly [number, number, number, number];
+  /** The text, one entry per line. The engine reads no clock: the caller writes the time. */
+  readonly lines: readonly string[];
 }
 
 /** The PDF-structure operations the seal needs, matching pdf-core `prepare`/`signedBytes`/`embed`. */

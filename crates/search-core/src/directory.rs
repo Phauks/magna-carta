@@ -29,7 +29,8 @@ use tantivy::directory::{
 use tantivy::{Directory, HasLen, Index};
 
 use crate::error::SearchError;
-use crate::split::{parse_footer, FileEntry, TRAILER_LEN};
+use crate::schema::{register_tokenizers, SCHEMA_GENERATION};
+use crate::split::{parse_footer_at_generation, FileEntry, TRAILER_LEN};
 
 /// A source that serves arbitrary byte ranges of one split. The production implementation issues HTTP
 /// range GETs against the split's object in R2; a test implementation slices an in-memory buffer and can
@@ -46,6 +47,15 @@ pub trait RangeReader: Send + Sync + fmt::Debug {
 /// footer bytes it points at. This is the cheap first read a query does against a candidate split — no
 /// postings touched, just enough to know the split's files and whether it can be opened at all.
 pub fn read_footer_ranged(reader: &dyn RangeReader) -> Result<crate::Footer, SearchError> {
+    read_footer_ranged_at_generation(reader, SCHEMA_GENERATION)
+}
+
+/// [`read_footer_ranged`] for an index that is packaged as a split and is not this crate's schema, so
+/// carries a generation of its own.
+pub fn read_footer_ranged_at_generation(
+    reader: &dyn RangeReader,
+    generation: u32,
+) -> Result<crate::Footer, SearchError> {
     let total = reader.total_len();
     if total < TRAILER_LEN {
         return Err(SearchError::MalformedSplit("shorter than the trailer"));
@@ -63,7 +73,7 @@ pub fn read_footer_ranged(reader: &dyn RangeReader) -> Result<crate::Footer, Sea
         ));
     }
     let footer_bytes = reader.read_range(total - TRAILER_LEN - footer_len, footer_len)?;
-    parse_footer(&footer_bytes)
+    parse_footer_at_generation(&footer_bytes, generation)
 }
 
 /// A read-only Tantivy [`Directory`] backed by a split's footer and a [`RangeReader`]. Every file
@@ -87,7 +97,17 @@ impl SplitDirectory {
     /// Open a directory over a split by reading its footer through the reader. No postings are read;
     /// the index is not opened here — that is [`open_index`].
     pub fn open(reader: Arc<dyn RangeReader>) -> Result<Self, SearchError> {
-        let footer = read_footer_ranged(reader.as_ref())?;
+        Self::open_at_generation(reader, SCHEMA_GENERATION)
+    }
+
+    /// [`SplitDirectory::open`] for an index that is packaged as a split and is not this crate's
+    /// schema. Such an index has a generation of its own, which a change to this crate's schema must
+    /// not move, so its reader names the generation it understands.
+    pub fn open_at_generation(
+        reader: Arc<dyn RangeReader>,
+        generation: u32,
+    ) -> Result<Self, SearchError> {
+        let footer = read_footer_ranged_at_generation(reader.as_ref(), generation)?;
         let files = footer
             .files
             .into_iter()
@@ -205,7 +225,7 @@ impl Directory for SplitDirectory {
 /// as ranged reads.
 pub fn open_index(reader: Arc<dyn RangeReader>) -> Result<Index, SearchError> {
     let directory = SplitDirectory::open(reader)?;
-    Ok(Index::open(directory)?)
+    Ok(register_tokenizers(Index::open(directory)?))
 }
 
 #[cfg(test)]

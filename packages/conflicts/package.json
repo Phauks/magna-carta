@@ -33,7 +33,8 @@
     "./waiver": "./src/waiver.ts",
     "./check-run": "./src/check-run.ts",
     "./check-numbering": "./src/check-numbering.ts",
-    "./content-search": "./src/content-search.ts"
+    "./content-search": "./src/content-search.ts",
+    "./file-search": "./src/file-search.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -46,6 +47,7 @@
     "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "@magna-carta/search": "workspace:*",
     "@magna-carta/sequence-numbering": "workspace:*",
     "zod": "catalog:"
   },

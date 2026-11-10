@@ -125,6 +125,13 @@ export const ENTITY_PREFIXES = {
   // the RecoveryJobCoordinator Durable Object (mirrors conversionJob: not persisted in D1, the DO
   // itself is the state store for the job).
   recoveryJob: "recoveryJob",
+  // The community board — the public, cross-firm feature-request and question board on its own host.
+  // A `communityPost` is one request or question, a `communityComment` one reply on it, and a
+  // `communityFlag` one reader's report against either. Control-plane rows: the board is shared by
+  // every firm, so none of these lives in a firm's own database.
+  communityPost: "communityPost",
+  communityComment: "communityComment",
+  communityFlag: "communityFlag",
   serviceEvent: "serviceEvent",
   serviceComponent: "serviceComponent",
   // Email filing & capture. `emailMessage` is one unique captured message (the unit of truth);

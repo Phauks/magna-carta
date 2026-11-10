@@ -111,6 +111,54 @@ The calendar design expected one nullable external-identifier column on the even
 replaces it because one hearing can sit in several members' calendars under several identifiers: the
 identifier belongs to the pair of event and account.
 
+As built, `calendar_sync_rule` and `calendar_sync_firm_limit` are keyed by a `subject`: an event
+type's id, or the literal `deadline`. A subject with no firm limit row may leave in full detail,
+because a member's own rule is still required and those start empty. The firm limit is set under its
+own permission, `calendar:manageSyncPolicy`, held by Owner/Admin. Stopping a subject from leaving
+deletes every member's rule for it in the same batch.
+
+A member's sealed sign-in sits in `integration_credential`, whose one decrypt gate
+(`integrations:useConnection`) the default roles give to administrators alone. The worker reads a
+member's own calendar sign-in on that member's behalf through a store that derives the reference
+from the session's user id and refuses any other
+(`apps/api-worker/src/calendar-sync/member-credential-store.ts`). Microsoft does not revoke the old
+refresh token when it issues a new one
+([refresh tokens](https://learn.microsoft.com/en-us/entra/identity-platform/refresh-tokens)), so
+reading the calendar list from a request is safe before the per-account Durable Object exists.
+
+As built, the direction out is a reconciliation and not a relay of changes. A pass reads the
+member's rules, the firm's limits, every event in the window that could be theirs and the links
+already written, and sends the difference (`packages/calendar/src/sync-outbound.ts`,
+`apps/api-worker/src/calendar-sync/outbound-pass.ts`). The outbox was the planned trigger and is not
+used: the three calendar topics are raised only when a setting moves or is cancelled, so an edit to
+a title would never have reached Outlook. Instead a successful write on a calendar path asks every
+account with a rule for a pass, the per-account object folds requests into one pass a few seconds
+later, and it runs a safety pass every six hours for what no trigger covers (an event entering the
+window, a matter assignment changing). `calendar_sync_link` is keyed by connection, kind and local
+id; it is written in a `pending` state with the request's `transactionId` before Microsoft is asked,
+so a create whose answer was lost is repeated under the same identifier. A repeating series is not
+sent until section 7 is built.
+
+As built, the first step of the direction back notices and does not apply. Every copy is written
+with a named extended property of the platform's own, and a pass that has nothing left to send asks
+Graph for the events carrying it
+([filtering by an extended property](https://learn.microsoft.com/en-us/graph/api/singlevaluelegacyextendedproperty-get?view=graph-rest-1.0)),
+so an event the member made themselves is never read. A copy whose `changeKey` is the one our own
+write was given is untouched. Otherwise its title, location, days and times are compared with the
+event as it would be sent now, read in the event's own zone; notes are not compared, because Graph
+hands a body back reformatted. A difference becomes a `connection_sync_issue` row, keyed as the link
+is, holding both sides, and the member answers it on Calendar Sync with Put Back or Leave It. A copy
+missing from the list is confirmed by asking for it by identifier before it is called deleted. A
+deadline's copy is written back without asking. The rows of the conflict table in section 6 that
+apply a remote change to the Magna Carta event are not built: whether one member's edit in Outlook
+may move an event everyone on the matter shares is an open owner question. Reading every marked
+event on each pass replaces the delta cursor for now, so `connection_sync_state` is still unbuilt
+(`apps/api-worker/src/calendar-sync/provider-changes.ts`,
+`packages/calendar/src/sync-issue-statements.ts`).
+
+For deadlines the narrow scope means the matters the member is responsible for and the wide one
+every matter they are assigned to, because a deadline names no person.
+
 `integration_connection` is unique on category and principal, so a member holds one account per
 category. Letting one person connect both Outlook and Google needs the adapter added to that index.
 
@@ -171,8 +219,18 @@ to an unverified multitenant app
 A firm whose administrator consents for the tenant is a separate path. That reading is the author's and
 is proved against the owner's tenant before sync is switched on for it.
 
-Disconnecting revokes the token at the provider, deletes the credential, cancels the subscriptions,
-and asks whether the provider copies stay.
+Disconnecting deletes the credential, cancels the subscriptions, and asks whether the provider copies
+stay. Google's token is also revoked at Google. Microsoft offers no way to revoke one application's
+token for one member short of ending all of that member's sessions, so the Microsoft token is deleted
+and not revoked, and the member can remove the application's access from their Microsoft account.
+That last sentence is the author's reading of the Microsoft identity documentation, which describes
+no per-token revocation endpoint in the
+[authorization-code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow).
+
+Connecting and disconnecting take `calendar:read`: a member connects an account so that the events
+they can already see reach their own calendar, and every statement behind the routes is scoped to the
+session's own user. The connection row carries the account's own address (`account_label`), so a
+member with two Microsoft accounts can see which one is connected.
 
 ## 10. Screens
 
@@ -193,7 +251,10 @@ and asks whether the provider copies stay.
 5. Repeating events.
 6. Google Calendar.
 
-Every step ships behind the `calendar-sync` feature flag until the owner turns it on for a firm.
+Every step ships dormant. The flag provider is not bound in production, so a catalog flag could never
+be turned on; the switch is instead the Microsoft application's two secrets, absent until the owner
+registers one ([`../deploy-queue.md`](../deploy-queue.md)). Pages stay out of the settings navigation
+until there is something for a member to do on them.
 
 ## 12. Open
 

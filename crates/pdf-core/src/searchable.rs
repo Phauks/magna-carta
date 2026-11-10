@@ -92,6 +92,9 @@ pub fn write_searchable_text_layer(
 ) -> Result<Vec<u8>, PdfError> {
     guard_input(&input, &GuardLimits::default()).map_err(|_| PdfError::Rejected)?;
     let mut doc = Document::load_mem(&input).map_err(|_| PdfError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(PdfError::Encrypted);
+    }
 
     // One code per distinct character across the whole document, so one shared ToUnicode
     // CMap covers the whole layer. Sorted, so the CMap and the codes are deterministic.

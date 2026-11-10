@@ -722,12 +722,14 @@ mod tests {
             invisible,
             rgba,
             advance_span: None,
+            baseline: y + 8.0,
         }
     }
 
     #[test]
     fn flags_covered_text_and_recovers_it() {
         let obs = PageObservation {
+            shapes: Vec::new(),
             glyphs: vec![
                 glyph("S", 10.0, 10.0, 1, false, [0, 0, 0, 255]),
                 glyph("X", 500.0, 500.0, 2, false, [0, 0, 0, 255]),
@@ -757,6 +759,7 @@ mod tests {
     #[test]
     fn flags_invisible_text() {
         let obs = PageObservation {
+            shapes: Vec::new(),
             glyphs: vec![glyph("hidden", 10.0, 10.0, 1, true, [0, 0, 0, 255])],
             covers: vec![],
             width_pt: 600.0,
@@ -775,6 +778,7 @@ mod tests {
     fn flags_whiteout_text_under_same_color_fill() {
         // White text (255,255,255) over a white opaque cover → same-color concealment.
         let obs = PageObservation {
+            shapes: Vec::new(),
             glyphs: vec![glyph("white", 10.0, 10.0, 1, false, [255, 255, 255, 255])],
             covers: vec![CoverMark {
                 bbox: kurbo::Rect::new(0.0, 0.0, 100.0, 100.0),
@@ -989,6 +993,7 @@ mod tests {
         // stores device-space (top-left) bboxes, so invert the y-flip used by to_display_rect.
         let dev_y = page_height as f64 - display_y;
         PageObservation {
+            shapes: Vec::new(),
             glyphs: vec![GlyphMark {
                 text: text.into(),
                 bbox: kurbo::Rect::new(display_x - 2.0, dev_y - 2.0, display_x + 2.0, dev_y + 2.0),
@@ -996,6 +1001,7 @@ mod tests {
                 invisible: false,
                 rgba: [0, 0, 0, 255],
                 advance_span: None,
+                baseline: dev_y + 2.0,
             }],
             covers: vec![],
             width_pt: 612.0,

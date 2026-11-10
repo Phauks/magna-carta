@@ -47,6 +47,7 @@ import { meetingSummaryQueue } from "./meetings/summary-consumer.ts";
 import { meetingTranscriptQueue } from "./meetings/transcript-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./background/editing/idle-checkout-sweep.ts";
+import { runRecurringTaskPass } from "./background/tasks/recurring-task-pass.ts";
 import { runTieringSweep } from "./background/editing/tiering-sweep.ts";
 import { runDimensionBackfillSweep } from "./background/files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./background/recovery/recovery-consumer.ts";
@@ -263,7 +264,21 @@ export async function runScheduledPass(
         : controller.cron === NOTIFICATION_DIGEST_CRON
           ? {
               operation: "cron:notification-digest",
-              run: () => runNotificationDigestPass(env),
+              run: async () => {
+                // Repeating tasks ride the hourly trigger: a copy appears on its start date in the
+                // task's own zone, and an hour is as late as that can be. First and wrapped, so a
+                // digest failure can never cost a firm its next round of work, nor the reverse.
+                try {
+                  await runRecurringTaskPass(env);
+                } catch (caught) {
+                  logOperationFailed(
+                    createWorkersLogger(env.TELEMETRY),
+                    "cron:recurring-tasks",
+                    caught,
+                  );
+                }
+                await runNotificationDigestPass(env);
+              },
             }
           : controller.cron === NATURAL_LANGUAGE_KEEP_ALIVE_CRON
             ? {

@@ -94,6 +94,19 @@ describe("load-profile measurement runner", () => {
     raw.close();
   });
 
+  it("flags a full-text table read with no match, and not one answered from its term index", () => {
+    const raw = new DatabaseSync(":memory:");
+    raw.exec("CREATE VIRTUAL TABLE words USING fts5(body)");
+    // Both read `SCAN`: the word says how SQLite drives a virtual table, not what the table does.
+    const matched = explainStatement(raw, "SELECT rowid FROM words WHERE words MATCH ?1", ["x"]);
+    const unmatched = explainStatement(raw, "SELECT rowid FROM words WHERE body = ?1", ["x"]);
+    expect(matched.every((detail) => detail.startsWith("SCAN"))).toBe(true);
+    expect(unmatched.every((detail) => detail.startsWith("SCAN"))).toBe(true);
+    expect(findFullScans([{ label: "matched", details: matched }])).toEqual([]);
+    expect(findFullScans([{ label: "unmatched", details: unmatched }])).toEqual(["unmatched"]);
+    raw.close();
+  });
+
   it("writes a stable, human-diffable baseline file", () => {
     const directory = mkdtempSync(join(tmpdir(), "mc-baseline-"));
     temporaryDirectories.push(directory);

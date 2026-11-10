@@ -2,7 +2,13 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { MatterId } from "@magna-carta/identifiers/types";
-import type { MatterSearchSource, MatterSearchSourceRegistry } from "./sources/registry.ts";
+import type { MatterFileContentsSearcher } from "./file-contents.ts";
+import { withMarks } from "./marks.ts";
+import type {
+  MatterSearchSource,
+  MatterSearchSourceRegistry,
+  SourceSearchRequest,
+} from "./sources/registry.ts";
 import type {
   MatterSearchAnswer,
   MatterSearchGroup,
@@ -29,6 +35,9 @@ export interface RunMatterSearchInput {
   readonly permissions: ReadonlySet<Permission>;
   readonly limit: number;
   readonly includeDeleted: boolean;
+  // The way to the index of the words inside files. Left out, the file contents source answers
+  // "could not be searched" instead of "no matches".
+  readonly fileContents?: MatterFileContentsSearcher | null;
 }
 
 function skippedGroup(source: MatterSearchSource, reason: SourceSkipReason): MatterSearchGroup {
@@ -67,7 +76,7 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
 
   const answered = await Promise.all(
     runnable.map(async (source): Promise<MatterSearchGroup> => {
-      const statements = source.buildStatements({
+      const request: SourceSearchRequest = {
         database: input.database,
         matterId: input.matterId,
         query,
@@ -77,7 +86,14 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
         // must stay unmatchable whatever a caller asks for, and that is enforced here rather than
         // trusted to each source's own reading of the request.
         includeDeleted: input.includeDeleted && source.supportsDeleted,
-      });
+        fileContents: input.fileContents ?? null,
+      };
+      // A source that asks an index outside the database does that first. What comes back is either
+      // a reason it could not, which is reported like any other withheld source, or candidates that
+      // its own statement then re-reads under the same matter binding as everything else.
+      const prepared = source.prepare === undefined ? null : await source.prepare(request);
+      if (prepared?.kind === "skipped") return skippedGroup(source, prepared.reason);
+      const statements = prepared === null ? source.buildStatements(request) : prepared.statements;
       if (statements.length === 0) {
         return {
           source: source.key,
@@ -93,7 +109,7 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
       const results = await Promise.all(
         statements.map((statement) => statement.all<MatterSearchRawRow>()),
       );
-      const rows: MatterSearchRawRow[] = [];
+      let rows: MatterSearchRawRow[] = [];
       for (const result of results) rows.push(...result.results);
       /*
        * A source may answer from more than one statement (the files source matches folder names
@@ -108,7 +124,11 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
        * matching the builder's own default order; a source that asked for ascending would need
        * this to know that, which no source does today.
        */
-      if (results.length > 1) {
+      if (prepared !== null) {
+        // The outside index's order, restored: the statement returned its rows in the table's order,
+        // which says nothing about which of them answers the question best.
+        rows = prepared.arrange(rows);
+      } else if (results.length > 1) {
         rows.sort((left, right) =>
           left.sort_key < right.sort_key ? 1 : left.sort_key > right.sort_key ? -1 : 0,
         );
@@ -116,14 +136,17 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
       // The builder read one row past the limit. That extra row is the has-more probe and is never
       // returned — which is how a group says "there is more" without claiming a total nobody counted.
       const hasMore = rows.length > input.limit;
-      const kept = hasMore ? rows.slice(0, input.limit) : rows;
+      const cut = hasMore ? rows.slice(0, input.limit) : rows;
+      const kept = prepared?.quote === undefined ? cut : await prepared.quote(cut);
       return {
         source: source.key,
         section: source.sectionSlug,
         answerShape: source.answerShape,
         matchedFields: source.matchedFields,
         supportsDeleted: source.supportsDeleted,
-        hits: kept.map((row) => source.project(row)),
+        // Projected, then marked: each hit says where the reader's words are in it, by the rule the
+        // source declared. The last step, on the rows the limit kept and on nothing else.
+        hits: kept.map((row) => withMarks(source.marking, source.project(row), query)),
         hasMore,
         skipped: null,
       };

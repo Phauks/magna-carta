@@ -86,7 +86,26 @@ export type StatusKey =
   | "cleared"
   | "waiver-obtained"
   | "wall-erected"
-  | "representation-declined";
+  | "representation-declined"
+  // Where a request on the community board stands, and whether a question there has its answer.
+  // Prefixed because "new", "future" and "completed" are ordinary words other vocabularies may want.
+  | "community-new"
+  | "community-future"
+  | "community-planned"
+  | "community-building-now"
+  | "community-beta"
+  | "community-completed"
+  | "community-not-on-the-roadmap"
+  | "community-duplicate"
+  | "community-answered"
+  // How one of the firm's search indexes stands against the records and files it is a copy of.
+  // Prefixed because "behind" and "turned off" are ordinary words other vocabularies may want.
+  | "index-up-to-date"
+  | "index-behind"
+  | "index-partly-indexed"
+  | "index-turned-on"
+  | "index-turned-off"
+  | "index-not-connected";
 
 /**
  * How a status shows itself.
@@ -347,6 +366,103 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     meaning: "Answered: the firm did not take the work.",
     presentation: "chip",
   },
+  "community-new": {
+    label: "New",
+    tone: "neutral",
+    meaning: "Not reviewed by the Magna Carta team yet.",
+    presentation: "chip",
+  },
+  "community-future": {
+    label: "Future",
+    tone: "neutral",
+    meaning: "Reviewed and worth doing, but not scheduled.",
+    presentation: "chip",
+  },
+  "community-planned": {
+    label: "Planned",
+    tone: "info",
+    meaning: "Accepted and on the roadmap. There is no target date.",
+    presentation: "chip",
+  },
+  "community-building-now": {
+    label: "Building Now",
+    tone: "accent",
+    meaning: "Being built now.",
+    presentation: "chip",
+  },
+  "community-beta": {
+    label: "Beta",
+    tone: "warning",
+    meaning: "Built and available to firms on the beta channel.",
+    presentation: "chip",
+  },
+  "community-completed": {
+    label: "Completed",
+    tone: "success",
+    meaning: "Shipped to every firm.",
+    presentation: "chip",
+  },
+  "community-not-on-the-roadmap": {
+    label: "Not on the Roadmap",
+    tone: "neutral",
+    meaning: "Declined, with the reason the team gave.",
+    presentation: "chip",
+  },
+  "community-duplicate": {
+    label: "Duplicate",
+    tone: "neutral",
+    meaning: "Merged into another request, which carries its votes.",
+    presentation: "chip",
+  },
+  "community-answered": {
+    label: "Answered",
+    tone: "success",
+    meaning: "The person who asked marked a reply as the answer.",
+    presentation: "chip",
+  },
+
+  // A search index against what it is a copy of. Only Behind asks for anything: it is the one
+  // state in which a search can miss a record the firm holds. Turned Off and Not Connected are
+  // level, quiet facts, because neither is a fault.
+  "index-up-to-date": {
+    label: "Up to Date",
+    tone: "success",
+    meaning: "The index holds everything it should.",
+    presentation: "chip",
+  },
+  "index-behind": {
+    label: "Behind",
+    tone: "warning",
+    meaning:
+      "The index does not hold exactly the records the firm does, so a search here can miss one. Rebuilding this place's index repairs it.",
+    presentation: "chip",
+  },
+  "index-partly-indexed": {
+    label: "Partly Indexed",
+    tone: "info",
+    meaning:
+      "Some files are not in the index: files still waiting to be read, and files with no words that can be read, such as a scanned page.",
+    presentation: "chip",
+  },
+  "index-turned-on": {
+    label: "Turned On",
+    tone: "success",
+    meaning: "The firm has turned this on.",
+    presentation: "chip",
+  },
+  "index-turned-off": {
+    label: "Turned Off",
+    tone: "neutral",
+    meaning: "The firm has not turned this on, so nothing is read for it.",
+    presentation: "chip",
+  },
+  "index-not-connected": {
+    label: "Not Connected",
+    tone: "neutral",
+    meaning:
+      "The platform service this runs on is not connected yet, so nothing is searchable here whatever the firm's setting says.",
+    presentation: "chip",
+  },
 };
 
 /**
@@ -380,6 +496,31 @@ export const STATUS_VOCABULARIES = {
     "waiver-obtained",
     "wall-erected",
     "representation-declined",
+  ],
+  /** Where a community request stands, in the order a request moves through the pipeline. */
+  communityRequest: [
+    "community-new",
+    "community-future",
+    "community-planned",
+    "community-building-now",
+    "community-beta",
+    "community-completed",
+    "community-not-on-the-roadmap",
+    "community-duplicate",
+  ],
+  /** Whether a community question has its accepted answer. */
+  communityQuestion: ["community-new", "community-answered"],
+  /**
+   * How a search index stands. Behind leads because it is the only one that asks for something;
+   * the settled states follow, and the two that say nothing is being read come last.
+   */
+  searchIndexStanding: [
+    "index-behind",
+    "index-partly-indexed",
+    "index-up-to-date",
+    "index-turned-on",
+    "index-turned-off",
+    "index-not-connected",
   ],
 } as const satisfies Readonly<Record<string, readonly StatusKey[]>>;
 

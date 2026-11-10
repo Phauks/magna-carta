@@ -185,6 +185,53 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
+  // A connection a member made to their OWN account at a provider (their calendar). principal_ref is
+  // the member's user id on such a row and account_label is their sign-in address there, so the row
+  // is theirs and goes when they do. A firm's own connection carries the firm's id in principal_ref
+  // and matches no subject, so it is untouched. The sealed token beside it (integration_credential,
+  // addressed by this row's credential_ref) has to go in the same act: read credential_ref before
+  // deleting the row, or a working token to a departed member's calendar stays sealed where nothing
+  // points at it.
+  {
+    table: "integration_connection",
+    subjectKey: "principal_ref",
+    action: "hard-delete",
+    note: "member-scoped rows only; delete the integration_credential row its credential_ref names in the same act",
+  },
+  // Which of a member's own provider calendars each event type goes to. The row names a person only
+  // through its connection, and it is that member's preference and nothing the firm relies on, so
+  // it goes when the connection does.
+  {
+    table: "calendar_sync_rule",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; a member's own preference, holding no event",
+  },
+  // Where each synced event sits in a member's own provider calendar. It names a person only through
+  // its connection and holds provider identifiers and a digest, never the event's own fields.
+  {
+    table: "calendar_sync_link",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; identifiers and a digest, holding no event content",
+  },
+  // A copy a member changed or deleted in their own calendar. It names a person only through its
+  // connection. Both sides of the difference are held as text: the event as it was sent to that
+  // member, and what their own calendar holds now.
+  {
+    table: "connection_sync_issue",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; holds the copy as sent to the member and as their calendar has it",
+  },
+  // What the firm lets leave for members' calendars. The rule is the firm's and outlives whoever
+  // last saved it; the reference to that member is configuration provenance.
+  {
+    table: "calendar_sync_firm_limit",
+    subjectKey: "updated_by",
+    action: "pseudonymize-keep",
+    note: "which administrator last set a limit is configuration provenance the firm keeps",
+  },
   // A file attached to a conversation is a reference to the matter's file, holding nothing of
   // it; it goes with the conversation it is attached to.
   {
@@ -1366,13 +1413,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // user's own identity/activity PII.
   "setting",
   "scoped_setting",
-  // A connection's principal_ref names a firm- or user-scoped OAuth principal, but the row is current
-  // connection *state* (mirrors member_role/document_checkout above), not an activity record.
-  "integration_connection",
   "firm_secret", // firm-owned integration secrets (encrypted), not data-subject personal data
-  // A connected integration's credential for the FIRM's own external account (a postage account's API
-  // key). It identifies the firm to a vendor, never a data subject, so erasing a person leaves it
-  // untouched — and erasing it because somebody exercised a right would disconnect the firm's account.
+  // A connected integration's credential: a firm's own external account (a postage account's API
+  // key) or a member's own (their calendar). The row has no column naming anybody, so it resolves to
+  // a subject only through the integration_connection row whose credential_ref addresses it, and
+  // that entry above says the two go together. A firm's credential identifies the firm to a vendor
+  // and never a data subject, so erasing a person leaves it untouched.
   "integration_credential",
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",
@@ -1433,6 +1479,17 @@ export const NO_PII_TABLES: readonly string[] = [
   // act — who signed the firm up to an arrangement — and is current state rather than an activity
   // record about that person, the same line integration_connection and scoped_setting sit on.
   "ai_search_disclosure_acknowledgement",
+  // The record index's entry rows — which declared source a row came from, the indexed record's own
+  // identifier, its matter, and where it sorts. Identifiers and a date only, and none of the words.
+  // The words are in `record_text_fts`, a contentless full-text table the schema does not declare and
+  // this registry therefore cannot list; it holds the terms of each record and not its text. Neither
+  // half needs an erasure step of its own, and neither can be forgotten by one: both are written only
+  // by triggers on the tables that own the records, in the statement that changes the record. A note
+  // that is hard-deleted takes its entry and its terms with it; a communication whose body is scrubbed
+  // is re-indexed from what is left. An erasure pass that wants the removed terms gone from the
+  // storage pages as well as from every answer follows with `optimizeRecordIndexStatement`
+  // (@magna-carta/search/record-index-statements), which rewrites the index without them.
+  "record_text_entry",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

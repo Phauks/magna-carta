@@ -265,6 +265,8 @@ describe("end-to-end", () => {
         // in a firm asks; calendar:manage asserts when a hearing IS and reaches Admin,
         // Attorney, and Paralegal only (20260806T000000_case-calendar).
         "calendar:manage",
+        // What may be copied to members' own calendars at a provider: Admin alone.
+        "calendar:manageSyncPolicy",
         "calendar:read",
         // The three communications keys reach Admin. communications:read also reaches Billing,
         // and communications:reviewUnrouted stops at Admin and Paralegal — working the queue of
@@ -351,6 +353,9 @@ describe("end-to-end", () => {
         // Seeded to Admin alone by 20260907T090000_seed-report-policy-permission.
         "firm:manageReportPolicy",
         "firm:manageScanPolicy",
+        // Whether the contents of the firm's files are indexed for search: Owner/Admin alone, the
+        // firm:manageScanPolicy bracket (seed-search-settings-permission).
+        "firm:manageSearchSettings",
         "firm:manageSecrets",
         // The roster read, seeded to every default role including Read-only — the same universal
         // shape as notifications:read below, and the deliberate opposite of firm:manageMembers

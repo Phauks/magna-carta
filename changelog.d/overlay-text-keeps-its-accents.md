@@ -1,0 +1,6 @@
+---
+category: Fixed
+audience: internal
+---
+
+**Text the PDF engine draws keeps its accents.** A Bates stamp, a text watermark and a filled form field's appearance wrote their text as UTF-8 bytes into a string drawn with a standard font that declared no encoding, so every character past ASCII came out as two unrelated glyphs ("José" as "JosÃ©") and was measured as zero width. The text is now written one byte per character in Windows-1252 (`win_ansi_literal` in `crates/pdf-core/src/bates.rs`) and each font object declares `/Encoding /WinAnsiEncoding`, which covers the Western European alphabets, the euro sign, and typographic quotation marks and dashes. A character outside that set is no longer drawn wrong: `stamp_document` returns `BatesError::UnsupportedCharacter` and `watermark` returns `GenerateError::UnsupportedCharacter`, and a form field's appearance shows a question mark in its place while the field's stored value keeps the character. A signature's name, reason, location and contact details are written as UTF-16 when they are not ASCII (`pdf_text_string` in `src/sign.rs`), which is the form a reader's signature panel decodes. Other scripts still need an embedded font, which these overlays do not have.

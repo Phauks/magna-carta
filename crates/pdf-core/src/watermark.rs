@@ -3,7 +3,7 @@
 //! nothing. Use `redact`/`sanitize` to remove content. The overlay reuses the Bates font
 //! machinery (text) and the redaction image-XObject pattern (image).
 
-use crate::bates::{escape_pdf_literal, label_width_pt, BatesFont};
+use crate::bates::{label_width_pt, win_ansi_literal, BatesFont};
 use crate::generate::GenerateError;
 use crate::surgery::{resolve_dict, resolve_inherited_resources, resolve_mediabox, resolve_rotate};
 use image::GenericImageView;
@@ -17,6 +17,9 @@ pub struct WatermarkOptions {
     /// Clockwise rotation of the mark, in degrees (45 is the diagonal staple).
     pub rotation_deg: f32,
     pub placement: WatermarkPlacement,
+    /// Which pages are marked. A cover sheet marked "DRAFT" or a single exhibit page marked
+    /// "COPY" is one page of many; a page number past the end is an error, not a skip.
+    pub pages: crate::generate::PageSelection,
 }
 
 /// The mark itself — text or an image/logo.
@@ -38,15 +41,37 @@ pub enum WatermarkPlacement {
     Tiled,
 }
 
-/// Stamp a watermark onto every page, returning the new document bytes.
+/// Stamp a watermark onto the pages `opts.pages` selects, returning the new document bytes.
 pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, GenerateError> {
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
-    let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
-    if pages.is_empty() {
+    if crate::guard::is_locked(&doc) {
+        return Err(GenerateError::Encrypted);
+    }
+    let every_page: Vec<ObjectId> = doc.get_pages().into_values().collect();
+    if every_page.is_empty() {
         return Err(GenerateError::NoPages);
     }
+    let pages: Vec<ObjectId> = match &opts.pages {
+        crate::generate::PageSelection::All => every_page,
+        crate::generate::PageSelection::Pages(indices) => {
+            // In page order and once each, however the caller listed them: a page named
+            // twice would otherwise carry the mark at twice its opacity.
+            let mut chosen: Vec<usize> = indices.clone();
+            chosen.sort_unstable();
+            chosen.dedup();
+            chosen
+                .into_iter()
+                .map(|index| {
+                    every_page
+                        .get(index)
+                        .copied()
+                        .ok_or(GenerateError::PageOutOfRange)
+                })
+                .collect::<Result<_, _>>()?
+        }
+    };
     let opacity = opts.opacity.clamp(0.0, 1.0);
 
     // One shared graphics-state object carries the opacity for every page.
@@ -67,6 +92,7 @@ pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, Gener
                 b"Type" => Object::Name(b"Font".to_vec()),
                 b"Subtype" => Object::Name(b"Type1".to_vec()),
                 b"BaseFont" => Object::Name(font.postscript_name().as_bytes().to_vec()),
+                b"Encoding" => Object::Name(b"WinAnsiEncoding".to_vec()),
             });
             for &page in &pages {
                 let content = text_overlay_content(
@@ -80,7 +106,7 @@ pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, Gener
                     opts.placement,
                 )?;
                 merge_overlay_resources(&mut doc, page, Some(font_id), None, gs_id)?;
-                append_content(&mut doc, page, content.into_bytes())?;
+                append_content(&mut doc, page, content)?;
             }
         }
         WatermarkContent::Image { bytes, scale } => {
@@ -156,7 +182,7 @@ fn text_overlay_content(
     color: [f32; 3],
     rotation_deg: f32,
     placement: WatermarkPlacement,
-) -> Result<String, GenerateError> {
+) -> Result<Vec<u8>, GenerateError> {
     let [llx, lly, urx, ury] = resolve_mediabox(doc, page).ok_or(GenerateError::Parse)?;
     let (page_width, page_height) = (urx - llx, ury - lly);
     let mark_width = label_width_pt(font, text, size);
@@ -167,10 +193,10 @@ fn text_overlay_content(
     let theta = (rotation_deg + page_rotate).to_radians();
     let (cos, sin) = (theta.cos(), theta.sin());
     let ascent = size * 0.35; // vertical centring offset for the baseline
-    let escaped = escape_pdf_literal(text);
+    let escaped = win_ansi_literal(text).map_err(|_| GenerateError::UnsupportedCharacter)?;
     let [r, g, b] = color;
 
-    let mut content = String::from("q /MagnaCartaWmGs gs ");
+    let mut content = b"q /MagnaCartaWmGs gs ".to_vec();
     for (cx, cy) in placement_centers(
         placement,
         llx,
@@ -184,12 +210,17 @@ fn text_overlay_content(
         let e = cx - (cos * mark_width / 2.0 - sin * ascent);
         let f = cy - (sin * mark_width / 2.0 + cos * ascent);
         let (c, d) = (-sin, cos);
-        content.push_str(&format!(
-            "BT /MagnaCartaWmFont {size:.2} Tf {r:.3} {g:.3} {b:.3} rg \
-             {cos:.5} {sin:.5} {c:.5} {d:.5} {e:.3} {f:.3} Tm ({escaped}) Tj ET "
-        ));
+        content.extend_from_slice(
+            format!(
+                "BT /MagnaCartaWmFont {size:.2} Tf {r:.3} {g:.3} {b:.3} rg \
+                 {cos:.5} {sin:.5} {c:.5} {d:.5} {e:.3} {f:.3} Tm ("
+            )
+            .as_bytes(),
+        );
+        content.extend_from_slice(&escaped);
+        content.extend_from_slice(b") Tj ET ");
     }
-    content.push('Q');
+    content.push(b'Q');
     Ok(content)
 }
 
@@ -481,6 +512,7 @@ mod tests {
             opacity: 0.3,
             rotation_deg: 45.0,
             placement,
+            pages: crate::generate::PageSelection::All,
         }
     }
 
@@ -504,6 +536,54 @@ mod tests {
             }
         }
         all
+    }
+
+    /// Which pages of `bytes` draw `needle` in their content.
+    fn pages_showing(bytes: &[u8], needle: &[u8]) -> Vec<usize> {
+        let doc = Document::load_mem(bytes).unwrap();
+        doc.get_pages()
+            .into_values()
+            .enumerate()
+            .filter(|(_, page)| {
+                doc.get_page_content(*page)
+                    .windows(needle.len())
+                    .any(|window| window == needle)
+            })
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    #[test]
+    fn a_watermark_can_mark_chosen_pages_only() {
+        let page = one_page_doc();
+        let four = crate::merge(&[&page, &page, &page, &page]).unwrap();
+        let mut options = text_opts("DRAFT", WatermarkPlacement::Center);
+
+        // Listed out of order and twice: each chosen page is marked once.
+        options.pages = crate::generate::PageSelection::Pages(vec![3, 0, 3]);
+        let out = watermark(&four, &options).unwrap();
+        assert_eq!(pages_showing(&out, b"DRAFT"), vec![0, 3]);
+        let doc = Document::load_mem(&out).unwrap();
+        let last = doc.get_pages().into_values().nth(3).unwrap();
+        let marks = doc
+            .get_page_content(last)
+            .windows(5)
+            .filter(|window| window == b"DRAFT")
+            .count();
+        assert_eq!(marks, 1);
+
+        options.pages = crate::generate::PageSelection::All;
+        assert_eq!(
+            pages_showing(&watermark(&four, &options).unwrap(), b"DRAFT"),
+            vec![0, 1, 2, 3]
+        );
+
+        // A page that does not exist is refused, and nothing is returned half-marked.
+        options.pages = crate::generate::PageSelection::Pages(vec![1, 4]);
+        assert!(matches!(
+            watermark(&four, &options),
+            Err(GenerateError::PageOutOfRange)
+        ));
     }
 
     #[test]
@@ -590,6 +670,7 @@ mod tests {
             opacity: 0.5,
             rotation_deg: 0.0,
             placement: WatermarkPlacement::Center,
+            pages: crate::generate::PageSelection::All,
         }
     }
 

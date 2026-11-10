@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex};
 use address_core::{
     build_partition_split, parse_feature_line, state_of_source, Address, AddressEngine,
     BuildOptions, Building, Deduplicator, Offer, Partition, PartitionIndex,
+    ADDRESS_INDEX_GENERATION,
 };
 use search_core::RangeReader;
 
@@ -407,4 +408,33 @@ fn a_split_that_is_not_an_address_partition_is_refused() {
     assert!(PartitionIndex::open(Partition::South, reader).is_err());
     let truncated = CountingReader::new(vec![1, 2, 3], false);
     assert!(PartitionIndex::open(Partition::South, truncated).is_err());
+}
+
+#[test]
+fn a_partition_carries_its_own_generation_and_not_the_document_index_s() {
+    // The number the partitions already in the bucket were stamped with. A change here makes every
+    // one of them unreadable until the next build, so it is a decision and never a side effect.
+    assert_eq!(ADDRESS_INDEX_GENERATION, 1);
+
+    let (_, rows) = partitioned_rows()
+        .into_iter()
+        .find(|(_, rows)| !rows.is_empty())
+        .unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let split = build_partition_split(rows, scratch.path(), &test_options()).unwrap();
+    let reader = CountingReader::new(split, false);
+
+    let footer =
+        search_core::read_footer_ranged_at_generation(reader.as_ref(), ADDRESS_INDEX_GENERATION)
+            .unwrap();
+    assert_eq!(footer.schema_generation, ADDRESS_INDEX_GENERATION);
+
+    // The document index is on a later generation and opening a partition does not depend on it:
+    // asked for by any other number, the same bytes are refused.
+    assert_ne!(ADDRESS_INDEX_GENERATION, search_core::SCHEMA_GENERATION);
+    assert!(search_core::read_footer_ranged_at_generation(
+        reader.as_ref(),
+        search_core::SCHEMA_GENERATION
+    )
+    .is_err());
 }

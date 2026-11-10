@@ -62,6 +62,7 @@ export const SETTINGS_BANDS: ReadonlyArray<{
 export type SettingsSectionGroup =
   | "appearance"
   | "notifications"
+  | "connections"
   | "firm"
   | "practice"
   | "billing"
@@ -103,9 +104,11 @@ export interface SettingsSection {
     | "documents"
     | "integrations"
     | "calendar"
+    | "calendarSync"
     | "reports"
     | "meetings"
     | "ai"
+    | "search"
     | "retention";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
@@ -138,7 +141,10 @@ export const SETTINGS_SECTION_GROUPS: ReadonlyArray<{
 }> = [
   // Band "user" — My Settings
   { id: "appearance", label: "Appearance", band: "user" },
-  { id: "notifications", label: "Notifications", band: "user" },
+  // A member's own accounts at OUTSIDE services, and what each is used for. Not the "account"
+  // group this registry deliberately lacks: that one is the member's identity and credentials HERE.
+  // This is a work preference, like Notifications, about where a member's own work also appears.
+  { id: "connections", label: "Connections", band: "user" },
   // Band "firm" — Firm Settings
   { id: "firm", label: "Firm", band: "firm" },
   { id: "practice", label: "Practice", band: "firm" },
@@ -279,6 +285,33 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: defaultCommitModeForScope("user"),
     shipped: true,
   },
+  {
+    // The member's own account at a calendar provider. The page is built and reachable by its
+    // address, and NOT YET in the navigation: no provider can be connected until the deployment is
+    // registered with one, and a page every member can find that can only say "not yet" is noise.
+    // Flipped when the first provider is registered and what the account is used for has a page.
+    id: "connected-accounts",
+    label: "Connected Accounts",
+    href: "/settings/connected-accounts",
+    group: "connections",
+    scope: "user",
+    commitMode: defaultCommitModeForScope("user"),
+    shipped: false,
+  },
+  {
+    // Which of the member's event types go to which of their own calendars at the provider. Its own
+    // page beside Connected Accounts by the owner's ruling: the account is held there, and what is
+    // done with it for the calendar is decided here, apart from anything mail will do. Out of the
+    // navigation for the reason Connected Accounts is: no account can be connected yet, and nothing
+    // is sent on the strength of a rule until the sync itself ships.
+    id: "calendar-sync",
+    label: "Calendar Sync",
+    href: "/settings/calendar-sync",
+    group: "connections",
+    scope: "user",
+    commitMode: defaultCommitModeForScope("user"),
+    shipped: false,
+  },
   // Firm
   {
     // The firm administering its members ("us"). A member's OWN identity and credentials live
@@ -346,6 +379,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: "draft",
     editPermissionArea: "calendar",
     shipped: true,
+  },
+  {
+    // The firm's limit on calendar sync: which event types may be copied to members' own calendars
+    // at a provider, and with how much detail. A catalog page, so "instant": each row is changed
+    // through its own window against PUT /api/v1/calendar-sync/firm-limits, on the Event Types
+    // precedent. Its edit right is `calendar:manageSyncPolicy`, Admin alone. Out of the navigation
+    // until members can connect an account, because a limit on nothing is noise.
+    id: "calendar-sync-policy",
+    label: "Calendar Sync",
+    href: "/settings/calendar-sync-policy",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendarSync",
+    shipped: false,
   },
   {
     // The firm's meeting settings: whether its meetings may be recorded, summarized and captioned,
@@ -595,6 +643,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "draft",
     editPermissionArea: "ai",
+    shipped: true,
+  },
+  {
+    // What the firm's searches read. One switch today: whether the words inside the firm's files
+    // are indexed. Under Data & Platform beside AI, on the same reasoning: it is a statement about
+    // what the platform does with the firm's content (copies its text into an index), not about
+    // how the firm runs its work, and the page also reports a fact about the platform underneath —
+    // whether this deployment has a search service at all.
+    //
+    // Server-backed over GET/PATCH /api/v1/firm/search-settings, the setting the ingest path reads
+    // before it hands a file to the index and a matter's search reads before it asks the index
+    // anything. Draft mode: the switch starts the reading of every file the firm holds, which is
+    // not something to begin by brushing a control.
+    id: "search-and-indexing",
+    label: "Search and Indexing",
+    href: "/settings/search-and-indexing",
+    group: "data-platform",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "search",
     shipped: true,
   },
   {

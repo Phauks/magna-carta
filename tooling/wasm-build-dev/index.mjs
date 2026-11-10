@@ -1,8 +1,8 @@
 // DEV-ONLY, Docker-free build of the WebAssembly artefacts the app consumes — pdf-core into
 // packages/pdf/src/pkg, decryption-core into packages/decryption/src/pkg, email-core into
 // packages/email/src/pkg, seven-zip-core into packages/seven-zip/src/pkg, segmentation-core into
-// packages/segmentation/src/pkg, noise-suppression-core into packages/noise-suppression/src/pkg, and
-// mls-core into packages/mls/src/pkg —
+// packages/segmentation/src/pkg, noise-suppression-core into packages/noise-suppression/src/pkg,
+// mls-core into packages/mls/src/pkg, and pdf-compose-core into packages/pdf-compose/src/pkg —
 // using the host Rust toolchain + wasm-pack directly, no container.
 //
 // This exists for environments that cannot run the canonical Docker build (`rust-wasm-build` in
@@ -40,6 +40,7 @@ const CRATES = [
   { crate: "segmentation-core", pkg: "segmentation" },
   { crate: "noise-suppression-core", pkg: "noise-suppression" },
   { crate: "mls-core", pkg: "mls" },
+  { crate: "pdf-compose-core", pkg: "pdf-compose" },
 ];
 
 function run(command, args) {

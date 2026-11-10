@@ -446,6 +446,9 @@ importers:
       '@magna-carta/metadata':
         specifier: workspace:*
         version: link:../../packages/metadata
+      '@magna-carta/microsoft-graph':
+        specifier: workspace:*
+        version: link:../../packages/microsoft-graph
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
@@ -936,6 +939,9 @@ importers:
       '@magna-carta/civil-time':
         specifier: workspace:*
         version: link:../../packages/civil-time
+      '@magna-carta/community':
+        specifier: workspace:*
+        version: link:../../packages/community
       '@magna-carta/conversion':
         specifier: workspace:*
         version: link:../../packages/conversion
@@ -963,6 +969,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
+      '@magna-carta/noise-suppression':
+        specifier: workspace:*
+        version: link:../../packages/noise-suppression
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
@@ -972,9 +981,6 @@ importers:
       '@magna-carta/safe-browse':
         specifier: workspace:*
         version: link:../../packages/safe-browse
-      '@magna-carta/noise-suppression':
-        specifier: workspace:*
-        version: link:../../packages/noise-suppression
       '@magna-carta/segmentation':
         specifier: workspace:*
         version: link:../../packages/segmentation
@@ -1224,6 +1230,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../integrations
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
@@ -1328,6 +1337,28 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
 
+  packages/community:
+    dependencies:
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
   packages/conflicts:
     dependencies:
       '@magna-carta/access-control':
@@ -1351,6 +1382,9 @@ importers:
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters
+      '@magna-carta/search':
+        specifier: workspace:*
+        version: link:../search
       '@magna-carta/sequence-numbering':
         specifier: workspace:*
         version: link:../sequence-numbering
@@ -2395,6 +2429,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/search':
+        specifier: workspace:*
+        version: link:../search
     devDependencies:
       '@magna-carta/database':
         specifier: workspace:*
@@ -2525,6 +2562,31 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/microsoft-graph:
+    dependencies:
+      '@magna-carta/calendar':
+        specifier: workspace:*
+        version: link:../calendar
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
@@ -2716,6 +2778,24 @@ importers:
       pkijs:
         specifier: 'catalog:'
         version: 3.4.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.5.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(playwright@1.65.0)(vitest@5.1.0))(@vitest/ui@5.1.0(vitest@5.1.0))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/pdf-compose:
+    devDependencies:
+      '@magna-carta/pdf':
+        specifier: workspace:*
+        version: link:../pdf
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       vite-plus:
         specifier: 'catalog:'
         version: 1.5.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(playwright@1.65.0)(vitest@5.1.0))(@vitest/ui@5.1.0(vitest@5.1.0))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)

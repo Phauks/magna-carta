@@ -1,0 +1,16 @@
+-- THE FIRM'S SEARCH SETTINGS GET AN OWNER.
+--
+-- `firm:manageSearchSettings` gates the one firm switch in packages/search/src/settings.ts that a
+-- person decides: whether the contents of the firm's files are indexed for search. Until this key
+-- existed nothing a firm could reach wrote that setting, so every firm's file indexing stayed off
+-- whatever the deployment was ready for.
+--
+-- Owner/Admin ALONE, the firm:manageScanPolicy bracket. Searching a matter is every working seat's
+-- act and rides search:matter; deciding that the text of every file the firm holds is copied into an
+-- index is the firm's decision about its own corpus, made once, by whoever sets its policy.
+--
+-- The house seed shape, plain and unqualified: a migration applies once per lineage, tracked by the
+-- journal, so there is nothing for an OR IGNORE to guard against — and the fitness scan in
+-- tooling/lint-ungranted-permissions reads exactly this form to prove the permission is reachable by
+-- somebody. The role_id is the Owner/Admin role from the baseline's member-rbac seed.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_searchSettingsOwner0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageSearchSettings');

@@ -40,7 +40,7 @@ import type { ResolvedCategoryPreference } from "$lib/notifications/preferences-
 /** The one id every actions column carries, so a cell snippet can recognise it. */
 export const CATALOG_ACTIONS_COLUMN_ID = "actions";
 
-function actionsColumn<TRow>(): GridColumn<TRow> {
+export function actionsColumn<TRow>(): GridColumn<TRow> {
   return {
     id: CATALOG_ACTIONS_COLUMN_ID,
     label: "Actions",

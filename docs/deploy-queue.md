@@ -285,7 +285,8 @@ depends on the one before it:
    from deferred to live; there is no code change, and the parked `deferred` jobs drain
    on their next pass.
 4. **Arm the warm cron** (`"*/20 * * * *"` in `apps/search-worker/wrangler.jsonc`) once a
-   firm actually has `search.indexing_enabled` on. It is off deliberately: with no
+   firm actually has `search.indexing_enabled` on (a firm's Owner or Administrator turns it on
+   under Settings › Data & Platform › Search and Indexing, since 2026-11-10). It is off deliberately: with no
    queries, pinning a `standard-1` instance bills its 4 GiB continuously for nothing.
 
 **No R2 lifecycle rule for the split prefix, deliberately.** Splits are a derived cache
@@ -371,6 +372,50 @@ Container, which is sized for this burst (`max_instances: 20`) and scales to zer
 loads, so the Container's own ceiling is what bounds throughput. This number bounds how
 much of the account's 250-invocation consumer budget one bulk load may take, which is the
 whole reason the lane is separate from files ingest in the first place.
+
+## Outlook calendar connection activation — register one Microsoft application, then two secrets (2026-11-10)
+
+Connecting a member's own Outlook calendar is built and ships **dormant**
+(`apps/api-worker/src/http/routes/calendar/connected-accounts.ts`). With no Microsoft application
+registered, `GET /api/v1/me/connected-accounts` says Outlook is not available, the sign-in route
+answers `501`, and the Connected Accounts page (`/settings/connected-accounts`, built and not yet in
+the settings navigation) says so. Nothing below is needed for any deploy.
+
+**What to do.** In the [Microsoft Entra admin center](https://entra.microsoft.com), signed in to the
+firm's Microsoft 365 tenant with at least the Application Developer role
+([register an application](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)):
+
+1. **Entra ID → App registrations → New registration.** Name it `Magna Carta`.
+2. **Supported account types.** Choose **Single tenant only** when everyone who will connect a
+   calendar is in the firm's own Microsoft 365 tenant. That is the option Microsoft recommends, and
+   it needs no publisher verification. Choose **Any Entra ID Tenant + Personal Microsoft accounts**
+   only if members at other organizations, or personal outlook.com accounts, must connect.
+3. **Redirect URI.** Platform **Web**, address
+   `https://magnacarta.esq/api/v1/integrations/microsoft/callback`. It must match exactly: the
+   Worker builds it from `APP_BASE_URL` plus that path
+   (`apps/api-worker/src/calendar-sync/microsoft-application.ts`).
+4. **Register**, then copy two values from **Overview**: the **Application (client) ID** and the
+   **Directory (tenant) ID**.
+5. **API permissions → Add a permission → Microsoft Graph → Delegated permissions:**
+   `Calendars.ReadWrite`, `User.Read`, `offline_access`. Nothing under Mail. If the tenant does not
+   let members consent for themselves, press **Grant admin consent** here.
+6. **Certificates & secrets → Client secrets → New client secret.** Copy the secret's **Value** at
+   once; the portal shows it only once. Note its expiry date: when it lapses every sign-in fails
+   until a new one is set.
+7. **Set three values on the app Worker** (**Worker → Settings → Variables and Secrets**, or
+   `wrangler secret put`): `MICROSOFT_CLIENT_ID` (the client ID), `MICROSOFT_CLIENT_SECRET` (the
+   secret's value), and, for a single-tenant registration, `MICROSOFT_TENANT` (the tenant ID). A
+   single-tenant application is refused at Microsoft's shared sign-in address, so the tenant ID is
+   required with it. Setting the first two is what switches the feature on; there is no other flag.
+   All three are deliberately absent from `wrangler.jsonc`'s `secrets.required`.
+
+**How to tell it is working.** Open `/settings/connected-accounts`: it offers **Connect Outlook**.
+Connecting returns to the same page naming the account. Nothing syncs yet; that arrives with the
+sync rules.
+
+**Not confirmed against the portal in the session that wrote this:** the wording of step 6 and the
+longest secret lifetime the portal offers. Steps 1 to 4 follow the linked Microsoft page as read on
+2026-11-10.
 
 ## Turnstile activation — the order matters, and the widget comes before the secret
 

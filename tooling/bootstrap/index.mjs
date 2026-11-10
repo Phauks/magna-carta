@@ -89,6 +89,12 @@ const ARTEFACTS = [
     wasm: "mls_core_bg.wasm",
     bindings: "mls_core.js",
   },
+  {
+    crate: "pdf-compose-core",
+    pkg: "packages/pdf-compose",
+    wasm: "pdf_compose_core_bg.wasm",
+    bindings: "pdf_compose_core.js",
+  },
 ];
 
 // The stamp lives beside the generated output (inside the git-ignored pkg directory), so it is created

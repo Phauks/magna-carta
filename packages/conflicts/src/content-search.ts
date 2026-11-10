@@ -1,4 +1,9 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import {
+  RECORD_INDEX_MATCH_CONDITION,
+  recordIndexLeadingFrom,
+  recordMatchExpression,
+} from "@magna-carta/search/record-index-query";
 
 // THE FIRM'S OWN RECORDS AS A PLACE A CHECK LOOKS: calls, texts, email, tasks and Magnus
 // conversations.
@@ -7,6 +12,13 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 // just as often: "have we heard of this party?" A prospect who telephoned last spring, an opposing
 // company named in a task, a person a lawyer asked Magnus about. None of them need to be a Directory
 // record for that history to exist, so each is searched where it actually lives.
+//
+// WHERE THE NAMES ARE READ FROM. Calls and texts, tasks and Magnus conversations are read through
+// the firm's record index (@magna-carta/search/record-index-query): each name is asked of the index
+// as an exact phrase, and the index leads, so the work follows the records that name the party
+// rather than every record the firm holds. Numbers, addresses and linked records are character-exact
+// values the index does not hold, so they stay on their own columns, and so does email, which is not
+// one of the index's sources.
 //
 // HOW A PARTY IS LOOKED FOR, and why it is not the Directory's matcher. Messages and conversations
 // are prose, not name rows: there is no phonetic code or trigram index over them, and a fuzzy match
@@ -36,15 +48,26 @@ export type MessagingChannel = (typeof MESSAGING_CHANNELS)[number];
 export const TASK_MATTER_STATUSES = ["consultations", "open", "closed", "archived"] as const;
 export type TaskMatterStatus = (typeof TASK_MATTER_STATUSES)[number];
 
+// The same four options for Files. Archived there means files a member deleted from a matter, which
+// the firm keeps (a file is only ever soft-deleted) and a conflicts check must still be able to read.
+export const FILE_MATTER_STATUSES = TASK_MATTER_STATUSES;
+export type FileMatterStatus = TaskMatterStatus;
+
 // What a check is asked to search beyond the Directory. An empty list (or false) is a place not asked
 // for, which the record keeps apart from a place asked for and searched.
 export interface PlacesRequest {
   readonly messaging: readonly MessagingChannel[];
   readonly tasks: readonly TaskMatterStatus[];
   readonly magnus: boolean;
+  readonly files: readonly FileMatterStatus[];
 }
 
-export const NO_PLACES: PlacesRequest = Object.freeze({ messaging: [], tasks: [], magnus: false });
+export const NO_PLACES: PlacesRequest = Object.freeze({
+  messaging: [],
+  tasks: [],
+  magnus: false,
+  files: [],
+});
 
 // Reads a places request from anywhere it can arrive: a stored run request, a request body. Anything
 // unrecognized is dropped rather than refused, so an old row reads as asking for nothing more.
@@ -57,17 +80,36 @@ export function readPlacesRequest(value: unknown): PlacesRequest {
     messaging: pick(record["messaging"], MESSAGING_CHANNELS),
     tasks: pick(record["tasks"], TASK_MATTER_STATUSES),
     magnus: record["magnus"] === true,
+    files: pick(record["files"], FILE_MATTER_STATUSES),
   };
 }
 
 export function asksForAnyPlace(places: PlacesRequest): boolean {
+  return (
+    places.messaging.length > 0 ||
+    places.tasks.length > 0 ||
+    places.magnus ||
+    places.files.length > 0
+  );
+}
+
+// Whether any place other than Files was asked for: those are searched in the firm's own database,
+// Files through the file contents index.
+export function asksForRecordPlaces(places: PlacesRequest): boolean {
   return places.messaging.length > 0 || places.tasks.length > 0 || places.magnus;
 }
 
 // Where one result was found. Identifiers, a matter and an instant only: never a subject line, a
 // message or a task title, because the log is append-only and outlives every one of those records.
 // A reader resolves what it may see through the record's own surface.
-export const FOUND_IN_KINDS = ["call", "text", "email", "task", "magnus_conversation"] as const;
+export const FOUND_IN_KINDS = [
+  "call",
+  "text",
+  "email",
+  "task",
+  "magnus_conversation",
+  "file",
+] as const;
 export type FoundInKind = (typeof FOUND_IN_KINDS)[number];
 
 export interface FoundIn {
@@ -167,9 +209,9 @@ export const NAME_FLOOR = 3;
 export const NUMBER_FLOOR = 7;
 
 // D1 binds at most 100 parameters to one statement.
-const MAX_BOUND_PARAMETERS = 100;
+export const MAX_BOUND_PARAMETERS = 100;
 
-function chunks<T>(values: readonly T[], size: number): T[][] {
+export function chunks<T>(values: readonly T[], size: number): T[][] {
   const out: T[][] = [];
   for (let start = 0; start < values.length; start += size) {
     out.push(values.slice(start, start + size));
@@ -177,7 +219,7 @@ function chunks<T>(values: readonly T[], size: number): T[][] {
   return out;
 }
 
-function placeholders(count: number, offset = 0): string {
+export function placeholders(count: number, offset = 0): string {
   return Array.from({ length: count }, (_, index) => `?${String(index + 1 + offset)}`).join(", ");
 }
 
@@ -318,8 +360,70 @@ const DIGITS_OF_COUNTERPARTY = ["+", " ", "(", ")", "-", ".", "x", "#", "*"].red
   "counterparty_number",
 );
 
+// What the search returns: its results, and how many of the names asked of the record index reached
+// NAME_RESULT_CEILING in some place, so the record can say a name was found more often than it kept.
+export interface ContentSearchOutcome {
+  readonly hits: readonly ContentHit[];
+  readonly namesAtCeiling: number;
+}
+
+// The most records one name keeps from one place. A party named in more records than this in one
+// place is plainly a party the firm knows; past it, the run would spend its budget writing results a
+// reader cannot review, and the record says the ceiling was reached instead.
+export const NAME_RESULT_CEILING = 200;
+
+// One of a party's names, as the record index is asked for it in one source.
+interface NameQuery {
+  readonly entityId: string;
+  readonly name: string;
+  readonly match: string;
+}
+
+// Each party's names as exact phrases the record index reads, for one source. A name with no letter
+// or digit in it has nothing the index can match, and is skipped.
+function nameQueries(parties: readonly PartyNeedles[], sourceKey: string): NameQuery[] {
+  return parties.flatMap((party) =>
+    party.names.flatMap((name) => {
+      const phrase = name.replaceAll('"', " ");
+      const match = recordMatchExpression(`"${phrase}"`, { sourceKeys: [sourceKey] });
+      return match === null ? [] : [{ entityId: party.entityId, name, match }];
+    }),
+  );
+}
+
 // Collects one result per party per record, merging the reasons it was found.
 class HitCollector {
+  private readonly cappedNames = new Set<string>();
+
+  // The rows a name's query returned, cut to the ceiling, remembering a name that reached it.
+  withinCeiling<T>(query: NameQuery, rows: readonly T[]): readonly T[] {
+    if (rows.length <= NAME_RESULT_CEILING) return rows;
+    this.cappedNames.add(`${query.entityId}\u0000${query.name}`);
+    return rows.slice(0, NAME_RESULT_CEILING);
+  }
+
+  namesAtCeiling(): number {
+    return this.cappedNames.size;
+  }
+
+  // A record the index found by a party's name. The field the name is in is said where the text
+  // shows it as written; the index also folds case and accents, so a record it matched on "José"
+  // written "Jose" is reported with the general sentence rather than dropped.
+  addNamed(
+    query: NameQuery,
+    foundIn: FoundIn,
+    fields: readonly (readonly [string | null, string])[],
+    general: string,
+  ): void {
+    const needle = query.name.toLowerCase();
+    const named = fields.filter(([text]) => text?.toLowerCase().includes(needle) === true);
+    if (named.length === 0) {
+      this.add(query.entityId, foundIn, 2, general);
+      return;
+    }
+    for (const [, sentence] of named) this.add(query.entityId, foundIn, 2, sentence);
+  }
+
   private readonly byKey = new Map<
     string,
     { entityId: string; tier: 1 | 2; fields: string[]; foundIn: FoundIn }
@@ -444,16 +548,25 @@ async function searchCallsAndTexts(
     for (const row of results) rows.set(row.id, row);
   }
   // The name as written: in the caller ID, the message, or the summary a member wrote.
-  for (const group of namePatternGroups(parties)) {
+  // Qualified, because the index's own entry row also has an id and a matter.
+  const qualifiedColumns = `communication.id, communication.channel, communication.matter_id,
+    communication.occurred_at, communication.counterparty_entity_id,
+    ${DIGITS_OF_COUNTERPARTY.replaceAll("counterparty_number", "communication.counterparty_number")} AS digits,
+    communication.caller_id_name, communication.body, communication.summary`;
+  const namedBy = new Map<string, NameQuery[]>();
+  for (const query of nameQueries(parties, "communications")) {
     const { results } = await database
       .prepare(
-        `SELECT ${columns} FROM communication
-          WHERE channel IN (${channelList})
-            AND ${anyContains(["caller_id_name", "body", "summary"], group.length, 0)}`,
+        `SELECT ${qualifiedColumns} FROM ${recordIndexLeadingFrom("communications", "communication")}
+          WHERE ${RECORD_INDEX_MATCH_CONDITION} AND communication.channel IN (${channelList})
+          LIMIT ?`,
       )
-      .bind(...group)
+      .bind(query.match, NAME_RESULT_CEILING + 1)
       .all<Row>();
-    for (const row of results) rows.set(row.id, row);
+    for (const row of collector.withinCeiling(query, results)) {
+      rows.set(row.id, row);
+      namedBy.set(row.id, [...(namedBy.get(row.id) ?? []), query]);
+    }
   }
 
   for (const row of rows.values()) {
@@ -467,15 +580,18 @@ async function searchCallsAndTexts(
         collector.add(party.entityId, foundIn, 1, `the number is one of the party's phone numbers`);
       }
     }
-    for (const hit of namesIn(row.caller_id_name, parties)) {
-      collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is the caller ID name`);
-    }
-    for (const hit of namesIn(row.body, parties)) {
-      const where = kind === "text" ? "the message" : "the call's notes";
-      collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is named in ${where}`);
-    }
-    for (const hit of namesIn(row.summary, parties)) {
-      collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is named in the summary`);
+    const where = kind === "text" ? "the message" : "the call's notes";
+    for (const query of namedBy.get(row.id) ?? []) {
+      collector.addNamed(
+        query,
+        foundIn,
+        [
+          [row.caller_id_name, `"${query.name}" is the caller ID name`],
+          [row.body, `"${query.name}" is named in ${where}`],
+          [row.summary, `"${query.name}" is named in the summary`],
+        ],
+        `"${query.name}" is named in the ${kind}`,
+      );
     }
   }
 }
@@ -588,12 +704,13 @@ async function searchEmail(
 }
 
 // The matter statuses each panel option stands for. Hold is an open matter paused.
-const MATTER_STATUSES_BY_OPTION: Readonly<Record<Exclude<TaskMatterStatus, "archived">, string[]>> =
-  {
-    consultations: ["intake", "consultation"],
-    open: ["open", "hold"],
-    closed: ["closed"],
-  };
+export const MATTER_STATUSES_BY_OPTION: Readonly<
+  Record<Exclude<TaskMatterStatus, "archived">, readonly string[]>
+> = {
+  consultations: ["intake", "consultation"],
+  open: ["open", "hold"],
+  closed: ["closed"],
+};
 
 async function searchTasks(
   database: SqlDatabase,
@@ -610,21 +727,23 @@ async function searchTasks(
   const statusList = matterStatuses.map((status) => `'${status}'`).join(", ");
   const live =
     matterStatuses.length === 0
-      ? "task.matter_id IS NULL"
-      : `(task.matter_id IS NULL OR matter.status IN (${statusList}))`;
+      ? "matter_task.matter_id IS NULL"
+      : `(matter_task.matter_id IS NULL OR matter.status IN (${statusList}))`;
   const inReach = includeArchived
-    ? `((task.archived_at IS NULL AND ${live}) OR task.archived_at IS NOT NULL)`
-    : `(task.archived_at IS NULL AND ${live})`;
+    ? `((matter_task.archived_at IS NULL AND ${live}) OR matter_task.archived_at IS NOT NULL)`
+    : `(matter_task.archived_at IS NULL AND ${live})`;
 
-  for (const group of namePatternGroups(parties)) {
+  for (const query of nameQueries(parties, "tasks")) {
     const { results } = await database
       .prepare(
-        `SELECT task.id, task.matter_id, task.created_at, task.title, task.body
-           FROM matter_task AS task
-           LEFT JOIN matter ON matter.id = task.matter_id
-          WHERE ${inReach} AND ${anyContains(["task.title", "task.body"], group.length, 0)}`,
+        `SELECT matter_task.id, matter_task.matter_id, matter_task.created_at,
+                matter_task.title, matter_task.body
+           FROM ${recordIndexLeadingFrom("tasks", "matter_task")}
+           LEFT JOIN matter ON matter.id = matter_task.matter_id
+          WHERE ${RECORD_INDEX_MATCH_CONDITION} AND ${inReach}
+          LIMIT ?`,
       )
-      .bind(...group)
+      .bind(query.match, NAME_RESULT_CEILING + 1)
       .all<{
         id: string;
         matter_id: string | null;
@@ -632,19 +751,22 @@ async function searchTasks(
         title: string;
         body: string | null;
       }>();
-    for (const row of results) {
+    for (const row of collector.withinCeiling(query, results)) {
       const foundIn: FoundIn = {
         kind: "task",
         id: row.id,
         matterId: row.matter_id,
         at: row.created_at,
       };
-      for (const hit of namesIn(row.title, parties)) {
-        collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is named in the title`);
-      }
-      for (const hit of namesIn(row.body, parties)) {
-        collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is named in the description`);
-      }
+      collector.addNamed(
+        query,
+        foundIn,
+        [
+          [row.title, `"${query.name}" is named in the title`],
+          [row.body, `"${query.name}" is named in the description`],
+        ],
+        `"${query.name}" is named in the task`,
+      );
     }
   }
 }
@@ -654,42 +776,63 @@ async function searchMagnus(
   parties: readonly PartyNeedles[],
   collector: HitCollector,
 ): Promise<void> {
-  for (const group of namePatternGroups(parties)) {
+  interface Row {
+    id: string;
+    matter_id: string | null;
+    created_at: string;
+    title: string | null;
+    speaker: string | null;
+    content: string | null;
+  }
+  // A conversation is found by its title or by any settled turn in it. The index keeps a deleted
+  // conversation and its turns out already; the state is checked again here because the index is a
+  // copy and the conversation's own row is what says it was deleted.
+  const conversationColumns = `magnus_conversation.id, magnus_conversation.matter_id,
+    magnus_conversation.created_at, magnus_conversation.title`;
+  for (const query of nameQueries(parties, "magnus-conversations")) {
     const { results } = await database
       .prepare(
-        `SELECT conversation.id, conversation.matter_id, conversation.created_at,
-                conversation.title, turn.speaker, turn.content
-           FROM magnus_conversation AS conversation
-           LEFT JOIN magnus_turn AS turn ON turn.conversation_id = conversation.id
-          WHERE conversation.state != 'deleted'
-            AND (${anyContains(["conversation.title"], group.length, 0)}
-                 OR ${anyContains(["turn.content"], group.length, 0)})`,
+        `SELECT ${conversationColumns}, NULL AS speaker, NULL AS content
+           FROM ${recordIndexLeadingFrom("magnus-conversations", "magnus_conversation")}
+          WHERE ${RECORD_INDEX_MATCH_CONDITION} AND magnus_conversation.state != 'deleted'
+          LIMIT ?`,
       )
-      .bind(...group)
-      .all<{
-        id: string;
-        matter_id: string | null;
-        created_at: string;
-        title: string | null;
-        speaker: string | null;
-        content: string | null;
-      }>();
-    for (const row of results) {
-      const foundIn: FoundIn = {
-        kind: "magnus_conversation",
-        id: row.id,
-        matterId: row.matter_id,
-        at: row.created_at,
-      };
-      for (const hit of namesIn(row.title, parties)) {
-        collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is named in the title`);
-      }
-      const speaker = row.speaker === "magnus" ? "Magnus's answer" : "a member's message";
-      for (const hit of namesIn(row.content, parties)) {
-        collector.add(hit.entityId, foundIn, 2, `"${hit.name}" is named in ${speaker}`);
-      }
+      .bind(query.match, NAME_RESULT_CEILING + 1)
+      .all<Row>();
+    for (const row of collector.withinCeiling(query, results)) {
+      collector.addNamed(
+        query,
+        magnusFoundIn(row),
+        [[row.title, `"${query.name}" is named in the title`]],
+        `"${query.name}" is named in the title`,
+      );
     }
   }
+  for (const query of nameQueries(parties, "magnus-turns")) {
+    const { results } = await database
+      .prepare(
+        `SELECT ${conversationColumns}, magnus_turn.speaker, magnus_turn.content
+           FROM ${recordIndexLeadingFrom("magnus-turns", "magnus_turn")}
+           JOIN magnus_conversation ON magnus_conversation.id = magnus_turn.conversation_id
+          WHERE ${RECORD_INDEX_MATCH_CONDITION} AND magnus_conversation.state != 'deleted'
+          LIMIT ?`,
+      )
+      .bind(query.match, NAME_RESULT_CEILING + 1)
+      .all<Row>();
+    for (const row of collector.withinCeiling(query, results)) {
+      const speaker = row.speaker === "magnus" ? "Magnus's answer" : "a member's message";
+      collector.addNamed(
+        query,
+        magnusFoundIn(row),
+        [[row.content, `"${query.name}" is named in ${speaker}`]],
+        `"${query.name}" is named in ${speaker}`,
+      );
+    }
+  }
+}
+
+function magnusFoundIn(row: { id: string; matter_id: string | null; created_at: string }): FoundIn {
+  return { kind: "magnus_conversation", id: row.id, matterId: row.matter_id, at: row.created_at };
 }
 
 // Every place asked for, searched for every party. Returns one result per party per record, the
@@ -698,7 +841,7 @@ export async function searchContent(
   database: SqlDatabase,
   parties: readonly PartyNeedles[],
   places: PlacesRequest,
-): Promise<ContentHit[]> {
+): Promise<ContentSearchOutcome> {
   const collector = new HitCollector();
   const callKinds: ("call" | "text")[] = [];
   if (places.messaging.includes("calls")) callKinds.push("call");
@@ -707,5 +850,5 @@ export async function searchContent(
   if (places.messaging.includes("email")) await searchEmail(database, parties, collector);
   if (places.tasks.length > 0) await searchTasks(database, parties, places.tasks, collector);
   if (places.magnus) await searchMagnus(database, parties, collector);
-  return collector.hits();
+  return { hits: collector.hits(), namesAtCeiling: collector.namesAtCeiling() };
 }

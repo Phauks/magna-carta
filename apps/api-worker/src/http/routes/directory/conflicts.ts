@@ -1318,6 +1318,7 @@ function executeAfterResponse(
         randomSource: context.randomSource,
       },
       createWorkersLogger(c.env.TELEMETRY),
+      c.env,
     ),
   );
 }

@@ -185,6 +185,11 @@ export const PROBLEM_TYPES = {
   // A second related link between the same pair of events, in either direction (HTTP 422). 'related'
   // is undirected in meaning though stored directed, so A-to-B and B-to-A are the same fact twice.
   "calendar-duplicate-link": "calendar-duplicate-link",
+  // A calendar sync setting refused on its merits (HTTP 422): a rule naming a subject that is not
+  // an active event type, one the firm does not let leave, or a calendar the member's account does
+  // not have or cannot write to. `errors` names the subject and which of those it was. DISTINCT
+  // from `validation`: the request is well-formed and something it names cannot be used.
+  "calendar-sync-setting-refused": "calendar-sync-setting-refused",
   // An attempt to delete a continuance link through the link routes (HTTP 422). A continuance link
   // is the record of what was continued from what — procedural history, minted only by the continue
   // operation and never removed; a related link is the only deletable kind.

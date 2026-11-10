@@ -1165,6 +1165,52 @@ export type PatchFirmAiSettingsRequest = {
     };
 };
 
+export type FirmSearchSettingsResponse = {
+    fileContentsIndexed: boolean;
+    searchServiceConnected: boolean;
+};
+
+export type PatchFirmSearchSettingsRequest = {
+    fileContentsIndexed?: boolean;
+};
+
+export type FirmSearchStatusResponse = {
+    checkedAt: string;
+    records: {
+        places: Array<SearchStatusRecordPlace>;
+        rebuild: {
+            requestedAt: string | null;
+            finishedAt: string | null;
+            outstanding: boolean;
+        };
+    };
+    fileContents: {
+        turnedOn: boolean;
+        serviceConnected: boolean;
+        filesBelonging: number;
+        filesIndexed: number;
+        lastIndexedAt: string | null;
+        dailyCatchUpLimit: number;
+    };
+    searchByMeaning: {
+        turnedOn: boolean;
+        serviceConnected: boolean;
+    };
+};
+
+export type SearchStatusRecordPlace = {
+    key: string;
+    label: string;
+    matchedFields: Array<string>;
+    readBy: Array<'matter-search' | 'conflicts-check'>;
+    indexed: number;
+    expected: number;
+};
+
+export type FirmSearchRebuildResponse = {
+    requestedAt: string;
+};
+
 export type ExportRenderRequest = {
     format: 'docx' | 'pdf';
     document: {
@@ -3820,17 +3866,57 @@ export type MatterSearchGroup = {
     supportsDeleted: boolean;
     hits: Array<MatterSearchHit>;
     hasMore: boolean;
-    skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | null;
+    skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
 };
 
 export type MatterSearchHit = {
     id: string;
     title: string;
+    titleMarks: Array<SearchTextMark>;
     snippet: string | null;
+    snippetMarks: Array<SearchTextMark>;
     secondary: string | null;
     actorUserId: string | null;
     sortKey: string;
     link: string;
+};
+
+export type SearchTextMark = {
+    start: number;
+    end: number;
+};
+
+export type SearchAcrossMattersAnswer = {
+    query: string;
+    broad: boolean;
+    groups: Array<SearchAcrossMattersGroup>;
+};
+
+export type SearchAcrossMattersGroup = {
+    source: string;
+    section: string;
+    answerShape: 'listing' | 'ranked';
+    matchedFields: Array<string>;
+    hits: Array<SearchAcrossMattersHit>;
+    hasMore: boolean;
+    skipped: 'one-matter-only' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
+};
+
+export type SearchAcrossMattersHit = {
+    id: string;
+    title: string;
+    titleMarks: Array<SearchTextMark>;
+    snippet: string | null;
+    snippetMarks: Array<SearchTextMark>;
+    secondary: string | null;
+    actorUserId: string | null;
+    sortKey: string;
+    link: string;
+    matter: {
+        id: string;
+        title: string;
+        number: string | null;
+    };
 };
 
 export type MatterPlanTemplateList = {
@@ -5356,6 +5442,7 @@ export type ConflictsScopeRequest = {
         messaging: Array<'calls' | 'texts' | 'email'>;
         tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
         magnus: boolean;
+        files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
     };
 };
 
@@ -5453,6 +5540,7 @@ export type ConflictsRunSummary = {
             messaging: Array<'calls' | 'texts' | 'email'>;
             tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
             magnus: boolean;
+            files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
         };
     } | null;
     hitCount: number | null;
@@ -5534,7 +5622,7 @@ export type ConflictsHitDetail = {
     graphPath: Array<ConflictsGraphPathStep>;
     coParty: boolean;
     foundIn: {
-        kind: 'call' | 'text' | 'email' | 'task' | 'magnus_conversation';
+        kind: 'call' | 'text' | 'email' | 'task' | 'magnus_conversation' | 'file';
         id: string;
         matterId: string | null;
         matterNumber: string | null;
@@ -6167,6 +6255,208 @@ export type ContinuanceChainNode = {
     statusReason: string | null;
 };
 
+export type ConnectedAccountList = {
+    providers: Array<ConnectedAccountProvider>;
+    accounts: Array<ConnectedAccount>;
+};
+
+export type ConnectedAccountProvider = {
+    provider: 'microsoft';
+    /**
+     * Whether this deployment can connect an account at the provider. False means nobody has registered the deployment with the provider, and a screen offers no connection.
+     */
+    available: boolean;
+};
+
+export type ConnectedAccount = {
+    id: string;
+    provider: 'microsoft';
+    /**
+     * The account as the provider names it: the member's own sign-in address there.
+     */
+    accountLabel: string | null;
+    status: 'connected' | 'degraded' | 'needs_reauth' | 'disabled';
+    connectedAt: string;
+};
+
+export type ConnectedAccountSignInStart = {
+    /**
+     * The provider's own sign-in page. The browser is sent to it as a whole page.
+     */
+    authorizationUrl: string;
+};
+
+export type ConnectedAccountDisconnectAck = {
+    id: string;
+    status: 'disconnected';
+};
+
+export type CalendarSyncSettings = {
+    /**
+     * The member's connected account, or null when they have connected none.
+     */
+    account: {
+        id: string;
+        provider: 'microsoft';
+        /**
+         * The account as the provider names it: the member's own sign-in address there.
+         */
+        accountLabel: string | null;
+        status: 'connected' | 'degraded' | 'needs_reauth' | 'disabled';
+        connectedAt: string;
+    } | null;
+    /**
+     * The account's calendars as the provider lists them now. Null when there is no account or the provider could not be asked, in which case rules can be read and not changed.
+     */
+    calendars: Array<CalendarSyncProviderCalendar> | null;
+    subjects: Array<CalendarSyncSubject>;
+    rules: Array<CalendarSyncRule>;
+};
+
+export type CalendarSyncProviderCalendar = {
+    remoteId: string;
+    name: string;
+    isDefault: boolean;
+    canWrite: boolean;
+};
+
+export type CalendarSyncSubject = {
+    /**
+     * An event type's id, or `deadline` for deadlines as one kind.
+     */
+    subject: string;
+    kind: 'eventType' | 'deadline';
+    /**
+     * The event type's name. Null for the deadline kind.
+     */
+    name: string | null;
+    category: 'litigation' | 'transaction' | 'firm' | 'other' | null;
+    /**
+     * Whether the firm lets this subject be synced at all.
+     */
+    mayLeave: boolean;
+    /**
+     * How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else.
+     */
+    detail: 'full' | 'minimal';
+};
+
+export type CalendarSyncRule = {
+    /**
+     * An event type's id, or `deadline` for deadlines as one kind.
+     */
+    subject: string;
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when the rule was saved, shown when the provider is unreachable.
+     */
+    calendarName: string;
+    /**
+     * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to.
+     */
+    scope: 'mine' | 'my_matters';
+};
+
+export type CalendarSyncRulesReplace = {
+    /**
+     * The member's whole rule set. A subject absent from it is not synced.
+     */
+    rules: Array<{
+        /**
+         * An event type's id, or `deadline` for deadlines as one kind.
+         */
+        subject: string;
+        calendarRemoteId: string;
+        /**
+         * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to.
+         */
+        scope: 'mine' | 'my_matters';
+    }>;
+};
+
+export type CalendarSyncFirmLimits = {
+    subjects: Array<CalendarSyncSubject>;
+};
+
+export type CalendarSyncFirmLimitsSet = {
+    /**
+     * The subjects to set. A subject not named keeps the limit it has.
+     */
+    limits: Array<{
+        /**
+         * An event type's id, or `deadline` for deadlines as one kind.
+         */
+        subject: string;
+        mayLeave: boolean;
+        /**
+         * How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else.
+         */
+        detail: 'full' | 'minimal';
+    }>;
+};
+
+export type CalendarSyncIssueList = {
+    issues: Array<CalendarSyncIssue>;
+};
+
+export type CalendarSyncIssue = {
+    localKind: 'matter_event' | 'firm_event' | 'deadline';
+    localId: string;
+    /**
+     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar.
+     */
+    kind: 'changed' | 'removed';
+    /**
+     * The event as it was sent to the member's calendar, at the detail the firm allows.
+     */
+    sent: {
+        title: string;
+        location: string | null;
+        /**
+         * The first day, as YYYY-MM-DD.
+         */
+        startsOn: string;
+        /**
+         * The wall-clock start as HH:MM, or null when the copy takes the whole day.
+         */
+        startsAtTime: string | null;
+        /**
+         * The last day the copy covers, as YYYY-MM-DD.
+         */
+        endsOn: string;
+        endsAtTime: string | null;
+        /**
+         * The zone the event was recorded in. Both sides of a difference are read in it.
+         */
+        timeZone: string;
+    };
+    /**
+     * The copy as the member's calendar holds it now. Null when the copy is gone.
+     */
+    found: {
+        title: string;
+        location: string | null;
+        /**
+         * The first day, as YYYY-MM-DD.
+         */
+        startsOn: string;
+        /**
+         * The wall-clock start as HH:MM, or null when the copy takes the whole day.
+         */
+        startsAtTime: string | null;
+        /**
+         * The last day the copy covers, as YYYY-MM-DD.
+         */
+        endsOn: string;
+        endsAtTime: string | null;
+        /**
+         * The zone the event was recorded in. Both sides of a difference are read in it.
+         */
+        timeZone: string;
+    } | null;
+    detectedAt: string;
+};
+
 export type CalendarSeriesInWindow = {
     data: Array<CalendarSeriesOccurrences>;
     truncated: boolean;
@@ -6329,6 +6619,12 @@ export type MatterTaskDetail = {
     parentTaskId: string | null;
     startsOn: string | null;
     location: string | null;
+    recurrence: {
+        rule: string;
+        mode: 'completed' | 'scheduled';
+        occurrenceOn: string;
+        nextTaskId: string | null;
+    } | null;
     assignees: Array<MatterTaskAssignee>;
     watcherUserIds: Array<string>;
     checklist: Array<MatterTaskChecklistItem>;
@@ -6476,6 +6772,7 @@ export type EditMatterTaskRequest = {
     timeZone?: string | null;
     startsOn?: string | null;
     location?: string | null;
+    recurrenceScope?: 'this' | 'later';
 };
 
 export type ReassignMatterTaskRequest = {
@@ -6566,6 +6863,11 @@ export type MoveMatterTaskToListRequest = {
 
 export type SetMatterTaskCompletionRequest = {
     completed: boolean;
+};
+
+export type SetMatterTaskRecurrenceRequest = {
+    rule: string | null;
+    mode?: 'completed' | 'scheduled';
 };
 
 export type SetMatterTaskAssigneesRequest = {
@@ -13550,6 +13852,184 @@ export type FirmAiSettingsUpdateResponses = {
 };
 
 export type FirmAiSettingsUpdateResponse = FirmAiSettingsUpdateResponses[keyof FirmAiSettingsUpdateResponses];
+
+export type FirmSearchSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-settings';
+};
+
+export type FirmSearchSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchSettingsGetError = FirmSearchSettingsGetErrors[keyof FirmSearchSettingsGetErrors];
+
+export type FirmSearchSettingsGetResponses = {
+    /**
+     * The firm's search settings, resolved with their defaults
+     */
+    200: FirmSearchSettingsResponse;
+};
+
+export type FirmSearchSettingsGetResponse = FirmSearchSettingsGetResponses[keyof FirmSearchSettingsGetResponses];
+
+export type FirmSearchSettingsUpdateData = {
+    body: PatchFirmSearchSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-settings';
+};
+
+export type FirmSearchSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchSettingsUpdateError = FirmSearchSettingsUpdateErrors[keyof FirmSearchSettingsUpdateErrors];
+
+export type FirmSearchSettingsUpdateResponses = {
+    /**
+     * The firm's search settings after the change
+     */
+    200: FirmSearchSettingsResponse;
+};
+
+export type FirmSearchSettingsUpdateResponse = FirmSearchSettingsUpdateResponses[keyof FirmSearchSettingsUpdateResponses];
+
+export type FirmSearchStatusGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-status';
+};
+
+export type FirmSearchStatusGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchStatusGetError = FirmSearchStatusGetErrors[keyof FirmSearchStatusGetErrors];
+
+export type FirmSearchStatusGetResponses = {
+    /**
+     * What the firm's search indexes hold now
+     */
+    200: FirmSearchStatusResponse;
+};
+
+export type FirmSearchStatusGetResponse = FirmSearchStatusGetResponses[keyof FirmSearchStatusGetResponses];
+
+export type FirmSearchStatusRebuildData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-status/rebuild';
+};
+
+export type FirmSearchStatusRebuildErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchStatusRebuildError = FirmSearchStatusRebuildErrors[keyof FirmSearchStatusRebuildErrors];
+
+export type FirmSearchStatusRebuildResponses = {
+    /**
+     * The rebuild was asked for and is queued
+     */
+    202: FirmSearchRebuildResponse;
+};
+
+export type FirmSearchStatusRebuildResponse = FirmSearchStatusRebuildResponses[keyof FirmSearchStatusRebuildResponses];
 
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;
@@ -22726,6 +23206,47 @@ export type MatterSearchSearchResponses = {
 
 export type MatterSearchSearchResponse = MatterSearchSearchResponses[keyof MatterSearchSearchResponses];
 
+export type SearchAcrossMattersData = {
+    body?: never;
+    path?: never;
+    query: {
+        q: string;
+        in?: string | Array<string>;
+        limit?: number;
+    };
+    url: '/api/v1/search';
+};
+
+export type SearchAcrossMattersErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type SearchAcrossMattersError = SearchAcrossMattersErrors[keyof SearchAcrossMattersErrors];
+
+export type SearchAcrossMattersResponses = {
+    /**
+     * One group per place
+     */
+    200: SearchAcrossMattersAnswer;
+};
+
+export type SearchAcrossMattersResponse = SearchAcrossMattersResponses[keyof SearchAcrossMattersResponses];
+
 export type MatterPlansListPlansData = {
     body?: never;
     path?: never;
@@ -29531,6 +30052,432 @@ export type CalendarContinuanceChainResponses = {
 
 export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
 
+export type ConnectedAccountsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts';
+};
+
+export type ConnectedAccountsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsListError = ConnectedAccountsListErrors[keyof ConnectedAccountsListErrors];
+
+export type ConnectedAccountsListResponses = {
+    /**
+     * The member's connected accounts
+     */
+    200: ConnectedAccountList;
+};
+
+export type ConnectedAccountsListResponse = ConnectedAccountsListResponses[keyof ConnectedAccountsListResponses];
+
+export type ConnectedAccountsStartMicrosoftSignInData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts/microsoft/sign-in';
+};
+
+export type ConnectedAccountsStartMicrosoftSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * This deployment is not registered with the provider, so no account can connect
+     */
+    501: Problem;
+};
+
+export type ConnectedAccountsStartMicrosoftSignInError = ConnectedAccountsStartMicrosoftSignInErrors[keyof ConnectedAccountsStartMicrosoftSignInErrors];
+
+export type ConnectedAccountsStartMicrosoftSignInResponses = {
+    /**
+     * Where to send the browser
+     */
+    200: ConnectedAccountSignInStart;
+};
+
+export type ConnectedAccountsStartMicrosoftSignInResponse = ConnectedAccountsStartMicrosoftSignInResponses[keyof ConnectedAccountsStartMicrosoftSignInResponses];
+
+export type ConnectedAccountsFinishMicrosoftSignInData = {
+    body?: never;
+    path?: never;
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+    };
+    url: '/api/v1/integrations/microsoft/callback';
+};
+
+export type ConnectedAccountsFinishMicrosoftSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsFinishMicrosoftSignInError = ConnectedAccountsFinishMicrosoftSignInErrors[keyof ConnectedAccountsFinishMicrosoftSignInErrors];
+
+export type ConnectedAccountsDisconnectData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/me/connected-accounts/{id}';
+};
+
+export type ConnectedAccountsDisconnectErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsDisconnectError = ConnectedAccountsDisconnectErrors[keyof ConnectedAccountsDisconnectErrors];
+
+export type ConnectedAccountsDisconnectResponses = {
+    /**
+     * Disconnected
+     */
+    200: ConnectedAccountDisconnectAck;
+};
+
+export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectResponses[keyof ConnectedAccountsDisconnectResponses];
+
+export type CalendarSyncReadMineData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync';
+};
+
+export type CalendarSyncReadMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReadMineError = CalendarSyncReadMineErrors[keyof CalendarSyncReadMineErrors];
+
+export type CalendarSyncReadMineResponses = {
+    /**
+     * The member's calendar sync settings
+     */
+    200: CalendarSyncSettings;
+};
+
+export type CalendarSyncReadMineResponse = CalendarSyncReadMineResponses[keyof CalendarSyncReadMineResponses];
+
+export type CalendarSyncReplaceMyRulesData = {
+    body: CalendarSyncRulesReplace;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync/rules';
+};
+
+export type CalendarSyncReplaceMyRulesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The member has no connected account
+     */
+    409: Problem;
+    /**
+     * A subject or calendar named cannot be used; `errors` says which subject and why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The member's provider could not be asked for their calendars, so nothing was saved
+     */
+    503: Problem;
+};
+
+export type CalendarSyncReplaceMyRulesError = CalendarSyncReplaceMyRulesErrors[keyof CalendarSyncReplaceMyRulesErrors];
+
+export type CalendarSyncReplaceMyRulesResponses = {
+    /**
+     * The member's calendar sync settings after the write
+     */
+    200: CalendarSyncSettings;
+};
+
+export type CalendarSyncReplaceMyRulesResponse = CalendarSyncReplaceMyRulesResponses[keyof CalendarSyncReplaceMyRulesResponses];
+
+export type CalendarSyncReadFirmLimitsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar-sync/firm-limits';
+};
+
+export type CalendarSyncReadFirmLimitsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReadFirmLimitsError = CalendarSyncReadFirmLimitsErrors[keyof CalendarSyncReadFirmLimitsErrors];
+
+export type CalendarSyncReadFirmLimitsResponses = {
+    /**
+     * The firm's limits
+     */
+    200: CalendarSyncFirmLimits;
+};
+
+export type CalendarSyncReadFirmLimitsResponse = CalendarSyncReadFirmLimitsResponses[keyof CalendarSyncReadFirmLimitsResponses];
+
+export type CalendarSyncSetFirmLimitsData = {
+    body: CalendarSyncFirmLimitsSet;
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar-sync/firm-limits';
+};
+
+export type CalendarSyncSetFirmLimitsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A subject or calendar named cannot be used; `errors` says which subject and why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncSetFirmLimitsError = CalendarSyncSetFirmLimitsErrors[keyof CalendarSyncSetFirmLimitsErrors];
+
+export type CalendarSyncSetFirmLimitsResponses = {
+    /**
+     * The firm's limits after the write
+     */
+    200: CalendarSyncFirmLimits;
+};
+
+export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsResponses[keyof CalendarSyncSetFirmLimitsResponses];
+
+export type CalendarSyncListMyIssuesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync/issues';
+};
+
+export type CalendarSyncListMyIssuesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The member has no such open question, or the firm is unreachable or the member deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncListMyIssuesError = CalendarSyncListMyIssuesErrors[keyof CalendarSyncListMyIssuesErrors];
+
+export type CalendarSyncListMyIssuesResponses = {
+    /**
+     * The member's open questions
+     */
+    200: CalendarSyncIssueList;
+};
+
+export type CalendarSyncListMyIssuesResponse = CalendarSyncListMyIssuesResponses[keyof CalendarSyncListMyIssuesResponses];
+
+export type CalendarSyncPutBackMyCopyData = {
+    body?: never;
+    path: {
+        localKind: 'matter_event' | 'firm_event' | 'deadline';
+        localId: string;
+    };
+    query?: never;
+    url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
+};
+
+export type CalendarSyncPutBackMyCopyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The member has no such open question, or the firm is unreachable or the member deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncPutBackMyCopyError = CalendarSyncPutBackMyCopyErrors[keyof CalendarSyncPutBackMyCopyErrors];
+
+export type CalendarSyncPutBackMyCopyResponses = {
+    /**
+     * The member's open questions after the answer
+     */
+    200: CalendarSyncIssueList;
+};
+
+export type CalendarSyncPutBackMyCopyResponse = CalendarSyncPutBackMyCopyResponses[keyof CalendarSyncPutBackMyCopyResponses];
+
+export type CalendarSyncLeaveMyCopyData = {
+    body?: never;
+    path: {
+        localKind: 'matter_event' | 'firm_event' | 'deadline';
+        localId: string;
+    };
+    query?: never;
+    url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
+};
+
+export type CalendarSyncLeaveMyCopyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The member has no such open question, or the firm is unreachable or the member deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncLeaveMyCopyError = CalendarSyncLeaveMyCopyErrors[keyof CalendarSyncLeaveMyCopyErrors];
+
+export type CalendarSyncLeaveMyCopyResponses = {
+    /**
+     * The member's open questions after the answer
+     */
+    200: CalendarSyncIssueList;
+};
+
+export type CalendarSyncLeaveMyCopyResponse = CalendarSyncLeaveMyCopyResponses[keyof CalendarSyncLeaveMyCopyResponses];
+
 export type CalendarListSeriesData = {
     body?: never;
     path?: never;
@@ -31779,6 +32726,60 @@ export type TasksSetTaskCompletionResponses = {
 };
 
 export type TasksSetTaskCompletionResponse = TasksSetTaskCompletionResponses[keyof TasksSetTaskCompletionResponses];
+
+export type TasksSetTaskRecurrenceData = {
+    body: SetMatterTaskRecurrenceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/recurrence';
+};
+
+export type TasksSetTaskRecurrenceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksSetTaskRecurrenceError = TasksSetTaskRecurrenceErrors[keyof TasksSetTaskRecurrenceErrors];
+
+export type TasksSetTaskRecurrenceResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksSetTaskRecurrenceResponse = TasksSetTaskRecurrenceResponses[keyof TasksSetTaskRecurrenceResponses];
 
 export type TasksSetTaskAssigneesData = {
     body: SetMatterTaskAssigneesRequest;

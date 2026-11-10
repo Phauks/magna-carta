@@ -45,6 +45,19 @@ export function statusOf(
   return list?.statuses.find((status) => status.id === task.statusId);
 }
 
+/**
+ * The statuses a task standing on `statusId` may move to under its list's flow. A task on no status
+ * may go to any of them, because there is no step for the flow to start from.
+ */
+export function statusesReachableFrom(
+  list: TaskListSummary | undefined,
+  statusId: string | null,
+): readonly string[] {
+  if (list === undefined) return [];
+  if (statusId === null) return list.statuses.map((status) => status.id);
+  return list.statuses.find((status) => status.id === statusId)?.nextStatusIds ?? [];
+}
+
 /** Everyone the task is assigned to, as words, in the order they were named. */
 export function assigneeNames(task: MatterTask, context: TaskColumnContext): string[] {
   return task.assignees.map((assignee) =>

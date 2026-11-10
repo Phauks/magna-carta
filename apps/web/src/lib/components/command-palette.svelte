@@ -19,6 +19,11 @@
    * contract forbids. Its registry is $lib/developer/diagnostic-actions.ts: an id, a label, the
    * words it should be findable by, whether this build offers it, and the function that runs. The
    * next tool of that shape joins there and is searchable in the same commit, with no edit here.
+   *
+   * THE FIRM'S RECORDS ARE NOT IN ANY REGISTRY, AND ARE NOT SEARCHED HERE. The palette's last row
+   * hands the typed text to the Search page (src/routes/(app)/search), which asks the server. It is
+   * one row for whatever was typed, never a list of matters or notes rendered inside the palette:
+   * a result here would be a second, shallower answer to the question that page exists to answer.
    */
   import { goto } from "$app/navigation";
   import { openBeside } from "$lib/navigation/open-beside.ts";
@@ -39,6 +44,7 @@
   import { grantedPermissions } from "$lib/tools/tool-permissions.ts";
   import { toolDestinations } from "$lib/navigation/tool-destinations.ts";
   import { SEARCH_PLACEHOLDER } from "$lib/navigation/search.ts";
+  import { searchAddress } from "$lib/search/search-address.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
   import { availableDiagnosticActions } from "$lib/developer/diagnostic-actions.ts";
@@ -204,7 +210,11 @@
       </div>
       <Command.List>
         <Command.Viewport>
-          <Command.Empty>No results found.</Command.Empty>
+          <!-- Only while nothing is typed. Once there is text, the last row offers to search the
+               firm's records for it, so "nothing found" above that row would be untrue. -->
+          {#if searchQuery.trim() === ""}
+            <Command.Empty>No results found.</Command.Empty>
+          {/if}
           <Command.Group>
             <Command.GroupHeading>Go to</Command.GroupHeading>
             <Command.GroupItems>
@@ -316,6 +326,26 @@
               {/each}
             </Command.GroupItems>
           </Command.Group>
+          <!-- The firm's records, which no registry holds. Whatever was typed can be taken to the
+               Search page, where every matter the reader may see is searched for it. This row is
+               the typed text itself and not an entry anybody lists, so it is always mounted: the
+               filter above asks whether an entry matches the text, and this one is the text. It
+               is LAST on purpose. A reader who types "mat" and presses Enter still lands on
+               Matters, and one who types words no screen is named for finds this the only row. -->
+          {#if searchQuery.trim() !== ""}
+            <Command.Group forceMount>
+              <Command.GroupHeading>Search</Command.GroupHeading>
+              <Command.GroupItems>
+                <Command.Item
+                  forceMount
+                  value={`search-every-matter ${searchQuery}`}
+                  onSelect={() => navigateTo(searchAddress(searchQuery))}
+                >
+                  Search Every Matter For “{searchQuery.trim()}”
+                </Command.Item>
+              </Command.GroupItems>
+            </Command.Group>
+          {/if}
         </Command.Viewport>
       </Command.List>
     </Command.Root>

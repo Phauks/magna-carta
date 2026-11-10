@@ -80,6 +80,18 @@ routes requests through the chokepoint into those packages.
   failing the capture. Its target is deployment config (`DKIM_RESOLVER_URL`), never a user-supplied
   address, so the SSRF rule in `docs/conventions/invariants.md` does not bind — but the name it queries
   comes from the message, and is constrained to a plain domain before it can shape the request.
+- `src/calendar-sync/` — a member's own calendar account at a provider: the sign-in, the store that
+  opens that member's own sealed sign-in and no other, and the sync out. `connection-sync.ts` is the
+  `ConnectionSync` Durable Object, one per connected account (`firmId:connectionId`), which holds who
+  it is for and a retry count and runs that account's passes one at a time from its alarm.
+  `outbound-pass.ts` is a pass: it reconciles the member's provider calendar with their rules and
+  records each copy in `calendar_sync_link`. `provider-changes.ts` runs at the end of a pass with
+  nothing left to send: it reads back only the copies the platform wrote, raises a copy the member
+  changed or deleted as a `connection_sync_issue` for them to answer, puts a deadline's copy back,
+  and never changes an event in the firm's calendar. `request-sync.ts` asks every account with a rule for a
+  pass; the calendar domain's router calls it behind the response of any write that could change
+  what belongs in somebody's calendar. All of it returns early in a deployment with no Microsoft
+  application
 - `src/progress/` — push progress for job coordinators: the WebSocket frame contract
   (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)
   that `BundleBuildCoordinator` and `ConversionJob` both use. See the section below.
@@ -425,6 +437,25 @@ by the discovery processing consumer once a document is `processed`. Local rules
 - The message carries the corpus as two optional fields with `matter` as the ABSENT default
   (`indexMessageCorpus`), so a message in flight across the deploy that introduced them still routes
   where it was going. The same shape is on the compaction message.
+
+## The kept text — what a file result quotes from
+
+`src/search/extracted-text-store.ts` is the two bucket operations over the format in
+`@magna-carta/search/extracted-text`: the index job writes one object per indexed version of a
+matter's file, and `src/search/matter-file-contents.ts` reads one passage of it by range.
+
+- **The write is inside the job's outcome and before the catalog commit.** The two best-effort steps
+  after the commit (the feed write, the compaction count) may fail quietly; this one may not,
+  because once the catalog names the split nothing about the document looks unindexed and no later
+  pass would repair a missing object.
+- **The read is after the search's own statement, and checks again.** `excerpts` is asked only for
+  rows the search is about to show. `listQuotableIndexedVersions` then answers which version the
+  index holds, and only for a file on that matter, not deleted, whose version is clean.
+- **A quote never fails a search and never reaches a log.** `excerpts` does not throw. A fault is
+  reported once, by its kind: not the question, not the passage, and not the key, which names a
+  client's file.
+- **Never the whole object.** One ranged read for most documents, two for a long one and three for
+  one of several thousand pages, with the passage itself capped. A request does not hold a deposition to quote a sentence from it.
 
 ## Gotchas
 

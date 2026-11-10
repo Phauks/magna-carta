@@ -23,6 +23,23 @@ ADR-0059, ADR-0068, ADR-0051.)
   field; path and query parameters stay with the routes (addressing, not shape). Rule and reasoning:
   `docs/conventions/api.md` (_Where a contract shape lives_). A change here changes the committed
   contract — re-emit the snapshot and the client in the same commit.
+- `src/sync-contract.ts` — what the connected-accounts routes accept and return
+- `src/sync-port.ts` — `CalendarSyncPort`: what calendar sync needs from a member's own calendar
+  account, in this package's vocabulary. An interface only; the adapters that implement it live in
+  their provider's package (`packages/microsoft-graph`) and this package still calls no service
+- `src/sync-rule-statements.ts` / `src/sync-rule-service.ts` — calendar sync settings: the firm's
+  limit on which event types may leave and with how much detail, and each member's own rules inside
+  it. A member's rule never exceeds the firm's limit: a save refuses a closed subject, and closing a
+  subject removes the rules that depended on it in the same batch. Settings only; nothing is sent
+- `src/sync-link-statements.ts` — the link table (one event in one member's provider calendar) and
+  the three reads of what could be sent to a member: their matter events, firm events and open
+  deadlines in a window. The matter-anchored reads compose the visible-matter predicate
+- `src/sync-outbound.ts` — the outbound decision, pure: from rules, limits, candidates and links to
+  the creates, updates and removals a pass should make. It is a reconciliation, so every trigger
+  asks the same question and a missed one is harmless. The pass that carries it out is in
+  `apps/api-worker/src/calendar-sync/`; this package still calls nothing and computes no date
+- `src/sync-issue-statements.ts` — a copy a member changed or deleted in their own calendar, as a
+  question for them: one row per copy, keyed as its link is, holding the copy as sent and as found
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and

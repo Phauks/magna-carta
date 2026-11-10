@@ -178,6 +178,12 @@ export type Bindings = {
   // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
   // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
   SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
+  // One object per connected calendar account, keyed `${firmId}:${connectionId}`. Every pass that
+  // writes a member's events to their own calendar runs inside that account's object, one at a time
+  // (calendar-sync/connection-sync.ts).
+  CONNECTION_SYNC: DurableObjectNamespace<
+    import("./calendar-sync/connection-sync.ts").ConnectionSync
+  >;
   // The split-compaction coordinator: keyed firmId:corpusId, and keyed that way because two concurrent
   // compactions of one corpus would each merge overlapping splits and leave every document in the
   // overlap live in two merged splits at once.
@@ -321,6 +327,16 @@ export type Bindings = {
   // Deliberately NOT in wrangler.jsonc's secrets.required: listing it would make every deploy fail
   // until a credential nobody has provisioned exists. Never logged, never echoed to a caller.
   TURNSTILE_SECRET_KEY?: string;
+  // The Microsoft application members sign in to their own Microsoft 365 account through, for
+  // calendar sync. The client id is public configuration and the secret is a secret
+  // (`wrangler secret put MICROSOFT_CLIENT_SECRET`). Optional, and the feature is dormant without
+  // them: with either absent no member is offered an Outlook connection and the sign-in route
+  // answers that this deployment cannot do it (src/calendar-sync/microsoft-application.ts).
+  // MICROSOFT_TENANT narrows sign-in to one tenant; absent, any work, school or personal account
+  // may sign in.
+  MICROSOFT_CLIENT_ID?: string;
+  MICROSOFT_CLIENT_SECRET?: string;
+  MICROSOFT_TENANT?: string;
   // The Smarty key pair behind address autocomplete (address-lookup/address-lookup-engine.ts).
   // Optional, and ABSENT IS THE SHIPPED STATE: with either missing, every request gets the deferred
   // port and the address form behaves exactly as it did before autocomplete existed. Production sets

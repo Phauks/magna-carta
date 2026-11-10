@@ -17,6 +17,7 @@ import type {
   TaskTeamId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { membersOfTeams, watcherNotice, watcherNoticeFor } from "./watcher-notices.ts";
 import {
   blockingChainReaches,
   archiveMatterTaskStatement,
@@ -32,7 +33,6 @@ import {
   memberCanBeAssigned,
   readMatterTask,
   readMatterTaskDocument,
-  reassignMatterTaskStatement,
   unarchiveMatterTaskStatement,
   updateMatterTaskStatement,
   isDescendantOf,
@@ -81,6 +81,7 @@ import {
   normalizeTaskTitle,
 } from "./validation.ts";
 import { promoteSubtasksStatement } from "./subtask-statements.ts";
+import { nextCopyEffect } from "./recurrence-service.ts";
 import {
   deleteExternalLinksForTaskStatement,
   insertTaskDeletionStatement,
@@ -302,7 +303,7 @@ export async function createMatterTask(
       `a task is assigned to at most ${String(MAX_TASK_ASSIGNEES)} people and teams`,
     );
   }
-  for (const userId of people) await assertAssignable(database, userId, matterId, options);
+  await Promise.all(people.map((userId) => assertAssignable(database, userId, matterId, options)));
   if (teams.length > 0) {
     const live = new Set((await readTaskTeams(database)).map((team) => team.id));
     if (teams.some((team) => !live.has(team))) {
@@ -316,12 +317,17 @@ export async function createMatterTask(
       `a task has at most ${String(MAX_TASK_WATCHERS)} watchers`,
     );
   }
-  for (const userId of watchers) await assertAssignable(database, userId, matterId, options);
+  await Promise.all(
+    watchers.map((userId) => assertAssignable(database, userId, matterId, options)),
+  );
   const assigneeUserId = people[0] ?? null;
   if (blockedByTaskId !== null) {
     await assertPredecessor(database, blockedByTaskId, matterId, null, options);
   }
 
+  const told = [...new Set([...people, ...(await membersOfTeams(database, teams))])].filter(
+    (userId) => userId !== options.actorUserId,
+  );
   const now = options.clock.now();
   const taskId = newIdentifier("matterTask", options.randomSource);
   return {
@@ -394,10 +400,10 @@ export async function createMatterTask(
       // The outbox row IS the emission. The notification registry's rule is that a type SUBSCRIBES
       // and never produces, so there is no notify() call in this path — the durable row committed in
       // the same atomic batch as the task is what a subscriber reads.
-      // Every person named, except the one doing the naming.
-      outboxMessages: people
-        .filter((userId) => userId !== options.actorUserId)
-        .map((userId) => ({
+      // Every person named, in person or through a team, except the one doing the naming; then
+      // the watchers, told they are copied in.
+      outboxMessages: [
+        ...told.map((userId) => ({
           topic: assignmentTopicFor(matterId, false),
           payload: {
             taskId,
@@ -408,6 +414,13 @@ export async function createMatterTask(
             dueOn: due.dueOn,
           },
         })),
+        ...watcherNoticeFor(
+          { id: taskId, matter_id: matterId, priority },
+          "watching",
+          options.actorUserId,
+          watchers.filter((userId) => !told.includes(userId)),
+        ),
+      ],
     },
   };
 }
@@ -423,6 +436,10 @@ export interface EditMatterTaskInput extends TaskDueInput {
   // never clears them by accident.
   readonly startsOn?: string | null;
   readonly location?: string | null;
+  // For a repeating task whose due date moves: `this` moves this copy only, and the next still falls
+  // where the rule says; `later` moves the series with it, so later copies follow the new date.
+  // Left out, it is `this`.
+  readonly recurrenceScope?: "this" | "later";
 }
 
 // Editing a task in place. A task's value is that it says what to do NOW, so a correction overwrites
@@ -452,10 +469,26 @@ export async function editMatterTask(
   if (blockedByTaskId !== null && blockedByTaskId !== task.blocked_by_task_id) {
     await assertPredecessor(database, blockedByTaskId, task.matter_id, taskId, options);
   }
+  const repeats = task.recurrence_rule !== null;
+  if (repeats && due.dueOn === null) {
+    throw new TaskValidationError(
+      "task-recurrence-needs-due-date",
+      "a repeating task needs a due date; stop it repeating before taking the date off",
+    );
+  }
+  const seriesMoves =
+    repeats && due.dueOn !== task.due_on && (input.recurrenceScope ?? "this") === "later";
   const now = options.clock.now();
   return {
     effect: {
       statements: [
+        ...(seriesMoves
+          ? [
+              database
+                .prepare(`UPDATE matter_task SET recurrence_occurrence_on = ?1 WHERE id = ?2`)
+                .bind(due.dueOn, taskId),
+            ]
+          : []),
         updateMatterTaskStatement(database, {
           id: taskId,
           title,
@@ -486,7 +519,11 @@ export async function editMatterTask(
           },
         }),
       ],
-      outboxMessages: [],
+      // A moved due date is the edit a watcher needs to hear about; a reworded title is not.
+      outboxMessages:
+        due.dueOn === task.due_on
+          ? []
+          : await watcherNotice(database, task, "dueDateChanged", options.actorUserId),
     },
   };
 }
@@ -940,10 +977,18 @@ export async function setMatterTaskCompleted(
             `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
         )
         .bind(now, options.actorUserId, taskId);
+  // A task that repeats on completion makes its next copy in the same batch, so the next round is
+  // never missing because a completion landed and the copy did not. Reopening does not take the
+  // copy back: by then it is somebody's work in its own right.
+  const copy =
+    completed && task.recurrence_mode === "completed" && task.recurrence_next_task_id === null
+      ? await nextCopyEffect(database, task, options)
+      : null;
   return {
     effect: {
       statements: [
         statement,
+        ...(copy?.statements ?? []),
         domainAuditStatement(database, {
           event: completed ? "tasks.task.completed" : "tasks.task.reopened",
           subjectId: taskId,
@@ -958,7 +1003,15 @@ export async function setMatterTaskCompleted(
           },
         }),
       ],
-      outboxMessages: [],
+      outboxMessages: [
+        ...(await watcherNotice(
+          database,
+          task,
+          completed ? "completed" : "reopened",
+          options.actorUserId,
+        )),
+        ...(copy?.outboxMessages ?? []),
+      ],
     },
   };
 }

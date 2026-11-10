@@ -6,10 +6,12 @@
   "sideEffects": false,
   "exports": {
     "./types": "./src/types.ts",
+    "./file-contents": "./src/file-contents.ts",
     "./registry": "./src/sources/registry.ts",
     "./build": "./src/sources/build.ts",
     "./sources": "./src/sources/all.ts",
-    "./run": "./src/run.ts"
+    "./run": "./src/run.ts",
+    "./run-across-matters": "./src/run-across-matters.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -18,7 +20,8 @@
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/search": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",

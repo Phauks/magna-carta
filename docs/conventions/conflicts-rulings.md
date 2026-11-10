@@ -211,15 +211,15 @@ beneath them. Rows here supersede R1 where they say so.
 
 ### The New Check panel
 
-| #   | Ruling                                                                                                                                                                                                         | Status                  |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                 | settled                 |
-| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                               | settled                 |
-| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations). | settled                 |
-| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                     | Tasks built; Files open |
-| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                           | settled                 |
-| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                | settled                 |
-| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                       | open (one place today)  |
+| #   | Ruling                                                                                                                                                                                                         | Status                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                 | settled                |
+| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                               | settled                |
+| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations). | settled                |
+| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                     | built                  |
+| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                           | settled                |
+| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                | settled                |
+| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                       | open (one place today) |
 
 ### The check page
 
@@ -262,4 +262,16 @@ beneath them. Rows here supersede R1 where they say so.
   database and is not searched; the report says so. A result records where it was found in
   `conflicts_hit.found_in_json` (kind, id, matter, instant, never the record's text), and the "Found
   In" chips now name the kind of record. Tasks' Archived option means archived tasks; matters have no
-  archived status. Files waits on the shared indexing design.
+  archived status. Since 2026-11-10 the names in calls and texts, tasks and Magnus are read through
+  the record index (#751) as exact phrases, so matching is by whole word and folds accents; email
+  stays on its own columns because it is not an index source.
+- **Files is searchable through the file contents index** (`packages/conflicts/src/file-search.ts`),
+  in line with the indexing and discovery design Trevor approved on 2026-11-10. The run asks each
+  matter's own index in turn (never a discovery review set's), one question per party per matter with
+  each name as an exact phrase, most recently active matters first, under a ceiling of 400 questions;
+  unsearched and failed matters are counted and reported. Every file result is tier 2. Archived means
+  files deleted from a matter (a file is only soft-deleted); matters themselves have no archived
+  status. The application supplies the searcher (`apps/api-worker/src/conflicts/file-contents-searcher.ts`);
+  while `SEARCH_SERVICE` is unbound it supplies none and the check records `files` unavailable with
+  its reason. A `narrowMatters` seam takes the firm-wide term summary the indexing work will build,
+  so the fan-out shrinks without a change here.

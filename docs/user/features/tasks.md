@@ -55,6 +55,58 @@ to another list first. For each list it adds, renames, recolours and removes sta
 which statuses each one can move to. A status that tasks are still on cannot be removed. The
 **Teams** tab is described below.
 
+## The Board
+
+**Board**, beside **List** at the top of the Tasks list, shows the same tasks as cards in columns,
+one column for each status. The board shows one list at a time, because each list has its own
+statuses: choose which with the list button beside **Board**.
+
+- **Drag a card to another column** to move the task to that status. While you carry a card, the
+  columns the list does not allow it to move to next fade and say **Not a next step**.
+- **Drop a card on Mark Complete**, after the last column, to complete the task. It keeps its
+  status, so reopening it puts it back where it was.
+- **Click a card** to open the task.
+
+A card shows the task's matter (on the firm's Tasks page), its due date (red once it has passed),
+its priority when it is not Normal, how much of its checklist and its sub-tasks are done, and who it
+is assigned to. Sub-tasks are not cards of their own: open the task to see them. Me Mode, search,
+Show Completed and Show Archived work the same way on the board as on the list.
+
+## Repeating Tasks
+
+A task can repeat: a monthly trust reconciliation, a weekly file review. Open the task and turn on
+**Repeats** below its dates, then choose how often and when it ends, the same way you would for a
+repeating calendar entry. A task repeats from its due date, so give it one first. A sub-task repeats
+with its parent rather than on its own.
+
+**Next One** decides when the next copy appears:
+
+- **Appears when this one is marked complete** (the usual choice). The next copy is made the moment
+  you complete this one, so the work never doubles up.
+- **Appears on its start date, even if this one is still open.** The next copy arrives on its own
+  start date (or its due date, if it has no start date) whether or not this one is done, for work
+  that is owed on the day however the last round went.
+
+Under the choice, the window says when the next one is due and when it will appear. On an existing
+task, press **Save Repeat** to keep a change.
+
+Only the current copy is in the list, marked with a repeat icon. Later ones do not exist until it is
+their turn, so the list never fills with a year of copies.
+
+**What the next copy carries:** what to do and the detail, the list (at its first status), the
+priority and the location, everyone assigned and watching, the checklist with every line unticked,
+and the links. Its start and due dates are the same distance apart as this one's. Sub-tasks,
+attached documents and time are not copied, because they belong to this round of the work. The
+people it is assigned to are told it is theirs.
+
+**Moving the due date of a repeating task** asks how far the move goes:
+
+- **This Task Only** moves this copy. The next one still falls where the repeat says.
+- **This And Later Ones** moves the repeat with it, so later copies follow the new date.
+
+A due date changed from the list itself moves this copy only. To take the due date off a repeating
+task, turn off **Repeats** first.
+
 ## Me Mode
 
 Everyone in the firm sees every task, apart from tasks on matters they are walled off from. **Me
@@ -103,6 +155,18 @@ morning. Add a **Time** only where a specific hour matters.
 Assigning a task to somebody else, or to a team, and adding watchers needs a role that includes
 assigning work. Without it you can still create tasks. You cannot assign a task on a matter to
 somebody who cannot open that matter.
+
+## Who Is Told
+
+- **When a task is assigned to you**, or to a team you are on, you get a notification. You are not
+  told about work you assign to yourself.
+- **When you are added as a watcher**, you are told, and from then on you hear when the task is
+  marked complete or reopened, moves to another status, is assigned to different people, or has its
+  due date moved. Changing a task's wording tells nobody.
+- **Nobody is told about their own change.**
+
+These arrive in your notifications under Tasks, and you can choose how they reach you in your
+notification settings.
 
 The checklist, links and sub-tasks are added once the task has been saved.
 
@@ -284,8 +348,7 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no board view, no recurring task, and no comment thread on a task. Watchers are not yet
-notified of changes. A timer cannot yet be started from a task.
+There is no comment thread on a task. A timer cannot yet be started from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

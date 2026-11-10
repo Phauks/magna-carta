@@ -4,6 +4,7 @@ members = [
   "address-core",
   "engine-host",
   "ocr-core",
+  "pdf-compose-core",
   "pdf-core",
   "pdf-eval",
   "recovery-core",

@@ -83,6 +83,9 @@
       "path": "packages/communications/tsconfig.test.json"
     },
     {
+      "path": "packages/community/tsconfig.test.json"
+    },
+    {
       "path": "packages/conflicts/tsconfig.test.json"
     },
     {
@@ -200,6 +203,9 @@
       "path": "packages/metadata/tsconfig.test.json"
     },
     {
+      "path": "packages/microsoft-graph/tsconfig.test.json"
+    },
+    {
       "path": "packages/mls/tsconfig.test.json"
     },
     {
@@ -216,6 +222,9 @@
     },
     {
       "path": "packages/object-dimensions/tsconfig.test.json"
+    },
+    {
+      "path": "packages/pdf-compose/tsconfig.test.json"
     },
     {
       "path": "packages/pdf/tsconfig.test.json"

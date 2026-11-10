@@ -14,9 +14,10 @@ The dropdown at the left of the search field is the scope. It opens on **This se
 screen you are on — because that is usually the question. Above the list of sections is **Everything
 on this matter**, which searches every part of the matter you have access to.
 
-The scope never goes wider than the matter you are in. Searching the whole application is the job of
-the box at the top of the window, which finds screens, settings and tools rather than records. Two
-different searches, in two different places, so that neither one surprises you.
+The scope never goes wider than the matter you are in. Searching every matter at once is the job of
+the box at the top of the window: it finds screens, settings and tools, and its last row takes your
+words to the Search page ([Searching across matters](searching-across-matters.md)). Two different
+searches, in two different places, so that neither one surprises you.
 
 Sections that cannot be searched yet are still in the list, greyed out, each with a short line saying
 what it is waiting for. They are shown rather than hidden so you can see what the search does and
@@ -24,27 +25,30 @@ does not cover.
 
 ## What answers today
 
-| Section       | What is searched                         |
-| ------------- | ---------------------------------------- |
-| **Files**     | File names                               |
-| **Time**      | What the timekeeper wrote about the work |
-| **Costs**     | What the cost was for                    |
-| **Parties**   | Names, and the capacity a party acts in  |
-| **Notes**     | What each note says                      |
-| **Custodian** | Packet names and custody numbers         |
-| **Calendar**  | Event titles and descriptions            |
-| **Assets**    | Asset descriptions                       |
+| Section       | What is searched                                  |
+| ------------- | ------------------------------------------------- |
+| **Files**     | File and folder names, and the words inside files |
+| **Time**      | What the timekeeper wrote about the work          |
+| **Costs**     | What the cost was for                             |
+| **Parties**   | Names, and the capacity a party acts in           |
+| **Notes**     | What each note says                               |
+| **Custodian** | Packet names and custody numbers                  |
+| **Calendar**  | Event titles and descriptions                     |
+| **Messaging** | What was said, the caller's name, and the number  |
+| **Assets**    | Asset descriptions                                |
 
 **Assets are searched by description only.** An asset's account, policy and certificate numbers are
 sealed, and searching them would let somebody confirm a full number by typing it and seeing whether a
 row came back. Its plain public-record identifiers — a parcel number, a vehicle identification number
 — are not searched yet either.
 
-**Files are searched by name, not by content.** Searching inside your documents is built and waiting
-on the search service being switched on; until it is, the results say so rather than leaving you to
-assume the search read your PDFs.
+**Files are searched two ways, and the results keep them apart.** **Files** lists the files and
+folders whose _names_ match. **Inside Files** lists the documents whose _text_ matches, best match
+first, says which pages the words were found on ("Pages 3 and 7"), and quotes the sentence from the
+best of them. See [Searching inside files](#searching-inside-files) below for what has to be
+switched on first.
 
-Five sections do not answer yet — Fees, Trust, Messaging, Emails and Overview — and each says so in the
+Four sections do not answer yet — Fees, Trust, Emails and Overview — and each says so in the
 dropdown rather than being left out.
 
 Fees is the one worth explaining, because a fee you have already billed **is** findable — under
@@ -53,10 +57,74 @@ the Fees tab is designed around a fee as its own dated record with a description
 not keep one yet. The fee agreement itself holds only amounts and dates, with no words in it to
 match.
 
+## How your words are matched
+
+Sections that hold writing — **Notes**, **Time**, **Costs**, **Calendar** and what was said in
+**Messaging** — are searched by word:
+
+- **Type several words** and a record is found when it contains all of them, in any order and
+  anywhere in it. "fence neighbour" finds a note that mentions both.
+- **The last word can be unfinished.** "ease" finds "easement", so results appear as you type.
+- **Put quotation marks around a phrase** to find exactly those words together: "drainage easement".
+- **Capital letters and accents do not matter.** "pena" finds "Peña".
+- **Part of the middle of a word is not a match.** "sement" does not find "easement".
+
+Sections that hold names and numbers — **Files**, **Parties**, **Custodian** and **Billing** — are
+searched by any part of the name or number, so the last four digits of a custody number or a piece
+of a file name is enough. A telephone number in **Messaging** is found the same way.
+
+## Searching inside files
+
+**Inside Files** searches the text of the matter's documents, including text recognized on
+scanned pages. It follows the same rules as the sections that hold writing — every word you type, the last
+one allowed to be unfinished, quotation marks for an exact phrase, capital letters and accents
+ignored — with one difference:
+
+- **All of your words have to be on the same page.** A search for "indemnify landlord" finds a
+  document where both words appear on one page, not one where they are forty pages apart.
+
+A result names the file, the folder it is in, and the pages that matched. When a long document
+matches on many pages, the three best are named and the rest are counted ("Pages 3, 7, 12 and 5
+more").
+
+Under the file's name the result **quotes the passage where your words are**, about two lines of
+it, taken from the page that matched best. It is there so you can tell whether this is the document
+you meant before you open it. One kind of result can name the file and quote nothing: a very long
+document that has no pages (a plain text file, a spreadsheet) when your words are far into it.
+
+The quote is the document's own text as it was read, so text recognized on a scanned page can carry
+the odd misread letter.
+
+Three things have to be true before **Inside Files** can answer, and the results tell you which one
+is missing instead of saying nothing matched:
+
+- **"Soon"** means the part of the product that reads inside documents is not switched on yet. File
+  and folder names were still searched.
+- **"Off"** means your firm has not turned on searching inside its files. An administrator decides
+  that for the whole firm, in Settings under
+  [Search and Indexing](../admin/search-and-indexing.md). Once it is on, new files are read as they
+  are added, and the files already on your matters are read over the following days, the oldest
+  first.
+- **"Unavailable"** means the service that reads inside documents did not answer this time. File
+  and folder names were still searched; try again in a moment.
+
+A file that was deleted is found inside only when **Include deleted** is on, and is marked
+**Deleted**, the same as a file found by name. A deleted file is named and never quoted.
+
 ## Reading the results
 
 Top results appear under the field as you type, grouped by section, each group saying what it
 matched on. Click any result to open the record on the screen that owns it.
+
+**Your words are marked where they were found.** In a note, a time narrative, an event or what was
+said on a call, each word that matched is highlighted, and a word found by its beginning is
+highlighted whole: type "ease" and "easement" is marked. A long note is not shown from its first
+line. The result shows the two lines or so where your words are, with "…" at either end where the
+note goes on. In a file name, a party's name or an invoice line, what is marked is exactly what you
+typed, wherever it falls in the name.
+
+A result can be marked nowhere and still be right. A call found by the caller's name or by its
+number shows what was said, and neither the name nor the number is in that.
 
 Two things a group can tell you besides its results:
 
@@ -89,7 +157,8 @@ into your browser history, on a page that already names the matter.
 **It will not find another matter's records.** Every part of the search is bound to the matter you
 are in.
 
-**It will not reach material another party produced to you in discovery.** Those documents live in
+**It will not reach material another party produced to you in discovery.** That holds for searching
+inside files too. Those documents live in
 their own separate index, under their own access rules, precisely so that an ordinary search of the
 matter cannot surface something that may be restricted under a protective order. Search a review set
 from the review screens, where those rules apply.

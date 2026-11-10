@@ -22,7 +22,6 @@ import {
 } from "@magna-carta/file-manager/version-changes";
 import {
   getCurrentCleanVersion,
-  getCurrentCleanVersionForPreview,
   getFileSummary,
   getFileWithArchiveVersion,
   getFileWithNamedVersion,
@@ -68,6 +67,7 @@ import {
 } from "@magna-carta/file-manager/scan-policy-settings";
 import { documentSessionStub } from "../../../editing/document-session.ts";
 import { mintPreviewDeliveryToken } from "../../../files/preview-token.ts";
+import { readPreviewVersion } from "../../../files/inline-playable-assessment.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type {
   DocumentTypeId,
@@ -1737,7 +1737,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       const firm = requireChokepointFirmContext(c);
       const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
-      const version = await getCurrentCleanVersionForPreview(firm.firmDatabase, id);
+      const version = await readPreviewVersion(c.env, firm, id);
       if (version === undefined) {
         return problemJson(c, {
           type: "not-found",

@@ -305,7 +305,6 @@ export default defineConfig({
           "vp run rust-wasm-build-seven-zip",
           "vp run rust-wasm-build-segmentation",
           "vp run rust-wasm-build-noise-suppression",
-          "vp run rust-wasm-build-mls",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -337,11 +336,19 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/noise-suppression/src/pkg -f crates/noise-suppression-core/wasm.Dockerfile crates",
       },
-      // The meeting's end-to-end encryption key agreement (MLS). Nothing imports it yet; when the
-      // meeting room does, the interface Worker's own build asks for it too, as it does for the two above.
+      // The meeting's end-to-end encryption key agreement (MLS). Deliberately NOT in the composite
+      // above and in no Worker's build script yet, on the PDF composer's terms below: nothing imports
+      // @magna-carta/mls yet. The meeting room's client adds it to the interface Worker's build.
       "rust-wasm-build-mls": {
         command:
           "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
+      },
+      // The PDF composer. Deliberately NOT in the composite above and in no Worker's build script:
+      // nothing imports @magna-carta/pdf-compose yet, so no deploy should pay to compile it or be
+      // able to fail on it. The first Worker to import the package adds this task to its own build.
+      "rust-wasm-build-pdf-compose": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",
       },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that

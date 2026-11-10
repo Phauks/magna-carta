@@ -28,6 +28,9 @@
     },
     {
       "path": "../identifiers/tsconfig.build.json"
+    },
+    {
+      "path": "../search/tsconfig.build.json"
     }
   ],
   "include": [

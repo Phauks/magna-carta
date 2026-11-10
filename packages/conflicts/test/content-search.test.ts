@@ -6,6 +6,7 @@ import { seededRandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, test } from "vitest";
 import {
+  NAME_RESULT_CEILING,
   NO_PLACES,
   readFoundIn,
   readPartyNeedles,
@@ -25,6 +26,7 @@ const ALL: PlacesRequest = {
   messaging: ["calls", "texts", "email"],
   tasks: ["consultations", "open", "closed", "archived"],
   magnus: true,
+  files: [],
 };
 
 async function corpus() {
@@ -110,7 +112,7 @@ describe("calls and texts", () => {
     communication(raw, "communication_number", { counterparty_number: "(702) 555-0143" });
     communication(raw, "communication_other", { counterparty_number: "(702) 555-9999" });
     const needles = await readPartyNeedles(database, [dana], null);
-    const hits = await searchContent(database, needles, ALL);
+    const hits = (await searchContent(database, needles, ALL)).hits;
     expect(hits.map((hit) => hit.foundIn.id).toSorted()).toEqual([
       "communication_linked",
       "communication_number",
@@ -127,7 +129,7 @@ describe("calls and texts", () => {
     });
     communication(raw, "communication_surname", { channel: "sms", body: "Whitfield called" });
     const needles = await readPartyNeedles(database, [dana], null);
-    const hits = await searchContent(database, needles, ALL);
+    const hits = (await searchContent(database, needles, ALL)).hits;
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatchObject({
       entityId: dana,
@@ -142,7 +144,8 @@ describe("calls and texts", () => {
     communication(raw, "communication_call", { counterparty_entity_id: dana });
     communication(raw, "communication_text", { channel: "sms", counterparty_entity_id: dana });
     const needles = await readPartyNeedles(database, [dana], null);
-    const hits = await searchContent(database, needles, { ...NO_PLACES, messaging: ["texts"] });
+    const hits = (await searchContent(database, needles, { ...NO_PLACES, messaging: ["texts"] }))
+      .hits;
     expect(hits.map((hit) => hit.foundIn.id)).toEqual(["communication_text"]);
   });
 });
@@ -170,7 +173,8 @@ describe("email", () => {
        VALUES ('emailMatterLink_1', 'emailMessage_subject', 'matter_open', 'filed', 'api', '${NOW}', '${NOW}')`,
     );
     const needles = await readPartyNeedles(database, [dana], null);
-    const hits = await searchContent(database, needles, { ...NO_PLACES, messaging: ["email"] });
+    const hits = (await searchContent(database, needles, { ...NO_PLACES, messaging: ["email"] }))
+      .hits;
     const byId = new Map(hits.map((hit) => [hit.foundIn.id, hit]));
     expect([...byId.keys()].toSorted()).toEqual(["emailMessage_from", "emailMessage_subject"]);
     expect(byId.get("emailMessage_from")?.tier).toBe(1);
@@ -195,14 +199,49 @@ describe("tasks", () => {
     task("matterTask_archived", "matter_open", "Old Acme Holdings LLC note", true);
     const needles = await readPartyNeedles(database, [acme], null);
 
-    const openOnly = await searchContent(database, needles, { ...NO_PLACES, tasks: ["open"] });
+    const openOnly = (await searchContent(database, needles, { ...NO_PLACES, tasks: ["open"] }))
+      .hits;
     expect(openOnly.map((hit) => hit.foundIn.id).toSorted()).toEqual([
       "matterTask_general",
       "matterTask_open",
     ]);
 
-    const everything = await searchContent(database, needles, ALL);
+    const everything = (await searchContent(database, needles, ALL)).hits;
     expect(everything.filter((hit) => hit.foundIn.kind === "task")).toHaveLength(5);
+  });
+
+  test("finds a name written without its accents, and never a word that only contains it", async () => {
+    const { database, raw } = await corpus();
+    const party = {
+      entityId: "directoryPerson_jose",
+      names: ["José Ortega"],
+      emails: [],
+      phoneDigits: [],
+    };
+    const task = (id: string, title: string) =>
+      raw.exec(
+        `INSERT INTO matter_task (id, matter_id, title, created_by, created_at, updated_at)
+         VALUES ('${id}', 'matter_open', '${title}', '${ACTOR}', '${NOW}', '${NOW}')`,
+      );
+    task("matterTask_accentless", "Call Jose Ortega back");
+    task("matterTask_inside", "Review the JoséOrtegaFund letter");
+    const { hits } = await searchContent(database, [party], { ...NO_PLACES, tasks: ["open"] });
+    expect(hits.map((hit) => hit.foundIn.id)).toEqual(["matterTask_accentless"]);
+    expect(hits[0]?.matchedFields).toEqual(['"José Ortega" is named in the task']);
+  });
+
+  test("keeps at most the ceiling of records for one name in one place, and counts the name", async () => {
+    const { database, raw, acme } = await corpus();
+    for (let index = 0; index <= NAME_RESULT_CEILING; index += 1) {
+      raw.exec(
+        `INSERT INTO matter_task (id, matter_id, title, created_by, created_at, updated_at)
+         VALUES ('matterTask_${String(index)}', 'matter_open', 'Acme Holdings LLC item ${String(index)}', '${ACTOR}', '${NOW}', '${NOW}')`,
+      );
+    }
+    const needles = await readPartyNeedles(database, [acme], null);
+    const outcome = await searchContent(database, needles, { ...NO_PLACES, tasks: ["open"] });
+    expect(outcome.hits).toHaveLength(NAME_RESULT_CEILING);
+    expect(outcome.namesAtCeiling).toBe(1);
   });
 });
 
@@ -225,7 +264,7 @@ describe("Magnus", () => {
     turn("magnusTurn_2", "magnusConversation_general", 2, "Tell me more about Dana Whitfield.");
     turn("magnusTurn_3", "magnusConversation_deleted", 1, "Dana Whitfield again");
     const needles = await readPartyNeedles(database, [dana], null);
-    const hits = await searchContent(database, needles, { ...NO_PLACES, magnus: true });
+    const hits = (await searchContent(database, needles, { ...NO_PLACES, magnus: true })).hits;
     expect(hits).toHaveLength(1);
     expect(hits[0]?.foundIn).toMatchObject({
       kind: "magnus_conversation",
@@ -240,7 +279,7 @@ describe("the request and the record", () => {
     expect(readPlacesRequest(undefined)).toEqual(NO_PLACES);
     expect(
       readPlacesRequest({ messaging: ["texts", "fax"], tasks: ["open"], magnus: "yes" }),
-    ).toEqual({ messaging: ["texts"], tasks: ["open"], magnus: false });
+    ).toEqual({ messaging: ["texts"], tasks: ["open"], magnus: false, files: [] });
   });
 
   test("a stored place reads back with its matter's number, and a Directory result reads as none", async () => {

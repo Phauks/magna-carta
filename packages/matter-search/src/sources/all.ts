@@ -1,10 +1,26 @@
 import { assertPermission } from "@magna-carta/access-control/registry";
-import { boundedSearchSelect, likeContainsTerm, matterSectionLink } from "./build.ts";
+import {
+  boundedSearchSelect,
+  likeContainsTerm,
+  matterSectionLink,
+  recordIndexLeadingMatch,
+  recordIndexMatch,
+  recordIndexNewestMatch,
+  visibleMattersSearchSelect,
+  type SearchRowColumns,
+} from "./build.ts";
 import {
   MatterSearchSourceRegistry,
   type MatterSearchSource,
   type SourceSearchRequest,
 } from "./registry.ts";
+import { keywordQueryText } from "@magna-carta/search/keyword-query";
+import {
+  arrangeByCandidates,
+  candidatesFrom,
+  passagesToAskFor,
+  quoteCandidates,
+} from "../file-contents.ts";
 import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 
 // The declared sources. Each is a read-side declaration — where the rows live, how to read a bounded
@@ -14,6 +30,20 @@ import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 //
 // Table names are tracked against @magna-carta/database's per-firm schema by the schema-name-sync
 // fitness test, the same way every other statements module tracks them.
+//
+// TWO KINDS OF MATCH, chosen by what the reader means. A source whose text is PROSE — a note, a
+// narrative, a cost description, an event, what was said on a call — matches words through the
+// firm's record index (`recordIndexLeadingMatch`), so the read follows the records that match and
+// is not a pass over every row of the matter.
+// A source whose text is a NAME or a NUMBER — a file, a folder, a party, a custody number, an
+// invoice number, a telephone number — matches characters with LIKE on its own column, because a
+// person typing part of a name or the last four digits of a number means exactly those characters.
+// The index is a source's to use only if @magna-carta/search declares that source
+// (record-index-sources.ts); the key handed to the match is that declaration's key.
+//
+// A THIRD KIND reads the words INSIDE a file, which are in neither a column nor the record index:
+// they are in the file contents index the search service reads. That source asks the index first
+// and then reads its own table, and it is the only one with a `prepare` step.
 const MATTER_NOTE_TABLE = "matter_note";
 const FILE_TABLE = "file";
 const FOLDER_TABLE = "folder";
@@ -39,8 +69,13 @@ function projectInto(sourceKey: string, section: string) {
   return (row: MatterSearchRawRow): MatterSearchHit => ({
     sourceKey,
     id: row.row_id,
+    matterId: row.matter_id,
     title: row.title,
+    // Where the reader's words are is said afterwards, by the runner (marks.ts), from the source's
+    // own `marking`. A projection knows the row and not the question.
+    titleMarks: [],
     snippet: row.snippet,
+    snippetMarks: [],
     secondary: row.secondary,
     actorUserId: row.actor_user_id,
     sortKey: row.sort_key,
@@ -70,9 +105,21 @@ function tooShort(request: SourceSearchRequest, minimum: number): boolean {
 // The snippet is DECLARED, and this is the source where that decision is load-bearing: a note is the
 // most privileged free text the platform holds. It is allowed here because every row this can return
 // is a note whose body the same reader is already shown on the Notes tab this hit links into, behind
-// the same notes:read capability. A firm-wide note search is a different question with a different
-// answer, and it is not built here.
+// the same notes:read capability. The search across matters answers with the same rows under the
+// same capability, and is declared separately below (`acrossMatters`).
 const NOTE_ORDERING_DATE = `COALESCE(${MATTER_NOTE_TABLE}.occurred_on, substr(${MATTER_NOTE_TABLE}.created_at, 1, 10))`;
+
+const NOTE_ROW: SearchRowColumns = {
+  idColumn: `${MATTER_NOTE_TABLE}.id`,
+  matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
+  sortExpression: NOTE_ORDERING_DATE,
+  // A note has no name; the reader recognizes it by when it is about, and the snippet carries the
+  // words. The title is that date, rendered by the client.
+  titleExpression: NOTE_ORDERING_DATE,
+  snippetExpression: `${MATTER_NOTE_TABLE}.body`,
+  secondaryExpression: "NULL",
+  actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
+};
 
 const notesSource: MatterSearchSource = {
   key: "notes",
@@ -81,39 +128,53 @@ const notesSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["the note's text"],
   declaresSnippet: true,
+  // The title is a date. The words are in the body, matched through the record index.
+  marking: { title: null, snippet: "record-words" },
   minimumQueryLength: 2,
   // A deleted note is gone rather than hidden, so there is no deleted set to include.
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
+    const match = recordIndexLeadingMatch(request, "notes", MATTER_NOTE_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: MATTER_NOTE_TABLE,
-        idColumn: `${MATTER_NOTE_TABLE}.id`,
-        matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
-        sortExpression: NOTE_ORDERING_DATE,
-        // A note has no name; the reader recognizes it by when it is about, and the snippet carries
-        // the words. The title is that date, rendered by the client.
-        titleExpression: NOTE_ORDERING_DATE,
-        snippetExpression: `${MATTER_NOTE_TABLE}.body`,
-        secondaryExpression: "NULL",
-        actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
-        conditions: [`${MATTER_NOTE_TABLE}.body LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
+        from: match.from,
+        ...NOTE_ROW,
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
   project: projectInto("notes", "notes"),
+  // The same rows, the same body and the same notes:read, on every matter the reader may see. The
+  // excerpt is allowed for the reason it is allowed inside a matter: each hit is a note this reader
+  // is shown in full on the Notes tab it links to. What decides WHICH matters is the visible-matter
+  // predicate alone, so a matter that becomes closed to a reader leaves their search with it.
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["the note's text"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "notes", MATTER_NOTE_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...NOTE_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- files -----------------------------------------------------------------------------------
 
-// The matter's files AND ITS FOLDERS, matched on NAME. Contents are a second half this source does
-// not have yet: the keyword engine, its write pipeline and its compaction are built, but no engine
-// is deployed, so the port answers engine-not-implemented and the surface says "names only" rather
-// than implying it looked inside anything. Slice 3 adds the content half behind the same source key,
-// and nothing above this file changes when it does.
+// The matter's files AND ITS FOLDERS, matched on NAME. The words inside a file are a different
+// question with a different kind of answer, and they are the next source's (`file-contents`).
 //
 // FOLDERS ARE THE SECOND STATEMENT, not a source of their own. A person who names a folder and then
 // searches for it is searching the Files section — putting folders in a group of their own would
@@ -131,8 +192,7 @@ const notesSource: MatterSearchSource = {
 // forgotten one.
 //
 // The snippet is declared ABSENT, and that is not an oversight: a file name IS the title, so an
-// excerpt would be the same string twice. When contents join, the excerpt is the matching passage
-// and this flips.
+// excerpt would be the same string twice.
 const filesSource: MatterSearchSource = {
   key: "files",
   sectionSlug: "files",
@@ -142,6 +202,8 @@ const filesSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["file names", "folder names"],
   declaresSnippet: false,
+  // A name is matched as the characters typed, wherever they fall in it.
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: true,
   buildStatements: (request) => {
@@ -190,6 +252,145 @@ const filesSource: MatterSearchSource = {
     ];
   },
   project: projectInto("files", "files"),
+  // File and folder names on every matter the reader may see. A name is characters and not words,
+  // so this reads the firm's file and folder rows instead of the record index, and its cost grows
+  // with how many files the firm holds; scripts/measure-across-matters.mts is the reading that says
+  // a firm's file list is short enough to read. Deleted files are never part of this answer: the
+  // option that brings them back belongs to the matter's own search, beside the register it reads.
+  acrossMatters: {
+    reads: "names",
+    matchedFields: ["file names", "folder names"],
+    buildStatements: (request) => {
+      const term = likeContainsTerm(request.query);
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: `${FILE_TABLE} LEFT JOIN ${FOLDER_TABLE} ON ${FOLDER_TABLE}.id = ${FILE_TABLE}.folder_id`,
+          idColumn: `${FILE_TABLE}.id`,
+          matterExpression: `${FILE_TABLE}.matter_id`,
+          sortExpression: `${FILE_TABLE}.created_at`,
+          titleExpression: `${FILE_TABLE}.name`,
+          snippetExpression: "NULL",
+          secondaryExpression: `${FOLDER_TABLE}.name`,
+          actorExpression: "NULL",
+          conditions: [`${FILE_TABLE}.name LIKE ? ESCAPE '\\'`, `${FILE_TABLE}.deleted_at IS NULL`],
+          bindings: [term],
+        }),
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: FOLDER_TABLE,
+          idColumn: `${FOLDER_TABLE}.id`,
+          matterExpression: `${FOLDER_TABLE}.matter_id`,
+          sortExpression: `${FOLDER_TABLE}.created_at`,
+          titleExpression: `${FOLDER_TABLE}.name`,
+          snippetExpression: "NULL",
+          secondaryExpression: "'Folder'",
+          actorExpression: "NULL",
+          conditions: [`${FOLDER_TABLE}.name LIKE ? ESCAPE '\\'`],
+          bindings: [term],
+        }),
+      ];
+    },
+  },
+};
+
+// ---- file contents ---------------------------------------------------------------------------
+
+// The words INSIDE the matter's files. A second source on the Files section, and a separate group
+// in the answer on purpose: a name match is a listing in the file list's own order, and a match
+// inside a document is ranked by how well the passage answers. Folding the two into one group would
+// put a ranked answer in a listing's order or a listing in a ranked one, and either reads as
+// something it is not. A file whose name and text both match appears in both groups, and each says
+// why it is there.
+//
+// The index is asked for passages and answers with file identifiers. It is not believed about
+// anything else: `fileContentsStatement` re-reads those files from the firm's own table through the
+// same bounded builder as every other source, so the matter binding and the visibility predicate
+// decide what is returned. That is also what keeps a discovery review set out of reach. The
+// application asks the index for this matter's corpus and no other, and a review document is not a
+// row of the `file` table this statement reads.
+//
+// The statement selects no excerpt, and a result may still carry one. The index holds which words
+// are on which page and not the sentences, and a document's text is not in the firm's database, so
+// there is nothing for SQL to select. The sentence is read afterwards, from where the application
+// keeps each indexed version's text, for the rows this statement returned and a reader is about to
+// be shown (`quoteCandidates`). A file that cannot be quoted names its pages alone.
+function fileContentsStatement(request: SourceSearchRequest, fileIds: readonly string[]) {
+  const conditions = [`${FILE_TABLE}.id IN (${fileIds.map(() => "?").join(", ")})`];
+  // The same rule as a name match: a deleted file answers only when asked for, and arrives marked.
+  if (!request.includeDeleted) conditions.push(`${FILE_TABLE}.deleted_at IS NULL`);
+  return boundedSearchSelect(request.database, {
+    request,
+    from: `${FILE_TABLE} LEFT JOIN ${FOLDER_TABLE} ON ${FOLDER_TABLE}.id = ${FILE_TABLE}.folder_id`,
+    idColumn: `${FILE_TABLE}.id`,
+    matterExpression: `${FILE_TABLE}.matter_id`,
+    sortExpression: `${FILE_TABLE}.created_at`,
+    titleExpression: `${FILE_TABLE}.name`,
+    snippetExpression: "NULL",
+    secondaryExpression:
+      `CASE WHEN ${FILE_TABLE}.deleted_at IS NULL THEN ${FOLDER_TABLE}.name ` +
+      `WHEN ${FOLDER_TABLE}.name IS NULL THEN 'Deleted' ` +
+      `ELSE 'Deleted · ' || ${FOLDER_TABLE}.name END`,
+    actorExpression: "NULL",
+    conditions,
+    bindings: [...fileIds],
+  });
+}
+
+const fileContentsSource: MatterSearchSource = {
+  key: "file-contents",
+  sectionSlug: "files",
+  // Behind the same door as the file list: any member of the firm may read a matter's files.
+  permission: null,
+  answerShape: "ranked",
+  matchedFields: ["the text inside files"],
+  // The sentence the words were found in. Any member of the firm may open the file it comes from,
+  // on the screen the result links to.
+  declaresSnippet: true,
+  // The words are inside the file and not in its name, so the sentence is marked and the name is
+  // not. The files group above is where a name that matched is marked.
+  marking: { title: null, snippet: "file-words" },
+  minimumQueryLength: 2,
+  supportsDeleted: true,
+  // Nothing to build without the index's answer. The statement is `fileContentsStatement`, built in
+  // `prepare` once the candidates are known.
+  buildStatements: () => [],
+  prepare: async (request) => {
+    const searcher = request.fileContents ?? null;
+    // Nothing supplied a way to the index. Said as "not connected", never as "no matches".
+    if (searcher === null) return { kind: "skipped", reason: "engine-not-connected" };
+    const queryText = tooShort(request, 2) ? null : keywordQueryText(request.query);
+    if (queryText === null) return { kind: "candidates", statements: [], arrange: () => [] };
+    // One more file than the limit, so the group can say there is more without counting.
+    const fileLimit = request.limit + 1;
+    const answer = await searcher.query({
+      matterId: request.matterId,
+      queryText,
+      limit: passagesToAskFor(fileLimit),
+    });
+    if (answer.kind === "off") return { kind: "skipped", reason: "not-indexed" };
+    if (answer.kind === "not-connected") return { kind: "skipped", reason: "engine-not-connected" };
+    if (answer.kind === "unavailable") return { kind: "skipped", reason: "engine-unavailable" };
+    const candidates = candidatesFrom(answer.passages, fileLimit);
+    if (candidates.length === 0) return { kind: "candidates", statements: [], arrange: () => [] };
+    return {
+      kind: "candidates",
+      statements: [
+        fileContentsStatement(
+          request,
+          candidates.map((candidate) => candidate.fileId),
+        ),
+      ],
+      arrange: (rows) => arrangeByCandidates(rows, candidates),
+      quote: (rows) =>
+        quoteCandidates(rows, candidates, {
+          matterId: request.matterId,
+          readerText: request.query,
+          searcher,
+        }),
+    };
+  },
+  project: projectInto("file-contents", "files"),
 };
 
 // ---- custody ---------------------------------------------------------------------------------
@@ -209,6 +410,9 @@ const custodySource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["packet names", "custody numbers"],
   declaresSnippet: false,
+  // The packet's name as characters. The custody number matches too and is in the second line,
+  // which is a composed label and is left unmarked.
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -251,44 +455,77 @@ const custodySource: MatterSearchSource = {
 // UNROUTED ROWS ARE OUT OF SCOPE HERE BY CONSTRUCTION, not by a condition — a matter search is
 // scoped to one matter, and a row waiting in the queue is on none. The firm-wide screen's own search
 // is where those are found.
+const COMMUNICATION_ROW: SearchRowColumns = {
+  idColumn: `${COMMUNICATION_TABLE}.id`,
+  matterExpression: `${COMMUNICATION_TABLE}.matter_id`,
+  sortExpression: `${COMMUNICATION_TABLE}.occurred_at`,
+  // A call has no name; the reader recognizes it by when it happened, and the snippet carries the
+  // words. The title is that instant, rendered by the client.
+  titleExpression: `${COMMUNICATION_TABLE}.occurred_at`,
+  snippetExpression: `COALESCE(${COMMUNICATION_TABLE}.body, ${COMMUNICATION_TABLE}.summary)`,
+  // What it was and which way it went — the two facts that tell a reader whether the hit is the
+  // conversation they meant before they open it.
+  secondaryExpression: `${COMMUNICATION_TABLE}.channel || ' · ' || ${COMMUNICATION_TABLE}.direction`,
+  actorExpression: `${COMMUNICATION_TABLE}.member_user_id`,
+};
+
 const communicationsSource: MatterSearchSource = {
   key: "communications",
   sectionSlug: "messaging",
   permission: assertPermission("communications:read"),
   answerShape: "listing",
-  matchedFields: ["what was said", "the number"],
+  matchedFields: ["what was said", "the caller's name", "the number"],
   declaresSnippet: true,
+  // The title is an instant. What was said is marked by its words; a call found by its number or
+  // by the caller's name shows what was said with nothing marked, because neither is in it.
+  marking: { title: null, snippet: "record-words" },
   minimumQueryLength: 2,
   // A logged call is edited or left alone, never soft-deleted, so there is no deleted set.
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
-    const term = likeContainsTerm(request.query.trim());
+    // Two halves, and either can answer. The words go to the record index; the number is matched as
+    // characters on its own column, because somebody typing "0142" means those digits wherever they
+    // fall in the number and a word match would refuse them. Text with no letter or digit in it
+    // leaves only the number half. Because it is one OR the other, this table leads and the index
+    // is asked as a subquery: a matter's calls and texts are few enough to read.
+    const numberCondition = `${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\'`;
+    const numberTerm = likeContainsTerm(request.query.trim());
+    const match = recordIndexMatch(request, "communications", `${COMMUNICATION_TABLE}.id`);
     return [
       boundedSearchSelect(request.database, {
         request,
         from: COMMUNICATION_TABLE,
-        idColumn: `${COMMUNICATION_TABLE}.id`,
-        matterExpression: `${COMMUNICATION_TABLE}.matter_id`,
-        sortExpression: `${COMMUNICATION_TABLE}.occurred_at`,
-        // A call has no name; the reader recognizes it by when it happened, and the snippet carries
-        // the words. The title is that instant, rendered by the client.
-        titleExpression: `${COMMUNICATION_TABLE}.occurred_at`,
-        snippetExpression: `COALESCE(${COMMUNICATION_TABLE}.body, ${COMMUNICATION_TABLE}.summary)`,
-        // What it was and which way it went — the two facts that tell a reader whether the hit is
-        // the conversation they meant before they open it.
-        secondaryExpression: `${COMMUNICATION_TABLE}.channel || ' · ' || ${COMMUNICATION_TABLE}.direction`,
-        actorExpression: `${COMMUNICATION_TABLE}.member_user_id`,
+        ...COMMUNICATION_ROW,
         conditions: [
-          `(${COMMUNICATION_TABLE}.body LIKE ? ESCAPE '\\' ` +
-            `OR ${COMMUNICATION_TABLE}.summary LIKE ? ESCAPE '\\' ` +
-            `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\')`,
+          match === null ? numberCondition : `(${match.condition} OR ${numberCondition})`,
         ],
-        bindings: [term, term, term],
+        bindings: match === null ? [numberTerm] : [match.binding, numberTerm],
       }),
     ];
   },
   project: projectInto("communications", "messaging"),
+  // Across matters the words alone answer, and the number does not. Inside a matter the number is
+  // matched by reading that matter's calls and texts, which are few; with no matter to narrow by,
+  // the same match would read every call and text the firm has logged. A row waiting in the queue
+  // on no matter is still out of reach here: the visible-matter predicate asks for a matter.
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["what was said", "the caller's name"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "communications", COMMUNICATION_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...COMMUNICATION_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- parties ---------------------------------------------------------------------------------
@@ -340,6 +577,7 @@ const partiesSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["party names", "the capacity they act in"],
   declaresSnippet: false,
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -385,6 +623,17 @@ const partiesSource: MatterSearchSource = {
 // notes where the snippet decision is load-bearing, and it lands the same way for the same reason —
 // a reader holding time:read is already shown these narratives in full on the Time tab this hit
 // links into.
+const TIME_ROW: SearchRowColumns = {
+  idColumn: `${TIME_ENTRY_TABLE}.id`,
+  matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
+  // The day the work was done, not the day it was typed — the order the Time tab reads in.
+  sortExpression: `${TIME_ENTRY_TABLE}.work_date`,
+  titleExpression: `${TIME_ENTRY_TABLE}.work_date`,
+  snippetExpression: `${TIME_ENTRY_TABLE}.narrative`,
+  secondaryExpression: `${TIME_ENTRY_TABLE}.status`,
+  actorExpression: `${TIME_ENTRY_TABLE}.timekeeper_user_id`,
+};
+
 const timeSource: MatterSearchSource = {
   key: "time",
   sectionSlug: "time",
@@ -392,30 +641,44 @@ const timeSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["time narratives"],
   declaresSnippet: true,
+  // The title is the day the work was done. The narrative is marked by its words.
+  marking: { title: null, snippet: "record-words" },
   minimumQueryLength: 2,
   // A voided entry keeps its row and stays part of the matter's record, so there is no deleted set
   // distinct from what the search already returns.
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
+    const match = recordIndexLeadingMatch(request, "time", TIME_ENTRY_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: TIME_ENTRY_TABLE,
-        idColumn: `${TIME_ENTRY_TABLE}.id`,
-        matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
-        // The day the work was done, not the day it was typed — the order the Time tab reads in.
-        sortExpression: `${TIME_ENTRY_TABLE}.work_date`,
-        titleExpression: `${TIME_ENTRY_TABLE}.work_date`,
-        snippetExpression: `${TIME_ENTRY_TABLE}.narrative`,
-        secondaryExpression: `${TIME_ENTRY_TABLE}.status`,
-        actorExpression: `${TIME_ENTRY_TABLE}.timekeeper_user_id`,
-        conditions: [`${TIME_ENTRY_TABLE}.narrative LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
+        from: match.from,
+        ...TIME_ROW,
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
   project: projectInto("time", "time"),
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["time narratives"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "time", TIME_ENTRY_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...TIME_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- costs -----------------------------------------------------------------------------------
@@ -423,6 +686,17 @@ const timeSource: MatterSearchSource = {
 // Costs advanced and expenses incurred on this matter, matched on what the firm wrote the cost was
 // for. The description is the whole point of a cost row to a person searching — "the filing fee",
 // "the process server" — so it is both what matches and what is shown.
+const COST_ROW: SearchRowColumns = {
+  idColumn: `${COST_ENTRY_TABLE}.id`,
+  matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
+  sortExpression: `${COST_ENTRY_TABLE}.incurred_date`,
+  titleExpression: `${COST_ENTRY_TABLE}.description`,
+  // The description is already the title, so an excerpt would be the same string twice.
+  snippetExpression: "NULL",
+  secondaryExpression: `${COST_ENTRY_TABLE}.status`,
+  actorExpression: "NULL",
+};
+
 const costsSource: MatterSearchSource = {
   key: "costs",
   sectionSlug: "costs",
@@ -430,28 +704,42 @@ const costsSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["cost descriptions"],
   declaresSnippet: true,
+  // The description is the title, and it is what the record index matched.
+  marking: { title: "record-words", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
+    const match = recordIndexLeadingMatch(request, "costs", COST_ENTRY_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: COST_ENTRY_TABLE,
-        idColumn: `${COST_ENTRY_TABLE}.id`,
-        matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
-        sortExpression: `${COST_ENTRY_TABLE}.incurred_date`,
-        titleExpression: `${COST_ENTRY_TABLE}.description`,
-        // The description is already the title, so an excerpt would be the same string twice.
-        snippetExpression: "NULL",
-        secondaryExpression: `${COST_ENTRY_TABLE}.status`,
-        actorExpression: "NULL",
-        conditions: [`${COST_ENTRY_TABLE}.description LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
+        from: match.from,
+        ...COST_ROW,
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
   project: projectInto("costs", "costs"),
+  acrossMatters: {
+    reads: "record-index",
+    matchedFields: ["cost descriptions"],
+    buildStatements: (request) => {
+      const match = recordIndexNewestMatch(request, "costs", COST_ENTRY_TABLE);
+      if (match === null) return [];
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          ...match,
+          ...COST_ROW,
+          conditions: [],
+          bindings: [],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- calendar --------------------------------------------------------------------------------
@@ -465,6 +753,10 @@ const costsSource: MatterSearchSource = {
 // it concerns, and putting it on a firm-wide read would be a leak. This search is inside ONE matter,
 // behind that matter's own calendar:read, on a screen that shows those titles in full. Same column,
 // different reach, different answer.
+//
+// It declares no `acrossMatters` for the same reason. A search across matters is the wider reach
+// again, and whether an event's title may be shown on it is the owner's to decide, as it was for
+// the timeline; until then a search across matters says events are not searched there.
 const calendarSource: MatterSearchSource = {
   key: "calendar",
   sectionSlug: "calendar",
@@ -472,15 +764,17 @@ const calendarSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["event titles", "event descriptions"],
   declaresSnippet: true,
+  marking: { title: "record-words", snippet: "record-words" },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
-    const term = likeContainsTerm(request.query.trim());
+    const match = recordIndexLeadingMatch(request, "calendar", MATTER_EVENT_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: MATTER_EVENT_TABLE,
+        from: match.from,
         idColumn: `${MATTER_EVENT_TABLE}.id`,
         matterExpression: `${MATTER_EVENT_TABLE}.matter_id`,
         sortExpression: `${MATTER_EVENT_TABLE}.starts_on`,
@@ -489,10 +783,8 @@ const calendarSource: MatterSearchSource = {
         // Whether it is still standing. A cancelled hearing is findable and must never look live.
         secondaryExpression: `${MATTER_EVENT_TABLE}.status`,
         actorExpression: `${MATTER_EVENT_TABLE}.recorded_by`,
-        conditions: [
-          `(${MATTER_EVENT_TABLE}.title LIKE ? ESCAPE '\\' OR ${MATTER_EVENT_TABLE}.description LIKE ? ESCAPE '\\')`,
-        ],
-        bindings: [term, term],
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
@@ -539,6 +831,9 @@ const billingSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["invoice line descriptions", "invoice numbers"],
   declaresSnippet: false,
+  // The line's description as characters. An invoice number matches too and is in the second
+  // line, which is a composed label and is left unmarked.
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -578,6 +873,7 @@ const billingSource: MatterSearchSource = {
 // the answer and the tabs above it never disagree about where things live.
 export const matterSearchSources = new MatterSearchSourceRegistry([
   filesSource,
+  fileContentsSource,
   timeSource,
   costsSource,
   billingSource,

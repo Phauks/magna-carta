@@ -21,14 +21,16 @@ mod query;
 mod schema;
 mod split;
 
-pub use directory::{open_index, read_footer_ranged, RangeReader, SplitDirectory};
+pub use directory::{
+    open_index, read_footer_ranged, read_footer_ranged_at_generation, RangeReader, SplitDirectory,
+};
 pub use error::SearchError;
 pub use merge::{merge_splits, merge_splits_over_readers, MergedSplit};
 pub use query::{
     query_over_reader, query_searchers, query_split, query_splits, query_splits_over_readers, Hit,
     SplitSearcher,
 };
-pub use schema::{SearchSchema, SCHEMA_GENERATION};
+pub use schema::{SearchSchema, LONGEST_BODY_WORD_BYTES, SCHEMA_GENERATION};
 pub use split::{build_split, read_footer, FileEntry, Footer, IndexDocument};
 
 #[cfg(test)]
@@ -159,6 +161,146 @@ mod tests {
         assert_eq!(present[0].document_id, "doc-2");
         let absent = query_split(&split, "\"owner prior\"", 10).unwrap();
         assert!(absent.is_empty(), "the reversed phrase must not match");
+    }
+
+    fn matching(split: &[u8], query: &str) -> Vec<String> {
+        let mut found: Vec<String> = query_split(split, query, 10)
+            .unwrap()
+            .into_iter()
+            .map(|hit| hit.document_id)
+            .collect();
+        found.sort();
+        found
+    }
+
+    #[test]
+    fn the_query_text_the_application_builds_from_a_search_box_means_what_it_says() {
+        // The application never passes a reader's text through as query syntax. It rebuilds the
+        // question from the words alone (packages/search/src/keyword-query.ts): every word required,
+        // each one quoted so it is a literal, and the word still being typed marked as the start of a
+        // word. This pins that the engine reads that text the way the application means it, because
+        // the two are written in different languages and nothing else compares them.
+        let split = build_split(&corpus()).unwrap();
+
+        // Every word is required: the two words are in different documents, so nothing holds both.
+        assert!(matching(&split, "+\"buyer\" +\"environmental\"").is_empty());
+        assert_eq!(matching(&split, "+\"buyer\" +\"premises\""), ["doc-3"]);
+
+        // The last word may be unfinished, alone or after others.
+        assert_eq!(matching(&split, "+body:/indemn.*/"), ["doc-1"]);
+        assert_eq!(
+            matching(&split, "+\"environmental\" +body:/liab.*/"),
+            ["doc-2"]
+        );
+        assert_eq!(matching(&split, "+body:/buy.*/"), ["doc-1", "doc-3"]);
+        // A finished word is a whole word: "buy" is not in any document.
+        assert!(matching(&split, "+\"buy\"").is_empty());
+
+        // A quoted run is adjacent and in order; its last word may be unfinished too.
+        assert_eq!(matching(&split, "+\"prior owner\""), ["doc-2"]);
+        assert!(matching(&split, "+\"owner prior\"").is_empty());
+        assert_eq!(matching(&split, "+\"prior own\"*"), ["doc-2"]);
+
+        // A word with punctuation inside it is the run of its pieces, as the index cut it.
+        assert_eq!(matching(&split, "+\"as is\""), ["doc-3"]);
+
+        // Case does not matter.
+        assert_eq!(matching(&split, "+\"ENVIRONMENTAL\""), ["doc-2"]);
+    }
+
+    #[test]
+    fn accents_do_not_matter_in_the_text_or_in_the_question() {
+        // The body folds Latin letters to their unaccented form on the way in, and the query parser
+        // folds a quoted word the same way, so a name is found however either side spelled it, and
+        // the application sends a quoted word as the reader typed it. It folds the one shape the
+        // engine cannot fold for it: a pattern is compared with the index's words as they are held,
+        // so an unfinished word arrives already folded (packages/search/src/keyword-query.ts).
+        let split = build_split(&[
+            doc(
+                "pena",
+                "pena:p1",
+                "Deposition of Maria Peña, taken in Zürich.",
+            ),
+            doc(
+                "resume",
+                "resume:p1",
+                "Her résumé lists the Straße address.",
+            ),
+            doc(
+                "plain",
+                "plain:p1",
+                "The resume of the hearing is set for June.",
+            ),
+            doc("soren", "soren:p1", "Witness: Søren Łukasz Æbel."),
+            // The accents as characters of their own, the way text taken out of a PDF often has them.
+            doc(
+                "nunez",
+                "nunez:p1",
+                "Affidavit of Jose\u{0301} Nu\u{0301}n\u{0303}ez, sworn in I\u{0307}stanbul and \u{0130}zmir.",
+            ),
+        ])
+        .unwrap();
+
+        // An accented word in a document is found by the plain spelling, and by the accented one.
+        assert_eq!(matching(&split, "+\"pena\""), ["pena"]);
+        assert_eq!(matching(&split, "+\"peña\""), ["pena"]);
+        assert_eq!(matching(&split, "+\"PEÑA\""), ["pena"]);
+        assert_eq!(matching(&split, "+\"zurich\""), ["pena"]);
+        // And the other way: an accented question finds the plain word too.
+        assert_eq!(matching(&split, "+\"resume\""), ["plain", "resume"]);
+        assert_eq!(matching(&split, "+\"résumé\""), ["plain", "resume"]);
+
+        // Letters with no accent to remove still have a plain form.
+        assert_eq!(matching(&split, "+\"strasse\""), ["resume"]);
+        assert_eq!(
+            matching(&split, "+\"soren\" +\"lukasz\" +\"aebel\""),
+            ["soren"]
+        );
+
+        // A letter and its accent as two characters are the one letter, in the text and in the
+        // question, and a capital I with a dot is a plain i however it was written.
+        assert_eq!(matching(&split, "+\"jose\" +\"nunez\""), ["nunez"]);
+        assert_eq!(matching(&split, "+\"José\" +\"Núñez\""), ["nunez"]);
+        assert_eq!(
+            matching(&split, "+\"Jose\u{0301} Nu\u{0301}n\u{0303}ez\""),
+            ["nunez"]
+        );
+        assert_eq!(
+            matching(&split, "+\"istanbul\" +\"\u{0130}zmir\""),
+            ["nunez"]
+        );
+        assert_eq!(matching(&split, "+body:/nun.*/"), ["nunez"]);
+        assert_eq!(matching(&split, "+body:/izm.*/"), ["nunez"]);
+
+        // A finished word as typed beside an unfinished one already folded: what the application
+        // sends for "Søren Łuk".
+        assert_eq!(matching(&split, "+\"Søren\" +body:/luk.*/"), ["soren"]);
+
+        // An unfinished word is a pattern over the folded words, so it is asked for folded.
+        assert_eq!(matching(&split, "+body:/pen.*/"), ["pena"]);
+        assert_eq!(matching(&split, "+body:/resu.*/"), ["plain", "resume"]);
+        assert_eq!(matching(&split, "+body:/stras.*/"), ["resume"]);
+        // Asked for unfolded it finds nothing, which is why the application folds it first.
+        assert!(matching(&split, "+body:/peñ.*/").is_empty());
+    }
+
+    #[test]
+    fn a_word_past_the_longest_the_body_keeps_is_dropped_by_its_folded_length() {
+        // Forty bytes is kept and forty-one is not, counted after folding: twenty "é" are forty bytes
+        // as written and twenty once folded, so the accented word is held like the plain one.
+        let forty = "a".repeat(LONGEST_BODY_WORD_BYTES);
+        let forty_one = "a".repeat(LONGEST_BODY_WORD_BYTES + 1);
+        let accented = "é".repeat(LONGEST_BODY_WORD_BYTES);
+        let split = build_split(&[
+            doc("kept", "kept:p1", &forty),
+            doc("dropped", "dropped:p1", &forty_one),
+            doc("accented", "accented:p1", &accented),
+        ])
+        .unwrap();
+        assert_eq!(matching(&split, &format!("+\"{forty}\"")), ["kept"]);
+        assert!(matching(&split, &format!("+\"{forty_one}\"")).is_empty());
+        let folded = "e".repeat(LONGEST_BODY_WORD_BYTES);
+        assert_eq!(matching(&split, &format!("+\"{folded}\"")), ["accented"]);
     }
 
     #[test]

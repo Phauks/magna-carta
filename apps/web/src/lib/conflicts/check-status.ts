@@ -25,6 +25,8 @@ import {
   RUN_STAGES,
   SEARCH_LOCATIONS,
   TASK_STATUS_OPTIONS,
+  FILE_STATUS_OPTIONS,
+  FILES_SOURCE,
 } from "./conflicts-vocabulary.ts";
 import { resultCountText } from "./check-results.ts";
 import { stageCountText } from "./run-progress.ts";
@@ -54,6 +56,7 @@ export const PLACE_STATE_LABELS: Readonly<Record<PlaceState, string>> = {
 
 /** The name each place's sentences in the engine's account begin with. */
 const STATEMENT_LEADS: Readonly<Partial<Record<SearchLocation, string>>> = {
+  files: "Files —",
   messaging: "Messaging —",
   tasks: "Tasks —",
   magnus: "Magnus —",
@@ -70,6 +73,7 @@ export function placeWasAsked(location: SearchLocation, places: PlacesRequest | 
   if (location === "messaging") return places.messaging.length > 0;
   if (location === "tasks") return places.tasks.length > 0;
   if (location === "magnus") return places.magnus;
+  if (location === "files") return (places.files ?? []).length > 0;
   return false;
 }
 
@@ -89,6 +93,12 @@ export function placeSettingsText(
   }
   if (location === "tasks") {
     return TASK_STATUS_OPTIONS.filter((option) => places.tasks.includes(option.key))
+      .map((option) => option.label)
+      .join(", ");
+  }
+  if (location === "files") {
+    const files = places.files ?? [];
+    return FILE_STATUS_OPTIONS.filter((option) => files.includes(option.key))
       .map((option) => option.label)
       .join(", ");
   }
@@ -173,6 +183,15 @@ function recordsPlace(
       summary: "Searching",
       lines:
         found === undefined ? [] : [`${resultCountText(found)} found so far across these places`],
+    };
+  }
+  // Files is asked of the file index, which a check records as not searched when it could not be
+  // reached: that reads as not searched, never as searched and empty.
+  if (location === "files" && record?.check.scope[FILES_SOURCE] === "unavailable") {
+    return {
+      state: "not-searched",
+      summary: "Not searched",
+      lines: ["The file index is not connected yet, so no file's text was read."],
     };
   }
   const hits = record?.hits.filter((hit) => locationOfHit(hit) === location).length ?? 0;

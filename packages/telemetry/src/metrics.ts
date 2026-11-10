@@ -496,6 +496,19 @@ export const communicationsCallerLookup = defineMetric("communications.caller_lo
 ] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
+// Task copies the scheduled pass wrote for repeating tasks that fall due by date rather than on
+// completion. A firm with repeating tasks and a flat zero here means the cron pass stopped writing.
+export const tasksRecurringWrites = defineMetric("tasks.recurring_writes", [] as const);
+
+// Places of a firm's record index a queued rebuild read again from the records. The index is
+// written by triggers and should never fall behind them, so a firm asking for a rebuild is rare and
+// a non-zero count here is each time worth a look: something left a place's copy and its records
+// disagreeing. No dimension: which place is in the firm's own audit log, not in this dataset.
+export const searchRecordIndexPlacesRebuilt = defineMetric(
+  "search.record_index.places_rebuilt",
+  [] as const,
+);
+
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
   unloggableField,
@@ -568,6 +581,8 @@ const CATALOG: readonly MetricDefinition[] = [
   exportsCopyProduced,
   exportsCopyRequestFailed,
   exportsCopyMalformedPayload,
+  tasksRecurringWrites,
+  searchRecordIndexPlacesRebuilt,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

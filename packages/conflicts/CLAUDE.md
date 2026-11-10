@@ -75,14 +75,22 @@ and never calls external services.
   conflict between two different parties of the same matter), only flagged `co_party` on the hit so a
   reviewer buckets it apart from a conflict with a prior/other client. The only match that is dropped
   is an entity matching **itself** (`match.entityId === entity.entityId`).
+- `src/file-search.ts` — Files: asks each matter's file contents index (through an injected
+  `FileContentsSearcher` the application supplies; never a review set's corpus) for each subject
+  party's names as exact phrases, bounded by `FILE_QUERY_CEILING`, and keeps only files the database
+  still files on that matter and the options asked for. No searcher, or an unreachable index, records
+  `files` unavailable rather than searched and empty. Never stores document text.
 - `src/content-search.ts` — the firm's own records as places a check searches: calls and texts
   (`communication`), email (`email_participant` and `email_message.subject`), tasks (`matter_task`
   title and body, by matter status) and Magnus conversations. `readPartyNeedles` reads what each
   subject party is looked for by (names as written, under the check's name roles; email addresses;
   phone digits); `searchContent` runs one small function per place and returns one `content`-class
-  result per party per record, identity at tier 1 and the name compared whole at tier 2. Plain LIKE
-  scans inside the background run: the shared record text index under design elsewhere replaces the
-  per-place functions, not their callers. `found_in_json` on the hit says where (`FoundIn`: kind, id,
+  result per party per record, identity at tier 1 and the name compared whole at tier 2. Names in
+  calls and texts, tasks and Magnus are asked of the firm's record index
+  (`@magna-carta/search/record-index-query`, index-led, one exact phrase per name, firm-wide), at
+  most `NAME_RESULT_CEILING` records per name per place, with the names that reached it counted on
+  the record. Numbers, addresses, linked records and email (not an index source) stay on LIKE and
+  equality over their own columns. `found_in_json` on the hit says where (`FoundIn`: kind, id,
   matter, instant), never the record's text, because the log outlives the record
 - `src/disposition.ts` — `recordDisposition` (validates a non-blank rationale and that the hit exists
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`

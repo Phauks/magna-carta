@@ -498,6 +498,12 @@
       // eleven tracks. NOT hibernating while a session is open; it stores no audio and no words, only
       // the handles of the adapters it holds open and counts.
       { "name": "MEETING_CAPTIONER", "class_name": "MeetingCaptioner" },
+      // One connected calendar account's sync passes (idFromName(`${firmId}:${connectionId}`),
+      // firm-namespaced). Each pass writes a member's events to their own calendar at their provider
+      // and records what is there; running them one at a time per account is what stops two passes
+      // each making a copy of the same event. It holds who it is for and a retry count, never an
+      // event or a token.
+      { "name": "CONNECTION_SYNC", "class_name": "ConnectionSync" },
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
@@ -512,7 +518,8 @@
   // discovery load fan-out coordinator; v8-search-compaction-job the split-compaction coordinator;
   // v9-meeting-room one meeting's signaling room; v10-safe-browse-session one member's live browsing
   // session; v11-meeting-recorder one recording's sink; v12-meeting-captioner one meeting's live
-  // captions (the most recent class, appended last). Never modify an applied tag — only append a new
+  // captions; v13-connection-sync one connected calendar account's sync passes (the most recent
+  // class, appended last). Never modify an applied tag — only append a new
   // one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
@@ -529,6 +536,7 @@
     { "tag": "v10-safe-browse-session", "new_sqlite_classes": ["SafeBrowseSession"] },
     { "tag": "v11-meeting-recorder", "new_sqlite_classes": ["MeetingRecorder"] },
     { "tag": "v12-meeting-captioner", "new_sqlite_classes": ["MeetingCaptioner"] },
+    { "tag": "v13-connection-sync", "new_sqlite_classes": ["ConnectionSync"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

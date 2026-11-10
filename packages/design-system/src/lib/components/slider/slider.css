@@ -1,0 +1,73 @@
+@layer components {
+  /*
+   * Slider (Tier 2, Bits UI). A rounded track, a primary fill from the start to the value, and a
+   * round thumb ringed in the fill's colour. The optional buffered fill sits under the value fill in
+   * the border tone, so "loaded" never reads as "played". The root is a tall, transparent hit area
+   * around a thin track: the track is easy to see and the target is easy to hit.
+   */
+  .mc-slider {
+    position: relative;
+    display: flex;
+    align-items: center;
+    block-size: var(--mc-space-24);
+    touch-action: none;
+    user-select: none;
+    cursor: pointer;
+  }
+  .mc-slider[data-disabled] {
+    cursor: not-allowed;
+  }
+  .mc-slider[data-disabled] .mc-slider-range {
+    background-color: var(--mc-action-disabled);
+  }
+  .mc-slider[data-disabled] .mc-slider-thumb {
+    border-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-slider-track {
+    position: relative;
+    flex: auto;
+    block-size: var(--mc-space-4);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-border-default);
+    overflow: hidden;
+  }
+  .mc-slider-buffered {
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+    background-color: var(--mc-border-strong);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-slider-range {
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    background-color: var(--mc-action-primary);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-slider-thumb {
+    display: block;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    border-radius: var(--mc-radius-full);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-action-primary);
+    background-color: var(--mc-surface-default);
+    cursor: grab;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+    transition-property: outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-slider-thumb:active {
+    cursor: grabbing;
+  }
+  .mc-slider-thumb:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+}

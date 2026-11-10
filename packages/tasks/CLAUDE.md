@@ -24,8 +24,17 @@ scoped against a wider brief in
   blocking-chain walk
 - `src/task-service.ts` — create, edit, reassign, complete, reopen, cancel, delete, attach, detach,
   each one batch with its audit row
-- `src/notifications.ts` — the four topics and the two comparison-shaped points declared and wired to
+- `src/notifications.ts` — the six topics and the two comparison-shaped points declared and wired to
   nothing
+- `src/organisation-statements.ts` and `src/organisation-service.ts` — a firm's task lists, their
+  statuses and flow, teams, and what a task carries besides its words: several assignees, watchers,
+  a checklist and links
+- `src/subtask-statements.ts` — the sub-task trees a list reads in one pass
+- `src/watcher-notices.ts` — who is told beyond the actor: a task's watchers, and each member of a
+  team the task is assigned to
+- `src/recurrence-service.ts` — a repeating task: setting its rule, the next copy (pure), the guarded
+  batch that writes it on completion, and the read and effects the hourly pass in
+  `apps/api-worker/src/background/tasks/recurring-task-pass.ts` commits for `scheduled` repeats
 - `src/close-advisory.ts` — the count that rides a successful matter close and can never block one
 - `src/plan-statements.ts` — the plan's SQL: the offered-plans read, the matter anchor cut from
   `opened_at`, the role resolution, and the template chain walk
@@ -94,11 +103,21 @@ the accepted task comes back byte-identical.
 has to be visible to stay one. It adds whole calendar days to a civil date: no business days, no
 holiday calendar, no service-method offset, no jurisdiction, no clock.
 
+**A repeating task is one row at a time.** Only the current copy exists; the next is written when
+it is due to appear (on completion, or on its start date, chosen per task) and
+`recurrence_next_task_id` is unique, so the write is guarded and a completion racing the hourly pass
+makes one copy. The rule is read from EACH COPY onward, with a count running down, so nothing walks
+back to the start of a series. The next due date is the rule's next day as
+`@magna-carta/civil-time`'s `occurrencesOf` walks it, and the start keeps its distance through
+`movedLikeOccurrence`: counting days on a rule somebody chose, never a date derived from a rule of
+law, and still no day arithmetic written in this package.
+
 ## Invariants that apply here
 
 - **The visibility branch lives in ONE function.** `taskVisibilityFragment` is the entire population
   of the two rules — a task on a matter is visible to whoever can see that matter, a task on none is
-  private to its assignee and whoever created it — and every read composes it. A branch copied into
+  visible to every member of the firm, because the owner ruled that everyone sees every task and Me
+  Mode is how a member narrows to their own — and every read composes it. A branch copied into
   nine reads is a branch that will be wrong in one of them, which is the concern `firm_event` avoided
   by splitting tables and this package answers by confinement.
 - **An assignee is not an access grant and not a screen.** A task on a matter is firm-visible within
@@ -140,8 +159,8 @@ holiday calendar, no service-method offset, no jurisdiction, no clock.
 A type SUBSCRIBES and never produces: the durable outbox row committed in the same atomic batch as
 the write IS the emission, so there is no `notify()` call anywhere here.
 
-**Four topics for two acts**, split by whether the task is on a matter — the `calendar.firmEvent.*`
-split exactly. The registry enforces that a matter-anchored type resolves a matter and an unanchored
+**Six topics for three acts** (assigned, reassigned, and a watched task changing), each split by
+whether the task is on a matter — the `calendar.firmEvent.*` split exactly. The registry enforces that a matter-anchored type resolves a matter and an unanchored
 one does not, so one type could not honestly be both; the producer knows which it is holding and
 raises the right topic at the write. `assignmentTopicFor` is the one place that choice is made.
 
@@ -150,6 +169,13 @@ resolves to nobody when unconfigured, so a task assignment declared that way wou
 no one, silently. `named-recipient` reads the member from the PAYLOAD, so the person told is whoever
 was named at the write — re-reading the row when the queue drains would deliver the first
 notification to the second person.
+
+**A team cannot open a notification, so its members are told.** Assigning a team raises the
+assignment topic once for each live member who did not already have the work, in person or through a
+team already on it. **A watcher is copied in, as on a CC line**: told when they are added, and when
+the task is completed, reopened, moved to another status, changes hands or has its due date moved.
+Those reach the watchers named in the payload through the `named-members` audience and are
+informational where an assignment asks for attention. A reworded title or body tells nobody.
 
 **The two comparison-shaped points are declared and wired to nothing.** No write makes a task become
 due. When the sub-slice that sweeps deadlines lands, it sweeps tasks through the same mechanism
@@ -215,9 +241,10 @@ delegate.
 - **The identity is immutable.** `recordExternalSync` moves the URL, the revision and the sync
   instant and never the correspondence. Changing what a task mirrors is unlink then link, so both
   acts land in the audit trail.
-- **The platform's vocabulary does not bend to fit a remote's.** Three states and four priorities,
-  and an adapter maps a remote's many statuses onto them. Firm-defined statuses are owner flag
-  **T3**, still open — an adapter must not invent them by writing free text somewhere.
+- **The platform's vocabulary does not bend to fit a remote's.** A task's statuses are its list's,
+  defined by the firm in Task Settings, and completion is a separate fact from status. An adapter
+  maps a remote's statuses onto the list's own and must not invent new ones by writing free text
+  somewhere: adding a status is a firm decision taken in Task Settings.
 - **A task on no matter can never carry a time entry**, so a mirrored firm-work task syncs its
   content and never its time.
 

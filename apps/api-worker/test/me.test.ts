@@ -92,6 +92,8 @@ describe("GET /api/v1/me", () => {
         // in a firm asks; calendar:manage asserts when a hearing IS and reaches Admin,
         // Attorney, and Paralegal only (20260806T000000_case-calendar).
         "calendar:manage",
+        // What may be copied to members' own calendars at a provider: Admin alone.
+        "calendar:manageSyncPolicy",
         "calendar:read",
         // The three communications keys reach Admin. communications:read also reaches Billing
         // ("did anyone ever reach this client about the unpaid invoice" is a clerk's question) and
@@ -184,6 +186,9 @@ describe("GET /api/v1/me", () => {
         // Seeded to Admin alone by 20260907T090000_seed-report-policy-permission.
         "firm:manageReportPolicy",
         "firm:manageScanPolicy",
+        // Whether the contents of the firm's files are indexed for search: Owner/Admin alone, the
+        // firm:manageScanPolicy bracket (seed-search-settings-permission).
+        "firm:manageSearchSettings",
         "firm:manageSecrets",
         // Seeded to every default role, Read-only included — reading who is on the firm is not the
         // privilege that firm:manageMembers above is.
