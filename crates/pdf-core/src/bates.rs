@@ -158,6 +158,9 @@ pub struct BatesRange {
 /// Errors that can occur during stamping.
 #[derive(Debug)]
 pub enum BatesError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// Input rejected by the decompression-bomb guard (oversize or a bomb).
     Rejected,
     /// The input bytes could not be parsed as a PDF.
@@ -168,6 +171,10 @@ pub enum BatesError {
     Reassemble,
     /// Stamping the document would assign a number beyond `BatesOptions::stop_number`.
     RangeExceeded,
+    /// The prefix or suffix holds a character the stamp's font cannot draw (anything
+    /// outside Windows-1252). Refused, because the alternative is a stamp that prints as
+    /// something other than what was asked for on every page of a production.
+    UnsupportedCharacter,
 }
 
 // ---------------------------------------------------------------------------
@@ -184,19 +191,98 @@ pub(crate) fn format_label(prefix: &str, number: u64, padding: u8, suffix: &str)
     format!("{prefix}{number:0width$}{suffix}", width = padding as usize)
 }
 
+/// The characters Windows-1252 keeps where Latin-1 has control codes, by code 0x80 to 0x9F.
+/// `None` marks the five codes the encoding leaves undefined.
+const WIN_ANSI_HIGH: [Option<char>; 32] = [
+    Some('\u{20AC}'),
+    None,
+    Some('\u{201A}'),
+    Some('\u{0192}'),
+    Some('\u{201E}'),
+    Some('\u{2026}'),
+    Some('\u{2020}'),
+    Some('\u{2021}'),
+    Some('\u{02C6}'),
+    Some('\u{2030}'),
+    Some('\u{0160}'),
+    Some('\u{2039}'),
+    Some('\u{0152}'),
+    None,
+    Some('\u{017D}'),
+    None,
+    None,
+    Some('\u{2018}'),
+    Some('\u{2019}'),
+    Some('\u{201C}'),
+    Some('\u{201D}'),
+    Some('\u{2022}'),
+    Some('\u{2013}'),
+    Some('\u{2014}'),
+    Some('\u{02DC}'),
+    Some('\u{2122}'),
+    Some('\u{0161}'),
+    Some('\u{203A}'),
+    Some('\u{0153}'),
+    None,
+    Some('\u{017E}'),
+    Some('\u{0178}'),
+];
+
+/// The byte that stands for `ch` in a font whose `/Encoding` is `/WinAnsiEncoding`, or
+/// `None` when the encoding has no place for it.
+///
+/// A PDF string drawn with one of the standard fonts is a run of single bytes, each read
+/// through the font's encoding. It is not UTF-8: writing "é" as its two UTF-8 bytes draws
+/// two unrelated glyphs. Windows-1252 covers the Western European alphabets, the euro sign
+/// and typographic quotation marks and dashes, which is what a stamp, a watermark or a
+/// name on a form holds in this product's markets.
+pub(crate) fn win_ansi_code(ch: char) -> Option<u8> {
+    let code = ch as u32;
+    match code {
+        0x20..=0x7E | 0xA0..=0xFF => u8::try_from(code).ok(),
+        _ => WIN_ANSI_HIGH
+            .iter()
+            .position(|slot| *slot == Some(ch))
+            .and_then(|index| u8::try_from(0x80 + index).ok()),
+    }
+}
+
+/// `text` as the body of a PDF literal string for a `/WinAnsiEncoding` font: one byte per
+/// character, with the three bytes a literal string reserves escaped. Fails with the first
+/// character the encoding cannot hold.
+pub(crate) fn win_ansi_literal(text: &str) -> Result<Vec<u8>, char> {
+    let mut bytes = Vec::with_capacity(text.len());
+    for ch in text.chars() {
+        let code = win_ansi_code(ch).ok_or(ch)?;
+        if matches!(code, b'\\' | b'(' | b')') {
+            bytes.push(b'\\');
+        }
+        bytes.push(code);
+    }
+    Ok(bytes)
+}
+
+/// [`win_ansi_literal`] for text that must be drawn whatever it holds: a character the
+/// encoding cannot hold becomes a question mark.
+pub(crate) fn win_ansi_literal_lossy(text: &str) -> Vec<u8> {
+    let replaced: String = text
+        .chars()
+        .map(|ch| if win_ansi_code(ch).is_some() { ch } else { '?' })
+        .collect();
+    win_ansi_literal(&replaced).unwrap_or_default()
+}
+
 /// Returns the glyph advance width (in glyph-space units, 1000 = 1 em) for `ch`
 /// rendered in `font` via the WinAnsi encoding.
 ///
-/// The lookup path is: `ch as u32` → WinAnsi code-point → glyph name →
-/// binary search in the sorted metrics table for `font`. Returns `0.0` for
-/// any character whose code-point is ≥ 256, whose WinAnsi slot is empty, or
+/// The lookup path is: `ch` → WinAnsi code → glyph name → binary search in the sorted
+/// metrics table for `font`. Returns `0.0` for a character the encoding cannot hold or
 /// whose glyph name is absent from the metrics.
 pub(crate) fn font_advance(font: BatesFont, ch: char) -> f32 {
-    let code = ch as u32;
-    if code >= 256 {
+    let Some(code) = win_ansi_code(ch) else {
         return 0.0;
-    }
-    let name = WIN_ANSI_ENCODING[code as usize];
+    };
+    let name = WIN_ANSI_ENCODING[usize::from(code)];
     if name.is_empty() {
         return 0.0;
     }
@@ -215,17 +301,6 @@ pub(crate) fn font_advance(font: BatesFont, ch: char) -> f32 {
 pub(crate) fn label_width_pt(font: BatesFont, label: &str, font_size_pt: f32) -> f32 {
     let glyph_units: f32 = label.chars().map(|ch| font_advance(font, ch)).sum();
     (glyph_units / 1000.0) * font_size_pt
-}
-
-/// Escapes a string for use inside a PDF literal string `(…)`.
-///
-/// Replacement order is intentional: backslash must be doubled before
-/// parentheses are escaped, otherwise the newly inserted backslashes would
-/// be incorrectly re-escaped.
-pub(crate) fn escape_pdf_literal(s: &str) -> String {
-    s.replace('\\', "\\\\")
-        .replace('(', "\\(")
-        .replace(')', "\\)")
 }
 
 // ---------------------------------------------------------------------------
@@ -323,11 +398,13 @@ pub(crate) fn stamp_page(
     // ── Content append ──────────────────────────────────────────────────────────
     // The stamp is drawn LAST so it paints on top of existing content. `0 g` selects
     // black fill; `q … Q` isolates the graphics state from the rest of the page.
-    let escaped = escape_pdf_literal(label);
-    let stream_content = format!(
-        "q BT /MagnaCartaBates {size:.2} Tf 0 g {tm_a:.4} {tm_b:.4} {tm_c:.4} {tm_d:.4} {tm_e:.4} {tm_f:.4} Tm ({escaped}) Tj ET Q"
-    );
-    let stamp_stream = lopdf::Stream::new(dictionary! {}, stream_content.into_bytes());
+    let mut stream_content = format!(
+        "q BT /MagnaCartaBates {size:.2} Tf 0 g {tm_a:.4} {tm_b:.4} {tm_c:.4} {tm_d:.4} {tm_e:.4} {tm_f:.4} Tm ("
+    )
+    .into_bytes();
+    stream_content.extend(win_ansi_literal(label).map_err(|_| BatesError::UnsupportedCharacter)?);
+    stream_content.extend_from_slice(b") Tj ET Q");
+    let stamp_stream = lopdf::Stream::new(dictionary! {}, stream_content);
     let stamp_id = doc.add_object(Object::Stream(stamp_stream));
 
     let contents_obj = doc
@@ -385,6 +462,9 @@ pub fn stamp_document(
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| BatesError::Rejected)?;
     let mut doc = lopdf::Document::load_mem(bytes).map_err(|_| BatesError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(BatesError::Encrypted);
+    }
 
     // Collect page ObjectIds in reading order (sorted by 1-based page number).
     let mut pages: Vec<(u32, lopdf::ObjectId)> = doc.get_pages().into_iter().collect();
@@ -409,6 +489,7 @@ pub fn stamp_document(
         b"Type" => Object::Name(b"Font".to_vec()),
         b"Subtype" => Object::Name(b"Type1".to_vec()),
         b"BaseFont" => Object::Name(base_font_name.as_bytes().to_vec()),
+        b"Encoding" => Object::Name(b"WinAnsiEncoding".to_vec()),
     });
 
     for (index, (_, page_id)) in pages.into_iter().enumerate() {
@@ -799,7 +880,7 @@ mod tests {
 
     #[test]
     fn escapes_pdf_literal_specials() {
-        assert_eq!(escape_pdf_literal(r"a(b)c\d"), r"a\(b\)c\\d");
+        assert_eq!(win_ansi_literal(r"a(b)c\d").unwrap(), br"a\(b\)c\\d");
     }
 
     // ── Document and set stamping helpers ─────────────────────────────────────

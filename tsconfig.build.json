@@ -224,6 +224,9 @@
       "path": "packages/object-dimensions/tsconfig.build.json"
     },
     {
+      "path": "packages/pdf-compose/tsconfig.build.json"
+    },
+    {
       "path": "packages/pdf/tsconfig.build.json"
     },
     {

@@ -8,16 +8,37 @@
  * fifteenth searchable section cost nothing on the client but one presentation entry.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import type { TextMark } from "$lib/search/marked-text.ts";
 
-/** Why a source contributed nothing. Null means it answered — with hits or honestly with none. */
-export type SearchSkipReason = "permission" | "query-too-short" | "engine-unavailable";
+/**
+ * Why a source contributed nothing. Null means it answered — with hits or honestly with none.
+ * Three belong to a source that reads an index outside the firm's database:
+ * "engine-not-connected" is a deployment without the index's service yet, "engine-unavailable" is
+ * that service failing to answer, and "not-indexed" is a firm that has not turned the index on.
+ */
+export type SearchSkipReason =
+  | "permission"
+  | "query-too-short"
+  | "engine-unavailable"
+  | "engine-not-connected"
+  | "not-indexed";
 
 export interface MatterSearchHit {
   id: string;
   /** What the reader recognizes the record by. A file's name, a party's name, a note's instant. */
   title: string;
-  /** The excerpt, where the source declares one. Null where it declares it has none. */
+  /**
+   * Where the reader's words are in `title`, as the server found them. Optional because an answer
+   * from a server a deploy behind carries none, and the title is then drawn plain.
+   */
+  titleMarks?: TextMark[];
+  /**
+   * The excerpt, where the source declares one. Null where it declares it has none. A long text
+   * arrives cut to the stretch the reader's words are in.
+   */
   snippet: string | null;
+  /** Where the reader's words are in `snippet`. */
+  snippetMarks?: TextMark[];
   /** A short second line: a folder, a role, a custody number and status. */
   secondary: string | null;
   actorUserId: string | null;

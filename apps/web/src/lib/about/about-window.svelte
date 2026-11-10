@@ -33,7 +33,7 @@
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
-  import { openBeside } from "$lib/navigation/open-beside.ts";
+  import { openBeside, opensBeside } from "$lib/navigation/open-beside.ts";
   import { aboutDetailsText, aboutFacts } from "./about-facts.ts";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -151,7 +151,7 @@
                   {#if commitHref === null}
                     <span class="font-mono">{fact.value}</span>
                   {:else}
-                    <a class="font-mono underline" href={commitHref} target="_blank" rel="noopener noreferrer"
+                    <a class="font-mono underline" href={commitHref} {...opensBeside("external")}
                       >{fact.value}</a
                     >
                   {/if}

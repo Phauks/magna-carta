@@ -19,6 +19,7 @@ import {
   type TaskDue,
   type TaskPriority,
   type TaskProgress,
+  type TaskRecurrenceMode,
   type TaskRung,
   type TaskState,
 } from "./types.ts";
@@ -120,6 +121,12 @@ export interface MatterTaskRow {
   readonly parent_task_id: MatterTaskId | null;
   readonly starts_on: string | null;
   readonly location: string | null;
+  // A repeating task: its rule from this copy onward, when the next copy appears, the day of the
+  // series this copy stands for, and the copy made from it once there is one.
+  readonly recurrence_rule: string | null;
+  readonly recurrence_mode: TaskRecurrenceMode | null;
+  readonly recurrence_occurrence_on: string | null;
+  readonly recurrence_next_task_id: MatterTaskId | null;
 }
 
 export interface MatterTaskDocumentRow {
@@ -170,6 +177,10 @@ export const TASK_COLUMNS = [
   "parent_task_id",
   "starts_on",
   "location",
+  "recurrence_rule",
+  "recurrence_mode",
+  "recurrence_occurrence_on",
+  "recurrence_next_task_id",
 ]
   .map((column) => `${MATTER_TASK_TABLE}.${column}`)
   .join(", ");

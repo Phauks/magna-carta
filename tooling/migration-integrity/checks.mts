@@ -217,9 +217,10 @@ export type DeclaredSchema = ReadonlyMap<string, ReadonlySet<string>>;
 
 /*
  * Tables the migrations build that the TypeScript deliberately does not declare, because drizzle
- * cannot model them. The FTS5 virtual table for directory name search, and the four shadow tables
- * SQLite creates underneath it. Named exactly rather than matched by prefix: a new undeclared table
- * is a real finding, and a prefix rule would swallow the next one silently.
+ * cannot model them. The FTS5 virtual table for directory name search and the one for the record
+ * index, each with the four shadow tables SQLite creates underneath it. Named exactly rather than
+ * matched by prefix: a new undeclared table is a real finding, and a prefix rule would swallow the
+ * next one silently.
  */
 export const UNDECLARED_BY_DESIGN: readonly string[] = [
   "directory_name_fts",
@@ -227,6 +228,11 @@ export const UNDECLARED_BY_DESIGN: readonly string[] = [
   "directory_name_fts_idx",
   "directory_name_fts_docsize",
   "directory_name_fts_config",
+  "record_text_fts",
+  "record_text_fts_data",
+  "record_text_fts_idx",
+  "record_text_fts_docsize",
+  "record_text_fts_config",
 ];
 
 /**

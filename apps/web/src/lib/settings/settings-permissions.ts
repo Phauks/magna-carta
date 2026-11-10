@@ -34,9 +34,11 @@ export type SettingsPermissionArea =
   | "documents"
   | "integrations"
   | "calendar"
+  | "calendarSync"
   | "reports"
   | "meetings"
   | "ai"
+  | "search"
   | "retention";
 
 /**
@@ -55,6 +57,10 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   // that store is the right to connect the firm to anything.
   integrations: "firm:manageSecrets",
   calendar: "calendar:manage",
+  // What may be copied to members' own calendars at a provider. Its own key rather than
+  // calendar:manage: recording a hearing is a practitioner's act, deciding that hearings may sit
+  // on a third party's servers is the firm's.
+  calendarSync: "calendar:manageSyncPolicy",
   reports: "firm:manageReportPolicy",
   // Whether the firm's meetings may be recorded, captioned and summarized at all. Its own key rather
   // than meetings:record: recording one meeting is a practitioner's act, deciding that every
@@ -64,6 +70,10 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   // Its own key rather than firm:manageMembers: consenting to privileged client content leaving
   // the platform is not an act of administering who works here.
   ai: "firm:manageAiSettings",
+  // Whether the words inside the firm's files are indexed. Its own key rather than
+  // firm:manageScanPolicy: scanning is done to an upload, indexing copies the text of every file
+  // the firm holds into a second place, and that is a separate decision.
+  search: "firm:manageSearchSettings",
   // How long a closed matter's paper file is kept: the firm's policy, not a choice for whoever is
   // closing a matter.
   retention: "matters:manageRetention",

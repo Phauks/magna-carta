@@ -3,8 +3,9 @@
 **Purpose.** Makes a new PDF from content: a title, headings, paragraphs with bold and italic,
 pictures, tables whose heading row repeats on every page, labelled fields, rules, spacing and page
 breaks, with a header and footer line on each page. [`pdf-core`](../pdf-core) works on PDFs that
-already exist; this crate is the only place a PDF is written from nothing. Native `rlib` today, and it
-builds for `wasm32-unknown-unknown`; it has no product caller yet.
+already exist; this crate is the only place a PDF is written from nothing. Native `rlib`, and a
+WebAssembly module shipped through [`@magna-carta/pdf-compose`](../../packages/pdf-compose/CLAUDE.md).
+Nothing in the product calls either yet.
 
 ## Key files / entry points
 
@@ -14,6 +15,8 @@ builds for `wasm32-unknown-unknown`; it has no product caller yet.
 - `src/render.rs` — marks in, PDF bytes out, through `krilla`. It decides nothing.
 - `src/images.rs` — reads a picture's size before layout; decodes, turns and scales it after.
 - `src/fonts.rs` — the four faces and the measurer layout breaks lines with.
+- `src/wire.rs` — the JSON form of the model, for a caller that is not Rust: `compose_json`.
+- `src/wasm.rs` — the WebAssembly edge, `composeDocument`. One function; it only converts.
 - `tests/compose.rs` — composes documents and reads them back with `pdf-core`.
 
 ## Local conventions
@@ -27,6 +30,8 @@ builds for `wasm32-unknown-unknown`; it has no product caller yet.
 - **Measure with the face you draw with.** `Measurer` shapes with `rustybuzz` at the version `krilla`
   shapes with, and a finished line is measured as the merged runs it is drawn as. A width taken from a
   character count or a different shaper drifts off the right margin.
+- **A field added to the model is added in three places:** `model.rs`, `wire.rs`, and the types in
+  `packages/pdf-compose/src/index.ts`. The JSON form refuses unknown fields, so a miss fails a test.
 - **The output is deterministic.** No clock is read: the creation time is the caller's
   `ComposedDocument::created`. The same model and fonts give the same bytes, and a test holds that.
 
@@ -37,7 +42,7 @@ builds for `wasm32-unknown-unknown`; it has no product caller yet.
 - **No document content in an error.** `ComposeError` carries at most an image's position, so a
   message built from one is safe to log.
 - **Untrusted pictures.** An image is whatever a user uploaded. It is decoded under `image::Limits`
-  (20,000 pixels a side, 512 MiB), one at a time, and a file past a limit is an error naming its
+  (20,000 pixels a side; 512 MiB natively, 64 MiB in a WebAssembly build), one at a time, and a file past a limit is an error naming its
   position, never a truncated picture.
 - **Nothing is dropped silently.** A table row taller than a page is split between its lines. A
   character the family has no glyph for is drawn as the font's missing-glyph box and listed in

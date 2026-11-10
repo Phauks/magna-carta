@@ -87,6 +87,7 @@
     removeTaskLink,
     setTaskAssignees,
     setTaskCompletion,
+    setTaskRecurrence,
     setTaskWatchers,
     updateChecklistItem,
     viewerTimeZone,
@@ -94,8 +95,12 @@
     type MatterTask,
     type TaskListSummary,
     type TaskPriority,
+    type TaskRecurrenceMode,
     type TaskTeam,
   } from "./tasks-api.ts";
+  import { formatRecurrence, type RecurrenceRule } from "@magna-carta/civil-time/recurrence";
+  import TaskRepeatField from "./task-repeat-field.svelte";
+  import { storedRule } from "./task-recurrence.ts";
 
   let {
     open = $bindable(false),
@@ -174,6 +179,14 @@
   let watcherUserIds = $state<string[]>([]);
   let pendingFileIds = $state<string[]>([]);
 
+  // How the task repeats. On a new task this is part of the draft; on an existing one it is a draft
+  // of its own, saved by its own button, because a rule is four answers and writing after each
+  // would make three copies of a rule nobody chose.
+  let repeatRule = $state<RecurrenceRule | null>(null);
+  let repeatMode = $state<TaskRecurrenceMode>("completed");
+  // A due date moved on a repeating task waits here until the reader says how far the move goes.
+  let pendingDueOn = $state<string | null | undefined>(undefined);
+
   let newChecklistText = $state("");
   let newLinkUrl = $state("");
   let newLinkLabel = $state("");
@@ -211,6 +224,9 @@
     newChecklistText = "";
     newLinkUrl = "";
     newLinkLabel = "";
+    pendingDueOn = undefined;
+    repeatRule = storedRule(task?.recurrence?.rule);
+    repeatMode = task?.recurrence?.mode ?? "completed";
     if (task !== null) return;
     createdPreview = new Date().toISOString();
     titleText = "";
@@ -268,6 +284,13 @@
         : attachableFolders.length === 0
           ? "This matter holds no files to point at yet."
           : undefined,
+  );
+
+  /** Whether the repeat being edited differs from the one the task has. */
+  const repeatChanged = $derived(
+    task !== null &&
+      ((repeatRule === null ? null : formatRecurrence(repeatRule)) !== (task.recurrence?.rule ?? null) ||
+        (repeatRule !== null && repeatMode !== (task.recurrence?.mode ?? "completed"))),
   );
 
   const taskList = $derived(task === null ? undefined : lists.find((list) => list.id === task.listId));
@@ -355,6 +378,22 @@
       saving = false;
       saveFailure = stated(written.failure, "The task was not created.");
       return;
+    }
+    // The repeat is set on the task that now exists; a refusal leaves the task, said as such.
+    if (repeatRule !== null && dueOn !== null && parent === null) {
+      const repeated = await setTaskRecurrence(
+        fetch,
+        written.value.id,
+        formatRecurrence(repeatRule),
+        repeatMode,
+      );
+      if (repeated.kind !== "ok") {
+        saving = false;
+        editing = false;
+        onSaved(written.value.id);
+        saveFailure = stated(repeated.failure, "The task was created, but it was not set to repeat.");
+        return;
+      }
     }
     // The task exists now, so a failure from here is a different one: a document not attached.
     const attachedOutcomes = await Promise.all(
@@ -581,6 +620,9 @@
           disabled={fieldsLocked}
           onchange={(next) => {
             if (task === null) dueOn = next;
+            // A repeating task asks how far a moved date goes; taking the date off is refused by
+            // the server with its own reason, so it is sent as it is.
+            else if (task.recurrence !== null && next !== null && next !== task.dueOn) pendingDueOn = next;
             else void act((subject) => editTaskFields(fetch, subject, { dueOn: next }), "The due date was not changed.");
           }}
         />
@@ -627,6 +669,82 @@
         </Select.Root>
       </div>
     </div>
+
+    {#if task !== null && pendingDueOn !== undefined}
+      <!-- A moved due date on a repeating task: this copy alone, or the series with it. -->
+      <div class="flex flex-wrap items-center gap-8 rounded-md bg-surface-sunken p-8" role="group" aria-label="Change the due date for">
+        <span class="text-sm">Change the due date for</span>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={fieldsLocked}
+          onclick={() => {
+            const next = pendingDueOn ?? null;
+            pendingDueOn = undefined;
+            void act(
+              (subject) => editTaskFields(fetch, subject, { dueOn: next, recurrenceScope: "this" }),
+              "The due date was not changed.",
+            );
+          }}>This Task Only</Button
+        >
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={fieldsLocked}
+          onclick={() => {
+            const next = pendingDueOn ?? null;
+            pendingDueOn = undefined;
+            void act(
+              (subject) => editTaskFields(fetch, subject, { dueOn: next, recurrenceScope: "later" }),
+              "The due date was not changed.",
+            );
+          }}>This And Later Ones</Button
+        >
+        <Button size="sm" variant="ghost" onclick={() => (pendingDueOn = undefined)}>Cancel</Button>
+      </div>
+    {/if}
+
+    {#if (task === null && parent === null) || (task !== null && task.parentTaskId === null)}
+      <!-- Whether the task repeats. A sub-task repeats with its parent, so it is not asked here. -->
+      <div class="flex flex-col gap-8">
+        <TaskRepeatField
+          bind:rule={repeatRule}
+          bind:mode={repeatMode}
+          dueOn={task === null ? dueOn : task.dueOn}
+          startsOn={task === null ? startsOn : task.startsOn}
+          occurrenceOn={task?.recurrence?.occurrenceOn ?? null}
+          unreadable={task !== null && task.recurrence !== null && storedRule(task.recurrence.rule) === null}
+          disabled={fieldsLocked}
+        />
+        {#if task !== null && repeatChanged}
+          <div class="flex gap-8">
+            <Button
+              size="sm"
+              disabled={fieldsLocked}
+              onclick={() =>
+                void act(
+                  (subject) =>
+                    setTaskRecurrence(
+                      fetch,
+                      subject.id,
+                      repeatRule === null ? null : formatRecurrence(repeatRule),
+                      repeatMode,
+                    ),
+                  "The repeat was not changed.",
+                )}>Save Repeat</Button
+            >
+            <Button
+              size="sm"
+              variant="ghost"
+              onclick={() => {
+                repeatRule = storedRule(task?.recurrence?.rule);
+                repeatMode = task?.recurrence?.mode ?? "completed";
+              }}>Discard</Button
+            >
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <!-- The list, and on a new task the status it starts at. A sub-task shares its parent's list. -->
     {#if (task === null && parent === null) || (task !== null && task.parentTaskId === null)}

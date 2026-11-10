@@ -697,11 +697,13 @@ export interface WatermarkOptions {
   rotationDeg?: number;
   /** A single centred mark or a tiled repeat; default `"center"`. */
   placement?: "center" | "tiled";
+  /** The 0-based pages to mark; omit to mark every page. A page past the end is an error. */
+  pages?: number[];
 }
 
 /**
  * Stamp an additive watermark — diagonal text ("CONFIDENTIAL"/"DRAFT") or an image/logo —
- * onto every page. Additive: it draws on top and removes nothing (use redactDocument /
+ * onto every page, or onto `options.pages` alone. Additive: it draws on top and removes nothing (use redactDocument /
  * sanitizeDocument to remove content).
  */
 export async function watermarkDocument(
@@ -741,6 +743,27 @@ export interface SealOptions {
   signingTime?: string;
   /** Bytes reserved for the CMS; `/Contents` holds twice this in hex. Defaults to 16 KiB. */
   contentsCapacity?: number;
+  /** A box drawn on the page that shows the signature. Omit to sign invisibly. */
+  appearance?: SealAppearance;
+}
+
+/**
+ * A visible signature: a bordered box holding lines of text. The box is part of the signed
+ * revision, so its text cannot be changed afterwards without breaking the signature.
+ */
+export interface SealAppearance {
+  /** The 0-based page the box is drawn on. A page past the end is an error. */
+  page: number;
+  /**
+   * The box in points, `[left, bottom, right, top]`, from the page's bottom-left corner as
+   * the page is stored. It must be at least one point wide and one point tall.
+   */
+  rect: readonly [number, number, number, number];
+  /**
+   * The text, one entry per line, e.g. `["Signed by Jane Doe", "2026-11-10 14:02 UTC"]`. The
+   * engine reads no clock and knows no signer: it draws what it is given, sized to fit.
+   */
+  lines: readonly string[];
 }
 
 export interface PreparedSeal {

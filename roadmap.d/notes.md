@@ -122,10 +122,12 @@
 
 - id: notes.search.firm-wide
   name: Firm-wide note search
-  scope: Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
-  status: designed
+  scope: Searching every matter's notes from one place, under the same visibility predicate the timeline composes.
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-08-15-notes-and-activity-design.md
-  awaiting-owner: Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
+  evidence: The notes source's acrossMatters declaration in packages/matter-search/src/sources/all.ts, read by GET /api/v1/search (apps/api-worker/src/http/routes/matters/search-across-matters.ts) behind notes:read and the visible-matter predicate, and shown as the Notes place on apps/web/src/routes/(app)/search/+page.svelte; held by packages/matter-search/test/across-matters.test.ts and apps/api-worker/test/search-across-matters-routes.test.ts
+  notes: Built as one place of the search across matters (search.across-matters), which is where its limits are recorded. The index decision is the owner's approval of 2026-11-10 (docs/specs/2026-11-10-indexing-and-discovery-design.md): notes are a source of the firm's record index, built as search.record-index. A result shows a line of the note. The notes design held that a firm-wide result should carry none and put the question to the owner as flag W6; the proposal approved on 2026-11-10 drew the excerpt and its build order says "snippets shown", so that is what was built, and the excerpt is returned only behind notes:read for a matter the reader may see.
 
 - id: notes.entity-note
   name: Notes on a Directory entity

@@ -38,11 +38,14 @@ const DESIGN_SYSTEM_ROOT = "packages/design-system";
  * stays put. That is a sanctioned second region; a second VERTICAL bar on the same list is not.
  */
 const REGISTER_PAGES = [
+  ["calendar-sync", "the member's calendar sync rules, one event type to a row"],
+  ["calendar-sync-policy", "the firm's calendar sync limits, one event type to a row"],
   ["event-types", "the firm's event types"],
   ["notification-policy", "the firm's per-category notification policy"],
   ["notifications", "the member's per-category notification preferences"],
   ["offices", "the firm's offices"],
   ["resources", "the firm's bookable resources"],
+  ["search-and-indexing", "the places the firm's indexes hold, one place to a row"],
   ["users", "the firm's members"],
 ];
 

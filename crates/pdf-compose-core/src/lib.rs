@@ -16,12 +16,16 @@ mod images;
 mod layout;
 mod model;
 mod render;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
+mod wire;
 
 pub use fonts::FontFamily;
 pub use model::{
     Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph,
     RunningLine, Span, Table, Timestamp,
 };
+pub use wire::{compose_json, document_from_json};
 
 /// The most pages one document may run to.
 pub const MAXIMUM_PAGES: usize = layout::MAXIMUM_PAGES;
@@ -41,6 +45,11 @@ pub enum ComposeError {
     ImageUnreadable { index: usize },
     /// The `index`-th image block is larger than this library will decode.
     ImageTooLarge { index: usize },
+    /// The JSON form of a document does not parse as one. `line` and `column` say where;
+    /// the parser's own message is withheld because it can quote the value it stopped at.
+    InvalidDocument { line: usize, column: usize },
+    /// The JSON form of a document names a picture the caller did not supply.
+    ImageMissing { index: usize },
     /// The writer failed to serialize the document.
     Write,
 }
@@ -58,6 +67,13 @@ impl std::fmt::Display for ComposeError {
             }
             ComposeError::ImageTooLarge { index } => {
                 write!(formatter, "image {index} is too large")
+            }
+            ComposeError::InvalidDocument { line, column } => write!(
+                formatter,
+                "the document is not valid at line {line}, column {column}"
+            ),
+            ComposeError::ImageMissing { index } => {
+                write!(formatter, "image {index} was not supplied")
             }
             ComposeError::Write => write!(formatter, "the document could not be written"),
         }

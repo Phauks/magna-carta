@@ -4605,6 +4605,189 @@
           }
         }
       },
+      "FirmSearchSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "fileContentsIndexed": {
+            "type": "boolean"
+          },
+          "searchServiceConnected": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "fileContentsIndexed",
+          "searchServiceConnected"
+        ]
+      },
+      "PatchFirmSearchSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "fileContentsIndexed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FirmSearchStatusResponse": {
+        "type": "object",
+        "properties": {
+          "checkedAt": {
+            "type": "string"
+          },
+          "records": {
+            "type": "object",
+            "properties": {
+              "places": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SearchStatusRecordPlace"
+                }
+              },
+              "rebuild": {
+                "type": "object",
+                "properties": {
+                  "requestedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "finishedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "outstanding": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "requestedAt",
+                  "finishedAt",
+                  "outstanding"
+                ]
+              }
+            },
+            "required": [
+              "places",
+              "rebuild"
+            ]
+          },
+          "fileContents": {
+            "type": "object",
+            "properties": {
+              "turnedOn": {
+                "type": "boolean"
+              },
+              "serviceConnected": {
+                "type": "boolean"
+              },
+              "filesBelonging": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "filesIndexed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastIndexedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dailyCatchUpLimit": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "turnedOn",
+              "serviceConnected",
+              "filesBelonging",
+              "filesIndexed",
+              "lastIndexedAt",
+              "dailyCatchUpLimit"
+            ]
+          },
+          "searchByMeaning": {
+            "type": "object",
+            "properties": {
+              "turnedOn": {
+                "type": "boolean"
+              },
+              "serviceConnected": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "turnedOn",
+              "serviceConnected"
+            ]
+          }
+        },
+        "required": [
+          "checkedAt",
+          "records",
+          "fileContents",
+          "searchByMeaning"
+        ]
+      },
+      "SearchStatusRecordPlace": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "readBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "matter-search",
+                "conflicts-check"
+              ]
+            }
+          },
+          "indexed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "matchedFields",
+          "readBy",
+          "indexed",
+          "expected"
+        ]
+      },
+      "FirmSearchRebuildResponse": {
+        "type": "object",
+        "properties": {
+          "requestedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestedAt"
+        ]
+      },
       "ExportRenderRequest": {
         "type": "object",
         "properties": {
@@ -16061,6 +16244,8 @@
               "permission",
               "query-too-short",
               "engine-unavailable",
+              "engine-not-connected",
+              "not-indexed",
               null
             ]
           }
@@ -16085,11 +16270,23 @@
           "title": {
             "type": "string"
           },
+          "titleMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
+          },
           "snippet": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "snippetMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
           },
           "secondary": {
             "type": [
@@ -16113,11 +16310,190 @@
         "required": [
           "id",
           "title",
+          "titleMarks",
           "snippet",
+          "snippetMarks",
           "secondary",
           "actorUserId",
           "sortKey",
           "link"
+        ]
+      },
+      "SearchTextMark": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "SearchAcrossMattersAnswer": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "broad": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchAcrossMattersGroup"
+            }
+          }
+        },
+        "required": [
+          "query",
+          "broad",
+          "groups"
+        ]
+      },
+      "SearchAcrossMattersGroup": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "answerShape": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "ranked"
+            ]
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchAcrossMattersHit"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "skipped": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "one-matter-only",
+              "permission",
+              "query-too-short",
+              "engine-unavailable",
+              "engine-not-connected",
+              "not-indexed",
+              null
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "section",
+          "answerShape",
+          "matchedFields",
+          "hits",
+          "hasMore",
+          "skipped"
+        ]
+      },
+      "SearchAcrossMattersHit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titleMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "snippetMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
+          },
+          "secondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "matter": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "number": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "number"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "titleMarks",
+          "snippet",
+          "snippetMarks",
+          "secondary",
+          "actorUserId",
+          "sortKey",
+          "link",
+          "matter"
         ]
       },
       "MatterPlanTemplateList": {
@@ -26490,6 +26866,443 @@
           "status"
         ]
       },
+      "CalendarSyncSettings": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "microsoft"
+                ]
+              },
+              "accountLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The account as the provider names it: the member's own sign-in address there."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "connected",
+                  "degraded",
+                  "needs_reauth",
+                  "disabled"
+                ]
+              },
+              "connectedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "provider",
+              "accountLabel",
+              "status",
+              "connectedAt"
+            ],
+            "description": "The member's connected account, or null when they have connected none."
+          },
+          "calendars": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncProviderCalendar"
+            },
+            "description": "The account's calendars as the provider lists them now. Null when there is no account or the provider could not be asked, in which case rules can be read and not changed."
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncSubject"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncRule"
+            }
+          }
+        },
+        "required": [
+          "account",
+          "calendars",
+          "subjects",
+          "rules"
+        ]
+      },
+      "CalendarSyncProviderCalendar": {
+        "type": "object",
+        "properties": {
+          "remoteId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "canWrite": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "remoteId",
+          "name",
+          "isDefault",
+          "canWrite"
+        ]
+      },
+      "CalendarSyncSubject": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "An event type's id, or `deadline` for deadlines as one kind."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "eventType",
+              "deadline"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The event type's name. Null for the deadline kind."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "litigation",
+              "transaction",
+              "firm",
+              "other",
+              null
+            ]
+          },
+          "mayLeave": {
+            "type": "boolean",
+            "description": "Whether the firm lets this subject be synced at all."
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "full",
+              "minimal"
+            ],
+            "description": "How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else."
+          }
+        },
+        "required": [
+          "subject",
+          "kind",
+          "name",
+          "category",
+          "mayLeave",
+          "detail"
+        ]
+      },
+      "CalendarSyncRule": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "An event type's id, or `deadline` for deadlines as one kind."
+          },
+          "calendarRemoteId": {
+            "type": "string"
+          },
+          "calendarName": {
+            "type": "string",
+            "description": "The calendar's name when the rule was saved, shown when the provider is unreachable."
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "mine",
+              "my_matters"
+            ],
+            "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to."
+          }
+        },
+        "required": [
+          "subject",
+          "calendarRemoteId",
+          "calendarName",
+          "scope"
+        ]
+      },
+      "CalendarSyncRulesReplace": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "description": "An event type's id, or `deadline` for deadlines as one kind."
+                },
+                "calendarRemoteId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "mine",
+                    "my_matters"
+                  ],
+                  "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to."
+                }
+              },
+              "required": [
+                "subject",
+                "calendarRemoteId",
+                "scope"
+              ]
+            },
+            "maxItems": 500,
+            "description": "The member's whole rule set. A subject absent from it is not synced."
+          }
+        },
+        "required": [
+          "rules"
+        ]
+      },
+      "CalendarSyncFirmLimits": {
+        "type": "object",
+        "properties": {
+          "subjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncSubject"
+            }
+          }
+        },
+        "required": [
+          "subjects"
+        ]
+      },
+      "CalendarSyncFirmLimitsSet": {
+        "type": "object",
+        "properties": {
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "description": "An event type's id, or `deadline` for deadlines as one kind."
+                },
+                "mayLeave": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string",
+                  "enum": [
+                    "full",
+                    "minimal"
+                  ],
+                  "description": "How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else."
+                }
+              },
+              "required": [
+                "subject",
+                "mayLeave",
+                "detail"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 500,
+            "description": "The subjects to set. A subject not named keeps the limit it has."
+          }
+        },
+        "required": [
+          "limits"
+        ]
+      },
+      "CalendarSyncIssueList": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncIssue"
+            }
+          }
+        },
+        "required": [
+          "issues"
+        ]
+      },
+      "CalendarSyncIssue": {
+        "type": "object",
+        "properties": {
+          "localKind": {
+            "type": "string",
+            "enum": [
+              "matter_event",
+              "firm_event",
+              "deadline"
+            ]
+          },
+          "localId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "changed",
+              "removed"
+            ],
+            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar."
+          },
+          "sent": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startsOn": {
+                "type": "string",
+                "description": "The first day, as YYYY-MM-DD."
+              },
+              "startsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The wall-clock start as HH:MM, or null when the copy takes the whole day."
+              },
+              "endsOn": {
+                "type": "string",
+                "description": "The last day the copy covers, as YYYY-MM-DD."
+              },
+              "endsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timeZone": {
+                "type": "string",
+                "description": "The zone the event was recorded in. Both sides of a difference are read in it."
+              }
+            },
+            "required": [
+              "title",
+              "location",
+              "startsOn",
+              "startsAtTime",
+              "endsOn",
+              "endsAtTime",
+              "timeZone"
+            ],
+            "description": "The event as it was sent to the member's calendar, at the detail the firm allows."
+          },
+          "found": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startsOn": {
+                "type": "string",
+                "description": "The first day, as YYYY-MM-DD."
+              },
+              "startsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The wall-clock start as HH:MM, or null when the copy takes the whole day."
+              },
+              "endsOn": {
+                "type": "string",
+                "description": "The last day the copy covers, as YYYY-MM-DD."
+              },
+              "endsAtTime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timeZone": {
+                "type": "string",
+                "description": "The zone the event was recorded in. Both sides of a difference are read in it."
+              }
+            },
+            "required": [
+              "title",
+              "location",
+              "startsOn",
+              "startsAtTime",
+              "endsOn",
+              "endsAtTime",
+              "timeZone"
+            ],
+            "description": "The copy as the member's calendar holds it now. Null when the copy is gone."
+          },
+          "detectedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "localKind",
+          "localId",
+          "kind",
+          "sent",
+          "found",
+          "detectedAt"
+        ]
+      },
       "CalendarSeriesInWindow": {
         "type": "object",
         "properties": {
@@ -27337,6 +28150,39 @@
               "null"
             ]
           },
+          "recurrence": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "scheduled"
+                ]
+              },
+              "occurrenceOn": {
+                "type": "string"
+              },
+              "nextTaskId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "rule",
+              "mode",
+              "occurrenceOn",
+              "nextTaskId"
+            ]
+          },
           "assignees": {
             "type": "array",
             "items": {
@@ -27414,6 +28260,7 @@
           "parentTaskId",
           "startsOn",
           "location",
+          "recurrence",
           "assignees",
           "watcherUserIds",
           "checklist",
@@ -28033,6 +28880,13 @@
               "null"
             ],
             "maxLength": 500
+          },
+          "recurrenceScope": {
+            "type": "string",
+            "enum": [
+              "this",
+              "later"
+            ]
           }
         },
         "required": [
@@ -28382,6 +29236,29 @@
         },
         "required": [
           "completed"
+        ]
+      },
+      "SetMatterTaskRecurrenceRequest": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "scheduled"
+            ]
+          }
+        },
+        "required": [
+          "rule"
         ]
       },
       "SetMatterTaskAssigneesRequest": {
@@ -50651,6 +51528,392 @@
         }
       }
     },
+    "/api/v1/firm/search-settings": {
+      "get": {
+        "description": "The firm's search settings: whether the contents of its files are indexed, and whether this deployment has a search service to index with.",
+        "operationId": "firmSearchSettings.get",
+        "tags": [
+          "firmSearchSettings"
+        ],
+        "x-mc-operationId": "firmSearchSettings.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageSearchSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmSearchSettings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's search settings, resolved with their defaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmSearchSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageSearchSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's search settings. Only the supplied fields change; the change is audited. Turning file indexing on starts reading the firm's existing files.",
+        "operationId": "firmSearchSettings.update",
+        "tags": [
+          "firmSearchSettings"
+        ],
+        "x-mc-operationId": "firmSearchSettings.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageSearchSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmSearchSettings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmSearchSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's search settings after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmSearchSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageSearchSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/search-status": {
+      "get": {
+        "description": "What the firm's search indexes hold, counted when asked: for each searchable place, how many records are indexed and how many should be; how many of the firm's files have their contents indexed; and whether search by meaning is turned on. Reads every indexed record once, so it is for a status screen and not for polling.",
+        "operationId": "firmSearchStatus.get",
+        "tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-operationId": "firmSearchStatus.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageSearchSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "What the firm's search indexes hold now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmSearchStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageSearchSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/search-status/rebuild": {
+      "post": {
+        "description": "Asks for the places of the firm's record index that have fallen behind their records to be rebuilt. The request is recorded and answered at once; the rebuild runs afterwards, counts what is behind when it runs and rebuilds those places from the firm's records. An index is a copy, so nothing a firm holds is changed. The search status read says when a request is still to run.",
+        "operationId": "firmSearchStatus.rebuild",
+        "tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-operationId": "firmSearchStatus.rebuild",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageSearchSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmSearchStatus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The rebuild was asked for and is queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmSearchRebuildResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageSearchSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was reused with a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/exports": {
       "post": {
         "description": "Read-shaped POST: renders the tabular export document in the request into a file and returns its bytes — a Word document composed by the platform, or that document carried across the office suite's conversion edge as a PDF. Pure computation over the caller's own payload; nothing is stored.",
@@ -72703,6 +73966,120 @@
         }
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.",
+        "operationId": "search.acrossMatters",
+        "tags": [
+          "search"
+        ],
+        "x-mc-operationId": "search.acrossMatters",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "search:matter",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "search"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "required": false,
+            "name": "in",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One group per place",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchAcrossMattersAnswer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matter-plans": {
       "get": {
         "description": "The firm's matter plans. Deactivated plans are left out unless asked for; a plan is never deleted, because tasks accepted from it name it and a firm asking which matters came off the old intake plan needs it to still be there.",
@@ -89389,6 +90766,632 @@
         }
       }
     },
+    "/api/v1/me/calendar-sync": {
+      "get": {
+        "description": "The session member's calendar sync settings: their connected account, that account's calendars, every event type with the firm's limit on it, and the member's own rules. Nothing syncs for a subject that has no rule.",
+        "operationId": "calendarSync.readMine",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.readMine",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's calendar sync settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/rules": {
+      "put": {
+        "description": "Replaces the session member's whole set of calendar sync rules. A subject absent from the set is not synced. Refused when a rule names a subject the firm does not let leave, or a calendar the member's account does not have or cannot write to.",
+        "operationId": "calendarSync.replaceMyRules",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.replaceMyRules",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarSyncRulesReplace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's calendar sync settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has no connected account",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A subject or calendar named cannot be used; `errors` says which subject and why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The member's provider could not be asked for their calendars, so nothing was saved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar-sync/firm-limits": {
+      "get": {
+        "description": "The firm's limit on calendar sync: for every event type and for deadlines, whether it may be copied to a member's own calendar and with how much detail. A subject the firm has never set may leave in full detail.",
+        "operationId": "calendarSync.readFirmLimits",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.readFirmLimits",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manageSyncPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncFirmLimits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the firm's limit on the subjects named and leaves the rest as they were. Stopping a subject from leaving removes every member's rule for it in the same write.",
+        "operationId": "calendarSync.setFirmLimits",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.setFirmLimits",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manageSyncPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarSyncFirmLimitsSet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's limits after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncFirmLimits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A subject or calendar named cannot be used; `errors` says which subject and why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/issues": {
+      "get": {
+        "description": "The copies in the session member's own calendar that no longer match what was sent, or are gone, and that the member has not yet answered.",
+        "operationId": "calendarSync.listMyIssues",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.listMyIssues",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's open questions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncIssueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back": {
+      "post": {
+        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.",
+        "operationId": "calendarSync.putBackMyCopy",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.putBackMyCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "matter_event",
+                "firm_event",
+                "deadline"
+              ]
+            },
+            "required": true,
+            "name": "localKind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "localId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's open questions after the answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncIssueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave": {
+      "post": {
+        "description": "Keeps the copy in the member's calendar as they made it, or leaves it deleted, and closes the question. The copy is written again only when the firm's event next changes.",
+        "operationId": "calendarSync.leaveMyCopy",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.leaveMyCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "matter_event",
+                "firm_event",
+                "deadline"
+              ]
+            },
+            "required": true,
+            "name": "localKind",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "localId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's open questions after the answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncIssueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/calendar/series": {
       "get": {
         "description": "The repeating settings that fall inside a window, each with the days inside it that it falls on. A series is one record carrying its rule; the days are worked out when the window is read and never stored. A day somebody changed or called off on its own is left out of its series here, because the event standing in for that day is an ordinary event the other calendar reads return. Read across the firm a matter's series carries no title, as the firm calendar carries none; read for one matter, it does. Narrow by side, by matter, and by member exactly as the firm calendar narrows.",
@@ -94841,6 +96844,144 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SetMatterTaskCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/recurrence": {
+      "put": {
+        "description": "Sets how the task repeats, or stops it repeating. Only the current copy of a repeating task exists; the next is made when this one is completed, or on the next copy's own start date, as `mode` says. A repeat needs a due date, and a sub-task repeats only with its parent.",
+        "operationId": "tasks.setTaskRecurrence",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.setTaskRecurrence",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.setTaskRecurrence"
+        },
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMatterTaskRecurrenceRequest"
               }
             }
           }
@@ -126502,6 +128643,9 @@
       "name": "calendar"
     },
     {
+      "name": "calendarSync"
+    },
+    {
       "name": "communications"
     },
     {
@@ -126587,6 +128731,12 @@
     },
     {
       "name": "firmReportPolicy"
+    },
+    {
+      "name": "firmSearchSettings"
+    },
+    {
+      "name": "firmSearchStatus"
     },
     {
       "name": "firmTimePolicy"
@@ -126707,6 +128857,9 @@
     },
     {
       "name": "scanPolicy"
+    },
+    {
+      "name": "search"
     },
     {
       "name": "shipping"

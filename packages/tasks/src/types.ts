@@ -71,6 +71,14 @@ export const TASK_PROGRESS = Object.freeze(["to_do", "in_progress", "on_hold"] a
 export type TaskProgress = (typeof TASK_PROGRESS)[number];
 export const DEFAULT_TASK_PROGRESS: TaskProgress = "to_do";
 
+// WHEN A REPEATING TASK'S NEXT COPY APPEARS. `completed`: when this one is marked complete, so the
+// work never doubles up. `scheduled`: on the next copy's own start date (its due date when it has
+// none), whether or not this one is done, because some work is owed on the day however the last
+// round went. The firm chooses per task; `completed` is what a new repeat starts on.
+export const TASK_RECURRENCE_MODES = Object.freeze(["completed", "scheduled"] as const);
+export type TaskRecurrenceMode = (typeof TASK_RECURRENCE_MODES)[number];
+export const DEFAULT_TASK_RECURRENCE_MODE: TaskRecurrenceMode = "completed";
+
 // The four rungs as the reader has them, which is what an API takes and returns.
 export const TASK_RUNGS = Object.freeze(["to_do", "in_progress", "on_hold", "done"] as const);
 export type TaskRung = (typeof TASK_RUNGS)[number];

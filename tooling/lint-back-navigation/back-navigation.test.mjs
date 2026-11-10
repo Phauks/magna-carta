@@ -436,6 +436,7 @@ describe("declining", () => {
       "/shipping/[id]",
       "/documents/[id]/edit",
       "/documents/[id]/view",
+      "/documents/[id]/watch",
       "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
     ]);
     for (const reason of STANDING_EXEMPTIONS.values()) {

@@ -85,4 +85,5 @@ export const OPERATIONS: readonly string[] = [
   "matters.setFileDestructionDate",
   "matters.update",
   "matters.updateSettings",
+  "search.acrossMatters",
 ];

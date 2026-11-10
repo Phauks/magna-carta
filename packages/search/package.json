@@ -21,7 +21,18 @@
     "./natural-language-provisioning": "./src/natural-language-provisioning.ts",
     "./natural-language-settings": "./src/natural-language-settings.ts",
     "./natural-language-statements": "./src/natural-language-statements.ts",
-    "./natural-language-topics": "./src/natural-language-topics.ts"
+    "./natural-language-topics": "./src/natural-language-topics.ts",
+    "./extracted-text": "./src/extracted-text.ts",
+    "./keyword-excerpt": "./src/keyword-excerpt.ts",
+    "./keyword-query": "./src/keyword-query.ts",
+    "./matched-text": "./src/matched-text.ts",
+    "./record-index-query": "./src/record-index-query.ts",
+    "./record-index-schema": "./src/record-index-schema.ts",
+    "./record-index-sources": "./src/record-index-sources.ts",
+    "./record-index-rebuild": "./src/record-index-rebuild.ts",
+    "./record-index-statements": "./src/record-index-statements.ts",
+    "./record-index-topics": "./src/record-index-topics.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"

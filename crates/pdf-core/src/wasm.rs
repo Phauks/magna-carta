@@ -9,6 +9,7 @@ impl From<PdfError> for JsError {
     fn from(e: PdfError) -> Self {
         JsError::new(match e {
             PdfError::Parse => "failed to parse PDF",
+            PdfError::Encrypted => "the document is locked with a password; unlock it first",
             PdfError::PageOutOfRange => "page index out of range",
             PdfError::Render => "failed to render page",
             PdfError::Rejected => "decompression-bomb",
@@ -91,6 +92,9 @@ impl From<crate::RedactError> for JsError {
     fn from(e: crate::RedactError) -> Self {
         match e {
             crate::RedactError::Parse => JsError::new("failed to parse PDF"),
+            crate::RedactError::Encrypted => {
+                JsError::new("the document is locked with a password; unlock it first")
+            }
             crate::RedactError::PageOutOfRange => JsError::new("page index out of range"),
             crate::RedactError::Render => JsError::new("failed to render page"),
             crate::RedactError::Reassemble => JsError::new("failed to reassemble PDF"),
@@ -202,6 +206,9 @@ impl From<crate::ScrubError> for JsError {
     fn from(e: crate::ScrubError) -> Self {
         match e {
             crate::ScrubError::Parse => JsError::new("failed to parse PDF"),
+            crate::ScrubError::Encrypted => {
+                JsError::new("the document is locked with a password; unlock it first")
+            }
             crate::ScrubError::Reassemble => JsError::new("failed to reassemble PDF"),
             crate::ScrubError::GateFailed { detail } => {
                 JsError::new(&format!("sanitize verification failed: {detail}"))
@@ -256,12 +263,18 @@ impl From<crate::bates::BatesError> for JsError {
     fn from(e: crate::bates::BatesError) -> Self {
         JsError::new(match e {
             crate::bates::BatesError::Parse => "failed to parse PDF",
+            crate::bates::BatesError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::bates::BatesError::NoPages => "document has no pages",
             crate::bates::BatesError::Reassemble => "failed to reassemble PDF",
             crate::bates::BatesError::RangeExceeded => {
                 "bates numbering exceeds the configured stop number"
             }
             crate::bates::BatesError::Rejected => "decompression-bomb",
+            crate::bates::BatesError::UnsupportedCharacter => {
+                "the stamp text has a character its font cannot draw"
+            }
         })
     }
 }
@@ -290,6 +303,9 @@ impl From<crate::FormError> for JsError {
     fn from(e: crate::FormError) -> Self {
         JsError::new(match e {
             crate::FormError::Parse(_) => "failed to parse PDF",
+            crate::FormError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::FormError::Reassemble(_) => "failed to reassemble PDF",
             crate::FormError::NoAcroForm => "document has no interactive form",
             crate::FormError::Rejected => "decompression-bomb",
@@ -806,11 +822,17 @@ impl From<crate::GenerateError> for JsError {
     fn from(e: crate::GenerateError) -> Self {
         JsError::new(match e {
             crate::GenerateError::Parse => "failed to parse PDF",
+            crate::GenerateError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::GenerateError::NoPages => "document has no pages",
             crate::GenerateError::PageOutOfRange => "page index out of range",
             crate::GenerateError::EmptyInput => "no documents provided",
             crate::GenerateError::Reassemble => "failed to reassemble PDF",
             crate::GenerateError::Image => "could not decode the watermark image",
+            crate::GenerateError::UnsupportedCharacter => {
+                "the watermark text has a character its font cannot draw"
+            }
             crate::GenerateError::Rejected => "decompression-bomb",
         })
     }
@@ -905,9 +927,9 @@ fn watermark_font_from_str(name: Option<&str>) -> crate::bates::BatesFont {
     }
 }
 
-/// Stamp an additive watermark onto every page. `options`:
+/// Stamp an additive watermark onto every page, or onto `pages` (0-based) when given. `options`:
 /// `{ content: { kind: "text", text, font?, fontSizePt?, color? } |
-///    { kind: "image", bytes, scale? }, opacity?, rotationDeg?, placement? }`.
+///    { kind: "image", bytes, scale? }, opacity?, rotationDeg?, placement?, pages? }`.
 /// Returns `{ pdf: Uint8Array }`.
 #[wasm_bindgen(js_name = watermarkDocument)]
 pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
@@ -977,11 +999,20 @@ pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, J
         }
     };
 
+    let pages = match get(&options, "pages") {
+        Some(value) if !value.is_undefined() && !value.is_null() => {
+            let indices: Vec<usize> = serde_wasm_bindgen::from_value(value)?;
+            crate::PageSelection::Pages(indices)
+        }
+        _ => crate::PageSelection::All,
+    };
+
     let opts = crate::WatermarkOptions {
         content,
         opacity,
         rotation_deg,
         placement,
+        pages,
     };
     let pdf = crate::watermark(&bytes, &opts)?;
     pdf_result(&pdf)
@@ -999,10 +1030,15 @@ impl From<crate::SignError> for JsError {
     fn from(e: crate::SignError) -> Self {
         JsError::new(match e {
             crate::SignError::Parse => "failed to parse PDF",
+            crate::SignError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::SignError::Rejected => "decompression-bomb",
             crate::SignError::NoPages => "document has no pages",
             crate::SignError::MissingCatalog => "document has no catalog",
             crate::SignError::Malformed => "document structure is not signable",
+            crate::SignError::PageOutOfRange => "page index out of range",
+            crate::SignError::InvalidAppearance => "the signature box has no usable size",
             crate::SignError::CapacityExceeded => "signature exceeds the reserved capacity",
             crate::SignError::InvalidRange => "byte range lies outside the document",
         })
@@ -1021,6 +1057,16 @@ struct JsSignOpts {
     /// Read as f64 so a plain JavaScript number is accepted (see `JsBatesOpts::stop_number`).
     #[serde(rename = "contentsCapacity")]
     contents_capacity: Option<f64>,
+    appearance: Option<JsSignAppearance>,
+}
+
+#[derive(serde::Deserialize)]
+struct JsSignAppearance {
+    /// Read as f64 so a plain JavaScript number is accepted.
+    page: f64,
+    rect: [f32; 4],
+    #[serde(default)]
+    lines: Vec<String>,
 }
 
 /// Read a JS array of four non-negative numbers into a `/ByteRange`.
@@ -1050,7 +1096,8 @@ fn span_from_js(value: JsValue) -> Result<(usize, usize), JsError> {
 
 /// Prepare a PDF for signing: append the signature structure as an incremental update, reserving
 /// `/Contents` and writing an exact `/ByteRange`. `options`:
-/// `{ name?, reason?, location?, contactInfo?, signingTime?, contentsCapacity? }`. Returns
+/// `{ name?, reason?, location?, contactInfo?, signingTime?, contentsCapacity?,
+/// appearance?: { page, rect: [left, bottom, right, top], lines } }`. Returns
 /// `{ document: Uint8Array, byteRange: [number,number,number,number], contentsSpan: [number,number] }`.
 /// The input is preserved as the literal prefix of `document`. No cryptography happens here.
 #[wasm_bindgen(js_name = prepareSignature)]
@@ -1071,6 +1118,19 @@ pub fn prepare_signature_edge(bytes: Vec<u8>, options: JsValue) -> Result<JsValu
             .filter(|n| n.is_finite() && *n >= 0.0)
             .map(|n| n as usize)
             .unwrap_or(0),
+        appearance: match js.appearance {
+            None => None,
+            Some(appearance) => {
+                if !appearance.page.is_finite() || appearance.page < 0.0 {
+                    return Err(crate::SignError::PageOutOfRange.into());
+                }
+                Some(crate::SignatureAppearance {
+                    page: appearance.page as usize,
+                    rect: appearance.rect,
+                    lines: appearance.lines,
+                })
+            }
+        },
     };
     let prepared = crate::prepare_signature(&bytes, &opts)?;
 

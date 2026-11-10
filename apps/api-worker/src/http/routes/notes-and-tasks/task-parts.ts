@@ -16,6 +16,7 @@ import {
   MoveTaskToStatusRequest,
   TaskAssigneesRequest,
   TaskCompletionRequest,
+  TaskRecurrenceRequest,
   TaskSubtaskTrees,
   TaskWatchersRequest,
   UpdateTaskChecklistItemRequest,
@@ -32,6 +33,7 @@ import {
   updateChecklistItem,
 } from "@magna-carta/tasks/organisation-service";
 import { setMatterTaskCompleted } from "@magna-carta/tasks/task-service";
+import { setMatterTaskRecurrence } from "@magna-carta/tasks/recurrence-service";
 import { readSubtaskTrees } from "@magna-carta/tasks/task-statements";
 import { MAX_SUBTASK_DEPTH, MAX_TASK_PAGE_SIZE } from "@magna-carta/tasks/types";
 import type { Bindings } from "../../../bindings.ts";
@@ -145,6 +147,21 @@ const setTaskCompletionRoute = defineOpenAPIRoute(inverseOf("setTaskCompletion")
     headers: idempotencyKeyHeader,
     params: taskIdParam,
     body: jsonBody(TaskCompletionRequest),
+  },
+  responses: acknowledgedResponses,
+});
+
+const setTaskRecurrenceRoute = defineOpenAPIRoute(inverseOf("setTaskRecurrence"), {
+  method: "put",
+  path: "/api/v1/tasks/{taskId}/recurrence",
+  description:
+    "Sets how the task repeats, or stops it repeating. Only the current copy of a repeating task " +
+    "exists; the next is made when this one is completed, or on the next copy's own start date, " +
+    "as `mode` says. A repeat needs a due date, and a sub-task repeats only with its parent.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: jsonBody(TaskRecurrenceRequest),
   },
   responses: acknowledgedResponses,
 });
@@ -305,6 +322,20 @@ export function registerTaskPartsRoutes(
       const { completed } = c.req.valid("json");
       return acknowledgeWrite(c, (database, options) =>
         setMatterTaskCompleted(database, taskId as MatterTaskId, completed, options),
+      );
+    },
+  );
+
+  app.openapi(
+    {
+      ...setTaskRecurrenceRoute,
+      middleware: chokepointMiddleware(chokepoint, setTaskRecurrenceRoute),
+    },
+    async (c) => {
+      const { taskId } = c.req.valid("param");
+      const { rule, mode } = c.req.valid("json");
+      return acknowledgeWrite(c, (database, options) =>
+        setMatterTaskRecurrence(database, taskId as MatterTaskId, { rule, mode }, options),
       );
     },
   );

@@ -82,6 +82,9 @@ pub struct RedactionOutcome {
 /// What redaction can fail at. `GateFailed` means text survived — no PDF is emitted.
 #[derive(Debug)]
 pub enum RedactError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// Input rejected by the decompression-bomb guard (oversize or a bomb).
     Rejected,
     Parse,
@@ -263,12 +266,27 @@ pub(crate) fn reassemble_page(
     let mut resources = Dictionary::new();
     resources.set("XObject", Object::Dictionary(xobjects));
 
+    // The page is rebuilt from the keys a picture of a page needs and nothing else. Keeping
+    // the old dictionary and overwriting four entries left everything else it carried
+    // pointing at the page as it was before: `/Thumb`, a small rendering of the unredacted
+    // page; `/PieceInfo` and `/Metadata`, an authoring tool's private copy of its content;
+    // `/B` and `/StructParents`, links into the article threads and the structure tree that
+    // quote its text; `/AA`, actions; and `/CropBox` and its siblings, which are in the old
+    // page's coordinates and would crop the new image wrongly. Dropping the keys is what
+    // removes them: the objects they named become unreferenced and are pruned with the
+    // original content streams.
     let page = doc
         .get_dictionary_mut(page_id)
         .map_err(|_| RedactError::Reassemble)?;
-    page.set("Contents", Object::Reference(content_id));
-    page.set("Resources", Object::Dictionary(resources));
-    page.set(
+    let parent = page.get(b"Parent").ok().cloned();
+    let mut rebuilt = Dictionary::new();
+    rebuilt.set("Type", Object::Name(b"Page".to_vec()));
+    if let Some(parent) = parent {
+        rebuilt.set("Parent", parent);
+    }
+    rebuilt.set("Contents", Object::Reference(content_id));
+    rebuilt.set("Resources", Object::Dictionary(resources));
+    rebuilt.set(
         "MediaBox",
         Object::Array(vec![
             Object::Real(0.0),
@@ -277,7 +295,8 @@ pub(crate) fn reassemble_page(
             Object::Real(page_h_pt),
         ]),
     );
-    page.set("Rotate", Object::Integer(0));
+    rebuilt.set("Rotate", Object::Integer(0));
+    *page = rebuilt;
     Ok(())
 }
 
@@ -504,10 +523,87 @@ pub(crate) fn surgery_candidate_passes_gate(
     }
 }
 
+/// How thick a straight line may be, in points, and still be read as a rule: an underline,
+/// a table border, a form's box.
+const RULE_THICKNESS: f32 = 2.0;
+
+/// How many rules may cross one redaction rectangle before the page is flattened. A table
+/// cell has four borders. A barcode is also thin straight lines, and it has dozens.
+const MAXIMUM_RULES_UNDER_A_RECTANGLE: usize = 4;
+
+/// Whether the page draws something under a rectangle that a black box laid over it would
+/// hide and not remove.
+///
+/// Surgery takes the text out of a rectangle and draws a box. Whatever else the page drew
+/// there is still in the file under the box, one deleted operator away. For most drawing
+/// that matters: a signature, a diagram, a stamp, and text converted to outlines are all
+/// paths. So a page with drawn content under a rectangle is flattened instead, which
+/// replaces everything with pixels.
+///
+/// Three kinds of drawing say nothing a box does not already say, and are let through so
+/// that an ordinary page keeps its selectable text: a straight-edged fill that covers the
+/// whole rectangle (a page background, a shaded table cell), and up to
+/// [`MAXIMUM_RULES_UNDER_A_RECTANGLE`] thin straight rules crossing it. Everything else,
+/// including a shape this cannot classify, flattens.
+pub(crate) fn draws_under_rectangles(
+    source: &hayro::hayro_syntax::Pdf,
+    page: usize,
+    rects: &[Rect],
+) -> bool {
+    let Some(observation) = crate::textpos::observe_page_content(source, page) else {
+        // A page that cannot be observed cannot be shown to be clear.
+        return true;
+    };
+    for rect in rects {
+        let (x0, x1) = (rect.x0.min(rect.x1), rect.x0.max(rect.x1));
+        let (y0, y1) = (rect.y0.min(rect.y1), rect.y0.max(rect.y1));
+        // Half a point in from each edge, so a border the rectangle merely touches is not
+        // counted as under it. A rectangle thinner than that is tested as it stands.
+        let inset = if x1 - x0 > 1.0 && y1 - y0 > 1.0 {
+            0.5
+        } else {
+            0.0
+        };
+        let inner = Rect {
+            x0: x0 + inset,
+            y0: y0 + inset,
+            x1: x1 - inset,
+            y1: y1 - inset,
+        };
+        let mut rules = 0;
+        for shape in &observation.shapes {
+            let drawn = crate::detect::to_display_rect(shape.bbox, observation.height_pt);
+            if !crate::detect::rects_intersect(&drawn, &inner) {
+                continue;
+            }
+            if !shape.axis_aligned {
+                return true;
+            }
+            let covers_it = drawn.x0 <= inner.x0
+                && drawn.x1 >= inner.x1
+                && drawn.y0 <= inner.y0
+                && drawn.y1 >= inner.y1;
+            if covers_it {
+                continue;
+            }
+            let thickness = (drawn.x1 - drawn.x0).min(drawn.y1 - drawn.y0);
+            if thickness > RULE_THICKNESS {
+                return true;
+            }
+            rules += 1;
+            if rules > MAXIMUM_RULES_UNDER_A_RECTANGLE {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn map_scrub_err(e: crate::ScrubError) -> RedactError {
     match e {
         crate::ScrubError::Rejected => RedactError::Rejected,
         crate::ScrubError::Parse => RedactError::Parse,
+        crate::ScrubError::Encrypted => RedactError::Encrypted,
         crate::ScrubError::Reassemble => RedactError::Reassemble,
         crate::ScrubError::GateFailed { detail } => RedactError::GateFailed { detail },
     }
@@ -526,8 +622,13 @@ pub fn redact(
         by_page.entry(region.page).or_default().push(region.rect);
     }
 
-    let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
+    // The editable copy is loaded first: it can tell a locked document from a damaged one,
+    // and the renderer reports both as a file it cannot parse.
     let mut lo = lopdf::Document::load_mem(&bytes).map_err(|_| RedactError::Parse)?;
+    if crate::guard::is_locked(&lo) {
+        return Err(RedactError::Encrypted);
+    }
+    let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
     let pages = lo.get_pages(); // 1-based number -> ObjectId
 
     let mut all_affected: Vec<usize> = Vec::new();
@@ -558,7 +659,13 @@ pub fn redact(
                 flattened.push(page);
             }
             RedactionMode::Surgery => {
-                match crate::surgery::try_build_surgery(&lo, page_id, rects) {
+                // Asked of the page as it arrived, before surgery adds boxes of its own.
+                let surgery = if draws_under_rectangles(&render_doc.pdf, page, rects) {
+                    None
+                } else {
+                    crate::surgery::try_build_surgery(&lo, page_id, rects)
+                };
+                match surgery {
                     Some(stream_bytes) => {
                         // Install the surgery stream as the page's content.
                         let content_id = lo
@@ -1576,6 +1683,192 @@ mod tests {
             "page 0 must be in pages_flattened"
         );
         assert_eq!(outcome.report.pages_redacted, vec![0]);
+    }
+
+    /// `hello.pdf` with `operators` added to the end of its page's content.
+    fn hello_with_drawing(operators: &str) -> Vec<u8> {
+        let mut doc = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+        let mut content = doc.get_page_content(page_id);
+        content.extend_from_slice(b"\n");
+        content.extend_from_slice(operators.as_bytes());
+        doc.change_page_content(page_id, content).unwrap();
+        let mut out = Vec::new();
+        doc.save_to(&mut out).unwrap();
+        out
+    }
+
+    fn surgery_report(bytes: Vec<u8>, rect: Rect) -> RedactionReport {
+        let regions = [RedactionRegion {
+            page: 0,
+            rect,
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            ..RedactionOptions::default()
+        };
+        redact(bytes, &regions, &opts)
+            .expect("redaction succeeds")
+            .report
+    }
+
+    const WHOLE_PAGE: Rect = Rect {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1000.0,
+        y1: 1000.0,
+    };
+
+    #[test]
+    fn surgery_keeps_a_plain_page_as_text() {
+        // The control for the tests below: with nothing drawn, this page is surgered.
+        let report = surgery_report(hello_with_drawing(""), WHOLE_PAGE);
+        assert_eq!(report.pages_surgered, vec![0]);
+    }
+
+    #[test]
+    fn a_curve_under_a_redaction_flattens_the_page() {
+        // A signature, a diagram and text converted to outlines are all curved paths. A
+        // box drawn over one hides it and leaves it in the file.
+        let report = surgery_report(
+            hello_with_drawing("20 20 m 30 60 50 60 60 20 c S"),
+            WHOLE_PAGE,
+        );
+        assert_eq!(report.pages_flattened, vec![0]);
+        assert!(report.pages_surgered.is_empty());
+    }
+
+    #[test]
+    fn the_flattened_page_no_longer_carries_the_drawing() {
+        let bytes = hello_with_drawing("20 20 m 30 60 50 60 60 20 c S");
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: WHOLE_PAGE,
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(bytes, &regions, &opts).unwrap();
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        let page_id = *reloaded.get_pages().get(&1).unwrap();
+        let content = reloaded.get_page_content(page_id);
+        assert!(
+            !contains(&content, b" c S"),
+            "{}",
+            String::from_utf8_lossy(&content)
+        );
+    }
+
+    #[test]
+    fn a_slanted_line_under_a_redaction_flattens_the_page() {
+        let report = surgery_report(hello_with_drawing("2 w 20 20 m 80 70 l S"), WHOLE_PAGE);
+        assert_eq!(report.pages_flattened, vec![0]);
+    }
+
+    #[test]
+    fn a_block_partly_under_a_redaction_flattens_the_page() {
+        // A filled block that does not cover the whole rectangle is a shape of its own: a
+        // bar of a chart, a highlight over one word.
+        let report = surgery_report(hello_with_drawing("0 0 1 rg 20 20 30 30 re f"), WHOLE_PAGE);
+        assert_eq!(report.pages_flattened, vec![0]);
+    }
+
+    #[test]
+    fn a_background_and_a_few_rules_do_not_cost_the_page_its_text() {
+        // A fill that covers the rectangle entirely says nothing a black box does not, and
+        // neither do the borders of a table cell.
+        let report = surgery_report(
+            hello_with_drawing(
+                "1 1 0.9 rg -500 -500 3000 3000 re f \
+                 0.5 w 10 30 m 190 30 l S 10 60 m 190 60 l S 40 10 m 40 90 l S",
+            ),
+            WHOLE_PAGE,
+        );
+        assert_eq!(report.pages_surgered, vec![0]);
+    }
+
+    #[test]
+    fn many_thin_bars_under_a_redaction_flatten_the_page() {
+        // Thin straight lines are also what a barcode is made of.
+        let bars: String = (0..12)
+            .map(|bar| format!("{} 20 1 40 re f ", 20 + bar * 3))
+            .collect();
+        let report = surgery_report(hello_with_drawing(&bars), WHOLE_PAGE);
+        assert_eq!(report.pages_flattened, vec![0]);
+    }
+
+    #[test]
+    fn a_drawing_clear_of_the_redaction_does_not_flatten_the_page() {
+        let report = surgery_report(
+            hello_with_drawing("150 20 m 160 60 170 60 180 20 c S"),
+            Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 100.0,
+                y1: 1000.0,
+            },
+        );
+        assert_eq!(report.pages_surgered, vec![0]);
+    }
+
+    #[test]
+    fn a_flattened_page_keeps_nothing_of_the_page_it_replaced() {
+        // A thumbnail is a small rendering of the page as it was, and a producer's private
+        // data can hold its text. Neither is content, so neither was replaced when only
+        // the content was.
+        let mut doc = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+        let thumbnail = doc.add_object(Stream::new(
+            Dictionary::new(),
+            b"ThumbnailOfTheUnredactedPage".to_vec(),
+        ));
+        let private = doc.add_object(Stream::new(
+            Dictionary::new(),
+            b"ProducerCopyOfTheUnredactedPage".to_vec(),
+        ));
+        let mut piece_info = Dictionary::new();
+        piece_info.set("Producer", Object::Reference(private));
+        let page = doc.get_dictionary_mut(page_id).unwrap();
+        page.set("Thumb", Object::Reference(thumbnail));
+        page.set("PieceInfo", Object::Dictionary(piece_info));
+        page.set(
+            "CropBox",
+            Object::Array(vec![10.into(), 10.into(), 50.into(), 50.into()]),
+        );
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+        assert!(contains(&bytes, b"ThumbnailOfTheUnredactedPage"));
+
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: WHOLE_PAGE,
+            reason: None,
+        }];
+        let outcome = redact(bytes, &regions, &RedactionOptions::default()).unwrap();
+        assert!(!contains(&outcome.pdf, b"ThumbnailOfTheUnredactedPage"));
+        assert!(!contains(&outcome.pdf, b"ProducerCopyOfTheUnredactedPage"));
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        let page_id = *reloaded.get_pages().get(&1).unwrap();
+        let page = reloaded.get_dictionary(page_id).unwrap();
+        let mut keys: Vec<String> = page
+            .iter()
+            .map(|(key, _)| String::from_utf8_lossy(key).to_string())
+            .collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "Contents",
+                "MediaBox",
+                "Parent",
+                "Resources",
+                "Rotate",
+                "Type"
+            ]
+        );
     }
 
     #[test]

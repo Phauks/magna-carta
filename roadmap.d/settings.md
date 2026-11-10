@@ -128,6 +128,15 @@
   evidence: apps/web/src/routes/(app)/settings/editing/ over GET/PATCH /api/v1/firm/editing-policy (apps/api-worker/src/http/routes/firm/editing-policy.ts) through apps/web/src/lib/documents/editing-policy-draft.svelte.ts, gated on firm:manageEditingPolicy from the session, Admin by seed. The WOPI host reads the same policy on every CheckFileInfo (DisableChangeTrackingRecord), and the launch carries it so the screen framing the editor hides the marks once the document is up.
   notes: On by default. The stored document keeps every mark; accepting them on every copy that leaves the platform is the conversion container's work and is not built yet, so until it lands a download carries the redlines — the decision is recorded and the export step is the next layer of the history spec.
 
+- id: settings.area-ui.search-and-indexing
+  name: Search and Indexing
+  scope: The firm's search settings — whether the words inside its files are indexed, with the page saying when the platform's search service is not connected and how the files already held are drawn in.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
+  evidence: apps/web/src/routes/(app)/settings/search-and-indexing/ over GET/PATCH /api/v1/firm/search-settings (apps/api-worker/src/http/routes/firm/search-settings.ts) through apps/web/src/lib/settings/search-settings-draft.svelte.ts, gated on firm:manageSearchSettings from the session, Admin by seed. The route is the one writer of search.indexing_enabled, which the ingest path reads before it enqueues a file and a matter's search reads before it asks the index; turning it on starts a bounded walk of the files already held (apps/api-worker/src/search/index-backlog.ts, shared with the daily repair pass). Held by apps/api-worker/test/firm-search-settings.test.ts and apps/web/test/search-settings-page.test.ts.
+  notes: One switch. Off by default. The same page is where the Search and Indexing status (search.status-screen: what is searchable, how much is indexed, rebuild) will be built. The daily repair pass starts at most 1,000 files per firm per day, so a firm holding tens of thousands of files takes weeks to be searchable in full; raising that pace belongs with the status screen, which is where a firm would see the progress.
+
 - id: settings.area-ui.firm-profile
   name: Firm Profile
   scope: What the firm is called to its clients — the name on an invoice, in the portal, and on every generated document.

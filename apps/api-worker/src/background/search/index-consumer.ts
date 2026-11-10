@@ -40,6 +40,7 @@ import { resolveFirmBucketForFirmId } from "../../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../../firm-database/firm-database-proxy.ts";
 import { corpusNeedsCompaction } from "./compaction-consumer.ts";
 import { searchCompactionJobName } from "../../search/compaction-types.ts";
+import { writeExtractedText } from "../../search/extracted-text-store.ts";
 import { writeNaturalLanguageFeedObject } from "../../search/natural-language-feed-writer.ts";
 import { resolveSearchIndexPort } from "../../search/search-engine.ts";
 import {
@@ -340,6 +341,26 @@ export async function indexOne(
     throw new Error(`split build failed: ${built.detail ?? "adapter error"}`);
   }
 
+  // THE TEXT A RESULT QUOTES FROM, kept before the catalog says the document is searchable. The
+  // index holds which words are on which page and not the sentences, so the passages just built
+  // into the split are also written, as they are, to an object of the version's own. Written first
+  // and inside the job's own outcome, unlike the two best-effort steps below: once the catalog names
+  // the split a search can return this document, and a result that names a page and cannot show its
+  // words is a defect a later pass would have no reason to repair, because nothing about the
+  // document would look unindexed. A failure here throws, the message is retried, and the retry
+  // overwrites its own object.
+  //
+  // A review document is not written here. Its text was kept by the pipeline that read it, under
+  // that pipeline's own class and collection rule, and a second copy would outlive the review set.
+  if (corpus.kind === "matter") {
+    await writeExtractedText(bucket, {
+      matterId,
+      fileId: documentId as FileId,
+      version: message.version,
+      passages,
+    });
+  }
+
   const database = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
   const prior = await listSplitsForDocument(database, documentId);
   await deletePriorSplitObjects(bucket, prior, objectKey);
@@ -398,8 +419,8 @@ export async function indexOne(
     );
   }
 
-  // THE SECOND CONSUMER OF THE SAME EXTRACTION. The bytes were read once and parsed once, above;
-  // the keyword split and the natural-language feed both read that one result. Re-extracting here
+  // ANOTHER CONSUMER OF THE SAME EXTRACTION. The bytes were read once and parsed once, above; the
+  // keyword split, the kept text and the natural-language feed all read that one result. Re-extracting here
   // would be a second parse of the same untrusted document, and would let the two derived copies
   // disagree about what the document says with nothing comparing them.
   //

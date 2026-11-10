@@ -43,9 +43,24 @@ pub(crate) struct CoverMark {
     pub is_image: bool,
 }
 
+/// Anything the page draws as a path, filled or stroked. A cover asks "does this hide
+/// what is under it"; a shape asks the opposite question, "is this itself content", which
+/// a redaction has to answer for whatever sits under its box.
+pub(crate) struct ShapeMark {
+    /// The path's bounds in the same frame as a glyph's `bbox`, widened by half the line
+    /// width for a stroke.
+    pub bbox: Rect,
+    /// True when the path is made only of horizontal and vertical straight lines: a
+    /// rectangle, a rule, a table border, a cell's shading. False for anything with a
+    /// curve or a slanted line, which is the shape of a signature, a diagram, a logo, or
+    /// text that was converted to outlines.
+    pub axis_aligned: bool,
+}
+
 pub(crate) struct PageObservation {
     pub glyphs: Vec<GlyphMark>,
     pub covers: Vec<CoverMark>,
+    pub shapes: Vec<ShapeMark>,
     // width_pt is retained for symmetry and exercised by tests; height_pt drives the
     // display-point y-flip in the detector and the surgery outcome gate.
     #[allow(dead_code)]
@@ -65,6 +80,41 @@ struct Observer {
     order: usize,
     glyphs: Vec<GlyphMark>,
     covers: Vec<CoverMark>,
+    shapes: Vec<ShapeMark>,
+}
+
+/// How far off horizontal or vertical a line may be, in points, and still count as
+/// straight along an axis. Coordinates arrive through a chain of matrix products.
+const AXIS_TOLERANCE: f64 = 0.01;
+
+fn is_axis_aligned(path: &BezPath) -> bool {
+    let mut start = kurbo::Point::ZERO;
+    let mut current = kurbo::Point::ZERO;
+    let along_an_axis = |from: kurbo::Point, to: kurbo::Point| {
+        (from.x - to.x).abs() <= AXIS_TOLERANCE || (from.y - to.y).abs() <= AXIS_TOLERANCE
+    };
+    for element in path.elements() {
+        match *element {
+            kurbo::PathEl::MoveTo(point) => {
+                start = point;
+                current = point;
+            }
+            kurbo::PathEl::LineTo(point) => {
+                if !along_an_axis(current, point) {
+                    return false;
+                }
+                current = point;
+            }
+            kurbo::PathEl::ClosePath => {
+                if !along_an_axis(current, start) {
+                    return false;
+                }
+                current = start;
+            }
+            kurbo::PathEl::QuadTo(..) | kurbo::PathEl::CurveTo(..) => return false,
+        }
+    }
+    true
 }
 
 impl<'a> Device<'a> for Observer {
@@ -79,6 +129,22 @@ impl<'a> Device<'a> for Observer {
         mode: &PathDrawMode,
     ) {
         self.order += 1;
+        if !path.elements().is_empty() {
+            let mut placed = path.clone();
+            placed.apply_affine(transform);
+            let half_line = match mode {
+                PathDrawMode::Fill(_) => 0.0,
+                // The line width is in the path's own space; the transform's area scale
+                // brings it to the page's.
+                PathDrawMode::Stroke(stroke) => {
+                    f64::from(stroke.line_width) * transform.determinant().abs().sqrt() / 2.0
+                }
+            };
+            self.shapes.push(ShapeMark {
+                bbox: placed.bounding_box().inflate(half_line, half_line),
+                axis_aligned: is_axis_aligned(&placed),
+            });
+        }
         if let PathDrawMode::Fill(_) = mode {
             let mut p = path.clone();
             p.apply_affine(transform);
@@ -162,8 +228,19 @@ impl<'a> Device<'a> for Observer {
     fn pop_transparency_group(&mut self) {}
 }
 
-// Called by the scan orchestrator in a later task.
+/// Everything the page shows: its own content and its annotations' appearances.
 pub(crate) fn observe_page(pdf: &Pdf, index: usize) -> Option<PageObservation> {
+    observe(pdf, index, true)
+}
+
+/// The page's own content, without its annotations. An annotation over a redaction is
+/// removed as an object, by the code that handles annotations, so what its appearance
+/// draws is not something a rewrite of the page's content leaves behind.
+pub(crate) fn observe_page_content(pdf: &Pdf, index: usize) -> Option<PageObservation> {
+    observe(pdf, index, false)
+}
+
+fn observe(pdf: &Pdf, index: usize, render_annotations: bool) -> Option<PageObservation> {
     let pages = pdf.pages();
     let page = pages.get(index)?;
     let (width_pt, height_pt) = page.render_dimensions();
@@ -174,13 +251,17 @@ pub(crate) fn observe_page(pdf: &Pdf, index: usize) -> Option<PageObservation> {
         Rect::new(0.0, 0.0, width_pt as f64, height_pt as f64),
         &cache,
         page.xref(),
-        InterpreterSettings::default(),
+        InterpreterSettings {
+            render_annotations,
+            ..InterpreterSettings::default()
+        },
     );
     let mut obs = Observer::default();
     interpret_page(page, &mut ctx, &mut obs);
     Some(PageObservation {
         glyphs: obs.glyphs,
         covers: obs.covers,
+        shapes: obs.shapes,
         width_pt,
         height_pt,
     })

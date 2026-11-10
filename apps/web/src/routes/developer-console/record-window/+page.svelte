@@ -156,6 +156,7 @@
     conflictHit: "How A Conflict Hit Stands",
     communityRequest: "A Community Request's Standing",
     communityQuestion: "A Community Question's Standing",
+    searchIndexStanding: "How A Search Index Stands",
   };
 
   const VOCABULARY_KEYS = Object.keys(STATUS_VOCABULARIES) as StatusVocabulary[];

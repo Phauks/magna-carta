@@ -372,6 +372,48 @@
       "when": 1794278312733,
       "tag": "20261110T023832_connection-account-label",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1794275798679,
+      "tag": "20261110T033313_record-text-index",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1794281383037,
+      "tag": "20261110T034828_recurring-tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1794280785108,
+      "tag": "20261110T040000_calendar-sync-rules-and-firm-limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1794285389656,
+      "tag": "20261110T043629_seed-search-settings-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1794285097584,
+      "tag": "20261110T053527_calendar-sync-link",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1794290322427,
+      "tag": "20261110T055842_connection-sync-issue",
+      "breakpoints": true
     }
   ]
 }

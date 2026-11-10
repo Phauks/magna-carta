@@ -47,3 +47,151 @@ export const ConnectedAccountSignInStart = z
 export const ConnectedAccountDisconnectAck = z
   .object({ id: z.string(), status: z.literal("disconnected") })
   .meta({ id: "ConnectedAccountDisconnectAck" });
+
+// CALENDAR SYNC SETTINGS: what the firm lets leave, and what a member chose to send.
+
+const SYNC_DETAIL = z
+  .enum(["full", "minimal"])
+  .describe(
+    "How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the " +
+      "event type and nothing else.",
+  );
+
+const SYNC_SCOPE = z
+  .enum(["mine", "my_matters"])
+  .describe(
+    "Whose events of the type are sent: `mine` is the ones the member takes part in (for " +
+      "deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a " +
+      "matter they are assigned to.",
+  );
+
+const SYNC_SUBJECT_KEY = z
+  .string()
+  .min(1)
+  .max(64)
+  .describe("An event type's id, or `deadline` for deadlines as one kind.");
+
+export const CalendarSyncSubject = z
+  .object({
+    subject: SYNC_SUBJECT_KEY,
+    kind: z.enum(["eventType", "deadline"]),
+    name: z.string().nullable().describe("The event type's name. Null for the deadline kind."),
+    category: z.enum(["litigation", "transaction", "firm", "other"]).nullable(),
+    mayLeave: z.boolean().describe("Whether the firm lets this subject be synced at all."),
+    detail: SYNC_DETAIL,
+  })
+  .meta({ id: "CalendarSyncSubject" });
+
+export const CalendarSyncProviderCalendar = z
+  .object({
+    remoteId: z.string(),
+    name: z.string(),
+    isDefault: z.boolean(),
+    canWrite: z.boolean(),
+  })
+  .meta({ id: "CalendarSyncProviderCalendar" });
+
+export const CalendarSyncRule = z
+  .object({
+    subject: SYNC_SUBJECT_KEY,
+    calendarRemoteId: z.string(),
+    calendarName: z
+      .string()
+      .describe(
+        "The calendar's name when the rule was saved, shown when the provider is unreachable.",
+      ),
+    scope: SYNC_SCOPE,
+  })
+  .meta({ id: "CalendarSyncRule" });
+
+export const CalendarSyncSettings = z
+  .object({
+    account: ConnectedAccount.nullable().describe(
+      "The member's connected account, or null when they have connected none.",
+    ),
+    calendars: z
+      .array(CalendarSyncProviderCalendar)
+      .nullable()
+      .describe(
+        "The account's calendars as the provider lists them now. Null when there is no account or " +
+          "the provider could not be asked, in which case rules can be read and not changed.",
+      ),
+    subjects: z.array(CalendarSyncSubject),
+    rules: z.array(CalendarSyncRule),
+  })
+  .meta({ id: "CalendarSyncSettings" });
+
+// One page of the catalog is far below this; the cap exists so a request cannot be made of rows.
+const MAXIMUM_SUBJECTS_PER_REQUEST = 500;
+
+export const CalendarSyncRulesReplace = z
+  .object({
+    rules: z
+      .array(
+        z.object({
+          subject: SYNC_SUBJECT_KEY,
+          calendarRemoteId: z.string().min(1).max(512),
+          scope: SYNC_SCOPE,
+        }),
+      )
+      .max(MAXIMUM_SUBJECTS_PER_REQUEST)
+      .describe("The member's whole rule set. A subject absent from it is not synced."),
+  })
+  .meta({ id: "CalendarSyncRulesReplace" });
+
+export const CalendarSyncFirmLimits = z
+  .object({ subjects: z.array(CalendarSyncSubject) })
+  .meta({ id: "CalendarSyncFirmLimits" });
+
+export const CalendarSyncFirmLimitsSet = z
+  .object({
+    limits: z
+      .array(z.object({ subject: SYNC_SUBJECT_KEY, mayLeave: z.boolean(), detail: SYNC_DETAIL }))
+      .min(1)
+      .max(MAXIMUM_SUBJECTS_PER_REQUEST)
+      .describe("The subjects to set. A subject not named keeps the limit it has."),
+  })
+  .meta({ id: "CalendarSyncFirmLimitsSet" });
+
+// COPIES A MEMBER CHANGED IN THEIR OWN CALENDAR: what was sent, and what is there now.
+
+export const CalendarSyncCopyReading = z
+  .object({
+    title: z.string(),
+    location: z.string().nullable(),
+    startsOn: z.string().describe("The first day, as YYYY-MM-DD."),
+    startsAtTime: z
+      .string()
+      .nullable()
+      .describe("The wall-clock start as HH:MM, or null when the copy takes the whole day."),
+    endsOn: z.string().describe("The last day the copy covers, as YYYY-MM-DD."),
+    endsAtTime: z.string().nullable(),
+    timeZone: z
+      .string()
+      .describe("The zone the event was recorded in. Both sides of a difference are read in it."),
+  })
+  .meta({ id: "CalendarSyncCopyReading" });
+
+export const CalendarSyncIssue = z
+  .object({
+    localKind: z.enum(["matter_event", "firm_event", "deadline"]),
+    localId: z.string(),
+    kind: z
+      .enum(["changed", "removed"])
+      .describe(
+        "`changed`: the copy in the member's calendar no longer reads as it was sent. " +
+          "`removed`: the copy is no longer in the member's calendar.",
+      ),
+    sent: CalendarSyncCopyReading.describe(
+      "The event as it was sent to the member's calendar, at the detail the firm allows.",
+    ),
+    found: CalendarSyncCopyReading.nullable().describe(
+      "The copy as the member's calendar holds it now. Null when the copy is gone.",
+    ),
+    detectedAt: z.string(),
+  })
+  .meta({ id: "CalendarSyncIssue" });
+
+export const CalendarSyncIssueList = z
+  .object({ issues: z.array(CalendarSyncIssue) })
+  .meta({ id: "CalendarSyncIssueList" });

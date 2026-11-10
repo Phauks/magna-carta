@@ -35,7 +35,9 @@ let otherFirmMatterId: string;
 interface SearchHit {
   readonly id: string;
   readonly title: string;
+  readonly titleMarks: readonly { readonly start: number; readonly end: number }[];
   readonly snippet: string | null;
+  readonly snippetMarks: readonly { readonly start: number; readonly end: number }[];
   readonly secondary: string | null;
   readonly link: string;
 }
@@ -225,6 +227,7 @@ describe("one query, answered from every section the member may read", () => {
     // entitled to have a change in them show up as a test edit rather than pass silently.
     expect(answer.groups.map((entry) => entry.source)).toEqual([
       "files",
+      "file-contents",
       "time",
       "costs",
       "billing",
@@ -239,6 +242,17 @@ describe("one query, answered from every section the member may read", () => {
     // The source key and the section slug differ here, which is the case this assertion exists to
     // catch: the source is named for what it holds and the section for what a reader calls the tab.
     expect(group(answer, "communications").section).toBe("messaging");
+    // Two sources answer in the Files section: the names, and the words inside the files.
+    expect(group(answer, "file-contents").section).toBe("files");
+  });
+
+  it("says the words inside files are not connected while no search service is bound", async () => {
+    // The test pool binds no search service. That has to read as "not switched on yet", never as
+    // "no file contains this word", and it must not take the rest of the answer down with it.
+    const answer = await search("easement");
+    expect(group(answer, "file-contents").skipped).toBe("engine-not-connected");
+    expect(group(answer, "file-contents").hits).toEqual([]);
+    expect(group(answer, "notes").hits).toHaveLength(1);
   });
 
   it("finds the note and carries its words and a link into the Notes tab", async () => {
@@ -247,6 +261,15 @@ describe("one query, answered from every section the member may read", () => {
     expect(notes.hits).toHaveLength(1);
     expect(notes.hits[0]?.snippet).toContain("eastern boundary");
     expect(notes.hits[0]?.link).toBe(`/matters/${matterId}/notes?entry=${notes.hits[0]?.id}`);
+  });
+
+  it("says where the reader's words are in the note, and marks no title that is a date", async () => {
+    const [note] = group(await search("EASEMENT boundary"), "notes").hits;
+    const marked = (note?.snippetMarks ?? []).map((mark) =>
+      note?.snippet?.slice(mark.start, mark.end),
+    );
+    expect(marked).toEqual(["easement", "boundary"]);
+    expect(note?.titleMarks).toEqual([]);
   });
 
   it("says what each source matched on, so a hit never has to be guessed at", async () => {
@@ -261,7 +284,8 @@ describe("one query, answered from every section the member may read", () => {
     const answer = await search("zoning");
     for (const entry of answer.groups) {
       expect(entry.hits).toEqual([]);
-      expect(entry.skipped).toBeNull();
+      // The one source that reads an index outside the database says it could not; see above.
+      if (entry.source !== "file-contents") expect(entry.skipped).toBeNull();
     }
   });
 });

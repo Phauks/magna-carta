@@ -25,7 +25,8 @@
    *   its <svelte:head> title.
    * - A page with ONE bespoke need composes this and passes a snippet: `afterRow` for content that
    *   belongs beneath one row (a reading the row's choice governs), `plateEnd` for a line that
-   *   closes a plate (a fact the rows above it need stated once). A page whose need is larger
+   *   closes a plate (a fact the rows above it need stated once), `after` for plates of its own
+   *   beneath the settings (what the page reads and nothing here changes). A page whose need is larger
    *   composes the same parts this does — settings-masthead, settings-scroll-region,
    *   settings-plate, settings-row, settings-commit-footer — never a second implementation of
    *   the pinning, the rules, or the row grid.
@@ -81,6 +82,7 @@
     notice,
     afterRow,
     plateEnd,
+    after,
   }: {
     sectionId: string;
     /** The page title (Title Case, like every setting name). */
@@ -124,6 +126,13 @@
      * which plates get one; for the rest it renders nothing.
      */
     plateEnd?: Snippet<[string]>;
+    /**
+     * Plates of the page's own, beneath the settings and inside the same scroll region: facts the
+     * page reads and no row here changes (how a setting above is working out). They are built
+     * from settings-plate and settings-row like everything above them, and they stage nothing,
+     * so the commit footer never counts them.
+     */
+    after?: Snippet;
   } = $props();
 
   const plates = $derived(platesForDefinitions(definitions));
@@ -218,6 +227,10 @@
       </LoadingRegion>
     </SettingsPlate>
   {/each}
+
+  {#if after !== undefined}
+    {@render after()}
+  {/if}
 </SettingsScrollRegion>
 
 {#if canEdit}

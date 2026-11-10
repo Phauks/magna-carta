@@ -2,6 +2,10 @@
 // packages/database, so the diff that renames one never touches this package.
 import {
   calendarEventLink,
+  calendarSyncFirmLimit,
+  calendarSyncLink,
+  calendarSyncRule,
+  connectionSyncIssue,
   firmEvent,
   firmEventParticipant,
   firmResource,
@@ -65,6 +69,37 @@ import {
   insertFirmResourceStatement,
   selectFirmResourcesStatement,
 } from "../src/resource-statements.ts";
+import {
+  clearSyncLinkAgreementStatement,
+  recordSyncLinkVersionStatement,
+  CALENDAR_SYNC_LINK_TABLE,
+  deleteSyncLinkStatement,
+  deleteSyncLinksStatement,
+  insertPendingSyncLinkStatement,
+  markSyncLinkFailedStatement,
+  markSyncLinkSyncedStatement,
+  selectSyncLinksStatement,
+} from "../src/sync-link-statements.ts";
+import {
+  CONNECTION_SYNC_ISSUE_TABLE,
+  deleteSyncIssueStatement,
+  deleteSyncIssuesStatement,
+  deleteSyncIssuesWithoutLinkStatement,
+  leaveSyncIssueStatement,
+  raiseSyncIssueStatement,
+  selectSyncIssueStatement,
+  selectSyncIssuesStatement,
+} from "../src/sync-issue-statements.ts";
+import {
+  CALENDAR_SYNC_FIRM_LIMIT_TABLE,
+  CALENDAR_SYNC_RULE_TABLE,
+  deleteSyncRulesForSubjectStatement,
+  deleteSyncRulesStatement,
+  insertSyncRuleStatement,
+  selectSyncFirmLimitsStatement,
+  selectSyncRulesStatement,
+  upsertSyncFirmLimitStatement,
+} from "../src/sync-rule-statements.ts";
 import { visibleMatterPredicate } from "../src/visibility.ts";
 
 // Fitness function (the ledger pattern): the raw SQL in this package must track
@@ -470,5 +505,103 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
       new Set([CALENDAR_EVENT_LINK_TABLE, ...columnsOf(calendarEventLink)]),
       "link",
     );
+  });
+
+  it("every column the calendar sync SQL names exists in the schema", () => {
+    expect(getTableConfig(calendarSyncRule).name).toBe(CALENDAR_SYNC_RULE_TABLE);
+    expect(getTableConfig(calendarSyncFirmLimit).name).toBe(CALENDAR_SYNC_FIRM_LIMIT_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const ruleColumns = new Set([CALENDAR_SYNC_RULE_TABLE, ...columnsOf(calendarSyncRule)]);
+    for (const statement of [
+      selectSyncRulesStatement(stub, connectionId),
+      deleteSyncRulesStatement(stub, connectionId),
+      deleteSyncRulesForSubjectStatement(stub, "deadline"),
+      insertSyncRuleStatement(
+        stub,
+        connectionId,
+        { subject: "deadline", calendarRemoteId: "c", calendarName: "C", scope: "mine" },
+        "t",
+      ),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), ruleColumns, "sync rule");
+    }
+    const limitColumns = new Set([
+      CALENDAR_SYNC_FIRM_LIMIT_TABLE,
+      ...columnsOf(calendarSyncFirmLimit),
+      // The row an upsert proposes, as SQLite names it.
+      "conflict",
+      "do",
+      "excluded",
+    ]);
+    for (const statement of [
+      selectSyncFirmLimitsStatement(stub),
+      upsertSyncFirmLimitStatement(
+        stub,
+        { subject: "deadline", mayLeave: true, detail: "full" },
+        USER_ID,
+        "t",
+      ),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), limitColumns, "sync firm limit");
+    }
+  });
+
+  it("every column the calendar sync link SQL names exists in the schema", () => {
+    expect(getTableConfig(calendarSyncLink).name).toBe(CALENDAR_SYNC_LINK_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const key = { connectionId, localKind: "matter_event", localId: "matterEvent_x" } as const;
+    const linkColumns = new Set([CALENDAR_SYNC_LINK_TABLE, ...columnsOf(calendarSyncLink)]);
+    for (const statement of [
+      selectSyncLinksStatement(stub, connectionId),
+      insertPendingSyncLinkStatement(
+        stub,
+        key,
+        { calendarRemoteId: "c", transactionId: "t", agreedHash: "h" },
+        "t",
+      ),
+      markSyncLinkSyncedStatement(
+        stub,
+        key,
+        { remoteEventId: "r", remoteVersionTag: null, agreedHash: "h" },
+        "t",
+      ),
+      markSyncLinkFailedStatement(stub, key, "h", "t"),
+      deleteSyncLinkStatement(stub, key),
+      deleteSyncLinksStatement(stub, connectionId),
+      clearSyncLinkAgreementStatement(stub, key, "t"),
+      recordSyncLinkVersionStatement(stub, key, "v", "t"),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), linkColumns, "sync link");
+    }
+  });
+
+  it("every column the sync issue SQL names exists in the schema", () => {
+    expect(getTableConfig(connectionSyncIssue).name).toBe(CONNECTION_SYNC_ISSUE_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const key = { connectionId, localKind: "matter_event", localId: "matterEvent_x" } as const;
+    const issueColumns = new Set([
+      CONNECTION_SYNC_ISSUE_TABLE,
+      ...columnsOf(connectionSyncIssue),
+      // The sweep of questions whose copy was taken back reads the link table beside it.
+      CALENDAR_SYNC_LINK_TABLE,
+      "link",
+      "excluded",
+    ]);
+    for (const statement of [
+      selectSyncIssuesStatement(stub, connectionId),
+      selectSyncIssueStatement(stub, key),
+      raiseSyncIssueStatement(
+        stub,
+        key,
+        { kind: "changed", remoteVersionTag: null, sentJson: "{}", foundJson: "{}" },
+        "t",
+      ),
+      leaveSyncIssueStatement(stub, key, "t"),
+      deleteSyncIssueStatement(stub, key),
+      deleteSyncIssuesWithoutLinkStatement(stub, connectionId),
+      deleteSyncIssuesStatement(stub, connectionId),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), issueColumns, "sync issue");
+    }
   });
 });

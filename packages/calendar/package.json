@@ -33,7 +33,12 @@
     "./sources/all": "./src/sources/all.ts",
     "./settings": "./src/settings.ts",
     "./sync-contract": "./src/sync-contract.ts",
+    "./sync-issue-statements": "./src/sync-issue-statements.ts",
+    "./sync-link-statements": "./src/sync-link-statements.ts",
+    "./sync-outbound": "./src/sync-outbound.ts",
     "./sync-port": "./src/sync-port.ts",
+    "./sync-rule-service": "./src/sync-rule-service.ts",
+    "./sync-rule-statements": "./src/sync-rule-statements.ts",
     "./contract": "./src/contract.ts"
   },
   "scripts": {

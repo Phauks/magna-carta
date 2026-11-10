@@ -1,0 +1,10 @@
+---
+category: Added
+audience: public
+---
+
+**The Search and Indexing settings page shows what the firm's indexes hold.** Beneath the switch, two plates: the standing of each of the three indexes (the firm's records, the words inside its files, search by meaning), and a table of every indexed place with how many of its records are indexed, how many are not, and which searches read it. Every figure is counted from the firm's own database when the page opens (`GET /api/v1/firm/search-status`, behind `firm:manageSearchSettings`); nothing is stored between reads, and **Count Again** is the only other time it is asked. A record place whose index does not hold exactly its records reads Behind, counted by comparing the index's rows with the records themselves through the same select the triggers are rendered from. The file contents line says Turned Off or Not Connected before it says anything about counts, and a file it does not hold is "not indexed", never "waiting", because a file whose words nothing can read stays in that number. Discovery review sets are named and not counted: each set's index sits behind that set's access list. Each source of the record index now declares which searches read it, and a test compares that with the source keys the matter search and the conflicts check name in their own statements. One correction rides with the count: the daily repair pass looked only for a file's own index split, so every file a merge had folded into a larger split would have been sent to be indexed again each day; the pass and the screen now share one definition of "held by the index". The status register gains a `searchIndexStanding` vocabulary, and the standard settings page takes an `after` snippet for plates a page reads and does not change. Not on the screen yet: rebuilding a place that reads Behind.
+
+## Public
+
+**Settings › Search and Indexing now shows what is indexed.** Under the Search Inside Files setting you can see whether your firm's records and files are fully indexed, how many files have had their words read, and a list of every place a search reads, with its counts. **Count Again** refreshes the figures.

@@ -88,9 +88,11 @@ The right side of the New Check panel is the search itself, in two tabs.
   the reason, so a report never reads as if your documents were searched and came up empty.
 
 Every option is on when the panel opens. In messages, tasks and conversations a party's name is
-looked for **whole and without regard to case**: Acme Holdings LLC is looked for as "Acme Holdings
-LLC", never as "Acme" alone, and a name shorter than three characters is not looked for in text at
-all. The report says this in its Status section, under each place.
+looked for **as whole words, in order, without regard to case or accents**: Acme Holdings LLC is
+looked for as "Acme Holdings LLC", never as "Acme" alone; José Ortega also finds "Jose Ortega"; and
+a name shorter than three characters is not looked for in text at all. A name is not found inside a
+longer word. If one name turns up in more than 200 records of one place, the first 200 are kept and
+the report says so. The report says this in its Status section, under each place.
 
 A result found in a message, task, conversation or file says what kind of record it was found in
 (Call, Text, Email, Task, Magnus conversation, File), the matter it is filed on, and when it happened, with a link

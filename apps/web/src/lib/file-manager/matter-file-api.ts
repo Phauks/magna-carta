@@ -345,6 +345,37 @@ export function fileDownloadUrl(fileId: string): string {
   return `/api/v1/files/${encodeURIComponent(fileId)}/download`;
 }
 
+/**
+ * How the server will deliver a file for watching or listening: inline from the cookieless files
+ * host when the browser can play it, or the download when it cannot. `verdict` is what the server
+ * found when it read the recording's track table; `reason` says why a download-only answer was
+ * given, so the screen can say it in words.
+ */
+export interface PreviewGrant {
+  readonly mode: "inline-media" | "download-only";
+  readonly verdict: "playable" | "download-only" | "indeterminate" | null;
+  readonly streamUrl?: string;
+  readonly contentType?: string;
+  readonly sizeBytes?: number | null;
+  readonly reason?:
+    | "verdict"
+    | "unknown-verdict"
+    | "tiered"
+    | "encoded"
+    | "derived"
+    | "unknown-type"
+    | "host-unavailable";
+  readonly downloadUrl: string;
+}
+
+/** Ask the server how this file's current version can be played. */
+export function readPreviewGrant(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<PreviewGrant>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/preview`);
+}
+
 /** The five digests, in the order the Hashes tab lists them. */
 export interface DigestSet {
   md5: string;

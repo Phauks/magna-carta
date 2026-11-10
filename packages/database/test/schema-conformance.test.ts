@@ -71,6 +71,8 @@ describe("schema conformance (fitness functions)", () => {
       communication_number_counter: "scope_key",
       conflicts_check_number_counter: "scope_key",
       setting: "key",
+      // The firm's limit is keyed by what it limits: an event type's id, or deadlines as one kind.
+      calendar_sync_firm_limit: "subject",
       platform_operator: "user_id",
       // The community board's display identity: one per person, keyed by the GLOBAL user handle,
       // the same idiom as platform_operator.
@@ -215,6 +217,12 @@ describe("schema conformance (fitness functions)", () => {
       "task_list_status_transition",
       "task_team_member",
       "matter_task_watcher",
+      // A member's rule is the pair itself: one connected account sends one subject to one place.
+      "calendar_sync_rule",
+      // A copy at a provider is the pair of one event and one connected account.
+      "calendar_sync_link",
+      // A question about a copy is keyed as the copy is, so a copy never has two.
+      "connection_sync_issue",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a
@@ -237,6 +245,12 @@ describe("schema conformance (fitness functions)", () => {
       "ai_search_feed_object.version",
     ]);
 
+    // Tables keyed by an INTEGER because a full-text table is keyed by one. A full-text table's rows
+    // are addressed by row id and nothing else, so the ordinary table that says what each of its rows
+    // IS has to carry that same integer as its key. It is never a handle: nothing outside the index
+    // refers to it, no route returns it, and a rebuild assigns new ones.
+    const integerRowIdentifierTables = new Set(["record_text_entry"]);
+
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
       if (compositeKeyTables.has(config.name)) {
@@ -256,7 +270,9 @@ describe("schema conformance (fitness functions)", () => {
       expect(primaryColumns[0]?.name, config.name).toBe(
         naturalSinglePrimaryKeyNames[config.name] ?? "id",
       );
-      expect(primaryColumns[0]?.getSQLType(), config.name).toBe("text");
+      expect(primaryColumns[0]?.getSQLType(), config.name).toBe(
+        integerRowIdentifierTables.has(config.name) ? "integer" : "text",
+      );
     }
   });
 

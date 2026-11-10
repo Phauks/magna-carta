@@ -38,6 +38,9 @@ use crate::guard::{guard_input, GuardLimits};
 /// that, as with every other engine operation.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SignError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// The input is not a PDF lopdf can parse.
     Parse,
     /// The input was rejected by the decompression-bomb guard (oversize or a bomb).
@@ -54,6 +57,11 @@ pub enum SignError {
     /// The CMS blob handed to [`embed_signature`] does not fit the reserved `/Contents`
     /// capacity. Re-prepare with a larger `contents_capacity`.
     CapacityExceeded,
+    /// The visible signature names a page the document does not have.
+    PageOutOfRange,
+    /// The visible signature's box is not a box: a side is not finite, or it has no width or
+    /// no height.
+    InvalidAppearance,
     /// The `/ByteRange` or `/Contents` span handed to [`signed_bytes`] or [`embed_signature`]
     /// does not lie inside the document: it runs backwards or past the end.
     InvalidRange,
@@ -80,6 +88,27 @@ pub struct SignatureOptions {
     /// twice this many characters. A CMS for an RSA-2048 / ECDSA-P256 seal with a modest
     /// certificate chain fits comfortably in a few KiB; the default is generous.
     pub contents_capacity: usize,
+    /// What the signature shows on the page. `None` signs invisibly: the signature is in the
+    /// file and in a viewer's signature panel, and nothing is drawn.
+    pub appearance: Option<SignatureAppearance>,
+}
+
+/// A signature a reader can see on the page: a bordered box holding lines of text.
+///
+/// The lines are the caller's ("Signed by Jane Doe", a date, a reason). This engine reads no
+/// clock and knows no signer, so it draws what it is given. The box is part of the signed
+/// revision, so what it says cannot be changed afterwards without breaking the signature.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SignatureAppearance {
+    /// The page the box is drawn on, counting from zero.
+    pub page: usize,
+    /// The box in points, `[left, bottom, right, top]`, measured from the page's bottom-left
+    /// corner as the page is stored. A page with a `/Rotate` entry shows the box turned with
+    /// it.
+    pub rect: [f32; 4],
+    /// The text, one entry per line, drawn in Helvetica. A character outside Windows-1252 is
+    /// drawn as a question mark.
+    pub lines: Vec<String>,
 }
 
 impl SignatureOptions {
@@ -164,8 +193,11 @@ pub fn embed_signature(prepared: &PreparedSignature, cms_der: &[u8]) -> Result<V
     Ok(out)
 }
 
-/// Append an incremental update carrying an invisible signature field over the first page,
-/// with a reserved `/Contents` and an exact `/ByteRange`. The input is preserved byte for
+/// Append an incremental update carrying a signature field, with a reserved `/Contents` and
+/// an exact `/ByteRange`. The field is invisible on the first page unless
+/// [`SignatureOptions::appearance`] places a visible box. Its name is the first of
+/// `Signature1`, `Signature2`, ... that no field of the document already has, so a document
+/// can be signed more than once. The input is preserved byte for
 /// byte as the prefix of [`PreparedSignature::document`].
 pub fn prepare_signature(
     input: &[u8],
@@ -173,6 +205,9 @@ pub fn prepare_signature(
 ) -> Result<PreparedSignature, SignError> {
     guard_input(input, &GuardLimits::default()).map_err(|_| SignError::Rejected)?;
     let doc = Document::load_mem(input).map_err(|_| SignError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(SignError::Encrypted);
+    }
 
     // The offset of the previous cross-reference section — read from the trailing `startxref`
     // in the bytes themselves rather than from `Document::xref_start` (lopdf tracks that only
@@ -198,8 +233,27 @@ pub fn prepare_signature(
         .ok_or(SignError::MissingCatalog)?
         .clone();
 
-    // The first page in reading order carries the (invisible) widget.
-    let page_id = *doc.get_pages().values().next().ok_or(SignError::NoPages)?;
+    // The first page in reading order carries an invisible widget; a visible one sits on the
+    // page it names.
+    let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
+    let page_id = match &opts.appearance {
+        None => *pages.first().ok_or(SignError::NoPages)?,
+        Some(appearance) => {
+            if pages.is_empty() {
+                return Err(SignError::NoPages);
+            }
+            let [left, bottom, right, top] = appearance.rect;
+            let usable = appearance.rect.iter().all(|side| side.is_finite())
+                && right - left >= 1.0
+                && top - bottom >= 1.0;
+            if !usable {
+                return Err(SignError::InvalidAppearance);
+            }
+            *pages
+                .get(appearance.page)
+                .ok_or(SignError::PageOutOfRange)?
+        }
+    };
     let page = doc
         .get_object(page_id)
         .ok()
@@ -243,7 +297,14 @@ pub fn prepare_signature(
         None => (next_id(base_max, 3), Dictionary::new()),
     };
 
-    let highest_id = acroform_id.0.max(sig_id.0);
+    // A visible signature adds two objects: the drawing and the font it is drawn in.
+    let appearance_id = next_id(base_max, 4);
+    let font_id = next_id(base_max, 5);
+    let highest_id = if opts.appearance.is_some() {
+        font_id.0.max(acroform_id.0)
+    } else {
+        acroform_id.0.max(sig_id.0)
+    };
 
     // ── Build the overriding / new dictionaries ───────────────────────────────────────
     // The signature field is a merged field+widget annotation: invisible (zero Rect, hidden
@@ -254,14 +315,34 @@ pub fn prepare_signature(
     field.set("Subtype", Object::Name(b"Widget".to_vec()));
     field.set(
         "T",
-        Object::String(b"Signature1".to_vec(), StringFormat::Literal),
+        Object::String(
+            unused_field_name(&doc, &acroform).into_bytes(),
+            StringFormat::Literal,
+        ),
     );
     // /F 132 = Print (4) | Locked (128): prints with the page, cannot be moved or resized.
     field.set("F", Object::Integer(132));
-    field.set(
-        "Rect",
-        Object::Array(vec![0.into(), 0.into(), 0.into(), 0.into()]),
-    );
+    match &opts.appearance {
+        None => field.set(
+            "Rect",
+            Object::Array(vec![0.into(), 0.into(), 0.into(), 0.into()]),
+        ),
+        Some(appearance) => {
+            field.set(
+                "Rect",
+                Object::Array(
+                    appearance
+                        .rect
+                        .iter()
+                        .map(|side| Object::Real(*side))
+                        .collect(),
+                ),
+            );
+            let mut normal = Dictionary::new();
+            normal.set("N", Object::Reference(appearance_id));
+            field.set("AP", Object::Dictionary(normal));
+        }
+    }
     field.set("P", Object::Reference(page_id));
     field.set("V", Object::Reference(sig_id));
 
@@ -320,6 +401,19 @@ pub fn prepare_signature(
         emit_dict_object(&mut out, id, dict);
     }
 
+    if let Some(appearance) = &opts.appearance {
+        let mut font = Dictionary::new();
+        font.set("Type", Object::Name(b"Font".to_vec()));
+        font.set("Subtype", Object::Name(b"Type1".to_vec()));
+        font.set("BaseFont", Object::Name(b"Helvetica".to_vec()));
+        font.set("Encoding", Object::Name(b"WinAnsiEncoding".to_vec()));
+        xref_entries.push((font_id.0, font_id.1, out.len()));
+        emit_dict_object(&mut out, font_id, &font);
+
+        xref_entries.push((appearance_id.0, appearance_id.1, out.len()));
+        emit_appearance_stream(&mut out, appearance_id, font_id, appearance);
+    }
+
     // The signature dictionary is emitted by hand so we can capture the exact offsets of the
     // `/ByteRange` placeholder fields and the `/Contents` `<`.
     let sig_offset = out.len();
@@ -373,6 +467,118 @@ fn next_id(base_max: u32, offset: u32) -> ObjectId {
     (base_max + offset, 0)
 }
 
+/// The first of `Signature1`, `Signature2`, ... that no top-level field of the form has. Two
+/// fields with one name are one field to a reader, so a second signature under the first's
+/// name would replace it in the signature panel.
+fn unused_field_name(doc: &Document, acroform: &Dictionary) -> String {
+    let taken: Vec<Vec<u8>> = acroform
+        .get(b"Fields")
+        .ok()
+        .and_then(|fields| resolve_owned(doc, fields).ok())
+        .and_then(|fields| fields.as_array().ok().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|field| resolve_owned(doc, field).ok())
+        .filter_map(|field| match field.as_dict().ok()?.get(b"T").ok()? {
+            Object::String(bytes, _) => Some(bytes.clone()),
+            _ => None,
+        })
+        .collect();
+    (1..)
+        .map(|number| format!("Signature{number}"))
+        .find(|name| !taken.iter().any(|existing| existing == name.as_bytes()))
+        .unwrap_or_else(|| "Signature".to_string())
+}
+
+/// Space between the visible signature's border and its text, in points.
+const APPEARANCE_PADDING: f32 = 3.0;
+/// The largest and smallest sizes a visible signature's text is set at.
+const APPEARANCE_LARGEST_SIZE: f32 = 10.0;
+const APPEARANCE_SMALLEST_SIZE: f32 = 4.0;
+/// Distance between baselines, as a multiple of the font size.
+const APPEARANCE_LINE_SPACING: f32 = 1.2;
+
+/// Emit the drawing of a visible signature: a thin border and the caller's lines, sized so
+/// that every line fits the box's height and the longest fits its width, down to a size
+/// below which it would not be legible. The box clips whatever still does not fit.
+fn emit_appearance_stream(
+    out: &mut Vec<u8>,
+    id: ObjectId,
+    font_id: ObjectId,
+    appearance: &SignatureAppearance,
+) {
+    let width = appearance.rect[2] - appearance.rect[0];
+    let height = appearance.rect[3] - appearance.rect[1];
+    let lines: Vec<&str> = appearance
+        .lines
+        .iter()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    let mut content = format!(
+        "q 0.4 G 0.5 w 0.25 0.25 {:.2} {:.2} re S Q\n",
+        width - 0.5,
+        height - 0.5
+    )
+    .into_bytes();
+    if !lines.is_empty() {
+        let room_wide = (width - 2.0 * APPEARANCE_PADDING).max(1.0);
+        let room_tall = (height - 2.0 * APPEARANCE_PADDING).max(1.0);
+        let by_height = room_tall / (lines.len() as f32 * APPEARANCE_LINE_SPACING);
+        let widest_at_one_point = lines
+            .iter()
+            .map(|line| crate::forms::helvetica_text_width(line, 1.0))
+            .fold(0.0_f32, f32::max);
+        let by_width = if widest_at_one_point > 0.0 {
+            room_wide / widest_at_one_point
+        } else {
+            APPEARANCE_LARGEST_SIZE
+        };
+        let size = by_height
+            .min(by_width)
+            .clamp(APPEARANCE_SMALLEST_SIZE, APPEARANCE_LARGEST_SIZE);
+        content.extend(format!("BT /F1 {size:.2} Tf 0 g\n").into_bytes());
+        for (index, line) in lines.iter().enumerate() {
+            let baseline = height
+                - APPEARANCE_PADDING
+                - size * 0.8
+                - index as f32 * size * APPEARANCE_LINE_SPACING;
+            content
+                .extend(format!("1 0 0 1 {APPEARANCE_PADDING:.2} {baseline:.2} Tm (").into_bytes());
+            content.extend(crate::bates::win_ansi_literal_lossy(line));
+            content.extend_from_slice(b") Tj\n");
+        }
+        content.extend_from_slice(b"ET\n");
+    }
+
+    let mut fonts = Dictionary::new();
+    fonts.set("F1", Object::Reference(font_id));
+    let mut resources = Dictionary::new();
+    resources.set("Font", Object::Dictionary(fonts));
+    let mut dict = Dictionary::new();
+    dict.set("Type", Object::Name(b"XObject".to_vec()));
+    dict.set("Subtype", Object::Name(b"Form".to_vec()));
+    dict.set("FormType", Object::Integer(1));
+    dict.set(
+        "BBox",
+        Object::Array(vec![
+            Object::Real(0.0),
+            Object::Real(0.0),
+            Object::Real(width),
+            Object::Real(height),
+        ]),
+    );
+    dict.set("Resources", Object::Dictionary(resources));
+    dict.set("Length", Object::Integer(content.len() as i64));
+
+    out.extend_from_slice(format!("{} {} obj\n", id.0, id.1).as_bytes());
+    serialize_dictionary(&dict, out);
+    out.extend_from_slice(b"\nstream\n");
+    out.extend_from_slice(&content);
+    out.extend_from_slice(b"\nendstream\nendobj\n");
+}
+
 /// Absolute offsets, in the output buffer, of the mutable pieces of the signature dict.
 struct SigMarkers {
     range_field_1: usize,
@@ -406,7 +612,7 @@ fn emit_signature_dict(
         if let Some(v) = value {
             out.extend_from_slice(format!(" /{key} ").as_bytes());
             serialize_object(
-                &Object::String(v.clone().into_bytes(), StringFormat::Literal),
+                &Object::String(pdf_text_string(v), StringFormat::Literal),
                 out,
             );
         }
@@ -610,6 +816,20 @@ fn serialize_name(name: &[u8], out: &mut Vec<u8>) {
 /// A PDF literal string `( … )`: escape the delimiters and backslash, keep printable ASCII,
 /// and octal-escape everything else. Balanced-parenthesis shortcuts are not used — every
 /// paren is escaped, which is always valid.
+/// `text` as a PDF text string. ASCII is written as it stands. Anything else is UTF-16
+/// big-endian behind a byte-order mark, the one form every reader takes: raw UTF-8 bytes
+/// are read as PDFDocEncoding, which turns "José" into "JosÃ©" in the signature panel.
+pub(crate) fn pdf_text_string(text: &str) -> Vec<u8> {
+    if text.is_ascii() {
+        return text.as_bytes().to_vec();
+    }
+    let mut bytes = vec![0xFE, 0xFF];
+    for unit in text.encode_utf16() {
+        bytes.extend_from_slice(&unit.to_be_bytes());
+    }
+    bytes
+}
+
 fn serialize_literal_string(bytes: &[u8], out: &mut Vec<u8>) {
     out.push(b'(');
     for &b in bytes {
@@ -659,6 +879,15 @@ fn hex_encode(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_signer_name_with_an_accent_is_written_as_utf16() {
+        assert_eq!(pdf_text_string("Jose"), b"Jose");
+        assert_eq!(
+            pdf_text_string("José"),
+            [0xFE, 0xFF, 0, b'J', 0, b'o', 0, b's', 0, 0xE9]
+        );
+    }
     use lopdf::{dictionary, Stream};
 
     /// A minimal, valid single-page PDF with a classic xref, built to round-trip through the
@@ -716,7 +945,172 @@ mod tests {
             contact_info: None,
             signing_time: Some("D:20260717120000Z".to_string()),
             contents_capacity: 4096,
+            appearance: None,
         }
+    }
+
+    fn visible(page: usize, rect: [f32; 4]) -> SignatureOptions {
+        SignatureOptions {
+            appearance: Some(SignatureAppearance {
+                page,
+                rect,
+                lines: vec![
+                    "Signed by José Álvarez".to_string(),
+                    "2026-11-10 14:02 UTC".to_string(),
+                    "Reason: Engagement letter".to_string(),
+                ],
+            }),
+            ..opts()
+        }
+    }
+
+    /// The signature fields of a document, in the order the form lists them.
+    fn signature_fields(doc: &Document) -> Vec<Dictionary> {
+        let acroform = doc
+            .catalog()
+            .expect("catalog")
+            .get(b"AcroForm")
+            .and_then(|o| doc.dereference(o).map(|(_, v)| v))
+            .expect("acroform")
+            .as_dict()
+            .expect("acroform dict")
+            .clone();
+        acroform
+            .get(b"Fields")
+            .and_then(|o| o.as_array())
+            .expect("fields")
+            .iter()
+            .map(|field| {
+                doc.dereference(field)
+                    .expect("field")
+                    .1
+                    .as_dict()
+                    .expect("field dict")
+                    .clone()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_visible_signature_is_drawn_in_its_box_on_the_page_it_names() {
+        let single = base_pdf();
+        let input = crate::merge(&[&single, &single]).expect("two pages");
+        let rect = [72.0, 72.0, 272.0, 122.0];
+        let prepared = prepare_signature(&input, &visible(1, rect)).expect("prepare");
+        assert_eq!(&prepared.document[..input.len()], &input[..]);
+
+        let doc = Document::load_mem(&prepared.document).expect("reparse");
+        let fields = signature_fields(&doc);
+        assert_eq!(fields.len(), 1);
+        let field = &fields[0];
+        let written: Vec<f32> = field
+            .get(b"Rect")
+            .and_then(|o| o.as_array())
+            .expect("rect")
+            .iter()
+            .map(|side| side.as_float().expect("number"))
+            .collect();
+        assert_eq!(written, rect);
+
+        // The widget is on the second page and nowhere else.
+        let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
+        assert_eq!(
+            field.get(b"P").and_then(|o| o.as_reference()).ok(),
+            Some(pages[1])
+        );
+        let annotations_on = |page: ObjectId| {
+            doc.get_dictionary(page)
+                .ok()
+                .and_then(|dict| dict.get(b"Annots").ok())
+                .and_then(|o| o.as_array().ok())
+                .map_or(0, Vec::len)
+        };
+        assert_eq!((annotations_on(pages[0]), annotations_on(pages[1])), (0, 1));
+
+        // Its appearance draws a border and each line, accents in the font's own encoding.
+        let appearance = field
+            .get(b"AP")
+            .and_then(|o| o.as_dict())
+            .and_then(|ap| ap.get(b"N"))
+            .and_then(|o| o.as_reference())
+            .expect("appearance reference");
+        let stream = doc
+            .get_object(appearance)
+            .and_then(|o| o.as_stream())
+            .expect("appearance stream");
+        let content = &stream.content;
+        let has = |needle: &[u8]| content.windows(needle.len()).any(|window| window == needle);
+        assert!(has(b" re S"), "a border");
+        assert!(has(b"(Signed by Jos\xe9 \xc1lvarez) Tj"));
+        assert!(has(b"(2026-11-10 14:02 UTC) Tj"));
+        assert!(has(b"(Reason: Engagement letter) Tj"));
+
+        // The render engine opens the signed file and draws the box's text on that page.
+        let rendered = crate::Document::load(prepared.document.clone()).expect("render load");
+        let text: String = rendered
+            .page_text_facts(1)
+            .expect("text")
+            .lines
+            .into_iter()
+            .map(|line| line.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("Signed by José Álvarez"), "page text: {text}");
+    }
+
+    #[test]
+    fn a_long_line_is_set_smaller_so_it_stays_inside_the_box() {
+        let mut options = visible(0, [10.0, 10.0, 110.0, 40.0]);
+        let long = "Signed electronically by the managing partner of the firm".to_string();
+        if let Some(appearance) = options.appearance.as_mut() {
+            appearance.lines = vec![long.clone()];
+        }
+        let prepared = prepare_signature(&base_pdf(), &options).expect("prepare");
+        let text = String::from_utf8_lossy(&prepared.document).into_owned();
+        let size: f32 = text
+            .rsplit("/F1 ")
+            .next()
+            .and_then(|tail| tail.split(' ').next())
+            .and_then(|value| value.parse().ok())
+            .expect("font size");
+        assert!((APPEARANCE_SMALLEST_SIZE..APPEARANCE_LARGEST_SIZE).contains(&size));
+        assert!(crate::forms::helvetica_text_width(&long, size) <= 94.1 || size == 4.0);
+    }
+
+    #[test]
+    fn a_visible_signature_on_a_missing_page_or_in_no_box_is_refused() {
+        let input = base_pdf();
+        assert_eq!(
+            prepare_signature(&input, &visible(1, [0.0, 0.0, 100.0, 40.0])).err(),
+            Some(SignError::PageOutOfRange)
+        );
+        for rect in [
+            [100.0, 0.0, 100.0, 40.0],
+            [0.0, 40.0, 100.0, 0.0],
+            [0.0, 0.0, f32::NAN, 40.0],
+        ] {
+            assert_eq!(
+                prepare_signature(&input, &visible(0, rect)).err(),
+                Some(SignError::InvalidAppearance)
+            );
+        }
+    }
+
+    #[test]
+    fn each_signature_gets_a_field_name_of_its_own() {
+        let first = prepare_signature(&base_pdf(), &opts()).expect("first prepare");
+        let sealed = embed_signature(&first, &[0xAB; 16]).expect("embed first");
+        let second = prepare_signature(&sealed, &visible(0, [10.0, 10.0, 210.0, 60.0]))
+            .expect("second prepare");
+        let doc = Document::load_mem(&second.document).expect("reparse");
+        let names: Vec<Vec<u8>> = signature_fields(&doc)
+            .iter()
+            .map(|field| match field.get(b"T") {
+                Ok(Object::String(bytes, _)) => bytes.clone(),
+                _ => panic!("a field without a name"),
+            })
+            .collect();
+        assert_eq!(names, vec![b"Signature1".to_vec(), b"Signature2".to_vec()]);
     }
 
     #[test]

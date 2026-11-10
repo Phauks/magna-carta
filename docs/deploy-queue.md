@@ -285,7 +285,8 @@ depends on the one before it:
    from deferred to live; there is no code change, and the parked `deferred` jobs drain
    on their next pass.
 4. **Arm the warm cron** (`"*/20 * * * *"` in `apps/search-worker/wrangler.jsonc`) once a
-   firm actually has `search.indexing_enabled` on. It is off deliberately: with no
+   firm actually has `search.indexing_enabled` on (a firm's Owner or Administrator turns it on
+   under Settings › Data & Platform › Search and Indexing, since 2026-11-10). It is off deliberately: with no
    queries, pinning a `standard-1` instance bills its 4 GiB continuously for nothing.
 
 **No R2 lifecycle rule for the split prefix, deliberately.** Splits are a derived cache

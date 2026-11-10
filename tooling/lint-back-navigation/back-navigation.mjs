@@ -82,6 +82,10 @@ export const STANDING_EXEMPTIONS = new Map([
     "the same as the editor: the viewer's way back is the matter's Files page, and the template library above it is not where a document lives",
   ],
   [
+    "/documents/[id]/watch",
+    "the same as the viewer: the player's way back is the matter's Files page, and the template library above it is not where a recording lives",
+  ],
+  [
     "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
     "the reviewer's way back has to carry the narrowing it was opened from, and a registry back target cannot: its href is a literal, so it would land a reader on the whole corpus after they opened one document out of forty. The reviewer carries its own Back to the list link, built from the criteria set in the address; the workspace layout above it holds the header, and its way back is the Discovery register",
   ],

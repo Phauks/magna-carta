@@ -17,8 +17,14 @@ import {
   type SearchIndexPort,
 } from "@magna-carta/search/port";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
+import {
+  EXTRACTED_TEXT_PREFIX,
+  extractedTextObjectDimensions,
+  extractedTextObjectKey,
+} from "@magna-carta/search/extracted-text";
 import { splitIdentifierForDocumentVersion, splitObjectKey } from "@magna-carta/search/split";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { readExtractedPassageFromBucket } from "../src/search/extracted-text-store.ts";
 import type { SearchIndexJob } from "../src/search/index-coordinator.ts";
 import {
   searchIndexQueue,
@@ -235,6 +241,63 @@ describe("searchIndexQueue — publishing and convergence", () => {
     expect(rows[0]?.objectKey).toBe(expectedKey);
     expect(rows[0]?.version).toBe(1);
     expect(rows[0]?.documentCount).toBe(2);
+  });
+
+  it("keeps the text it indexed, passage by passage, so a result can quote it", async () => {
+    const message = await messageFor("kept-text", 4);
+    await seedJob(message);
+
+    await searchIndexQueue(makeBatch(message).batch, env, ports(extractsTwoPages));
+
+    const fileId = message.documentId as FileId;
+    // The same passages the engine was given, read back one at a time.
+    expect(await readExtractedPassageFromBucket(env.R2, fileId, 4, "page-1")).toEqual({
+      kind: "text",
+      text: "environmental liability remains",
+    });
+    const object = await env.R2.head(extractedTextObjectKey(fileId, 4));
+    expect(object?.customMetadata).toEqual(extractedTextObjectDimensions(MATTER));
+  });
+
+  it("does not say a document is searchable until its text is kept", async () => {
+    const message = await messageFor("kept-text-fault", 1);
+    const stub = await seedJob(message);
+    const { batch, acks, retries } = makeBatch(message);
+    // The firm's storage takes every write but the kept text.
+    const refusing = {
+      ...env,
+      R2: {
+        get: (key: string) => env.R2.get(key),
+        head: (key: string) => env.R2.head(key),
+        delete: (keys: string | string[]) => env.R2.delete(keys),
+        put: (key: string, value: Uint8Array, options?: R2PutOptions) =>
+          key.startsWith(EXTRACTED_TEXT_PREFIX)
+            ? Promise.reject(new Error("storage did not take the write"))
+            : env.R2.put(key, value, options),
+      },
+    } as unknown as typeof env;
+
+    await searchIndexQueue(batch, refusing, ports(extractsTwoPages));
+
+    // Retried, and nothing catalogued: a search cannot yet return a file it could not quote.
+    expect(retries).toEqual(["msg-1"]);
+    expect(acks).toEqual([]);
+    expect((await stub.status()).status).toBe("failed");
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    expect(await listSplitsForDocument(database, message.documentId as FileId)).toEqual([]);
+
+    // The retry, with storage answering, lands both.
+    await runInDurableObject(stub, async (instance: SearchIndexJob) => {
+      const mutable = instance as unknown as { env: Record<string, unknown> };
+      mutable.env = { ...mutable.env, SEARCH_INDEX: { send: async () => {} } };
+      await instance.start(message);
+    });
+    await searchIndexQueue(makeBatch(message).batch, env, ports(extractsTwoPages));
+    expect(await listSplitsForDocument(database, message.documentId as FileId)).toHaveLength(1);
+    expect(
+      (await readExtractedPassageFromBucket(env.R2, message.documentId as FileId, 1, "page-0"))
+        .kind,
+    ).toBe("text");
   });
 
   it("a retry of the same version converges — one row, not two", async () => {

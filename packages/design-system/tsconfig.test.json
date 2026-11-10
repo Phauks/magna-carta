@@ -19,6 +19,7 @@
   "include": [
     ".storybook/**/*.ts",
     "modal-geometry/**/*.ts",
+    "src/**/*.d.ts",
     "test/**/*.ts",
     "visual-regression/**/*.ts"
   ]

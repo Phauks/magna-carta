@@ -85,9 +85,12 @@ and never calls external services.
   title and body, by matter status) and Magnus conversations. `readPartyNeedles` reads what each
   subject party is looked for by (names as written, under the check's name roles; email addresses;
   phone digits); `searchContent` runs one small function per place and returns one `content`-class
-  result per party per record, identity at tier 1 and the name compared whole at tier 2. Plain LIKE
-  scans inside the background run: the shared record text index under design elsewhere replaces the
-  per-place functions, not their callers. `found_in_json` on the hit says where (`FoundIn`: kind, id,
+  result per party per record, identity at tier 1 and the name compared whole at tier 2. Names in
+  calls and texts, tasks and Magnus are asked of the firm's record index
+  (`@magna-carta/search/record-index-query`, index-led, one exact phrase per name, firm-wide), at
+  most `NAME_RESULT_CEILING` records per name per place, with the names that reached it counted on
+  the record. Numbers, addresses, linked records and email (not an index source) stay on LIKE and
+  equality over their own columns. `found_in_json` on the hit says where (`FoundIn`: kind, id,
   matter, instant), never the record's text, because the log outlives the record
 - `src/disposition.ts` — `recordDisposition` (validates a non-blank rationale and that the hit exists
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`

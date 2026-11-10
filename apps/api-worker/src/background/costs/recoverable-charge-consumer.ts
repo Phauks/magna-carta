@@ -22,6 +22,7 @@ import {
   NATURAL_LANGUAGE_INSTANCE_TEARDOWN_TOPIC,
   type NaturalLanguageFeedDeletionPayload,
 } from "@magna-carta/search/natural-language-topics";
+import { RECORD_INDEX_REBUILD_REQUESTED_TOPIC } from "@magna-carta/search/record-index-topics";
 import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
 import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
 import { CAPTURE_ROUTE_TOPIC } from "../../emails/capture-address-service.ts";
@@ -41,6 +42,7 @@ import {
   handleNaturalLanguageProvision,
   handleNaturalLanguageTeardown,
 } from "../../search/natural-language-lifecycle.ts";
+import { rebuildRecordIndexPlacesBehind } from "../../search/record-index-rebuild.ts";
 import {
   buildShipmentRecoverableCharge,
   parseShipmentPurchasedPayload,
@@ -134,7 +136,22 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   // One handler, idempotent — see ../exports/export-copy-consumer.ts.
   [EXPORT_COPY_REQUESTED_TOPIC]: handleExportCopyRequested,
   [FILE_VERSION_COMMITTED_TOPIC]: handleExportCopyRequested,
+  // A member asked, on the Search and Indexing page, for the places of the record index that have
+  // fallen behind their records to be rebuilt. See ../../search/record-index-rebuild.ts.
+  [RECORD_INDEX_REBUILD_REQUESTED_TOPIC]: handleRecordIndexRebuildRequested,
 };
+
+// The message carries nothing to read: the rebuild counts what is behind when it runs. A failure
+// propagates and the message retries, which is safe to any number of deliveries because a place
+// already rebuilt counts as up to date and is left alone.
+async function handleRecordIndexRebuildRequested(
+  _env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  _message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  await rebuildRecordIndexPlacesBehind(firmDatabase, logger);
+}
 
 // The three natural-language search lifecycle topics. Each rides this bus rather than a queue of its
 // own because they are rare, small messages and the shared lane already carries the relay, the

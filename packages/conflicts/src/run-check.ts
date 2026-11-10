@@ -26,6 +26,7 @@ import {
   asksForAnyPlace,
   asksForRecordPlaces,
   NAME_FLOOR,
+  NAME_RESULT_CEILING,
   NUMBER_FLOOR,
   readPartyNeedles,
   searchContent,
@@ -368,6 +369,7 @@ async function search(
   let placeResultsFound = 0;
   let placeResultsRefused = 0;
   let fileOutcome: Awaited<ReturnType<typeof searchFiles>> | null = null;
+  let namesAtCeiling = 0;
   if (asksForAnyPlace(places)) {
     await report("places", {
       entitiesReached: expanded.length,
@@ -375,9 +377,11 @@ async function search(
       candidatesSurfaced: similarityHits.length,
     });
     const needles = await readPartyNeedles(context.database, [...seedIds], scope.nameRoles);
-    const recordHits = asksForRecordPlaces(places)
+    const recordSearch = asksForRecordPlaces(places)
       ? await searchContent(context.database, needles, places)
-      : [];
+      : { hits: [], namesAtCeiling: 0 };
+    namesAtCeiling = recordSearch.namesAtCeiling;
+    const recordHits = recordSearch.hits;
     fileOutcome = await searchFiles(
       context.database,
       needles,
@@ -526,6 +530,8 @@ async function search(
                   fileQueryCeiling: FILE_QUERY_CEILING,
                 }),
             partiesSearched: [...seedIds].length,
+            nameResultCeiling: NAME_RESULT_CEILING,
+            namesAtCeiling,
             nameFloor: NAME_FLOOR,
             numberFloor: NUMBER_FLOOR,
             emailBodiesSearched: false,

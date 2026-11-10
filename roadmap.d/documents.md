@@ -422,10 +422,11 @@
 
 - id: documents.preview.player
   name: Video player UI
-  scope: Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
-  status: designed
+  scope: Inline video player on the browser's own video element with the design system's own controls (seek with buffered fill, frame and ten-second steps, speed, sound, picture in picture, full screen, a link to the moment), as a page and in the details panel's Preview tab; HLS support dormant for future transcoding.
+  status: partial
+  surface: screen
   spec: docs/specs/2026-06-19-slice-2-3-inline-preview-safe-delivery-design.md
-  evidence: No vidstack dependency anywhere in the tree; slice 2-3 fragment: "Player UI → 0·7".
+  evidence: packages/design-system/src/lib/components/video-player + slider (stories as browser tests); apps/web/src/routes/(app)/documents/[id]/watch and file-video-preview.svelte; the inline-playable verdict is judged at first preview by apps/api-worker/src/files/inline-playable-assessment.ts over packages/file-manager/src/inline-playable.ts. Partial because the production files host (FILES_ORIGIN) is still a placeholder, so a deployed grant streams nowhere and the player offers the download.
 
 - id: documents.preview.transcoding
   name: Preview transcoding
@@ -623,7 +624,7 @@
   surface: awaiting-screen
   adrs: ADR-0152
   spec: docs/specs/2026-06-25-pdf-forms-design.md
-  evidence: crates/pdf-core/src/forms.rs.
+  evidence: crates/pdf-core/src/forms/.
   notes: XFA not in scope of the built module.
 
 - id: documents.pdf.watermark
@@ -656,8 +657,8 @@
   scope: Write a new PDF from a content model (headings, paragraphs, pictures, tables, labelled fields, running header and footer), for records, reports and exports that carry more than text.
   status: partial
   surface: internal
-  evidence: crates/pdf-compose-core (model, layout, render, images, fonts) with tests/compose.rs reading the output back through pdf-core. Engine only, no WebAssembly edge and no caller yet.
-  notes: documents.pdf.generate's evidence, crates/pdf-core/src/generate.rs, merges, splits and rotates existing files and never wrote a new one; this node is where writing one lives. Decision fragment a-new-pdf-is-composed-in-rust-with-krilla-and-a-bundled-open-font pending assembly. Not yet built, the edge that lets a Worker or the browser call it, and a tagged (accessible) structure tree.
+  evidence: crates/pdf-compose-core (model, layout, render, images, fonts) with tests/compose.rs reading the output back through pdf-core. A JSON form of the model (src/wire.rs) and a WebAssembly edge (src/wasm.rs) reach it through @magna-carta/pdf-compose (packages/pdf-compose), tested through the compiled module. No caller yet.
+  notes: documents.pdf.generate's evidence, crates/pdf-core/src/generate.rs, merges, splits and rotates existing files and never wrote a new one; this node is where writing one lives. Decision fragment a-new-pdf-is-composed-in-rust-with-krilla-and-a-bundled-open-font pending assembly. Not yet built, a tagged (accessible) structure tree.
   awaiting-owner: Which screens should be able to put pictures into a generated PDF, and whether the tabular export (today a Word file converted by the office container) should be drawn by this engine instead.
 
 - id: documents.pdf.decompression-guard
@@ -674,7 +675,7 @@
   scope: Page-level manipulation operations promised for the PDF service.
   status: shipped
   surface: awaiting-screen
-  evidence: All four operations are built and reachable. merge, split and rotate are public functions in crates/pdf-core/src/generate.rs and form flattening is in src/forms.rs, and each is exposed at the WASM edge in src/wasm.rs as mergeDocuments, splitDocument, rotatePages and flattenForm. The node read not-started because it looked for a module of its own — there is not one, and there did not need to be: generate.rs is the shared home, which is why documents.pdf.generate already claimed the same file.
+  evidence: All four operations are built and reachable. merge, split and rotate are public functions in crates/pdf-core/src/generate.rs and form flattening is in src/forms/flatten.rs, and each is exposed at the WASM edge in src/wasm.rs as mergeDocuments, splitDocument, rotatePages and flattenForm. The node read not-started because it looked for a module of its own — there is not one, and there did not need to be: generate.rs is the shared home, which is why documents.pdf.generate already claimed the same file.
   notes: Backend only, no screen — the tool surfaces are documents.pdf.tool-uis. The split path is deliberately safety-aware rather than a plain page copy: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page when that action points at an excluded one, behind a fail-closed gate.
 
 - id: documents.pdf.tool-uis

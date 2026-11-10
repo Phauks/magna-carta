@@ -1,0 +1,70 @@
+@layer components {
+  /*
+   * VideoPlayer (Tier 3). The picture sits on the chrome surface, which does not turn over in dark
+   * mode, so letterboxing reads as the frame around a recording rather than as part of the page.
+   * The controls are a raised bar beneath it, separated by the hairline, never laid over the picture.
+   */
+  .mc-video-player {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-video-player:fullscreen {
+    border-radius: var(--mc-radius-none);
+  }
+  .mc-video-player-stage {
+    display: flex;
+    flex: auto;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--mc-space-0);
+    background-color: var(--mc-chrome-surface);
+  }
+  .mc-video-player-media {
+    display: block;
+    object-fit: contain;
+    cursor: pointer;
+  }
+  .mc-video-player-bar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-video-player[data-variant="compact"] .mc-video-player-bar {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+  }
+  .mc-video-player-time {
+    flex: none;
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--mc-text-default);
+    white-space: nowrap;
+  }
+  .mc-video-player-divider {
+    flex: none;
+    inline-size: var(--mc-border-width-default);
+    block-size: var(--mc-space-20);
+    margin-inline: var(--mc-space-4);
+    background-color: var(--mc-border-default);
+  }
+  .mc-video-player-volume {
+    flex: none;
+    inline-size: var(--mc-space-96);
+  }
+  .mc-video-player-speed {
+    flex: none;
+  }
+}
