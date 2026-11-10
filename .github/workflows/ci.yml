@@ -217,7 +217,11 @@ jobs:
           tool: wasm-pack
 
       - name: Rust toolchain (pinned by rust-toolchain.toml)
-        if: needs.prepare.outputs.rust == 'true' || needs.prepare.outputs.containers == 'true' || (needs.prepare.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
+        # Always, because governance always runs and two of its lints call cargo. Left to install
+        # itself on first use, the pinned toolchain is fetched by several concurrent lints at once
+        # and the downloads collide ("could not rename 'downloaded' file"). The single job this
+        # replaced only got away without this line because its WASM cache never hit, so it always
+        # installed the toolchain for the rebuild.
         run: rustup show && rustc --version
 
       - name: Cache the cargo registry and the crates target
