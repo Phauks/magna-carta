@@ -20,6 +20,11 @@ pub(crate) struct GlyphMark {
     pub order: usize,
     pub invisible: bool,
     pub rgba: [u8; 4],
+    /// The horizontal span, in the same frame as `bbox`, from the glyph's origin to where
+    /// the next glyph starts. `None` when the font declares no advance for it. The inked
+    /// outline in `bbox` is narrower than this by the glyph's side bearings, which is what
+    /// makes two narrow glyphs (the digits of "11") look further apart than a word break.
+    pub advance_span: Option<(f64, f64)>,
 }
 
 pub(crate) struct CoverMark {
@@ -110,12 +115,21 @@ impl<'a> Device<'a> for Observer {
                 Rect::new(t.x, t.y, t.x, t.y)
             }
         };
+        let advance_span = match glyph {
+            Glyph::Outline(outline) => outline.advance_width().map(|advance| {
+                let origin = matrix * kurbo::Point::new(0.0, 0.0);
+                let end = matrix * kurbo::Point::new(f64::from(advance), 0.0);
+                (origin.x.min(end.x), origin.x.max(end.x))
+            }),
+            Glyph::Type3(_) => None,
+        };
         self.glyphs.push(GlyphMark {
             text,
             bbox,
             order: self.order,
             invisible: matches!(mode, GlyphDrawMode::Invisible),
             rgba: paint_rgba(paint),
+            advance_span,
         });
     }
 

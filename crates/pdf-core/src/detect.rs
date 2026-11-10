@@ -721,6 +721,7 @@ mod tests {
             order,
             invisible,
             rgba,
+            advance_span: None,
         }
     }
 
@@ -994,6 +995,7 @@ mod tests {
                 order: 1,
                 invisible: false,
                 rgba: [0, 0, 0, 255],
+                advance_span: None,
             }],
             covers: vec![],
             width_pt: 612.0,
