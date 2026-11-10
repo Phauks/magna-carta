@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./types": "./src/types.ts",
+    "./contract": "./src/contract.ts",
     "./settings": "./src/settings.ts",
     "./evidence": "./src/evidence.ts",
     "./expansion": "./src/expansion.ts",

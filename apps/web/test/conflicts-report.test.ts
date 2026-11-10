@@ -49,7 +49,7 @@ function result(overrides: Partial<CheckWithHits["check"]> = {}): CheckWithHits 
     statement: [
       "Searched on 30 August 2026 by user_one, trigger comprehensive.",
       "Party — name and identifier similarity at over_inclusive strictness, over 1 subject party.",
-      "Nothing surfaced.",
+      "0 results.",
     ],
     hits: [],
   };
@@ -73,7 +73,7 @@ describe("the report prints the engine's own account", () => {
     expect(search.text.split("\n")).toEqual([
       "Searched on 30 August 2026 by user_one, trigger comprehensive.",
       "Party — name and identifier similarity at over_inclusive strictness, over 1 subject party.",
-      "Nothing surfaced.",
+      "0 results.",
     ]);
   });
 });
@@ -185,7 +185,7 @@ describe("the downloaded report", () => {
     expect(statement?.rows.map((row) => row[0])).toEqual([
       "Searched on 30 August 2026 by user_one, trigger comprehensive.",
       "Party — name and identifier similarity at over_inclusive strictness, over 1 subject party.",
-      "Nothing surfaced.",
+      "0 results.",
     ]);
     const scope = exported.sections.find((section) => section.title === "Scope In Force");
     expect(scope?.rows).toContainEqual(["Traversal Truncated", "Yes"]);

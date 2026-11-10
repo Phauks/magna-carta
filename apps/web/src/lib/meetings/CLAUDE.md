@@ -13,6 +13,13 @@ half:** [`apps/api-worker/src/meetings`](../../../../api-worker/src/meetings/CLA
 
 ## The module map
 
+**`effects/` — the browser half of a background.** `background-processor.ts` hands the camera to
+`background-effects.worker.ts` (as `VideoFrame` streams where the browser has
+`MediaStreamTrackProcessor`, as one `ImageBitmap` per frame elsewhere) and answers the treated track;
+the worker is the only place `@magna-carta/segmentation` loads. `background-compositing.ts` is the
+pure arithmetic and the two shaders, unit-tested. `background-image-store.ts` keeps the chosen
+picture in IndexedDB, cut down to 1920 by 1080, and never uploads it.
+
 **`client/` — the state machine.** Nothing in it touches `navigator` or `window`; every external
 edge is a constructor seam, so the whole machine runs under a test with fakes.
 
@@ -39,6 +46,11 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   blur probe, and `passThroughEffects`, the identity on the stream with that description attached. A
   stage that throws leaves the member published unprocessed, never not at all. The member's choice is
   `meeting-effects-preference.svelte.ts` beside this directory, kept per browser.
+- `background-effects.ts` — the product's own background (blur, or a chosen picture) over the
+  pass-through, with the browser reached through `BackgroundSeams`. The camera's own track is
+  published until an effect is chosen; the treated one is then swapped in with `replaceTrack` through
+  `EffectedCapture.onChange`, never a new offer. A treatment that cannot start, or stops, leaves the
+  member on camera with the reason in the panel.
 - `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
   reader for what the room says about itself, and the two sentences a member reads when a host acts on
   them. A concern is a module, so none of it is a set of fields on the client.

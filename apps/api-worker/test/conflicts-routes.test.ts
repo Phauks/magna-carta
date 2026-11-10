@@ -146,13 +146,14 @@ interface OpenedCheck {
 interface RunSummary {
   readonly id: string;
   readonly ordinal: number;
-  readonly status: "queued" | "running" | "completed" | "failed";
+  readonly status: "queued" | "running" | "completed" | "failed" | "cancelled";
   readonly stage: string | null;
   readonly progress: Record<string, number>;
   readonly trigger: string;
   readonly triggerSource: string | null;
   readonly requestedByUserId: string | null;
   readonly failure: string | null;
+  readonly cancelledByUserId: string | null;
   readonly hitCount: number | null;
   readonly subjectParties: Array<{
     readonly entityId: string;
@@ -310,6 +311,37 @@ describe("conflicts check routes", () => {
     const byRun = await readSettled(second.runId, opened.runId);
     expect(byRun.check.id).toBe(opened.id);
     expect(byRun.run.ordinal).toBe(1);
+  });
+
+  it("a cancel that arrives after the run finished leaves it as it finished, and says so", async () => {
+    const { opened } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [await createPerson("Late", "Cancel")],
+      scope: PARTY_SCOPE,
+    });
+    const cancel = await post(
+      `/api/v1/conflicts/checks/${opened.id}/runs/${opened.runId}/cancel`,
+      {},
+    );
+    expect(cancel.status, await cancel.clone().text()).toBe(200);
+    expect(await cancel.json()).toEqual({ id: opened.runId, status: "completed" });
+
+    const read = await readSettled(opened.id, opened.runId);
+    expect(read.run.status).toBe("completed");
+    expect(read.run.cancelledByUserId).toBeNull();
+  });
+
+  it("refuses to cancel a run that is not under the check named", async () => {
+    const { opened } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [await createPerson("Wrong", "Check")],
+      scope: PARTY_SCOPE,
+    });
+    const cancel = await post(
+      `/api/v1/conflicts/checks/${opened.id}/runs/${newIdentifier("conflictsCheck")}/cancel`,
+      {},
+    );
+    expect(cancel.status).toBe(404);
   });
 
   it("files a check on a matter after it ran, and the matter's history then holds it", async () => {
@@ -814,6 +846,7 @@ describe("conflicts contract", () => {
     }
     expect(operationIds.has("conflicts.runCheck")).toBe(true);
     expect(operationIds.has("conflicts.rerunCheck")).toBe(true);
+    expect(operationIds.has("conflicts.cancelRun")).toBe(true);
     expect(operationIds.has("conflicts.fileCheckOnMatter")).toBe(true);
     expect(operationIds.has("conflicts.nextCheckNumber")).toBe(true);
     expect(operationIds.has("conflicts.getCheck")).toBe(true);
@@ -922,6 +955,6 @@ describe("the reporting posture over the wire", () => {
     expect(statement[0]).toMatch(/^Searched on .*, as a comprehensive check\.$/);
     expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
     expect(statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
-    expect(statement.at(-1)).toBe("Nothing surfaced.");
+    expect(statement.at(-1)).toBe("0 results.");
   });
 });

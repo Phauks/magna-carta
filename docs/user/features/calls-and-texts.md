@@ -111,8 +111,13 @@ knows about it:
   they are named there. Press **Use This Contact** to put them on the call; it is offered only while
   the record has no contact yet.
 - **Where the number was issued.** For a United States or Canadian number, the area code's state or
-  province, such as "702 · Nevada number". This is where the number was handed out, not where the
-  caller is: a mobile number keeps its area code when its owner moves.
+  province and, where the numbering records hold it, the town the number's exchange (the three
+  digits after the area code) was given to, such as "702 · Henderson, Nevada number". This is where
+  the number was handed out, not where the caller is: a mobile number keeps its area code and
+  exchange when its owner moves.
+- **The time there.** The current time in the number's time zone, such as "3:19 PM PST there", so you
+  can tell whether it is a reasonable hour to call back. It is left out for the few area codes that
+  span two time zones, where the number alone cannot say which.
 - **Caller ID.** Press **Look Up Caller ID** to ask the telephone network what name it holds for the
   number, and whether it is a mobile, a landline or an internet phone. The name is shown exactly as
   the network holds it, usually in capitals, and for a mobile it is often just a city or "WIRELESS

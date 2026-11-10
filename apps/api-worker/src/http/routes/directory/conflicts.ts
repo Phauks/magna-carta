@@ -11,8 +11,13 @@ import {
   readNumberedCheckByAnyId,
   readLatestNumberedCheckForMatter,
   readRunsForCheck,
+  REPORTED_RUN_STATUSES,
+  askedScopeOf,
+  reportedRunStatus,
+  reportedStatusOrNull,
+  subjectEntityIdsOf,
+  subjectPartiesOf,
   RUN_STAGES,
-  RUN_STATUSES,
   settleStaleRuns,
   UnknownNumberedCheckError,
   type CheckRunRow,
@@ -20,6 +25,7 @@ import {
   type StoredRunRequest,
 } from "@magna-carta/conflicts/check-run";
 import { type RunCheckInput } from "@magna-carta/conflicts/run-check";
+import { AskedScope } from "@magna-carta/conflicts/contract";
 import {
   recordDisposition,
   readDispositionTrail,
@@ -370,7 +376,9 @@ const RunSummary = z
   .object({
     id: z.string(),
     ordinal: z.number().int(),
-    status: z.enum(RUN_STATUSES),
+    // A run a member stopped reads `cancelled`, never `failed`: stopping a search is an act, not a
+    // fault.
+    status: z.enum(REPORTED_RUN_STATUSES),
     // The stage a running search is at, in the engine's own order. Null before it starts and once it
     // settles: a settled run's account is its record, never a stale progress line.
     stage: z.enum(RUN_STAGES).nullable(),
@@ -384,6 +392,9 @@ const RunSummary = z
     finishedAt: z.string().nullable(),
     // Why a failed run failed, in a sentence a person can act on. Null unless it failed.
     failure: z.string().nullable(),
+    // Who stopped a cancelled run. Null on every other run.
+    cancelledByUserId: z.string().nullable(),
+    askedScope: AskedScope,
     // How many candidates this run's record holds. Null while it has no record.
     hitCount: z.number().int().nullable(),
     // Who this run searches, by name, readable from the moment it is queued: the run stores its
@@ -407,7 +418,7 @@ const CheckSummary = z
     createdByUserId: z.string().nullable(),
     runCount: z.number().int(),
     latestRunId: z.string().nullable(),
-    runStatus: z.enum(RUN_STATUSES).nullable(),
+    runStatus: z.enum(REPORTED_RUN_STATUSES).nullable(),
     latestRunAt: z.string().nullable(),
     trigger: z.string().nullable(),
     // What set the latest run going: manual, event, or schedule. Null on a row that does not say.
@@ -609,7 +620,7 @@ const CheckDetail = z
 
 // The reader-facing account of the search, one line per statement, in reading order. Every line is a
 // fact about the search itself — which channels ran, which sources have no corpus, how many candidates
-// surfaced. A search that surfaced nothing ends "Nothing surfaced.", which reports that the search
+// surfaced. A search that surfaced nothing ends "0 results.", which reports that the search
 // ended and says nothing about the matter.
 const CheckStatement = z.array(z.string());
 
@@ -1306,29 +1317,6 @@ function executeAfterResponse(
   );
 }
 
-/** The run's subject entity ids, as its stored request names them; none where the request is unreadable. */
-function subjectEntityIdsOf(requestJson: string | null): readonly string[] {
-  if (requestJson === null) return [];
-  return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
-}
-
-/** The parties a run was asked about, named from one set-valued Directory read. */
-function subjectPartiesOf(
-  entityIds: readonly string[],
-  names: ReadonlyMap<
-    string,
-    { readonly kind: "person" | "organization"; readonly displayName: string | null }
-  >,
-) {
-  return entityIds.map((entityId) => {
-    const name = names.get(entityId);
-    return {
-      entityId,
-      party: name === undefined ? null : { kind: name.kind, displayName: name.displayName },
-    };
-  });
-}
-
 function runSummary(
   run: CheckRunRow,
   hitCounts: ReadonlyMap<string, number>,
@@ -1340,7 +1328,7 @@ function runSummary(
   return {
     id: run.id,
     ordinal: run.ordinal,
-    status: run.status,
+    status: reportedRunStatus(run),
     stage: run.stage,
     progress: parseRunProgress(run.progress_json),
     trigger: run.trigger,
@@ -1350,6 +1338,8 @@ function runSummary(
     startedAt: run.started_at,
     finishedAt: run.finished_at,
     failure: run.failure,
+    cancelledByUserId: run.cancelled_by_user_id,
+    askedScope: askedScopeOf(run.request_json),
     hitCount: run.status === "completed" ? (hitCounts.get(run.id) ?? 0) : null,
     subjectParties: subjectPartiesOf(subjectEntityIdsOf(run.request_json), names),
   };
@@ -1574,7 +1564,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             createdByUserId: row.created_by_user_id,
             runCount: row.run_count,
             latestRunId: row.latest_run_id,
-            runStatus: row.run_status,
+            runStatus: reportedStatusOrNull(row.run_status, row.run_cancelled_at),
             latestRunAt: row.latest_run_at,
             trigger: row.trigger,
             triggerSource: row.trigger_source,

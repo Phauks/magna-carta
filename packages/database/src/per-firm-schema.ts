@@ -3084,6 +3084,11 @@ export const conflictsCheckRun = sqliteTable(
     finishedAt: text("finished_at"),
     // Why a failed run failed, in a sentence a reader can act on. Null unless the status is failed.
     failure: text("failure"),
+    // Set when a member stopped the run. A cancelled run is settled with status 'failed' and these
+    // two columns, rather than a fifth status: the status set is a CHECK constraint, and widening it
+    // in SQLite rebuilds the table. A read reports such a run as cancelled, never as failed.
+    cancelledAt: text("cancelled_at"),
+    cancelledByUserId: text("cancelled_by_user_id").$type<UserId>(),
     createdAt: text("created_at").notNull(),
   },
   (table) => [

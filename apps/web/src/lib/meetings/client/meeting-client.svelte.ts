@@ -75,6 +75,8 @@ import {
   type MeetingWaitingPlace,
   type WaitingParticipant,
 } from "./lobby.ts";
+import { browserBackgroundSeams } from "../effects/background-processor.ts";
+import { backgroundEffects } from "./background-effects.ts";
 import {
   DEFAULT_EFFECT_SETTINGS,
   NO_EFFECTS,
@@ -343,7 +345,14 @@ export function browserMeetingSeams(): MeetingClientSeams {
     // The one question about the platform the stage needs answered: whether this browser knows the
     // name `voiceIsolation` at all. Asked here because this is the one function in the client that
     // may touch `navigator`.
-    createMediaEffects: () => passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
+    // The product draws the background itself where the browser can draw in a worker, over the
+    // pass-through that still owns the microphone's treatment. The seams are the browser's own; the
+    // worker behind them is only loaded once somebody chooses a background.
+    createMediaEffects: () =>
+      backgroundEffects(
+        passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
+        browserBackgroundSeams(),
+      ),
   };
 }
 
@@ -651,6 +660,12 @@ export class MeetingClient {
 
   /** What the effects stage handed back for this browser's own capture. Null before one. */
   #capture: EffectedCapture | null = null;
+  /**
+   * What sends this browser's camera, once it has been offered. A background starting or stopping
+   * swaps the track on it in place, which needs no new offer: the picture is the same size and the
+   * room is still receiving the same media section.
+   */
+  #cameraSender: RTCRtpSender | null = null;
   /** The screen share's transceiver mid, which is what closing it names. */
   #screenMid: string | null = null;
   /**
@@ -1035,6 +1050,11 @@ export class MeetingClient {
     const effected = await this.#applyEffects(captured, settings);
     const stream = effected.stream;
     this.#capture = effected;
+    effected.onChange?.((next, applied) => {
+      if (this.#capture !== effected) return;
+      this.appliedEffects = applied;
+      void this.#swapPublishedPicture(next);
+    });
     this.appliedEffects = effected.applied;
     this.localStream = stream;
     this.captureRefusal = null;
@@ -1051,7 +1071,11 @@ export class MeetingClient {
       ? "Your camera and microphone were not offered to the room."
       : "Your microphone was not offered to the room.";
     await this.#negotiation.enqueue(notOffered, async () => {
-      const offered = offerCapturedTracks(peerConnection, stream, wantsPicture);
+      // The stream as it stands NOW: a background chosen while this waited in the queue has already
+      // changed which picture is to be sent.
+      const offered = offerCapturedTracks(peerConnection, this.localStream ?? stream, wantsPicture);
+      this.#cameraSender =
+        offered.find((entry) => entry.kind === "video")?.transceiver.sender ?? null;
       const sessionDescription = await this.#negotiation.offer(peerConnection);
       // Read AFTER the local description, like every other mid here: a transceiver has none until
       // the browser has described the connection it sits on.
@@ -1067,6 +1091,54 @@ export class MeetingClient {
         })),
       });
     });
+  }
+
+  /**
+   * Stand in a different picture of this member: the treated one when a background starts, the
+   * camera's own when it stops.
+   *
+   * IN PLACE, WITH NO NEW OFFER. `replaceTrack` keeps the media section, its simulcast layers and the
+   * room's subscription to it; only the frames change. A picture swapped before the offer has gone
+   * out needs nothing here at all, because the offer reads the stream as it stands.
+   */
+  async #swapPublishedPicture(next: MediaStream): Promise<void> {
+    this.localStream = next;
+    const sender = this.#cameraSender;
+    const [picture] = next.getVideoTracks();
+    if (sender === null || picture === undefined || sender.track === picture) return;
+    try {
+      await sender.replaceTrack(picture);
+    } catch {
+      this.appliedEffects =
+        this.appliedEffects === null
+          ? null
+          : {
+              ...this.appliedEffects,
+              refusal: "Your new background could not be sent to the room.",
+            };
+    }
+  }
+
+  /**
+   * Stand this member in front of a picture they chose. The stage owns the bitmap from here.
+   *
+   * Where the stage cannot draw a background (the pass-through), the picture is let go and nothing
+   * changes; the panel does not offer the choice there.
+   */
+  async chooseBackgroundImage(image: ImageBitmap): Promise<void> {
+    const capture = this.#capture;
+    if (capture?.chooseBackgroundImage === undefined) {
+      image.close();
+      return;
+    }
+    this.effectSettings = { ...this.effectSettings, background: "image" };
+    const applied = await capture.chooseBackgroundImage(image);
+    if (this.#capture === capture) this.appliedEffects = applied;
+  }
+
+  /** Say in the Effects panel that something asked of it could not be done. */
+  noteEffectsRefusal(refusal: string): void {
+    if (this.appliedEffects !== null) this.appliedEffects = { ...this.appliedEffects, refusal };
   }
 
   /**
@@ -1823,6 +1895,7 @@ export class MeetingClient {
     this.reactions.clear();
     this.#capture?.close();
     this.#capture = null;
+    this.#cameraSender = null;
     this.appliedEffects = null;
     const screen = this.screenStream;
     if (screen !== null) for (const track of screen.getTracks()) track.stop();

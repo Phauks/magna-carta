@@ -264,15 +264,23 @@ some browsers apply these without saying so, and then the line says your browser
 itself. The switch shows what the browser actually did, so if it could not do what you asked, the
 switch stays where it was and the panel says so.
 
-**Background blur** depends on your browser and your computer, and most browsers do not offer it to
-a website at all. Where yours does, the panel offers **None** and **Blur**. Where your computer
-controls blur itself (some laptops do this in their own settings), the panel tells you whether it is
-on and that it is set there. Where neither is possible, the panel says "Background blur is not
-available in this browser." In a call there is no picture, so there is no background to choose.
+**Your background** can be left as it is, blurred, or replaced with a picture. Open **Effects** and
+choose **None**, **Blur** or **Image**. The first time you choose **Image**, the panel asks you to pick
+a picture from your computer (PNG, JPEG or WebP); after that, **Image** uses the same picture until
+you pick a different one. The picture is kept in your browser and is never uploaded: the people in
+the meeting see you in front of it, and nobody receives the picture itself.
+
+Blurring and replacing are done by your own computer while you are in the meeting, so a slower
+computer may send a slightly lower frame rate with an effect on. If the effect stops working, your
+camera carries on as it is and the panel tells you why; you are never left with no picture because an
+effect failed. On a browser too old to draw the effect, the panel offers whatever the browser itself
+offers instead, or says "Background blur is not available in this browser." In a call there is no
+picture, so there is no background to choose.
 
 **Your choice is remembered on this computer**, and applied every time you join a meeting from it.
 It is kept by this browser rather than on your account, because what a computer can do is a fact
-about that computer: a laptop that cannot blur should not be told you always blur.
+about that computer: a laptop that cannot blur should not be told you always blur. The picture you
+chose for **Image** is remembered the same way.
 
 ## Large meetings
 
@@ -564,9 +572,8 @@ room.
   want an unscheduled meeting, record the event first and start the meeting on it.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
-- **Background replacement, and blur where the browser does not offer it.** Blurring or replacing a
-  background on a computer whose browser cannot do it itself needs processing the product does not
-  carry yet. Until it does, Effects says plainly where blur is not available.
+- **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own
+  computer; there is no built-in set to pick from yet.
 
 ## Related
 
