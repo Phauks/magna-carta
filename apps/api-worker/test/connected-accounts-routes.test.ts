@@ -95,7 +95,7 @@ function headers(cookie: string, attempt?: string): Record<string, string> {
   };
 }
 
-async function list(cookie: string, environment = PROVISIONED): Promise<AccountList> {
+async function list(cookie: string, environment: object = PROVISIONED): Promise<AccountList> {
   const response = await app.request(LIST_URL, { headers: headers(cookie) }, environment);
   expect(response.status).toBe(200);
   return readJson<AccountList>(response);

@@ -31,6 +31,7 @@
     "./sources/registry": "./src/sources/registry.ts",
     "./sources/all": "./src/sources/all.ts",
     "./settings": "./src/settings.ts",
+    "./sync-contract": "./src/sync-contract.ts",
     "./sync-port": "./src/sync-port.ts",
     "./contract": "./src/contract.ts"
   },

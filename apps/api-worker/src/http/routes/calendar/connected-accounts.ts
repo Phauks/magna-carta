@@ -1,31 +1,31 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import {
+  ConnectedAccount,
+  ConnectedAccountDisconnectAck,
+  ConnectedAccountList,
+  ConnectedAccountSignInStart,
+} from "@magna-carta/calendar/sync-contract";
 import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   deleteConnectionStatement,
   selectConnectionStatement,
-  upsertConnectionStatement,
 } from "@magna-carta/data-access/integration-connection-statements";
 import { deleteIntegrationCredentialStatement } from "@magna-carta/data-access/integration-credential-statements";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
+import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import { fetchHttpClient, type HttpClient } from "@magna-carta/integrations/http";
-import {
-  createMicrosoftCalendarAdapter,
-  MICROSOFT_CALENDAR_ADAPTER_ID,
-} from "@magna-carta/microsoft-graph/calendar-sync";
+import { MICROSOFT_CALENDAR_ADAPTER_ID } from "@magna-carta/microsoft-graph/calendar-sync";
 import {
   authorizationUrl,
   CODE_VERIFIER_BYTE_LENGTH,
   codeChallengeFor,
   codeVerifierFrom,
   MICROSOFT_CALENDAR_SCOPES,
-  readSignedInAccount,
-  redeemAuthorizationCode,
 } from "@magna-carta/microsoft-graph/sign-in";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { Bindings } from "../../../bindings.ts";
+import { connectMicrosoftAccount } from "../../../calendar-sync/connect-microsoft-account.ts";
 import { resolveMicrosoftApplication } from "../../../calendar-sync/microsoft-application.ts";
 import {
   mintSignInAttempt,
@@ -77,13 +77,6 @@ export interface ConnectedAccountsRouteDeps {
   readonly now?: () => Date;
 }
 
-// Where a member's calendar token is addressed. A member has at most one calendar connection, so
-// the ref is derived from the member rather than minted: signing in again overwrites the old token
-// in place instead of leaving it sealed under a reference nothing points at.
-function credentialRefForMember(userId: UserId): string {
-  return `integration:${CALENDAR_SYNC_CATEGORY}:${userId}`;
-}
-
 // The screen a member is returned to, and the one word that tells it what happened. A word and
 // never a message: the address is visible, kept in history, and whatever the provider said may
 // carry the member's code.
@@ -93,45 +86,6 @@ type SignInOutcome = "connected" | "declined" | "expired" | "unavailable" | "fai
 function returnScreen(outcome: SignInOutcome): string {
   return `${RETURN_SCREEN_PATH}?outcome=${outcome}`;
 }
-
-const ProviderAvailability = z
-  .object({
-    provider: z.enum(["microsoft"]),
-    available: z.boolean().openapi({
-      description:
-        "Whether this deployment can connect an account at the provider. False means nobody has " +
-        "registered the deployment with the provider, and a screen offers no connection.",
-    }),
-  })
-  .openapi("ConnectedAccountProvider");
-
-const ConnectedAccount = z
-  .object({
-    id: z.string(),
-    provider: z.enum(["microsoft"]),
-    accountLabel: z.string().nullable().openapi({
-      description: "The account as the provider names it: the member's own sign-in address there.",
-    }),
-    status: z.enum(["connected", "degraded", "needs_reauth", "disabled"]),
-    connectedAt: z.string(),
-  })
-  .openapi("ConnectedAccount");
-
-const ConnectedAccountList = z
-  .object({ providers: z.array(ProviderAvailability), accounts: z.array(ConnectedAccount) })
-  .openapi("ConnectedAccountList");
-
-const SignInStart = z
-  .object({
-    authorizationUrl: z.string().openapi({
-      description: "The provider's own sign-in page. The browser is sent to it as a whole page.",
-    }),
-  })
-  .openapi("ConnectedAccountSignInStart");
-
-const DisconnectAck = z
-  .object({ id: z.string(), status: z.literal("disconnected") })
-  .openapi("ConnectedAccountDisconnectAck");
 
 const errorResponses = {
   401: {
@@ -238,7 +192,7 @@ const startRoute = defineOpenAPIRoute(startMeta, {
   responses: {
     200: {
       description: "Where to send the browser",
-      content: { "application/json": { schema: SignInStart } },
+      content: { "application/json": { schema: ConnectedAccountSignInStart } },
     },
     401: errorResponses[401],
     403: errorResponses[403],
@@ -281,7 +235,7 @@ const disconnectRoute = defineOpenAPIRoute(disconnectMeta, {
   responses: {
     200: {
       description: "Disconnected",
-      content: { "application/json": { schema: DisconnectAck } },
+      content: { "application/json": { schema: ConnectedAccountDisconnectAck } },
     },
     401: errorResponses[401],
     403: errorResponses[403],
@@ -296,15 +250,6 @@ interface ConnectionRow {
   readonly status: z.infer<typeof ConnectedAccount>["status"];
   readonly account_label: string | null;
   readonly created_at: string;
-}
-
-// Microsoft names a granted permission either bare or as a full address under the Graph origin,
-// and in whatever letter case it likes.
-function grantsCalendar(grantedScopes: readonly string[]): boolean {
-  return grantedScopes.some((scope) => {
-    const name = scope.slice(scope.lastIndexOf("/") + 1).toLowerCase();
-    return name === "calendars.readwrite";
-  });
 }
 
 export function registerConnectedAccountsRoutes(
@@ -435,78 +380,17 @@ export function registerConnectedAccountsRoutes(
       if (query.error !== undefined) return c.redirect(returnScreen("declined"), 302);
       if (query.code === undefined) return c.redirect(returnScreen("failed"), 302);
 
-      const redeemed = await redeemAuthorizationCode({ http, now }, application, {
+      const outcome = await connectMicrosoftAccount({
+        http,
+        now,
+        application,
         code: query.code,
         codeVerifier: attempt.codeVerifier,
-      });
-      if (!redeemed.ok) return c.redirect(returnScreen("failed"), 302);
-      // Microsoft lets a member or an administrator grant less than was asked. An account whose
-      // calendar was withheld is not a calendar connection, and recording it as one would leave a
-      // member wondering why nothing ever arrives.
-      if (redeemed.grantedScopes.length > 0 && !grantsCalendar(redeemed.grantedScopes)) {
-        return c.redirect(returnScreen("declined"), 302);
-      }
-
-      const adapter = createMicrosoftCalendarAdapter({ http });
-      const [account, calendars] = await Promise.all([
-        readSignedInAccount(http, redeemed.credential.accessToken),
-        // Read once now, with the token just issued, so "connected" means the calendar can
-        // actually be reached and not merely that a sign-in completed.
-        adapter.create({ credential: redeemed.credential }).listCalendars(),
-      ]);
-      if (!account.ok || !calendars.ok) return c.redirect(returnScreen("failed"), 302);
-
-      const existing = await selectConnectionStatement(
-        firm.firmDatabase,
-        CALENDAR_SYNC_CATEGORY,
         userId,
-      ).first<{ id: string }>();
-      const connectionId =
-        existing === null
-          ? newIdentifier("integrationConnection")
-          : (existing.id as IntegrationConnectionId);
-      const credentialRef = credentialRefForMember(userId);
-      // The token first, then the row that points at it. A row over a token that was never stored
-      // would tell the member they are connected when nothing can act for them; a stored token with
-      // no row is inert, and the next sign-in overwrites it. Only the refresh token is kept: the
-      // access token lasts about an hour and is asked for again when it is needed.
-      // fitness:allow-no-dimensions — not a bucket write: this seals a credential into the per-firm
-      // integration_credential table, and nothing reaches object storage.
-      await credentialStoreForFirm(protectedReadContext(c)).put(credentialRef, {
-        kind: "oauth",
-        refreshToken: redeemed.credential.refreshToken,
+        firmDatabase: firm.firmDatabase,
+        credentials: credentialStoreForFirm(protectedReadContext(c)),
       });
-      const instant = now().toISOString();
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements: [
-            upsertConnectionStatement(firm.firmDatabase, {
-              id: connectionId,
-              category: CALENDAR_SYNC_CATEGORY,
-              adapterId: MICROSOFT_CALENDAR_ADAPTER_ID,
-              scope: "user",
-              principalRef: userId,
-              credentialRef,
-              capabilitySnapshot: JSON.stringify(adapter.descriptor),
-              createdAt: instant,
-              accountLabel: account.address,
-            }),
-            domainAuditStatement(firm.firmDatabase, {
-              event: "calendar_sync.account_connected",
-              subjectId: connectionId,
-              actorUserId: userId,
-              clock: { now: () => instant },
-              // Which provider, and never which account: the address is the member's own and the
-              // connection row already holds it.
-              metadata: { provider: "microsoft" },
-            }),
-          ],
-          outboxMessages: [],
-        },
-        { now: () => instant },
-      );
-      return c.redirect(returnScreen("connected"), 302);
+      return c.redirect(returnScreen(outcome), 302);
     },
   );
 

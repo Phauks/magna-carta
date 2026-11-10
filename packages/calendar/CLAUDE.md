@@ -23,6 +23,10 @@ ADR-0059, ADR-0068, ADR-0051.)
   field; path and query parameters stay with the routes (addressing, not shape). Rule and reasoning:
   `docs/conventions/api.md` (_Where a contract shape lives_). A change here changes the committed
   contract — re-emit the snapshot and the client in the same commit.
+- `src/sync-contract.ts` — what the connected-accounts routes accept and return
+- `src/sync-port.ts` — `CalendarSyncPort`: what calendar sync needs from a member's own calendar
+  account, in this package's vocabulary. An interface only; the adapters that implement it live in
+  their provider's package (`packages/microsoft-graph`) and this package still calls no service
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and

@@ -200,11 +200,13 @@
 - id: calendar.sync
   name: Two-way Google/Outlook sync
   scope: Two-way calendar synchronization via the email/calendar plugin.
-  status: designed
+  status: in-build
+  surface: screen
   slices: integration-port-system
   adrs: ADR-0091
   spec: docs/specs/2026-11-10-calendar-sync-design.md
-  evidence: Design accepted 2026-11-10 (per-member, rule-driven, off by default, Outlook first). No calendar adapter yet; the integration port system it will plug into is shipped.
+  evidence: Design accepted 2026-11-10 (per-member, rule-driven, off by default, Outlook first). Built so far is connecting a member's own Outlook account with calendar access only (apps/api-worker/src/http/routes/calendar/connected-accounts.ts, asserted in apps/api-worker/test/connected-accounts-routes.test.ts; packages/microsoft-graph; apps/web/src/routes/(app)/settings/connected-accounts/+page.svelte), dormant until a Microsoft application is registered. No event syncs in either direction yet.
+  notes: In flight on docs/active-work/claude/project-thread-pbtqhp.md.
   audience: public
   public-name: Two-way calendar sync
   public-summary: Keep the firm's calendar and your Google or Outlook calendar in step, in both directions.
