@@ -97,6 +97,9 @@ pub(crate) struct TerminalField {
     pub da_size: f32,
     /// Horizontal alignment from /Q: 0 left, 1 centre, 2 right.
     pub quadding: i64,
+    /// Whether the field holds several lines (/Ff bit 13): its text wraps and starts at the
+    /// top of the box instead of sitting on one centred line.
+    pub multiline: bool,
     /// Widget annotation object IDs.
     pub widgets: Vec<ObjectId>,
 }
@@ -124,6 +127,7 @@ struct InheritedState {
     flags: Option<i64>,
     default_appearance: Option<Vec<u8>>,
     value: Option<Object>,
+    quadding: Option<i64>,
 }
 
 impl InheritedState {
@@ -149,6 +153,15 @@ impl InheritedState {
                 _ => self.default_appearance.clone(),
             },
             value: dict.get(b"V").ok().cloned().or_else(|| self.value.clone()),
+            quadding: dict
+                .get(b"Q")
+                .ok()
+                .and_then(|o| match o {
+                    Object::Integer(n) => Some(*n),
+                    Object::Real(r) => Some(*r as i64),
+                    _ => None,
+                })
+                .or(self.quadding),
         }
     }
 }
@@ -470,15 +483,9 @@ fn walk_acroform_fields(doc: &Document) -> Vec<WalkedField> {
                 .as_deref()
                 .map(parse_da_font_size)
                 .unwrap_or(0.0);
-            let quadding = dict
-                .get(b"Q")
-                .ok()
-                .and_then(|o| match o {
-                    Object::Integer(n) => Some(*n),
-                    Object::Real(r) => Some(*r as i64),
-                    _ => None,
-                })
-                .unwrap_or(0);
+            // Alignment is inherited like the other field attributes: a group that centres
+            // its fields says so once, on the parent.
+            let quadding = effective.quadding.unwrap_or(0);
             let widgets = collect_widget_ids(doc, field_id, &dict);
 
             results.push(WalkedField {
@@ -519,6 +526,7 @@ pub(crate) fn terminal_fields(doc: &Document) -> Vec<TerminalField> {
             kind: w.kind,
             da_size: w.da_size,
             quadding: w.quadding,
+            multiline: w.kind == FieldKind::Text && w.effective_flags & MULTILINE_FLAG != 0,
             widgets: w.widgets,
         })
         .collect()
@@ -555,6 +563,56 @@ pub(crate) fn helvetica_text_width(text: &str, size_pt: f32) -> f32 {
 
 // ── Appearance stream generation ───────────────────────────────────────────────
 
+/// /Ff bit 13: the text field holds several lines.
+const MULTILINE_FLAG: i64 = 1 << 12;
+/// Space kept between a field's edge and its text, in points.
+const FIELD_PADDING: f32 = 2.0;
+/// The smallest size text is shrunk to when a field sizes its own text. Below this it is
+/// not legible on paper, so the text is clipped by the box instead.
+const MINIMUM_AUTOMATIC_SIZE: f32 = 4.0;
+/// The size a field that sizes its own text starts from when it holds several lines.
+const MULTILINE_AUTOMATIC_SIZE: f32 = 12.0;
+/// Distance between baselines, as a multiple of the font size.
+const LINE_SPACING: f32 = 1.15;
+/// How far below the top of its line Helvetica's baseline sits, as a multiple of the size.
+const ASCENT: f32 = 0.8;
+
+fn alignment_offset(quadding: i64, box_width: f32, text_width: f32) -> f32 {
+    match quadding {
+        1 => ((box_width - text_width) / 2.0).max(FIELD_PADDING),
+        2 => (box_width - text_width - FIELD_PADDING).max(FIELD_PADDING),
+        _ => FIELD_PADDING,
+    }
+}
+
+fn appearance_stream(
+    doc: &mut Document,
+    width: f32,
+    height: f32,
+    font_id: ObjectId,
+    content: Vec<u8>,
+) -> ObjectId {
+    let font_resources = dictionary! {
+        "MagnaCartaFormFont" => Object::Reference(font_id),
+    };
+    let resources = dictionary! {
+        "Font" => Object::Dictionary(font_resources),
+    };
+    let stream_dict = dictionary! {
+        "Type" => Object::Name(b"XObject".to_vec()),
+        "Subtype" => Object::Name(b"Form".to_vec()),
+        "FormType" => Object::Integer(1),
+        "BBox" => Object::Array(vec![
+            Object::Real(0.0),
+            Object::Real(0.0),
+            Object::Real(width),
+            Object::Real(height),
+        ]),
+        "Resources" => Object::Dictionary(resources),
+    };
+    doc.add_object(Object::Stream(Stream::new(stream_dict, content)))
+}
+
 /// Build a Form XObject appearance stream for a text field.
 ///
 /// The returned `ObjectId` references a `/Type /XObject /Subtype /Form` stream
@@ -562,7 +620,10 @@ pub(crate) fn helvetica_text_width(text: &str, size_pt: f32) -> f32 {
 /// 0 = left, 1 = centre, 2 = right.
 ///
 /// `da_size` is the font size from the field's `/DA` entry; pass `0.0` to let
-/// the function derive the size from the widget height (clamped to [6, 12] pt).
+/// the function derive the size from the widget height (clamped to [6, 12] pt)
+/// and then shrink it until the value fits the widget's width, which is what a
+/// size of zero asks a viewer to do. A fixed size is never changed: text wider
+/// than the box is clipped by it, as a viewer clips it.
 /// `font_id` must be the `ObjectId` of a Type 1 font object already added to
 /// `doc` — the caller creates this once per document and passes it here so all
 /// appearance streams can share it.
@@ -579,17 +640,18 @@ pub(crate) fn text_appearance(
     let size = if da_size > 0.0 {
         da_size
     } else {
-        (h * 0.6).clamp(6.0, 12.0)
+        let by_height = (h * 0.6).clamp(6.0, 12.0);
+        let room = w - 2.0 * FIELD_PADDING;
+        let needed = helvetica_text_width(value, by_height);
+        if needed > room && room > 0.0 {
+            (by_height * room / needed).max(MINIMUM_AUTOMATIC_SIZE)
+        } else {
+            by_height
+        }
     };
 
     let text_width = helvetica_text_width(value, size);
-
-    let tx: f32 = match quadding {
-        0 => 2.0,
-        1 => ((w - text_width) / 2.0).max(2.0),
-        2 => (w - text_width - 2.0).max(2.0),
-        _ => 2.0,
-    };
+    let tx = alignment_offset(quadding, w, text_width);
     let ty = ((h - size) / 2.0 + size * 0.2).max(2.0);
 
     // The field's value keeps every character it was given; only this drawn appearance is
@@ -599,27 +661,97 @@ pub(crate) fn text_appearance(
             .into_bytes();
     content.extend(crate::bates::win_ansi_literal_lossy(value));
     content.extend_from_slice(b") Tj ET Q EMC");
+    appearance_stream(doc, w, h, font_id, content)
+}
 
-    let font_resources = dictionary! {
-        "MagnaCartaFormFont" => Object::Reference(font_id),
+/// Break `value` into the lines it is drawn as in a box `room` points wide: at each line
+/// break the value itself holds, and between words where a line would run past the edge. A
+/// single word wider than the box is broken between characters, so nothing is lost off the
+/// side.
+pub(crate) fn wrap_lines(value: &str, size: f32, room: f32) -> Vec<String> {
+    let mut lines = Vec::new();
+    let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
+    for paragraph in normalized.split('\n') {
+        let mut line = String::new();
+        for word in paragraph.split(' ') {
+            let candidate = if line.is_empty() {
+                word.to_string()
+            } else {
+                format!("{line} {word}")
+            };
+            if helvetica_text_width(&candidate, size) <= room {
+                line = candidate;
+                continue;
+            }
+            if !line.is_empty() {
+                lines.push(std::mem::take(&mut line));
+            }
+            for character in word.chars() {
+                let mut longer = line.clone();
+                longer.push(character);
+                if !line.is_empty() && helvetica_text_width(&longer, size) > room {
+                    lines.push(std::mem::replace(&mut line, character.to_string()));
+                } else {
+                    line = longer;
+                }
+            }
+        }
+        lines.push(line);
+    }
+    lines
+}
+
+/// Build the appearance of a text field that holds several lines: the value wrapped to the
+/// box's width and set from the top down.
+///
+/// A `da_size` of zero lets the field size its own text: it starts at 12 points and shrinks
+/// until every line fits the box's height or the smallest legible size is reached. Lines
+/// that still do not fit are clipped by the box, as a viewer shows them until the field is
+/// scrolled; the field's value keeps all of them.
+pub(crate) fn multiline_text_appearance(
+    doc: &mut Document,
+    rect: [f32; 4],
+    da_size: f32,
+    quadding: i64,
+    font_id: ObjectId,
+    value: &str,
+) -> ObjectId {
+    let w = rect[2] - rect[0];
+    let h = rect[3] - rect[1];
+    let room = (w - 2.0 * FIELD_PADDING).max(1.0);
+    let height_needed =
+        |size: f32, lines: usize| 2.0 * FIELD_PADDING + lines as f32 * size * LINE_SPACING;
+
+    let (size, lines) = if da_size > 0.0 {
+        (da_size, wrap_lines(value, da_size, room))
+    } else {
+        let mut size = MULTILINE_AUTOMATIC_SIZE;
+        loop {
+            let lines = wrap_lines(value, size, room);
+            if height_needed(size, lines.len()) <= h || size <= MINIMUM_AUTOMATIC_SIZE {
+                break (size, lines);
+            }
+            size = (size - 0.5).max(MINIMUM_AUTOMATIC_SIZE);
+        }
     };
-    let resources = dictionary! {
-        "Font" => Object::Dictionary(font_resources),
-    };
-    let stream_dict = dictionary! {
-        "Type" => Object::Name(b"XObject".to_vec()),
-        "Subtype" => Object::Name(b"Form".to_vec()),
-        "FormType" => Object::Integer(1),
-        "BBox" => Object::Array(vec![
-            Object::Real(0.0),
-            Object::Real(0.0),
-            Object::Real(w),
-            Object::Real(h),
-        ]),
-        "Resources" => Object::Dictionary(resources),
-    };
-    let stream = Stream::new(stream_dict, content);
-    doc.add_object(Object::Stream(stream))
+
+    let mut content = format!("/Tx BMC q BT /MagnaCartaFormFont {size:.2} Tf 0 g\n").into_bytes();
+    for (index, line) in lines.iter().enumerate() {
+        let baseline = h - FIELD_PADDING - size * ASCENT - index as f32 * size * LINE_SPACING;
+        if baseline + size < 0.0 {
+            // Wholly below the box: it would be clipped away, so it is not written.
+            break;
+        }
+        if line.is_empty() {
+            continue;
+        }
+        let x = alignment_offset(quadding, w, helvetica_text_width(line, size));
+        content.extend(format!("1 0 0 1 {x:.2} {baseline:.2} Tm (").into_bytes());
+        content.extend(crate::bates::win_ansi_literal_lossy(line));
+        content.extend_from_slice(b") Tj\n");
+    }
+    content.extend_from_slice(b"ET Q EMC");
+    appearance_stream(doc, w, h, font_id, content)
 }
 
 // ── Public entry point ─────────────────────────────────────────────────────────
@@ -813,6 +945,7 @@ pub fn fill_form(
         let kind = field.kind;
         let da_size = field.da_size;
         let quadding = field.quadding;
+        let multiline = field.multiline;
         let widget_ids: Vec<ObjectId> = field.widgets.clone();
 
         match kind {
@@ -824,7 +957,15 @@ pub fn fill_form(
                 // Set /V on the field dict.
                 if let Ok(obj) = doc.get_object_mut(field_id) {
                     if let Ok(dict) = obj.as_dict_mut() {
-                        dict.set(b"V", Object::string_literal(text));
+                        // A text string: plain bytes while it is ASCII, UTF-16 otherwise.
+                        // Writing UTF-8 bytes here makes a viewer show "José" as "JosÃ©".
+                        dict.set(
+                            b"V",
+                            Object::String(
+                                crate::sign::pdf_text_string(text),
+                                lopdf::StringFormat::Literal,
+                            ),
+                        );
                     }
                 }
                 // Generate an appearance stream for each widget.
@@ -833,8 +974,11 @@ pub fn fill_form(
                         Some(r) => r,
                         None => continue,
                     };
-                    let appearance_id =
-                        text_appearance(&mut doc, rect, da_size, quadding, font_id, text);
+                    let appearance_id = if multiline {
+                        multiline_text_appearance(&mut doc, rect, da_size, quadding, font_id, text)
+                    } else {
+                        text_appearance(&mut doc, rect, da_size, quadding, font_id, text)
+                    };
                     let ap_dict = dictionary! { "N" => Object::Reference(appearance_id) };
                     if let Ok(obj) = doc.get_object_mut(*widget_id) {
                         if let Ok(dict) = obj.as_dict_mut() {
@@ -2062,6 +2206,187 @@ mod tests {
             _ => panic!("/AP /N must be a stream"),
         };
         String::from_utf8(stream.content.clone()).expect("appearance content must be UTF-8")
+    }
+
+    fn text_field(name: &str, rect: [i64; 4], flags: i64) -> Dictionary {
+        dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Tx",
+            "Ff" => Object::Integer(flags),
+            "T" => Object::string_literal(name),
+            "Rect" => Object::Array(rect.iter().map(|value| Object::Integer(*value)).collect()),
+        }
+    }
+
+    fn fill_one(field: Dictionary, name: &str, value: &str) -> (Vec<u8>, ObjectId) {
+        let (mut doc, page_id) = base_doc();
+        let fid = add_annot(&mut doc, page_id, field);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+        let mut values = std::collections::BTreeMap::new();
+        values.insert(name.to_string(), FieldValue::Text(value.into()));
+        let out =
+            fill_form(&bytes, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+        (out, fid)
+    }
+
+    #[test]
+    fn a_multiline_field_wraps_its_value_and_starts_at_the_top() {
+        let value = "The tenant reports water damage in the north bedroom.\nSecond paragraph.";
+        let (out, fid) = fill_one(
+            text_field("Notes", [50, 600, 200, 700], MULTILINE_FLAG),
+            "Notes",
+            value,
+        );
+        let doc = Document::load_mem(&out).expect("reload");
+        let content = ap_n_content(&doc, fid);
+        let shown: Vec<&str> = content
+            .lines()
+            .filter(|line| line.ends_with(") Tj"))
+            .collect();
+        assert!(
+            shown.len() >= 4,
+            "the value must wrap onto several lines: {content}"
+        );
+        // Every word is drawn once, in order, and no line runs past the box.
+        let drawn: Vec<String> = shown
+            .iter()
+            .map(|line| {
+                let start = line.find('(').unwrap() + 1;
+                line[start..line.len() - ") Tj".len()].to_string()
+            })
+            .collect();
+        assert_eq!(
+            drawn.join(" "),
+            value.replace('\n', " "),
+            "wrapping must lose and repeat nothing"
+        );
+        for line in &drawn {
+            assert!(
+                helvetica_text_width(line, 12.0) <= 146.0,
+                "line too wide: {line}"
+            );
+        }
+        // The first line sits near the top of the 100-point box and each one after is lower.
+        let baselines: Vec<f32> = shown
+            .iter()
+            .map(|line| line.split(' ').nth(5).unwrap().parse().unwrap())
+            .collect();
+        assert!(baselines[0] > 80.0, "first baseline {}", baselines[0]);
+        assert!(baselines.windows(2).all(|pair| pair[1] < pair[0]));
+        // The stored value keeps its line break.
+        let filled = read_form(&out).expect("read_form");
+        assert_eq!(filled[0].value, Some(FieldValue::Text(value.into())));
+    }
+
+    #[test]
+    fn a_multiline_field_that_sizes_its_own_text_shrinks_it_to_fit() {
+        let value = "word ".repeat(60);
+        let (out, fid) = fill_one(
+            text_field("Notes", [50, 600, 200, 660], MULTILINE_FLAG),
+            "Notes",
+            value.trim(),
+        );
+        let doc = Document::load_mem(&out).expect("reload");
+        let content = ap_n_content(&doc, fid);
+        let size: f32 = content
+            .split(" Tf")
+            .next()
+            .and_then(|head| head.rsplit(' ').next())
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(
+            (MINIMUM_AUTOMATIC_SIZE..12.0).contains(&size),
+            "size {size}"
+        );
+        let lines = content
+            .lines()
+            .filter(|line| line.ends_with(") Tj"))
+            .count();
+        assert!(
+            4.0 + lines as f32 * size * LINE_SPACING <= 60.0,
+            "{lines} lines at {size} points must fit a 60-point box"
+        );
+    }
+
+    #[test]
+    fn a_word_wider_than_the_box_is_broken_instead_of_lost() {
+        let lines = wrap_lines("Donaudampfschifffahrtsgesellschaft", 12.0, 60.0);
+        assert!(lines.len() > 1);
+        assert_eq!(lines.concat(), "Donaudampfschifffahrtsgesellschaft");
+        assert!(lines
+            .iter()
+            .all(|line| helvetica_text_width(line, 12.0) <= 60.0));
+    }
+
+    #[test]
+    fn a_single_line_field_that_sizes_its_own_text_shrinks_a_long_value_to_its_width() {
+        let value = "A considerably longer answer than this box was drawn for";
+        let (out, fid) = fill_one(text_field("Name", [50, 700, 200, 720], 0), "Name", value);
+        let doc = Document::load_mem(&out).expect("reload");
+        let content = ap_n_content(&doc, fid);
+        let size: f32 = content
+            .split(" Tf")
+            .next()
+            .and_then(|head| head.rsplit(' ').next())
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(size < 12.0, "size {size}");
+        assert!(helvetica_text_width(value, size) <= 146.1);
+    }
+
+    #[test]
+    fn an_accented_value_is_stored_as_a_text_string_and_reads_back() {
+        let (out, fid) = fill_one(
+            text_field("Name", [50, 700, 200, 720], 0),
+            "Name",
+            "José Ünal",
+        );
+        let doc = Document::load_mem(&out).expect("reload");
+        let stored = doc
+            .get_object(fid)
+            .unwrap()
+            .as_dict()
+            .unwrap()
+            .get(b"V")
+            .unwrap();
+        let Object::String(bytes, _) = stored else {
+            panic!("/V must be a string");
+        };
+        assert!(
+            bytes.starts_with(&[0xFE, 0xFF]),
+            "UTF-16 with its byte-order mark"
+        );
+        let filled = read_form(&out).expect("read_form");
+        assert_eq!(filled[0].value, Some(FieldValue::Text("José Ünal".into())));
+    }
+
+    #[test]
+    fn alignment_is_inherited_from_the_parent_field() {
+        let (mut doc, page_id) = base_doc();
+        let kid = add_annot(
+            &mut doc,
+            page_id,
+            text_field("Amount", [50, 700, 200, 720], 0),
+        );
+        let parent = doc.add_object(Object::Dictionary(dictionary! {
+            "T" => Object::string_literal("Totals"),
+            "Q" => Object::Integer(2),
+            "Kids" => Object::Array(vec![Object::Reference(kid)]),
+        }));
+        doc.get_object_mut(kid)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("Parent", Object::Reference(parent));
+        add_acroform(&mut doc, &[parent]);
+        let fields = terminal_fields(&doc);
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name, "Totals.Amount");
+        assert_eq!(fields[0].quadding, 2);
     }
 
     #[test]

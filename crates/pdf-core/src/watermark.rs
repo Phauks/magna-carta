@@ -17,6 +17,9 @@ pub struct WatermarkOptions {
     /// Clockwise rotation of the mark, in degrees (45 is the diagonal staple).
     pub rotation_deg: f32,
     pub placement: WatermarkPlacement,
+    /// Which pages are marked. A cover sheet marked "DRAFT" or a single exhibit page marked
+    /// "COPY" is one page of many; a page number past the end is an error, not a skip.
+    pub pages: crate::generate::PageSelection,
 }
 
 /// The mark itself — text or an image/logo.
@@ -38,15 +41,34 @@ pub enum WatermarkPlacement {
     Tiled,
 }
 
-/// Stamp a watermark onto every page, returning the new document bytes.
+/// Stamp a watermark onto the pages `opts.pages` selects, returning the new document bytes.
 pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, GenerateError> {
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
-    let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
-    if pages.is_empty() {
+    let every_page: Vec<ObjectId> = doc.get_pages().into_values().collect();
+    if every_page.is_empty() {
         return Err(GenerateError::NoPages);
     }
+    let pages: Vec<ObjectId> = match &opts.pages {
+        crate::generate::PageSelection::All => every_page,
+        crate::generate::PageSelection::Pages(indices) => {
+            // In page order and once each, however the caller listed them: a page named
+            // twice would otherwise carry the mark at twice its opacity.
+            let mut chosen: Vec<usize> = indices.clone();
+            chosen.sort_unstable();
+            chosen.dedup();
+            chosen
+                .into_iter()
+                .map(|index| {
+                    every_page
+                        .get(index)
+                        .copied()
+                        .ok_or(GenerateError::PageOutOfRange)
+                })
+                .collect::<Result<_, _>>()?
+        }
+    };
     let opacity = opts.opacity.clamp(0.0, 1.0);
 
     // One shared graphics-state object carries the opacity for every page.
@@ -487,6 +509,7 @@ mod tests {
             opacity: 0.3,
             rotation_deg: 45.0,
             placement,
+            pages: crate::generate::PageSelection::All,
         }
     }
 
@@ -510,6 +533,54 @@ mod tests {
             }
         }
         all
+    }
+
+    /// Which pages of `bytes` draw `needle` in their content.
+    fn pages_showing(bytes: &[u8], needle: &[u8]) -> Vec<usize> {
+        let doc = Document::load_mem(bytes).unwrap();
+        doc.get_pages()
+            .into_values()
+            .enumerate()
+            .filter(|(_, page)| {
+                doc.get_page_content(*page)
+                    .windows(needle.len())
+                    .any(|window| window == needle)
+            })
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    #[test]
+    fn a_watermark_can_mark_chosen_pages_only() {
+        let page = one_page_doc();
+        let four = crate::merge(&[&page, &page, &page, &page]).unwrap();
+        let mut options = text_opts("DRAFT", WatermarkPlacement::Center);
+
+        // Listed out of order and twice: each chosen page is marked once.
+        options.pages = crate::generate::PageSelection::Pages(vec![3, 0, 3]);
+        let out = watermark(&four, &options).unwrap();
+        assert_eq!(pages_showing(&out, b"DRAFT"), vec![0, 3]);
+        let doc = Document::load_mem(&out).unwrap();
+        let last = doc.get_pages().into_values().nth(3).unwrap();
+        let marks = doc
+            .get_page_content(last)
+            .windows(5)
+            .filter(|window| window == b"DRAFT")
+            .count();
+        assert_eq!(marks, 1);
+
+        options.pages = crate::generate::PageSelection::All;
+        assert_eq!(
+            pages_showing(&watermark(&four, &options).unwrap(), b"DRAFT"),
+            vec![0, 1, 2, 3]
+        );
+
+        // A page that does not exist is refused, and nothing is returned half-marked.
+        options.pages = crate::generate::PageSelection::Pages(vec![1, 4]);
+        assert!(matches!(
+            watermark(&four, &options),
+            Err(GenerateError::PageOutOfRange)
+        ));
     }
 
     #[test]
@@ -596,6 +667,7 @@ mod tests {
             opacity: 0.5,
             rotation_deg: 0.0,
             placement: WatermarkPlacement::Center,
+            pages: crate::generate::PageSelection::All,
         }
     }
 
