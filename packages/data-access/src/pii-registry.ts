@@ -198,6 +198,23 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "member-scoped rows only; delete the integration_credential row its credential_ref names in the same act",
   },
+  // Which of a member's own provider calendars each event type goes to. The row names a person only
+  // through its connection, and it is that member's preference and nothing the firm relies on, so
+  // it goes when the connection does.
+  {
+    table: "calendar_sync_rule",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; a member's own preference, holding no event",
+  },
+  // What the firm lets leave for members' calendars. The rule is the firm's and outlives whoever
+  // last saved it; the reference to that member is configuration provenance.
+  {
+    table: "calendar_sync_firm_limit",
+    subjectKey: "updated_by",
+    action: "pseudonymize-keep",
+    note: "which administrator last set a limit is configuration provenance the firm keeps",
+  },
   // A file attached to a conversation is a reference to the matter's file, holding nothing of
   // it; it goes with the conversation it is attached to.
   {

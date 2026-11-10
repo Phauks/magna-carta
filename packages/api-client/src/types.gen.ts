@@ -6205,6 +6205,110 @@ export type ConnectedAccountDisconnectAck = {
     status: 'disconnected';
 };
 
+export type CalendarSyncSettings = {
+    /**
+     * The member's connected account, or null when they have connected none.
+     */
+    account: {
+        id: string;
+        provider: 'microsoft';
+        /**
+         * The account as the provider names it: the member's own sign-in address there.
+         */
+        accountLabel: string | null;
+        status: 'connected' | 'degraded' | 'needs_reauth' | 'disabled';
+        connectedAt: string;
+    } | null;
+    /**
+     * The account's calendars as the provider lists them now. Null when there is no account or the provider could not be asked, in which case rules can be read and not changed.
+     */
+    calendars: Array<CalendarSyncProviderCalendar> | null;
+    subjects: Array<CalendarSyncSubject>;
+    rules: Array<CalendarSyncRule>;
+};
+
+export type CalendarSyncProviderCalendar = {
+    remoteId: string;
+    name: string;
+    isDefault: boolean;
+    canWrite: boolean;
+};
+
+export type CalendarSyncSubject = {
+    /**
+     * An event type's id, or `deadline` for deadlines as one kind.
+     */
+    subject: string;
+    kind: 'eventType' | 'deadline';
+    /**
+     * The event type's name. Null for the deadline kind.
+     */
+    name: string | null;
+    category: 'litigation' | 'transaction' | 'firm' | 'other' | null;
+    /**
+     * Whether the firm lets this subject be synced at all.
+     */
+    mayLeave: boolean;
+    /**
+     * How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else.
+     */
+    detail: 'full' | 'minimal';
+};
+
+export type CalendarSyncRule = {
+    /**
+     * An event type's id, or `deadline` for deadlines as one kind.
+     */
+    subject: string;
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when the rule was saved, shown when the provider is unreachable.
+     */
+    calendarName: string;
+    /**
+     * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on.
+     */
+    scope: 'mine' | 'my_matters';
+};
+
+export type CalendarSyncRulesReplace = {
+    /**
+     * The member's whole rule set. A subject absent from it is not synced.
+     */
+    rules: Array<{
+        /**
+         * An event type's id, or `deadline` for deadlines as one kind.
+         */
+        subject: string;
+        calendarRemoteId: string;
+        /**
+         * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on.
+         */
+        scope: 'mine' | 'my_matters';
+    }>;
+};
+
+export type CalendarSyncFirmLimits = {
+    subjects: Array<CalendarSyncSubject>;
+};
+
+export type CalendarSyncFirmLimitsSet = {
+    /**
+     * The subjects to set. A subject not named keeps the limit it has.
+     */
+    limits: Array<{
+        /**
+         * An event type's id, or `deadline` for deadlines as one kind.
+         */
+        subject: string;
+        mayLeave: boolean;
+        /**
+         * How much of an event the firm lets leave: `full`, or `minimal` for the matter number and the event type and nothing else.
+         */
+        detail: 'full' | 'minimal';
+    }>;
+};
+
 export type CalendarSeriesInWindow = {
     data: Array<CalendarSeriesOccurrences>;
     truncated: boolean;
@@ -29665,6 +29769,170 @@ export type ConnectedAccountsDisconnectResponses = {
 };
 
 export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectResponses[keyof ConnectedAccountsDisconnectResponses];
+
+export type CalendarSyncReadMineData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync';
+};
+
+export type CalendarSyncReadMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReadMineError = CalendarSyncReadMineErrors[keyof CalendarSyncReadMineErrors];
+
+export type CalendarSyncReadMineResponses = {
+    /**
+     * The member's calendar sync settings
+     */
+    200: CalendarSyncSettings;
+};
+
+export type CalendarSyncReadMineResponse = CalendarSyncReadMineResponses[keyof CalendarSyncReadMineResponses];
+
+export type CalendarSyncReplaceMyRulesData = {
+    body: CalendarSyncRulesReplace;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync/rules';
+};
+
+export type CalendarSyncReplaceMyRulesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The member has no connected account
+     */
+    409: Problem;
+    /**
+     * A subject or calendar named cannot be used; `errors` says which subject and why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The member's provider could not be asked for their calendars, so nothing was saved
+     */
+    503: Problem;
+};
+
+export type CalendarSyncReplaceMyRulesError = CalendarSyncReplaceMyRulesErrors[keyof CalendarSyncReplaceMyRulesErrors];
+
+export type CalendarSyncReplaceMyRulesResponses = {
+    /**
+     * The member's calendar sync settings after the write
+     */
+    200: CalendarSyncSettings;
+};
+
+export type CalendarSyncReplaceMyRulesResponse = CalendarSyncReplaceMyRulesResponses[keyof CalendarSyncReplaceMyRulesResponses];
+
+export type CalendarSyncReadFirmLimitsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar-sync/firm-limits';
+};
+
+export type CalendarSyncReadFirmLimitsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReadFirmLimitsError = CalendarSyncReadFirmLimitsErrors[keyof CalendarSyncReadFirmLimitsErrors];
+
+export type CalendarSyncReadFirmLimitsResponses = {
+    /**
+     * The firm's limits
+     */
+    200: CalendarSyncFirmLimits;
+};
+
+export type CalendarSyncReadFirmLimitsResponse = CalendarSyncReadFirmLimitsResponses[keyof CalendarSyncReadFirmLimitsResponses];
+
+export type CalendarSyncSetFirmLimitsData = {
+    body: CalendarSyncFirmLimitsSet;
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar-sync/firm-limits';
+};
+
+export type CalendarSyncSetFirmLimitsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A subject or calendar named cannot be used; `errors` says which subject and why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncSetFirmLimitsError = CalendarSyncSetFirmLimitsErrors[keyof CalendarSyncSetFirmLimitsErrors];
+
+export type CalendarSyncSetFirmLimitsResponses = {
+    /**
+     * The firm's limits after the write
+     */
+    200: CalendarSyncFirmLimits;
+};
+
+export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsResponses[keyof CalendarSyncSetFirmLimitsResponses];
 
 export type CalendarListSeriesData = {
     body?: never;

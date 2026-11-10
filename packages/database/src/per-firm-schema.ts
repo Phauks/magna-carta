@@ -8113,6 +8113,79 @@ export const firmEvent = sqliteTable(
   ],
 );
 
+// What the firm lets leave for a member's own calendar at a provider, one row per event type and one
+// for deadlines. This is the OUTER limit: a member's rule (calendar_sync_rule) can send less than the
+// firm allows and never more, and the read that pairs the two is where that holds.
+//
+// `subject` is the event type's id, or the literal 'deadline' for the one row that stands for every
+// deadline. A plain key rather than a nullable event_type_id under a unique index, because SQLite
+// treats two NULLs as distinct and a second deadline row would then be storable.
+//
+// A subject with NO row may leave in full detail. The absence has to mean something, a firm that has
+// never opened the page must not find sync silently impossible, and nothing leaves on the strength
+// of this table alone: a member's own rule is still required, and those start empty.
+export const calendarSyncFirmLimit = sqliteTable(
+  "calendar_sync_firm_limit",
+  {
+    subject: text("subject").primaryKey(),
+    eventTypeId: text("event_type_id")
+      .$type<MatterEventTypeId>()
+      .references(() => matterEventType.id),
+    mayLeave: integer("may_leave", { mode: "boolean" }).notNull(),
+    // `minimal` sends the matter number and the event type and nothing a client said or did.
+    detail: text("detail", { enum: ["full", "minimal"] }).notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+  },
+  (table) => [
+    check(
+      "calendar_sync_firm_limit_subject_check",
+      sql`(${table.subject} = 'deadline' AND ${table.eventTypeId} IS NULL) OR (${table.eventTypeId} IS NOT NULL AND ${table.subject} = ${table.eventTypeId})`,
+    ),
+    check("calendar_sync_firm_limit_detail_check", sql`${table.detail} IN ('full', 'minimal')`),
+  ],
+);
+
+// A member's own choice, per connected account: this event type (or deadlines) goes to that one of
+// my calendars at the provider. No row means it is not sent, which is how a type the firm adds later
+// starts, and how every type starts on the day an account is connected.
+//
+// The calendar's name is kept beside its identifier so the settings page can still say where a rule
+// points when the provider cannot be reached, or when the member has since deleted that calendar.
+//
+// `scope` is whose events of that type: `mine` is the ones the member takes part in (for deadlines,
+// the ones assigned to them), `my_matters` is every one on a matter they work on.
+export const calendarSyncRule = sqliteTable(
+  "calendar_sync_rule",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    subject: text("subject").notNull(),
+    eventTypeId: text("event_type_id")
+      .$type<MatterEventTypeId>()
+      .references(() => matterEventType.id),
+    calendarRemoteId: text("calendar_remote_id").notNull(),
+    calendarName: text("calendar_name").notNull(),
+    scope: text("scope", { enum: ["mine", "my_matters"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.subject] }),
+    check(
+      "calendar_sync_rule_subject_check",
+      sql`(${table.subject} = 'deadline' AND ${table.eventTypeId} IS NULL) OR (${table.eventTypeId} IS NOT NULL AND ${table.subject} = ${table.eventTypeId})`,
+    ),
+    check("calendar_sync_rule_scope_check", sql`${table.scope} IN ('mine', 'my_matters')`),
+    check("calendar_sync_rule_calendar_check", sql`length(${table.calendarRemoteId}) > 0`),
+  ],
+);
+
 // Who is at a firm meeting: mostly members, sometimes a Directory entity (the bank's relationship
 // manager), sometimes an external who belongs in nobody's conflicts corpus (a visiting CLE speaker).
 // A second table rather than a nullable firm_event_id on matter_event_participant, because that

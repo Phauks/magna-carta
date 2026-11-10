@@ -71,6 +71,8 @@ describe("schema conformance (fitness functions)", () => {
       communication_number_counter: "scope_key",
       conflicts_check_number_counter: "scope_key",
       setting: "key",
+      // The firm's limit is keyed by what it limits: an event type's id, or deadlines as one kind.
+      calendar_sync_firm_limit: "subject",
       platform_operator: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
@@ -210,6 +212,8 @@ describe("schema conformance (fitness functions)", () => {
       "task_list_status_transition",
       "task_team_member",
       "matter_task_watcher",
+      // A member's rule is the pair itself: one connected account sends one subject to one place.
+      "calendar_sync_rule",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a
