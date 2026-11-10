@@ -669,7 +669,10 @@
 
     await step("A timed entry sits in the row of the hour it starts in", async () => {
       const nine = rows.getByRole("rowheader", { name: "9 AM" }).closest("tr");
-      await expect(within(nine as HTMLElement).getByText("Deposition")).toBeVisible();
+      // One deposition, held in two calendars at once: Ada's, and the boardroom it is booked in.
+      const depositions = within(nine as HTMLElement).getAllByText("Deposition");
+      await expect(depositions).toHaveLength(2);
+      for (const deposition of depositions) await expect(deposition).toBeVisible();
       const two = rows.getByRole("rowheader", { name: "2 PM" }).closest("tr");
       await expect(within(two as HTMLElement).getByText("Settlement conference")).toBeVisible();
     });
@@ -679,7 +682,7 @@
     });
 
     await step("A chip is a control, and activating it reports the entry it painted", async () => {
-      await userEvent.click(rows.getByText("Deposition"));
+      await userEvent.click(rows.getAllByText("Deposition")[0] as HTMLElement);
       await expect(activate).toHaveBeenCalled();
     });
   }}

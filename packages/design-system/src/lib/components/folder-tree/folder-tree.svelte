@@ -296,9 +296,9 @@
   }
 
   /*
-   * A row is picked up as the whole treeitem — the element the tree marks `draggable` — and it
-   * ACCEPTS on its row, the one line of it that is not its nested children. Marking the treeitem
-   * instead would paint the mark down the whole open branch beneath it.
+   * A row is picked up, and accepts a drop, as its treeitem — the element the tree marks
+   * `draggable`. The treeitem is the one line of the node and never its nested children, so the
+   * mark lands on that line and not down the whole open branch beneath it.
    */
   const dragRegion = {
     sourceAt: (element: HTMLElement): ItemDragAnchor | null => {
@@ -309,9 +309,8 @@
     targetAt: (element: HTMLElement): ItemDragAnchor | null => {
       const item = itemElementAt(element);
       const id = item?.getAttribute("data-tree-item-id") ?? null;
-      const row = item?.querySelector<HTMLElement>(":scope > .mc-tree-item-row") ?? null;
-      if (item === null || id === null || row === null) return null;
-      return { key: keyOfIdentifier(id), element: row };
+      if (item === null || id === null) return null;
+      return { key: keyOfIdentifier(id), element: item };
     },
   };
 
@@ -338,12 +337,29 @@
     if (!open) contextTargetId = undefined;
   }
 
+  /**
+   * The row's name, which says the file count the row shows: a name has to hold the words a reader
+   * can see on its row, and a speech user who reads "Pleadings 12" off the screen says it. Home
+   * draws only controls at its end, which name themselves.
+   */
+  function itemLabel(context: TreeItemContext): string {
+    const count =
+      showFileCounts && context.node.id !== HOME_IDENTIFIER
+        ? foldersById.get(context.node.id)?.fileCount
+        : undefined;
+    if (count === undefined) return context.node.label;
+    return `${context.node.label} ${count} ${count === 1 ? "file" : "files"}`;
+  }
+
   /** Placeholder rows while the folders are being fetched — keyed so the list is stable. */
   const LOADING_ROWS = ["first", "second", "third", "fourth", "fifth"];
 </script>
 
 <div bind:this={ref} class={mergeClasses("mc-folder-tree", className)} {...restProps}>
-  <div class="mc-folder-tree-scroll mc-scrollbar">
+  <div
+    class="mc-folder-tree-scroll mc-scrollbar"
+    data-folder-tree-loading={loading ? "" : undefined}
+  >
     {#if loading}
       <p class="sr-only">Reading the folders</p>
       <div class="mc-folder-tree-loading" aria-busy="true" aria-hidden="true">
@@ -364,6 +380,7 @@
             {markedId}
             {icon}
             {trailing}
+            {itemLabel}
             onSelect={handleSelect}
             oncontextmenu={rememberMenuTarget}
             {...activeDrag.handlers(dragRegion)}

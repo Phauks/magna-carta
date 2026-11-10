@@ -42,11 +42,11 @@
     });
     await step("The Error ID is a control, named for what pressing it does", async () => {
       await expect(
-        canvas.getByRole("button", { name: "Copy error ID err_7FQ2K9XW" }),
+        canvas.getByRole("button", { name: "Error ID err_7FQ2K9XW, copy" }),
       ).toBeVisible();
     });
     await step("Pressing it reports what actually happened", async () => {
-      const chip = canvas.getByRole("button", { name: /Copy error ID/ });
+      const chip = canvas.getByRole("button", { name: /^Error ID / });
       await userEvent.click(chip);
       // waitFor, because copying is asynchronous: the chip reads "copy" until it settles, and a
       // synchronous assertion races it. Either outcome is correct — a headless browser may refuse
