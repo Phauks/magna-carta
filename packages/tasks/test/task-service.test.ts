@@ -1,3 +1,4 @@
+import { visibleMatterPredicateExcluding } from "@magna-carta/calendar/visibility";
 import { describe, expect, it } from "vitest";
 import type { MatterTaskDocumentId, MatterTaskId, UserId } from "@magna-carta/identifiers/types";
 import {
@@ -184,15 +185,19 @@ describe("assignment", () => {
 });
 
 describe("the visibility branch", () => {
-  it("keeps a task on no matter private to its assignee and whoever created it", async () => {
+  it("shows a task on no matter to every member, as it shows every other task", async () => {
     const { database, taskId } = await writeTask({
       matterId: null,
-      title: "Review the associate's performance",
+      title: "Renew the malpractice policy",
     });
-    // The creator reaches it.
     expect(await readMatterTask(database, taskId, visibility, ACTOR)).toBeDefined();
-    // Nobody else does, even holding every task permission there is.
-    expect(await readMatterTask(database, taskId, visibility, COLLEAGUE)).toBeUndefined();
+    expect(await readMatterTask(database, taskId, visibility, COLLEAGUE)).toBeDefined();
+  });
+
+  it("still hides a task on a matter the member is walled off", async () => {
+    const { database, taskId } = await writeTask();
+    const walled = visibleMatterPredicateExcluding([MATTER]);
+    expect(await readMatterTask(database, taskId, walled, COLLEAGUE)).toBeUndefined();
   });
 
   it("lets the assignee of a matterless task reach it", async () => {
@@ -471,10 +476,13 @@ describe("the matter close advisory's count", () => {
 
 describe("refusals that never say which", () => {
   it("reports an unreachable task the same way as one that does not exist", async () => {
-    const { database, taskId } = await writeTask({ matterId: null, title: "Private" });
-    // A colleague cannot reach the creator's matterless task, and the refusal names neither reason.
+    const { database, taskId } = await writeTask();
+    // A colleague walled off the matter cannot reach its task, and the refusal names neither reason.
     await expect(
-      moveMatterTaskToRung(database, taskId, "done", colleagueOptions),
+      moveMatterTaskToRung(database, taskId, "done", {
+        ...colleagueOptions,
+        visibility: visibleMatterPredicateExcluding([MATTER]),
+      }),
     ).rejects.toMatchObject({ code: "task-unknown" });
     await expect(
       moveMatterTaskToRung(

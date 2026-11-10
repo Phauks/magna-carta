@@ -85,6 +85,7 @@
     defaultTab,
     actions,
     menu,
+    editControl = true,
     onSave,
     onCancel,
     onPrint,
@@ -144,6 +145,13 @@
      * and the set is the shell's four.
      */
     menu?: Snippet;
+    /**
+     * Whether the header offers Edit. Withheld for a record kind whose fields are edited in place,
+     * each saving as it changes: there is no separate mode to enter, so a control for entering one
+     * would be a door to nowhere. A new record of such a kind still opens straight into its fields
+     * and still commits with Save, because there is nothing yet to save a field onto.
+     */
+    editControl?: boolean;
     /**
      * Commit the change. Given, the window can be edited; withheld, Edit refuses, because a mode
      * with no way to commit is worse than no mode at all. The window does NOT leave editing on its
@@ -342,6 +350,7 @@
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         {/if}
+        {#if editControl}
         <button
           type="button"
           data-record-window-action="edit"
@@ -354,6 +363,7 @@
         >
           <Pencil class="mc-modal-frame-header-icon mc-record-window-header-icon" aria-hidden="true" />
         </button>
+        {/if}
         <button
           type="button"
           data-record-window-action="print"
