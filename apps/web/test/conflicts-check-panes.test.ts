@@ -131,12 +131,12 @@ describe("the locations tab", () => {
     }
   });
 
-  it("searches Messaging, Tasks and Magnus, every option on and none marked Soon; Files alone waits", () => {
+  it("searches Files, Messaging, Tasks and Magnus, every option on and none marked Soon", () => {
     expect(
       SEARCH_LOCATIONS.filter((place) => !place.searchable).map((place) => place.location),
-    ).toEqual(["files"]);
+    ).toEqual([]);
     const rendered = drawScope({ draft: new CheckDraft() });
-    for (const location of ["messaging", "tasks", "magnus"]) {
+    for (const location of ["files", "messaging", "tasks", "magnus"]) {
       const place = rendered.querySelector(`[data-location="${location}"]`) as HTMLElement;
       expect(text(place), location).not.toContain("Soon");
       const boxes = [...place.querySelectorAll('[role="checkbox"]')];

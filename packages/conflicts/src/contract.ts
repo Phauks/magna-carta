@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { REPORTED_RUN_STATUSES } from "./check-run.ts";
-import { FOUND_IN_KINDS, MESSAGING_CHANNELS, TASK_MATTER_STATUSES } from "./content-search.ts";
+import {
+  FILE_MATTER_STATUSES,
+  FOUND_IN_KINDS,
+  MESSAGING_CHANNELS,
+  TASK_MATTER_STATUSES,
+} from "./content-search.ts";
 
 // The conflicts wire shapes that live with the domain rather than inside a route module. A route
 // imports them and the OpenAPI document reads them exactly as written here.
@@ -15,6 +20,8 @@ export const PlacesRequest = z.object({
   messaging: z.array(z.enum(MESSAGING_CHANNELS)).max(MESSAGING_CHANNELS.length),
   tasks: z.array(z.enum(TASK_MATTER_STATUSES)).max(TASK_MATTER_STATUSES.length),
   magnus: z.boolean(),
+  // Optional so a request written before Files could be searched still reads, as not asking for it.
+  files: z.array(z.enum(FILE_MATTER_STATUSES)).max(FILE_MATTER_STATUSES.length).optional(),
 });
 
 export const AskedScope = z

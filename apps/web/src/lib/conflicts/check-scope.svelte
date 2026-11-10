@@ -14,7 +14,8 @@
    *
    * A PLACE THE ENGINE CANNOT SEARCH YET is drawn with its options, disabled and marked Soon, and the
    * check records it as not searched, so "never searched" is never read as "searched and found
-   * nothing". Files is the one left; Messaging, Tasks and Magnus are searched, every option on.
+   * nothing". Every place is searchable today, every option on. Files reads the file index, and a
+   * check run while that index is not connected records Files as not searched, saying why.
    *
    * NOTHING HERE LIMITS THE SEARCH. A check follows every recorded relationship to closure, and the
    * one bound on a run is the platform's, stated on the record when it is reached.
@@ -34,6 +35,7 @@
     NAME_MATCHING_OPTIONS,
     SEARCH_LOCATIONS,
     TASK_STATUS_OPTIONS,
+    FILE_STATUS_OPTIONS,
   } from "./conflicts-vocabulary.ts";
 
   let {
@@ -138,6 +140,20 @@
                     checked={draft.tasks.includes(option.key)}
                     onCheckedChange={(on: boolean) =>
                       (draft.tasks = toggled(TASK_STATUS_OPTIONS, draft.tasks, option.key, on))}
+                    disabled={busy}
+                  />
+                  <Label for={id}>{option.label}</Label>
+                </div>
+              {/each}
+            {:else if entry.location === "files"}
+              {#each FILE_STATUS_OPTIONS as option (option.key)}
+                {@const id = `${fieldPrefix}-files-${option.key}`}
+                <div class="flex items-center gap-8">
+                  <Checkbox
+                    {id}
+                    checked={draft.files.includes(option.key)}
+                    onCheckedChange={(on: boolean) =>
+                      (draft.files = toggled(FILE_STATUS_OPTIONS, draft.files, option.key, on))}
                     disabled={busy}
                   />
                   <Label for={id}>{option.label}</Label>

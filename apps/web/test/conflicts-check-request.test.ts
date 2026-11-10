@@ -118,6 +118,7 @@ describe("nothing limits the search", () => {
         messaging: ["calls", "texts", "email"],
         tasks: ["consultations", "open", "closed", "archived"],
         magnus: true,
+        files: ["consultations", "open", "closed", "archived"],
       },
     });
     expect(Object.keys(OPENING_DRAFT)).toEqual([
@@ -128,15 +129,25 @@ describe("nothing limits the search", () => {
       "messaging",
       "tasks",
       "magnus",
+      "files",
     ]);
   });
 
-  it("asks for only the messaging channels and task statuses left on", () => {
+  it("asks for only the messaging channels, task and file statuses left on", () => {
     const { request } = composeCheck(
-      draft({ messaging: ["texts"], tasks: [], magnus: false }),
+      draft({ messaging: ["texts"], tasks: [], magnus: false, files: ["closed"] }),
       surface(),
     );
-    expect(request?.scope.places).toEqual({ messaging: ["texts"], tasks: [], magnus: false });
+    expect(request?.scope.places).toEqual({
+      messaging: ["texts"],
+      tasks: [],
+      magnus: false,
+      files: ["closed"],
+    });
+  });
+
+  it("counts a change to Files as a started check", () => {
+    expect(composeCheck({ ...OPENING_DRAFT, files: ["open"] }, surface()).started).toBe(true);
   });
 });
 

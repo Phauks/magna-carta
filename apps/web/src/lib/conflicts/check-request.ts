@@ -41,6 +41,7 @@ import {
   type SourceClass,
   type Strictness,
   type TaskMatterStatus,
+  type FileMatterStatus,
 } from "./conflicts-api.ts";
 
 /** Everything the two panes hold between them. Plain values, so this module needs no browser. */
@@ -58,6 +59,8 @@ export interface CheckDraftValues {
   readonly tasks: readonly TaskMatterStatus[];
   /** Whether Magnus conversations are searched. */
   readonly magnus: boolean;
+  /** The matter statuses whose files are searched; Archived is deleted files. Empty is Files not asked for. */
+  readonly files: readonly FileMatterStatus[];
 }
 
 /**
@@ -106,6 +109,7 @@ export const OPENING_DRAFT: CheckDraftValues = {
   messaging: ["calls", "texts", "email"],
   tasks: ["consultations", "open", "closed", "archived"],
   magnus: true,
+  files: ["consultations", "open", "closed", "archived"],
 };
 
 /**
@@ -121,7 +125,7 @@ export function triggerFor(surface: CheckSurface): ConflictsTrigger {
 /**
  * The sources this check asks for — the technique keys the Directory's options stand over. Party
  * is the firm-wide floor and is never a choice. The firm's own records are asked for separately, by
- * `placesFor`; Files cannot be searched yet and is never asked for.
+ * `placesFor`.
  */
 export function sourcesFor(values: CheckDraftValues): SourceClass[] {
   const sources: SourceClass[] = ["party"];
@@ -130,9 +134,14 @@ export function sourcesFor(values: CheckDraftValues): SourceClass[] {
   return sources;
 }
 
-/** The calls, texts, email, tasks and Magnus conversations this check asks for. */
+/** The calls, texts, email, tasks, Magnus conversations and files this check asks for. */
 export function placesFor(values: CheckDraftValues): PlacesRequest {
-  return { messaging: [...values.messaging], tasks: [...values.tasks], magnus: values.magnus };
+  return {
+    messaging: [...values.messaging],
+    tasks: [...values.tasks],
+    magnus: values.magnus,
+    files: [...values.files],
+  };
 }
 
 /** The refusal, the request and the close guard's answer, which always move together. */
@@ -184,6 +193,7 @@ function hasBeenTouched(values: CheckDraftValues): boolean {
     values.nameMatching !== OPENING_DRAFT.nameMatching ||
     !sameMembers(values.messaging, OPENING_DRAFT.messaging) ||
     !sameMembers(values.tasks, OPENING_DRAFT.tasks) ||
+    !sameMembers(values.files, OPENING_DRAFT.files) ||
     values.magnus !== OPENING_DRAFT.magnus
   );
 }
