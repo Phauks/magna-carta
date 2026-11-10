@@ -152,6 +152,7 @@ export default defineConfig({
       "apps/address-worker/vitest.config.ts",
       "apps/api-worker/vitest.node.config.ts",
       "apps/status-worker/vitest.config.ts",
+      "apps/web-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
       "apps/discovery-worker/vitest.config.ts",
