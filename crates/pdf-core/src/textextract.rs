@@ -37,9 +37,9 @@ pub const TEXT_LAYER_COVERAGE: f32 = 0.02;
 pub const SCANNED_PAGE_RASTER_COVERAGE: f32 = 0.5;
 
 /// How far apart two glyph baselines may sit vertically and still be read as one line, as a
-/// multiple of the page's typical glyph height. A descender drops a glyph's box bottom about
-/// a third of a height below its neighbours', so the tolerance has to clear that; line
-/// leading is a whole height or more, so it must stay well under one.
+/// multiple of the page's typical glyph height. Glyphs set on one line share a baseline
+/// exactly, so the tolerance is there for a baseline that drifts (a scan's recognized words,
+/// each placed on its own) and stays well under the whole height or more of line leading.
 const LINE_TOLERANCE: f32 = 0.5;
 
 /// The smallest gap that can be a word break, as a multiple of the line's own type height.
@@ -121,6 +121,8 @@ struct PositionedGlyph {
     order: usize,
     /// Where the glyph's advance starts and ends, when the font declares one.
     advance_span: Option<(f32, f32)>,
+    /// The y of the baseline the glyph was set on, in the displayed frame.
+    baseline: f32,
 }
 
 /// The horizontal distance from the end of `previous` to the start of `next`.
@@ -197,17 +199,16 @@ fn typical_height(glyphs: &[PositionedGlyph]) -> f32 {
     heights[heights.len() / 2]
 }
 
-/// Where a glyph sits on its line: the bottom of its box, which is the baseline for every
-/// glyph that does not descend below it -- and for a Type3 glyph, which observes as a point
-/// at its own origin.
+/// Where a glyph sits on its line: the baseline it was set on, which is the y of its own
+/// origin and so is the same for every glyph of the line.
 ///
-/// The box's CENTRE would be the obvious choice and is the wrong one. A full stop is a
-/// tenth the height of the letters around it, so its centre sits most of an x-height below
-/// theirs, and a tolerance loose enough to keep the full stop on its sentence is loose
-/// enough to merge tightly-led lines. Bottoms agree: a full stop and a capital share a
-/// baseline exactly, and only descenders depart from it, by a fixed fraction of the height.
+/// Neither edge of the glyph's inked box will do. A full stop is a tenth the height of the
+/// letters around it, so box centres disagree by most of an x-height. Box bottoms agree for
+/// letters that stand on the baseline and for nothing else: a hyphen and a quotation mark
+/// float above it and a descender hangs below, so a line reading `"2026-03-01 judgment"`
+/// came back as three lines, its punctuation on one and the tails of its letters on another.
 fn baseline_y(glyph: &PositionedGlyph) -> f32 {
-    glyph.rect.y0
+    glyph.baseline
 }
 
 /// The gap, in points, at or above which a space belongs between two of this line's glyphs.
@@ -293,11 +294,15 @@ fn reconstruct_lines(observation: &PageObservation) -> Vec<TextLayerLine> {
     let mut glyphs: Vec<PositionedGlyph> = observation
         .glyphs
         .iter()
-        .filter(|glyph| !glyph.text.is_empty())
+        // A space has no outline, so its box is empty and sits at the frame's origin
+        // rather than on its line: it says nothing about where the line is, and spaces are
+        // inferred from the gaps between inked glyphs in any case.
+        .filter(|glyph| !glyph.text.trim().is_empty())
         .map(|glyph| PositionedGlyph {
             text: glyph.text.clone(),
             rect: to_display_rect(glyph.bbox, observation.height_pt),
             order: glyph.order,
+            baseline: observation.height_pt - glyph.baseline as f32,
             advance_span: glyph
                 .advance_span
                 .map(|(start, end)| (start as f32, end as f32)),
