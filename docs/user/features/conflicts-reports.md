@@ -68,10 +68,29 @@ The right side of the New Check panel is the search itself, in two tabs.
   directory holds, as far as each chain goes. **Firm Employees** looks for your own people by
   identity, never by name: on a check filed on a matter, among that matter's parties, and on any check,
   among everyone the search reached.
-- **Files** (Consultations, Open, Closed, Archived), **Messaging** (Calls, Texts, Email), **Tasks**
-  (Consultations, Open, Closed, Archived) and **Magnus** (All Employee Conversations): shown, marked
-  Soon, and not searchable yet. Every check records them as not searched, so a report can never read
-  as if your documents, messages, tasks or conversations were searched and came up empty.
+- **Messaging** (Calls, Texts, Email): your firm's call and text log and its captured email, whether
+  or not a message has been filed on a matter. A call or text is found when it is linked to the
+  party's directory record, when its number is one of the party's phone numbers, or when the party's
+  name appears in the caller ID, the message or the summary. An email is found when a sender or
+  recipient is the party, by record, by address or by name, or when the party's name is in the
+  subject. **An email's body is not searched.**
+- **Tasks** (Consultations, Open, Closed, Archived): tasks whose title or description names the party.
+  The first three choose tasks by the status of their matter; **Archived** adds archived tasks from
+  any matter. A task on no matter is searched whenever Tasks is on.
+- **Magnus** (All Employee Conversations): every conversation with Magnus that has not been deleted,
+  including those saved to General, searched for the party's name.
+- **Files** (Consultations, Open, Closed, Archived): shown, marked Soon, and not searchable yet. Every
+  check records it as not searched, so a report can never read as if your documents were searched and
+  came up empty.
+
+Every option is on when the panel opens. In messages, tasks and conversations a party's name is
+looked for **whole and without regard to case**: Acme Holdings LLC is looked for as "Acme Holdings
+LLC", never as "Acme" alone, and a name shorter than three characters is not looked for in text at
+all. The report says this in its Status section, under each place.
+
+A result found in a message, task or conversation says what kind of record it was found in (Call,
+Text, Email, Task, Magnus conversation), the matter it is filed on, and when it happened, with a link
+to the matter. It never quotes the record's text: open the record from the matter to read it.
 
 **Advanced Settings** holds **name matching**, which decides how many ways a name may be written and
 still count. It is a dropdown, and each choice shows a name it would catch. **Both choices match

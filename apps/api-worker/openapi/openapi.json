@@ -22450,6 +22450,44 @@
               "balanced",
               "over_inclusive"
             ]
+          },
+          "places": {
+            "type": "object",
+            "properties": {
+              "messaging": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "calls",
+                    "texts",
+                    "email"
+                  ]
+                },
+                "maxItems": 3
+              },
+              "tasks": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "consultations",
+                    "open",
+                    "closed",
+                    "archived"
+                  ]
+                },
+                "maxItems": 4
+              },
+              "magnus": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "messaging",
+              "tasks",
+              "magnus"
+            ]
           }
         },
         "required": [
@@ -22833,6 +22871,7 @@
               "sources",
               "walking",
               "matching",
+              "places",
               "candidates",
               null
             ]
@@ -22896,11 +22935,50 @@
               },
               "strictness": {
                 "type": "string"
+              },
+              "places": {
+                "type": "object",
+                "properties": {
+                  "messaging": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "calls",
+                        "texts",
+                        "email"
+                      ]
+                    },
+                    "maxItems": 3
+                  },
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "consultations",
+                        "open",
+                        "closed",
+                        "archived"
+                      ]
+                    },
+                    "maxItems": 4
+                  },
+                  "magnus": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "messaging",
+                  "tasks",
+                  "magnus"
+                ]
               }
             },
             "required": [
               "sources",
-              "strictness"
+              "strictness",
+              "places"
             ]
           },
           "hitCount": {
@@ -22954,6 +23032,9 @@
             "type": "integer"
           },
           "candidatesRecorded": {
+            "type": "integer"
+          },
+          "placeResults": {
             "type": "integer"
           }
         }
@@ -23274,6 +23355,52 @@
           "coParty": {
             "type": "boolean"
           },
+          "foundIn": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "call",
+                  "text",
+                  "email",
+                  "task",
+                  "magnus_conversation"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "matterId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "matterNumber": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "matterId",
+              "matterNumber",
+              "at"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -23293,6 +23420,7 @@
           "matchedFields",
           "graphPath",
           "coParty",
+          "foundIn",
           "createdAt",
           "disposition",
           "previouslyAnswered"

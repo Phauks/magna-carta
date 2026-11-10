@@ -20,12 +20,15 @@ export const PRIOR_FIRM_HISTORY_SOURCE = "prior_firm_history";
 // ran. Same posture as prior-firm history above, for the same reason.
 export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
 
-// The assistant's conversations. A place the product's listings hold and a check could one day
-// search — a party named in a conversation with Magnus is a party the firm has heard of — and one
-// nothing indexes today. Registered so every check records it as a place it could not search, for
-// the same reason the two above are: a reader must be able to tell "searched and found nothing"
-// from "never searched", and a place missing from the list reads as the first.
+// The assistant's conversations: a party named in a conversation with Magnus is a party the firm has
+// heard of. A check searches them when it is asked to (content-search.ts). Rows written before that
+// recorded the key `unavailable` on every check, which is why the reason below still exists.
 export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
+
+// The firm's calls, texts and email, and its tasks: searched when a check is asked to, recorded
+// `searched` then and absent otherwise, exactly like a Directory technique nobody asked for.
+export const MESSAGING_SOURCE = "messaging";
+export const TASKS_SOURCE = "tasks";
 
 // Every registered source with no class of its own, in the order the record lists them. A check
 // writes all of them; a reader of an older row treats an absent key as the row not saying.
@@ -53,7 +56,7 @@ export function availabilityOf(sourceClass: SourceClass): SourceAvailability {
 // message bodies will both be searched through, so it sits under both places until the two grow
 // corpora of their own; the two dimensions (prior-firm history, nickname equivalents) are not
 // places at all and carry none.
-export const SEARCH_LOCATIONS = ["directory", "files", "messaging", "magnus"] as const;
+export const SEARCH_LOCATIONS = ["directory", "files", "messaging", "tasks", "magnus"] as const;
 export type SearchLocation = (typeof SEARCH_LOCATIONS)[number];
 
 const LOCATIONS_BY_SOURCE: Readonly<Record<string, readonly SearchLocation[]>> = {
@@ -61,6 +64,8 @@ const LOCATIONS_BY_SOURCE: Readonly<Record<string, readonly SearchLocation[]>> =
   graph: ["directory"],
   imputation: ["directory"],
   content: ["files", "messaging"],
+  [MESSAGING_SOURCE]: ["messaging"],
+  [TASKS_SOURCE]: ["tasks"],
   [MAGNUS_CONVERSATIONS_SOURCE]: ["magnus"],
 };
 
@@ -77,6 +82,8 @@ const SOURCE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   content: "content",
   [PRIOR_FIRM_HISTORY_SOURCE]: "prior-firm history",
   [NICKNAME_EQUIVALENCE_SOURCE]: "nickname equivalents",
+  [MESSAGING_SOURCE]: "calls, texts and email",
+  [TASKS_SOURCE]: "tasks",
   [MAGNUS_CONVERSATIONS_SOURCE]: "Magnus conversations",
 };
 
