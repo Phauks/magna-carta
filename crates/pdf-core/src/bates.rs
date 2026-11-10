@@ -158,6 +158,9 @@ pub struct BatesRange {
 /// Errors that can occur during stamping.
 #[derive(Debug)]
 pub enum BatesError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// Input rejected by the decompression-bomb guard (oversize or a bomb).
     Rejected,
     /// The input bytes could not be parsed as a PDF.
@@ -459,6 +462,9 @@ pub fn stamp_document(
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| BatesError::Rejected)?;
     let mut doc = lopdf::Document::load_mem(bytes).map_err(|_| BatesError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(BatesError::Encrypted);
+    }
 
     // Collect page ObjectIds in reading order (sorted by 1-based page number).
     let mut pages: Vec<(u32, lopdf::ObjectId)> = doc.get_pages().into_iter().collect();

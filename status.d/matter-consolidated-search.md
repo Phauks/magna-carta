@@ -11,7 +11,7 @@ load-profile: done
 tested: done
 branch: claude/matter-consolidated-search-yba72d
 active-work:
-next: file contents, once the search Container is deployed; the fee source is blocked on the fee store existing at all
+next: the firm's switch for file indexing and the search worker's deploy, which are what the file contents source waits on; the fee source is blocked on the fee store existing at all
 link-spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
 link-plan:
 adrs:
@@ -26,6 +26,8 @@ Eight sources answer (files by name, time, costs, billing, parties, calendar, no
 
 **The load-profile gate has run, and it found one real defect.** The measurement asks the question that decides whether the search can grow: not whether a substring match is fast — it cannot be, and no index makes it so — but whether the MATTER NARROWING is index-served, so the scan reads one case's rows rather than the firm's. The parties source, written as two LEFT JOINs onto the directory, planned a full scan of every entity the firm holds; it now drives from `matter_party` and resolves each name by primary key. Two sources materialise a sort (notes on a computed occurrence date, parties on a case-folded name); both are recorded rather than waved through, because the rows being sorted are rows the scan has already read and bounded by one matter.
 
-**Built is in-progress rather than done, and what remains is no longer ordinary work.** Fees cannot be built at all: a fee is designed as its own dated work-in-progress record and nothing on the wire carries one, so there is nothing to search rather than a source nobody wrote. The matter-asset register is the mirror case — the query is written and reviewed, and it is unregistered because the strip's regrouping left the register with no screen for a hit to land on. File contents wait on a deploy. Everything the schema can answer today, answers. File **contents** are a separate wait — the engine, its write pipeline and its compaction are built, and the port answers `engine-not-implemented` until the search Container is deployed.
+**Built is in-progress rather than done, and what remains is no longer ordinary work.** Fees cannot be built at all: a fee is designed as its own dated work-in-progress record and nothing on the wire carries one, so there is nothing to search rather than a source nobody wrote. The matter-asset register is the mirror case — the query is written and reviewed, and it is unregistered because the strip's regrouping left the register with no screen for a hit to land on. Everything the schema can answer today, answers.
+
+**File contents are a source since 2026-11-10, and wait on a deploy to answer.** `file-contents` is a second source on the Files section. It asks the keyword engine for the matter's own corpus with a query built from the reader's parsed words, then re-reads the files the engine named from the firm's `file` table under the matter binding and the visibility predicate, so the index only proposes. A result names the file and the pages matched and carries no excerpt. Until the search worker is deployed and bound the group says searching inside files is not switched on yet; where a firm has not turned indexing on it says that; and where the service fails it says it could not be searched. None of them reads as no matches.
 
 Four owner recommendations stand, each reversible and none of them reaching the registry or the route — the snippet within a matter, the `search:matter` key and its broad seeding, per-source rather than global "include deleted", and saying so when a source is withheld.

@@ -38,6 +38,9 @@ use crate::guard::{guard_input, GuardLimits};
 /// that, as with every other engine operation.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SignError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// The input is not a PDF lopdf can parse.
     Parse,
     /// The input was rejected by the decompression-bomb guard (oversize or a bomb).
@@ -173,6 +176,9 @@ pub fn prepare_signature(
 ) -> Result<PreparedSignature, SignError> {
     guard_input(input, &GuardLimits::default()).map_err(|_| SignError::Rejected)?;
     let doc = Document::load_mem(input).map_err(|_| SignError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(SignError::Encrypted);
+    }
 
     // The offset of the previous cross-reference section — read from the trailing `startxref`
     // in the bytes themselves rather than from `Document::xref_start` (lopdf tracks that only

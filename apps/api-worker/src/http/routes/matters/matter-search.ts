@@ -5,9 +5,11 @@ import { runMatterSearch } from "@magna-carta/matter-search/run";
 import type { MatterSearchAnswer } from "@magna-carta/matter-search/types";
 import { matterSearchSources } from "@magna-carta/matter-search/sources";
 import type { Bindings } from "../../../bindings.ts";
+import { matterFileContentsSearcherFor } from "../../../search/matter-file-contents.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointPermissions,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
@@ -89,7 +91,19 @@ const SearchGroup = z
     // without ever claiming a total nobody counted.
     hasMore: z.boolean(),
     // Why this source contributed nothing, or null when it answered. Absence is always explained.
-    skipped: z.enum(["permission", "query-too-short", "engine-unavailable"]).nullable(),
+    // Three of these belong to a source that reads an index outside the database:
+    // `engine-not-connected` is a deployment that does not have the index's service yet,
+    // `engine-unavailable` is that service failing to answer, and `not-indexed` is a firm that has
+    // not turned the index on.
+    skipped: z
+      .enum([
+        "permission",
+        "query-too-short",
+        "engine-unavailable",
+        "engine-not-connected",
+        "not-indexed",
+      ])
+      .nullable(),
   })
   .openapi("MatterSearchGroup");
 
@@ -210,6 +224,7 @@ export function registerMatterSearchRoutes(
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
       const { q, in: scope, limit, includeDeleted } = c.req.valid("query");
+      const logger = c.get("logger");
       const answer = await runMatterSearch({
         database: firm.firmDatabase,
         registry: matterSearchSources,
@@ -225,6 +240,14 @@ export function registerMatterSearchRoutes(
         permissions: requireChokepointPermissions(c),
         limit: limit ?? DEFAULT_HITS_PER_SOURCE,
         includeDeleted: includeDeleted === "true",
+        // The words inside the matter's files are in an index outside the firm's database. The
+        // searcher costs nothing to build; it reads the firm's setting and asks the index only when
+        // the file contents source is among those selected.
+        fileContents: matterFileContentsSearcherFor(
+          c.env,
+          requireChokepointFirmId(c),
+          logger === undefined ? {} : { logger },
+        ),
       });
       return c.json(wireAnswer(answer), 200);
     },

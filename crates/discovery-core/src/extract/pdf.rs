@@ -104,6 +104,8 @@ fn map_error(error: PdfError) -> DiscoveryError {
         // The PDF engine's own bomb guard refused the input.
         PdfError::Rejected => DiscoveryError::LimitExceeded,
         PdfError::Parse | PdfError::Render | PdfError::PageOutOfRange => DiscoveryError::Corrupt,
+        // Locked with a password nobody supplied: a password can be asked for.
+        PdfError::Encrypted => DiscoveryError::PasswordProtected,
     }
 }
 

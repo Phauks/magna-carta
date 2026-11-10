@@ -11,7 +11,7 @@ load-profile: in-progress
 tested: done
 branch: claude/project-thread-rixee1
 active-work: docs/active-work/claude/project-thread-rixee1.md
-next: the Search and Indexing status screen, then the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one
+next: the switch that turns file indexing on for a firm, then the Search and Indexing status screen and the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
 adrs:
@@ -26,4 +26,6 @@ One structure for everything the platform searches, approved by the owner on 202
 
 **Two limits are recorded instead of solved.** A ranked read scores every match, so its cost grows with how many records contain the word; the search across matters has to bound that before it ships. And the fill runs inside the migration, which is right at today's sizes and should become a batched rebuild before a firm with around a million indexed records applies one.
 
-**Not built:** the status screen, the search across matters, the conflicts content search reading the index (its own stream), file contents (behind the search engine's deploy), and the discovery review screens (the coding panel waits on owner flags P1 and P3).
+**Built ahead of its place in the order, at the owner's request on 2026-11-10: matter search reading the file contents index.** A second source on the Files section asks the keyword engine for the matter's own corpus and answers with the files whose text matches and the pages they matched on. The engine names candidates and the firm's `file` table decides, under the same matter binding as every other source. It answers nothing in production until the search worker is deployed and bound and a firm turns indexing on, and it says which of those is missing.
+
+**Not built:** the firm's switch for file indexing, the status screen, the search across matters, the conflicts content search reading the index (its own stream), the kept text that would let a file result quote its sentence, the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).

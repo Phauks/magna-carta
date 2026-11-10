@@ -161,6 +161,51 @@ mod tests {
         assert!(absent.is_empty(), "the reversed phrase must not match");
     }
 
+    fn matching(split: &[u8], query: &str) -> Vec<String> {
+        let mut found: Vec<String> = query_split(split, query, 10)
+            .unwrap()
+            .into_iter()
+            .map(|hit| hit.document_id)
+            .collect();
+        found.sort();
+        found
+    }
+
+    #[test]
+    fn the_query_text_the_application_builds_from_a_search_box_means_what_it_says() {
+        // The application never passes a reader's text through as query syntax. It rebuilds the
+        // question from the words alone (packages/search/src/keyword-query.ts): every word required,
+        // each one quoted so it is a literal, and the word still being typed marked as the start of a
+        // word. This pins that the engine reads that text the way the application means it, because
+        // the two are written in different languages and nothing else compares them.
+        let split = build_split(&corpus()).unwrap();
+
+        // Every word is required: the two words are in different documents, so nothing holds both.
+        assert!(matching(&split, "+\"buyer\" +\"environmental\"").is_empty());
+        assert_eq!(matching(&split, "+\"buyer\" +\"premises\""), ["doc-3"]);
+
+        // The last word may be unfinished, alone or after others.
+        assert_eq!(matching(&split, "+body:/indemn.*/"), ["doc-1"]);
+        assert_eq!(
+            matching(&split, "+\"environmental\" +body:/liab.*/"),
+            ["doc-2"]
+        );
+        assert_eq!(matching(&split, "+body:/buy.*/"), ["doc-1", "doc-3"]);
+        // A finished word is a whole word: "buy" is not in any document.
+        assert!(matching(&split, "+\"buy\"").is_empty());
+
+        // A quoted run is adjacent and in order; its last word may be unfinished too.
+        assert_eq!(matching(&split, "+\"prior owner\""), ["doc-2"]);
+        assert!(matching(&split, "+\"owner prior\"").is_empty());
+        assert_eq!(matching(&split, "+\"prior own\"*"), ["doc-2"]);
+
+        // A word with punctuation inside it is the run of its pieces, as the index cut it.
+        assert_eq!(matching(&split, "+\"as is\""), ["doc-3"]);
+
+        // Case does not matter.
+        assert_eq!(matching(&split, "+\"ENVIRONMENTAL\""), ["doc-2"]);
+    }
+
     #[test]
     fn a_query_spanning_two_splits_merges_by_score() {
         // Two independently-built splits (as two ingest batches would produce) answer one query, merged
