@@ -18,7 +18,8 @@
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/search": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",

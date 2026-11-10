@@ -237,6 +237,12 @@ describe("schema conformance (fitness functions)", () => {
       "ai_search_feed_object.version",
     ]);
 
+    // Tables keyed by an INTEGER because a full-text table is keyed by one. A full-text table's rows
+    // are addressed by row id and nothing else, so the ordinary table that says what each of its rows
+    // IS has to carry that same integer as its key. It is never a handle: nothing outside the index
+    // refers to it, no route returns it, and a rebuild assigns new ones.
+    const integerRowIdentifierTables = new Set(["record_text_entry"]);
+
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
       if (compositeKeyTables.has(config.name)) {
@@ -256,7 +262,9 @@ describe("schema conformance (fitness functions)", () => {
       expect(primaryColumns[0]?.name, config.name).toBe(
         naturalSinglePrimaryKeyNames[config.name] ?? "id",
       );
-      expect(primaryColumns[0]?.getSQLType(), config.name).toBe("text");
+      expect(primaryColumns[0]?.getSQLType(), config.name).toBe(
+        integerRowIdentifierTables.has(config.name) ? "integer" : "text",
+      );
     }
   });
 
