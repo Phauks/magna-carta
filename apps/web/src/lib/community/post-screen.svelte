@@ -142,7 +142,7 @@
           <DefinitionList.Row term="Status">
             <Badge {...statusBadgeAttributes(statusKey)} caps>{statusEntry(statusKey).label}</Badge>
           </DefinitionList.Row>
-          <DefinitionList.Row term="Product Area">{productAreaLabel(post.category)}</DefinitionList.Row>
+          <DefinitionList.Row term="Topic">{productAreaLabel(post.category)}</DefinitionList.Row>
           {#if post.kind === "request"}
             <DefinitionList.Row term="Votes">
               {#if post.voteCount === null}
