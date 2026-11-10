@@ -110,6 +110,16 @@ export interface AppliedEffects {
   readonly refusal: string | null;
 }
 
+/**
+ * Which half of the Effects panel a change came from, where the caller knows.
+ *
+ * A change to the microphone says nothing about the background, so it must never move the blur — and
+ * a press on a background row says something about the background even where it names the background
+ * the member had already asked for, because something outside the product (the machine's own camera
+ * settings) may have moved the blur since, and the row the member pressed is the one that is not lit.
+ */
+export type EffectsChange = "background" | "microphone";
+
 /** A capture as the stage hands it on: what to publish, what was applied, and the acts it owns. */
 export interface EffectedCapture {
   /**
@@ -120,8 +130,16 @@ export interface EffectedCapture {
   readonly stream: MediaStream;
   /** What the browser reported once the effects were asked for. */
   readonly applied: AppliedEffects;
-  /** Change an effect without capturing again, where the effect allows it, and read the result. */
-  update(settings: MediaEffectSettings): Promise<AppliedEffects>;
+  /**
+   * Change an effect without capturing again, where the effect allows it, and read the result.
+   *
+   * The blur is touched only where the BACKGROUND is what changed — the background asked for differs
+   * from the one asked for last, or the change says it came from a background row — and never
+   * because the blur the camera reports differs from the request. The camera's report is not the
+   * member's: a blur the machine turned on is one the member never touched, and turning noise
+   * reduction off must not turn it off with it.
+   */
+  update(settings: MediaEffectSettings, change?: EffectsChange): Promise<AppliedEffects>;
   /** Mute at the SOURCE as well as the output, so a camera light actually goes out. */
   setSourceEnabled(kind: "audio" | "video", enabled: boolean): void;
   /** Stop every track this stage owns, including any it captured itself. */
@@ -325,13 +343,19 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
       // asked for here, and only where somebody chose it: an untouched camera is left untouched.
       const firstRefusal = settings.background === "blur" ? await askForBlur(true) : null;
       let applied = read(firstRefusal);
+      /** What the member last asked for, which is what a change is measured against. */
+      let requested = settings;
 
       return {
         stream,
         get applied(): AppliedEffects {
           return applied;
         },
-        async update(next): Promise<AppliedEffects> {
+        async update(next, change): Promise<AppliedEffects> {
+          const backgroundChanged =
+            change === "background" ||
+            (change === undefined && next.background !== requested.background);
+          requested = next;
           let refusal: string | null = null;
           const [microphone] = stream.getAudioTracks();
           if (acceptsConstraints(microphone)) {
@@ -342,7 +366,9 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
             }
           }
           const wantsBlur = next.background === "blur";
-          if (applied.blur === "on" || applied.blur === "off") {
+          // Measured against what the camera reports as well, so a background row pressed for the
+          // blur the camera already has asks for nothing.
+          if (backgroundChanged && (applied.blur === "on" || applied.blur === "off")) {
             const blurred = applied.blur === "on";
             if (blurred !== wantsBlur) refusal = (await askForBlur(wantsBlur)) ?? refusal;
           }

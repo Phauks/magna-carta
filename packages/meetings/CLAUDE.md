@@ -128,8 +128,9 @@ package enforces, which is why nothing here has a redaction step.
   routing service are the Worker's (`apps/api-worker/src/meetings/`). Nothing in this package knows
   whether meetings are configured at all — that is a fact about bindings, so the route carries it
   beside a summary rather than inside one.
-- **Recording.** Server-side media processing and a consent gate on the jurisdiction profile, neither
-  of which is basic. Nothing here is shaped around it.
+- **The recording's audio and its sink.** The recorder, the socket the routing service dials and the
+  announcement are the Worker's (`apps/api-worker/src/meetings/`); this package holds the recording's
+  RECORD and the arithmetic over a frame — see the section on recording below.
 
 ## Authority over a meeting is a grant on the meeting, not a capability of a seat
 
@@ -279,7 +280,21 @@ already answered or upvoted — otherwise leaving and rejoining is a second vote
 
 **An answer names its option as a pair.** `(poll_id, option_id)` references the option table's own
 unique `(poll_id, id)`, so an answer to another poll's option fails at the foreign key whoever writes
-it; `assertAnswerChoices` gives the member the reason first.
+it; `assertAnswerChoices` gives the member the reason first. **`max_choices` is held by that
+validator and the one-respondent guard, never by the database**: on an anonymous poll the answer
+rows carry no participant, so no CHECK or index can count one person's rows — the respondent row is
+written once per participation and the validator bounds what that one participation may contain.
+
+**The idempotency record is a third table, and it is held to the same split.** The answer route
+(`apps/api-worker/src/http/routes/communications/meeting-polls.ts`) stores the poll's handle and nothing else as the
+replayable body, and its fingerprint is over the path alone: a digest of a body that is one of ten
+choices is the choice, and two consecutive tallies differ by exactly it.
+
+**Two rules on the queue that look like small choices.** An upvote on a question that has been taken
+back is refused (`meeting-question-redacted`) — withdrawing one is not, so a signal can always be
+cleared. And a withdrawal's audit row names the stay the upvote was CAST from, which is the stay the
+`upvoted` row beside it names, not whichever stay the member holds when they take it back. `since`
+without `sinceId` on the queue is inclusive (`asked_at >= ?`) and the caller drops ids it holds.
 
 **Every host act asks the grant.** Opening, closing, reading who answered what, marking a question
 answered — and the host half of taking a question back — go through `requireHostGrant` or
@@ -347,3 +362,234 @@ event is refused as withdrawn at the summary read and at the arrival — the hos
 may never have opened the Guests panel — and the refused arrival carries its own audit row
 (`meetings.guest.arrivalRefused`) on `GuestNoLongerOnTheEventError`, which the route commits before
 answering. The summary writes nothing, because opening the link is a read.
+
+## A recording is a record of what it captured and who was told
+
+`recording-types.ts` / `recording-statements.ts` / `recording-service.ts` are the recording's trio,
+`settings.ts` holds its four firm switches (all default off — recording, captions, summaries — and the
+track ceiling, written only by the Worker's `routes/meeting-settings.ts`), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
+envelope plus the mono fold, the silence and the sequence-gap arithmetic. `pcm-mix.ts` is the compose
+step's mixer — tracks at their own offsets, summed in 32 bits and clamped ONCE, a window at a time so
+memory never grows with the recording — and `wav.ts` the 44-byte canonical header for mono 48 kHz
+16-bit, written at the head of the first part because the length is known before mixing begins. The design is
+[`docs/specs/2026-09-20-meetings-recording-and-transcription-design.md`](../../docs/specs/2026-09-20-meetings-recording-and-transcription-design.md).
+
+Seven rules travel with it.
+
+**The consent record is what the server delivered, not what a browser rendered.** The owner's ruling
+made the announcement the consent mechanism, so `meeting_recording_notice` holds a row per stay per
+fan-out — `start`, `arrival`, `stop` — written by the ROOM from the sockets it actually handed the
+frame to (`recordingNoticeEffect`, one batch and ONE audit row with the count). This package re-reads
+no stay for it: the room is the only witness to a delivery. A reconnect is another arrival and another
+row. The start route checks the room's answer before anything is captured: fewer notices than
+recipients is somebody told with no record of it, and the start fails rather than recording.
+
+**Every stay is named by kind and by value**, on chat's precedent: `participant_kind` (`member`,
+`guest`, `attendee`), `participant_id` with no foreign key, and a nullable `user_id`, on both the track
+and the notice. A guest is on the consent record, and has a track, exactly as a member does.
+
+**The recording's vocabularies are whole from the first migration.** `meeting_recording` is a parent
+table, so every state (`recording`, `composing`, `filed`, `failed`, `abandoned`) and every stop reason
+the later slices write is in its CHECK now; and running means not stopped, in both directions, held by
+`meeting_recording_stopped_shape_check`. One recording runs per room, held by a partial unique index on
+the main room (`breakout_id IS NULL`); `isRunningRecordingConflict` lets the route answer the loser of a
+race as `meeting-recording-already-running`.
+
+**Who may.** Starting is `meetings:record` (the route's chokepoint) AND a live grant on this meeting
+(the service asks it, `meeting-not-host`): the key says the firm lets this member create a recording at
+all, the grant says they are running THIS room. It refuses a firm event (no matter to file into), an
+ended meeting, a running recording and a room past the ceiling. Stopping is the key — labelled `member`
+— or a live grant on this meeting — labelled `host`; the route passes `mayRecord` and the service asks
+the grant. Every ending of a meeting stops its recording in the same batch: the host's end
+(`stopRecordingForMeetingEnd`) and a cancelled event's closing (`endScheduledMeetingForCancelledEvent`),
+both `meeting-ended`. A track is never dropped from the record: one past the ceiling, or whose
+socket never came back, is a `lost` row, and a lost track stays lost through every later settle.
+
+**A failure is recorded once, and a start that failed says so.** A start the room or the recorder
+could not carry out stops as `start-failed` (`stopRecordingAfterStartFailure`), never `sink-lost` —
+one is a recording that never began, the other a meeting whose audio went away. Two parts of the
+Worker can give up on one recording, and `failRecordingStatement` lets only the first move it to
+`failed`; `recordingFailedAuditStatement` is written only when the row carries ITS Error ID afterwards,
+so the log says it failed once. A stop the recorder never acknowledged leaves the state alone and puts
+the Error ID on the `composing` row (`recordRecorderUnreachableStatement`); the recorder settles itself
+later, and an Error ID on a row that is not `failed` names a fault on the way, never the outcome.
+
+**Composing and filing are the platform's acts on its own record, and every one is guarded.** The
+compose cursor is five columns on `meeting_recording` (`compose_*`): the begin is guarded on no upload
+session yet and commits with the session, the advance on the cursor it started from (two deliveries of
+one message never both advance it), the filing on `composing`, and the sweep's abandonment on
+`recording` — each with its own exported guard label so a caller tells "somebody got there first" from a
+fault. A sixth column, `compose_claimed_at`, is the window's CLAIM (`claimComposeWindowEffect`,
+`COMPOSE_CLAIM_GUARD`): a lease stamped on the cursor it read, released by the window's own progress, so
+two consumers never compose one window; progress also resets `compose_attempts`, and a stall is measured
+from the latest of the stop, the claim and the progress. `failComposeEffect` is guarded too
+(`FAIL_COMPOSE_GUARD`), because the Worker commits the upload session's abort beside it and a failure that
+lost the race to a filing must not abandon a filed document's version. `filed` brings `captured_seconds`
+down to the composite's own length, never up. Staging keys are cleared in statements of at most
+`STAGING_KEYS_PER_STATEMENT` handles, because a Durable Object's SQLite binds at most a hundred.
+
+**A staged track lands stretch by stretch.** `meeting_recording_track.segments` (JSON of
+`MeetingRecordingTrackSegment[]`) names, for each stretch of the staged object, the staged sample it
+begins at, the instant it was heard, and — for a stretch a departure closed with padding — where its
+audio ends; `placeTrackSegments` in `recording-types.ts` is the one placement both the recorder (what was
+captured) and the compose (where it lands) use. A null column is one stretch from `first_frame_at`.
+
+**The WAV-length policy is decided** (`WAV_SIGNED_READER_MAXIMUM_DATA_BYTES` in `wav.ts`): a recording
+past the signed 32-bit boundary (about 6.2 hours) is still ONE canonical WAV, whole, never capped or
+split; only past the unsigned limit is a composite refused. `abandoned` is the sweep's state for a recording whose recorder is gone: open tracks are `lost`,
+nothing is composed. The filed, abandoned and failed audit rows carry handles and counts only — never the
+document's name, which is the event's title. The ceiling at the start counts STAYS, as the recorder does.
+
+**Its refusals are a vocabulary of their own** (`MeetingRecordingRefusedError` in `validation.ts`), on
+the poll's precedent, so the room's one switch over `MeetingValidationCode` is not widened by codes only
+the recording routes raise. Reaching the meeting at all still raises `meeting-unknown-event`.
+
+## A transcript is content, made per track, and it settles the staging
+
+`transcript-types.ts` / `transcript-statements.ts` / `transcript-service.ts` are the transcript's trio, and
+four pure modules do its arithmetic: `speech-spans.ts` (where somebody is talking, from a track's own
+energy against its own noise floor, with a pre-roll and a hangover, cut into thirty-second pieces at a
+pause), `resample.ts` (48 kHz to the speech model's 16 kHz behind a windowed-sinc anti-alias filter),
+`transcript-assembly.ts` (a piece's lines placed on the recording's timeline, the gap lines, the reading
+order, the prompt tail) and `webvtt.ts` (the filed document, with every piece of somebody else's text made
+safe for where it goes). The Worker's `transcript-consumer.ts` drives them; the design and its amendments
+(A34 onward) are in the recording spec.
+
+Seven rules travel with it.
+
+**The words are CONTENT, and the second store of it this package holds after chat.**
+`meeting_transcript_segment.text` is what was said in a privileged conversation, attributed. No statement
+here logs it, no audit row carries it (`meetings.transcript.ready` and `.failed` are handles and counts),
+and the header row `meeting_transcript` holds none — it is in `NO_PII_TABLES`, the segment's text and stay
+are in `PII_TABLES`.
+
+**The speaker is the TRACK, by value.** A line names the stay its track was (`participant_kind`,
+`participant_id`), the member behind it (`user_id`, null for a guest) and the track itself; the name is read
+off the stay when the transcript is read or filed (the member's display name, or the name a guest typed at
+the door), never stored. A diarizing model's "speaker 0" is not a person a record can name.
+
+**A pending transcript's lines are not in order, and nothing reads them.** Each line is written with a
+NEGATIVE provisional ordinal in the order it was written, because one track is transcribed before the next
+and a line's place among the others is known only at the end. `assembleTranscriptStatements` writes the gaps,
+renumbers every line chronologically (start, end, handle — `compareLines`) in ONE `UPDATE … FROM` over a
+window function, and records the filing's session, in one guarded batch; negative and final ordinals never
+collide, so the unique index never refuses a line on its way to its place. `listTranscriptSegments` reads
+only ordinals from zero up.
+
+**Every act that can lose a race is guarded, with its own label**: the claim (on the cursor and an expired
+or absent lease), each piece's progress (on the claim and the cursor it moved from — two consumers never
+write one piece), a model's refusal counted (on the claim), the filing's begin (on no session yet and
+the claim), `ready` and `failed` (both on `pending`). The audit row beside `failed` is written only by the failure the record keeps, because the
+guarded write rolls the whole batch back.
+
+**The staging is the transcript's until it settles — and a failure keeps it when a retry could still
+use it.** A filed recording keeps its staged tracks because the transcript reads them;
+`listExpiredStagingTracks` releases a filed recording's staging a grace after its transcript became
+`ready`, and only after the seven-day unsettled retention once it `failed` (a model that stayed down,
+or a stall, leaves the only per-speaker copy where a retry can read it; a refusal no retry can change
+released it at once). `hasRecordingsToTend` counts a pending transcript, so the sweep sees one that
+stopped moving. `failTranscriptStatement` is guarded on the upload session the failure READ, so a
+filing begun in between refuses the failure rather than being left open, and the sweep's on the claim
+and progress it judged stalled.
+
+**The read follows the filed document, and is audited.** The segment rows are a second copy of the
+WebVTT document's words. The route serves them only while the transcript's filed version exists, is not
+in the trash and is not held by the scan (`transcriptLinesWithheldBy` over `recording-document-state.ts`'s
+reading of that version, gated on the file's own matter); otherwise it answers the header with
+`linesWithheld` and no lines. Every page of lines served writes one `meetings.transcript.read` row
+(`transcriptReadAuditStatement`) — identifiers and counts, never a word. **Nothing deletes the segments
+yet when the document is purged**, and that is a known gap rather than an oversight: the file manager has
+no purge or deletion hook a subsystem can join — a delete is soft and destroys only the working copy, and
+`purgeableVersionObjects` is called by nothing until the retention-policy engine is built. Until then the
+gate above keeps a trashed or purged document's words off the read; the engine, when built, must delete a
+purged transcript version's segments in the same act. A row added that reads the words anywhere else
+is a second door past this gate.
+
+**No transcript text reaches a sink, and a scan holds it.** `test/no-transcript-text-escape.test.ts`
+(`@repo-wide-fitness`) finds every first-party module that reaches the words — by what it imports or
+names — and fails when one hands the words, a speaker's name, the model's prompt or the document's name
+to the failure pipeline, a logger, an audit builder, an Error or a problem body. It reads names, so a
+value laundered through a variable named for nothing stays a review question; a new sink belongs in its
+`SINKS` list.
+
+## A summary is the platform's characterization, kept as rows and held to the transcript's document
+
+`summary-types.ts` / `summary-statements.ts` / `summary-service.ts` are the summary's trio, and two pure
+modules hold what reaches and leaves the model: `summary-prompt.ts` (the platform-authored instructions,
+the `HH:MM:SS Name: text` line, the participant list, the cut into parts and the arithmetic that bounds
+it) and `summary-parse.ts` (the answer read into the summary and its action items, or refused). The
+Worker's `summary-consumer.ts` drives them; the design and its amendments (A57 onward) are in the
+recording spec.
+
+Six rules travel with it.
+
+**The text is DERIVED CONTENT and WORK PRODUCT.** `meeting_summary.summary_text` and
+`meeting_summary_action_item.text` are a reasoning model's account of a privileged conversation. No
+statement here logs them, no audit row carries them (`meetings.summary.*` rows are handles, counts,
+closed labels and model ids), and the PII registry classes both as content. The repo-wide scan in
+`test/no-transcript-text-escape.test.ts` reads every module that reaches them. It is never filed as a
+document: it is our characterization, not the thing that happened, and on the matter's document list it
+would read as evidence.
+
+**The answer is a strict structure, never interpreted.** `summary-prompt.ts` documents the one JSON object
+the model is asked for, and `summary-parse.ts` reads exactly that or refuses with a closed reason —
+nothing is repaired, because a summary whose shape was guessed is one whose obligations were guessed.
+Both read the same limits from `summary-prompt.ts`, so the request and the reading cannot drift.
+
+**Two facts are never the model's word.** An action item's OWNER is a member only on an exact match to a
+participant's name as the transcript read gives it (`exactOwner`): a guest, a near match or a name two
+members share leaves it unowned. A DUE DATE is kept only when it is a real civil date and the model quoted
+words found inside ONE spoken line (what somebody said, never the `HH:MM:SS Name:` before it) with no clock
+time in them, naming the date's day and month one way only — the month by name, or both in figures that
+cannot be read the other way round — and its year, or a year within one of the summary's (`statedDueOn`):
+"next Friday", "the 14th" and "3/12" are never dates.
+
+**The bound is the model's context, reckoned so it cannot undercount.** `estimatedTokens` counts a
+non-ASCII byte as a whole token (a byte-level tokenizer can make no more) and an ASCII byte as two thirds
+of one; `summaryPartTokenBudget` takes the chosen model's `contextWindowTokens`, less the answer's room
+(16,384, reasoning included), the instruction's reserve and the participant list; `splitTranscriptIntoParts`
+cuts at line boundaries and refuses past `SUMMARY_PARTS_MAXIMUM`. A long transcript's parts are combined
+in PROSE only (`readCombinedSummaryAnswer`, `settlePartedSummary`): each part's action items are kept as it
+gave them, so a summary holds at most `SUMMARY_RUN_ACTION_ITEMS_MAXIMUM`. The wall-clock bound is enforced
+by the Worker's consumer, not estimated here.
+
+**Every write that can lose a race is guarded, with its own label**: the claim (on `pending`, an expired
+or absent lease, and a `retry_at` that is due), `ready`, `refused`, `failed`, a model's refusal counted
+and a run restarted (each on the claim), a re-run (on the state and instant it read, so two requests start
+one run) and an action item's task (on its having none). One summary per transcript, held by a unique
+index (`isSummaryPerTranscriptConflict`); a re-run rewrites it in place and deletes its action items with
+the text they were read from — a task already made of one is the task subsystem's record and stays. The
+other way round, the task subsystem's delete composes `clearActionItemTaskStatement` into its own batch,
+so deleting a task made of an item leaves the item untasked rather than refusing on its enforced
+reference.
+
+**The read follows the transcript's filed document.** A summary is reached through its transcript, its
+recording and its meeting, and its words are served only while the transcript's lines would be
+(`transcriptLinesWithheldBy`); nothing here deletes the rows when that document is purged, on the
+transcript's terms (A55). An action item becomes a task through the task subsystem's `createMatterTask`
+and no other path.
+
+## A live caption is the same words heard a moment earlier, and nothing here keeps one
+
+`caption-sessions.ts` is the whole of what this package holds for live captions: arithmetic and nothing
+else — no statement, no table, no row. The Worker's `meeting-captioner.ts` and `room/room-captions.ts`
+drive it; the design and its amendments (A81 onward) are in the recording spec.
+
+Three rules travel with it.
+
+**Every number is stated once, with its reason, here.** When a quiet speaker's session closes
+(`CAPTION_SILENCE_CLOSE_MILLISECONDS`, three seconds — the single largest cost decision in captions),
+when a session without its audio gives up, when a stalled stream is kept alive, how many sessions a
+meeting holds (`CAPTION_SESSION_CEILING`, a cost bound and not a memory one), how much audio waits while
+a stream opens, how often one speaker's interim may go out, and the room-wide budget every caption
+spends from (`CAPTION_FRAME_BUDGET_PER_SECOND`, half what a browser may itself send). The budget and the
+interim window are pure functions of the instants a caller hands in; nothing here reads a clock.
+
+**A final is never held back.** `spendCaptionFrameBudget` lets a final through whether or not a token is
+left, and an interim waits; nothing later restates a final, and an interim is restated by the next guess.
+
+**The words a caption carries are made safe for every screen** (`captionText`): one line, no control,
+bidirectional or invisible characters, cut at `CAPTION_TEXT_MAXIMUM_CHARACTERS` characters as a reader
+counts them, never inside one. The caption is never stored, so the repo-wide scan in
+`test/no-transcript-text-escape.test.ts` reads every module that imports this one or names a caption's
+shape, on the transcript's terms.

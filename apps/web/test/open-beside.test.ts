@@ -25,7 +25,13 @@ function sourceFiles(directory: string): string[] {
 
 describe("where a destination opens beside the reader", () => {
   it("has a closed set of reasons, each a fact about the destination", () => {
-    expect(OPEN_BESIDE_REASONS).toEqual(["external", "file", "session", "unsaved-work"]);
+    expect(OPEN_BESIDE_REASONS).toEqual([
+      "external",
+      "file",
+      "session",
+      "unsaved-work",
+      "live-meeting",
+    ]);
   });
 
   it("isolates the new page from this one, whichever way it opens", () => {

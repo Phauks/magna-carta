@@ -17,18 +17,30 @@
    * answers the join with a 503, and that is rendered through the same failure surface as any other
    * refusal: the member learns that the firm has not turned meetings on, rather than watching a
    * screen that never fills.
+   *
+   * A RECORDING IS ANNOUNCED, MARKED AND LISTED HERE, and lit by the room alone. The banner, the live
+   * region and the mark in the header are drawn from what the room announced to everybody, never
+   * from this member's own press; Record asks first, in the one panel the product asks acts in, and
+   * says that everybody, guests included, will be told. What has been recorded is a reading panel
+   * over the product's one grid, opened from the header.
    */
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { page } from "$app/state";
   import { beforeNavigate, goto } from "$app/navigation";
   import { createQuery } from "@tanstack/svelte-query";
   import { meetingsGetOptions } from "@magna-carta/api-client";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import FailureBand from "@magna-carta/design-system/failure-band";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { formatDate, formatTimeZoneAbbreviation } from "@magna-carta/design-system/formatters";
+  import {
+    formatDate,
+    formatInstant,
+    formatTimeZoneAbbreviation,
+  } from "@magna-carta/design-system/formatters";
   import { instantForCivilDateTime } from "@magna-carta/civil-time/time-zone";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -46,6 +58,7 @@
     PROTOCOL_MISMATCH_REASON,
     refusalStatement,
     REMOVED_REASON,
+    SOCKET_CLOSED_REASON,
     SUPERSEDED_REASON,
     type MeetingLobbyMode,
     type MeetingMedium,
@@ -65,6 +78,12 @@
   import MeetingGuestsPanel from "$lib/meetings/meeting-guests-panel.svelte";
   import { readWaitingParticipants } from "$lib/meetings/client/lobby.ts";
   import UsersRound from "@lucide/svelte/icons/users-round";
+  import Disc from "@lucide/svelte/icons/disc";
+  import RecordingMark from "$lib/meetings/screen/recording-mark.svelte";
+  import RecordingNotice from "$lib/meetings/screen/recording-notice.svelte";
+  import RecordingList from "$lib/meetings/screen/recording-list.svelte";
+  import { recordingRefusal } from "$lib/meetings/client/recording.svelte.ts";
+  import { guestAttendeeLabel } from "$lib/meetings/screen/meeting-host-labels.ts";
   import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
   import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
   import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
@@ -74,13 +93,13 @@
   import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
   import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
   import MeetingQuestionsPanel from "$lib/meetings/screen/meeting-questions-panel.svelte";
-  import { MeetingPolls } from "$lib/meetings/client/polls.svelte.ts";
+  import { MeetingPolls, membersWhoCanAnswer } from "$lib/meetings/client/polls.svelte.ts";
   import {
     MAX_MEETING_QUESTION_LENGTH,
     MeetingQuestions,
     type MeetingQuestionView,
   } from "$lib/meetings/client/questions.svelte.ts";
-  import type { MediaEffectSettings } from "$lib/meetings/client/media-effects.ts";
+  import type { EffectsChange, MediaEffectSettings } from "$lib/meetings/client/media-effects.ts";
   import { meetingEffectsPreference } from "$lib/meetings/meeting-effects-preference.svelte.ts";
   import { keepBackgroundImage } from "$lib/meetings/effects/background-image-store.ts";
   import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
@@ -103,6 +122,9 @@
     MAX_MEETING_MESSAGE_LENGTH,
     meetingPollSeams,
     meetingQuestionSeams,
+    meetingRecordingRoutes,
+    readMeetingRecordingNotices,
+    recordingIsConfigured,
     readMeetingHosts,
     readMeetingLobby,
     refusedAs,
@@ -110,6 +132,8 @@
     revokeMeetingHosting,
     setMeetingLobby,
     setMeetingLocked,
+    type MeetingRecordingNoticeView,
+    type MeetingRecordingView,
     type MeetingWrite,
   } from "$lib/meetings/meetings-api.ts";
   import type {
@@ -139,9 +163,9 @@
    * A change made in the Effects panel: remembered first, so the next capture on this machine asks
    * for it, and then asked of the tracks already running, whose answer is what the panel shows.
    */
-  function changeEffects(settings: MediaEffectSettings): void {
+  function changeEffects(settings: MediaEffectSettings, change: EffectsChange): void {
     effectsPreference.set(settings);
-    void client.changeEffects(settings);
+    void client.changeEffects(settings, change);
   }
 
   /**
@@ -192,6 +216,8 @@
   });
 
   const canHost = $derived(sessionPermissions.holds("meetings:host"));
+  /** Whether this member holds the right to record meetings at all. A grant on this room is apart. */
+  const canRecord = $derived(sessionPermissions.holds("meetings:record"));
 
   /*
    * The name this browser is drawn under. The join answers with it, which is the server's own
@@ -224,6 +250,16 @@
   });
 
   async function arrive(id: string, medium: MeetingMedium): Promise<void> {
+    /*
+     * The recording tone's audio is asked to run here too, before anything is awaited. The press
+     * that matters happened on the screen before this one: the calendar entry's Join or Start, or
+     * the Meetings page's Join, woke the page's one tone device while the press was in progress, and
+     * the room chimes on that same device. Arriving any other way — an address typed or a reload —
+     * Safari keeps the device suspended until the first press in the room below wakes it, and until
+     * something does, a recording is announced on screen and to a screen reader without the tone,
+     * never with a tone that plays late.
+     */
+    client.unlockRecordingSounds();
     const outcome = await joinMeeting(id);
     if (outcome.kind !== "ok") {
       joinFailure = outcome.failure;
@@ -538,6 +574,8 @@
    * attendance, and this browser cannot know whether the one it had was closed on the way down.
    */
   function rejoin(): void {
+    // A press, and the arrival it causes runs after it is over: the tone's audio is woken now.
+    client.unlockRecordingSounds();
     joinedMeetingId = null;
     // Asked for, so the departure that closed this screen's last stay stops standing in the way.
     departedMeetingId = null;
@@ -545,6 +583,15 @@
     // The door is read again on the way back in: this browser holds a list from a socket that is
     // gone, and the next welcome may be a stay that is waiting rather than a host's.
     doorReadUnder = null;
+  }
+
+  /*
+   * Any press in the room wakes the recording tone's audio, for the browser that would not let the
+   * arrival do it and for the phone that suspended it when a call came in. Only while this page holds
+   * a stay: after leaving, a press opens no audio device for a meeting that is over.
+   */
+  function unlockSoundsOnPress(): void {
+    if (joinedMeetingId !== null) client.unlockRecordingSounds();
   }
 
   function toggleSharing(): void {
@@ -675,7 +722,12 @@
    * them for the reason it holds the transcript — the client is what is torn down when a connection
    * drops, and a record does not go with it.
    */
-  const polls = new MeetingPolls(meetingPollSeams(() => meetingId));
+  /** The member reading the room, which is what tells a poll they opened from one they are asked. */
+  const viewerUserId = $derived(sessionPermissions.session?.user.id ?? null);
+  const polls = new MeetingPolls(
+    meetingPollSeams(() => meetingId),
+    () => viewerUserId,
+  );
   const questions = new MeetingQuestions(meetingQuestionSeams(() => meetingId));
   client.relayPollsTo(polls);
   client.relayQuestionsTo(questions);
@@ -684,18 +736,48 @@
   /** What is typed and not yet asked. Held by the screen, so closing the panel does not lose it. */
   let questionDraft = $state("");
 
-  /*
+  /**
+   * The socket went away underneath a member still on the room's screen: the surface that says the
+   * room stopped answering, with Rejoin beside it, and the grid and the controls still drawn.
+   */
+  const socketLost = $derived(
+    client.state === "failed" && client.failureReason === SOCKET_CLOSED_REASON,
+  );
+  /**
    * Followed while this browser is IN the room and never before, for the transcript's reason: a
-   * socket at the door has no stay the routes would accept an answer or a question from.
+   * socket at the door has no stay the routes would accept an answer or a question from. Kept
+   * through a lost socket, because the panels are still on screen, and let go on the way back in —
+   * the join that follows reads them again whole.
+   */
+  const followingRecords = $derived(client.state === "live" || socketLost);
+
+  /*
+   * Read whole once as the member arrives; the room's frames carry both from there, so nothing reads
+   * on a clock while the socket is up.
    */
   $effect(() => {
-    if (client.state !== "live") return;
+    if (!followingRecords) return;
     polls.start();
     questions.start();
     return () => {
       polls.stop();
       questions.stop();
     };
+  });
+
+  /*
+   * While the socket is down nothing relayed arrives, so each record reads on its slow backstop until
+   * it is back — and reads once on the way, which is what catches it up on the frames it missed.
+   */
+  $effect(() => {
+    if (!followingRecords) return;
+    if (socketLost) {
+      polls.noteSocketLost();
+      questions.noteSocketLost();
+    } else {
+      polls.noteSocketRestored();
+      questions.noteSocketRestored();
+    }
   });
 
   $effect(() => {
@@ -793,6 +875,138 @@
     }
     return "That did not reach this meeting's record.";
   });
+
+  /*
+   * RECORDING THE MEETING. Record and Stop are routes the client reaches through the screen's address;
+   * whether a recording is running, and the announcement of it, come off the room's frames alone.
+   */
+  client.recordThrough(meetingRecordingRoutes(() => meetingId));
+
+  /** Whether the confirmation before a recording starts is open. */
+  let recordConfirming = $state(false);
+
+  /**
+   * Who may press Record: the right to record AND a grant on this room. Who may press Stop: anybody
+   * holding a grant, because somebody running the room can already end the meeting and ending it
+   * stops the recording. Both are read off the roster, so a grant withdrawn mid-meeting takes the
+   * control with it on the next roster.
+   */
+  const mayStartRecording = $derived(canRecord && myRole !== null);
+  const mayStopRecording = $derived(myRole !== null);
+
+  /**
+   * Why this meeting cannot be recorded, where it cannot: a recording is kept on a matter and a firm
+   * event has none, or the firm has not switched recording on. Said in place of the control rather
+   * than discovered by pressing it; the route's own refusal still says the second where the summary
+   * in hand is older than the setting.
+   */
+  const recordingUnavailable = $derived.by(() => {
+    if (summary === null) return null;
+    if (summary.eventKind === "firm") return "A meeting on a firm event cannot be recorded.";
+    if (!recordingIsConfigured(summary)) return "Recording is not switched on for this firm yet.";
+    return null;
+  });
+
+  /**
+   * What a refused start or stop reads as, in the words of the route's own problem type, kept apart
+   * by act: a start is refused inside its confirmation, and a stop where the room's other refusals
+   * are said.
+   */
+  const recordingWriteRefusal = $derived.by(() => {
+    const failure = client.recording.writeFailure;
+    const act = client.recording.refusedAct;
+    if (failure === null || act === null) return null;
+    return { act, failure, ...recordingRefusal(failure, act) };
+  });
+
+  /** Whether the panel listing what has been recorded is open. */
+  let recordingsOpen = $state(false);
+
+  /**
+   * WHO WAS TOLD, AND WHEN: the consent record of one recording. A host's read, opened from a row of
+   * the list, because it names everybody who was in the room, guests included.
+   */
+  let noticesFor = $state<MeetingRecordingView | null>(null);
+  let noticesOpen = $state(false);
+  let noticeRows = $state<readonly MeetingRecordingNoticeView[]>([]);
+  let noticesCursor = $state<string | null>(null);
+  let noticesReading = $state(false);
+  let noticesFailure = $state<Failure | null>(null);
+
+  async function readNotices(recording: MeetingRecordingView, cursor: string | null): Promise<void> {
+    noticesReading = true;
+    const outcome = await readMeetingRecordingNotices(meetingId, recording.id, cursor);
+    noticesReading = false;
+    if (outcome.kind !== "ok") {
+      noticesFailure = outcome.failure;
+      return;
+    }
+    noticesFailure = null;
+    noticeRows = cursor === null ? outcome.value.notices : [...noticeRows, ...outcome.value.notices];
+    noticesCursor = outcome.value.nextCursor;
+  }
+
+  function openNotices(recording: MeetingRecordingView): void {
+    if (!canHost) return;
+    noticesFor = recording;
+    noticeRows = [];
+    noticesCursor = null;
+    noticesOpen = true;
+    void readNotices(recording, null);
+  }
+
+  /** Why somebody was told, in the record's own three occasions. */
+  function noticeReasonWord(reason: MeetingRecordingNoticeView["reason"]): string {
+    switch (reason) {
+      case "start":
+        return "When it started";
+      case "arrival":
+        return "On arriving";
+      case "stop":
+        return "When it stopped";
+    }
+  }
+
+  const noticesGrid = DataTable.createDataTableGrid<MeetingRecordingNoticeView>({
+    columns: () => [
+      {
+        id: "who",
+        label: "Who",
+        type: "text",
+        anchored: true,
+        filter: "text",
+        value: (row) =>
+          row.participantKind === "guest"
+            ? guestAttendeeLabel(row.displayName, null)
+            : row.displayName,
+      },
+      {
+        id: "why",
+        label: "Told",
+        type: "text",
+        filter: "text",
+        value: (row) => noticeReasonWord(row.reason),
+      },
+      {
+        id: "when",
+        label: "When",
+        type: "date",
+        value: (row) => row.deliveredAt,
+        text: (row) => formatInstant(row.deliveredAt),
+      },
+    ],
+    rows: () => noticeRows,
+    rowKey: (row) => row.id,
+    initialSort: untrack(() => ({ columnId: "when", direction: "ascending" as const })),
+    itemNoun: { singular: "notice", plural: "notices" },
+  });
+
+  /** The recording a notices panel is about, named by when it started. */
+  const noticesSubject = $derived<RecordSubject>(
+    noticesFor === null || summary === null
+      ? {}
+      : { facts: [summary.title, formatInstant(noticesFor.startedAt)] },
+  );
 
   // ---- what the header says -------------------------------------------------------------------
 
@@ -1041,15 +1255,37 @@
   </Button>
 {/snippet}
 
+<!-- What has been recorded in this room, beside Guests and for the same reason: it is about the
+     meeting's record rather than the room this second, and it is read after the meeting as often as
+     during it. Only a meeting on a matter can be recorded, so only one offers the list. -->
+{#snippet headerActions()}
+  {#if summary?.eventKind === "matter"}
+    <Button variant="secondary" onclick={() => (recordingsOpen = true)}>
+      <Disc class="size-16" aria-hidden="true" />
+      Recordings
+    </Button>
+  {/if}
+  {#if canHost && !over}
+    {@render guestsControl()}
+  {/if}
+{/snippet}
+
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
 
-<svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
+<svelte:window
+  onpagehide={departOnUnload}
+  onbeforeunload={departOnUnload}
+  onclick={unlockSoundsOnPress}
+  onkeydown={unlockSoundsOnPress}
+/>
 
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader
     {title}
     back="meetings"
-    actions={canHost && summary !== null && !over ? guestsControl : undefined}
+    actions={summary !== null && (summary.eventKind === "matter" || (canHost && !over))
+      ? headerActions
+      : undefined}
   >
     {#snippet meta()}
       {#if summary !== null}
@@ -1058,6 +1294,12 @@
           <span>{endsAt === null ? startsAt : `${startsAt} to ${endsAt}`} {zoneCode}</span>
         {/if}
         <span>{kindWord}</span>
+        {#if client.recording.running !== null}
+          <!-- THE MARK, for exactly as long as the room says the recording runs: lit by the room's
+               announcement to everybody and cleared by its announcement of the stop, never by
+               anything pressed on this screen. -->
+          <RecordingMark />
+        {/if}
         {#if client.roomState.locked}
           <!-- On the line that already carries the day and the head count, because whether the
                door is shut is a fact about the room rather than an act anybody here can take. -->
@@ -1072,6 +1314,17 @@
       {/if}
     {/snippet}
   </ScreenHeader>
+
+  <!-- WHAT A READER WHO CANNOT SEE THE BANNER IS TOLD, assertively: that a recording started, that
+       one was running as they arrived, or that it stopped. Always mounted, so the region exists
+       before its words change, which is what makes a screen reader announce them. -->
+  <div aria-live="assertive" aria-atomic="true" class="sr-only">
+    {client.recording.announcement}
+  </div>
+
+  <!-- The banner across the header, until the member dismisses it; the mark beside the title is
+       what stays. -->
+  <RecordingNotice recording={client.recording} />
 
   {#if canHost && summary !== null}
     <!-- Beside the header whose control opens it, rather than inside the room: a host who has not
@@ -1220,6 +1473,18 @@
         </Alert.Root>
       {/if}
 
+      <!-- A stop the room refused. Stop asks nothing first, so its answer has no panel to stand in
+           and is said here, where the other things the room did not do are said. -->
+      {#if recordingWriteRefusal !== null && recordingWriteRefusal.act === "stop"}
+        <FailureNotice
+          failure={recordingWriteRefusal.failure}
+          subject="This meeting"
+          title={recordingWriteRefusal.title}
+          fallback={recordingWriteRefusal.sentence}
+          whenSilent="Nothing answered, so the recording did not stop."
+        />
+      {/if}
+
       <!-- WHAT A HOST DID TO THIS MEMBER, and it is not an error. A microphone that goes dead with
            nothing on screen is read as a broken machine, so the room says what happened; the way
            back is the ordinary microphone control, which republishes. -->
@@ -1308,8 +1573,15 @@
         subtitle={endSubject}
         appliedEffects={client.appliedEffects}
         effectSettings={client.effectSettings}
-        pollsWaiting={myRole === null ? polls.waitingForAnswer : 0}
+        pollsWaiting={polls.waitingForAnswer}
         questionsWaiting={questions.waiting}
+        recording={client.recording.running !== null}
+        {mayStartRecording}
+        {mayStopRecording}
+        {recordingUnavailable}
+        stoppingRecording={client.recording.stopping}
+        onRecord={() => (recordConfirming = true)}
+        onStopRecording={() => void client.stopRecording()}
         onChangeEffects={changeEffects}
         onChooseBackgroundImage={(file) => void chooseBackgroundImage(file)}
         onOpenPolls={() => (pollsOpen = true)}
@@ -1364,6 +1636,42 @@
         {/snippet}
       </MeetingControls>
 
+      <!-- ASKED FIRST, because the act is the one in this room that outlives it: a recording is kept
+           on the matter, and everybody in the room is told the instant it starts. The panel says so
+           before the press rather than after it. -->
+      {#if mayStartRecording}
+        <ActionDialog
+          bind:open={recordConfirming}
+          kind="confirm"
+          heading="Record This Meeting"
+          subtitle={endSubject}
+          commitLabel="Record"
+          commitBusyLabel="Starting"
+          unsavedChanges={false}
+          onCommit={() => client.startRecording()}
+        >
+          {#snippet notice()}
+            {#if recordingWriteRefusal !== null && recordingWriteRefusal.act === "start"}
+              <FailureNotice
+                failure={recordingWriteRefusal.failure}
+                subject="This meeting"
+                title={recordingWriteRefusal.title}
+                fallback={recordingWriteRefusal.sentence}
+                whenSilent="Nothing answered, so the recording did not start."
+              />
+            {/if}
+          {/snippet}
+
+          {#snippet fields()}
+            <p class="text-sm">
+              Everybody in the room, guests included, is told at once that the meeting is being
+              recorded, and so is anybody who joins while it runs. The recording is kept on the
+              matter.
+            </p>
+          {/snippet}
+        </ActionDialog>
+      {/if}
+
       <!-- The queue, in the order the hands went up. Opened from a control that is absent for
            everybody who is not running the meeting: lowering somebody else's hand is a host act,
            and everybody lowers their own from the band's own toggle. -->
@@ -1383,7 +1691,8 @@
         subject={endSubject}
         polls={polls.polls}
         hosting={myRole !== null}
-        inRoom={client.participants.length}
+        {viewerUserId}
+        membersInRoom={membersWhoCanAnswer(client.participants)}
         loading={polls.reading}
         failed={polls.readFailure !== null && polls.polls.length === 0}
         opening={polls.opening}
@@ -1534,4 +1843,63 @@
       </MeetingHostsPanel>
     {/if}
   </LoadingRegion>
+
+  {#if summary !== null && summary.eventKind === "matter"}
+    <!-- What has been recorded, beside the header control that opens it rather than inside the
+         room: a meeting that ended last week still has its recordings, and so does a room this
+         member could not get into. -->
+    <RecordingList
+      bind:open={recordingsOpen}
+      {meetingId}
+      subject={endSubject}
+      announced={client.recording.running}
+      insideRoom
+      onWhoWasTold={canHost ? openNotices : undefined}
+    />
+
+    {#if canHost}
+      <!-- Who was told about one recording, and when: the consent record. Opened from a row of the
+           list, and only for a member holding the key to host meetings, because it names everybody
+           who was in the room. -->
+      <ActionDialog
+        bind:open={noticesOpen}
+        kind="reading"
+        heading="Who Was Told"
+        subtitle={noticesSubject}
+        width="wide"
+      >
+        {#snippet fields()}
+          {#if noticesFailure !== null && noticeRows.length === 0}
+            <FailureNotice
+              failure={noticesFailure}
+              subject="This recording"
+              fallback="Who was told about this recording could not be read."
+              whenSilent="Nothing answered. Who was told about this recording could not be read."
+              onRetry={() => (noticesFor === null ? undefined : void readNotices(noticesFor, null))}
+            />
+          {:else}
+            <div class="flex flex-col gap-8">
+              <DataTable.Grid
+                grid={noticesGrid}
+                caption="Who was told about this recording, and when"
+                loading={noticesReading && noticeRows.length === 0}
+                placeholderCount={3}
+              />
+              <DataTable.GridFooter grid={noticesGrid}>
+                {#snippet end()}
+                  <DataTable.LoadMore
+                    noun="notices"
+                    more={noticesCursor !== null}
+                    loading={noticesReading && noticeRows.length > 0}
+                    onLoad={() =>
+                      noticesFor === null ? undefined : void readNotices(noticesFor, noticesCursor)}
+                  />
+                {/snippet}
+              </DataTable.GridFooter>
+            </div>
+          {/if}
+        {/snippet}
+      </ActionDialog>
+    {/if}
+  {/if}
 </div>

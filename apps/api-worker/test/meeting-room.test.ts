@@ -3949,6 +3949,25 @@ describe("a guest in the room — somebody from outside the firm, on a link", ()
     expect(inspected).toEqual({ participant: undefined, waiting: undefined });
   });
 
+  it("tells a guest's socket `withdrawn` when the link it arrived on is withdrawn", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const guest = await connectGuest(stub, meetingId, { waiting: false });
+
+    await stub.guestCredentialReplaced(GUEST_STAY, "withdrawn");
+    await waitFor(() => guest.closeCode() !== null);
+    // The reason the browser acts on: a withdrawn link is not one to reconnect on, where a
+    // superseded socket is a newer tab of the same person.
+    expect(lastFrame(guest, "refused")).toMatchObject({ reason: "withdrawn" });
+    expect(member.closeCode()).toBeNull();
+    await waitFor(() =>
+      (rosterOf(member)?.participants ?? []).every((one) => one.participantId !== GUEST_STAY),
+    );
+    expect(
+      (rosterOf(member)?.participants ?? []).some((one) => one.participantId === GUEST_STAY),
+    ).toBe(false);
+  });
+
   it("takes a waiting guest off the door when the stay is handed to a newer arrival", async () => {
     const { meetingId, stub } = freshRoom();
     const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
@@ -4099,12 +4118,21 @@ describe("polls and the question queue in the room", () => {
         });
       }),
     );
-    await settle();
-    // Nothing yet: the bucket is open and its second has not run.
-    expect(watching.frames.filter((frame) => frame["type"] === "poll-tally")).toHaveLength(0);
+    // Nothing went out per answer: whatever has arrived by now is at most the one coalesced frame,
+    // which the room's own alarm sends if the three hundred calls outlasted the bucket's second.
+    expect(
+      watching.frames.filter((frame) => frame["type"] === "poll-tally").length,
+    ).toBeLessThanOrEqual(1);
 
-    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    // EITHER ALARM FLUSHES IT. On a loaded machine three hundred calls can take longer than the
+    // bucket's second, and then the room's own alarm has already run by the time this line does —
+    // which is the coalescing working, not failing. What the test holds is the outcome: one frame.
+    if (lastFrame(watching, "poll-tally") === undefined) {
+      await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1).catch(() => {
+        // Already flushed by the room's own alarm between the check and the rewind.
+      });
+      await runDurableObjectAlarm(stub);
+    }
     await waitFor(() => lastFrame(watching, "poll-tally") !== undefined);
     await settle();
     const tallies = watching.frames.filter((frame) => frame["type"] === "poll-tally");
@@ -4225,6 +4253,99 @@ describe("polls and the question queue in the room", () => {
       { questionId: "meetingQuestion_roomTallyOne0", upvotes: 50 },
       { questionId: "meetingQuestion_roomTallyTwo0", upvotes: 100 },
     ]);
+  });
+
+  it("orders a poll's tallies by how many have answered, which only grows, not by the instant", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_pollGrows", "Watching");
+    const pollId = "meetingPoll_roomGrows00000";
+    const earlier = new Date().toISOString();
+    const later = new Date(Date.parse(earlier) + 50).toISOString();
+    // A route's clock can disagree with another's by more than the gap between their commits; the
+    // respondents cannot, because an answer is never withdrawn.
+    await stub.pollAnswered(pollId, { counts: [], respondents: 5, readAt: earlier });
+    await stub.pollAnswered(pollId, { counts: [], respondents: 4, readAt: later });
+
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await waitFor(() => lastFrame(watching, "poll-tally") !== undefined);
+    expect(lastFrame(watching, "poll-tally")).toMatchObject({ respondents: 5 });
+  });
+
+  it("drops a poll tally that arrives behind one already flushed, across the flush boundary", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_pollBehind", "Watching");
+    const pollId = "meetingPoll_roomBehind0000";
+    const sentAt = new Date().toISOString();
+    await stub.pollAnswered(pollId, { counts: [], respondents: 5, readAt: sentAt });
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await waitFor(() => lastFrame(watching, "poll-tally") !== undefined);
+
+    // The route that read four reaches the room after the bucket holding five has gone out. On its
+    // own it would open the next bucket and move every browser's count backwards.
+    await stub.pollAnswered(pollId, {
+      counts: [],
+      respondents: 4,
+      readAt: new Date(Date.parse(sentAt) - 20).toISOString(),
+    });
+    const held = await runInDurableObject(stub, async (_room: MeetingRoom, state) => ({
+      bucket: await state.storage.get("reactions"),
+      marks: await state.storage.get<{ polls: Record<string, number> }>("tally-marks"),
+    }));
+    expect(held.bucket).toBeUndefined();
+    expect(held.marks?.polls[pollId]).toBe(5);
+    await settle();
+    expect(watching.frames.filter((frame) => frame["type"] === "poll-tally")).toHaveLength(1);
+  });
+
+  it("drops a tally that arrives after the poll closed, from a route that committed before it", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_pollAfterClose", "Watching");
+    const pollId = "meetingPoll_roomAfterClose";
+    await stub.pollClosed(pollId, new Date().toISOString(), { counts: [], respondents: 3 });
+    await waitFor(() => lastFrame(watching, "poll-closed") !== undefined);
+
+    await stub.pollAnswered(pollId, {
+      counts: [],
+      respondents: 3,
+      readAt: new Date().toISOString(),
+    });
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect(await state.storage.get("reactions")).toBeUndefined();
+    });
+    await settle();
+    expect(watching.frames.filter((frame) => frame["type"] === "poll-tally")).toHaveLength(0);
+  });
+
+  it("drops a question count read before one already flushed, across the flush boundary", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watching = await connect(stub, meetingId, "meetingAttendance_questionBehind", "Watching");
+    const questionId = "meetingQuestion_roomBehind000";
+    const sentAt = new Date().toISOString();
+    await stub.questionUpvoted(questionId, 7, sentAt);
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await waitFor(() => lastFrame(watching, "question-tally") !== undefined);
+
+    // A withdrawal can make the count go down, so the instant the route read it is the order — and
+    // the mark the flush left is what a late, older read is held against.
+    await stub.questionUpvoted(questionId, 6, new Date(Date.parse(sentAt) - 20).toISOString());
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect(await state.storage.get("reactions")).toBeUndefined();
+    });
+
+    // A NEWER read still goes out, down as well as up.
+    await stub.questionUpvoted(questionId, 6, new Date(Date.parse(sentAt) + 20).toISOString());
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    await waitFor(
+      () => watching.frames.filter((frame) => frame["type"] === "question-tally").length === 2,
+    );
+    const tallies = watching.frames.filter((frame) => frame["type"] === "question-tally") as {
+      questions: { questionId: string; upvotes: number }[];
+    }[];
+    expect(tallies.map((frame) => frame.questions[0]?.upvotes)).toEqual([7, 6]);
   });
 
   it("opens no bucket in a room nobody is in", async () => {

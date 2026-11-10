@@ -4,12 +4,15 @@ The single credential-less chokepoint every AI feature reaches a model through. 
 Hono, no `env` in the contract surface; the implementation receives the authenticated `AI` binding and
 the firm-scoped read result as injected parameters.
 
-- `InferencePort` (`src/port.ts`) names three operation families: text generation (buffered / streaming /
-  durable Workflow-invocable), buffered generation over a multi-turn CONVERSATION, and the
-  platform-FIXED embedding op. The reasoning model id is an explicit
-  per-call parameter (read per call site through the firm-scoped data-access layer), never on a
-  connection or context. The embedding op takes NO firm-selectable model argument — per-firm embedding
-  variation is unrepresentable in the signature (a swap would invalidate the Vectorize index).
+- `InferencePort` (`src/port.ts`) names five operation families: text generation (buffered / streaming /
+  durable Workflow-invocable), buffered generation over a multi-turn CONVERSATION, the
+  platform-FIXED embedding op, the platform-FIXED speech-to-text op (`transcribe`), and the
+  platform-FIXED live-caption STREAM (`openCaptionStream`). The reasoning
+  model id is an explicit per-call parameter (read per call site through the firm-scoped data-access
+  layer), never on a connection or context. The embedding and transcription ops take NO
+  firm-selectable model argument — per-firm variation is unrepresentable in the signature (an
+  embedding swap would invalidate the Vectorize index; a transcript's fidelity is a property of the
+  record, not a firm preference).
 - The catalog (`src/catalog.ts`) is the curated source of truth: every entry carries `zdrEligible` /
   `noTrainingEligible` / `verifiedOn` and a pinned `snapshotId`. Validated at module load — a malformed
   entry, or a non-ZDR reasoning entry, fails loud at import. `claude-fable-5` is excluded (it mandates
@@ -99,7 +102,58 @@ the firm-scoped read result as injected parameters.
   content. `GenerateResult` is unchanged, so metering, provenance, and the `Dispatch` error taxonomy
   all apply with no second shape. The adapter's only new code is the provider request-body
   translation; the ZDR guard, `gatewayOptions()`, `extractUsage`, `responseText`, and `gatewayFailure`
-  are the shipped ones, unchanged. An empty message array is refused before dispatch.
+  are the shipped ones, unchanged. An empty message array is refused before dispatch. The translation
+  knows two providers: a third-party model takes the instruction on its own top-level field, and a model
+  hosted on Cloudflare (`isOnCloudflareModel` — the `@cf/` prefix the binding itself routes on) takes it
+  as the first message in the `system` role its chat schema defines, still written from the port's
+  `systemPrompt` and never from a member message. An optional `maximumOutputTokens` is sent as
+  `max_tokens` on both, because Workers AI answers 256 tokens unless told otherwise — and a model hosted
+  on Cloudflare is sent `ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS` when a caller names none, on
+  `generate`, `generateStream` and `generateConversation` alike, so no caller is cut off by forgetting.
+  An optional `answerFormat: "json-object"` is sent to a model hosted on Cloudflare as its JSON mode
+  (`response_format`), and to a third-party model not at all. `responseText` reads a JSON-mode `response`
+  object back as the JSON it was, and a Responses-style `output` answer from its `output_text` parts.
+- **Every reasoning entry states its context window** (`contextWindowTokens`, and `maximumOutputTokens`
+  where the provider publishes one), read off the provider's own model page and cited beside the entry;
+  module-load validation refuses a reasoning entry without one, because a caller that sends a whole
+  document (a meeting's transcript) has to know when to cut it. **The platform's own reasoning model is in
+  a slot of its own, `platform-reasoning`** — exactly one, hosted on Cloudflare
+  (`onCloudflareReasoningEntry`, today `@cf/openai/gpt-oss-120b`, Apache-2.0 and text-only), held to the
+  reasoning entries' ZDR bar and never offered on the roster `reasoningEntries()` answers. A firm that
+  picked it for the assistant would have every answer cut at its 256-token default; a feature of the
+  platform's own (the meeting summary) asks for it by role. Its licence rests on the publisher's pages,
+  because Cloudflare's model page states none — the entry's comment says which.
+- `transcribe` (`src/port.ts`, implemented in `src/gateway.ts`) closes over the catalog's single
+  `transcription` entry (`PLATFORM_TRANSCRIPTION_MODEL_ID`, `@cf/openai/whisper-large-v3-turbo` on
+  Workers AI; module-load validation requires exactly one, as for embedding). It takes a complete WAV
+  (mono, 16-bit PCM, 16 kHz), a firm id, an optional BCP-47 language hint, and an optional
+  `initialPrompt` (the previous chunk's tail), and returns text, the reported language, segment
+  timings in seconds within THAT audio, `audioSeconds` (what transcription is metered on), and the
+  model id. The request and response field names are Cloudflare's published schemas, cited by URL in
+  `gateway.ts` beside the adapter — re-read them there, not from memory. Three pins with reasons:
+  `task: "transcribe"` (never `translate`; a record says what was said in the language it was said),
+  `vad_filter: false` (the caller sends speech spans, and segment offsets must be offsets into the
+  audio sent), and only the BCP-47 primary subtag is sent as `language` (the model takes bare codes).
+  It sends the same `gatewayOptions()` with `slot: "transcription"`, maps a thrown binding error to the
+  same retryable `upstream` problem, and refuses empty audio before dispatch as `validation`. Missing
+  segment timings yield an empty list, never an invented span; `audioSeconds` falls back from the
+  provider's `transcription_info.duration` to the WAV header (`src/wav-duration.ts`).
+- `openCaptionStream` (`src/port.ts`, implemented in `src/gateway.ts`) closes over the catalog's single
+  `captioning` entry (`PLATFORM_CAPTION_MODEL_ID`, `@cf/deepgram/nova-3`; module-load validation requires
+  exactly one, and it is never on the firm roster). A STREAM rather than a request: the caller pushes
+  audio in the port's fixed format (mono 16-bit little-endian PCM at 48 kHz, what a meeting's routing
+  service delivers once folded to one channel) and receives interim and final answers through
+  `onResult`, and one `onEnd` (`closed` or `failed`). The gateway opens it with
+  `env.AI.run(model, input, { gateway, websocket: true })` and accepts the socket on the Response's
+  `webSocket`; every input is a string, because the binding carries them in the socket's address. Four
+  pins with reasons: `linear16` at 48 kHz on one channel (nothing transcoded), `interim_results` on (a
+  caption is live), `diarize` off (the speaker is the caller's track, never a model's numbered guess)
+  and `mip_opt_out` on (the publisher's model-improvement programme refused). The same gateway options
+  ride the request, but **the binding's socket path posts to `/run`, not `/ai-gateway/run`** (read in the
+  workerd source, cited in `gateway.ts`), so the gateway is not on that path at all — nothing is cached
+  or logged there, and the caller meters the audio it sent (`audioMillisecondsSent`). A missing socket
+  or a thrown binding error is the same retryable `upstream` problem as everywhere else. The sources and
+  what is not yet confirmed against a live call are written beside the adapter — re-read them there.
 - `createStubInferencePort()` (`src/stub.ts`) is a COMPLETE, deterministic implementation of the port
   that reaches no provider: no network, no binding, no randomness, no clock, fixed snapshot id
   `"stub"`, deterministic non-zero usage. It is not a test double for one feature — every AI feature
@@ -108,7 +162,12 @@ the firm-scoped read result as injected parameters.
   `resolveFlagEvaluator` shape). A misconfigured environment therefore produces obviously-fake
   answers, never real spend on a path nobody intended. The ZDR guard is deliberately NOT applied in
   the stub: it reaches no provider, so refusing there would test nothing and would hide a real failure
-  of the gateway port's own fail-closed check.
+  of the gateway port's own fail-closed check. Its `transcribe` returns one segment spanning the
+  WAV's playing time, text `[stub inference] <n> bytes of audio`, the language hint echoed (or null),
+  and model id `"stub"`, so a consumer test can predict the transcript from the bytes it sent. Its
+  `openCaptionStream` answers every run of audio at once with an interim naming the bytes heard in the
+  stretch, and makes the stretch final each time it reaches one second of audio
+  (`STUB_CAPTION_FINAL_EVERY_BYTES`); a close answers what the stretch holds as final and ends `closed`.
 
 **Gateway Guardrails must never be enabled on this gateway.** They intercept and evaluate both
 prompts and responses and produce logs of user prompts and model responses — a retention surface

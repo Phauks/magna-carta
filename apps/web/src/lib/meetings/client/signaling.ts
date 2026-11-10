@@ -102,6 +102,13 @@ export interface MeetingParticipant {
    * hosting route commits, so a grant withdrawn mid-meeting reaches every screen on the next roster.
    */
   readonly hostRole: MeetingHostRole | null;
+  /**
+   * Whether this is somebody from the firm or a guest from outside it. The room's roster carries it;
+   * a row from a room that predates it is read as a member, which is what every row then was. Read
+   * where the two kinds can do different things — a guest cannot answer a poll — rather than guessed
+   * from whether an identifier happens to be present.
+   */
+  readonly kind: "member" | "guest";
 }
 
 /**
@@ -205,6 +212,7 @@ export function readParticipants(value: unknown): readonly MeetingParticipant[] 
       // Absent is "not running this meeting", which is what a roster without the field always meant
       // and what is true of everybody but one or two people in any room.
       hostRole: readHostRole(entry.hostRole),
+      kind: entry.kind === "guest" ? "guest" : "member",
     });
   }
   return participants;
@@ -350,6 +358,15 @@ export interface RoomFrameHandlers {
    * a difference, and carried on a host's own `welcome` for the reason the roster is.
    */
   waiting(frame: Record<string, unknown>): void;
+  /**
+   * A recording started or stopped: the announcement the owner's ruling makes the consent mechanism.
+   *
+   * Sent to every WELCOMED socket — a guest's as much as a member's — the instant the route commits,
+   * and never to a socket at the door, where nobody is being recorded. The recording already running
+   * when a socket arrives rides on its `welcome` instead, in the same shape, so a late arrival is
+   * told in exactly the words the room was told in and one code path plays both.
+   */
+  recording(frame: Record<string, unknown>): void;
   ended(frame: Record<string, unknown>): void;
   refused(frame: Record<string, unknown>): void;
   /**
@@ -639,6 +656,11 @@ export class MeetingSignaling {
         return;
       case "waiting":
         this.#handlers.waiting(parsed);
+        return;
+      case "recording":
+        // Held behind the welcome like every frame about the room: the welcome itself carries the
+        // recording running at arrival, so nothing said before it is lost by waiting for it.
+        this.#handlers.recording(parsed);
         return;
       case "ended":
         this.#diagnostics.note({ kind: "ended" });

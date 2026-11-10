@@ -5,7 +5,10 @@ import { initiateCheckin, initiateUpload } from "@magna-carta/file-manager/file-
 import { listFiles } from "@magna-carta/file-manager/queries";
 import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
 import { flaggedTreatmentDefinition } from "@magna-carta/file-manager/scan-policy-settings";
-import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-policy";
+import {
+  IN_MEMORY_INSPECTION_CEILING_BYTES,
+  inspectableSizeCapDefinition,
+} from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { createMemoryLogger } from "@magna-carta/telemetry/logger";
@@ -339,6 +342,59 @@ describe("handleIngestMessage", () => {
     expect(version?.scan_detail).toBe("oversize");
 
     // Restore the default cap so subsequent tests are unaffected.
+    await firmDatabase
+      .prepare("DELETE FROM setting WHERE key = ?1")
+      .bind(inspectableSizeCapDefinition.key)
+      .run();
+  });
+
+  // A Worker isolate has 128 MB, and an hour of meeting audio is about 345 MB. An object past the
+  // in-memory inspection ceiling must stream through the digest and commit with an honest
+  // unscanned/oversize verdict — even for a firm whose stored cap predates the ceiling and names a
+  // figure far above it — rather than run the isolate out of memory on every delivery and never commit.
+  it("commits an object above the in-memory ceiling as oversize through the streaming digest", async () => {
+    await firmDatabase
+      .prepare("INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3)")
+      .bind(inspectableSizeCapDefinition.key, String(2 * 1024 * 1024 * 1024), clock.now())
+      .run();
+
+    const bytes = new Uint8Array(IN_MEMORY_INSPECTION_CEILING_BYTES + 1024 * 1024);
+    bytes.set(new TextEncoder().encode("RIFF"), 0);
+    const expectedSha256 = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    const { versionId, r2Key } = await seedPendingVersion("recording.wav", "audio/wav", bytes);
+
+    let scanCalled = false;
+    const refusingScanPort: MalwareScanPort = {
+      scan: () => {
+        scanCalled = true;
+        return Promise.reject(new Error("an oversize object must never reach the scan port"));
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, bytes.byteLength), refusingScanPort);
+
+    const version = await firmDatabase
+      .prepare(
+        "SELECT status, scan_verdict, scan_detail, size_bytes, content_sha256 FROM file_version WHERE id = ?1",
+      )
+      .bind(versionId)
+      .first<{
+        status: string;
+        scan_verdict: string;
+        scan_detail: string | null;
+        size_bytes: number;
+        content_sha256: string;
+      }>();
+    expect(scanCalled).toBe(false);
+    expect(version).toEqual({
+      status: "clean",
+      scan_verdict: "unscanned",
+      scan_detail: "oversize",
+      size_bytes: bytes.byteLength,
+      content_sha256: expectedSha256,
+    });
+
     await firmDatabase
       .prepare("DELETE FROM setting WHERE key = ?1")
       .bind(inspectableSizeCapDefinition.key)

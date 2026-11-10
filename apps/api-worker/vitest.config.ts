@@ -298,6 +298,13 @@ export default defineConfig({
             script: `export default { fetch() { return new Response("stub", { status: 404 }); } };`,
           },
         ],
+        // The meeting-recording queue is not bound in wrangler.jsonc until the account has it, because a
+        // deploy that binds a missing queue fails. The pool binds it as a producer of its own so the
+        // recording routes run as they will once it exists; the consumer is driven directly by the
+        // tests that need it.
+        queueProducers: {
+          MEETING_RECORDING_COMPOSE: { queueName: "magna-carta-test-meeting-recording-compose" },
+        },
       },
     }),
   ],

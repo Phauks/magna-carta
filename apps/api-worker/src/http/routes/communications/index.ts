@@ -10,6 +10,8 @@ import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
+import { registerMeetingSummaryRoutes } from "./meeting-summary.ts";
 import { emailAdapterForEnv } from "../../../auth-instance.ts";
 
 // The call and text log, and the shipping surface the carrier plugin mounts through this module's file.
@@ -44,6 +46,14 @@ export function mountCommunications(
   // the commit.
   registerMeetingPollRoutes(domain, chokepoint);
   registerMeetingQuestionRoutes(domain, chokepoint);
+  // A recorded meeting's summary — a reasoning model's characterization of its transcript, kept as
+  // rows beside the record it summarizes — read, written again, and its action items made into tasks
+  // through the task subsystem's own create path.
+  registerMeetingSummaryRoutes(domain, chokepoint);
+  // The firm's meeting settings: whether its meetings may be recorded, captioned and summarized, and
+  // how many people one recording hears at once. The only writer of those switches, which the
+  // recording start route, the recorder and the summary consumer read.
+  registerMeetingSettingsRoutes(domain, chokepoint);
   // Who is running a meeting, and the acts that need somebody's name against them afterwards —
   // removing a participant, shutting the door, handing the room over. A file of its own because
   // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the

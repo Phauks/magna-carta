@@ -16,6 +16,8 @@ import type {
 import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../bindings.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
+import type { CaptionHeard } from "./meeting-captioner.ts";
+import { captionsWithdrawn, relayCaption } from "./room/room-captions.ts";
 import { relayMessage, relayMessageRedaction } from "./room/room-chat.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
 import {
@@ -48,6 +50,15 @@ import {
   SOCKET_LOSS_GRACE_SECONDS,
 } from "./room/room-lifecycle.ts";
 import type { MeetingSocketAttachment, RoomContext } from "./room/room-state.ts";
+import {
+  recordingCandidates,
+  recordingStarted,
+  recordingStopped,
+  runningRecordingOf,
+  type RecordingStartReply,
+  type RecordingTransition,
+} from "./room/room-recording.ts";
+import type { MeetingRecordingCandidateTrack } from "@magna-carta/meetings/recording-types";
 
 // One meeting's signaling room, keyed `${firmId}:${meetingId}` and addressed by the SESSION firm id
 // at the route — never by a path value, so a firm can no more signal into another firm's meeting
@@ -396,6 +407,52 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** The lobby setting moved. Nobody at the door is admitted by it. */
   async lobbyChanged(lobby: MeetingLobbyMode): Promise<void> {
     await lobbyChanged(this.room, lobby);
+  }
+
+  // THE RECORDING — the announcement that is the consent mechanism, and the one question the recorder
+  // asks the room. The work is room/room-recording.ts; each transition is called AFTER the route (or
+  // the recorder) committed it, on the `participantLeft` / `end` precedent, so nobody is told a
+  // recording started by a write that then failed.
+
+  /** A recording started: keep who started it, tell every welcomed socket, write who was told. */
+  async recordingStarted(transition: RecordingTransition): Promise<RecordingStartReply> {
+    return await recordingStarted(this.room, transition);
+  }
+
+  /** A recording stopped: the mark clears on every screen, and who was told is written down. */
+  async recordingStopped(
+    transition: RecordingTransition,
+  ): Promise<{ readonly recipientCount: number; readonly noticeCount: number }> {
+    return await recordingStopped(this.room, transition);
+  }
+
+  /** Every audio track this room is carrying — what a recording counts and what the recorder takes. */
+  async recordingCandidates(): Promise<MeetingRecordingCandidateTrack[]> {
+    return await recordingCandidates(this.room);
+  }
+
+  /** The recording this room believes is running, or null. */
+  async runningRecording(): Promise<{
+    readonly recordingId: string;
+    readonly startedAt: string;
+  } | null> {
+    return await runningRecordingOf(this.room);
+  }
+
+  // LIVE CAPTIONS — the two calls the captioner makes back into the room. The work is
+  // room/room-captions.ts, and so is the host's switch, which arrives as a frame.
+
+  /**
+   * One caption the captioner heard: to every welcomed socket, per kind of reader, and stored nowhere.
+   * Answers how many sockets it went to — none when captions were turned off since it was heard.
+   */
+  async captionHeard(heard: CaptionHeard): Promise<number> {
+    return await relayCaption(this.room, heard);
+  }
+
+  /** The firm switched captions off mid-meeting: the room turns them off and tells everybody. */
+  async captionsWithdrawn(): Promise<void> {
+    await captionsWithdrawn(this.room);
   }
 
   /**

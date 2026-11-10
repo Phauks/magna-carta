@@ -58,6 +58,7 @@ function participant(ordinal: number, over: Partial<MeetingParticipant> = {}): M
     hand: false,
     handRaisedAt: null,
     hostRole: null,
+    kind: "member",
     ...over,
   };
 }

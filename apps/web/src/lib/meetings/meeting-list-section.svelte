@@ -22,11 +22,15 @@
   import Video from "@lucide/svelte/icons/video";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { eventAddress } from "./meetings-api.ts";
+  import RecordingMark from "./screen/recording-mark.svelte";
+  import { pageRecordingSounds } from "./client/recording-sounds.ts";
   import {
     matterAddress,
     meetingAddress,
     meetingColumns,
     meetingInitialSort,
+    meetingHasRecordings,
+    meetingIsBeingRecorded,
     MEETING_COLUMN_IDENTIFIERS,
     MEETING_SECTIONS,
     type MeetingScope,
@@ -43,6 +47,7 @@
     loadingMore = false,
     onLoadMore,
     onAttendance,
+    onRecordings,
   }: {
     /** Which of the three questions this section answers. */
     scope: MeetingScope;
@@ -60,6 +65,8 @@
      * this section stays a component that reads nothing.
      */
     onAttendance?: (meeting: MeetingSummary) => void;
+    /** Open what was recorded in an ended meeting. The screen holds that panel too. */
+    onRecordings?: (meeting: MeetingSummary) => void;
   } = $props();
 
   const section = $derived(MEETING_SECTIONS[scope]);
@@ -93,6 +100,14 @@
         <Video class="mc-table-grid-row-glyph shrink-0" aria-label="Video meeting" />
       {/if}
       <span class="truncate" title={row.title}>{text}</span>
+      {#if meetingIsBeingRecorded(row)}
+        <!-- The same mark the room's header draws, beside the name of the meeting it is about, so
+             whether a meeting is being recorded is answered before anybody presses Join. It keeps
+             its width and the title gives way, because the mark is the fact that must not be cut. -->
+        <span class="flex shrink-0">
+          <RecordingMark />
+        </span>
+      {/if}
     </span>
   {:else if column.id === MEETING_COLUMN_IDENTIFIERS.where}
     {@const address = matterAddress(row)}
@@ -110,6 +125,12 @@
                usually asking. -->
           <Button variant="ghost" size="sm" onclick={() => onAttendance(row)}>Attendance</Button>
         {/if}
+        {#if onRecordings !== undefined && meetingHasRecordings(row)}
+          <!-- What was recorded, beside who was there: a recording that has been put together is
+               a document on the matter now, and this is where somebody who just left the meeting
+               looks for it. Only on a row whose meeting was recorded. -->
+          <Button variant="ghost" size="sm" onclick={() => onRecordings(row)}>Recordings</Button>
+        {/if}
         <Button variant="ghost" size="sm" href={eventAddress(row.eventKind, row.eventId, row.matterId)}>
           Open the Event
         </Button>
@@ -124,7 +145,14 @@
         Locked
       </Button>
     {:else}
-      <Button variant="secondary" size="sm" href={meetingAddress(row)}>
+      <!-- The press wakes the page's recording tone on its way in: the room's own arrival runs
+           after this navigation, outside any press, where Safari keeps a fresh device silent. -->
+      <Button
+        variant="secondary"
+        size="sm"
+        href={meetingAddress(row)}
+        onclick={() => pageRecordingSounds.unlock()}
+      >
         {#if row.medium === "audio"}
           <Phone class="size-16" aria-hidden="true" />
         {:else}

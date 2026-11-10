@@ -6567,6 +6567,9 @@ export type MeetingSummary = {
     locked: boolean;
     lobby: 'off' | 'on';
     configured: boolean;
+    recordingState: 'none' | 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
+    recordingConfigured: boolean;
+    captionsAvailable: boolean;
 };
 
 export type JoinedMeeting = {
@@ -6603,6 +6606,108 @@ export type MeetingAttendanceEntry = {
     waitingFrom: string | null;
     admittedAt: string | null;
     endedReason: 'left' | 'socket-lost' | 'removed' | 'denied' | null;
+};
+
+export type MeetingRecordingSummary = {
+    id: string;
+    meetingId: string;
+    state: 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
+    startedBy: MeetingRecordingActor;
+    startedAt: string;
+    stoppedBy: MeetingRecordingActor | null;
+    stoppedAt: string | null;
+    stopReason: 'member' | 'host' | 'meeting-ended' | 'sink-lost' | 'ceiling' | 'abandoned' | 'start-failed' | null;
+    trackCount: number;
+    capturedSeconds: number | null;
+    fileId: string | null;
+    transcriptId: string | null;
+    summaryState: 'pending' | 'ready' | 'failed' | 'refused' | null;
+    failureErrorId: string | null;
+};
+
+export type MeetingRecordingActor = {
+    userId: string;
+    displayName: string;
+};
+
+export type MeetingRecordingPage = {
+    data: Array<MeetingRecordingListEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingRecordingListEntry = MeetingRecordingSummary & {
+    document: MeetingRecordingDocument | null;
+    transcript: MeetingTranscriptMark | null;
+    summary: MeetingSummaryMark | null;
+};
+
+export type MeetingRecordingDocument = {
+    versionId: string;
+    state: 'pending' | 'available' | 'held' | 'replaced' | 'removed' | 'unavailable';
+};
+
+export type MeetingTranscriptMark = {
+    id: string;
+    state: 'pending' | 'ready' | 'failed';
+    fileId: string | null;
+};
+
+export type MeetingSummaryMark = {
+    id: string;
+    state: 'pending' | 'ready' | 'failed' | 'refused';
+    refusalReason: 'not-eligible' | 'disabled' | 'transcript-empty' | null;
+};
+
+export type MeetingRecordingNoticePage = {
+    data: Array<MeetingRecordingNoticeEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingRecordingNoticeEntry = {
+    id: string;
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+    reason: 'start' | 'arrival' | 'stop';
+    deliveredAt: string;
+};
+
+export type MeetingTranscriptPage = {
+    data: Array<MeetingTranscriptSegment>;
+    nextCursor: string | null;
+    transcript: MeetingTranscriptSummary;
+    linesWithheld: 'removed' | 'held' | 'unavailable' | null;
+};
+
+export type MeetingTranscriptSegment = {
+    id: string;
+    ordinal: number;
+    kind: 'speech' | 'gap';
+    startedMs: number;
+    endedMs: number;
+    text: string;
+    speaker: MeetingTranscriptSpeaker | null;
+};
+
+export type MeetingTranscriptSpeaker = {
+    participantKind: 'member' | 'guest' | 'attendee';
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+};
+
+export type MeetingTranscriptSummary = {
+    id: string;
+    recordingId: string;
+    state: 'pending' | 'ready' | 'failed';
+    language: string | null;
+    segmentCount: number | null;
+    wordCount: number | null;
+    fileId: string | null;
+    failureErrorId: string | null;
+    createdAt: string;
+    updatedAt: string;
 };
 
 export type MeetingMessage = {
@@ -6710,6 +6815,65 @@ export type MeetingQuestionPage = {
 
 export type SetMeetingQuestionAnsweredRequest = {
     answered: boolean;
+};
+
+export type MeetingSummaryView = {
+    summary: MeetingSummaryHeader;
+    text: string | null;
+    actionItems: Array<MeetingSummaryActionItem>;
+    withheld: 'removed' | 'held' | 'unavailable' | null;
+};
+
+export type MeetingSummaryHeader = {
+    id: string;
+    transcriptId: string;
+    recordingId: string;
+    state: 'pending' | 'ready' | 'failed' | 'refused';
+    refusalReason: 'not-eligible' | 'disabled' | 'transcript-empty' | null;
+    failureErrorId: string | null;
+    modelId: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type MeetingSummaryActionItem = {
+    id: string;
+    ordinal: number;
+    text: string;
+    owner: MeetingSummaryActionItemOwner | null;
+    dueOn: string | null;
+    taskId: string | null;
+};
+
+export type MeetingSummaryActionItemOwner = {
+    userId: string;
+    displayName: string;
+};
+
+export type CreatedMeetingActionItemTask = {
+    taskId: string;
+    actionItem: MeetingSummaryActionItem;
+};
+
+export type CreateMeetingActionItemTaskRequest = {
+    assignToOwner?: boolean;
+};
+
+export type FirmMeetingSettingsResponse = {
+    recordingEnabled: boolean;
+    captionsEnabled: boolean;
+    summariesEnabled: boolean;
+    recordedTrackCeiling: number;
+    recordedTrackCeilingMaximum: number;
+    recordingServiceConfigured: boolean;
+    aiProcessingEligible: boolean;
+};
+
+export type PatchFirmMeetingSettingsRequest = {
+    recordingEnabled?: boolean;
+    captionsEnabled?: boolean;
+    summariesEnabled?: boolean;
+    recordedTrackCeiling?: number;
 };
 
 export type MeetingHostGrants = {
@@ -31373,6 +31537,247 @@ export type MeetingsAttendanceResponses = {
 
 export type MeetingsAttendanceResponse = MeetingsAttendanceResponses[keyof MeetingsAttendanceResponses];
 
+export type MeetingsStopRecordingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recording';
+};
+
+export type MeetingsStopRecordingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The meeting is on a firm event, which has no matter to file a recording into
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment, or this firm, cannot record a meeting
+     */
+    503: Problem;
+};
+
+export type MeetingsStopRecordingError = MeetingsStopRecordingErrors[keyof MeetingsStopRecordingErrors];
+
+export type MeetingsStopRecordingResponses = {
+    /**
+     * The recording has stopped
+     */
+    200: MeetingRecordingSummary;
+};
+
+export type MeetingsStopRecordingResponse = MeetingsStopRecordingResponses[keyof MeetingsStopRecordingResponses];
+
+export type MeetingsStartRecordingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recording';
+};
+
+export type MeetingsStartRecordingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, a recording is already running (or none is), the room has more participants publishing audio than one recording may hear, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The meeting is on a firm event, which has no matter to file a recording into
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment, or this firm, cannot record a meeting
+     */
+    503: Problem;
+};
+
+export type MeetingsStartRecordingError = MeetingsStartRecordingErrors[keyof MeetingsStartRecordingErrors];
+
+export type MeetingsStartRecordingResponses = {
+    /**
+     * The recording has started
+     */
+    201: MeetingRecordingSummary;
+};
+
+export type MeetingsStartRecordingResponse = MeetingsStartRecordingResponses[keyof MeetingsStartRecordingResponses];
+
+export type MeetingsListRecordingsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings';
+};
+
+export type MeetingsListRecordingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListRecordingsError = MeetingsListRecordingsErrors[keyof MeetingsListRecordingsErrors];
+
+export type MeetingsListRecordingsResponses = {
+    /**
+     * One page of this meeting's recordings
+     */
+    200: MeetingRecordingPage;
+};
+
+export type MeetingsListRecordingsResponse = MeetingsListRecordingsResponses[keyof MeetingsListRecordingsResponses];
+
+export type MeetingsRecordingNoticesData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/notices';
+};
+
+export type MeetingsRecordingNoticesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingNoticesError = MeetingsRecordingNoticesErrors[keyof MeetingsRecordingNoticesErrors];
+
+export type MeetingsRecordingNoticesResponses = {
+    /**
+     * One page of this recording's notices
+     */
+    200: MeetingRecordingNoticePage;
+};
+
+export type MeetingsRecordingNoticesResponse = MeetingsRecordingNoticesResponses[keyof MeetingsRecordingNoticesResponses];
+
+export type MeetingsRecordingTranscriptData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript';
+};
+
+export type MeetingsRecordingTranscriptErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingTranscriptError = MeetingsRecordingTranscriptErrors[keyof MeetingsRecordingTranscriptErrors];
+
+export type MeetingsRecordingTranscriptResponses = {
+    /**
+     * The transcript's header and one page of its lines
+     */
+    200: MeetingTranscriptPage;
+};
+
+export type MeetingsRecordingTranscriptResponse = MeetingsRecordingTranscriptResponses[keyof MeetingsRecordingTranscriptResponses];
+
 export type MeetingsSocketData = {
     body?: never;
     path: {
@@ -31931,7 +32336,7 @@ export type MeetingsAskQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -31986,7 +32391,7 @@ export type MeetingsUpvoteQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -32041,7 +32446,7 @@ export type MeetingsWithdrawQuestionUpvoteErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -32096,7 +32501,7 @@ export type MeetingsSetQuestionAnsweredErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -32151,7 +32556,7 @@ export type MeetingsRedactQuestionErrors = {
      */
     404: Problem;
     /**
-     * The meeting has ended, the caller is not in it, the queue is full, or a request with this Idempotency-Key is in progress
+     * The meeting has ended, the caller is not in it, the queue is full, the question has been taken back, or a request with this Idempotency-Key is in progress
      */
     409: Problem;
     /**
@@ -32174,6 +32579,246 @@ export type MeetingsRedactQuestionResponses = {
 };
 
 export type MeetingsRedactQuestionResponse = MeetingsRedactQuestionResponses[keyof MeetingsRedactQuestionResponses];
+
+export type MeetingsRecordingSummaryData = {
+    body?: never;
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary';
+};
+
+export type MeetingsRecordingSummaryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRecordingSummaryError = MeetingsRecordingSummaryErrors[keyof MeetingsRecordingSummaryErrors];
+
+export type MeetingsRecordingSummaryResponses = {
+    /**
+     * The summary
+     */
+    200: MeetingSummaryView;
+};
+
+export type MeetingsRecordingSummaryResponse = MeetingsRecordingSummaryResponses[keyof MeetingsRecordingSummaryResponses];
+
+export type MeetingsRerunSummaryData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        recordingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary';
+};
+
+export type MeetingsRerunSummaryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The task the action item would become is not one the task subsystem accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRerunSummaryError = MeetingsRerunSummaryErrors[keyof MeetingsRerunSummaryErrors];
+
+export type MeetingsRerunSummaryResponses = {
+    /**
+     * The summary is being written
+     */
+    202: MeetingSummaryView;
+};
+
+export type MeetingsRerunSummaryResponse = MeetingsRerunSummaryResponses[keyof MeetingsRerunSummaryResponses];
+
+export type MeetingsCreateSummaryActionItemTaskData = {
+    body: CreateMeetingActionItemTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        recordingId: string;
+        actionItemId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/recordings/{recordingId}/summary/action-items/{actionItemId}/task';
+};
+
+export type MeetingsCreateSummaryActionItemTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting, recording, transcript or summary this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The transcript is not ready, the summary is not ready or its words are withheld, the action item is already a task, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The task the action item would become is not one the task subsystem accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsCreateSummaryActionItemTaskError = MeetingsCreateSummaryActionItemTaskErrors[keyof MeetingsCreateSummaryActionItemTaskErrors];
+
+export type MeetingsCreateSummaryActionItemTaskResponses = {
+    /**
+     * The task, and the action item now naming it
+     */
+    201: CreatedMeetingActionItemTask;
+};
+
+export type MeetingsCreateSummaryActionItemTaskResponse = MeetingsCreateSummaryActionItemTaskResponses[keyof MeetingsCreateSummaryActionItemTaskResponses];
+
+export type FirmMeetingSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/meetings/settings';
+};
+
+export type FirmMeetingSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks meetings:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmMeetingSettingsGetError = FirmMeetingSettingsGetErrors[keyof FirmMeetingSettingsGetErrors];
+
+export type FirmMeetingSettingsGetResponses = {
+    /**
+     * The firm's meeting settings
+     */
+    200: FirmMeetingSettingsResponse;
+};
+
+export type FirmMeetingSettingsGetResponse = FirmMeetingSettingsGetResponses[keyof FirmMeetingSettingsGetResponses];
+
+export type FirmMeetingSettingsUpdateData = {
+    body: PatchFirmMeetingSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/meetings/settings';
+};
+
+export type FirmMeetingSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks meetings:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmMeetingSettingsUpdateError = FirmMeetingSettingsUpdateErrors[keyof FirmMeetingSettingsUpdateErrors];
+
+export type FirmMeetingSettingsUpdateResponses = {
+    /**
+     * The firm's meeting settings after the write
+     */
+    200: FirmMeetingSettingsResponse;
+};
+
+export type FirmMeetingSettingsUpdateResponse = FirmMeetingSettingsUpdateResponses[keyof FirmMeetingSettingsUpdateResponses];
 
 export type MeetingsHostsData = {
     body?: never;
