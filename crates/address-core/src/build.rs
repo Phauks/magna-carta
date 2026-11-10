@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use search_core::{FileEntry, Footer, SCHEMA_GENERATION};
+use search_core::{FileEntry, Footer};
 use tantivy::indexer::NoMergePolicy;
 use tantivy::tokenizer::TextAnalyzer;
 use tantivy::{Index, IndexWriter, TantivyDocument};
@@ -25,6 +25,7 @@ use crate::address::Address;
 use crate::error::AddressError;
 use crate::schema::{
     analyse_words, push_prefixes, register_analyzers, word_analyzer, AddressSchema,
+    ADDRESS_INDEX_GENERATION,
 };
 
 /// How a partition is indexed.
@@ -211,7 +212,7 @@ impl BuiltPartition {
             offset += length;
         }
         let footer = serde_json::to_vec(&Footer {
-            schema_generation: SCHEMA_GENERATION,
+            schema_generation: ADDRESS_INDEX_GENERATION,
             document_count: self.document_count,
             files: entries,
         })?;

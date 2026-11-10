@@ -29,4 +29,6 @@ pub use error::AddressError;
 pub use openaddresses::{parse_feature_line, state_of_source};
 pub use partition::{is_region_code, Partition};
 pub use query::{parse_query, ParsedQuery, MAXIMUM_QUERY_CHARACTERS, MAXIMUM_QUERY_WORDS};
-pub use schema::{AddressSchema, MAXIMUM_PREFIX_CHARACTERS, MINIMUM_PREFIX_CHARACTERS};
+pub use schema::{
+    AddressSchema, ADDRESS_INDEX_GENERATION, MAXIMUM_PREFIX_CHARACTERS, MINIMUM_PREFIX_CHARACTERS,
+};

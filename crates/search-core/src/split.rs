@@ -23,7 +23,7 @@ use tantivy::directory::{RamDirectory, TerminatingWrite};
 use tantivy::{Directory, Index, TantivyDocument};
 
 use crate::error::SearchError;
-use crate::schema::{SearchSchema, SCHEMA_GENERATION};
+use crate::schema::{register_tokenizers, SearchSchema, SCHEMA_GENERATION};
 
 /// One extracted passage on its way into the index. `body` is the searchable text; the two ids are the
 /// pointers a hit carries back so the caller can hydrate the passage through the data-access layer.
@@ -71,7 +71,10 @@ pub(crate) const TRAILER_LEN: usize = 8;
 pub fn build_split(documents: &[IndexDocument]) -> Result<Vec<u8>, SearchError> {
     let scratch = tempfile::tempdir()?;
     let search_schema = SearchSchema::build();
-    let index = Index::create_in_dir(scratch.path(), search_schema.schema().clone())?;
+    let index = register_tokenizers(Index::create_in_dir(
+        scratch.path(),
+        search_schema.schema().clone(),
+    )?);
 
     // ONE indexing thread, deliberately. Tantivy's default writer spawns one worker per core and each
     // worker that receives documents commits a segment of its own, so the same batch lands as two,
@@ -179,11 +182,23 @@ pub fn read_footer(split: &[u8]) -> Result<Footer, SearchError> {
 /// the ranged reader (which fetches only the tail), so both refuse an incompatible generation the same
 /// way rather than opening a split they may misread.
 pub(crate) fn parse_footer(footer_bytes: &[u8]) -> Result<Footer, SearchError> {
+    parse_footer_at_generation(footer_bytes, SCHEMA_GENERATION)
+}
+
+/// Parse a footer and require the generation its reader understands. The split FORMAT is shared with
+/// indexes that are not this crate's schema at all (the address index is packaged the same way), and
+/// each of those has a generation of its own: a change to how the body of a document is cut into
+/// words must not make an address partition unreadable. So the generation a reader requires is the
+/// reader's to name.
+pub(crate) fn parse_footer_at_generation(
+    footer_bytes: &[u8],
+    generation: u32,
+) -> Result<Footer, SearchError> {
     let footer: Footer = serde_json::from_slice(footer_bytes)?;
-    if footer.schema_generation != SCHEMA_GENERATION {
+    if footer.schema_generation != generation {
         return Err(SearchError::IncompatibleGeneration {
             split: footer.schema_generation,
-            reader: SCHEMA_GENERATION,
+            reader: generation,
         });
     }
     Ok(footer)
@@ -207,6 +222,5 @@ pub fn open_split(split: &[u8]) -> Result<Index, SearchError> {
         writer.write_all(&split[file.offset..end])?;
         writer.terminate()?;
     }
-    let index = Index::open(directory)?;
-    Ok(index)
+    Ok(register_tokenizers(Index::open(directory)?))
 }

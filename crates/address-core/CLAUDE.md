@@ -28,6 +28,11 @@ HTTP, no buckets, no workers. `containers/address` binds it to object storage an
   prefetched in parallel and stored rows fetched concurrently. A change that adds sequential reads is a
   latency regression at R2's ~100 ms a read even when it is free locally; measure read counts, not
   milliseconds against memory.
+- **A partition carries this crate's generation, not `search-core`'s.** The split format is borrowed;
+  the schema is not. `ADDRESS_INDEX_GENERATION` (`src/schema.rs`) is what a build stamps in the footer
+  and the only value the engine opens, so a change to how the document index cuts its words leaves
+  every partition in the bucket readable. Bump it on any change to this crate's fields or analyzers,
+  knowing that every partition is unreadable from that deploy until the next build publishes.
 - **No panics on data.** The workspace lint floor denies them; OpenAddresses rows are untrusted input
   (the corpus carries house numbers like `127 56` and `N 505`).
 
