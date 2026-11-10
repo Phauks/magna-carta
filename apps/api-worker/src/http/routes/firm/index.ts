@@ -17,6 +17,7 @@ import { registerNumberingRoutes } from "./numbering.ts";
 import { registerReleaseChannelRoute } from "./release-channel.ts";
 import { registerScanPolicyRoutes } from "./scan-policy.ts";
 import { registerFirmSearchSettingsRoutes } from "./search-settings.ts";
+import { registerFirmSearchStatusRoutes } from "./search-status.ts";
 
 // The firm's settings tier: profile, the per-domain policies, numbering, custom fields, the classification types, and the beta release-channel door.
 //
@@ -54,5 +55,8 @@ export function mountFirm(app: AppRouter, chokepoint: Chokepoint, _deps: DomainD
   // The firm's search settings: whether the contents of its files are indexed. The only writer of the
   // switch the ingest path and a matter's search both read.
   registerFirmSearchSettingsRoutes(domain, chokepoint);
+  // What the firm's indexes hold, counted when asked: the read behind the list of searchable places
+  // on the same settings page.
+  registerFirmSearchStatusRoutes(domain, chokepoint);
   app.route("/", domain);
 }

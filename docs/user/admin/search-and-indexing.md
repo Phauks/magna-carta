@@ -43,8 +43,45 @@ is about the platform, not about your firm, and nothing you do on this page chan
 still turn the switch on: nothing inside a file can be searched until the service is connected, and
 the reading starts once it is.
 
+## What is indexed
+
+Beneath the setting, the page shows what your firm's indexes hold. The figures are counted from
+your firm's own records at the moment the page opens; **Count Again** counts them afresh.
+
+**What Is Indexed** has a line for each of the three indexes:
+
+- **Records** covers notes, time, costs, calendar events, calls and texts, tasks and Magnus
+  conversations. It reads **Up to Date** when the index holds exactly the records your firm does,
+  and **Behind** when it does not. Behind should not happen in ordinary use; if you see it, tell
+  support which place is behind.
+- **Inside Files** shows how many of your firm's files have had their words read. It reads **Turned
+  Off** while the setting above is off, **Not Connected** while the platform's search service is not
+  connected, **Partly Indexed** while some files are not in the index, and **Up to Date** when all
+  of them are.
+- **Search by Meaning** shows whether your firm has turned that on.
+
+Hover over any of these words to read what it means.
+
+**Indexed Places** lists every place whose text is indexed, with how many of its records are
+indexed, how many are not, and which searches read it. The table sorts and filters like every other
+table in the product.
+
+Three things the figures do not include:
+
+- A file with no words that can be read, such as a scanned page that has not been through text
+  recognition, stays in **Not Indexed** for as long as that is true. So Inside Files can read Partly
+  Indexed after every readable file has been read.
+- The files your firm held before it turned the setting on are read in the background, up to
+  1,000 started each day, so a large firm's figure climbs over several days.
+- A discovery review set is searched only from inside that set, by the people with access to it, and
+  is not counted on this page.
+
+Names and numbers, such as a file's name, a party's name or an invoice number, are matched where
+they are kept and do not appear in the table, because they need no index.
+
 ## Who can change it
 
 Only a member whose role carries the right to manage the firm's search settings, which the firm's
 Owner and Administrator roles hold. Everybody else sees the firm's answer on the same page, stated
-as a fact rather than as a control they cannot use.
+as a fact rather than as a control they cannot use. What the indexes hold is shown to the same
+members who can change the setting.

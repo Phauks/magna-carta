@@ -28,7 +28,8 @@
     "./record-index-query": "./src/record-index-query.ts",
     "./record-index-schema": "./src/record-index-schema.ts",
     "./record-index-sources": "./src/record-index-sources.ts",
-    "./record-index-statements": "./src/record-index-statements.ts"
+    "./record-index-statements": "./src/record-index-statements.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"

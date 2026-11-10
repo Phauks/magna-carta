@@ -8,6 +8,7 @@ import {
 import {
   optimizeRecordIndexStatement,
   readRecordIndexCounts,
+  readRecordIndexPlaces,
   rebuildRecordIndexSourceStatements,
   selectRecordIndexPointersStatement,
 } from "../src/record-index-statements.ts";
@@ -242,6 +243,55 @@ describe("how the index follows a record", () => {
         indexed: 1,
       })),
     );
+    assertIndexConsistent(raw);
+  });
+
+  it("says how many records each place should hold, counted from the records themselves", async () => {
+    const { database, raw } = migratedDatabase();
+    seedNote(raw, { id: "note_1", matterId: MATTER, body: "the covenant runs with the land" });
+    seedNote(raw, { id: "note_2", matterId: MATTER, body: "a second note" });
+    // A record with no words is not indexed, and is not counted as one that should be.
+    seedNote(raw, { id: "note_blank", matterId: MATTER, body: "   " });
+    seedConversation(raw, { id: "conv_1", matterId: MATTER, title: "Covenant questions" });
+    seedTurn(raw, { id: "turn_1", conversationId: "conv_1", sequence: 1, content: "Does it run?" });
+
+    const places = await readRecordIndexPlaces(database);
+
+    expect(places.map((place) => place.sourceKey)).toEqual(
+      recordIndexSources.map((source) => source.key),
+    );
+    const byKey = new Map(places.map((place) => [place.sourceKey, place]));
+    expect(byKey.get("notes")).toMatchObject({
+      indexed: 2,
+      expected: 2,
+      readBy: ["matter-search"],
+    });
+    expect(byKey.get("magnus-turns")).toMatchObject({ indexed: 1, expected: 1 });
+    expect(byKey.get("time")).toMatchObject({ indexed: 0, expected: 0 });
+  });
+
+  it("shows an index that has fallen behind its records, which a rebuild repairs", async () => {
+    const { database, raw } = migratedDatabase();
+    seedNote(raw, { id: "note_1", matterId: MATTER, body: "the covenant runs with the land" });
+    seedNote(raw, { id: "note_2", matterId: MATTER, body: "a second note" });
+    // Something no write path does: an index row removed behind the record's back.
+    raw.exec(
+      "DELETE FROM record_text_fts WHERE rowid IN (SELECT id FROM record_text_entry WHERE record_id = 'note_2')",
+    );
+    raw.exec("DELETE FROM record_text_entry WHERE record_id = 'note_2'");
+
+    const behind = (await readRecordIndexPlaces(database)).find(
+      (place) => place.sourceKey === "notes",
+    );
+    expect(behind).toMatchObject({ indexed: 1, expected: 2 });
+
+    for (const statement of rebuildRecordIndexSourceStatements(database, "notes")) {
+      await statement.run();
+    }
+    const repaired = (await readRecordIndexPlaces(database)).find(
+      (place) => place.sourceKey === "notes",
+    );
+    expect(repaired).toMatchObject({ indexed: 2, expected: 2 });
     assertIndexConsistent(raw);
   });
 

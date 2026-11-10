@@ -314,6 +314,11 @@
       "reason": "predates the community board's statuses joining the register, which is what made `Beta` a register word. This marks a firm enrolled on the beta channel, not a board request in beta. It should get a settings key of its own in the register, which is a change to the settings page rather than to the board."
     },
     {
+      "rule": "status-tone",
+      "file": "apps/web/src/lib/versions/database-health-model.ts",
+      "reason": "predates the search index standings joining the register, which is what made `Behind` a register word beside `Active`. A firm database's schema being a migration behind the build is a different fact from a search index being behind its records. The health rows should get keys of their own in the register, which is a change to the version overlay rather than to the Search and Indexing page."
+    },
+    {
       "rule": "placeholder",
       "file": "apps/web/src/lib/components/recipient-picker.svelte",
       "text": "Search colleagues\u2026",

@@ -270,15 +270,54 @@ schema generation, taken before the first production index existed because after
 rebuilding every index. What remains recorded is the mechanism for that rebuild: the catalog keeps
 each split's generation, and nothing yet re-indexes the splits of an older one.
 
+### 4.1 What a firm is shown about its indexes
+
+Beneath the switch, the Search and Indexing settings page states what each index holds. It is one
+read, `GET /api/v1/firm/search-status`, behind the permission that governs the switch, and it
+follows three rules.
+
+**Every figure is counted when asked.** Nothing is stored between reads. For each declared source
+of the record index the read counts the index's rows and, separately, the records that belong in
+the index, from the source's own table through the same select the triggers and the rebuild are
+rendered from (`recordIndexExpectedCountSelect`). The two agree unless the copy has fallen behind
+its records, which is the one condition the screen exists to show: a place whose counts differ
+reads **Behind**. For files it counts the current, clean version of every live file and how many of
+those the catalog holds, as a version's own live split or as a live member of a merged one.
+
+**The count and the repair use one definition.** The daily repair pass finds the files to index
+with the same "held by the index" predicate the screen counts with
+(`packages/file-manager/src/queries.ts`), so a firm is never shown nothing outstanding while the
+pass still has work. Writing that predicate once also corrected the pass: it had looked only for a
+version's own split, so every file a merge had folded into a larger split would have been sent to
+be indexed again each day.
+
+**It says only what it can know.** A file the index does not hold is "not indexed", never
+"waiting": a file whose words nothing can read leaves no catalog row and stays in that number. A
+discovery review set is not counted at all, because each set's index is its own corpus behind that
+set's access list and a firm-wide total would be a read across it by a settings permission. Each
+source declares which searches read it (`readBy`), and a test compares that declaration with the
+source keys the matter search and the conflicts check name in their own statements, so the "Read
+By" column cannot drift from the code.
+
+The read is proportional to what the firm holds: one pass over each indexed table and one over the
+live files. On a synthetic firm of 200,000 files with three quarters indexed the files count took
+about a quarter of a second in an in-memory SQLite database, so it is asked once when the page
+opens and again only when a member presses Count Again. It is not for polling. Rebuilding a place
+that reads Behind is not on the screen yet: a rebuild is work in proportion to the place and
+belongs on a queue, not on a request.
+
+A firm's database refuses a compound SELECT of more than five terms, and there are eight sources,
+so the expected counts are one row with a column per source and not a row per source.
+
 ## 5. Build order
 
 | Step | What                                                                                        | State                                                                               |
 | ---- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | 1    | This specification and its decision record                                                  | Built                                                                               |
 | 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Not built                                                                           |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Counts and standings built (section 4.1); the rebuild action is not                 |
 | 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                           |
-| 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                           |
+| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                               |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
 | 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |
 | 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                    |

@@ -24,6 +24,7 @@ import {
   MANAGE_SEARCH_SETTINGS_PERMISSION,
   type SearchSettings,
 } from "$lib/settings/search-settings-api.ts";
+import type { SearchStatus } from "$lib/settings/search-status.ts";
 import { SETTINGS_SECTIONS } from "$lib/settings/settings-sections.ts";
 import SearchSettingsPage from "./search-settings-page-harness.svelte";
 
@@ -31,7 +32,44 @@ const ORIGIN = "https://app.example";
 const SETTINGS_PATH = "/api/v1/firm/search-settings";
 const ROW = "search.file-contents-indexed";
 
+const STATUS_PATH = "/api/v1/firm/search-status";
+
 const FRESH_FIRM: SearchSettings = { fileContentsIndexed: false, searchServiceConnected: false };
+const INDEXING: SearchSettings = { fileContentsIndexed: true, searchServiceConnected: true };
+
+/** A firm part-way through having its files read, with one place whose index fell behind. */
+const CATCHING_UP: SearchStatus = {
+  checkedAt: "2026-11-10T14:12:00.000Z",
+  records: {
+    places: [
+      {
+        key: "notes",
+        label: "Notes",
+        matchedFields: ["the note's text"],
+        readBy: ["matter-search"],
+        indexed: 3182,
+        expected: 3182,
+      },
+      {
+        key: "communications",
+        label: "Messaging",
+        matchedFields: ["what was said", "the caller's name"],
+        readBy: ["matter-search", "conflicts-check"],
+        indexed: 9120,
+        expected: 9133,
+      },
+    ],
+  },
+  fileContents: {
+    turnedOn: true,
+    serviceConnected: true,
+    filesBelonging: 18240,
+    filesIndexed: 6112,
+    lastIndexedAt: "2026-11-10T09:02:00.000Z",
+    dailyCatchUpLimit: 1000,
+  },
+  searchByMeaning: { turnedOn: false, serviceConnected: false },
+};
 
 interface Sent {
   method: string;
@@ -43,12 +81,21 @@ let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 let sent: Sent[];
 
-/** Answer the settings route with `settings`, and a PATCH with them merged with what was sent. */
-function serve(settings: SearchSettings): void {
+/**
+ * Answer the settings route with `settings`, and a PATCH with them merged with what was sent.
+ * The status route answers `status` where one is given, and is not there at all where none is.
+ */
+function serve(settings: SearchSettings, status?: SearchStatus): void {
   let current = settings;
   const answer = async (method: string, path: string, body: string | null): Promise<Response> => {
     const parsed: unknown = body === null || body === "" ? null : JSON.parse(body);
     sent.push({ method, path, body: parsed });
+    if (path === STATUS_PATH && status !== undefined) {
+      return new Response(JSON.stringify(status), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (path !== SETTINGS_PATH) return new Response(null, { status: 404 });
     if (method === "PATCH") current = { ...current, ...(parsed as Partial<SearchSettings>) };
     return new Response(JSON.stringify(current), {
@@ -93,8 +140,12 @@ function noteBeneathRow(): string {
   );
 }
 
-async function mountAs(permissions: readonly string[], settings: SearchSettings): Promise<void> {
-  serve(settings);
+async function mountAs(
+  permissions: readonly string[],
+  settings: SearchSettings,
+  status?: SearchStatus,
+): Promise<void> {
+  serve(settings, status);
   sessionPermissions.session = {
     permissions,
     user: { id: "user_1" },
@@ -218,6 +269,80 @@ describe("the page, read by a firm Owner", () => {
     expect(patches).toEqual([
       { method: "PATCH", path: SETTINGS_PATH, body: { fileContentsIndexed: true } },
     ]);
+  });
+});
+
+describe("what the indexes hold, beneath the setting", () => {
+  function statusRow(id: string): string {
+    return words(target.querySelector(`#settings-row-${CSS.escape(id)}`)?.textContent);
+  }
+
+  function tableRows(): string[] {
+    return [...target.querySelectorAll("table tbody tr")].map((row) => words(row.textContent));
+  }
+
+  it("counts once when the page opens, and states each index's standing with its figure", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    expect(sent.filter((call) => call.path === STATUS_PATH)).toHaveLength(1);
+
+    // One place behind makes the record index behind; the figure is every place added up.
+    expect(statusRow("search.status.records")).toContain("Behind");
+    expect(statusRow("search.status.records")).toContain("12,302 records");
+    expect(statusRow("search.status.file-contents")).toContain("Partly Indexed");
+    expect(statusRow("search.status.file-contents")).toContain("6,112 of 18,240 files");
+    expect(statusRow("search.status.search-by-meaning")).toContain("Turned Off");
+  });
+
+  it("says why the files figure is short, beneath the row it is about", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    const note = words(
+      target.querySelector(`#settings-row-${CSS.escape("search.status.file-contents")}`)
+        ?.nextElementSibling?.textContent,
+    );
+    expect(note).toContain("up to 1,000 started each day");
+    expect(note).toContain("such as a scanned page");
+  });
+
+  it("lists every indexed place with what it holds, who reads it and what is matched there", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    const rows = tableRows().join(" | ");
+    expect(rows).toContain("Notes");
+    expect(rows).toContain("The note's text");
+    expect(rows).toContain("Matter Search, Conflicts Check");
+    expect(rows).toContain("9,120");
+    // Thirteen messages the index does not hold, and the place says so.
+    expect(rows).toContain("13");
+    expect(rows).toContain("Behind");
+    expect(rows).toContain("Inside Files");
+    expect(rows).toContain("12,128");
+    expect(words(target.textContent)).toContain(
+      "A discovery review set is searched only from inside that set",
+    );
+  });
+
+  it("counts again only when asked to", async () => {
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], INDEXING, CATCHING_UP);
+    const again = [...target.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Count Again",
+    );
+    expect(again).toBeDefined();
+    again?.click();
+    await settle();
+    expect(sent.filter((call) => call.path === STATUS_PATH)).toHaveLength(2);
+  });
+
+  it("says the count could not be made, and keeps the setting usable", async () => {
+    // No status route at all: the settings above it must not be taken down with it.
+    await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], FRESH_FIRM);
+    expect(words(target.textContent)).toContain("The Indexes Could Not Be Counted");
+    expect(target.querySelector('button[role="switch"]')).not.toBeNull();
+    expect(target.querySelector("table")).toBeNull();
+  });
+
+  it("is not asked for on behalf of a member who could not be answered", async () => {
+    await mountAs(["search:matter"], INDEXING, CATCHING_UP);
+    expect(sent.some((call) => call.path === STATUS_PATH)).toBe(false);
+    expect(target.textContent).not.toContain("What Is Indexed");
   });
 });
 

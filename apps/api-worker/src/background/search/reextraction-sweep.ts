@@ -3,7 +3,10 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../../bindings.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
-import { enqueueFirmIndexBacklog } from "../../search/index-backlog.ts";
+import {
+  DAILY_INDEX_BACKLOG_ENQUEUE_CAP,
+  enqueueFirmIndexBacklog,
+} from "../../search/index-backlog.ts";
 
 // The repair pass for documents that are not in the searchable corpus and should be.
 //
@@ -53,9 +56,9 @@ import { enqueueFirmIndexBacklog } from "../../search/index-backlog.ts";
 // One pass's per-firm cap. A firm's entire back catalogue can be missing from the index — that is
 // exactly the case after this fix, and after a firm first turns indexing on — so the cap is what keeps
 // one daily fire bounded and lets the backlog drain over several days instead of flooding the queue in
-// one burst. Sized above the tiering sweep's cap because enqueuing is far cheaper per document than
-// rewriting an R2 object.
-const REEXTRACTION_SWEEP_PER_FIRM_CAP = 1000;
+// one burst. The number itself is declared beside the walk in search/index-backlog.ts, because the
+// firm's search status read reports it and a route may not import this module.
+const REEXTRACTION_SWEEP_PER_FIRM_CAP = DAILY_INDEX_BACKLOG_ENQUEUE_CAP;
 
 // How many candidates one pass will LOOK AT per firm, as distinct from how many it will enqueue. A
 // candidate the coordinator declines costs one Durable Object call and no extraction, no queue message,
