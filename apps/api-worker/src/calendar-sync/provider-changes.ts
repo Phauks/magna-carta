@@ -24,16 +24,21 @@ import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import type { IntegrationProblem } from "@magna-carta/integrations/problem";
 
-// WHAT A MEMBER DID TO A COPY IN THEIR OWN CALENDAR, NOTICED AND NEVER ACTED ON FOR THEM.
+// WHAT A MEMBER DID TO A COPY IN THEIR OWN CALENDAR.
 //
 // A pass that has finished sending looks at the copies it wrote and compares each with the event as
-// it stands. A copy that reads differently, or is gone, becomes a question for the member on their
-// Calendar Sync page. Nothing here changes an event in the firm's calendar: a hearing is shared by
-// everybody on the matter, and one person dragging their copy is not a decision about the hearing.
+// it stands. What happens to a copy that reads differently is one of three things, and which one
+// is decided by the caller's `applyEdit` (./apply-provider-edit.ts):
 //
-// A deadline is the exception in the other direction. Its copy is put back as it was sent, without
-// asking, because a deadline that reads a day late in somebody's calendar is the one difference
-// that can hurt a client.
+//   - the edit is carried to the event, which is the ordinary case for a member who may edit it;
+//   - the copy is written again as it was sent, where nothing in the edit can be carried;
+//   - the member is asked, on their Calendar Sync page, where the edit may not be carried.
+//
+// A copy that is GONE is always a question. Taking something out of your own calendar is not
+// cancelling a hearing, and nothing here ever cancels one.
+//
+// A deadline's copy is always put back as it was sent, without asking, because a deadline that
+// reads a day late in somebody's calendar is the one difference that can hurt a client.
 //
 // Only copies this platform wrote are read. The provider is asked for the events carrying the
 // platform's own mark and for nothing else, so an event the member made themselves is never seen.
@@ -102,7 +107,17 @@ export function sameReading(left: SyncCopyReading, right: SyncCopyReading): bool
   );
 }
 
+export type ProviderEditDecision =
+  // The event now reads as the copy does.
+  | "applied"
+  // Nothing in the edit can be carried to the event. The copy is written again as it was sent.
+  | "put-back"
+  // The edit could be carried but may not be, or the event would not take it. The member is asked.
+  | "ask";
+
 export interface ProviderChangesReport {
+  // Edits carried to the event.
+  applied: number;
   // Questions raised for the member in this pass.
   flagged: number;
   // Deadline copies written again as they were sent.
@@ -116,6 +131,12 @@ export interface ProviderChangesInput {
   readonly desired: readonly OutboundDesired[];
   readonly digestFor: (copy: OutboundDesired) => string;
   readonly stamp: string;
+  // What to do with a copy that reads differently. Absent, every edit is a question.
+  readonly applyEdit?: (
+    copy: OutboundDesired,
+    sent: SyncCopyReading,
+    found: SyncCopyReading,
+  ) => Promise<ProviderEditDecision>;
 }
 
 export type ProviderChangesOutcome =
@@ -131,7 +152,7 @@ export async function noticeProviderChanges(
   input: ProviderChangesInput,
 ): Promise<ProviderChangesOutcome> {
   const { database, connectionId, port, stamp } = input;
-  const report: ProviderChangesReport = { flagged: 0, putBack: 0 };
+  const report: ProviderChangesReport = { applied: 0, flagged: 0, putBack: 0 };
 
   const listed = await port.listWrittenEvents();
   if (!listed.ok) return { kind: "stopped", problem: listed.problem, report };
@@ -201,7 +222,26 @@ export async function noticeProviderChanges(
       continue;
     }
 
-    if (copy.localKind === "deadline") {
+    const decision: ProviderEditDecision =
+      copy.localKind === "deadline"
+        ? "put-back"
+        : input.applyEdit === undefined
+          ? "ask"
+          : await input.applyEdit(copy, sent, found);
+
+    if (decision === "applied") {
+      // The event has changed, so the next pass writes this copy again in full, which also sets
+      // right anything in the edit that was not carried. The tag is kept so this pass's own look
+      // is not repeated in the meantime.
+      if (snapshot.versionTag !== null) {
+        await recordSyncLinkVersionStatement(database, key, snapshot.versionTag, stamp).run();
+      }
+      if (issue !== undefined) await deleteSyncIssueStatement(database, key).run();
+      report.applied += 1;
+      continue;
+    }
+
+    if (decision === "put-back") {
       const written = await port.updateEvent(link.remote_event_id, copy.event);
       if (!written.ok) return { kind: "stopped", problem: written.problem, report };
       if (written.value.found) {

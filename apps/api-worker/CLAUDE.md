@@ -86,9 +86,11 @@ routes requests through the chokepoint into those packages.
   it is for and a retry count and runs that account's passes one at a time from its alarm.
   `outbound-pass.ts` is a pass: it reconciles the member's provider calendar with their rules and
   records each copy in `calendar_sync_link`. `provider-changes.ts` runs at the end of a pass with
-  nothing left to send: it reads back only the copies the platform wrote, raises a copy the member
-  changed or deleted as a `connection_sync_issue` for them to answer, puts a deadline's copy back,
-  and never changes an event in the firm's calendar. `change-watch.ts` keeps the provider's standing request to say
+  nothing left to send: it reads back only the copies the platform wrote, puts a deadline's copy back, raises a
+  deleted copy as a `connection_sync_issue` for the member to answer, and hands an edited copy to
+  `apply-provider-edit.ts`, which carries the edit to the event through the calendar's own service
+  when the member holds `calendar:manage` and otherwise leaves it a question. A deleted copy never
+  cancels an event. `change-watch.ts` keeps the provider's standing request to say
   when the member's calendar changes: the object stores the watch and its secret, every pass that
   reaches the provider renews it, and `http/routes/calendar/provider-notices.ts` (public, one route
   per provider) hands a notice to the object, which believes it only by that secret and then only
