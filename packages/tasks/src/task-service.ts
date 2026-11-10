@@ -33,7 +33,6 @@ import {
   memberCanBeAssigned,
   readMatterTask,
   readMatterTaskDocument,
-  reassignMatterTaskStatement,
   unarchiveMatterTaskStatement,
   updateMatterTaskStatement,
   isDescendantOf,
@@ -303,7 +302,9 @@ export async function createMatterTask(
       `a task is assigned to at most ${String(MAX_TASK_ASSIGNEES)} people and teams`,
     );
   }
-  for (const userId of people) await assertAssignable(database, userId, matterId, options);
+  await Promise.all(
+    people.map((userId) => assertAssignable(database, userId, matterId, options)),
+  );
   if (teams.length > 0) {
     const live = new Set((await readTaskTeams(database)).map((team) => team.id));
     if (teams.some((team) => !live.has(team))) {
@@ -317,7 +318,9 @@ export async function createMatterTask(
       `a task has at most ${String(MAX_TASK_WATCHERS)} watchers`,
     );
   }
-  for (const userId of watchers) await assertAssignable(database, userId, matterId, options);
+  await Promise.all(
+    watchers.map((userId) => assertAssignable(database, userId, matterId, options)),
+  );
   const assigneeUserId = people[0] ?? null;
   if (blockedByTaskId !== null) {
     await assertPredecessor(database, blockedByTaskId, matterId, null, options);
