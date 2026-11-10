@@ -13,7 +13,7 @@ use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, Stream};
 
 use crate::scrub::catalog_subdict;
 use crate::standard_fonts_data::{HELVETICA, WIN_ANSI_ENCODING};
-use crate::surgery::resolve_dict;
+use crate::surgery::{resolve_array, resolve_dict};
 
 // ── Public types ───────────────────────────────────────────────────────────────
 
@@ -286,9 +286,9 @@ fn collect_widget_ids(
     if dict.has(b"Rect") {
         return vec![field_id];
     }
-    let kids: Vec<Object> = match dict.get(b"Kids").ok() {
-        Some(Object::Array(a)) => a.clone(),
-        _ => return vec![],
+    let kids: Vec<Object> = match dict.get(b"Kids").ok().and_then(|o| resolve_array(doc, o)) {
+        Some(a) => a.clone(),
+        None => return vec![],
     };
     kids.iter()
         .filter_map(|o| o.as_reference().ok())
@@ -411,7 +411,7 @@ fn decode_field_value(obj: &Object, kind: FieldKind) -> Option<FieldValue> {
 fn walk_acroform_fields(doc: &Document) -> Vec<WalkedField> {
     let root_refs: Vec<ObjectId> = catalog_subdict(doc, b"AcroForm")
         .and_then(|acro| acro.get(b"Fields").ok())
-        .and_then(|o| o.as_array().ok())
+        .and_then(|o| resolve_array(doc, o))
         .map(|arr| arr.iter().filter_map(|o| o.as_reference().ok()).collect())
         .unwrap_or_default();
 
@@ -442,10 +442,11 @@ fn walk_acroform_fields(doc: &Document) -> Vec<WalkedField> {
         }
 
         // Identify field-kids (children that carry /T — they are sub-fields).
-        let all_kids: Vec<ObjectId> = match dict.get(b"Kids").ok() {
-            Some(Object::Array(arr)) => arr.iter().filter_map(|o| o.as_reference().ok()).collect(),
-            _ => vec![],
-        };
+        let all_kids: Vec<ObjectId> =
+            match dict.get(b"Kids").ok().and_then(|o| resolve_array(doc, o)) {
+                Some(arr) => arr.iter().filter_map(|o| o.as_reference().ok()).collect(),
+                None => vec![],
+            };
 
         let field_kids: Vec<ObjectId> = all_kids
             .iter()
@@ -2111,6 +2112,87 @@ mod tests {
         let dict = doc2.get_object(fid).unwrap().as_dict().unwrap();
         assert_eq!(dict.get(b"V").unwrap().as_name().unwrap(), b"Yes");
         assert_eq!(dict.get(b"AS").unwrap().as_name().unwrap(), b"Yes");
+    }
+
+    #[test]
+    fn a_sanitized_template_still_ticks_its_checkbox_and_lists_its_radio_options() {
+        let (mut doc, page_id) = base_doc();
+        // The on-state is deliberately not "Yes": after a sanitize that removed the
+        // appearance, fill would guess "Yes" and write a state the widget does not have.
+        let ap_n_id = doc.add_object(Object::Dictionary(dictionary! {
+            "Agree" => Object::Null,
+            "Off" => Object::Null,
+        }));
+        let checkbox = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Btn",
+            "T" => Object::string_literal("Consent"),
+            "Ff" => Object::Integer(0),
+            "V" => Object::Name(b"Agree".to_vec()),
+            "AS" => Object::Name(b"Agree".to_vec()),
+            "AP" => dictionary! { "N" => Object::Reference(ap_n_id) },
+            "Rect" => rect_obj(),
+        };
+        let checkbox_id = add_annot(&mut doc, page_id, checkbox);
+        let radio_n_id = doc.add_object(Object::Dictionary(dictionary! {
+            "Plaintiff" => Object::Null,
+            "Off" => Object::Null,
+        }));
+        let radio_widget_id = add_annot(
+            &mut doc,
+            page_id,
+            dictionary! {
+                "Type" => "Annot", "Subtype" => "Widget",
+                "AP" => dictionary! { "N" => Object::Reference(radio_n_id) },
+                "AS" => Object::Name(b"Plaintiff".to_vec()),
+                "Rect" => rect_obj(),
+            },
+        );
+        let radio_id = doc.add_object(Object::Dictionary(dictionary! {
+            "FT" => "Btn",
+            "T" => Object::string_literal("Party"),
+            "Ff" => Object::Integer(0x8000),
+            "V" => Object::Name(b"Plaintiff".to_vec()),
+            "Kids" => vec![Object::Reference(radio_widget_id)],
+        }));
+        doc.get_object_mut(radio_widget_id)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("Parent", Object::Reference(radio_id));
+        add_acroform(&mut doc, &[checkbox_id, radio_id]);
+        let bytes = to_bytes(&mut doc);
+
+        let sanitized = crate::scrub::sanitize(bytes, &crate::scrub::ScrubOptions::default())
+            .expect("sanitize");
+
+        // The template comes back blank, with the radio group's options intact.
+        let fields = read_form(&sanitized).expect("read_form");
+        let party = fields.iter().find(|f| f.name == "Party").expect("Party");
+        assert_eq!(party.options, vec!["Plaintiff".to_string()]);
+        assert!(fields
+            .iter()
+            .all(|f| f.value.is_none() || f.value == Some(FieldValue::Bool(false))));
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("Consent".to_string(), FieldValue::Bool(true));
+        let out =
+            fill_form(&sanitized, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+
+        let filled = read_form(&out).expect("read filled");
+        let consent = filled
+            .iter()
+            .find(|f| f.name == "Consent")
+            .expect("Consent");
+        assert_eq!(consent.value, Some(FieldValue::Bool(true)));
+        let reloaded = Document::load_mem(&out).expect("reload");
+        let widget = reloaded
+            .get_object(consent.widgets[0])
+            .unwrap()
+            .as_dict()
+            .unwrap();
+        assert_eq!(widget.get(b"AS").unwrap().as_name().unwrap(), b"Agree");
     }
 
     #[test]

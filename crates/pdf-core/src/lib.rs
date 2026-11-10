@@ -27,8 +27,8 @@ mod textpos;
 
 mod textextract;
 pub use textextract::{
-    needs_recognition, PageTextFacts, TextLayerLine, SCANNED_PAGE_RASTER_COVERAGE,
-    TEXT_LAYER_COVERAGE,
+    needs_recognition, PageTextFacts, TextLayerLine, MAX_TEXT_EXTRACTION_PAGES,
+    SCANNED_PAGE_RASTER_COVERAGE, TEXT_LAYER_COVERAGE,
 };
 
 mod detect;
