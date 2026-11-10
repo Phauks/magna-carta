@@ -86,7 +86,18 @@ export type StatusKey =
   | "cleared"
   | "waiver-obtained"
   | "wall-erected"
-  | "representation-declined";
+  | "representation-declined"
+  // Where a request on the community board stands, and whether a question there has its answer.
+  // Prefixed because "new", "future" and "completed" are ordinary words other vocabularies may want.
+  | "community-new"
+  | "community-future"
+  | "community-planned"
+  | "community-building-now"
+  | "community-beta"
+  | "community-completed"
+  | "community-not-on-the-roadmap"
+  | "community-duplicate"
+  | "community-answered";
 
 /**
  * How a status shows itself.
@@ -347,6 +358,60 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     meaning: "Answered: the firm did not take the work.",
     presentation: "chip",
   },
+  "community-new": {
+    label: "New",
+    tone: "neutral",
+    meaning: "Not reviewed by the Magna Carta team yet.",
+    presentation: "chip",
+  },
+  "community-future": {
+    label: "Future",
+    tone: "neutral",
+    meaning: "Reviewed and worth doing, but not scheduled.",
+    presentation: "chip",
+  },
+  "community-planned": {
+    label: "Planned",
+    tone: "info",
+    meaning: "Accepted and on the roadmap. There is no target date.",
+    presentation: "chip",
+  },
+  "community-building-now": {
+    label: "Building Now",
+    tone: "accent",
+    meaning: "Being built now.",
+    presentation: "chip",
+  },
+  "community-beta": {
+    label: "Beta",
+    tone: "warning",
+    meaning: "Built and available to firms on the beta channel.",
+    presentation: "chip",
+  },
+  "community-completed": {
+    label: "Completed",
+    tone: "success",
+    meaning: "Shipped to every firm.",
+    presentation: "chip",
+  },
+  "community-not-on-the-roadmap": {
+    label: "Not on the Roadmap",
+    tone: "neutral",
+    meaning: "Declined, with the reason the team gave.",
+    presentation: "chip",
+  },
+  "community-duplicate": {
+    label: "Duplicate",
+    tone: "neutral",
+    meaning: "Merged into another request, which carries its votes.",
+    presentation: "chip",
+  },
+  "community-answered": {
+    label: "Answered",
+    tone: "success",
+    meaning: "The person who asked marked a reply as the answer.",
+    presentation: "chip",
+  },
 };
 
 /**
@@ -381,6 +446,19 @@ export const STATUS_VOCABULARIES = {
     "wall-erected",
     "representation-declined",
   ],
+  /** Where a community request stands, in the order a request moves through the pipeline. */
+  communityRequest: [
+    "community-new",
+    "community-future",
+    "community-planned",
+    "community-building-now",
+    "community-beta",
+    "community-completed",
+    "community-not-on-the-roadmap",
+    "community-duplicate",
+  ],
+  /** Whether a community question has its accepted answer. */
+  communityQuestion: ["community-new", "community-answered"],
 } as const satisfies Readonly<Record<string, readonly StatusKey[]>>;
 
 export type StatusVocabulary = keyof typeof STATUS_VOCABULARIES;

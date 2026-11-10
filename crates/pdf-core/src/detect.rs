@@ -722,6 +722,7 @@ mod tests {
             invisible,
             rgba,
             advance_span: None,
+            baseline: y + 8.0,
         }
     }
 
@@ -996,6 +997,7 @@ mod tests {
                 invisible: false,
                 rgba: [0, 0, 0, 255],
                 advance_span: None,
+                baseline: dev_y + 2.0,
             }],
             covers: vec![],
             width_pt: 612.0,
