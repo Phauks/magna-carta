@@ -86,8 +86,9 @@ export function emptyGroupLine(skipped: SearchSkipReason | null, sourceKey?: str
         ? "Searching the text inside files is not switched on yet. File and folder names were searched."
         : "Searching this section is not switched on yet";
     case "not-indexed":
-      // The firm's own choice, so it is said as one and not as a fault.
-      return "Searching the text inside files is turned off for this firm";
+      // The firm's own choice, so it is said as one and not as a fault, with where it is made:
+      // the Search and Indexing settings page is the one place that writes it.
+      return "Searching the text inside files is turned off for this firm. An administrator can turn it on in Settings, under Search and Indexing.";
     case null:
       return "No matches";
   }

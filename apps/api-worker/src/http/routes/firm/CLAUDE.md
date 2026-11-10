@@ -20,3 +20,10 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
 3. Call `getBooleanValue(flagKey, false, context)` (or `evaluateCatalog`) in the route or session handler. Stable behavior is always the default — the second argument must equal what a `stable` firm would see.
 
 **The `FLAGS` binding is a production deploy-time wiring step.** The local Miniflare test pool does not support the Flagship binding shape. The `env.FLAGS` binding is declared **optional** in `wrangler.jsonc`; when absent, `resolveFlagEvaluator` returns the `defaultOffEvaluator` (all flags off, the safe stable default). Tests that need a specific flag on inject a `FlagEvaluator` fake directly — no Flagship account required. This means the fail-safe is structural: any test environment or local dev session silently sees stable behavior for every flag unless a fake is injected.
+
+## Firm search settings — the one writer of the file indexing switch
+
+`src/http/routes/firm/search-settings.ts` exposes `GET` and `PATCH /api/v1/firm/search-settings`, both behind `firm:manageSearchSettings` (Owner/Admin by seed). The body is `{ fileContentsIndexed, searchServiceConnected }`. The first is the firm's `search.indexing_enabled` setting (`@magna-carta/search/settings`), which the ingest path reads before it enqueues a file and a matter's search reads before it asks the index; this route is its only writer. The second is read-only and is whether `SEARCH_SERVICE` is bound in this deployment, so the settings page can say that nothing inside a file is searchable yet.
+
+- **Off to on starts a bounded walk of the firm's existing files**, off the response path through `runInBackground`, using `src/search/index-backlog.ts` (the same walk the daily re-extraction sweep runs with a larger budget). It is a latency improvement only: the sweep remains what draws in a back catalogue. Keep its budget small — it runs on the tail of one request.
+- **The idempotency record holds the whole answer.** The chokepoint replays the stored body itself, so a body composed after the effect would be missing from a replay.

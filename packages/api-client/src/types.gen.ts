@@ -1165,6 +1165,15 @@ export type PatchFirmAiSettingsRequest = {
     };
 };
 
+export type FirmSearchSettingsResponse = {
+    fileContentsIndexed: boolean;
+    searchServiceConnected: boolean;
+};
+
+export type PatchFirmSearchSettingsRequest = {
+    fileContentsIndexed?: boolean;
+};
+
 export type ExportRenderRequest = {
     format: 'docx' | 'pdf';
     document: {
@@ -13656,6 +13665,95 @@ export type FirmAiSettingsUpdateResponses = {
 };
 
 export type FirmAiSettingsUpdateResponse = FirmAiSettingsUpdateResponses[keyof FirmAiSettingsUpdateResponses];
+
+export type FirmSearchSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-settings';
+};
+
+export type FirmSearchSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchSettingsGetError = FirmSearchSettingsGetErrors[keyof FirmSearchSettingsGetErrors];
+
+export type FirmSearchSettingsGetResponses = {
+    /**
+     * The firm's search settings, resolved with their defaults
+     */
+    200: FirmSearchSettingsResponse;
+};
+
+export type FirmSearchSettingsGetResponse = FirmSearchSettingsGetResponses[keyof FirmSearchSettingsGetResponses];
+
+export type FirmSearchSettingsUpdateData = {
+    body: PatchFirmSearchSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-settings';
+};
+
+export type FirmSearchSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchSettingsUpdateError = FirmSearchSettingsUpdateErrors[keyof FirmSearchSettingsUpdateErrors];
+
+export type FirmSearchSettingsUpdateResponses = {
+    /**
+     * The firm's search settings after the change
+     */
+    200: FirmSearchSettingsResponse;
+};
+
+export type FirmSearchSettingsUpdateResponse = FirmSearchSettingsUpdateResponses[keyof FirmSearchSettingsUpdateResponses];
 
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;

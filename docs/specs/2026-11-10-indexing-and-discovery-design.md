@@ -234,24 +234,27 @@ match on file and folder names.
 
 Two limits are recorded. A result names the file and the pages and **quotes nothing**, because the
 index stores which words are on which page and not the sentences, and a matter file's extracted text
-is not kept after it is indexed. Keeping it is step 6c. And the engine lowercases a word and **leaves
-its accents**, so a file search is accent-sensitive where the record index is not; changing the
-engine's tokenizer means rebuilding every index, which costs nothing before the first production
-index exists and a great deal after.
+is not kept after it is indexed. Keeping it is step 6c. The second limit as first recorded, that
+the engine lowercased a word and left its accents, is closed: the engine composes a letter and its
+accent into one character, folds Latin letters to their unaccented form and lowercases, so a file
+search ignores accents as the record index does. That changed how every word is cut, so it is a new
+schema generation, taken before the first production index existed because afterwards it means
+rebuilding every index. What remains recorded is the mechanism for that rebuild: the catalog keeps
+each split's generation, and nothing yet re-indexes the splits of an older one.
 
 ## 5. Build order
 
-| Step | What                                                                                        | State                                                                            |
-| ---- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 1    | This specification and its decision record                                                  | Built                                                                            |
-| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                            |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Not built                                                                        |
-| 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                        |
-| 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                        |
-| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                   |
-| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Needs the owner's Cloudflare steps in [`../deploy-queue.md`](../deploy-queue.md) |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Not built                                                                        |
-| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                        |
+| Step | What                                                                                        | State                                                                               |
+| ---- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1    | This specification and its decision record                                                  | Built                                                                               |
+| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Not built                                                                           |
+| 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                           |
+| 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                           |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Not built                                                                           |
+| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                           |
 
 ## 6. Open with the owner
 

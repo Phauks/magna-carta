@@ -76,12 +76,11 @@ of a file name is enough. A telephone number in **Messaging** is found the same 
 
 **Inside Files** searches the text of the matter's documents, including text recognized on
 scanned pages. It follows the same rules as the sections that hold writing — every word you type, the last
-one allowed to be unfinished, quotation marks for an exact phrase — with two differences:
+one allowed to be unfinished, quotation marks for an exact phrase, capital letters and accents
+ignored — with one difference:
 
 - **All of your words have to be on the same page.** A search for "indemnify landlord" finds a
   document where both words appear on one page, not one where they are forty pages apart.
-- **Accents matter here.** "pena" does not find "Peña" inside a document; type the name as it is
-  written.
 
 A result names the file, the folder it is in, and the pages that matched. When a long document
 matches on many pages, the three best are named and the rest are counted ("Pages 3, 7, 12 and 5
@@ -92,9 +91,11 @@ is missing instead of saying nothing matched:
 
 - **"Soon"** means the part of the product that reads inside documents is not switched on yet. File
   and folder names were still searched.
-- **"Off"** means your firm has not turned on indexing of its files. An administrator decides that
-  for the whole firm. Once it is on, new files are read as they are added, and the files already on
-  your matters are read over the following day.
+- **"Off"** means your firm has not turned on searching inside its files. An administrator decides
+  that for the whole firm, in Settings under
+  [Search and Indexing](../admin/search-and-indexing.md). Once it is on, new files are read as they
+  are added, and the files already on your matters are read over the following days, the oldest
+  first.
 - **"Unavailable"** means the service that reads inside documents did not answer this time. File
   and folder names were still searched; try again in a moment.
 

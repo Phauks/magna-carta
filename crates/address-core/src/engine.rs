@@ -31,7 +31,7 @@ use crate::address::{natural_order, Address, Building, Offer};
 use crate::error::AddressError;
 use crate::partition::Partition;
 use crate::query::{building_query, normalise_building, parse_query, suggestion_query};
-use crate::schema::{register_analyzers, AddressSchema};
+use crate::schema::{register_analyzers, AddressSchema, ADDRESS_INDEX_GENERATION};
 
 /// The answer size when the caller names none.
 pub const DEFAULT_LIMIT: usize = 8;
@@ -97,7 +97,7 @@ impl PartitionIndex {
     /// Open a partition's split through `reader`. Reads the footer and the index's metadata; postings
     /// and rows are read later, per query.
     pub fn open(partition: Partition, reader: Arc<dyn RangeReader>) -> Result<Self, AddressError> {
-        let directory = SplitDirectory::open(reader)?;
+        let directory = SplitDirectory::open_at_generation(reader, ADDRESS_INDEX_GENERATION)?;
         let index = Index::open(directory)?;
         register_analyzers(&index);
         let schema = AddressSchema::from_schema(&index.schema())?;

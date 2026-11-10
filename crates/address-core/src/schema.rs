@@ -31,6 +31,16 @@ pub(crate) const WORD_ANALYZER: &str = "address_words";
 /// Prefix tokens are produced from already-analysed words, so they need only splitting.
 pub(crate) const PREFIX_ANALYZER: &str = "address_prefixes";
 
+/// The generation an address partition's footer carries, and the only one this crate opens.
+///
+/// A partition is packaged in `search-core`'s split format, footer included, but it is not that
+/// crate's schema: its fields and analyzers are the ones in this file. So it carries a generation of
+/// its own. It used to borrow the document index's, which meant a change to how the body of a document
+/// is cut into words would have made every address partition in the bucket unreadable until the next
+/// monthly build. The value is the one those partitions were stamped with, so none of them moves.
+/// Bump it on any change to the fields below or to how their text is cut.
+pub const ADDRESS_INDEX_GENERATION: u32 = 1;
+
 /// The shortest prefix indexed. One character would put every address under a few dozen terms.
 pub const MINIMUM_PREFIX_CHARACTERS: usize = 2;
 /// The longest prefix indexed. A typed word longer than this is matched by its first twelve characters.

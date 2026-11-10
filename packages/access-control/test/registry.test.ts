@@ -57,6 +57,7 @@ describe("permission registry", () => {
       "firm:manageProfile",
       "firm:editOwnProfile",
       "firm:manageAiSettings",
+      "firm:manageSearchSettings",
     ]);
   });
 

@@ -1,13 +1,9 @@
-import {
-  listVersionsMissingFromSearchIndex,
-  type SearchIndexCandidateCursor,
-} from "@magna-carta/file-manager/queries";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../../bindings.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
-import { enqueueVersionForIndexing } from "../../search/enqueue-index.ts";
+import { enqueueFirmIndexBacklog } from "../../search/index-backlog.ts";
 
 // The repair pass for documents that are not in the searchable corpus and should be.
 //
@@ -103,39 +99,16 @@ export async function runReextractionSweep(
   let examined = 0;
   for (const firm of firms) {
     try {
-      let cursor: SearchIndexCandidateCursor | undefined;
-      let enqueuedForFirm = 0;
-      let examinedForFirm = 0;
-      while (enqueuedForFirm < perFirmCap && examinedForFirm < scanCeiling) {
-        const page = await listVersionsMissingFromSearchIndex(
-          firm.database,
-          Math.min(pageSize, scanCeiling - examinedForFirm),
-          cursor,
-        );
-        if (page.length === 0) break;
-        for (const candidate of page) {
-          // Through the same seam an ingest commit uses, not a hand-rolled enqueue: it is the one place
-          // that reads the firm's indexing switch, resolves the version's facts, and starts the
-          // coordinator. A firm with indexing off produces no message here for the same reason it
-          // produces none at commit.
-          const outcome = await enqueueVersionForIndexing(
-            env,
-            firm.firmId,
-            candidate.versionId,
-            firm.database,
-          );
-          examinedForFirm++;
-          // `started`, not merely "resolved to a message": a version the coordinator declined — already
-          // in flight, or out of attempts against this engine generation — cost nothing and must not
-          // spend the pass's budget.
-          if (outcome?.started === true) enqueuedForFirm++;
-          // THE CURSOR MOVES ON EVERY CANDIDATE, not only the enqueued ones. That is the whole
-          // difference between a pass that drains a catalogue and one that re-reads its head forever.
-          cursor = { committedAt: candidate.committedAt, versionId: candidate.versionId };
-          if (enqueuedForFirm >= perFirmCap) break;
-        }
-        if (page.length < pageSize) break;
-      }
+      // The walk itself is search/index-backlog.ts, shared with the settings route that starts a
+      // firm's first files the moment it turns indexing on. It enqueues through the same seam an
+      // ingest commit uses, advances its cursor past every candidate it examines, and counts only
+      // the work it actually started against the cap.
+      const { enqueued: enqueuedForFirm, examined: examinedForFirm } =
+        await enqueueFirmIndexBacklog(env, firm.firmId, firm.database, {
+          enqueueCap: perFirmCap,
+          scanCeiling,
+          pageSize,
+        });
       enqueued += enqueuedForFirm;
       examined += examinedForFirm;
       firmsProcessed++;

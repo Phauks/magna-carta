@@ -59,7 +59,7 @@ pub use searchable::{write_searchable_text_layer, PageTextLayer, TextRun};
 mod sign;
 pub use sign::{
     embed_signature, prepare_signature, signed_bytes, PreparedSignature, SignError,
-    SignatureOptions,
+    SignatureAppearance, SignatureOptions,
 };
 
 use hayro::hayro_interpret::InterpreterSettings;
