@@ -26,7 +26,7 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Search from "@lucide/svelte/icons/search";
-  import type { DispositionKind, EvidenceTier, HitDetail, SourceClass } from "./conflicts-api.ts";
+  import type { DispositionKind, EvidenceTier, HitDetail } from "./conflicts-api.ts";
   import {
     EVIDENCE_TIERS,
     dispositionVocabulary,
@@ -80,10 +80,10 @@
   let expanded = $state<ReadonlySet<string>>(new Set());
 
   const shown = $derived(filterResults(hits, filter));
-  const sourceCounts = $derived(countBy(hits, (hit) => hit.sourceClass));
+  const sourceCounts = $derived(countBy(hits, foundThroughText));
   const strengthCounts = $derived(countBy(hits, (hit) => hit.evidenceTier));
   const reviewCounts = $derived(countBy(hits, reviewStateOf));
-  const sources = $derived([...sourceCounts.keys()] as SourceClass[]);
+  const sources = $derived([...sourceCounts.keys()]);
 
   function chipClass(on: boolean): string {
     return buttonClasses({ variant: on ? "secondary" : "ghost", size: "sm" });
@@ -127,7 +127,7 @@
         <FieldLabel as="span" class="me-4">Found In</FieldLabel>
         {#each sources as source (source)}
           {@render chip(
-            foundThroughText(source),
+            source,
             sourceCounts.get(source) ?? 0,
             filter.sources.has(source),
             () => (filter = { ...filter, sources: toggled(filter.sources, source) }),
@@ -201,7 +201,7 @@
                 >
                   {STRENGTH_LABELS[hit.evidenceTier as EvidenceTier]}
                 </Badge>
-                <Badge variant="outline">{foundThroughText(hit.sourceClass)}</Badge>
+                <Badge variant="outline">{foundThroughText(hit)}</Badge>
               </div>
               <p class="text-sm">{whyText(hit)}</p>
               <p class="text-xs text-text-muted">{whereText(hit)}</p>
@@ -245,6 +245,21 @@
                     {/each}
                   </ul>
                 </DefinitionList.Row>
+                {#if hit.foundIn !== null}
+                  <DefinitionList.Row term="Found In">
+                    {whereText(hit)}{hit.foundIn.at === null
+                      ? ""
+                      : `, ${formatInstant(hit.foundIn.at)}`}
+                    {#if hit.foundIn.matterId !== null}
+                      <a
+                        class="ms-4 underline underline-offset-2"
+                        href="/matters/{hit.foundIn.matterId}"
+                      >
+                        Open the matter
+                      </a>
+                    {/if}
+                  </DefinitionList.Row>
+                {:else}
                 <DefinitionList.Row term="Path">
                   {#if hit.graphPath.length === 0}
                     {pathSummary(hit.graphPath)}
@@ -260,6 +275,7 @@
                     </ol>
                   {/if}
                 </DefinitionList.Row>
+                {/if}
                 {#if hit.disposition !== null}
                   <DefinitionList.Row term="Review">
                     {dispositionVocabulary(hit.disposition.kind).label} by

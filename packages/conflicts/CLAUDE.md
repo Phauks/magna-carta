@@ -75,6 +75,15 @@ and never calls external services.
   conflict between two different parties of the same matter), only flagged `co_party` on the hit so a
   reviewer buckets it apart from a conflict with a prior/other client. The only match that is dropped
   is an entity matching **itself** (`match.entityId === entity.entityId`).
+- `src/content-search.ts` — the firm's own records as places a check searches: calls and texts
+  (`communication`), email (`email_participant` and `email_message.subject`), tasks (`matter_task`
+  title and body, by matter status) and Magnus conversations. `readPartyNeedles` reads what each
+  subject party is looked for by (names as written, under the check's name roles; email addresses;
+  phone digits); `searchContent` runs one small function per place and returns one `content`-class
+  result per party per record, identity at tier 1 and the name compared whole at tier 2. Plain LIKE
+  scans inside the background run: the shared record text index under design elsewhere replaces the
+  per-place functions, not their callers. `found_in_json` on the hit says where (`FoundIn`: kind, id,
+  matter, instant), never the record's text, because the log outlives the record
 - `src/disposition.ts` — `recordDisposition` (validates a non-blank rationale and that the hit exists
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`
   (latest row by `created_at` — the append-only table's read-side "current state" projection),
@@ -287,8 +296,11 @@ and never calls external services.
   missed conflict, which is a professional-conduct failure rather than a latency regression. Any
   future channel added to one path must land in the other in the same change, and the equivalence test
   must be extended to a corpus that exercises it.
-- **A source that cannot run records `unavailable`, never `searched`.** The `content` class and
-  `prior_firm_history` have no corpus yet and are always `unavailable`. `imputation` is `unavailable`
+- **A source that cannot run records `unavailable`, never `searched`.** The `content` class (as
+  asked for directly, meaning document text, which is Files) and `prior_firm_history` have no corpus
+  yet and are always `unavailable`. Messaging, tasks and Magnus are recorded under their own keys
+  (`messaging`, `tasks`, `magnus_conversations`), `searched` exactly when the check asked for them
+  and absent otherwise; their hits carry the `content` class and a `found_in_json`. `imputation` is `unavailable`
   on a check with no `matterId` (there is nothing to join firm members against), regardless of how the
   general availability table classifies the source class. `unavailable` must never be conflated with
   "searched and clean" — an auditor reading the log has to be able to tell the two apart.

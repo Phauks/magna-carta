@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e74c11c4-6e96-4fef-87e9-d032e96adbb1",
+  "id": "8430770b-f8a8-41d6-8d7c-a114beb11f3f",
   "prevId": "5f995174-1fa4-4f8f-b04d-0aaf7abfe925",
   "tables": {
     "account_balance": {
@@ -1758,6 +1758,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "found_in_json": {
+          "name": "found_in_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -23896,75 +23903,6 @@
           "value": "length(\"record_custodian\".\"display_name\") > 0"
         }
       }
-    },
-    "record_text_entry": {
-      "name": "record_text_entry",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "record_id": {
-          "name": "record_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sort_key": {
-          "name": "sort_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "record_text_entry_source_record_unique": {
-          "name": "record_text_entry_source_record_unique",
-          "columns": [
-            "source",
-            "record_id"
-          ],
-          "isUnique": true
-        },
-        "record_text_entry_source_container_index": {
-          "name": "record_text_entry_source_container_index",
-          "columns": [
-            "source",
-            "container_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "retainer_replenishment_request": {
       "name": "retainer_replenishment_request",

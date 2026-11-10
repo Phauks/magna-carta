@@ -34,6 +34,7 @@ function hit(overrides: Partial<HitDetail> = {}): HitDetail {
     matchedFields: ["exact normalized name match", "trigram overlap"],
     graphPath: [],
     coParty: false,
+    foundIn: null,
     createdAt: "2026-08-30T12:00:00.000Z",
     disposition: null,
     previouslyAnswered: null,
