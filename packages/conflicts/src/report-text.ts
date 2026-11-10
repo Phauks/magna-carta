@@ -7,7 +7,7 @@ import type { EvidenceTier, SourceAvailability, Strictness } from "./types.ts";
 // Every sentence this module can produce is a fact about the SEARCH, verifiable from the check's own
 // recorded row — these channels executed, this source has no corpus, this many candidates surfaced.
 // None of them is a fact about the matter. That boundary is the whole point of the module and it is
-// why the zero-hit ending is "Nothing surfaced." rather than any sentence containing the word the
+// why the zero-hit ending is "0 results." rather than any sentence containing the word the
 // reader is hoping for: a firm defending a disqualification motion has to defend the sentence its
 // system produced, and "we searched the party corpus at over-inclusive strictness, traversed 43
 // entities, could not search content because no corpus exists, and nothing surfaced" is a procedure.
@@ -272,7 +272,7 @@ export function describeCheck(
 
   if (searched(sources, "imputation")) {
     statements.push(
-      "Imputation — identity join between the matter's parties and the firm's own members. Never a name match.",
+      "Firm employees — identity join between the firm's own members and the matter's parties, or every entity reached where no matter is named. Never a name match.",
     );
   }
 
@@ -299,14 +299,14 @@ export function describeCheck(
   statements.push(...describeCandidateBound(candidates));
 
   if (hits.length === 0) {
-    // "Nothing surfaced." is a fact about the machine's own behaviour, and it is only a fact when the
+    // "0 results." is a fact about the machine's own behaviour, and it is only a fact when the
     // machine wrote everything it found. A run whose cap refused every candidate found plenty and
     // recorded none, so the truncation sentence above is the whole and only account of it — appending
     // this one would state the exact opposite of what happened.
     if (candidates === null || !candidates.truncated) {
       // The only conclusion the platform draws, and it is a statement about the search ending rather
       // than about the matter. Nothing here may grow into a clearance.
-      statements.push("Nothing surfaced.");
+      statements.push("0 results.");
     }
     return statements;
   }
@@ -320,7 +320,7 @@ export function describeCheck(
   // everything the channels found. The truncation statement above carries the surfaced figure.
   const verb = candidates !== null && candidates.truncated ? "recorded" : "surfaced";
   statements.push(
-    `${hits.length} ${hits.length === 1 ? "candidate" : "candidates"} ${verb} for review (${byTier}).`,
+    `${hits.length} ${hits.length === 1 ? "result" : "results"} ${verb} for review (${byTier}).`,
   );
   return statements;
 }

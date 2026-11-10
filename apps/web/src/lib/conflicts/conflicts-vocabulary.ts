@@ -108,10 +108,12 @@ export const SOURCE_CLASSES: readonly SourceClass[] = ["party", "graph", "imputa
 export const PRIOR_FIRM_HISTORY_SOURCE = "prior_firm_history";
 export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
 export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
+/** A place the panel offers and nothing indexes yet; keyed so a record can say it was not searched. */
+export const TASKS_SOURCE = "tasks";
 
 export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   party: {
-    label: "Name or identifier",
+    label: "Names and identifiers",
     meaning:
       "The party's own name or identifier matched a record in the firm's Directory. Always searched.",
   },
@@ -121,9 +123,9 @@ export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
       "Reached by walking out from a party you named, through every relationship the Directory holds, as far as it goes.",
   },
   imputation: {
-    label: "The firm's own people",
+    label: "Firm Employees",
     meaning:
-      "This firm's members joined against the matter's parties by identity, never by name. Needs a matter.",
+      "This firm's members, found by identity among everyone the check reached and on the matter's parties. Never by name.",
   },
   content: {
     label: "Documents and messages",
@@ -139,6 +141,10 @@ export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
     meaning:
       "Bob and Robert are not a phonetic relationship. The catalogue exists and is shipped empty.",
   },
+  [TASKS_SOURCE]: {
+    label: "Tasks",
+    meaning: "A party named in a task's title or description. Nothing indexes tasks yet.",
+  },
   [MAGNUS_CONVERSATIONS_SOURCE]: {
     label: "Magnus conversations",
     meaning: "A party named in a conversation with Magnus. Nothing indexes conversations yet.",
@@ -153,53 +159,70 @@ export function sourceVocabulary(source: string): VocabularyEntry {
 // ---- the places a check searches ----------------------------------------------------------------
 
 /**
- * Where a check looks, as the panel offers it and the check screen reads it back. Each place
- * carries the recorded source keys it stands over, so an old record still reads as a place, and
- * the one line a place that cannot be searched yet owes: what its arrival waits on.
+ * Where a check looks, as the panel offers it and the check screen reads it back (owner's rulings,
+ * 2026-11-09). Each place carries the recorded source keys it stands over, so an old record still
+ * reads as a place; whether the engine can search it yet; and the options listed beneath it, which
+ * say WHAT it searches and nothing about why.
  *
- * The Directory's specifics are the three things a check does there, listed beneath it. Files and
- * Messaging both stand over the content class — the one corpus that would search document text and
- * message bodies — until the two grow corpora of their own.
+ * Files and Messaging both stand over the content class — the one corpus that would search document
+ * text and message bodies — until the two grow corpora of their own. Tasks and Magnus have keys of
+ * their own already so a record can say they were not searched.
  */
-export type SearchLocation = "directory" | "files" | "messaging" | "magnus";
+export type SearchLocation = "directory" | "files" | "messaging" | "tasks" | "magnus";
 
 export interface SearchLocationEntry {
   readonly location: SearchLocation;
   readonly label: string;
   /** The recorded source keys this place stands over. */
   readonly sources: readonly string[];
-  /** What the place waits on, where the engine cannot search it yet. Null where it can. */
-  readonly waitsOn: string | null;
+  /** Whether the engine searches this place today. A place it cannot is drawn, disabled, marked Soon. */
+  readonly searchable: boolean;
+  /** What the place searches, one option per line, in the panel's own words. */
+  readonly options: readonly string[];
 }
+
+/** The four statuses a matter's files and tasks are offered under, all on by default. */
+export const MATTER_STATUS_OPTIONS = ["Consultations", "Open", "Closed", "Archived"] as const;
 
 export const SEARCH_LOCATIONS: readonly SearchLocationEntry[] = [
   {
     location: "directory",
     label: "Directory",
     sources: ["party", "graph", "imputation"],
-    waitsOn: null,
+    searchable: true,
+    options: ["Names and identifiers", "Relationships", "Firm Employees"],
   },
   {
     location: "files",
     label: "Files",
     sources: ["content"],
-    waitsOn: "an index over document text, which does not exist yet",
+    searchable: false,
+    options: MATTER_STATUS_OPTIONS,
   },
   {
     location: "messaging",
     label: "Messaging",
     sources: ["content"],
-    waitsOn: "a wired message-body index, which does not exist yet",
+    searchable: false,
+    options: ["Calls", "Texts", "Email"],
+  },
+  {
+    location: "tasks",
+    label: "Tasks",
+    sources: [TASKS_SOURCE],
+    searchable: false,
+    options: MATTER_STATUS_OPTIONS,
   },
   {
     location: "magnus",
     label: "Magnus",
     sources: [MAGNUS_CONVERSATIONS_SOURCE],
-    waitsOn: "an index over conversations, which does not exist yet",
+    searchable: false,
+    options: ["All Employee Conversations"],
   },
 ];
 
-/** What a place says it searches, in one line. Only the Directory's specifics are a reader's choice. */
+/** The Directory's options, keyed by the technique each one asks the engine for. */
 export const DIRECTORY_SPECIFICS: readonly {
   readonly source: SourceClass;
   readonly label: string;
@@ -383,6 +406,12 @@ export const RUN_STATUS_VOCABULARY: Readonly<Record<RunStatus, ChipVocabularyEnt
     label: "Failed",
     tone: "warning",
     meaning: "The search stopped before it finished, and nothing was recorded.",
+  },
+  cancelled: {
+    label: "Cancelled",
+    tone: "neutral",
+    meaning:
+      "A member stopped the search before it finished. Nothing it had not finished was searched.",
   },
 };
 

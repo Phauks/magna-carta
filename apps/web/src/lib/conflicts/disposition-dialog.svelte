@@ -68,6 +68,7 @@
     matterId = null,
     reviewerName,
     permissions = null,
+    initialKind = "cleared",
     onRecorded,
   }: {
     open?: boolean;
@@ -84,6 +85,8 @@
     /** The signed-in member, as their name reads. */
     reviewerName: string | null;
     permissions?: readonly string[] | null;
+    /** The answer the dialog opens on, where the reader already picked one from a result's menu. */
+    initialKind?: DispositionKind;
     /** The answer was written. The consumer re-reads the check. */
     onRecorded: () => void;
   } = $props();
@@ -109,7 +112,7 @@
   // A fresh opening is a fresh answer: reopening on another hit must never carry the last one's
   // reasoning — or the last one's waiver — into it.
   function reset(): void {
-    kind = "cleared";
+    kind = initialKind;
     rationale = "";
     consentingParty = null;
     confirmedInWriting = "";

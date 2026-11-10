@@ -49,3 +49,46 @@ export async function findImputationHits(
     role: row.role,
   }));
 }
+
+// One of the firm's own people, found among the entities a check reached.
+export interface MemberEntity {
+  readonly memberUserId: string;
+  readonly entityId: string;
+}
+
+// Kept well under SQLite's bound-parameter ceiling, so a closure of any size is read in a few
+// set-valued queries rather than one per entity or one that the database refuses.
+const MEMBER_LOOKUP_CHUNK = 500;
+
+// The firm's own people among the given entities, by IDENTITY — the same member_id join as above,
+// for the same reasons, and never a name match.
+//
+// This is what the Firm Employees option means on a check that names no matter: not "is a member a
+// party on this matter" (there is no matter to ask about) but "is anybody this check reached one of
+// the firm's own people". A partner who is themselves a subject party, or who sits one recorded
+// relationship away from one, is exactly what the pre-engagement screen exists to catch.
+export async function findMemberEntities(
+  database: SqlDatabase,
+  entityIds: readonly string[],
+): Promise<MemberEntity[]> {
+  const found: MemberEntity[] = [];
+  for (let start = 0; start < entityIds.length; start += MEMBER_LOOKUP_CHUNK) {
+    const chunk = entityIds.slice(start, start + MEMBER_LOOKUP_CHUNK);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT m.user_id AS member_user_id, dp.id AS entity_id
+         FROM directory_person AS dp
+         JOIN member AS m ON m.user_id = dp.member_id
+         WHERE dp.id IN (${placeholders})
+           AND dp.deleted_at IS NULL
+         ORDER BY dp.id ASC`,
+      )
+      .bind(...chunk)
+      .all<{ member_user_id: string; entity_id: string }>();
+    for (const row of results) {
+      found.push({ memberUserId: row.member_user_id, entityId: row.entity_id });
+    }
+  }
+  return found;
+}
