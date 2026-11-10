@@ -29,6 +29,9 @@ import {
   FIRM_TASK_REASSIGNED_TOPIC,
   TASK_ASSIGNED_TOPIC,
   TASK_REASSIGNED_TOPIC,
+  FIRM_WATCHED_TASK_CHANGED_TOPIC,
+  WATCHED_TASK_CHANGED_TOPIC,
+  WATCHED_TASK_CHANGES,
 } from "@magna-carta/tasks/notifications";
 import { TASK_PRIORITIES } from "@magna-carta/tasks/types";
 import {
@@ -779,7 +782,75 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     emailContent: "category-count",
     deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
   },
+  // A TASK SOMEBODY IS WATCHING MOVED. A watcher is copied in, as on a CC line: the work is not
+  // theirs, so these are informational where an assignment asks for attention. Reaches the watchers
+  // the payload names, never the matter team: being copied on one task is a choice somebody made
+  // about one person, not a fact about the case.
+  {
+    key: "tasks.task.watchedChange",
+    category: "tasks",
+    severity: "informational",
+    mandatory: false,
+    audience: "named-members",
+    audiencePayloadKey: "watcherUserIds",
+    includeActor: false,
+    subscribesTo: WATCHED_TASK_CHANGED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // What moved and how urgent the task is. Not the new status's name: a status is the firm's own
+    // free text, and the card reads it live behind the deep link instead.
+    facts: {
+      change: { kind: "enum", labels: WATCHED_TASK_CHANGES },
+      priority: { kind: "enum", labels: TASK_PRIORITIES },
+    },
+    buildFacts: watchedChangeFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("tasks"),
+  },
+  {
+    key: "tasks.firmTask.watchedChange",
+    category: "tasks",
+    severity: "informational",
+    mandatory: false,
+    audience: "named-members",
+    audiencePayloadKey: "watcherUserIds",
+    includeActor: false,
+    subscribesTo: FIRM_WATCHED_TASK_CHANGED_TOPIC,
+    subjectKind: "matterTask",
+    subjectPayloadKey: "taskId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    facts: {
+      change: { kind: "enum", labels: WATCHED_TASK_CHANGES },
+      priority: { kind: "enum", labels: TASK_PRIORITIES },
+    },
+    buildFacts: watchedChangeFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
+  },
 ];
+
+// The two facts a watched-task notice carries, each held to its closed vocabulary.
+function watchedChangeFacts(payload: Readonly<Record<string, unknown>>): Facts {
+  const change = payload["change"];
+  const priority = payload["priority"];
+  return {
+    change:
+      typeof change === "string" && (WATCHED_TASK_CHANGES as readonly string[]).includes(change)
+        ? change
+        : "statusChanged",
+    priority:
+      typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+        ? priority
+        : "normal",
+  };
+}
 
 // RAISED BY A COMPARISON, not by a write. Nothing in the platform writes "this deadline is overdue"
 // or "this review has come round" — they are subtractions against the clock, true continuously, and

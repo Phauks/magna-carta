@@ -197,6 +197,25 @@ function taskDetail(facts: Facts): string | null {
   return parts.length === 0 ? null : parts.join(" · ");
 }
 
+const WATCHED_CHANGE_LABEL: Readonly<Record<string, string>> = Object.freeze({
+  watching: "You were added as a watcher",
+  completed: "Marked complete",
+  reopened: "Reopened",
+  statusChanged: "Status changed",
+  assigneesChanged: "Assignees changed",
+  dueDateChanged: "Due date changed",
+});
+
+/** What moved on a task the member watches, then how urgent the task is. */
+function watchedTaskDetail(facts: Facts): string | null {
+  const change = text(facts, "change");
+  const parts: string[] = [];
+  if (change !== null) parts.push(WATCHED_CHANGE_LABEL[change] ?? change);
+  const priority = text(facts, "priority");
+  if (priority !== null) parts.push(TASK_PRIORITY_LABEL[priority] ?? priority);
+  return parts.length === 0 ? null : parts.join(" · ");
+}
+
 /**
  * One entry per kind the server registers. The titles are written as statements of what happened,
  * in the same voice throughout, because a feed is read by scanning the first three words of each
@@ -261,6 +280,11 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
   "tasks.task.reassigned": { title: "Task passed to you", detail: taskDetail },
   "tasks.firmTask.assigned": { title: "Firm task assigned to you", detail: taskDetail },
   "tasks.firmTask.reassigned": { title: "Firm task passed to you", detail: taskDetail },
+  "tasks.task.watchedChange": { title: "A task you watch changed", detail: watchedTaskDetail },
+  "tasks.firmTask.watchedChange": {
+    title: "A firm task you watch changed",
+    detail: watchedTaskDetail,
+  },
   "deadlines.deadline.due": { title: "Deadline due" },
   "deadlines.deadline.overdue": { title: "Deadline overdue", detail: overdueBy },
   "custody.review.due": { title: "Custody review due", detail: overdueBy },
