@@ -2,7 +2,7 @@
 // home (not any one vendor's). The worker backs it with global fetch; tests pass a fake. Kept tiny
 // (no Request/Response objects) so adapter tests are trivial and the pure package stays dependency-free.
 export interface HttpRequest {
-  readonly method: "GET" | "POST";
+  readonly method: "GET" | "POST" | "PATCH" | "DELETE";
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly body?: string;

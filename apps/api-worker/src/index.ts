@@ -65,6 +65,11 @@ export { MeetingRoom } from "./meetings/meeting-room.ts";
 export { MeetingRecorder } from "./meetings/meeting-recorder.ts";
 export { MeetingCaptioner } from "./meetings/meeting-captioner.ts";
 
+// One connected calendar account's sync passes, keyed firmId:connectionId. It holds who it is for
+// and nothing of the calendar. Exported so the runtime can instantiate the class named in
+// wrangler.jsonc's binding.
+export { ConnectionSync } from "./calendar-sync/connection-sync.ts";
+
 // The per-document editing session coordinator. Re-exported so wrangler can register the Durable
 // Object class named in wrangler.jsonc (durable_objects + the SQLite migration).
 export { DocumentSession } from "./editing/document-session.ts";

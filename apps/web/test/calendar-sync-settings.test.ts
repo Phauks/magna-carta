@@ -60,9 +60,9 @@ describe("one row per event type", () => {
     expect(subjectCategory(deadline)).toBe("Deadlines");
   });
 
-  it("words the narrow scope for a deadline as an assignment", () => {
+  it("words the narrow scope for a deadline as the matters the member is responsible for", () => {
     expect(scopeLabel("eventType", "mine")).toBe("Ones I Take Part In");
-    expect(scopeLabel("deadline", "mine")).toBe("Assigned to Me");
+    expect(scopeLabel("deadline", "mine")).toBe("On Matters I Am Responsible For");
   });
 });
 

@@ -124,6 +124,7 @@ describe("problem-type URI registry", () => {
         "calendar-event-type-category-mismatch",
         "calendar-resource-inactive",
         "calendar-resource-name-taken",
+        "calendar-sync-setting-refused",
         "calendar-event-not-continuable",
         "calendar-duplicate-link",
         "calendar-continuance-link-immutable",

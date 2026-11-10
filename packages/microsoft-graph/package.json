@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "zod": "catalog:"
   },

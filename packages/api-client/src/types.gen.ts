@@ -6275,7 +6275,7 @@ export type CalendarSyncRule = {
      */
     calendarName: string;
     /**
-     * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on.
+     * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to.
      */
     scope: 'mine' | 'my_matters';
 };
@@ -6291,7 +6291,7 @@ export type CalendarSyncRulesReplace = {
         subject: string;
         calendarRemoteId: string;
         /**
-         * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on.
+         * Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to.
          */
         scope: 'mine' | 'my_matters';
     }>;
