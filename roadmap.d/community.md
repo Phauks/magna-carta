@@ -22,7 +22,7 @@
   audience: public
   public-name: Feature requests and voting
   public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.
-  awaiting-owner: Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
+  awaiting-owner: How a signed-in member's session reaches the community host, which is a different origin from the application. (The cross-firm exception was ratified on 2026-11-10.)
 
 - id: community.package
   name: Extractable community package
