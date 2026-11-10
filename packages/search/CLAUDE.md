@@ -29,6 +29,8 @@ ADR-0110, ADR-0111.)
 - `src/port.ts` — `SearchIndexPort`; `src/split.ts` — the derived split id and R2 key
 - `src/extraction.ts`, `src/fusion.ts` — the extraction port and reciprocal rank fusion
 - `src/settings.ts` — `search.indexing_enabled` and the compaction thresholds
+- `src/keyword-query.ts` — `keywordQueryText`: a reader's text rebuilt as the engine's query from
+  its words alone. The one place the application writes the engine's query language for a person
 
 **Natural-language search** (every module prefixed `natural-language-`)
 
@@ -111,6 +113,21 @@ are the ones the production modules adopted; keep the two in step.
   labels — there is no field it could be passed in — and the dropped-hit count never reaches the
   caller, because "your query matched fourteen passages you may not see" is itself a disclosure.
 
+## Local rules — keyword search
+
+- **A reader's text is never the engine's query syntax.** A search box reaches the engine only
+  through `keywordQueryText`, which takes the text apart with the record index's parser and
+  rebuilds the query from letters and digits. The engine's language has operators, field prefixes
+  and patterns; passing text through lets a stray quotation mark fail a search and lets a reader
+  name a field. A caller that builds its own query (the conflicts check quotes each name as a
+  phrase) owns the same duty.
+- **The query shapes are pinned on the engine's side.** `crates/search-core/src/lib.rs` carries a
+  test of what each shape `keywordQueryText` writes actually matches. Change a shape here and change
+  that test with it: the two sides are in different languages and nothing else compares them.
+- **The engine lowercases and does not fold accents; a passage is a page.** Both are stated to the
+  reader in the user guide. Folding accents is a tokenizer change, which is a schema generation
+  bump and a rebuild of every index.
+
 ## Local rules — the record index
 
 - **Triggers are the only write path. Nothing calls the index when it saves.** That is the property
@@ -163,7 +180,8 @@ are the ones the production modules adopted; keep the two in step.
 - Table names are tracked against `@magna-carta/database` by
   `test/natural-language-schema-name-sync.test.ts`; renaming a table there fails here. The record
   index's source tables and columns are held the same way by `test/record-index-lineage.test.ts`.
-- The record index is consumed by `@magna-carta/matter-search` (its prose sources).
+- The record index is consumed by `@magna-carta/matter-search` (its prose sources), which also
+  consumes `keywordQueryText` for its file contents source.
 
 ## Gotchas
 

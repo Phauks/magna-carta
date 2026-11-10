@@ -289,7 +289,7 @@ describe("a matter search narrows by matter before it scans", () => {
     const context = fixtureContext(SEED);
     const { matterId } = await seedVolume(local.database, local.raw, context);
 
-    const plans = matterSearchHotPathPlans({
+    const plans = await matterSearchHotPathPlans({
       database: local.database,
       raw: local.raw,
       matterId,
@@ -316,7 +316,7 @@ describe("a matter search narrows by matter before it scans", () => {
 
   it("materialises a sort only where the rows are already narrowed to one matter", async () => {
     if (local === undefined) throw new Error("the volume test must run first");
-    const plans = matterSearchHotPathPlans({
+    const plans = await matterSearchHotPathPlans({
       database: local.database,
       raw: local.raw,
       matterId: await busiestMatterId(),
@@ -364,6 +364,13 @@ describe("a matter search narrows by matter before it scans", () => {
     // packages/matter-search/test/source-fitness.test.ts rather than per fixture here.
     const seeded = new Set(["files", "notes", "custody", "time"]);
     for (const group of answer.groups) {
+      // The words inside files are in an index outside this database, and no way to it is supplied
+      // here. Its read of the firm's own table is planned above; this is its honest answer without
+      // an index to ask.
+      if (group.source === "file-contents") {
+        expect(group.skipped).toBe("engine-not-connected");
+        continue;
+      }
       expect(group.skipped).toBeNull();
       if (!seeded.has(group.source)) continue;
       expect(group.hits.length, `${group.source} answered nothing at volume`).toBeGreaterThan(0);

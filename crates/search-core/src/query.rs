@@ -99,7 +99,12 @@ impl SplitSearcher {
     /// The top `limit` hits in this split matching `query_text` over the body field.
     pub fn search(&self, query_text: &str, limit: usize) -> Result<Vec<Hit>, SearchError> {
         let searcher = self.reader.searcher();
-        let query_parser = QueryParser::for_index(&self.index, vec![self.schema.body()]);
+        let mut query_parser = QueryParser::for_index(&self.index, vec![self.schema.body()]);
+        // A pattern over the words of the index, which is how the application asks for a word that is
+        // still being typed: the query language's own prefix form needs two words, so one unfinished
+        // word arrives as `body:/word.*/`. The application is the only caller and builds the pattern from
+        // letters and digits alone, so no reader's text is ever read as a pattern.
+        query_parser.allow_regexes();
         let parsed = query_parser
             .parse_query(query_text)
             .map_err(|error| SearchError::QueryParse(error.to_string()))?;

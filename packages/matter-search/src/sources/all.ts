@@ -11,6 +11,8 @@ import {
   type MatterSearchSource,
   type SourceSearchRequest,
 } from "./registry.ts";
+import { keywordQueryText } from "@magna-carta/search/keyword-query";
+import { arrangeByCandidates, candidatesFrom, passagesToAskFor } from "../file-contents.ts";
 import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 
 // The declared sources. Each is a read-side declaration — where the rows live, how to read a bounded
@@ -30,6 +32,10 @@ import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 // person typing part of a name or the last four digits of a number means exactly those characters.
 // The index is a source's to use only if @magna-carta/search declares that source
 // (record-index-sources.ts); the key handed to the match is that declaration's key.
+//
+// A THIRD KIND reads the words INSIDE a file, which are in neither a column nor the record index:
+// they are in the file contents index the search service reads. That source asks the index first
+// and then reads its own table, and it is the only one with a `prepare` step.
 const MATTER_NOTE_TABLE = "matter_note";
 const FILE_TABLE = "file";
 const FOLDER_TABLE = "folder";
@@ -127,11 +133,8 @@ const notesSource: MatterSearchSource = {
 
 // ---- files -----------------------------------------------------------------------------------
 
-// The matter's files AND ITS FOLDERS, matched on NAME. Contents are a second half this source does
-// not have yet: the keyword engine, its write pipeline and its compaction are built, but no engine
-// is deployed, so the port answers engine-not-implemented and the surface says "names only" rather
-// than implying it looked inside anything. Slice 3 adds the content half behind the same source key,
-// and nothing above this file changes when it does.
+// The matter's files AND ITS FOLDERS, matched on NAME. The words inside a file are a different
+// question with a different kind of answer, and they are the next source's (`file-contents`).
 //
 // FOLDERS ARE THE SECOND STATEMENT, not a source of their own. A person who names a folder and then
 // searches for it is searching the Files section — putting folders in a group of their own would
@@ -149,8 +152,7 @@ const notesSource: MatterSearchSource = {
 // forgotten one.
 //
 // The snippet is declared ABSENT, and that is not an oversight: a file name IS the title, so an
-// excerpt would be the same string twice. When contents join, the excerpt is the matching passage
-// and this flips.
+// excerpt would be the same string twice.
 const filesSource: MatterSearchSource = {
   key: "files",
   sectionSlug: "files",
@@ -208,6 +210,92 @@ const filesSource: MatterSearchSource = {
     ];
   },
   project: projectInto("files", "files"),
+};
+
+// ---- file contents ---------------------------------------------------------------------------
+
+// The words INSIDE the matter's files. A second source on the Files section, and a separate group
+// in the answer on purpose: a name match is a listing in the file list's own order, and a match
+// inside a document is ranked by how well the passage answers. Folding the two into one group would
+// put a ranked answer in a listing's order or a listing in a ranked one, and either reads as
+// something it is not. A file whose name and text both match appears in both groups, and each says
+// why it is there.
+//
+// The index is asked for passages and answers with file identifiers. It is not believed about
+// anything else: `fileContentsStatement` re-reads those files from the firm's own table through the
+// same bounded builder as every other source, so the matter binding and the visibility predicate
+// decide what is returned. That is also what keeps a discovery review set out of reach. The
+// application asks the index for this matter's corpus and no other, and a review document is not a
+// row of the `file` table this statement reads.
+//
+// No excerpt yet, and the reason is where the text is kept: the index holds which words are on which
+// page and not the sentences, and a matter file's extracted text is not stored anywhere to quote
+// from. A result names the file and the pages; the reader opens it there.
+function fileContentsStatement(request: SourceSearchRequest, fileIds: readonly string[]) {
+  const conditions = [`${FILE_TABLE}.id IN (${fileIds.map(() => "?").join(", ")})`];
+  // The same rule as a name match: a deleted file answers only when asked for, and arrives marked.
+  if (!request.includeDeleted) conditions.push(`${FILE_TABLE}.deleted_at IS NULL`);
+  return boundedSearchSelect(request.database, {
+    request,
+    from: `${FILE_TABLE} LEFT JOIN ${FOLDER_TABLE} ON ${FOLDER_TABLE}.id = ${FILE_TABLE}.folder_id`,
+    idColumn: `${FILE_TABLE}.id`,
+    matterExpression: `${FILE_TABLE}.matter_id`,
+    sortExpression: `${FILE_TABLE}.created_at`,
+    titleExpression: `${FILE_TABLE}.name`,
+    snippetExpression: "NULL",
+    secondaryExpression:
+      `CASE WHEN ${FILE_TABLE}.deleted_at IS NULL THEN ${FOLDER_TABLE}.name ` +
+      `WHEN ${FOLDER_TABLE}.name IS NULL THEN 'Deleted' ` +
+      `ELSE 'Deleted · ' || ${FOLDER_TABLE}.name END`,
+    actorExpression: "NULL",
+    conditions,
+    bindings: [...fileIds],
+  });
+}
+
+const fileContentsSource: MatterSearchSource = {
+  key: "file-contents",
+  sectionSlug: "files",
+  // Behind the same door as the file list: any member of the firm may read a matter's files.
+  permission: null,
+  answerShape: "ranked",
+  matchedFields: ["the text inside files"],
+  declaresSnippet: false,
+  minimumQueryLength: 2,
+  supportsDeleted: true,
+  // Nothing to build without the index's answer. The statement is `fileContentsStatement`, built in
+  // `prepare` once the candidates are known.
+  buildStatements: () => [],
+  prepare: async (request) => {
+    const searcher = request.fileContents ?? null;
+    // Nothing supplied a way to the index. Said as "not connected", never as "no matches".
+    if (searcher === null) return { kind: "skipped", reason: "engine-not-connected" };
+    const queryText = tooShort(request, 2) ? null : keywordQueryText(request.query);
+    if (queryText === null) return { kind: "candidates", statements: [], arrange: () => [] };
+    // One more file than the limit, so the group can say there is more without counting.
+    const fileLimit = request.limit + 1;
+    const answer = await searcher.query({
+      matterId: request.matterId,
+      queryText,
+      limit: passagesToAskFor(fileLimit),
+    });
+    if (answer.kind === "off") return { kind: "skipped", reason: "not-indexed" };
+    if (answer.kind === "not-connected") return { kind: "skipped", reason: "engine-not-connected" };
+    if (answer.kind === "unavailable") return { kind: "skipped", reason: "engine-unavailable" };
+    const candidates = candidatesFrom(answer.passages, fileLimit);
+    if (candidates.length === 0) return { kind: "candidates", statements: [], arrange: () => [] };
+    return {
+      kind: "candidates",
+      statements: [
+        fileContentsStatement(
+          request,
+          candidates.map((candidate) => candidate.fileId),
+        ),
+      ],
+      arrange: (rows) => arrangeByCandidates(rows, candidates),
+    };
+  },
+  project: projectInto("file-contents", "files"),
 };
 
 // ---- custody ---------------------------------------------------------------------------------
@@ -604,6 +692,7 @@ const billingSource: MatterSearchSource = {
 // the answer and the tabs above it never disagree about where things live.
 export const matterSearchSources = new MatterSearchSourceRegistry([
   filesSource,
+  fileContentsSource,
   timeSource,
   costsSource,
   billingSource,

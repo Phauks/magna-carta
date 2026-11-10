@@ -70,6 +70,12 @@ export interface MatterSection {
    */
   searchSource: string | null;
   /**
+   * Further matter-search sources that answer for this section beside `searchSource`, where one
+   * section is searched in more than one way: Files by the names of its files and by the words
+   * inside them. A search scoped to the section asks all of them.
+   */
+  searchSourcesBeside?: readonly string[];
+  /**
    * Required when `searchSource` is null: the one honest line the disabled scope option carries.
    * Names what a source here waits on, in the reader's words.
    */
@@ -189,6 +195,7 @@ export const matterSections: readonly MatterSection[] = [
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
     searchSource: "files",
+    searchSourcesBeside: ["file-contents"],
     // A document, a folder and an upload are three kinds, so the control reads "New" and the menu
     // names them. It read "New File" over that menu, which was wrong about two of the three.
     createNoun: CREATE_SEVERAL_KINDS,

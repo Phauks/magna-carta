@@ -446,7 +446,7 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
-  evidence: packages/matter-search/src/sources/all.ts registers nine sources (files, time, costs, billing, parties, calendar, notes, custody, communications) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds. Since 2026-11-10 the prose sources (notes, time, costs, calendar, and the words of a call or text) match words through the firm's record index, held by test/word-matched-sources.test.ts; names and numbers still match by substring
+  evidence: packages/matter-search/src/sources/all.ts registers ten sources (files, file-contents, time, costs, billing, parties, calendar, notes, custody, communications) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds. Since 2026-11-10 the prose sources (notes, time, costs, calendar, and the words of a call or text) match words through the firm's record index, held by test/word-matched-sources.test.ts; names and numbers still match by substring
   notes: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus.
 
 - id: search.record-index
@@ -474,10 +474,12 @@
 
 - id: matters.search.file-contents
   name: File contents in a matter search
-  scope: The Files source's second half — querying the keyword index over the matter corpus and fusing it with the file-name match.
-  status: designed
-  spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
-  notes: The engine, write pipeline and compaction are built; SearchIndexPort answers engine-not-implemented until the search Container is deployed in the order docs/deploy-queue.md names.
+  scope: A second source on the Files section that asks the keyword index over the matter's own corpus and answers with the files whose text matches, each naming the pages matched.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
+  evidence: packages/matter-search/src/sources/all.ts registers the file-contents source, with its question and answer shapes in packages/matter-search/src/file-contents.ts; packages/search/src/keyword-query.ts builds the engine's query from the reader's parsed words; apps/api-worker/src/search/matter-file-contents.ts is the way to the engine. Held by packages/matter-search/test/file-contents.test.ts (another matter's file refused, deleted files, the three answers that are not "no matches"), packages/search/test/keyword-query.test.ts, apps/api-worker/test/matter-file-contents.test.ts, and the engine-side test in crates/search-core/src/lib.rs that pins what each query shape means.
+  notes: PARTIAL because nothing answers in production yet. The search worker is not deployed and the app worker has no SEARCH_SERVICE binding (docs/deploy-queue.md, Search engine activation), so the group reads "Soon" and says searching inside files is not switched on yet; and no screen turns a firm's search.indexing_enabled setting on. A result carries no excerpt, because the index does not store passage text and a matter file's extracted text is not kept; keeping it is the next piece. The engine lowercases and does not fold accents, which should change before the first production index is built.
 
 - id: locations
   name: Locations (offices)
