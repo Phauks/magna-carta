@@ -3538,3 +3538,31 @@ designed together on his instruction). What was said, and what each part general
 - **"Remove for information, priority only if a priority actually occurs."** Generalizes: **a column
   whose ordinary value is "nothing in particular" is blank in the ordinary case.** A word on every
   routine row is noise that hides the few rows that carry one.
+
+### 2026-11-10 — calendar sync settings: one row per event type, separate pages, and a permission that states only what it grants
+
+The owner, reviewing sketches of two-way calendar sync with Outlook. What was said, and what each part
+generalizes to:
+
+- **"Not all Magna Carta events should sync in Outlook, should be able to decide what types of events
+  or calendars would sync to."** Sync is chosen per event type, each with its own destination
+  calendar, and nothing syncs until a member says so. Generalizes: **a feature that sends the firm's
+  records somewhere else is off until a person chooses what goes, and the choice is as fine as the
+  records' own types.**
+- **"Kind of events should be individually separated if they exist as individual separated events,
+  otherwise, they should not be bundled together."** A sketch had folded the event types into eight
+  rows. Generalizes: **a settings list has one row per thing the product already treats as a separate
+  thing; the page does not invent groups the data does not have.** Headings that the product already
+  uses (the calendar's Case Settings, Deadlines and Firm Events) may still divide the list.
+- **"Email and calendar settings should likely be separate, since they are very different and can have
+  different impacts, although both may relate to the same shared account."** Generalizes: **settings
+  are divided by consequence, not by the account or vendor behind them.** The account has one page;
+  each thing done with it has its own.
+- **"We should create a general asking for permission screen that can be reused", then "permissions
+  only ever say what they are granting, not what they are not granting. Simpler permission windows."**
+  One design-system window: what is being allowed, who is asking, the list of grants. No "will not"
+  list. Generalizes: **a request tells the reader what they are agreeing to and stops.** Decision:
+  `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`.
+- **Email matching "could be bad or dangerous" if wrong, and needs "a good long conversation".** No
+  mailbox is connected until that design is settled. Not a visual ruling; recorded so a later build
+  does not fold email into the calendar pages.
