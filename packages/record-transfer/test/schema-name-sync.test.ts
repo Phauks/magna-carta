@@ -1,0 +1,150 @@
+// @repo-wide-fitness scope=schema — the statements are here, the tables they name are in
+// packages/database, so the diff that renames one never touches this package.
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import * as perFirmSchema from "@magna-carta/database/per-firm-schema";
+import { sourceRecordLink, transferRun } from "@magna-carta/database/per-firm-schema";
+import type { TransferRunId, UserId } from "@magna-carta/identifiers/types";
+import { is } from "drizzle-orm";
+import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
+import { describe, expect, it } from "vitest";
+import { LINKABLE_LOCAL_TABLES, type SourceRecordKey } from "../src/source-record.ts";
+import {
+  SOURCE_RECORD_LINK_TABLE,
+  countLinksBySourceSystemStatement,
+  countLinksByTransferRunStatement,
+  insertSourceRecordLinkStatement,
+  selectLinkedLocalRecordStatement,
+  selectLinksForSourceRecordStatement,
+  selectSourcesOfLocalRecordStatement,
+} from "../src/source-record-link-statements.ts";
+import {
+  TRANSFER_RUN_TABLE,
+  abandonTransferRunStatement,
+  completeTransferRunStatement,
+  insertTransferRunStatement,
+  selectTransferRunStatement,
+  selectTransferRunsStatement,
+} from "../src/transfer-run-statements.ts";
+
+// Fitness function (the ledger pattern): the raw SQL in this package must track
+// @magna-carta/database's schema. Renaming a table or a column there fails here, not in production.
+
+function stubDatabase(): SqlDatabase {
+  const statement = (sql: string): SqlStatement => ({
+    sql,
+    bind: () => statement(sql),
+    run: () => Promise.resolve({ meta: { changes: 0 } }),
+    all: <T>() => Promise.resolve({ results: [] as T[] }),
+    first: () => Promise.resolve(null),
+  });
+  return { prepare: statement };
+}
+
+const sqlOf = (statement: SqlStatement): string => statement.sql ?? "";
+
+const SQL_WORDS = new Set([
+  "select",
+  "from",
+  "where",
+  "and",
+  "order",
+  "by",
+  "insert",
+  "into",
+  "values",
+  "null",
+  "update",
+  "set",
+  "is",
+  "desc",
+  "count",
+  "distinct",
+  "as",
+  "group",
+]);
+
+// Aliases the statements introduce for computed columns; they name no column of any table.
+const RESULT_ALIASES = new Set(["link_count", "source_record_count"]);
+
+function identifiersIn(sql: string): string[] {
+  return (sql.match(/[a-z_][a-z0-9_]*/gi) ?? []).filter(
+    (word) => !SQL_WORDS.has(word.toLowerCase()) && !RESULT_ALIASES.has(word),
+  );
+}
+
+function columnsOf(table: SQLiteTable): Set<string> {
+  return new Set(getTableConfig(table).columns.map((column) => column.name));
+}
+
+const RUN_ID = "transferRun_x" as TransferRunId;
+const USER_ID = "user_x" as UserId;
+const SOURCE: SourceRecordKey = { sourceSystem: "leap", sourceKind: "matter", sourceId: "1" };
+const NOW = "2026-11-10T09:00:00.000Z";
+
+describe("schema name sync (record-transfer SQL pinned to @magna-carta/database)", () => {
+  it("the table name constants match the drizzle schema", () => {
+    expect(getTableConfig(transferRun).name).toBe(TRANSFER_RUN_TABLE);
+    expect(getTableConfig(sourceRecordLink).name).toBe(SOURCE_RECORD_LINK_TABLE);
+  });
+
+  it("every name the transfer-run SQL uses is the table or one of its columns", () => {
+    const stub = stubDatabase();
+    const known = new Set([TRANSFER_RUN_TABLE, ...columnsOf(transferRun)]);
+    const statements = [
+      insertTransferRunStatement(
+        stub,
+        { id: RUN_ID, sourceSystem: "leap", label: "x", startedBy: USER_ID },
+        NOW,
+      ),
+      selectTransferRunStatement(stub, RUN_ID),
+      selectTransferRunsStatement(stub, "leap"),
+      completeTransferRunStatement(stub, RUN_ID, NOW),
+      abandonTransferRunStatement(stub, RUN_ID, NOW),
+    ];
+    for (const statement of statements) {
+      const unknown = identifiersIn(sqlOf(statement)).filter((name) => !known.has(name));
+      expect(unknown, sqlOf(statement)).toEqual([]);
+    }
+  });
+
+  it("every name the source-record-link SQL uses is the table or one of its columns", () => {
+    const stub = stubDatabase();
+    const known = new Set([SOURCE_RECORD_LINK_TABLE, ...columnsOf(sourceRecordLink)]);
+    const statements = [
+      insertSourceRecordLinkStatement(
+        stub,
+        { source: SOURCE, localTable: "matter", localId: "x", transferRunId: RUN_ID },
+        NOW,
+      ),
+      selectLinksForSourceRecordStatement(stub, SOURCE),
+      selectLinkedLocalRecordStatement(stub, SOURCE, "matter"),
+      selectSourcesOfLocalRecordStatement(stub, "matter", "x"),
+      countLinksByTransferRunStatement(stub, RUN_ID),
+      countLinksBySourceSystemStatement(stub, "leap"),
+    ];
+    for (const statement of statements) {
+      const unknown = identifiersIn(sqlOf(statement)).filter((name) => !known.has(name));
+      expect(unknown, sqlOf(statement)).toEqual([]);
+    }
+  });
+
+  it("every linkable table exists in the per-firm schema and is keyed by the column named for it", () => {
+    const tablesByName = new Map<string, SQLiteTable>();
+    for (const exported of Object.values(perFirmSchema)) {
+      if (is(exported, SQLiteTable)) {
+        tablesByName.set(getTableConfig(exported).name, exported);
+      }
+    }
+    for (const [tableName, keyColumn] of Object.entries(LINKABLE_LOCAL_TABLES)) {
+      const table = tablesByName.get(tableName);
+      expect(table, `${tableName} is linkable but is not a per-firm table`).toBeDefined();
+      if (table === undefined) continue;
+      const primaryColumns = getTableConfig(table)
+        .columns.filter((column) => column.primary)
+        .map((column) => column.name);
+      expect(primaryColumns, `${tableName} must be keyed by ${keyColumn} alone`).toEqual([
+        keyColumn,
+      ]);
+    }
+  });
+});

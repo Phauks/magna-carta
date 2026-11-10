@@ -223,6 +223,9 @@ describe("schema conformance (fitness functions)", () => {
       "calendar_sync_link",
       // A question about a copy is keyed as the copy is, so a copy never has two.
       "connection_sync_issue",
+      // Where a record came from is the pair itself: one source record is linked once to each kind
+      // of record it became, so a surrogate key would let the same link exist twice.
+      "source_record_link",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

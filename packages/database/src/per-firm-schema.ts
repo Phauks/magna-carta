@@ -176,6 +176,7 @@ import type {
   ShipmentLabelId,
   TimeEntryId,
   TrackingEventId,
+  TransferRunId,
   TrustAccountId,
   TrustAuthorizationPolicyId,
   TrustBankStatementId,
@@ -12679,5 +12680,90 @@ export const meetingSummaryActionItem = sqliteTable(
       sql`${table.ordinal} >= 0 AND length(${table.text}) > 0`,
     ),
     check("meeting_summary_action_item_due_on_shape_check", civilDateShape(table.dueOn, true)),
+  ],
+);
+
+// One run of the record transfer: a batch of records brought in from the system a firm is leaving.
+// A run is the provenance every transferred record points back to, so "which import produced this
+// row, started by whom, and did it finish" has an answer for as long as the row exists.
+//
+// A run has no status column. `completed_at` and `abandoned_at` are the two ways it ends and at most
+// one is set, which says the same thing without a vocabulary this table would then have to keep:
+// `source_record_link` references it, and a table something references cannot have a CHECK widened.
+export const transferRun = sqliteTable(
+  "transfer_run",
+  {
+    id: text("id").primaryKey().$type<TransferRunId>(), // transferRun_ handle
+    // The system the records came from, as a lower-case slug (`leap`). Open text and not an enum:
+    // the second system a firm arrives from must not need a schema change to be named.
+    sourceSystem: text("source_system").notNull(),
+    label: text("label").notNull(), // what the operator called this run
+    startedBy: text("started_by")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    startedAt: text("started_at").notNull(),
+    completedAt: text("completed_at"),
+    abandonedAt: text("abandoned_at"),
+  },
+  (table) => [
+    index("transfer_run_source_system_index").on(table.sourceSystem, table.startedAt),
+    check(
+      "transfer_run_source_system_shape_check",
+      sql`length(${table.sourceSystem}) > 0 AND ${table.sourceSystem} = lower(trim(${table.sourceSystem}))`,
+    ),
+    check("transfer_run_label_nonempty_check", sql`length(trim(${table.label})) > 0`),
+    check(
+      "transfer_run_single_ending_check",
+      sql`${table.completedAt} IS NULL OR ${table.abandonedAt} IS NULL`,
+    ),
+  ],
+);
+
+// Where a record came from: one row ties a record in another system to the record here that it
+// became. It is the answer to "what was this in the old system" on every transferred row, and it is
+// what makes a transfer repeatable: a second run finds the link, updates the record it names, and
+// creates nothing twice.
+//
+// One table for every kind of record, and not a column on each of them, for three reasons. A source
+// record can become more than one record here (a matter and its trust ledger), and several source
+// records can become one (two cards for the same person), neither of which a single column holds.
+// Adding a column to every table is a migration on every table. And an integration that keeps an
+// outside system's identifier for a record needs exactly this shape, so it is named for the general
+// case and the leaving-system transfer is its first writer.
+//
+// `local_table` is the name of the per-firm table the record lives in and `local_id` its key there.
+// Neither carries a foreign key or a CHECK, because the row may name any table and the set grows
+// with every kind of record a transfer learns to carry; the names are validated where the row is
+// written. The key ends in `local_table` so one source record may be linked once per kind of record
+// it produced, and never twice to the same kind.
+export const sourceRecordLink = sqliteTable(
+  "source_record_link",
+  {
+    sourceSystem: text("source_system").notNull(),
+    sourceKind: text("source_kind").notNull(), // what the source system calls the record: `matter`, `card`
+    sourceId: text("source_id").notNull(), // the source system's own key, verbatim
+    localTable: text("local_table").notNull(),
+    localId: text("local_id").notNull(),
+    transferRunId: text("transfer_run_id")
+      .notNull()
+      .$type<TransferRunId>()
+      .references(() => transferRun.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.sourceSystem, table.sourceKind, table.sourceId, table.localTable],
+    }),
+    index("source_record_link_local_index").on(table.localTable, table.localId),
+    index("source_record_link_transfer_run_index").on(table.transferRunId),
+    check(
+      "source_record_link_source_system_shape_check",
+      sql`length(${table.sourceSystem}) > 0 AND ${table.sourceSystem} = lower(trim(${table.sourceSystem}))`,
+    ),
+    check(
+      "source_record_link_nonempty_check",
+      sql`length(${table.sourceKind}) > 0 AND length(${table.sourceId}) > 0 AND length(${table.localTable}) > 0 AND length(${table.localId}) > 0`,
+    ),
   ],
 );

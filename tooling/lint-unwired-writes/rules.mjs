@@ -58,6 +58,18 @@ export const DEFINITION_PATTERN = new RegExp(
 // next reader does not have to re-derive it.
 export const ALLOWLIST = new Map([
   [
+    "insertTransferRunStatement",
+    "starts a run of the record transfer, in packages/record-transfer; its caller is the transfer's" +
+      " loader, the next pull request in the build order of" +
+      " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
+  ],
+  [
+    "insertSourceRecordLinkStatement",
+    "writes the link from a source record to the record it became, in packages/record-transfer; its" +
+      " caller is the transfer's loader, the next pull request in the build order of" +
+      " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
+  ],
+  [
     "createPost",
     "the community board's write path, in packages/community; the board's own worker that calls it" +
       " is the next pull request in the same stream (docs/active-work/claude/project-thread-fa00rq.md)," +

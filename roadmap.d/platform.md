@@ -647,3 +647,13 @@
   spec: docs/specs/2026-07-03-monotonic-migration-ids-design.md
   evidence: packages/database/scripts/timestamp-latest-migration.mjs post-processes drizzle-kit generate into a UTC-timestamp id and rewrites the journal tag; both lineages under packages/database/drizzle/ carry timestamp-named migrations over a single collapsed baseline.
   notes: Was in-build against an active-work note that no longer exists; the scheme and the pre-production baseline collapse the design called for are both on main.
+
+- id: platform.record-transfer
+  name: Record transfer from a system a firm is leaving
+  scope: The framework that brings a firm's records in from another practice-management system (LEAP first) — readers, a staging store, mapping rules, the source-record link, a loader, a rehearsal report and the trust gate before cutover.
+  status: partial
+  surface: internal
+  adrs: ADR-0021
+  spec: docs/specs/2026-11-10-record-transfer-framework-design.md
+  evidence: packages/record-transfer (transfer runs and source-record links); the other six parts are designed and unbuilt
+  notes: First slice only. The legacy identifier it provides is tracked at directory.legacy-id.
