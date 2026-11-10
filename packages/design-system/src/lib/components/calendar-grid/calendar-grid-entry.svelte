@@ -17,6 +17,7 @@
    * calendars this came from, and paints a rule down the chip's leading edge. A chip with no
    * colour is exactly the chip this family drew before there were calendars to tell apart.
    */
+  import Repeat from "@lucide/svelte/icons/repeat";
   import type { CalendarGridEntry } from "./types.ts";
 
   let {
@@ -47,6 +48,8 @@
 
   /** What a reader who cannot see the line through a struck label is told instead. */
   const STRUCK_LABEL = "struck through";
+  /** What a reader who cannot see the repeat glyph is told instead. */
+  const REPEATS_LABEL = "repeats";
 
   /** The whole entry in one line, for the tooltip a truncated month chip needs. */
   const fullText = $derived(
@@ -61,6 +64,9 @@
 </script>
 
 {#snippet content()}
+  {#if entry.repeats}
+    <Repeat class="mc-calendar-grid-entry-repeat" aria-hidden="true" />
+  {/if}
   {#if entry.time !== undefined || layout === "row"}
     <span class="mc-calendar-grid-entry-time">{entry.time ?? "\u00a0"}</span>
   {/if}
@@ -68,6 +74,9 @@
     <span class="mc-calendar-grid-entry-label">{entry.label}</span>
     {#if entry.struck}
       <span class="sr-only">{STRUCK_LABEL}</span>
+    {/if}
+    {#if entry.repeats}
+      <span class="sr-only">{REPEATS_LABEL}</span>
     {/if}
     {#if showDetail && entry.detail}
       <span class="mc-calendar-grid-entry-detail">{entry.detail}</span>

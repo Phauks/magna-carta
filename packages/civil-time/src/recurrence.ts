@@ -362,3 +362,74 @@ function weekdayDayOf(
   const day = 1 + offset + (position - 1) * 7;
   return day > lastDayOf(year, month) ? null : day;
 }
+
+// ---- one occurrence of a series, and a series split at one ------------------------------------
+
+/**
+ * Whether a civil date is one of the days a series falls on. The question an edit to "this
+ * occurrence" has to answer before it writes anything: an exception standing in for a day the
+ * series never visits would be a second event pretending to be the first.
+ */
+export function isOccurrenceOf(rule: RecurrenceRule, startsOn: string, civilDate: string): boolean {
+  if (!isCivilDate(civilDate) || civilDate < startsOn) return false;
+  return occurrencesOf(rule, startsOn, { from: civilDate, to: civilDate }).includes(civilDate);
+}
+
+/**
+ * The last day a series falls on, or null where it never ends or runs past what one walk reads.
+ *
+ * Used to say "last one Mar 4, 2027" under the form, because a count of twelve is an answer whose
+ * consequence is a date nobody can see from the number alone.
+ */
+export function lastOccurrenceOf(rule: RecurrenceRule, startsOn: string): string | null {
+  if (!isCivilDate(startsOn)) return null;
+  if (rule.end.kind === "never") return null;
+  if (rule.end.kind === "after" && rule.end.count > MAX_OCCURRENCES) return null;
+  const through =
+    rule.end.kind === "on"
+      ? rule.end.date
+      : civilDateFromParts({ year: civilDateParts(startsOn).year + 200, month: 12, day: 31 });
+  const days = occurrencesOf(rule, startsOn, { from: startsOn, to: through });
+  return days.at(-1) ?? null;
+}
+
+/** Whole civil days from one date to another; negative where `to` comes first. */
+export function civilDaysBetween(from: string, to: string): number {
+  return daysBetween(from, to);
+}
+
+/**
+ * The same date moved by however far `from` moved to `to`. What "change every event in the series"
+ * does with a date somebody moved on ONE occurrence: the series' own start moves by the same number
+ * of days, so moving this Tuesday's conference to Wednesday moves every one of them a day.
+ */
+export function movedLikeOccurrence(civilDate: string, from: string, to: string): string {
+  return addCalendarDays(civilDate, daysBetween(from, to));
+}
+
+/**
+ * A series cut at one of its occurrences: the rule the EARLIER part keeps, and the rule the part
+ * from that occurrence onward starts with. "This and all later events" is exactly this cut, then the
+ * change applied to the later part only, so what already happened is never rewritten.
+ *
+ * The earlier part ends the day before the cut. A count is shared out rather than restarted: twelve
+ * conferences cut after the fifth leave seven to the later part, because the firm asked for twelve.
+ * Null for the earlier part where the cut IS the series' first day: there is nothing before it, and
+ * the whole series is what changes.
+ */
+export function splitSeriesAt(
+  rule: RecurrenceRule,
+  startsOn: string,
+  occurrenceOn: string,
+): { readonly before: RecurrenceRule | null; readonly after: RecurrenceRule } {
+  if (occurrenceOn <= startsOn) return { before: null, after: rule };
+  const dayBefore = addCalendarDays(occurrenceOn, -1);
+  const before: RecurrenceRule = { ...rule, end: { kind: "on", date: dayBefore } };
+  if (rule.end.kind !== "after") return { before, after: rule };
+  const already = occurrencesOf(rule, startsOn, { from: startsOn, to: dayBefore }).length;
+  const remaining = Math.max(1, rule.end.count - already);
+  return {
+    before: { ...rule, end: { kind: "after", count: already } },
+    after: { ...rule, end: { kind: "after", count: remaining } },
+  };
+}

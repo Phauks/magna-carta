@@ -14,7 +14,9 @@
  * as a one-off, and not a guess.
  */
 import { civilDateParts, isCivilDate } from "@magna-carta/civil-time/civil-date";
+import { formatCivilDateLong, parseCivilDate } from "@magna-carta/design-system/calendar-grid";
 import {
+  lastOccurrenceOf,
   parseRecurrence,
   WEEKDAY_CODES,
   weekdayOf,
@@ -65,6 +67,23 @@ export function recurrenceSentence(line: string | null, startsOn: string | null)
   const rule = parseRecurrence(line);
   if (rule === null) return "on a rule recorded in another calendar";
   return writtenRecurrence(rule, startsOn);
+}
+
+/**
+ * The day a series stops, as the line under the form's Ends answer. A count of twelve is an answer
+ * whose consequence is a date nobody can see from the number alone, and an end date that falls
+ * between two occurrences is not itself the last one, so both are said as the day the last one is.
+ */
+export function lastOccurrenceSentence(rule: RecurrenceRule, startsOn: string | null): string {
+  if (rule.end.kind === "never") return "No end date.";
+  if (startsOn === null || !isCivilDate(startsOn)) return "";
+  const last = lastOccurrenceOf(rule, startsOn);
+  if (last === null) return "";
+  try {
+    return `Last one ${formatCivilDateLong(parseCivilDate(last))}.`;
+  } catch {
+    return `Last one ${last}.`;
+  }
 }
 
 function cadenceOf(rule: RecurrenceRule, startsOn: string | null): string {

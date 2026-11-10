@@ -233,7 +233,10 @@ Give the event a title, a date, and the time zone it happens in. Everything else
   falls on the day the event starts unless you pick the days yourself, and can fall on several
   (Monday, Wednesday and Friday). A monthly rule asks which day it means: the same date every month,
   or the same weekday in the same position — the 15th, or the third Tuesday. Then say where it
-  stops: never, after a number of occurrences, or on a date.
+  stops: never, after a number of times, or on a date. Each is its own line under **Ends**, with
+  the number or the date beside it, and the line under the controls names the day the last one
+  falls on — "Last one Thursday, March 4, 2027" — because twelve times is a number whose
+  consequence is a date you cannot see from the number alone.
 
   Under the controls the form reads the rule back to you in words — "Repeats every second Tuesday,
   12 times" — and the record shows the same sentence. Check it before you save: a repeat is the one
@@ -247,6 +250,25 @@ Give the event a title, a date, and the time zone it happens in. Everything else
   An event imported from another calendar can carry a repeat rule more elaborate than this form
   offers. Where it does, the form says the rule was recorded elsewhere rather than showing you a
   simplified version that saving would make true; turning Repeats on replaces it with yours.
+
+**Every day of a series is on the calendar.** A repeating event shows on each day it falls on,
+marked with a small repeat sign, and opening any of them opens that day: the window shows the date
+you pressed, not the day the series began.
+
+**Changing or cancelling one day of a series asks how far the change reaches.** When you save a
+change to a repeating event, or cancel one, the window asks:
+
+- **This event only** — just the day you opened. The other days are untouched, and that day is from
+  then on its own event, which you can open, change again or cancel like any other.
+- **This and all later events** — the day you opened and every one after it. Earlier days stay as
+  they were, so a status conference that moved from Tuesdays to Wednesdays in March still shows the
+  Tuesdays it really was on before that. Chosen from the first day of the series, this is the same
+  as all events.
+- **All events in the series** — every day, including ones already past. Moving this Tuesday to
+  Wednesday and choosing this moves every Tuesday to a Wednesday.
+
+A change to how it repeats — the cadence, the days, where it stops — reaches more than one day, so
+**This event only** is not offered for it.
 
 - **The court's own case number** goes on the event as the court writes it.
 - **Who is there** can be a member of your firm, a contact from your directory, or somebody who is

@@ -6149,6 +6149,84 @@ export type ContinuanceChainNode = {
     statusReason: string | null;
 };
 
+export type CalendarSeriesInWindow = {
+    data: Array<CalendarSeriesOccurrences>;
+    truncated: boolean;
+};
+
+export type CalendarSeriesOccurrences = {
+    source: 'matterEvent' | 'firmEvent';
+    id: string;
+    matterId: string | null;
+    title: string | null;
+    typeCode: string | null;
+    typeName: string | null;
+    audience: 'all_members' | 'participants' | null;
+    status: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    recurrenceRule: string;
+    occurrences: Array<string>;
+};
+
+export type ChangeEventOccurrenceRequest = {
+    occurrenceOn: string;
+    scope: 'this' | 'following';
+    change: {
+        kind: 'update';
+        fields: {
+            eventTypeId?: string | null;
+            title?: string;
+            description?: string | null;
+            status?: 'scheduled' | 'occurred' | 'cancelled';
+            startsOn?: string;
+            startsAtTime?: string | null;
+            endsOn?: string | null;
+            endsAtTime?: string | null;
+            timeZone?: string;
+            locationText?: string | null;
+            conferenceUrl?: string | null;
+            courtReference?: string | null;
+            recurrenceRule?: string | null;
+            participants?: Array<MatterEventParticipantInput>;
+        };
+    } | {
+        kind: 'cancel';
+        statusReason?: string | null;
+    };
+};
+
+export type ChangeFirmEventOccurrenceRequest = {
+    occurrenceOn: string;
+    scope: 'this' | 'following';
+    change: {
+        kind: 'update';
+        fields: {
+            eventTypeId?: string | null;
+            title?: string;
+            description?: string | null;
+            status?: 'scheduled' | 'occurred' | 'cancelled';
+            startsOn?: string;
+            startsAtTime?: string | null;
+            endsOn?: string | null;
+            endsAtTime?: string | null;
+            timeZone?: string;
+            audience?: 'all_members' | 'participants';
+            locationId?: string | null;
+            locationText?: string | null;
+            conferenceUrl?: string | null;
+            recurrenceRule?: string | null;
+            participants?: Array<MatterEventParticipantInput>;
+        };
+    } | {
+        kind: 'cancel';
+        statusReason?: string | null;
+    };
+};
+
 export type MatterNotePage = {
     data: Array<MatterNoteDetail>;
     nextCursor: string | null;
@@ -29247,6 +29325,161 @@ export type CalendarContinuanceChainResponses = {
 };
 
 export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
+
+export type CalendarListSeriesData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        side?: 'matter' | 'firm' | 'all';
+        matterId?: string;
+        memberId?: string;
+    };
+    url: '/api/v1/calendar/series';
+};
+
+export type CalendarListSeriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListSeriesError = CalendarListSeriesErrors[keyof CalendarListSeriesErrors];
+
+export type CalendarListSeriesResponses = {
+    /**
+     * The series in the window
+     */
+    200: CalendarSeriesInWindow;
+};
+
+export type CalendarListSeriesResponse = CalendarListSeriesResponses[keyof CalendarListSeriesResponses];
+
+export type CalendarChangeEventOccurrenceData = {
+    body: ChangeEventOccurrenceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/occurrences';
+};
+
+export type CalendarChangeEventOccurrenceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarChangeEventOccurrenceError = CalendarChangeEventOccurrenceErrors[keyof CalendarChangeEventOccurrenceErrors];
+
+export type CalendarChangeEventOccurrenceResponses = {
+    /**
+     * The day or days were changed
+     */
+    200: CalendarCreatedResponse;
+};
+
+export type CalendarChangeEventOccurrenceResponse = CalendarChangeEventOccurrenceResponses[keyof CalendarChangeEventOccurrenceResponses];
+
+export type CalendarChangeFirmEventOccurrenceData = {
+    body: ChangeFirmEventOccurrenceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/occurrences';
+};
+
+export type CalendarChangeFirmEventOccurrenceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarChangeFirmEventOccurrenceError = CalendarChangeFirmEventOccurrenceErrors[keyof CalendarChangeFirmEventOccurrenceErrors];
+
+export type CalendarChangeFirmEventOccurrenceResponses = {
+    /**
+     * The day or days were changed
+     */
+    200: CalendarCreatedResponse;
+};
+
+export type CalendarChangeFirmEventOccurrenceResponse = CalendarChangeFirmEventOccurrenceResponses[keyof CalendarChangeFirmEventOccurrenceResponses];
 
 export type NotesListNotesData = {
     body?: never;
