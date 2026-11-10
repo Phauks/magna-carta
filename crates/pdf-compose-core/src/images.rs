@@ -18,7 +18,13 @@ use crate::layout::ImageSize;
 /// a file that claims more is refused before any pixel is allocated.
 const MAXIMUM_PIXEL_DIMENSION: u32 = 20_000;
 /// The most memory one picture's decoding may ask for.
+#[cfg(not(target_arch = "wasm32"))]
 const MAXIMUM_DECODE_BYTES: u64 = 512 * 1024 * 1024;
+/// A WebAssembly host has far less to give: a Worker's whole isolate is 128 MiB, and running
+/// out of memory there ends the request with nothing to catch. 64 MiB still decodes a
+/// 16-megapixel photograph.
+#[cfg(target_arch = "wasm32")]
+const MAXIMUM_DECODE_BYTES: u64 = 64 * 1024 * 1024;
 /// Pixels kept per inch of drawn size. Print resolution; more than this adds file size and
 /// nothing a printer or a screen can show.
 const EMBEDDED_PIXELS_PER_INCH: f32 = 300.0;

@@ -4,6 +4,9 @@ version = "0.0.0"
 edition.workspace = true
 publish.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 # The Liberation Sans faces in `fonts/`, compiled into the library so a caller with no fonts of its
 # own still gets a document. About 1.6 MB; a WebAssembly build that receives its fonts from the host
@@ -21,6 +24,13 @@ rustybuzz = "0.20.1"
 # Image decoding under explicit limits, EXIF orientation, and downscaling a photograph to print
 # resolution. The workspace's own entry, so the codecs are the ones pdf-core already builds.
 image = { workspace = true }
+# The JSON form of the content model (`src/wire.rs`): what a host that is not Rust sends.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
 
 [dev-dependencies]
 # Reads the composed document back: page count, extracted text, raster coverage.
