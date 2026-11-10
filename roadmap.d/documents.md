@@ -651,6 +651,15 @@
   spec: docs/specs/2026-06-26-pdf-generate-primitives-design.md
   evidence: crates/pdf-core/src/generate.rs + standard_fonts.rs.
 
+- id: documents.pdf.compose
+  name: Compose a PDF from content
+  scope: Write a new PDF from a content model (headings, paragraphs, pictures, tables, labelled fields, running header and footer), for records, reports and exports that carry more than text.
+  status: partial
+  surface: internal
+  evidence: crates/pdf-compose-core (model, layout, render, images, fonts) with tests/compose.rs reading the output back through pdf-core. Engine only, no WebAssembly edge and no caller yet.
+  notes: documents.pdf.generate's evidence, crates/pdf-core/src/generate.rs, merges, splits and rotates existing files and never wrote a new one; this node is where writing one lives. Decision fragment a-new-pdf-is-composed-in-rust-with-krilla-and-a-bundled-open-font pending assembly. Not yet built, the edge that lets a Worker or the browser call it, and a tagged (accessible) structure tree.
+  awaiting-owner: Which screens should be able to put pictures into a generated PDF, and whether the tabular export (today a Word file converted by the office container) should be drawn by this engine instead.
+
 - id: documents.pdf.decompression-guard
   name: Decompression-bomb guard
   scope: Raw-bytes pre-flight guard against decompression bombs before engine work.
