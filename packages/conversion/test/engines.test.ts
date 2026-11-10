@@ -3,7 +3,7 @@ import { engineFor } from "../src/engines.ts";
 
 describe("engine map", () => {
   it("resolves unimplemented engines to the deferred engine", async () => {
-    for (const id of ["libreoffice", "email", "ffmpeg"] as const) {
+    for (const id of ["libreoffice", "email", "transcode"] as const) {
       const result = await engineFor(id).convert({
         bytes: new Uint8Array([1, 2, 3]),
         from: "docx",

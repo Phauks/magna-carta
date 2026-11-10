@@ -69,6 +69,9 @@ export const NOT_YET_COVERED = new Set([
   "ocr",
   "raster",
   "search",
+  // Unit- and fixture-tested by its own `cargo test` (tests/transcode.rs converts a file per codec
+  // path); no Docker acceptance suite yet.
+  "transcode",
 ]);
 
 export function acceptanceFor(name) {

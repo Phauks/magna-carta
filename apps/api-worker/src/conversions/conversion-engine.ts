@@ -11,8 +11,13 @@ import type { Bindings } from "../bindings.ts";
 
 // The engine ids the convert worker can execute today. Both raster-served paths (raster
 // interconversion and image-to-PDF) run in its RasterEngineContainer; the office edges run in its
-// LibreOfficeEngineContainer. email/FFmpeg join this set when their Containers land in the convert
-// worker. OCR is not here — it is its own already-live service, resolved below.
+// LibreOfficeEngineContainer. email joins this set when its Container lands in the convert worker.
+// OCR is not here — it is its own already-live service, resolved below.
+//
+// "transcode" is deliberately absent although its Container is in the convert worker: this port
+// reads the whole source into memory and the whole result back, which a video of any size would
+// exhaust. The playable-copy path reaches that engine by streaming instead, and a video edge stays
+// engine-not-implemented here until this port streams too.
 //
 // Adding an id here is what actually turns an engine on, so it is the LAST step of that engine's
 // deploy rather than the first: the convert worker must already carry the Container class, or an id

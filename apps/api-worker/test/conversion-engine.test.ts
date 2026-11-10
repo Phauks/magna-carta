@@ -35,17 +35,17 @@ const pdfInput = {
 describe("resolveEnginePort", () => {
   it("resolves every convert-worker engine to the deferred port when CONVERT is unbound", async () => {
     const resolve = resolveEnginePort({} as Bindings);
-    for (const engineId of ["libvips", "image-pdf", "libreoffice", "email", "ffmpeg"] as const) {
+    for (const engineId of ["libvips", "image-pdf", "libreoffice", "email", "transcode"] as const) {
       const result = await resolve(engineId).convert(rasterInput);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
     }
   });
 
-  it("keeps an engine without a Container deferred even when CONVERT is bound", async () => {
+  it("keeps the email engine and the buffered-port-excluded transcode engine deferred even when CONVERT is bound", async () => {
     const convert = fakeBinding(new Response(new Uint8Array([9]), { status: 200 }));
     const resolve = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
-    for (const engineId of ["email", "ffmpeg"] as const) {
+    for (const engineId of ["email", "transcode"] as const) {
       const result = await resolve(engineId).convert(rasterInput);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.reason).toBe("engine-not-implemented");

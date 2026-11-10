@@ -1,0 +1,76 @@
+[package]
+name = "magna-carta-transcode"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "magna_carta_transcode"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-transcode"
+path = "src/main.rs"
+
+# A lib (the demuxers, codecs glue and MP4 writer, unit-testable) plus a thin binary that serves it on :8080.
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+# Streaming the rendition back from its file, and the request body to disk, without holding either in memory.
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
+tempfile = "3"
+# Video decoders, both pure Rust with no C: each matched FFmpeg's output on most of the ITU conformance
+# suite for its codec, including 10-bit and interlaced streams, and neither crashed on corrupted input.
+rust_h264 = "0.6.1"
+rust_h265 = "0.4.1"
+# The H.264 encoder: the only pure-Rust one that writes High profile (CABAC, the 8x8 transform).
+rusty_h264 = "0.17.2"
+# Matroska reading. MP4 and QuickTime are read by this crate's own demuxer (src/demux/isobmff.rs), because
+# the MP4 crates either reject large HEVC configuration records or cannot read QuickTime PCM.
+matroska-demuxer = "0.8.1"
+# MP3 and FLAC decoding. AAC is never decoded (it is copied), and PCM is read directly.
+symphonia = { version = "0.6.1", default-features = false, features = ["mp3", "flac"] }
+# The AAC-LC encoder. Chosen over oxideav-aac, which measured about three times better waveform fidelity
+# but ran slower than real time (an unoptimised transform); this one encodes at about two hundred times
+# real time, and at the 256 kbit/s used for stereo its fidelity matched FFmpeg's AAC encoder at 160 kbit/s.
+rusty_aac = "2.0.1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+# The lint floor. Same rules as crates/Cargo.toml, stated here because every container is its own Cargo
+# workspace and a workspace lint table reaches nothing outside its own tree. This workspace holds one
+# package, so the tables sit on the package directly and there is no `workspace = true` opt-in to forget.
+# Levels were measured against this workspace with `cargo clippy --all-targets` before being set; what is
+# absent is absent on evidence and says so. The print/exit restrictions that crates/Cargo.toml denies are
+# deliberately not here: a container's binary IS the process, so writing a startup diagnostic to stderr
+# and exiting non-zero on a fatal boot failure is the correct behaviour rather than a smell.
+[lints.rust]
+unsafe_code = "forbid"
+non_ascii_idents = "forbid"
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+trivial_numeric_casts = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+panic = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+mem_forget = "deny"
+dbg_macro = "deny"

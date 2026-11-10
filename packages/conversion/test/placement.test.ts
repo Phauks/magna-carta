@@ -8,8 +8,8 @@ describe("enginePlacements", () => {
     expect(placements).toContain("server");
   });
 
-  it("marks LibreOffice, email, and FFmpeg as server-only", () => {
-    for (const id of ["libreoffice", "email", "ffmpeg"] as const) {
+  it("marks LibreOffice, email, and the video transcode as server-only", () => {
+    for (const id of ["libreoffice", "email", "transcode"] as const) {
       expect(enginePlacements(id)).toEqual(["server"]);
     }
   });
