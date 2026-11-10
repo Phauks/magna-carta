@@ -1,30 +1,40 @@
 <script lang="ts">
+  /*
+   * The Changelog — every pull request merged into Magna Carta, newest first.
+   *
+   * NOTHING ON THIS SCREEN IS WRITTEN HERE. The rows come from docs/pull-request-ledger.json, which
+   * is rebuilt from git history on `main` and built into this bundle
+   * ($lib/product-updates/pull-request-ledger.ts), so the screen updates itself with every build
+   * and can only ever describe the build it is part of. There is no read, so there is no loading or
+   * failure state.
+   *
+   * It lives at /updates because that is the product-updates route, and the changelog is its first
+   * view. It is reached from the profile menu's Websites > Changelog
+   * (src/lib/navigation/ecosystem-sites.ts).
+   */
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { formatDate } from "@magna-carta/design-system/formatters";
-  import { page } from "$app/state";
-  import { changelogEntries } from "$lib/product-updates/changelog-entries.ts";
-  import OptionA from "$lib/product-updates/mockups/option-a-index.svelte";
-  import OptionD from "$lib/product-updates/mockups/option-d-pull-requests.svelte";
-  import OptionA2 from "$lib/product-updates/mockups/option-a2-index.svelte";
-  import OptionB from "$lib/product-updates/mockups/option-b-reader.svelte";
-  import OptionC from "$lib/product-updates/mockups/option-c-highlights.svelte";
+  import PullRequestChangelog from "$lib/product-updates/pull-request-changelog.svelte";
+  import { mergedPullRequests } from "$lib/product-updates/pull-request-ledger.ts";
 
-  const entries = changelogEntries();
-  const option = $derived(page.url.searchParams.get("option") ?? "a");
+  // Parsed once: the ledger is fixed for the life of the bundle.
+  const pullRequests = mergedPullRequests();
+  const lastMerged = pullRequests[0]?.date ?? null;
+
   let searchText = $state("");
   let query = $state("");
 </script>
 
-<svelte:head><title>Changelog · Magna Carta</title></svelte:head>
+<svelte:head>
+  <title>Changelog · Magna Carta</title>
+</svelte:head>
 
 <ScreenHeader title="Changelog" class="mb-24">
   {#snippet meta()}
-    {#if option === "d"}
-      <span>Every pull request merged to main · last merged {formatDate(entries[0]?.date ?? "2026-01-01")}</span>
-    {:else}
-      <span>{entries.length} changes · last updated {formatDate(entries[0]?.date ?? "2026-01-01")}</span>
-    {/if}
+    <span>
+      Every pull request merged{lastMerged === null ? "" : ` · last merged ${formatDate(lastMerged)}`}
+    </span>
   {/snippet}
   {#snippet actions()}
     <ScreenSearch
@@ -39,14 +49,4 @@
   {/snippet}
 </ScreenHeader>
 
-{#if option === "d"}
-  <OptionD {query} />
-{:else if option === "a2"}
-  <OptionA2 {entries} {query} />
-{:else if option === "b"}
-  <OptionB {entries} {query} />
-{:else if option === "c"}
-  <OptionC {entries} {query} />
-{:else}
-  <OptionA {entries} {query} />
-{/if}
+<PullRequestChangelog {pullRequests} {query} />
