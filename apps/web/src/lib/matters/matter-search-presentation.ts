@@ -79,6 +79,12 @@ export function emptyGroupLine(skipped: SearchSkipReason | null, sourceKey?: str
       return sourceKey === "file-contents"
         ? "The text inside files could not be searched just now. File and folder names were."
         : "This section could not be searched just now";
+    case "engine-not-connected":
+      // Not a fault, and trying again changes nothing: the part that reads inside documents is not
+      // switched on yet. Said plainly, with what WAS searched, so it does not read as an error.
+      return sourceKey === "file-contents"
+        ? "Searching the text inside files is not switched on yet. File and folder names were searched."
+        : "Searching this section is not switched on yet";
     case "not-indexed":
       // The firm's own choice, so it is said as one and not as a fault.
       return "Searching the text inside files is turned off for this firm";
@@ -96,6 +102,7 @@ export function skippedBadge(skipped: SearchSkipReason): string {
       return "Off";
     case "engine-unavailable":
       return "Unavailable";
+    case "engine-not-connected":
     case "query-too-short":
       return "Soon";
   }

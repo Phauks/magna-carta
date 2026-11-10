@@ -268,8 +268,8 @@ const fileContentsSource: MatterSearchSource = {
   buildStatements: () => [],
   prepare: async (request) => {
     const searcher = request.fileContents ?? null;
-    // Nothing supplied a way to the index. Said as "could not be searched", never as "no matches".
-    if (searcher === null) return { kind: "skipped", reason: "engine-unavailable" };
+    // Nothing supplied a way to the index. Said as "not connected", never as "no matches".
+    if (searcher === null) return { kind: "skipped", reason: "engine-not-connected" };
     const queryText = tooShort(request, 2) ? null : keywordQueryText(request.query);
     if (queryText === null) return { kind: "candidates", statements: [], arrange: () => [] };
     // One more file than the limit, so the group can say there is more without counting.
@@ -280,6 +280,7 @@ const fileContentsSource: MatterSearchSource = {
       limit: passagesToAskFor(fileLimit),
     });
     if (answer.kind === "off") return { kind: "skipped", reason: "not-indexed" };
+    if (answer.kind === "not-connected") return { kind: "skipped", reason: "engine-not-connected" };
     if (answer.kind === "unavailable") return { kind: "skipped", reason: "engine-unavailable" };
     const candidates = candidatesFrom(answer.passages, fileLimit);
     if (candidates.length === 0) return { kind: "candidates", statements: [], arrange: () => [] };

@@ -16061,6 +16061,7 @@
               "permission",
               "query-too-short",
               "engine-unavailable",
+              "engine-not-connected",
               "not-indexed",
               null
             ]

@@ -87,14 +87,16 @@ A result names the file, the folder it is in, and the pages that matched. When a
 matches on many pages, the three best are named and the rest are counted ("Pages 3, 7, 12 and 5
 more").
 
-Two things have to be true before **Inside Files** can answer, and the results tell you which one is
-missing instead of saying nothing matched:
+Three things have to be true before **Inside Files** can answer, and the results tell you which one
+is missing instead of saying nothing matched:
 
-- **"Unavailable"** means the service that reads inside documents could not be reached. File and
-  folder names were still searched.
+- **"Soon"** means the part of the product that reads inside documents is not switched on yet. File
+  and folder names were still searched.
 - **"Off"** means your firm has not turned on indexing of its files. An administrator decides that
   for the whole firm. Once it is on, new files are read as they are added, and the files already on
   your matters are read over the following day.
+- **"Unavailable"** means the service that reads inside documents did not answer this time. File
+  and folder names were still searched; try again in a moment.
 
 A file that was deleted is found inside only when **Include deleted** is on, and is marked
 **Deleted**, the same as a file found by name.

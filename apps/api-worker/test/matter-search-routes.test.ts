@@ -244,11 +244,11 @@ describe("one query, answered from every section the member may read", () => {
     expect(group(answer, "file-contents").section).toBe("files");
   });
 
-  it("says the words inside files could not be searched while no search service is connected", async () => {
-    // The test pool binds no search service. That has to read as "could not be searched", never as
+  it("says the words inside files are not connected while no search service is bound", async () => {
+    // The test pool binds no search service. That has to read as "not switched on yet", never as
     // "no file contains this word", and it must not take the rest of the answer down with it.
     const answer = await search("easement");
-    expect(group(answer, "file-contents").skipped).toBe("engine-unavailable");
+    expect(group(answer, "file-contents").skipped).toBe("engine-not-connected");
     expect(group(answer, "file-contents").hits).toEqual([]);
     expect(group(answer, "notes").hits).toHaveLength(1);
   });

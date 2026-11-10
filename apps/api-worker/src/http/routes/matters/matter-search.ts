@@ -91,10 +91,18 @@ const SearchGroup = z
     // without ever claiming a total nobody counted.
     hasMore: z.boolean(),
     // Why this source contributed nothing, or null when it answered. Absence is always explained.
-    // `engine-unavailable` is an index outside the database that could not be asked; `not-indexed`
-    // is a firm that has not turned on the index this source reads.
+    // Three of these belong to a source that reads an index outside the database:
+    // `engine-not-connected` is a deployment that does not have the index's service yet,
+    // `engine-unavailable` is that service failing to answer, and `not-indexed` is a firm that has
+    // not turned the index on.
     skipped: z
-      .enum(["permission", "query-too-short", "engine-unavailable", "not-indexed"])
+      .enum([
+        "permission",
+        "query-too-short",
+        "engine-unavailable",
+        "engine-not-connected",
+        "not-indexed",
+      ])
       .nullable(),
   })
   .openapi("MatterSearchGroup");

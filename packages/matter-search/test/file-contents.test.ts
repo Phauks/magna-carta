@@ -209,7 +209,7 @@ describe("the words inside a matter's files", () => {
     expect(group.hits).toEqual([]);
   });
 
-  it("says it could not be searched when the index did not answer or nothing reaches it", async () => {
+  it("says it could not be searched when the index was asked and did not answer", async () => {
     const { database } = seededDatabase();
 
     const unavailable = await search(
@@ -218,9 +218,21 @@ describe("the words inside a matter's files", () => {
       searcherAnswering({ kind: "unavailable" }).searcher,
     );
     expect(unavailable.skipped).toBe("engine-unavailable");
+    expect(unavailable.hits).toEqual([]);
+  });
 
-    expect((await search(database, "easement", null)).skipped).toBe("engine-unavailable");
-    expect((await search(database, "easement", undefined)).skipped).toBe("engine-unavailable");
+  it("says the index is not connected yet when it is not, or nothing reaches it", async () => {
+    const { database } = seededDatabase();
+
+    const notConnected = await search(
+      database,
+      "easement",
+      searcherAnswering({ kind: "not-connected" }).searcher,
+    );
+    expect(notConnected.skipped).toBe("engine-not-connected");
+
+    expect((await search(database, "easement", null)).skipped).toBe("engine-not-connected");
+    expect((await search(database, "easement", undefined)).skipped).toBe("engine-not-connected");
   });
 
   it("is not asked for a single character", async () => {

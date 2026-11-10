@@ -227,9 +227,10 @@ match on file and folder names.
   for that last case, and only the application builds one, from letters and digits.
 - **A review set stays out of reach.** The application asks for the matter's corpus and no other,
   and a review document is not a row of the table the source reads.
-- **Three answers that are not "no matches".** The search service not connected or not answering;
-  the firm not having turned indexing on; and the ordinary case of an index that was asked and
-  found nothing. A reader acts differently on each, so each is said.
+- **Three answers that are not "no matches".** The search service not being part of the deployment
+  yet; the service failing to answer; and the firm not having turned indexing on. A reader acts
+  differently on each, and differently again on an index that was asked and found nothing, so each
+  is said.
 
 Two limits are recorded. A result names the file and the pages and **quotes nothing**, because the
 index stores which words are on which page and not the sentences, and a matter file's extracted text

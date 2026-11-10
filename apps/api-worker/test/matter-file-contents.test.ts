@@ -60,12 +60,12 @@ beforeAll(async () => {
 });
 
 describe("the matter search's way to the file contents index", () => {
-  it("says the index could not be reached while no search service is connected", async () => {
+  it("says the index is not connected while no search service is bound", async () => {
     // The test pool binds no search service, which is every deployment until the search worker is
     // deployed and bound.
     await setIndexing(true);
     const searcher = matterFileContentsSearcherFor(env, firmId);
-    expect(await searcher.query(QUESTION)).toEqual({ kind: "unavailable" });
+    expect(await searcher.query(QUESTION)).toEqual({ kind: "not-connected" });
   });
 
   it("says the firm has not turned indexing on, without asking the index", async () => {

@@ -28,7 +28,9 @@ export type FileContentsAnswer =
   | { readonly kind: "passages"; readonly passages: readonly FileContentsPassage[] }
   // The firm has not turned file indexing on, so there is nothing to ask.
   | { readonly kind: "off" }
-  // The index's service is not connected, or did not answer.
+  // The index's service is not part of this deployment yet.
+  | { readonly kind: "not-connected" }
+  // The index's service was asked and did not answer.
   | { readonly kind: "unavailable" };
 
 export interface MatterFileContentsSearcher {

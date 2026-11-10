@@ -368,7 +368,7 @@ describe("a matter search narrows by matter before it scans", () => {
       // here. Its read of the firm's own table is planned above; this is its honest answer without
       // an index to ask.
       if (group.source === "file-contents") {
-        expect(group.skipped).toBe("engine-unavailable");
+        expect(group.skipped).toBe("engine-not-connected");
         continue;
       }
       expect(group.skipped).toBeNull();

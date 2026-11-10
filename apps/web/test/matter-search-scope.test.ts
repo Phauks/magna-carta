@@ -137,6 +137,11 @@ describe("the Files section is searched by name and by the words inside its file
       "File and folder names were",
     );
     expect(skippedBadge("engine-unavailable")).toBe("Unavailable");
+    // Not switched on yet is not a fault, and is not worded as one.
+    expect(emptyGroupLine("engine-not-connected", "file-contents")).toBe(
+      "Searching the text inside files is not switched on yet. File and folder names were searched.",
+    );
+    expect(skippedBadge("engine-not-connected")).toBe("Soon");
     expect(emptyGroupLine(null, "file-contents")).toBe("No matches");
   });
 });

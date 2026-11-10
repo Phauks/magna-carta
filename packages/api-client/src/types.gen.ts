@@ -3820,7 +3820,7 @@ export type MatterSearchGroup = {
     supportsDeleted: boolean;
     hits: Array<MatterSearchHit>;
     hasMore: boolean;
-    skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | 'not-indexed' | null;
+    skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
 };
 
 export type MatterSearchHit = {
