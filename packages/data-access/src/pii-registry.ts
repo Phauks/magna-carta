@@ -939,6 +939,76 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   },
   {
     table: "matter_task",
+    subjectKey: "location",
+    action: "report-manual",
+    note: "where the work happens: a room, an address or a meeting link, free text a member typed",
+  },
+  // A task's assignees, watchers, checklist and links, and the firm's teams. Every member reference
+  // is pseudonymize-keep on matter_task's reasoning: an unattributed obligation is worth a fraction
+  // of an attributed one. The checklist lines and links are free text a member typed about the work,
+  // so they are reported rather than scrubbed, as the task's own title is.
+  {
+    table: "matter_task_assignee",
+    subjectKey: "user_id",
+    action: "pseudonymize-keep",
+    note: "one of the people the work is assigned to",
+  },
+  {
+    table: "matter_task_assignee",
+    subjectKey: "added_by",
+    action: "pseudonymize-keep",
+    note: "who named the assignee",
+  },
+  {
+    table: "matter_task_watcher",
+    subjectKey: "user_id",
+    action: "pseudonymize-keep",
+    note: "a person kept informed of the work",
+  },
+  {
+    table: "matter_task_watcher",
+    subjectKey: "added_by",
+    action: "pseudonymize-keep",
+    note: "who added the watcher",
+  },
+  {
+    table: "matter_task_checklist_item",
+    subjectKey: "text",
+    action: "report-manual",
+    note: "a step of the work, free text that may name the person it concerns",
+  },
+  {
+    table: "matter_task_checklist_item",
+    subjectKey: "done_by",
+    action: "pseudonymize-keep",
+    note: "who ticked the step",
+  },
+  {
+    table: "matter_task_link",
+    subjectKey: "url",
+    action: "report-manual",
+    note: "a web address a member attached to the work; it may carry a person's details in its path",
+  },
+  {
+    table: "matter_task_link",
+    subjectKey: "label",
+    action: "report-manual",
+    note: "what the member called the link",
+  },
+  {
+    table: "matter_task_link",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who attached the link",
+  },
+  {
+    table: "task_team_member",
+    subjectKey: "user_id",
+    action: "pseudonymize-keep",
+    note: "a member of one of the firm's task teams",
+  },
+  {
+    table: "matter_task",
     subjectKey: "cancelled_by",
     action: "pseudonymize-keep",
     note: "who decided the work would not be done",
@@ -1586,6 +1656,13 @@ export const NO_PII_TABLES: readonly string[] = [
   // person the TASK concerns resolves through matter_task, never through a column here -- an
   // external id is the remote's own key and this platform never parses it.
   "matter_task_external_link",
+  // How the firm organises its task work: lists, each list's statuses and the moves between them,
+  // and its teams. Names the firm chose for its own work ("Partners", "Awaiting Client", "Trial
+  // Team") and firm-member provenance (created_by), never a client's or anyone else's details.
+  "task_list",
+  "task_list_status",
+  "task_list_status_transition",
+  "task_team",
   // A plan's steps. Free text, and deliberately NOT personal data: a step is written once and used
   // on every matter of its kind, so a step that named a client would be a step that is wrong on
   // every matter but one. `default_assignee_role` is a role string ("assigned_paralegal") matched
