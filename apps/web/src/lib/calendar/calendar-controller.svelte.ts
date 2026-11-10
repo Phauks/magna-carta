@@ -48,10 +48,8 @@ import {
   numbered,
   perLane,
   type CalendarEntry,
-  type CalendarEntryKind,
   type EntryContext,
 } from "./calendar-entries.ts";
-import { heldBack, isNarrowed, narrowToKinds, toggleKind } from "./schedule-narrowing.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
 import {
   isFirmSideScope,
@@ -482,8 +480,7 @@ export class CalendarController {
       this.view === "agenda" && this.hideSettled
         ? this.entries.filter((entry) => !entry.settled)
         : this.entries;
-    const ofKind = narrowToKinds(kept, this.narrowedKinds);
-    const matching = narrowToSearch(ofKind, this.search);
+    const matching = narrowToSearch(kept, this.search);
     // The colour of the first calendar in the rail's order that this entry is on. The day grid
     // overrides it per lane, because there the column already says which calendar it is.
     const order = this.selectedSources.map((source) => source.key);
@@ -586,31 +583,6 @@ export class CalendarController {
 
   toggleHideSettled(): void {
     this.hideSettled = !this.hideSettled;
-  }
-
-  /**
-   * Which kinds the reader has narrowed the window to. Empty means every kind, which is what an
-   * untouched control means and what a reader who turned them all off is shown.
-   */
-  narrowedKinds = $state<ReadonlySet<CalendarEntryKind>>(new Set());
-
-  /** Whether anything is being held back — what a Clear control renders on, and nothing else. */
-  readonly narrowed: boolean = $derived(isNarrowed(this.narrowedKinds));
-
-  /** How many of the window's entries the narrowing is holding back, for the line that says so. */
-  readonly narrowedAway: number = $derived.by(() => {
-    if (this.entries === null) return 0;
-    return heldBack(this.entries, this.narrowedKinds);
-  });
-
-  /** Turn one kind on or off. */
-  toggleKind(kind: CalendarEntryKind): void {
-    this.narrowedKinds = toggleKind(this.narrowedKinds, kind);
-  }
-
-  /** Show every kind again. */
-  clearNarrowing(): void {
-    this.narrowedKinds = new Set();
   }
 
   /**

@@ -23,7 +23,10 @@ function run(overrides: Partial<RunSummary> = {}): RunSummary {
     startedAt: "2026-09-11T10:00:01.000Z",
     finishedAt: null,
     failure: null,
+    cancelledByUserId: null,
+    askedScope: null,
     hitCount: null,
+    subjectParties: [],
     ...overrides,
   };
 }

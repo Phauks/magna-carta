@@ -9,7 +9,11 @@ import {
   type ScanPolicy,
 } from "./verdict.ts";
 import type { FlaggedTreatment } from "./scan-policy-settings.ts";
-import { checkUploadPolicy, type UploadPolicy } from "./upload-policy.ts";
+import {
+  checkUploadPolicy,
+  IN_MEMORY_INSPECTION_CEILING_BYTES,
+  type UploadPolicy,
+} from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
 // crypto.DigestStream is a Cloudflare Workers extension absent from @types/node's Crypto. Reach it
@@ -26,7 +30,9 @@ const DigestStream = (crypto as unknown as { DigestStream: DigestStreamConstruct
 // into crypto.DigestStream and a multi-GB object never buffers; within it, the body feeds both the
 // digest and the scan port, so it is read into memory once and both are fed from that — the cap
 // bounds what that costs, and a second tee would have buffered the same bytes anyway without
-// bounding anything. The outcome is commit (with the measured facts) or quarantine (a named,
+// bounding anything. The cap is never more than IN_MEMORY_INSPECTION_CEILING_BYTES (upload-policy.ts),
+// whatever the caller passes, because it is the only thing standing between a large object and an
+// out-of-memory isolate. The outcome is commit (with the measured facts) or quarantine (a named,
 // individually-tested reason). The Worker consumer is a thin shell around this.
 
 // file-type needs only the head bytes (≤ 4 KiB) to sniff a magic-byte signature.
@@ -47,9 +53,10 @@ export interface IngestInput {
   readonly version: PendingVersionFacts;
   readonly policy: UploadPolicy; // re-checked against the real bytes
   readonly scanPort: MalwareScanPort;
-  // Files larger than this cap bypass the scan engine and commit as unscanned/oversize — streaming
-  // a multi-GiB object to a scanner is wasteful and a large legitimate file is not suspicious for
-  // being big. A later task wires this from the firm setting; consumers pass a default until then.
+  // Files larger than this cap bypass the scan engine and commit as unscanned/oversize — a large
+  // legitimate file is not suspicious for being big. The consumer passes the firm's setting
+  // (readInspectableSizeCap); runIngest bounds it by IN_MEMORY_INSPECTION_CEILING_BYTES regardless,
+  // since a value past that would buffer more than a Worker isolate holds.
   readonly inspectableSizeCap: number;
   // Firm-level scan policy: controls which YARA tiers and suspicious score floors trigger a flag.
   readonly scanPolicy: ScanPolicy;
@@ -126,39 +133,48 @@ async function hashAndCount(
   return { hash: toHex(digest), size };
 }
 
-// Reads a body into memory, stopping the moment it grows past `expectedSize` bytes. Returns null when
-// the body is not exactly that long — the same judgment the streaming lane reaches from its byte
-// count, made before any of those bytes are handed to a consumer. The bound is what keeps the read
-// honest: the caller only reaches here for an object the inspectable-size cap admits, and a lying
-// object size cannot make this allocate past it. The copy it returns is backed by a plain
-// ArrayBuffer, which is what crypto.subtle.digest takes — a chunk off the wire is typed over the
-// wider ArrayBufferLike and would not satisfy it.
-async function readWholeBody(
+// Reads a body into memory ONCE, digesting it as it arrives, and stops the moment it grows past
+// `expectedSize` bytes. Returns null when the body is not exactly that long — the same judgment the
+// streaming lane reaches from its byte count, made before any of those bytes are handed to a consumer.
+//
+// The buffer is allocated at the reported size up front and each chunk is copied straight into it, so
+// the peak is the object plus one chunk: collecting the chunks and concatenating them afterwards would
+// hold every byte twice at the moment of the copy, and a one-shot digest over the finished buffer may
+// copy it a third time on its way into the runtime. The bound is what keeps the read honest: the caller
+// only reaches here for an object the inspectable-size cap admits, so the allocation is at most the cap,
+// and a body longer than its reported size is refused before it can overrun it.
+async function readWholeBodyAndDigest(
   stream: ReadableStream<Uint8Array>,
   expectedSize: number,
-): Promise<Uint8Array<ArrayBuffer> | null> {
+): Promise<{ readonly body: Uint8Array; readonly contentSha256: string } | null> {
+  const body = new Uint8Array(expectedSize);
+  const digestStream = new DigestStream("SHA-256");
+  const digestWriter = digestStream.getWriter();
   const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
   let total = 0;
+  let complete = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
+      if (total + value.byteLength > expectedSize) return null;
+      body.set(value, total);
       total += value.byteLength;
-      if (total > expectedSize) return null;
+      // The chunk has already been copied into the buffer, so the digest may take ownership of it.
+      await digestWriter.write(value);
     }
+    if (total !== expectedSize) return null;
+    await digestWriter.close();
+    complete = true;
   } finally {
     await reader.cancel().catch(() => {});
+    if (!complete) {
+      // Aborting rejects the digest promise, and nothing will ever await it on this path.
+      digestStream.digest.catch(() => {});
+      await digestWriter.abort().catch(() => {});
+    }
   }
-  if (total !== expectedSize) return null;
-  const body = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return body;
+  return { body, contentSha256: toHex(await digestStream.digest) };
 }
 
 function streamFromBytes(bytes: Uint8Array): ReadableStream<Uint8Array> {
@@ -192,8 +208,12 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   const sniffedContentType = await sniffHead(headStream);
 
   // Files past the scanner's inspectable cap are benign-uninspectable: commit as `unscanned`/oversize
-  // and never stream them to the engine (a large legitimate file is not suspicious for being big).
-  if (input.objectSize > input.inspectableSizeCap) {
+  // and never stream them to the engine (a large legitimate file is not suspicious for being big). The
+  // cap the caller passes is bounded by the in-memory ceiling here as well as where the firm setting is
+  // read, because the lane below holds the whole object: a value past the ceiling is an out-of-memory
+  // on every delivery, and the version would never commit at all.
+  const inspectableSizeCap = Math.min(input.inspectableSizeCap, IN_MEMORY_INSPECTION_CEILING_BYTES);
+  if (input.objectSize > inspectableSizeCap) {
     // Nothing else consumes the body on this branch — the scan port is skipped entirely — so the
     // remaining stream goes straight to the hash. Teeing it only to cancel one side would make
     // workerd buffer the unread branch for no reader.
@@ -217,15 +237,15 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   // side has not taken yet, so the whole body ends up buffered regardless. A scan port that never
   // reads its stream buffers all of it. Since that buffer is unavoidable here, take it deliberately:
   // read the body once and feed both consumers from it. The cap is what makes that sound — this branch
-  // runs only for an object the inspectable-size cap admits, and readWholeBody stops the moment the
-  // body exceeds the size R2 reported, so neither a huge object nor a lying object size can grow the
-  // buffer past the cap. The over-cap lane above is the one that must never buffer, and it does not:
-  // it streams straight into the digest.
-  const body = await readWholeBody(bodyStream, input.objectSize);
+  // runs only for an object the inspectable-size cap admits, and readWholeBodyAndDigest stops the
+  // moment the body exceeds the size R2 reported, so neither a huge object nor a lying object size can
+  // grow the buffer past the cap. The over-cap lane above is the one that must never buffer, and it
+  // does not: it streams straight into the digest.
+  const read = await readWholeBodyAndDigest(bodyStream, input.objectSize);
   // The byte count must match the object's metadata exactly — a mismatch means truncation or a lie —
-  // and readWholeBody already refused anything else.
-  if (body === null) return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
-  const contentSha256 = toHex(await crypto.subtle.digest("SHA-256", body));
+  // and readWholeBodyAndDigest already refused anything else.
+  if (read === null) return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
+  const { body, contentSha256 } = read;
   const raw = await input.scanPort.scan(streamFromBytes(body), {
     sizeBytes: input.objectSize,
     sniffedContentType,

@@ -64,6 +64,8 @@
   import Star from "@lucide/svelte/icons/star";
   import CommandPalette from "$lib/components/command-palette.svelte";
   import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import AboutWindow from "$lib/about/about-window.svelte";
+  import { aboutWindow } from "$lib/about/about-window.svelte.ts";
   import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import TimeKeeperChip from "$lib/time/time-keeper-chip.svelte";
   import VersionChip from "$lib/versions/version-chip.svelte";
@@ -729,3 +731,7 @@
      $lib/components/issue-report.svelte.ts). The shell outlives all three, so it holds the dialog
      and they hold nothing but the gesture. -->
 <BugReportDialog bind:open={issueReport.isOpen} deployment={issueReport.deployment} />
+
+<!-- The About window, mounted once for the same reason: its doors (the profile menu's Websites
+     submenu, the command palette) close as they open it ($lib/about/about-window.svelte.ts). -->
+<AboutWindow bind:open={aboutWindow.isOpen} />

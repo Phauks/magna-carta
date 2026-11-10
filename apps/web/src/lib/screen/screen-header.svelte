@@ -35,14 +35,17 @@
    * stale when a path moves. `pnpm run lint:back-navigation` refuses a screen that sits under
    * another screen and passes no `back` at all.
    *
-   * EVERY HEADER CARRIES THE FAVOURITE STAR, and that is why the gesture reaches every page of the
-   * product without a screen opting in (owner's direction, 2026-09-16). It sits on the title's row,
-   * beside the name, because that is where it means "this page" — and because a screen with a
-   * trailing column seats its actions between the two columns, which would have left the star
-   * floating mid-band on a matter, the thing somebody most wants to favourite. The screen passes
-   * nothing: the two facts a favourite needs — the address and the name — are the address in the bar
-   * and this header's own title. `favoritable={false}` is for a screen that is not a place a member
-   * can return to: a step in a flow, a dev-only console.
+   * EVERY HEADER CARRIES THE PAGE'S OWN MENU, and the favourite gesture lives in it (owner's
+   * direction, 2026-11-09, "move star to page ... menu"; the gesture itself reaching every page is
+   * the 2026-09-16 direction). The `…` holds what is about this page rather than work done on it:
+   * Add to Favorites, Copy Link, Open in New Tab, then the screen's own secondary page-level items
+   * passed as `pageMenu` (page-actions-menu.svelte). It sits on the title's row, beside the name,
+   * because that is where it means "this page" — and because a screen with a trailing column seats
+   * its actions between the two columns, which would have left it floating mid-band on a matter.
+   * The screen passes nothing for the favourite: the address and the name are the address in the
+   * bar and this header's own title. `favoritable={false}` is for a screen that is not a place a
+   * member returns to and passes around — a step in a flow, a dev-only console — and it drops the
+   * whole menu, because every item in it is a question about a place.
    *
    * THE TRAILING COLUMN is for a band that shares its height with something else — the matter's
    * search over its section strip. Passing it is what makes the title truncate rather than wrap and
@@ -50,7 +53,7 @@
    * than being separate decisions a caller could get inconsistently right.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import FavoriteControl from "$lib/navigation/favorite-control.svelte";
+  import PageActionsMenu from "$lib/screen/page-actions-menu.svelte";
   import type { MastheadDensity } from "@magna-carta/design-system/masthead";
   import BackLink from "$lib/navigation/back-link.svelte";
   import { resolveBackDestination, type BackTarget } from "$lib/screen/screen-header.ts";
@@ -65,6 +68,7 @@
     actions,
     trailing,
     favoritable = true,
+    pageMenu,
     class: className,
   }: {
     /** The screen's name, in the display serif. Becomes the page's h1. */
@@ -89,6 +93,12 @@
      * shortcutting to (the developer console).
      */
     favoritable?: boolean;
+    /**
+     * The screen's own items for the page menu beside the title (`DropdownMenu.Item`s), drawn
+     * beneath the three every page carries. Live, secondary, page-level items only: the screen's
+     * main work stays in `actions`, and an unwired item stays on the row marked Soon.
+     */
+    pageMenu?: Snippet;
     class?: string;
   } = $props();
 
@@ -122,9 +132,9 @@
       {#if eyebrow !== undefined}
         <Masthead.Eyebrow>{eyebrow}</Masthead.Eyebrow>
       {/if}
-      <!-- THE TITLE'S ROW, and the star sits on it rather than in the actions group. A screen with
+      <!-- THE TITLE'S ROW, and the page menu sits on it rather than in the actions group. A screen with
            a trailing column (a matter's search over its section strip) seats its actions BETWEEN
-           the two columns, which would have left the star floating in the middle of the band on
+           the two columns, which would have left the menu floating in the middle of the band on
            exactly the screens somebody most wants to favourite. Beside the name it reads as being
            about this page, which is what it is, and it lands in the same place on every screen
            whatever else the header carries. -->
@@ -134,7 +144,11 @@
         {:else}
           <Masthead.Title class="min-w-0">{title}</Masthead.Title>
         {/if}
-        {#if favoritable}<FavoriteControl {title} />{/if}
+        {#if favoritable}
+          <div class="flex flex-none items-center">
+            <PageActionsMenu {title} items={pageMenu} />
+          </div>
+        {/if}
       </div>
       {#if meta !== undefined}
         <Masthead.Meta class={sharesTheRow ? "flex-nowrap" : undefined}>{@render meta()}</Masthead.Meta>

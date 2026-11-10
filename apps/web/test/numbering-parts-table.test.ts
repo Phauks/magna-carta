@@ -39,8 +39,7 @@ describe("the numbering parts table", () => {
   });
 
   it("lets no picker in the table claim a width of its own", () => {
-    // Every ChoicePicker inside the table body fills its cell. The "Load an example" picker in the
-    // last row spans every column, so its width was never a column's floor and it is left alone.
+    // Every ChoicePicker inside the table body fills its cell, the separator picker included.
     const table = source.slice(source.indexOf("<DataTable.Body>"), source.indexOf("Add Part"));
     const pickers = table.match(/<ChoicePicker[\s\S]*?\/>/g) ?? [];
     expect(pickers.length).toBeGreaterThan(0);
@@ -50,18 +49,15 @@ describe("the numbering parts table", () => {
   it("gives the spare width to Part and lets the long heading wrap", () => {
     expect(source).toContain('<DataTable.Head class="w-full">Part</DataTable.Head>');
     expect(source).toContain(
-      '<DataTable.Head class="whitespace-normal">Restarts the Count</DataTable.Head>',
+      '<DataTable.Head class="whitespace-normal">Separate Count</DataTable.Head>',
     );
   });
 
   it("keeps the row's own controls in the row, so none of them can be pushed out of view", () => {
-    // Move up, move down and remove are one cell at the end of the row (owner ruling, 2026-09-19).
-    for (const label of [
-      "Move part {index + 1} up",
-      "Move part {index + 1} down",
-      "Remove part {index + 1}",
-    ]) {
-      expect(source).toContain(label);
-    }
+    // The grip leads the row and removing ends it (owner ruling, 2026-11-09, which replaced the
+    // up and down arrows with dragging); the grip keeps a keyboard path of its own.
+    expect(source).toContain("Drag, or press Alt with Arrow Up or Arrow Down, to move it");
+    expect(source).toContain("Remove part {index + 1}");
+    expect(source).not.toContain("Move part {index + 1} up");
   });
 });

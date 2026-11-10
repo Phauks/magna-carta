@@ -23,7 +23,7 @@ export const PERMISSIONS = [
   "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
   // Whether every document opened in the browser editor records its changes. The firm's act, on
   // the firm:manageScanPolicy reasoning: it decides what the firm's documents carry inside them
-  // for their whole life, which is not a member's preference. Owner/Admin only by seed.
+  // for their whole life, which is not a member's preference. Admin only by seed.
   "firm:manageEditingPolicy", // read and update the firm's editing policy: whether documents record their changes
   "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
   // The firm's notification POLICY, which is a different act from a member's own preferences. The
@@ -32,14 +32,14 @@ export const PERMISSIONS = [
   // the firm's mail lands. None of those is a personal setting, so none of them may ride
   // notifications:read — that key is seeded to EVERY default role including Read-only precisely
   // because reading one's own feed is not a privilege, and reusing it here would let any member lower
-  // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
+  // the floor and shorten retention for everybody. Admin only, mirroring firm:manageScanPolicy.
   "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
   "firm:manageReportPolicy", // read and update the firm's report policy: what its trust-compliance document lists
   // The firm's own identity as it is PRINTED — the name on an invoice, in the client portal, and on
   // every generated document. Its own key rather than a corner of firm:manageMembers, on the
   // reasoning the three policy keys above already carry: administering who works here and deciding
   // what the firm is called to a client are different acts, and the second one reaches paper that
-  // has already left the building. Owner/Admin only by seed.
+  // has already left the building. Admin only by seed.
   "firm:manageProfile", // read and update the firm's identity: the name it is known to clients by
   // The member acting on their OWN record — today their name, and the natural home for the
   // per-member analytics opt-out and self-service professional profile that sit in the same gap.
@@ -57,7 +57,7 @@ export const PERMISSIONS = [
   // things that may send it. Deliberately NOT magnus:converse: that key says a member may hold a
   // conversation, and it seeds to the seats that do firm work — reusing it here would let any of them
   // decide, for the whole firm, that privileged content may leave for a third-party provider. Consent
-  // to that is the firm's act and nobody else's, so this seeds to Owner/Admin alone, the
+  // to that is the firm's act and nobody else's, so this seeds to Admin alone, the
   // firm:manageScanPolicy bracket. It also covers the assistant's daily ceiling, which is a spend
   // control on the same traffic and belongs with the decision that opened it.
   "firm:manageAiSettings", // read and update the firm's AI settings: the third-party processing gate, the assistant gate, and its daily ceiling
@@ -73,6 +73,7 @@ export const PERMISSIONS = [
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
   "matters:manageNumbering", // edit the firm's numbering schemes
+  "matters:manageRetention", // set the firm's minimum retention for a closed matter's paper file
   // Seeded to EVERY default role, Read-only included: how the firm's numbers are shaped is a fact
   // every member reads off every record, so seeing the register is not a privilege — changing it
   // is, and that stays matters:manageNumbering.
@@ -122,6 +123,7 @@ export const PERMISSIONS = [
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
   "tools:decryption", // decrypt locked files (PDF/ZIP/OOXML), recover lost passwords, and remove a PDF's owner/permissions ("editing") restrictions from a document that opens without a prompt
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
+  "tools:legalCitations", // legal citations — read a link or rough citation and format it in a court's citation format
   "tools:aiTextDetection", // AI-text detection — likelihood that text was machine-generated (a signal, not proof)
   // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
   // check-out / reconciliation flow. Each document route is matter-scoped (RouteMeta resource: "matter").
@@ -209,6 +211,23 @@ export const PERMISSIONS = [
   // whoever holds these keys.
   "meetings:join", // join a meeting on an event the member may see, and read who was in the room
   "meetings:host", // start a meeting on such an event, and end one
+  // RECORDING IS A THIRD KEY, not a power folded into hosting, because the two acts have different
+  // consequences: hosting runs a room and every one of its acts ends when the meeting does, while a
+  // recording is a durable, discoverable, privileged artifact that outlives the room and enters the
+  // matter file. A firm happy for any attorney to convene a call is not thereby happy for any attorney
+  // to record a client conversation. Seeded to exactly the roles that hold meetings:host, so nothing
+  // changes for any firm on the day it lands; a firm that wants it narrower now has a key to narrow.
+  // Stopping is this key too — and a member running the room may stop one without it, because ending
+  // the meeting already stops it. Binds resource: "firm" for the reason the other two do.
+  "meetings:record", // start and stop a recording of a meeting on an event the member may see
+  // WHETHER THE FIRM RECORDS, CAPTIONS AND SUMMARIZES AT ALL is a fourth key, and none of the three
+  // above. Each of the firm's meeting switches sends a privileged conversation somewhere it did not
+  // go before — into a stored recording on the matter, into a speech model, into a reasoning model —
+  // and a member who may record ONE meeting has not thereby been trusted to decide that every
+  // meeting in the firm may be recorded. It is for whoever decides the firm's posture on where its
+  // conversations go, which is the person the firm:manageAiSettings key is for. Binds resource:
+  // "firm" — a firm setting has no matter.
+  "meetings:manageSettings", // read and update the firm's meeting settings: recording, captions, summaries and the recorded-track ceiling
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
   // resource: "firm"; an assembly is matter-rooted like every other document operation, so
@@ -304,7 +323,7 @@ export const PERMISSIONS = [
   // work, Billing included, because the retainer arriving and the fee being agreed are a billing
   // clerk's own facts to record. Waiving a REQUIRED step is a different act — it is the recorded
   // override of an opening gate, under a named member's rationale — so it is its own key and stops at
-  // Owner/Admin and Attorney. Authoring the procedure is the firm's statement of how it takes work on,
+  // Admin and Attorney. Authoring the procedure is the firm's statement of how it takes work on,
   // the matter plan's argument, and stops at the same two seats. Authoring binds resource: "firm";
   // the three matter-side keys bind resource: "matter", because a record IS one matter's record.
   "intake:read", // read a matter's intake checklist: the steps its procedure requires and where each stands

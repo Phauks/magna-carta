@@ -10,18 +10,21 @@
     "deploy": "wrangler deploy",
     "emit-openapi": "node scripts/emit-openapi.mts",
     "emit-r2-cors": "node scripts/emit-r2-cors.mts",
-    "test": "vp test run"
+    "test": "vp test run",
+    "emit-domain-operations": "node scripts/emit-domain-operations.mts"
   },
   "dependencies": {
     "@cloudflare/containers": "catalog:",
     "@cloudflare/puppeteer": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/address-lookup": "workspace:*",
     "@magna-carta/ai-detection": "workspace:*",
     "@magna-carta/billing": "workspace:*",
     "@magna-carta/billing-core": "workspace:*",
     "@magna-carta/build-identity": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/caller-lookup": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/communications": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",
@@ -85,7 +88,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/vitest-plugin": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@hey-api/openapi-ts": "catalog:",
     "@magna-carta/signing": "workspace:*",

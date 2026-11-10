@@ -46,6 +46,12 @@
     padding-block: var(--mc-space-4);
     padding-inline: var(--mc-space-4);
   }
+  /* The placeholder rows are a picture of the rail, not content, so a rail shorter than them clips
+     them rather than scrolling. A scroll region holding nothing a keyboard can reach is one a
+     keyboard reader cannot scroll. */
+  .mc-folder-tree-scroll[data-folder-tree-loading] {
+    overflow-y: hidden;
+  }
 
   /* The folder glyph takes the folder's own colour; an uncoloured folder keeps the row's ink.
      Keyed on the SHARED glyph class, not the tree's own: the rail, the file list and the icon view

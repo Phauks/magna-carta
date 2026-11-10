@@ -6,8 +6,8 @@
 **Scope.** Everything merged in the financial area since the first review campaign:
 `packages/trust/` (foundation, movements, matter-close precondition, two-person disbursement
 authorization, reconciliation), `packages/billing/`, `packages/sequence-numbering/`, the statements
-those packages compose, their worker routes (`apps/api-worker/src/routes/trust.ts`,
-`apps/api-worker/src/routes/trust-reconciliation.ts`, `apps/api-worker/src/routes/billing.ts`), and their
+those packages compose, their worker routes (`apps/api-worker/src/http/routes/trust/trust.ts`,
+`apps/api-worker/src/http/routes/trust/trust-reconciliation.ts`, `apps/api-worker/src/http/routes/billing/billing.ts`), and their
 fitness suites. Supporting reads into `packages/ledger/`, `packages/money/`,
 `packages/billing-core/`, `packages/data-access/`, `packages/access-control/`, and the per-firm
 migrations those subsystems own.
@@ -40,7 +40,7 @@ value; an existing leaf is re-checked against its matter's client on every movem
 (`trust-leaf-client-mismatch`); and `trustMatterNodesMisattributedStatement` re-proves the attribution
 over stored rows, so a leaf created before the fix is detectable.
 
-**Where.** `apps/api-worker/src/routes/trust.ts:75` (`DepositRequest.clientEntityId`), `:122`
+**Where.** `apps/api-worker/src/http/routes/trust/trust.ts:75` (`DepositRequest.clientEntityId`), `:122`
 (`MatterTransferRequest.toClientEntityId`), `:576-598` (`resolveLeafNames`) ·
 `packages/trust/src/movements.ts:157-183` (`declarePendingLeaf`), `:213-274`, `:408-491` ·
 `packages/trust/src/account-tree.ts:213-236` (`ensureMatterTrustLeaf`)
@@ -141,15 +141,15 @@ period's items rather than the account's whole history.
 ### H3 — `LedgerValidationError` is mapped nowhere: ordinary bad input on a money route returns 500
 
 **Status: fixed in #154.** All three commit helpers map it, through one shared
-`problemResponseForLedgerRefusal` (`apps/api-worker/src/ledger-refusal-problems.ts`) so the three cannot
+`problemResponseForLedgerRefusal` (`apps/api-worker/src/http/ledger-refusal-problems.ts`) so the three cannot
 drift: `unknown-account` to 404, everything else to 422 under a new `ledger-entry-refused` problem
 type. And, as the finding suggests, the three civil-date route schemas now refine on
 `isValidCalendarDate`, so a date that is not a day is refused at the request shape and never reaches a
 composer.
 
 **Where.** `packages/ledger/src/validate.ts:8-38` (the error and its codes) ·
-`apps/api-worker/src/routes/trust.ts:690-693` · `apps/api-worker/src/routes/billing.ts:695-699` ·
-`apps/api-worker/src/routes/trust-reconciliation.ts:861-864`
+`apps/api-worker/src/http/routes/trust/trust.ts:690-693` · `apps/api-worker/src/http/routes/billing/billing.ts:695-699` ·
+`apps/api-worker/src/http/routes/trust/trust-reconciliation.ts:861-864`
 
 **What.** All three financial route modules catch exactly one error class each —
 `TrustValidationError` or `BillingValidationError` — and rethrow everything else.
@@ -185,7 +185,7 @@ would have caught this.
 `BillingValidationError("work-in-progress-not-billable")` naming the entry and the state it is in —
 the same vocabulary timekeeping and costs use at their own boundaries.
 
-**Where.** `packages/billing/src/finalize.ts:316` · `apps/api-worker/src/routes/billing.ts:695-699` ·
+**Where.** `packages/billing/src/finalize.ts:316` · `apps/api-worker/src/http/routes/billing/billing.ts:695-699` ·
 `packages/billing-core/src/lifecycle.ts:13-17`
 
 **What.** `finalizeInvoice` calls `assertTransition(fromStatus, "billed", approvalRequired)` without
@@ -215,7 +215,7 @@ already proved strictly positive above it. The second manifestation is refused b
 would otherwise abort the whole batch on a column name.
 
 **Where.** `packages/billing/src/finalize.ts:269-297` (the credit-line loop and the posting),
-`:353-364` (the per-matter balance rows) · `apps/api-worker/src/routes/billing.ts:99`
+`:353-364` (the per-matter balance rows) · `apps/api-worker/src/http/routes/billing/billing.ts:99`
 (`amountMinor: z.number().int().optional()`) · `packages/billing/src/draft.ts:431-472`
 (`updateDraftLine`)
 
@@ -250,7 +250,7 @@ helper and the posting-role arms both say they are not.
 joined to a pre-aggregated `invoice_matter_balance` sum, with the `unpaid > 0` predicate applied
 inside the database. Five rows come back; a paid invoice is never carried out of D1 at all.
 
-**Where.** `packages/billing/src/queries.ts:268-303` · `apps/api-worker/src/routes/billing.ts:970-979`
+**Where.** `packages/billing/src/queries.ts:268-303` · `apps/api-worker/src/http/routes/billing/billing.ts:970-979`
 
 **What.** `readAccountsReceivableAging` selects **every** `status = 'final'` invoice in the firm with
 no `LIMIT`, no cursor, and no page, evaluates
@@ -280,7 +280,7 @@ prefixes the rendered number with the scope key, so a location identifier would 
 `NYC` would merge two sequences a firm may have meant to keep apart, which is the same silent decision
 in the other direction.
 
-**Where.** `apps/api-worker/src/routes/billing.ts:112` (`numberScopeKey: z.string().optional()`) ·
+**Where.** `apps/api-worker/src/http/routes/billing/billing.ts:112` (`numberScopeKey: z.string().optional()`) ·
 `packages/billing/src/finalize.ts:321-335` · `packages/billing/src/numbering.ts:16-29`
 
 **What.** The scope key selects which counter a finalize draws from. It is taken verbatim from the
@@ -311,8 +311,8 @@ trust, reconciliation, and billing route schemas refine on it. `daysPastDue` is 
 rewrite (M3), which computes the day difference in SQL from a route-validated as-of date.
 
 `packages/trust/src/statement-import.ts:157-171` (`parseCivilDate`) accepts month 1-12 and day 1-31
-with no rollover check, and the ISO branch is a bare regex; `apps/api-worker/src/routes/billing.ts:66`
-and `apps/api-worker/src/routes/trust.ts:66` use the same regex. `composeTrustBankStatement`
+with no rollover check, and the ISO branch is a bare regex; `apps/api-worker/src/http/routes/billing/billing.ts:66`
+and `apps/api-worker/src/http/routes/trust/trust.ts:66` use the same regex. `composeTrustBankStatement`
 (`packages/trust/src/bank-statements.ts:239-244`) only compares `postedOn` lexically to the period
 bounds, so `2026-02-31` inside a January-to-March period is stored. `dayGapBetween`
 (`packages/trust/src/matching.ts:64-69`) then gets `NaN` from `Date.parse` and returns `Infinity`, so
@@ -327,7 +327,7 @@ every civil-date boundary, including the two route schemas.
 **Status: fixed in #154.** Both `fileText` fields are capped at the schema, and the row ceiling is
 applied as rows are built rather than after the whole file has been materialized.
 
-`apps/api-worker/src/routes/trust-reconciliation.ts:146` and `:195` declare `fileText: z.string().min(1)`
+`apps/api-worker/src/http/routes/trust/trust-reconciliation.ts:146` and `:195` declare `fileText: z.string().min(1)`
 with no maximum. `previewTrustStatementImport`
 (`packages/trust/src/statement-import.ts:303-383`) parses the whole file character-by-character and
 materializes every row **before** the `MAX_TRUST_BANK_STATEMENT_LINES` ceiling is applied at `:361`.
@@ -373,7 +373,7 @@ in the package missing the guard. Fix: call `assertMovementCurrency`.
 **Status: fixed in #154.** `composeTrustReconciliationUnmatch` takes the reconciliation the caller
 named and refuses `match-belongs-to-another-reconciliation` when the match belongs to a different one.
 
-`apps/api-worker/src/routes/trust-reconciliation.ts:1148-1165` reads `matchId` from the path and ignores
+`apps/api-worker/src/http/routes/trust/trust-reconciliation.ts:1148-1165` reads `matchId` from the path and ignores
 `reconciliationId`; `composeTrustReconciliationUnmatch`
 (`packages/trust/src/matching.ts:324-342`) resolves the reconciliation from the match row. So
 `POST /reconciliations/{anyId}/matches/{matchId}/withdrawal` succeeds regardless of what the first
@@ -442,7 +442,7 @@ back clean.
   (`packages/data-access/src/hono-idempotency-middleware.ts:30-37`) covers method, canonical path,
   sorted query, and body, so two approvals of different requests cannot collide on one key.
   `runIdempotentEffect` commits the record inside the business batch, which is what makes billing's
-  bounded finalize retry (`apps/api-worker/src/routes/billing.ts:844-882`) correct — a lost number draw
+  bounded finalize retry (`apps/api-worker/src/http/routes/billing/billing.ts:844-882`) correct — a lost number draw
   rolls the record back with everything else and the retry re-executes rather than replaying.
 - **The number draw** (`packages/sequence-numbering/`). The allocation composite primary key is the
   real guard and the guarded increment is correctly documented as not being one; the first-ever draw
@@ -499,7 +499,7 @@ back clean.
   serialize amounts into its thrown message, but it is called only from the fixtures and load-profile
   harness, never from a Worker handler.
 - **Billing concurrency.** The partial unique index on `(source_kind, source_id) WHERE released_at IS
-NULL` is the claim guard and the entry's `invoice_id` is correctly treated as a mirror;
+  NULL` is the claim guard and the entry's `invoice_id` is correctly treated as a mirror;
   `refuseFinalizeOnFrozenWorkInProgressStatements` aims `'billing-refused-frozen-entry'` at a column
   whose `time_entry_status_check` / `cost_entry_status_check` genuinely forbid it (both verified in
   the baseline migration), so a concurrent void aborts the finalize batch rather than being relocked.

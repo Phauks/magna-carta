@@ -1,6 +1,6 @@
 import { reciprocalRankFusion } from "@magna-carta/search/fusion";
 import { found, type SearchHit, type SearchQueryResult } from "@magna-carta/search/port";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { runKeywordSearch, type KeywordSearchInput } from "./keyword-search.ts";
 import { deferredSemanticSearch } from "./semantic-search.ts";
 

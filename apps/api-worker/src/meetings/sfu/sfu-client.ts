@@ -1,4 +1,4 @@
-import type { Bindings } from "../../app.ts";
+import type { Bindings } from "../../bindings.ts";
 
 // The client for Cloudflare Realtime's selective forwarding unit — the service that routes a
 // meeting's audio, video and screen-share tracks between browsers.
@@ -129,6 +129,32 @@ export interface SfuSessionTrack {
 
 export interface SfuSessionState {
   readonly tracks: readonly SfuSessionTrack[];
+}
+
+/**
+ * ONE TRACK THE ROUTING SERVICE IS ASKED TO SEND OUT OF A SESSION, as linear PCM over a WebSocket it
+ * dials — the egress half of its WebSocket adapter, which is the only media transport adapter it
+ * documents and the whole of how a meeting's audio reaches a recorder.
+ *
+ * `location: "remote"` because the track was published by a browser into that session and is being
+ * taken FROM it; `endpoint` is the `wss://` address the service dials, which carries a signed sink
+ * token and nothing else (see routes/meeting-sink.ts). `pcm` is the one output codec the adapter
+ * documents: 16-bit little-endian, 48 kHz, two channels.
+ */
+export interface SfuWebSocketAdapterRequest {
+  readonly location: "remote";
+  readonly sessionId: string;
+  readonly trackName: string;
+  readonly endpoint: string;
+  readonly outputCodec: "pcm";
+}
+
+/** What the service says about one adapter it was asked to open. */
+export interface SfuWebSocketAdapterResult {
+  readonly trackName?: string;
+  readonly adapterId?: string;
+  readonly sessionId?: string;
+  readonly errorCode?: string;
 }
 
 /**
@@ -274,6 +300,38 @@ export class SfuClient {
       "get-session",
     );
     return { tracks: sessionTracks(body) };
+  }
+
+  /**
+   * Opens WebSocket adapters: the service starts converting each named track to PCM and dials the
+   * endpoint beside it, one socket per track. Answers per track, so a caller can tell which opened.
+   */
+  async createWebSocketAdapters(
+    tracks: readonly SfuWebSocketAdapterRequest[],
+  ): Promise<readonly SfuWebSocketAdapterResult[]> {
+    const body = await this.call(
+      "adapters/websocket/new",
+      "POST",
+      { tracks },
+      "create-websocket-adapters",
+    );
+    return objectEntries(body, "tracks").map((entry) => ({
+      trackName: stringField(entry, "trackName"),
+      adapterId: stringField(entry, "adapterId"),
+      sessionId: stringField(entry, "sessionId"),
+      errorCode: stringField(entry, "errorCode"),
+    }));
+  }
+
+  /** Closes WebSocket adapters by their handles: the service stops sending and hangs up. */
+  async closeWebSocketAdapters(adapterIds: readonly string[]): Promise<void> {
+    if (adapterIds.length === 0) return;
+    await this.call(
+      "adapters/websocket/close",
+      "POST",
+      { tracks: adapterIds.map((adapterId) => ({ adapterId })) },
+      "close-websocket-adapters",
+    );
   }
 
   // The one place a request leaves this Worker. The bearer credential is set here and nowhere else,

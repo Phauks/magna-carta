@@ -1,10 +1,11 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The RFC 9457 problem module and the problem-type URI registry.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import type { ZodError } from "zod";
 import { describe, expect, it } from "vitest";
-import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
-import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
+import { Problem, defaultHook, problemJson } from "../../src/http/contracts/problem";
+import { PROBLEM_TYPES, problemType } from "../../src/http/contracts/problem-types";
 
 // A minimal Context stub whose .json mirrors Hono's: serializes the body and stamps status +
 // headers. .get returns undefined (no telemetry middleware ran off the request lifecycle, so there
@@ -45,6 +46,7 @@ describe("problem-type URI registry", () => {
         "self-administration",
         "last-administrator",
         "unknown-role",
+        "role-family",
         "conflict",
         "custody-approver-must-differ",
         "custody-destruction-not-actionable",
@@ -162,6 +164,14 @@ describe("problem-type URI registry", () => {
         "meeting-removed",
         "meeting-lobby-full",
         "meeting-not-admitted",
+        "meeting-recording-not-configured",
+        "meeting-recording-already-running",
+        "meeting-recording-not-running",
+        "meeting-recording-needs-matter",
+        "meeting-recording-too-many-tracks",
+        "meeting-transcript-not-ready",
+        "meeting-summary-not-ready",
+        "meeting-summary-action-item-tasked",
         "guest-link-not-valid",
         "guest-link-expired",
         "guest-link-revoked",

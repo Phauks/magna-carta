@@ -3,7 +3,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
 import { MAX_MEETING_QUESTION_LENGTH } from "@magna-carta/meetings/question-types";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -318,6 +318,39 @@ describe("the queue", () => {
       asked.slice(2).map((question) => question.id),
     );
   });
+
+  it("reads `since` alone inclusively, so a question sharing the last one's millisecond arrives", async () => {
+    const meetingId = await hostedMeeting();
+    // Two questions committed inside one millisecond, which a room of three hundred makes ordinary.
+    const instant = new Date().toISOString();
+    const held = newIdentifier("meetingQuestion");
+    const sameMillisecond = newIdentifier("meetingQuestion");
+    for (const [id, body] of [
+      [held, "The one the panel already holds"],
+      [sameMillisecond, "The one asked in the same millisecond"],
+    ] as const) {
+      await firmDatabase
+        .prepare(
+          `INSERT INTO meeting_question (id, meeting_id, participant_kind, participant_id, body, ` +
+            `asked_at, created_at) VALUES (?1, ?2, 'member', 'meetingAttendance_sameInstant', ?3, ?4, ?4)`,
+        )
+        .bind(id, meetingId, body, instant)
+        .run();
+    }
+
+    // A panel following by the instant alone. A strict comparison answered nothing here, and no
+    // later read would ever have started before the second question.
+    const following = await readJson<QuestionPage>(
+      await get(
+        `/api/v1/meetings/${meetingId}/questions?since=${encodeURIComponent(instant)}`,
+        ownerCookie,
+      ),
+    );
+    const ids = following.data.map((question) => question.id);
+    expect(ids).toContain(sameMillisecond);
+    // The row it already holds comes back too, and the caller drops it by id.
+    expect(ids).toContain(held);
+  });
 });
 
 describe("upvoting", () => {
@@ -340,6 +373,27 @@ describe("upvoting", () => {
     const after = await readJson<Question>(withdrawn);
     expect(after.upvotes).toBe(1);
     expect(after.upvotedByCaller).toBe(false);
+  });
+
+  it("refuses an upvote on a question that has been taken back, and still takes one back", async () => {
+    const meetingId = await hostedMeeting();
+    expect((await post(`/api/v1/meetings/${meetingId}/join`, attorneyCookie)).status).toBe(200);
+    const question = await ask(meetingId, "Wrong window, ignore that.");
+    const path = `/api/v1/meetings/${meetingId}/questions/${question.id}/upvotes`;
+    expect((await post(path, ownerCookie)).status).toBe(200);
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/questions/${question.id}/redact`, ownerCookie))
+        .status,
+    ).toBe(200);
+
+    const refused = await post(path, attorneyCookie);
+    expect(refused.status).toBe(409);
+    expect((await readJson<Problem>(refused)).type).toContain("conflict");
+
+    // The upvote given before the taking-back is still the owner's to clear.
+    const cleared = await post(`${path}/withdrawal`, ownerCookie);
+    expect(cleared.status).toBe(200);
+    expect((await readJson<Question>(cleared)).upvotes).toBe(0);
   });
 });
 
@@ -410,4 +464,32 @@ describe("a meeting behind a matter the member may not see", () => {
       expect((await readJson<Problem>(response)).type).toContain("meeting-not-found");
     }
   });
+});
+
+// LAST IN THE FILE ON PURPOSE: it spends one member's upvote budget to the wall, and the limiter is
+// the app's own, shared by every test above.
+describe("the upvote's rate limit", () => {
+  it("is the member's own: a member looping on upvote and withdrawal is refused, and nobody else is", async () => {
+    const meetingId = await hostedMeeting();
+    expect((await post(`/api/v1/meetings/${meetingId}/join`, billingCookie)).status).toBe(200);
+    const question = await ask(meetingId, "Who has the exhibit list?");
+    const path = `/api/v1/meetings/${meetingId}/questions/${question.id}/upvotes`;
+
+    // Upvote, withdraw, upvote, withdraw — a browser that will not stop.
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 31; attempt += 1) {
+      const response = await post(attempt % 2 === 0 ? path : `${path}/withdrawal`, billingCookie);
+      statuses.push(response.status);
+    }
+    expect(statuses.slice(0, 30).every((status) => status === 200)).toBe(true);
+    expect(statuses[30]).toBe(429);
+
+    // The loop spent the looper's bucket and nobody else's: a colleague upvotes, and the firm's own
+    // budget still answers the looper's next read.
+    expect((await post(path, ownerCookie)).status).toBe(200);
+    expect((await get(`/api/v1/meetings/${meetingId}/questions`, billingCookie)).status).toBe(200);
+    // Thirty-three requests one after another, each a full pass through the Worker: alone this takes
+    // about a second, but under the whole suite's load it outran the default five seconds, which
+    // says nothing about the limit being tested.
+  }, 30_000);
 });

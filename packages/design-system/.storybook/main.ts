@@ -4,9 +4,9 @@
  *
  * Framework is @storybook/svelte-vite (this is a plain Vite package, not a SvelteKit app).
  * Storybook runs its own Vite here: the repo overrides `vite` to @voidzero-dev/vite-plus-core
- * (pnpm-workspace.yaml `overrides`), which is the Vite 8 distribution re-published under the
- * Vite+ name — it exports the real Vite API and `version` ("8.0.16"), so Storybook's builder
- * accepts it unmodified (plan "Decided up front" 9; verified empirically by `storybook build`).
+ * (pnpm-workspace.yaml `overrides`, and the root package.json declares it so every `vite` peer
+ * resolves to it), which is the Vite 8 distribution re-published under the Vite+ name — it
+ * exports the real Vite API and an 8.x `version`, so Storybook's builder accepts it unmodified.
  */
 import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from "@storybook/svelte-vite";

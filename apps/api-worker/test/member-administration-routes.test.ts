@@ -30,7 +30,13 @@ let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 const ROLES_URL = "https://example.com/api/v1/roles";
 
 interface RoleListBody {
-  data: { id: string; name: string; permissions: string[]; memberCount: number }[];
+  data: {
+    id: string;
+    name: string;
+    parentRoleId: string | null;
+    permissions: string[];
+    memberCount: number;
+  }[];
 }
 
 function memberUrl(userId: string, suffix: string): string {
@@ -125,16 +131,22 @@ beforeAll(async () => {
 });
 
 describe("the firm's roles", () => {
-  it("lists the five seeded roles with what each carries", async () => {
+  it("lists the seeded roles with what each carries, sub-roles naming their parent", async () => {
     const { data } = await readRoles(ownerCookie);
     expect(data.map((role) => role.name).toSorted()).toEqual([
+      "Admin",
+      "Associate",
       "Attorney",
       "Billing",
-      "Owner/Admin",
       "Paralegal",
+      "Partner",
       "Read-only",
     ]);
-    const owner = data.find((role) => role.name === "Owner/Admin");
+    const attorneyId = data.find((role) => role.name === "Attorney")?.id;
+    expect(data.find((role) => role.name === "Partner")?.parentRoleId).toBe(attorneyId);
+    expect(data.find((role) => role.name === "Associate")?.parentRoleId).toBe(attorneyId);
+    expect(data.find((role) => role.name === "Attorney")?.parentRoleId).toBeNull();
+    const owner = data.find((role) => role.name === "Admin");
     expect(owner?.permissions).toContain("firm:manageMembers");
     expect(owner?.memberCount).toBeGreaterThanOrEqual(1);
   });
@@ -143,7 +155,7 @@ describe("the firm's roles", () => {
     // Reading what a role means rides the roster read, not the administration key: a member who
     // can see that a colleague is a Paralegal should be able to see what the firm decided that is.
     const { data } = await readRoles(paralegalCookie);
-    expect(data.length).toBe(5);
+    expect(data.length).toBe(7);
   });
 });
 
@@ -164,6 +176,38 @@ describe("changing what a member holds", () => {
   it("refuses a role handle this firm does not have", async () => {
     const response = await putRoles(ownerCookie, paralegalUserId, ["role_notarealrolehandle"]);
     expect(response.status).toBe(422);
+  });
+
+  it("refuses a sub-role without the role it sits under", async () => {
+    const partner = await roleIdNamed("Partner");
+    const response = await putRoles(ownerCookie, paralegalUserId, [partner]);
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as { type: string }).type).toContain("role-family");
+  });
+
+  it("refuses two sub-roles of one role", async () => {
+    const attorney = await roleIdNamed("Attorney");
+    const partner = await roleIdNamed("Partner");
+    const associate = await roleIdNamed("Associate");
+    const response = await putRoles(ownerCookie, paralegalUserId, [attorney, partner, associate]);
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as { type: string }).type).toContain("role-family");
+  });
+
+  it("gives a Partner what Attorney allows and what Partner adds", async () => {
+    const attorney = await roleIdNamed("Attorney");
+    const partner = await roleIdNamed("Partner");
+    const paralegal = await roleIdNamed("Paralegal");
+    const response = await putRoles(ownerCookie, paralegalUserId, [attorney, partner]);
+    expect(response.status).toBe(200);
+    const me = await SELF.fetch("https://example.com/api/v1/me", {
+      headers: { cookie: paralegalCookie },
+    });
+    const permissions = ((await me.json()) as { permissions: string[] }).permissions;
+    expect(permissions).toContain("trust:authorize"); // from Attorney
+    expect(permissions).toContain("reports:financial"); // added by Partner
+    // Put the seat back as it was for the tests that follow.
+    expect((await putRoles(ownerCookie, paralegalUserId, [paralegal])).status).toBe(200);
   });
 
   it("sets the whole set, and audits the change once", async () => {
@@ -205,12 +249,12 @@ describe("changing what a member holds", () => {
     // administrator's role away either.
     expect((await putRoles(ownerCookie, second.userId, [readOnly])).status).toBe(403);
     const administrators = (await readRoles(secondCookie)).data.find(
-      (role) => role.name === "Owner/Admin",
+      (role) => role.name === "Admin",
     );
     expect(administrators?.memberCount).toBe(1);
 
     // Put the owner back, so the deactivation cases below act as an administrator.
-    const ownerRole = await roleIdNamedAs(secondCookie, "Owner/Admin");
+    const ownerRole = await roleIdNamedAs(secondCookie, "Admin");
     expect((await putRoles(secondCookie, ownerUserId, [ownerRole])).status).toBe(200);
   });
 
@@ -276,7 +320,7 @@ describe("withdrawing and restoring a member's access", () => {
     // Same structural argument as the role change: the actor is an administrator and is never the
     // subject, so withdrawing access can never leave the firm with nobody.
     const administrators = (await readRoles(ownerCookie)).data.find(
-      (role) => role.name === "Owner/Admin",
+      (role) => role.name === "Admin",
     );
     expect(administrators?.memberCount).toBeGreaterThanOrEqual(1);
     expect((await post(ownerCookie, ownerUserId, "deactivation")).status).toBe(403);

@@ -12,6 +12,7 @@
     "./matter-assignment": "./src/matter-assignment.ts",
     "./matter-court-case": "./src/matter-court-case.ts",
     "./matter-estate": "./src/matter-estate.ts",
+    "./matter-file-retention": "./src/matter-file-retention.ts",
     "./member-professional-profile": "./src/member-professional-profile.ts",
     "./matter-service": "./src/matter-service.ts",
     "./topics": "./src/topics.ts",

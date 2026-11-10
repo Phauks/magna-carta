@@ -335,7 +335,7 @@ In rough priority order for this screen; nothing here changes the domain.
 
 1. **Per-matter invoice listing.** `GET /billing/invoices` filters by client and status only; this
    tab needs "invoices billing matter M" (the design's own index, `invoice_line (matter_id,
-invoice_id)`, exists for it). Include per-row: this matter's balance figures.
+   invoice_id)`, exists for it). Include per-row: this matter's balance figures.
 2. **Application history read.** No read serves an invoice's `invoice_application` rows (kind,
    amount, effective date, applied-by, reversal linkage). The panel's "Applied to this bill" and
    the reversal affordance both need it.

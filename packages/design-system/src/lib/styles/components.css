@@ -27,6 +27,7 @@
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";
 @import "../components/badge/badge.css";
+@import "../components/formatted-citation/formatted-citation.css";
 @import "../components/file-icon/file-icon.css";
 @import "../components/brand-mark/brand-mark.css";
 @import "../components/empty-state/empty-state.css";
@@ -58,6 +59,7 @@
 /* The transcript reads in the same record register the event rail does, and dresses only native
    elements of its own, so it sits beside it and overrides nothing. */
 @import "../components/conversation/conversation.css";
+@import "../components/source-quote/source-quote.css";
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";
@@ -83,6 +85,7 @@
 @import "./recipes/palette-swatches.css";
 @import "../components/date-picker/date-picker.css";
 @import "../components/date-range-picker/date-range-picker.css";
+@import "../components/date-time-field/date-time-field.css";
 @import "./recipes/scrollbar.css";
 /* The gilt scroll-edge rule, beside the scrollbar recipe because the two answer the same
    question: the scrollbar where a surface shows one, this where it does not or cannot.
@@ -123,6 +126,7 @@
    organization — the two identity marks sit together so the pair is read together. */
 @import "../components/record-reference/record-reference.css";
 @import "../components/entity-picker/entity-picker.css";
+@import "../components/address-fields/address-fields.css";
 @import "../components/record-parties/record-parties.css";
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
    the two meet. */

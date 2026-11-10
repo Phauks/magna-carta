@@ -79,14 +79,6 @@
       await expect(canvas.getByRole("link", { name: "WHOIS Lookup" })).toBeInTheDocument();
     });
 
-    await step("A long label truncates and its trailing mark stays", async () => {
-      // The mark used to ride inside the label, which has the row's overflow: every long row hid
-      // it. The trailing column is sized to its contents and never shrinks.
-      const mark = canvas.getByText("Soon");
-      await expect(mark).toBeVisible();
-      await expect(mark.getBoundingClientRect().width).toBeGreaterThan(0);
-    });
-
     await step("The trigger now says Expand, and expanding restores the labelled rail", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Expand sidebar" }));
       await waitFor(() => expect(nav).toHaveAttribute("data-state", "expanded"));
@@ -94,6 +86,15 @@
         "aria-expanded",
         "true",
       );
+    });
+
+    // In the labelled rail, not the icon rail: the icon rail shows no labels or marks at all.
+    await step("A long label truncates and its trailing mark stays", async () => {
+      // The mark used to ride inside the label, which has the row's overflow: every long row hid
+      // it. The trailing column is sized to its contents and never shrinks.
+      const mark = canvas.getByText("Soon");
+      await expect(mark).toBeVisible();
+      await expect(mark.getBoundingClientRect().width).toBeGreaterThan(0);
     });
   }}
 >

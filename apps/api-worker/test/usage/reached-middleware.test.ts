@@ -1,6 +1,7 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
-import { usageReachedMiddleware } from "../../src/usage/reached-middleware.ts";
+import { usageReachedMiddleware } from "../../src/http/usage-reached-middleware.ts";
 
 // The middleware emits AFTER the response is committed and off the response path, so the harness
 // supplies an execution context that records the scheduled work and awaits it before asserting —

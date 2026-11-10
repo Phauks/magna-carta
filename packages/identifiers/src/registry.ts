@@ -358,6 +358,25 @@ export const ENTITY_PREFIXES = {
   meetingPollAnswer: "meetingPollAnswer",
   meetingQuestion: "meetingQuestion",
   meetingQuestionUpvote: "meetingQuestionUpvote",
+  // A `meetingRecording` is one span of a meeting's audio captured from the moment somebody pressed
+  // Record to the moment it stopped — one per press, so a stop and a second start are two recordings
+  // with two records of who was told. A `meetingRecordingTrack` is one participant's audio inside it,
+  // a row per track because the attribution of every later transcript line is the track it came from.
+  // A `meetingRecordingNotice` is one occasion on which the room told one stay that the recording
+  // started, was running when they arrived, or stopped: the consent record, identifiers and an instant.
+  meetingRecording: "meetingRecording",
+  meetingRecordingTrack: "meetingRecordingTrack",
+  meetingRecordingNotice: "meetingRecordingNotice",
+  // A `meetingTranscript` is the transcript of one filed recording — made per track, so every line is
+  // the person whose microphone it came from — and a `meetingTranscriptSegment` is one line of it: a
+  // span of speech with its words, or a gap the transcript says it could not hear.
+  meetingTranscript: "meetingTranscript",
+  meetingTranscriptSegment: "meetingTranscriptSegment",
+  // A `meetingSummary` is the summary of one ready transcript — the platform's characterization of a
+  // privileged conversation, written by a reasoning model — and a `meetingSummaryActionItem` is one
+  // thing the summary says somebody undertook to do, which a member may turn into a task.
+  meetingSummary: "meetingSummary",
+  meetingSummaryActionItem: "meetingSummaryActionItem",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

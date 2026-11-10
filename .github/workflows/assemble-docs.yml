@@ -7,16 +7,14 @@
 # docs/specs/2026-07-14-docs-sync-routine-design.md.
 #
 # Delivery is an AUTO-MERGING PULL REQUEST from the `docs-assembly` branch, not a direct push, so the
-# `main` ruleset (a pull request before merging) is honored hands-free. No status check stands between
-# the pull request and its merge: the quality gate is `pnpm gate`, run on the machine that made a
-# change (tooling/gate/index.mjs says why it left the runner), and a deterministic re-render of
-# already-reviewed fragments has nothing for it to verify beyond the formatting this job applies.
+# `main` ruleset (a pull request before merging) is honored hands-free. A pull request opened with the
+# workflow's own token fires no `pull_request` events, so the hosted gate (ci.yml) never starts on its
+# own; this job dispatches it onto the branch, which reports the `gate` check the ruleset requires and
+# lets auto-merge complete.
 #
-# THIS WORKFLOW ALSO NEEDS ACTIONS MINUTES, and it is the one workflow left that does. While the
-# account's budget is exhausted it does not run, nothing waits on it, and the fragments accumulate
-# until the weekly docs-sync routine (docs/maintenance/README.md) or a session runs the same
-# assemblers by hand; it resumes on its own when the budget does. Nothing else in the repository
-# depends on a hosted runner.
+# Like ci.yml, this needs Actions minutes. While the account's budget is exhausted it does not run, and
+# the fragments accumulate until the weekly docs-sync routine (docs/maintenance/README.md) or a session
+# runs the same assemblers by hand; it resumes on its own when the budget does.
 #
 # TWO one-time repository settings are required, or the job fails LOUDLY (by design — a silent green
 # run once hid exactly this):
@@ -89,6 +87,16 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # The Changelog screen's ledger of every merged pull request, rebuilt from the full history
+      # checked out above. Only when there is already an assembly to deliver: rebuilding it on every
+      # merge would turn every merge into an assembly pull request and a second hosted gate run. A
+      # pull request merged without a fragment joins the ledger with the next one that has one (or
+      # the weekly docs-sync run). The assembly's own rebase-merged commits carry no `(#N)`, so they
+      # never enter the ledger and never re-trigger this.
+      - name: Rebuild the pull-request ledger
+        if: steps.assembled.outputs.changed == 'true'
+        run: node tooling/doc-fragments/build-pull-request-ledger.mjs --ref=origin/main
+
       # Toolchain is needed only to format the assembled output (below), so it is installed only once
       # there is output to format.
       - name: Toolchain and workspace
@@ -136,7 +144,10 @@ jobs:
             echo "assembly PR #$existing already open; branch force-updated to the current assembly"
           fi
 
-          # Enable auto-merge (needs Settings > General > "Allow auto-merge"). With no required status
-          # check on `main` this merges as soon as the ruleset's other conditions hold; it fails hard
-          # so breakage is visible.
+          # Enable auto-merge (needs Settings > General > "Allow auto-merge"). It merges once the
+          # `gate` check below reports green and the ruleset's other conditions hold; it fails hard so
+          # breakage is visible.
           gh pr merge docs-assembly --auto --rebase --delete-branch
+
+          # Produce the `gate` check on the branch head (see the header for why it is not automatic).
+          gh workflow run ci.yml --ref docs-assembly

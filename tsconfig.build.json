@@ -5,6 +5,9 @@
   "files": [],
   "references": [
     {
+      "path": "apps/address-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/api-worker/tsconfig.build.json"
     },
     {
@@ -66,6 +69,12 @@
     },
     {
       "path": "packages/calendar/tsconfig.build.json"
+    },
+    {
+      "path": "packages/caller-lookup/tsconfig.build.json"
+    },
+    {
+      "path": "packages/citations/tsconfig.build.json"
     },
     {
       "path": "packages/civil-time/tsconfig.build.json"
@@ -194,6 +203,9 @@
       "path": "packages/money/tsconfig.build.json"
     },
     {
+      "path": "packages/noise-suppression/tsconfig.build.json"
+    },
+    {
       "path": "packages/notes/tsconfig.build.json"
     },
     {
@@ -219,6 +231,9 @@
     },
     {
       "path": "packages/search/tsconfig.build.json"
+    },
+    {
+      "path": "packages/segmentation/tsconfig.build.json"
     },
     {
       "path": "packages/sequence-numbering/tsconfig.build.json"

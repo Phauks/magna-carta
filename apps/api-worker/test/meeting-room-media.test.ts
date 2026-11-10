@@ -2,6 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MeetingRoom } from "../src/meetings/meeting-room.ts";
 import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
+import { forgetSessionOpeningsForTests } from "../src/meetings/room/room-media.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 
 // OPENING A ROUTING SESSION, WITH THE SERVICE SLOW.
@@ -39,6 +40,9 @@ let creationsAnswered = 0;
 let holdingCreations = false;
 // How many of the next requests to open a session fail, as a service that did not answer.
 let creationsToFail = 0;
+// How many of the next requests to add tracks fail — an act the service refused after the session
+// it was sent into had already been opened, which is what leaves an opening behind in the room.
+let trackAdditionsToFail = 0;
 
 function json(payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
@@ -74,6 +78,10 @@ const fakeRoutingService: typeof fetch = async (input, init) => {
     return json({ sessionId: `media-session-${String(sessionCounter)}` });
   }
   if (url.pathname.endsWith("/tracks/new")) {
+    if (trackAdditionsToFail > 0) {
+      trackAdditionsToFail -= 1;
+      return new Response("no", { status: 503 });
+    }
     const tracks = (body["tracks"] ?? []) as {
       location: string;
       trackName?: string;
@@ -220,6 +228,19 @@ async function rewindPublishWindow(
   });
 }
 
+/** The sessions the room asked the service about by name — what closing an unrecorded one does. */
+function sessionReadsOf(sessionId: string): UpstreamCall[] {
+  return upstream.filter((call) => call.path.endsWith(`/sessions/${sessionId}`));
+}
+
+/** The session a refused publish was sent into, read off the one track call it made. */
+function sessionOfOnlyTrackCall(): string {
+  const calls = upstream.filter((call) => call.path.endsWith("/tracks/new"));
+  expect(calls).toHaveLength(1);
+  const match = /\/sessions\/([^/]+)\/tracks\/new$/.exec(calls[0]?.path ?? "");
+  return match?.[1] ?? "";
+}
+
 /** The session each publish or subscription was sent into, read off the path the room called. */
 function trackCallsInto(sessionId: string): UpstreamCall[] {
   return upstream.filter((call) => call.path.endsWith(`/sessions/${sessionId}/tracks/new`));
@@ -241,6 +262,7 @@ beforeEach(() => {
   creationsAnswered = 0;
   holdingCreations = false;
   creationsToFail = 0;
+  trackAdditionsToFail = 0;
 });
 
 describe("opening routing sessions while the service is slow", () => {
@@ -398,6 +420,116 @@ describe("opening routing sessions while the service is slow", () => {
       (call) => (call.body["sessionDescription"] as { sdp: string }).sdp,
     );
     expect(offers).toEqual(["v=0 offer-after-reload"]);
+    expect(record?.tracks.map((track) => track.trackName)).toEqual([`${attendanceId}:camera`]);
+  });
+});
+
+describe("a session opening the room is still holding when the stay moves on", () => {
+  it("gives up an opening still in flight when the participant leaves, and offers nothing into it", async () => {
+    const { meetingId, stub } = freshRoom();
+    const attendanceId = "meetingAttendance_mediaLeaver";
+    const participant = await connect(stub, meetingId, attendanceId);
+
+    holdingCreations = true;
+    participant.send(publishFrame(attendanceId));
+    await waitFor(() => creationsStarted === 1, 5_000);
+
+    // They pressed Leave while the service had still not answered.
+    await stub.participantLeft(attendanceId);
+    holdingCreations = false;
+    await waitFor(() => creationsAnswered === 1);
+    await settle();
+
+    // The answer reached nobody: no tracks were offered into the session it named, nothing was
+    // published, and there is no record for it to be written onto.
+    expect(upstream.filter((call) => call.path.endsWith("/tracks/new"))).toHaveLength(0);
+    expect(framesOf(participant, "published")).toHaveLength(0);
+    expect(await storedRecord(stub, attendanceId)).toBeUndefined();
+  });
+
+  it("closes an unrecorded session on a leave even when the roster entry has already gone", async () => {
+    const { meetingId, stub } = freshRoom();
+    const attendanceId = "meetingAttendance_mediaSwept";
+    const participant = await connect(stub, meetingId, attendanceId);
+
+    // The service opens a session and then refuses the publish into it: the opening stays, holding a
+    // session no record names.
+    trackAdditionsToFail = 1;
+    participant.send(publishFrame(attendanceId));
+    await waitFor(() => framesOf(participant, "refused").length === 1);
+    const sessionId = sessionOfOnlyTrackCall();
+    expect((await storedRecord(stub, attendanceId))?.sfuSessionId).toBeNull();
+
+    // The roster entry is taken by something else first — the grace sweep's own delete — and THEN
+    // the leave arrives, with nothing left to remove.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      await state.storage.delete(`participant:${attendanceId}`);
+    });
+    const readsBefore = sessionReadsOf(sessionId).length;
+    await stub.participantLeft(attendanceId);
+    await waitFor(() => sessionReadsOf(sessionId).length > readsBefore);
+    // Asked about by name is how the room closes a session it holds no track list for.
+    expect(sessionReadsOf(sessionId).length).toBeGreaterThan(readsBefore);
+  });
+
+  it("lets a browser that reconnected publish after its old socket had bound the session", async () => {
+    const { meetingId, stub } = freshRoom();
+    const attendanceId = "meetingAttendance_mediaRebound";
+    const before = await connect(stub, meetingId, attendanceId);
+
+    // The old connection offered into the session and the service refused the act: the opening is
+    // left behind, bound to a socket that is about to go.
+    trackAdditionsToFail = 1;
+    before.send(publishFrame(attendanceId, "v=0 offer-before-reload"));
+    await waitFor(() => framesOf(before, "refused").length === 1);
+    const boundSession = sessionOfOnlyTrackCall();
+
+    const after = await connect(stub, meetingId, attendanceId);
+    await waitFor(() => before.closeCode() !== null);
+    // The session the old connection offered into is closed with the reset, not left forwarding.
+    await waitFor(() => sessionReadsOf(boundSession).length > 0);
+    expect(sessionReadsOf(boundSession).length).toBeGreaterThan(0);
+
+    // THE RETURNING BROWSER'S FIRST PUBLISH SUCCEEDS. Before, it found the old opening, saw it bound
+    // to somebody else, gave it up and was refused — with nothing telling it to publish again.
+    after.send(publishFrame(attendanceId, "v=0 offer-after-reload"));
+    await waitFor(
+      () => framesOf(after, "published").length === 1 || framesOf(after, "refused").length > 0,
+    );
+    expect(framesOf(after, "refused")).toHaveLength(0);
+    expect(framesOf(after, "published")).toHaveLength(1);
+    const record = await storedRecord(stub, attendanceId);
+    expect(record?.sfuSessionId).toMatch(/^media-session-/);
+    expect(record?.sfuSessionId).not.toBe(boundSession);
+    expect(creationsStarted).toBe(2);
+  });
+
+  it("opens a fresh session after hibernation has emptied the openings the room was holding", async () => {
+    const { meetingId, stub } = freshRoom();
+    const attendanceId = "meetingAttendance_mediaHibernated";
+    const participant = await connect(stub, meetingId, attendanceId);
+
+    trackAdditionsToFail = 1;
+    participant.send(publishFrame(attendanceId));
+    await waitFor(() => framesOf(participant, "refused").length === 1);
+    const lostSession = sessionOfOnlyTrackCall();
+
+    // What hibernation does to module state: the instance's openings are gone, and the record never
+    // named the session they held.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      forgetSessionOpeningsForTests(state);
+    });
+    await rewindPublishWindow(stub, attendanceId);
+    participant.send(publishFrame(attendanceId));
+    await waitFor(() => framesOf(participant, "published").length === 1);
+
+    // The next frame read no session on the record and asked the service for one of its own — the
+    // second opening is what shows the room was holding nothing.
+    expect(framesOf(participant, "published")).toHaveLength(1);
+    expect(creationsStarted).toBe(2);
+    const record = await storedRecord(stub, attendanceId);
+    expect(record?.sfuSessionId).toMatch(/^media-session-/);
+    expect(record?.sfuSessionId).not.toBe(lostSession);
     expect(record?.tracks.map((track) => track.trackName)).toEqual([`${attendanceId}:camera`]);
   });
 });

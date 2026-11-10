@@ -10,10 +10,10 @@
  * can hold a request from one keystroke beside a refusal from another.
  *
  * A CHECK IS ASKED FOR BY PLACE (owner's direction, 2026-09-11): the Directory, the firm's files, its
- * messaging, its Magnus conversations. The record stores technique keys — party, graph, imputation,
- * content — and the crossing between the two is `sourcesFor` below, over the location catalogue in
- * conflicts-vocabulary.ts. Only the Directory can be searched today; the other places stand on the
- * panel disabled, marked Soon, and the check records them as not searched.
+ * messaging, its tasks, its Magnus conversations. The record stores technique keys — party, graph,
+ * imputation, content — and the crossing between the two is `sourcesFor` below, over the location
+ * catalogue in conflicts-vocabulary.ts. Only the Directory can be searched today; the other places
+ * stand on the panel disabled, marked Soon, and the check records them as not searched.
  *
  * NOTHING HERE LIMITS THE SEARCH. The panel used to carry a hop budget per kind of relationship and
  * two caps, and the owner removed them: a check follows every recorded relationship to closure, and
@@ -26,12 +26,10 @@
  * is a question with a wrong answer and no way to tell you that you gave it. A check against a
  * matter the firm has taken on is comprehensive; every other check is preliminary.
  *
- * A CHECK DOES NOT NEED A MATTER, and the shape here says so. The subjects are the parties; the
- * matter is where the check is FILED, and naming one adds that matter's own parties and lets the
- * imputation source join the firm's members against them. Without one the check runs and records
- * that source as unavailable — which is the whole point of the pre-engagement screen, where the
- * only thing anybody has is a name said over the telephone. And a check can be filed on a matter
- * later, from its own screen, which is the ordinary case.
+ * A CHECK DOES NOT NEED A MATTER, and the panel no longer asks for one (owner's ruling,
+ * 2026-11-09). The subjects are the parties; the matter is where the check is FILED, chosen from the
+ * report once somebody knows it. Firm Employees runs either way: against the matter's parties where
+ * the panel was opened from a matter, and against everyone the check reached where it was not.
  */
 import { permissionRefusal } from "$lib/access/refusal.ts";
 import {
@@ -41,7 +39,6 @@ import {
   type SourceClass,
   type Strictness,
 } from "./conflicts-api.ts";
-import { strictnessVocabulary } from "./conflicts-vocabulary.ts";
 
 /** Everything the two panes hold between them. Plain values, so this module needs no browser. */
 export interface CheckDraftValues {
@@ -49,7 +46,7 @@ export interface CheckDraftValues {
   readonly subjectEntityIds: readonly string[];
   /** Whether the Directory search walks out through recorded relationships. */
   readonly searchRelationships: boolean;
-  /** Whether it joins the firm's own people against the matter's parties. Needs a matter. */
+  /** Whether it looks for the firm's own people, by identity. */
   readonly searchOwnPeople: boolean;
   readonly nameMatching: Strictness;
 }
@@ -110,14 +107,14 @@ export function triggerFor(surface: CheckSurface): ConflictsTrigger {
 }
 
 /**
- * The sources this check asks for — the technique keys the Directory's specifics stand over. Party
+ * The sources this check asks for — the technique keys the Directory's options stand over. Party
  * is the firm-wide floor and is never a choice. No other place can be searched yet, so no other
  * place's source is ever asked for; the engine records those places as not searched on its own.
  */
-export function sourcesFor(values: CheckDraftValues, surface: CheckSurface): SourceClass[] {
+export function sourcesFor(values: CheckDraftValues): SourceClass[] {
   const sources: SourceClass[] = ["party"];
   if (values.searchRelationships) sources.push("graph");
-  if (values.searchOwnPeople && surface.matterId !== null) sources.push("imputation");
+  if (values.searchOwnPeople) sources.push("imputation");
   return sources;
 }
 
@@ -135,7 +132,7 @@ export function composeCheck(values: CheckDraftValues, surface: CheckSurface): C
       ...(surface.matterId === null ? {} : { matterId: surface.matterId }),
       subjectEntityIds: [...values.subjectEntityIds],
       scope: {
-        sources: sourcesFor(values, surface),
+        sources: sourcesFor(values),
         strictness: values.nameMatching,
       },
     },
@@ -168,53 +165,4 @@ function hasBeenTouched(values: CheckDraftValues): boolean {
     values.searchOwnPeople !== OPENING_DRAFT.searchOwnPeople ||
     values.nameMatching !== OPENING_DRAFT.nameMatching
   );
-}
-
-// ---- what the panel says the check will do ----------------------------------------------------
-
-/**
- * The check these values describe, in sentences.
- *
- * Every control in the right pane is a fact about a search nobody can see, and a reader who does
- * not already know what a relationship walk is cannot tell what pressing Run will do. So the panel
- * says it, in the left pane, beside the parties — and it says it from the SAME values the request
- * is composed from, so it can never describe a search other than the one that runs. Each sentence
- * is a fact about the SEARCH, never about the matter.
- */
-export function checkPlan(values: CheckDraftValues, surface: CheckSurface): string[] {
-  const sentences: string[] = [];
-
-  sentences.push(
-    "Searches every party in the firm's Directory for names and identifiers like the ones named.",
-  );
-
-  sentences.push(
-    values.searchRelationships
-      ? "Follows every recorded relationship out from each party, as far as the chain goes."
-      : "Does not follow recorded relationships.",
-  );
-
-  if (surface.matterId === null) {
-    sentences.push(
-      "Cannot reach the firm's own people, because no matter is named, and records that as not searched.",
-    );
-  } else if (values.searchOwnPeople) {
-    sentences.push("Joins the firm's own people against the matter's parties, by identity.");
-  } else {
-    sentences.push("Does not join the firm's own people against the matter's parties.");
-  }
-
-  sentences.push(
-    `Compares names at ${strictnessVocabulary(values.nameMatching).label.toLowerCase()}, which includes names that sound alike.`,
-  );
-
-  sentences.push("Records Files, Messaging and Magnus as not searched: nothing indexes them yet.");
-
-  sentences.push(
-    triggerFor(surface) === "comprehensive"
-      ? "Goes into the firm's log as a comprehensive check: the firm has taken this matter on."
-      : "Goes into the firm's log as a preliminary check: the screen before the firm takes a matter on.",
-  );
-
-  return sentences;
 }

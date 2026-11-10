@@ -1,9 +1,9 @@
 /*
  * The firm's offices, read once and shared.
  *
- * The picker, the link and the Firm Profile's summary all want the same short list, and a read per
- * surface would be the same request three times on one page. So the read is here, it happens once,
- * and a second caller joins the request already in flight. On the firm roster's pattern
+ * The picker and the link both want the same short list, and a read per surface would be the
+ * same request several times on one page. So the read is here, it happens once, and a second
+ * caller joins the request already in flight. On the firm roster's pattern
  * ($lib/members/firm-roster.svelte.ts), for the same reasons.
  *
  * NOT cached across sessions or refreshed on a timer: offices change when the firm opens or closes

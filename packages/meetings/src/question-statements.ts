@@ -103,7 +103,18 @@ function pushed(bindings: unknown[], binding: unknown, clause: string): string {
  *
  * `since` with `sinceId` is what a poller holds, on the chat transcript's own terms: a position in
  * the same `(asked_at, id)` ordering the cursor walks, so a poll and a walk cannot disagree about
- * where they are. `since` alone keeps the strict-instant comparison, which can re-read but never skip.
+ * where they are.
+ *
+ * `since` ALONE IS INCLUSIVE, `asked_at >= ?`, and the caller drops the ids it already holds. An
+ * instant is a millisecond, and two questions committed inside the same one are ordinary in a room
+ * of three hundred: a strict comparison against the instant of the last question a panel holds skips
+ * every other question asked in that millisecond, for good — no later read starts before it. The
+ * inclusive read re-sends the rows at that one instant instead, which costs a few bytes and loses
+ * nothing. The pair is still the precise form; this is the form for a caller holding only an instant.
+ *
+ * EVERY FORM IS SERVED BY ONE INDEX, `meeting_question (meeting_id, asked_at, id)`: the meeting is
+ * its leading column, the keyset compares its next two, and the ORDER BY is its own order — so an
+ * incremental read is a range seek that stops at the page, never a sort of the queue.
  */
 export async function listMeetingQuestions(
   database: SqlDatabase,
@@ -120,7 +131,7 @@ export async function listMeetingQuestions(
     options.since === undefined
       ? ""
       : options.sinceId === undefined
-        ? pushed(bindings, options.since, `AND ${MEETING_QUESTION_TABLE}.asked_at > ? `)
+        ? pushed(bindings, options.since, `AND ${MEETING_QUESTION_TABLE}.asked_at >= ? `)
         : keysetClause(
             bindings,
             { createdAt: options.since, id: options.sinceId },
@@ -189,6 +200,33 @@ export async function readQuestionsUpvotedByMember(
     .bind(...questionIds, meetingId, userId)
     .all<{ readonly question_id: MeetingQuestionId }>();
   return new Set(results.map((row) => row.question_id));
+}
+
+/**
+ * The stay the member's upvote on this question was cast FROM, or undefined when they hold none —
+ * asked of the member rather than of one stay, as the guard is, and answering with the stay because
+ * a withdrawal records the upvote it removes rather than the connection that removed it. One per
+ * member is the guard's rule, so there is at most one row; the order makes the answer deterministic
+ * if the index ever let a second through.
+ */
+export async function readMemberUpvoteStay(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  userId: UserId,
+  questionId: MeetingQuestionId,
+): Promise<MeetingAttendanceId | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MEETING_QUESTION_UPVOTE_TABLE}.participant_id FROM ${MEETING_QUESTION_UPVOTE_TABLE} ` +
+        `WHERE ${MEETING_QUESTION_UPVOTE_TABLE}.question_id = ? ` +
+        `AND ${MEETING_QUESTION_UPVOTE_TABLE}.participant_kind = 'member' ` +
+        `AND ${MEETING_QUESTION_UPVOTE_TABLE}.participant_id IN (` +
+        `SELECT id FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ? AND user_id = ?) ` +
+        `ORDER BY ${MEETING_QUESTION_UPVOTE_TABLE}.upvoted_at ASC LIMIT 1`,
+    )
+    .bind(questionId, meetingId, userId)
+    .all<{ readonly participant_id: MeetingAttendanceId }>();
+  return results[0]?.participant_id;
 }
 
 /**

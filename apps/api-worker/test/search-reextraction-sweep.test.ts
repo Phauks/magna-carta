@@ -10,7 +10,7 @@ import {
   searchIndexJobName,
 } from "../src/search/index-types.ts";
 import { searchEngineGeneration } from "../src/search/engine-generation.ts";
-import { runReextractionSweep } from "../src/search/reextraction-sweep.ts";
+import { runReextractionSweep } from "../src/background/search/reextraction-sweep.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle, type FirmDatabaseHandle } from "./support/firm-database-handle.ts";
 

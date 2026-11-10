@@ -18,7 +18,10 @@
    * member has ever needed.
    *
    * Every other seam stays a seam (the shell never fakes function): an ecosystem site without a
-   * live URL renders disabled with a "Soon" badge, so a dead link is impossible by construction.
+   * live URL renders disabled with a "Soon" badge, so a dead link is impossible by construction —
+   * unless the application already renders that site's content itself (the Changelog), in which
+   * case the entry opens that screen until the site has an address, or has a window that stands in
+   * for it (About Magna Carta opens the About window).
    * Sign out is not among them: it ends the real session ($lib/auth/sign-out.ts), which is why it
    * is the one item here that can refuse and say so.
    *
@@ -140,7 +143,23 @@
         {#each ECOSYSTEM_SITES as site (site.id)}
           {@const SiteIcon = site.icon}
           {@const href = site.href}
-          {#if href === null}
+          {@const route = site.route}
+          {@const opensWindow = site.opensWindow}
+          {#if href === null && opensWindow !== undefined}
+            <!-- The site's in-application stand-in is a window: it opens over the screen the
+                 member is on, so no outbound mark either. -->
+            <DropdownMenu.Item onSelect={opensWindow}>
+              <SiteIcon class="size-16" aria-hidden="true" />
+              {site.label}
+            </DropdownMenu.Item>
+          {:else if href === null && route !== undefined}
+            <!-- The site is not public yet, but the application renders its content itself: an
+                 ordinary in-app destination, so no outbound mark. -->
+            <DropdownMenu.Item onSelect={() => goto(route)}>
+              <SiteIcon class="size-16" aria-hidden="true" />
+              {site.label}
+            </DropdownMenu.Item>
+          {:else if href === null}
             <DropdownMenu.Item disabled>
               <SiteIcon class="size-16" aria-hidden="true" />
               {site.label}

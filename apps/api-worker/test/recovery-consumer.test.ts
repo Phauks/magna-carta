@@ -1,6 +1,7 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
-import { recoveryQueue } from "../src/recovery/recovery-consumer.ts";
-import type { Bindings } from "../src/app.ts";
+import { recoveryQueue } from "../src/background/recovery/recovery-consumer.ts";
+import type { Bindings } from "../src/bindings.ts";
 import type {
   RecoveryJobState,
   RecoveryJobStatus,

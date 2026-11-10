@@ -43,6 +43,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "directory_phone", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_address", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_entity_category", subjectKey: "entity_id", action: "hard-delete" },
+  // A person's photograph. As with member_photo, the row is the only thing that names the object
+  // holding the bytes: read object_key before the row goes, or the picture stays in the firm's
+  // bucket where nothing can find it to delete.
+  {
+    table: "directory_entity_photo",
+    subjectKey: "entity_id",
+    action: "hard-delete",
+    note: "the row names an R2 object; read object_key before deleting the row",
+  },
   // Edges reference a subject on both endpoints (mirrors the merge repoint set).
   { table: "directory_edge", subjectKey: "from_entity_id", action: "hard-delete" },
   { table: "directory_edge", subjectKey: "to_entity_id", action: "hard-delete" },
@@ -121,6 +130,10 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // chain-of-custody — that SOMEBODY was in the document at this time — so it is pseudonymized,
   // never deleted.
   { table: "file_version_participant", subjectKey: "member_user_id", action: "pseudonymize-keep" },
+  // A version's tracked changes: who wrote or removed which words. The member reference is
+  // pseudonymized on the same terms as the participant row; the author's name as the DOCUMENT
+  // holds it stays on the row, because it stays in the document the row was read from.
+  { table: "file_version_change", subjectKey: "author_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
@@ -264,7 +277,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "communication",
     subjectKey: "counterparty_number",
     action: "retain-under-matter",
-    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body and a call summary are content-level residue for the residue report",
+    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body, a call summary and the name a caller gave are content-level residue for the residue report",
   },
   {
     table: "communication",
@@ -277,6 +290,22 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "logged_by_user_id",
     action: "retain-under-matter",
     note: "who entered a hand-logged call, and when, is that entry's provenance — the reason a member-produced row can be weighed differently from a carrier-produced one",
+  },
+  // A looked-up caller identity is the telephone network's answer about a number, kept so one number
+  // is paid for once. It is reached by the number rather than by an entity — nothing links it to a
+  // Directory record — and it is no part of any matter's record, so a subject's erasure deletes the
+  // row outright: the next lookup simply pays again.
+  {
+    table: "caller_identity",
+    subjectKey: "national_number",
+    action: "hard-delete",
+    note: "the caller name the carriers' database returned for the number; the country calling code is the other half of the key",
+  },
+  {
+    table: "caller_identity",
+    subjectKey: "looked_up_by_user_id",
+    action: "pseudonymize-keep",
+    note: "which member asked is the provenance of a billed lookup",
   },
   // Meetings. A meeting is a conversation the firm had, so its retention basis is the call log's one
   // line above: who was in the room is part of what the matter record says happened. The meeting row
@@ -477,6 +506,106 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "participant_id",
     action: "retain-under-matter",
     note: "the stay that upvoted a question is who did it and the proof they were in the room",
+  },
+  // Recording — who recorded, who was recorded and who was told. IDENTIFIERS ONLY: the audio itself is
+  // staged in the firm's bucket and filed as a document under the matter, where it takes the document's
+  // own retention, and nothing in these three tables is content. Every reference takes the attendance
+  // row's basis, because who recorded a conversation on a matter, whose voice is in it and who was told
+  // it was being recorded is part of what the record says happened — and the notice rows are the
+  // consent record the owner's ruling made of the announcement, which erasure must never thin out.
+  // A stay is carried by value, and a member resolves through meeting_attendance.user_id as well as
+  // through the user_id column each row carries beside it.
+  {
+    table: "meeting_recording",
+    subjectKey: "started_by_user_id",
+    action: "retain-under-matter",
+    note: "who pressed Record on a meeting on a matter is the act the recording's whole record hangs from",
+  },
+  {
+    table: "meeting_recording",
+    subjectKey: "stopped_by_user_id",
+    action: "retain-under-matter",
+    note: "who stopped a recording, and when, closes the span it claims to have captured; null when nobody did",
+  },
+  {
+    table: "meeting_recording_track",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay whose audio a track carries is whose voice the recording holds, and the attribution of every later transcript line",
+  },
+  {
+    table: "meeting_recording_track",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a recorded track, beside the stay; null for a guest or anybody else without a user",
+  },
+  {
+    table: "meeting_recording_notice",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that was told a recording started, was running when they arrived, or stopped — the consent record itself",
+  },
+  {
+    table: "meeting_recording_notice",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a notice, beside the stay; null for a guest, who was told exactly as a member was",
+  },
+  // The transcript of a filed recording — and here the meeting subsystem holds the most sensitive
+  // content the platform stores: what was said in a privileged conversation, word for word, attributed.
+  // Every line hangs from the STAY whose track it came from, carried by value as the track's is, beside
+  // the member behind it; a member resolves through meeting_attendance.user_id as well. The text is
+  // content, on the line a filed email body and meeting_message.body sit on: never logged, never in an
+  // audit row, never in an error payload, redacted by default everywhere — and content-level residue for
+  // the residue report rather than anything an automated rewrite can safely touch. The transcript row
+  // itself carries handles, counts and a state, and no personal column.
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay whose track a transcript line came from is who said it — the attribution the whole transcript rests on; null on a gap that is nobody's",
+  },
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a transcript line, beside the stay; null for a guest, whose words are attributed to their stay exactly as a member's are",
+  },
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "text",
+    action: "retain-under-matter",
+    note: "what was said in a meeting on a matter, word for word — content on the line meeting_message.body sits on, and content-level residue for the residue report",
+  },
+  // The summary of a ready transcript — DERIVED content, and WORK PRODUCT: a reasoning model's
+  // characterization of a privileged conversation, kept as rows beside the record it summarizes and
+  // never filed as a document. It takes the transcript's treatment (never logged, never in an audit row,
+  // never in an error payload) and the work-product class the assistant's turns carry. Its structured
+  // subjects are the member who asked for a re-run and the member an action item names as its owner; the
+  // free text of either may name anybody, which is the residue class the report surfaces.
+  {
+    table: "meeting_summary",
+    subjectKey: "requested_by_user_id",
+    action: "retain-under-matter",
+    note: "who asked for a meeting's summary to be written again; null for the run the platform began itself",
+  },
+  {
+    table: "meeting_summary",
+    subjectKey: "summary_text",
+    action: "retain-under-matter",
+    note: "work product: the platform's characterization of what was said in a meeting on a matter — derived content on the line the transcript's text sits on, and content-level residue for the residue report",
+  },
+  {
+    table: "meeting_summary_action_item",
+    subjectKey: "owner_user_id",
+    action: "retain-under-matter",
+    note: "the member a meeting's summary says undertook something, named only on an exact match to how the transcript knows them",
+  },
+  {
+    table: "meeting_summary_action_item",
+    subjectKey: "text",
+    action: "retain-under-matter",
+    note: "work product: what a meeting's summary says somebody undertook to do — derived content, and content-level residue for the residue report",
   },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
@@ -956,6 +1085,13 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
   { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
+  // The date a matter's paper file may be destroyed after, and the member who stated it. The date is
+  // the matter's record; who stated it is an actor reference, pseudonymized on the audit_log terms.
+  {
+    table: "matter_file_retention",
+    subjectKey: "recorded_by_user_id",
+    action: "pseudonymize-keep",
+  },
   // Matter staffing: which firm member carried a matter, in which role, over which dates. Retained
   // as the matter's record on the same line time_entry.timekeeper_user_id sits on — who worked a
   // file is that file's history, not current operational state.
@@ -978,7 +1114,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // holding the bytes, so deleting it and stopping leaves a photograph of a person in the firm's
   // bucket that nothing can ever find again to delete. The object key has to be read off the row
   // before the row goes. The route that removes a picture does exactly that
-  // (apps/api-worker/src/routes/me-photo.ts).
+  // (apps/api-worker/src/http/routes/session/me-photo.ts).
   {
     table: "member_photo",
     subjectKey: "member_user_id",
@@ -1146,6 +1282,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // manifest, and source media type. Operational bookkeeping keyed to file_version, no personal
   // data of its own (the underlying document's retention is the file entry's, as above).
   "file_repair_provenance",
+  // A recording's transcript header — handles, counts, a state, the cursor of the work that makes it,
+  // and the model and language the model reported. It names nobody: the words and who said each are
+  // its segments' (registered in PII_TABLES), and the filed document takes the document's retention.
+  "meeting_transcript",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",

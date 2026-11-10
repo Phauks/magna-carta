@@ -71,6 +71,7 @@ describe("permission registry", () => {
       "matters:renumber",
       "matters:manageTypes",
       "matters:manageNumbering",
+      "matters:manageRetention",
       "matters:viewNumbering",
     ]);
   });
@@ -122,6 +123,7 @@ describe("permission registry", () => {
       "tools:safeBrowse",
       "tools:decryption",
       "tools:fileConverter",
+      "tools:legalCitations",
       "tools:aiTextDetection",
       "tools:metadataScrubber",
       "tools:fileIntegrity",

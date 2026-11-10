@@ -11,15 +11,22 @@
 
 What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and since 2026-09-16 that verification is `pnpm gate` on the branch, run by whoever made the change, with nothing hosted repeating it. The first two entries below record why there is no second run on the exact tree that lands, and the one repository setting that still has to change.
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and that verification is `pnpm gate`: run on the branch by whoever made the change and, from 2026-11-09, run again hosted as the `gate` check on every pull request. The first two entries below record the settings that hosted run needs and why there is still no second run on the exact tree that lands.
 
-## Remove the `gate` status from the `main` ruleset — the workflow that reported it is gone (2026-09-16)
+## Turn the hosted gate on — fund Actions with a cap, require `gate` again (2026-11-09)
 
-**What to do.** Settings → Rules → Rulesets → the ruleset on `main` → _Require status checks to pass_: remove `gate` from the required checks (or turn the requirement off if it was the only one). Leave _Require a pull request before merging_ and the rest as they are.
+**What to do.** Four repository and account settings, in this order, once the pull request that adds `ci.yml`, `pr-upkeep.yml` and `preview-cleanup.yml` has merged:
 
-**Why.** The quality gate is now `pnpm gate`, run locally ([`build-performance.md`](conventions/build-performance.md) under _The gate — `pnpm gate`, on the machine that made the change_); `gate.yml` and `seed-caches.yml` are deleted. A required status check that no workflow reports keeps every pull request in the "waiting for status" state forever, which is exactly the stonewall the removal exists to end — until this setting changes, merges still need the administrator override they have needed since 2026-09-03. Nothing in the repository can change a ruleset.
+1. **Set an Actions spending limit.** GitHub → Settings (the account's, not the repository's) → Billing and licensing → Budgets and alerts: a budget on Actions with _Stop usage when budget limit is reached_ on. This is the cap the owner chose on 2026-11-09; without _stop usage_ a budget only alerts.
+2. **Let workflows open pull requests.** Repository → Settings → Actions → General → Workflow permissions → _Allow GitHub Actions to create and approve pull requests_. `assemble-docs.yml` needs it.
+3. **Allow auto-merge.** Repository → Settings → General → Pull Requests → _Allow auto-merge_. The thread rules in the root `CLAUDE.md` and `assemble-docs.yml` both turn it on per pull request.
+4. **Require `gate` again.** Repository → Settings → Rules → Rulesets → the ruleset on `main` → _Require status checks to pass_ → add `gate` (the job name in `ci.yml`). Leave _Require a pull request before merging_ as it is. Add the same rule to a `beta` ruleset when that branch exists.
 
-**Also worth doing while there:** close the stale docs-assembly pull request (#457), which was waiting on the gate; the next `assemble-docs` run opens a fresh one. Whether to fund Actions again is a separate decision — the only workflow left is the docs assembly, and nothing waits on it.
+Optional, for the Preview cleanup: repository secrets `CLOUDFLARE_API_TOKEN` (a Cloudflare API token with Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID`. Without them the workflow runs and does nothing, and it deletes nothing until a `beta` Preview exists anyway.
+
+**Why.** The quality gate left the runner on 2026-09-16 because the Actions budget ran dry and the required `gate` check wedged every pull request ([`build-performance.md`](conventions/build-performance.md) under _The gate — `pnpm gate`, on the machine that made the change_ has the history). With several threads now opening pull requests in parallel against a `main` that deploys on merge, a gate that only runs when someone remembers to run it is the larger risk, so the owner funded Actions with a cap and the gate returned as a hosted run of the same command. **If the budget runs out again**, the `gate` check stops reporting and every pull request waits on it: remove `gate` from the required checks (step 4, reversed) until the budget resets, and fall back to `pnpm gate` locally. Nothing in the repository can change a ruleset or a budget.
+
+**Also worth doing while there:** close the stale docs-assembly pull request (#457) if it is still open; the next `assemble-docs` run opens a fresh one.
 
 _Position, 2026-08-29: `main` is production for the app Worker and the SPA. Everything else about the account is read live, not recorded here — including which projects are connected, what branch each builds from, and what is deployed on any of them. The 2026-08-24 API pass that this file used to treat as its "evidentiary floor" is exactly the thing that stopped being one: it was accurate on the day and had decayed within the week, and a floor that decays silently is worse than no floor. Read the account instead._
 
@@ -116,6 +123,35 @@ hours old. The branch's own `pnpm check:scoped` was green on that head, so the r
 outage rather than anything in the change. The runner labels were never the cause — the outage
 reproduced identically on `ubuntu-latest` and predated `ubuntu-slim` entering the repository — and
 the workflow is gone now regardless, so there is no longer a workflow to "fix".
+
+## Meetings — what the account needs before video meetings and recording work (added 2026-10-02)
+
+Step 4 blocks a deploy, and it must be done before the pull request that adds the compose queues
+merges: `main` is production, `wrangler.jsonc` binds both queues, and Workers Builds fails on a
+queue that does not exist, taking every later merge down with it. Every other step only holds a
+feature back, because each piece answers that it is not configured until its half exists. In the
+order the features need them.
+
+1. **Cloudflare Realtime.** Create the Realtime SFU application, then
+   `wrangler secret put REALTIME_SFU_APP_ID` and `wrangler secret put REALTIME_SFU_APP_SECRET` on
+   `magna-carta`. Until both exist a meeting answers `meetings-not-configured`.
+2. **The recording adapter experiment.** Against the live application, prove that the WebSocket
+   adapter dials the sink endpoint with its path intact (the sink token travels in the path) and
+   confirm the audio envelope's field numbers 1, 2 and 5, as `packages/meetings/src/pcm-frame.ts`
+   names them. The method is in `docs/specs/2026-09-20-meetings-recording-and-transcription-design.md`
+   under the sink. Recording stays off until this passes.
+3. **The sink's secret and route.** `wrangler secret put MEETING_SINK_SIGNING_KEY`, and a zone route
+   for `/internal/*` on the api Worker (`run_worker_first` already lists it).
+4. **The compose queues, before the merge.** Create `magna-carta-production-meeting-recording-compose` and
+   `magna-carta-production-meeting-recording-compose-deadletter`; `wrangler.jsonc` binds both, and
+   a deploy fails on a queue that does not exist.
+5. **Re-apply the bucket lifecycle rules to every existing firm bucket.** The rules now live in
+   `apps/api-worker/src/firm-resource-provider.ts`: staged recording audio under `meeting-recordings/`
+   expires after eight days, and unfinished multipart uploads under `files/` are aborted after seven.
+   A firm provisioned after the merge gets them; a bucket provisioned before it keeps its old rule set
+   until it is re-provisioned. Nothing is added by hand, because provisioning replaces a bucket's whole
+   rule set and would delete a hand-added rule.
+6. **Per firm:** an Owner switches `meetings.recordingEnabled` on.
 
 ## Reconcile the production branch across the fleet — check before acting, and expect it to be done
 
@@ -271,6 +307,34 @@ first drain after activation to be a bulk pass rather than a trickle. What a rev
 still owes the index is visible before you start:
 `GET /api/v1/review-sets/{reviewSetId}/index-status`.
 
+## Address engine activation — a bucket, a new worker, one binding (2026-10-02)
+
+`apps/address-worker` (`magna-carta-address`) and `containers/address` now exist: the
+platform's own US address index, built monthly from OpenAddresses. Nothing about them is
+live until the app worker has an `ADDRESS_SERVICE` binding; until then US lookups go to
+Smarty if its pair is set and to nothing otherwise. The full runbook is
+[`operations.md`](conventions/operations.md) §20; the account steps, in order:
+
+1. **Create the R2 bucket `magna-carta-addresses`** — private, no CORS. The worker binds it
+   as `ADDRESS_INDEX`; a deploy fails while it is missing.
+2. **Connect `magna-carta-address` to Workers Builds** — production branch `main`, deploy
+   command filtered to `@magna-carta/address-worker`, watch paths `apps/address-worker/*`,
+   `containers/address/*`, `crates/*`. One image (`containers/address/Dockerfile`, build
+   context = repository root) runs as two Container classes: `AddressIndexContainer`
+   (`basic`) and `AddressBuildContainer` (`standard-4`), migration tag `v1`. No secret, no
+   queue.
+3. **Add `ADDRESS_SERVICE`** (`"service": "magna-carta-address"`) to the app worker's
+   `services` in a pull request, after step 2 has deployed — a binding to a worker that
+   does not exist fails the app worker's deploy (§14 of the runbook).
+4. **Nothing to trigger.** The daily cron builds the first index the morning after step 2
+   (or trigger it from the dashboard). Expect about an hour of `standard-4` time and about
+   10–12 GB in the bucket per build; two builds are kept.
+
+**One ruling is the owner's.** Sources whose only recorded licence is an indemnification
+clause (26 US layers, among them San Diego County, Fulton County and San Antonio) are
+included; share-alike, non-commercial and bespoke-agreement layers are excluded. Reversing
+the indemnification call is an edit to `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`.
+
 ## Split compaction — done: the queues exist and the worker shipped (API-confirmed 2026-08-24)
 
 Both `magna-carta-production-search-compaction` and its deadletter exist, and the app
@@ -311,7 +375,7 @@ whole reason the lane is separate from files ingest in the first place.
 ## Turnstile activation — the order matters, and the widget comes before the secret
 
 Server-side human verification is built and ships **dormant**
-(`apps/api-worker/src/human-verification/`). It gates the two anonymous writes — `POST
+(`apps/api-worker/src/http/human-verification/`). It gates the two anonymous writes — `POST
 /api/v1/registrations` (founding a firm) and `POST /api/v1/invitations/redemptions`. With no secret
 set it does nothing to either endpoint except count: one `human_verification.decided` point per
 request, outcome `unenforced`. Nothing below is required for the next deploy; the app worker deploys
@@ -596,7 +660,7 @@ blank" should now fill.
 - **A discovery load's manifest and exception report must never be given a
   lifecycle rule.** They land in the already-bound `R2` bucket under
   `discovery/<reviewSetId>/loads/`, stamped `object_class:
-review-load-record` — deliberately a different class from the
+  review-load-record` — deliberately a different class from the
   `review-extracted-text` and `review-document-metadata` objects beside them,
   which ARE a derived cache and are released when a review set closes. If an
   expiry rule is ever added under the `discovery/` prefix (there is none today),
@@ -832,7 +896,7 @@ Do them in this order; each one is inert without the ones before it.
 
    **It is also Better Auth's `baseURL`, and that makes it worth setting on its own**, ahead of and
    independently of anything about mail. Unset, the library logs `Base URL is not set … callbacks and
-redirects may not work correctly` on every cold start and derives the origin from each incoming
+   redirects may not work correctly` on every cold start and derives the origin from each incoming
    request — which is exactly what a background pass has no way to do. `createAuth` reads it when
    present and falls back to the request-derived default when absent (`apps/api-worker/src/auth.ts`),
    so local development and the test pool, which are reached at whatever host serves them, keep
@@ -874,7 +938,7 @@ them the same day. Everything the section held is now confirmed, with one new fa
 - `magna-carta-convert`: **confirmed real.** Connected to Workers Builds on `release`, root
   `apps/convert-worker`, watch paths covering both container images; latest build green
   (2026-08-21, from `19d02cf`); the deployed script carries `RASTER_ENGINE ->
-RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
+  RasterEngineContainer` **and** `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer`, migration tag
   `v2`. **The `conversions/` R2 lifecycle rule is NOT there** — the platform files bucket carries
   exactly two rules (`bundles/` at seven days, incomplete-multipart abort at seven days), so that
   dashboard step moves back to open, on the LibreOffice entry above. Nothing expires under
@@ -1300,7 +1364,7 @@ one authority holder from two-person to solo — a reduction, so it waits for a 
 
 The two organization match keys are derived at write time for every new name and filled for
 existing corpora by a **bounded, resumable pass on the daily cron**
-(`runDirectoryNameIndexBackfill` in `apps/api-worker/src/scheduled.ts`, 500 name rows per firm per
+(`runDirectoryNameIndexBackfill` in `apps/api-worker/src/background/scheduled.ts`, 500 name rows per firm per
 pass). Until a firm's pass has finished, the names it has not reached are invisible to those two
 blocking channels — while a conflicts check reports them as channels that ran.
 
@@ -1327,7 +1391,7 @@ is expected to retry against the same staged bytes rather than upload the file a
 object cannot be reaped by anything that runs on a scale of minutes.
 
 The daily sweep over template objects no row names
-(`apps/api-worker/src/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
+(`apps/api-worker/src/background/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
 rule**, and abandoned staging is left to expire on its own. Nothing expires it yet: the bucket
 carries no lifecycle rule for that prefix.
 

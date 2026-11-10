@@ -164,7 +164,7 @@ suite on the machine.
   the Java bean, the MySQL connector). Each was the sole reason a whole system library stack would
   otherwise be needed, and none is reachable from a conversion. Removing the prune step means
   reinstating gtk3, gstreamer, and a Java runtime.
-- The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there),
+- The engine **cannot run under `@cloudflare/vitest-plugin`** (containers unsupported there),
   so the worker binding is a deploy-time activation: the convert worker's dispatch is tested against
   a fake container, and the genuine end-to-end is a post-deploy smoke against the real service
   binding.

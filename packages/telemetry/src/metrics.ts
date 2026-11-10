@@ -470,6 +470,31 @@ export const emailDeliveryFailed = defineMetric("email.delivery_failed", [
   "messageClass",
 ] as const);
 
+// One address-autocomplete request, by what was asked, which engine answered and how it came out.
+// This is the number that drives the provider's bill, and `outcome: failed` beginning to climb is the
+// first sign the provider has refused — a spent subscription answers exactly that way. There is
+// deliberately no dimension that could hold what was typed: the query is a client's address.
+//   operation: suggest | resolve
+//   engine:    smarty | deferred
+//   outcome:   suggestions | address | group | expired | no-coverage | unavailable | failed
+export const addressesLookup = defineMetric("addresses.lookup", [
+  "operation",
+  "engine",
+  "outcome",
+] as const);
+
+// One paid caller-identity lookup a member pressed for, by which engine answered and how it came
+// out. Every `found` is a billed query, so this is the number that drives the provider's bill, and
+// `failed` climbing is the first sign the key was revoked or the balance ran out. `cached` is a press
+// answered from the firm's kept answer, which cost nothing. No dimension can hold the number or the
+// name: both are a person's.
+//   engine:  telnyx | deferred
+//   outcome: found | cached | not-covered | unavailable | failed
+export const communicationsCallerLookup = defineMetric("communications.caller_lookup", [
+  "engine",
+  "outcome",
+] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -538,6 +563,8 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsDigestRefusedEscalation,
   emailDeliveryFailed,
   downloadsShelfSwept,
+  addressesLookup,
+  communicationsCallerLookup,
   exportsCopyProduced,
   exportsCopyRequestFailed,
   exportsCopyMalformedPayload,

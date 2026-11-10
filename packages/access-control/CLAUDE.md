@@ -3,7 +3,7 @@
 **Purpose.** The platform permission registry, the resolver that turns a member's rows into their
 effective permission set, and the platform-operator decision. Pure and dependency-free: no D1, no
 Hono, no `env`, no network. It decides nothing about a request — the chokepoint
-(`apps/api-worker/src/chokepoint/`) enforces, this package supplies the vocabulary and the arithmetic.
+(`apps/api-worker/src/http/chokepoint/`) enforces, this package supplies the vocabulary and the arithmetic.
 
 **White paper:** _Authentication & encryption_ —
 [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md). (ADR-0067.)
@@ -78,6 +78,6 @@ Two consequences bind here:
 
 - **A permission granted to a role no member holds is invisible to the scan and to the resolver
   alike.** The gate asks whether some role carries the key, not whether some member carries the role.
-- **The Owner/Admin role is not privileged in code.** It holds the most keys because the seeds give
+- **The Admin role is not privileged in code.** It holds the most keys because the seeds give
   it the most keys; nothing anywhere treats it specially, so a capability missing from its seed is
   missing from it.

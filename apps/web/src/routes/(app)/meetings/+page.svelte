@@ -41,6 +41,7 @@
   import RecordEventDialog from "$lib/calendar/record-event-dialog.svelte";
   import MeetingsScreen from "$lib/meetings/meetings-screen.svelte";
   import MeetingAttendancePanel from "$lib/meetings/meeting-attendance-panel.svelte";
+  import RecordingList from "$lib/meetings/screen/recording-list.svelte";
   import type { MeetingScope, MeetingSectionState } from "$lib/meetings/meeting-list.ts";
   import type { MeetingSummary } from "@magna-carta/api-client";
 
@@ -133,6 +134,19 @@
     attendanceOf = meeting;
     attendanceOpen = true;
   }
+
+  /*
+   * WHAT WAS RECORDED, for an ended row whose meeting was recorded: the same list the room's header
+   * opens, pointed at whichever row asked. Who was told is the room's to open, where a host reads it
+   * beside the meeting it is about.
+   */
+  let recordingsOf = $state<MeetingSummary | null>(null);
+  let recordingsOpen = $state(false);
+
+  function openRecordings(meeting: MeetingSummary): void {
+    recordingsOf = meeting;
+    recordingsOpen = true;
+  }
 </script>
 
 <svelte:head><title>Meetings · Magna Carta</title></svelte:head>
@@ -148,13 +162,24 @@
       />
     {/snippet}
   </ScreenHeader>
-  <MeetingsScreen {sections} {configured} onAttendance={openAttendance} />
+  <MeetingsScreen
+    {sections}
+    {configured}
+    onAttendance={openAttendance}
+    onRecordings={openRecordings}
+  />
 </div>
 
 <MeetingAttendancePanel
   bind:open={attendanceOpen}
   meetingId={attendanceOf?.id ?? ""}
   subject={{ facts: attendanceOf === null ? [] : [attendanceOf.title] }}
+/>
+
+<RecordingList
+  bind:open={recordingsOpen}
+  meetingId={recordingsOf?.id ?? ""}
+  subject={{ facts: recordingsOf === null ? [] : [recordingsOf.title] }}
 />
 
 <RecordEventDialog

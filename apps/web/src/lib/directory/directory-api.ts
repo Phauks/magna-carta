@@ -1129,3 +1129,66 @@ export function setDirectoryPersonLifeDates(
     { method: "PUT", body: request, idempotencyKey },
   );
 }
+
+/** A record's picture, as facts about it. The bytes are a separate read, at `entityPhotoHref`. */
+export interface DirectoryEntityPhoto {
+  /** The SHA-256 of the bytes. Also what the content address is cache-busted by. */
+  sha256: string;
+  contentType: string;
+  sizeBytes: number;
+  widthPixels: number;
+  heightPixels: number;
+  updatedAt: string;
+}
+
+export interface DirectoryEntityPhotoState {
+  /** Null where the record holds no picture. */
+  photo: DirectoryEntityPhoto | null;
+}
+
+/** The record's picture, or null where it holds none. */
+export function readDirectoryEntityPhoto(
+  fetchImpl: typeof fetch,
+  entityId: string,
+): Promise<ApiOutcome<DirectoryEntityPhotoState>> {
+  return requestJson(fetchImpl, `/api/v1/directory/entities/${encodeURIComponent(entityId)}/photo`);
+}
+
+/** Sets the record's picture from a PNG or JPEG, replacing whatever it held. */
+export function setDirectoryEntityPhoto(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  imageBase64: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<DirectoryEntityPhotoState>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/photo`,
+    {
+      method: "PUT",
+      body: { imageBase64 },
+      idempotencyKey,
+    },
+  );
+}
+
+/** Removes the record's picture. A record that holds none is answered the same way. */
+export function removeDirectoryEntityPhoto(
+  fetchImpl: typeof fetch,
+  entityId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<DirectoryEntityPhotoState>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/entities/${encodeURIComponent(entityId)}/photo`,
+    {
+      method: "DELETE",
+      idempotencyKey,
+    },
+  );
+}
+
+/** Where the picture's bytes are read from; the hash makes a replaced picture a new address. */
+export function entityPhotoHref(entityId: string, photo: DirectoryEntityPhoto): string {
+  return `/api/v1/directory/entities/${encodeURIComponent(entityId)}/photo/content?v=${encodeURIComponent(photo.sha256)}`;
+}

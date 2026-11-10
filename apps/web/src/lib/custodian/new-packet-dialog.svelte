@@ -13,7 +13,12 @@
    * Each is the register failing at its own job without it: property with no name cannot be asked
    * for, property held for nobody can never be given back, and property at no location is property
    * the firm has lost. The owner is a Directory handle rather than typed text for the same reason
-   * the whole register stores handles, which owner-picker.svelte states.
+   * the whole register stores handles, which owner-picker.svelte states. They come first, in the
+   * order a person thinks of them (what it is, whose it is, where it goes), and the optional fields
+   * follow.
+   *
+   * THE CONTAINER CAN BE MADE HERE. A firm meets the need for a shelf at the moment this form asks
+   * for one, so the Container field adds a container as well as choosing one (container-picker.svelte).
    *
    * THE NUMBER IS DRAWN, EXCEPT WHEN IT IS CARRIED IN. A firm converting a paper register keeps the
    * numbers already written on the physical labels, because renumbering property the firm is
@@ -23,7 +28,6 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
@@ -42,7 +46,7 @@
     type CreatedCustodyPacket,
     type CustodyLocationNode,
   } from "./custody-api.ts";
-  import { custodyLocationOptions } from "./location-options.ts";
+  import ContainerPicker from "./container-picker.svelte";
   import OwnerPicker from "./owner-picker.svelte";
   import {
     packetDraftReady,
@@ -58,6 +62,7 @@
     locations,
     matterId = null,
     onCreated,
+    onLocationsAdded,
   }: {
     open?: boolean;
     /** The firm's container tree, read once by the surface. */
@@ -65,6 +70,8 @@
     /** The matter this packet is being logged against, where the form was opened from one. */
     matterId?: string | null;
     onCreated: (created: CreatedCustodyPacket) => void;
+    /** Containers the form added on the way, so the screen's tree holds them without a re-read. */
+    onLocationsAdded: (added: readonly CustodyLocationNode[]) => void;
   } = $props();
 
   let draft = $state<PacketDraft>({ ...EMPTY_PACKET_DRAFT });
@@ -94,10 +101,6 @@
   });
   let failure = $state<StatedFailure | null>(null);
 
-  const options = $derived(custodyLocationOptions(locations));
-  const locationItems = $derived(
-    options.map((option) => ({ value: option.id, label: option.path })),
-  );
   const shortfalls = $derived(packetDraftShortfalls(draft));
 
   /*
@@ -196,8 +199,8 @@
   bind:open
   heading="New Packet"
   {subtitle}
-  commitLabel="Log Packet"
-  commitBusyLabel="Logging"
+  commitLabel="Save"
+  commitBusyLabel="Saving"
   commitRefusal={refusal}
   width="wide"
   unsavedChanges={started}
@@ -221,27 +224,6 @@
       <div class="flex flex-col gap-8">
         <Label for="new-packet-name">Name</Label>
         <Input id="new-packet-name" disabled={busy} bind:value={draft.name} />
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label id="new-packet-location-label">Container</Label>
-        <Select.Root
-          type="single"
-          items={locationItems}
-          value={draft.locationId ?? ""}
-          onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
-          allowDeselect={false}
-          disabled={busy || locationItems.length === 0}
-        >
-          <Select.Trigger aria-labelledby="new-packet-location-label">
-            <Select.Value placeholder={placeholderOf("Container")} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each locationItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
       </div>
 
       <div class="flex flex-col gap-8">
@@ -276,6 +258,17 @@
           fieldName="Held for"
           excluded={draft.owners.map((owner) => owner.entityId)}
           onPick={addOwner}
+        />
+      </div>
+
+      <div class="flex flex-col gap-8">
+        <Label for="new-packet-container">Container</Label>
+        <ContainerPicker
+          inputId="new-packet-container"
+          {locations}
+          disabled={busy}
+          bind:value={draft.locationId}
+          onadded={onLocationsAdded}
         />
       </div>
 

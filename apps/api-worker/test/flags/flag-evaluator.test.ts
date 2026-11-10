@@ -1,5 +1,6 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
-import type { Bindings } from "../../src/app.ts";
+import type { Bindings } from "../../src/bindings.ts";
 import { resolveFlagEvaluator } from "../../src/flags/flag-evaluator.ts";
 import type { FlagContext } from "@magna-carta/feature-flags/port";
 

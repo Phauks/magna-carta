@@ -49,7 +49,7 @@
   status: shipped
   surface: internal
   evidence: packages/inference/src/catalog.ts (tier occupancy validated at module load) and packages/inference/src/reasoning-tier.ts; packages/inference/test/reasoning-tier.test.ts.
-  notes: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision.
+  notes: Catalog version 4 (2026-11-09) offers the current generation only, Claude Opus 5.5 and Sonnet 5.5, by the owner's ruling that previous generations are not offered; each provider model records its effort levels (low to max) and default. Which model occupies each tier is an owner decision recorded in the catalog: on 2026-11-09 the owner moved most-capable to Opus 5.5 and balanced to Sonnet 5.5.
 
 - id: ai.inference.pin-freshness
   name: Model-pin staleness detection
@@ -64,7 +64,7 @@
   status: shipped
   surface: screen
   evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition). Settings / AI and the Assistant offers the choice through the product's combobox over the roster GET /api/v1/firm/ai/settings returns (every catalog reasoning entry with its retention facts, both verification dates, retirement date and tier, plus the catalog's version and effective date); PATCH takes model.modelId, where a roster id pins the firm and null DELETES the row so the firm follows the platform's tier again. The response reports selection as platform or chosen from the row's existence. apps/api-worker/test/firm-ai-settings-routes.test.ts drives the round trip and the off-roster refusal.
-  notes: The two postures stay legible because following is the ABSENCE of a row: choosing the platform's option never writes today's default. No runtime source lists models (neither the Workers AI binding nor the AI Gateway REST API enumerates them), so the roster is the catalog and the page states its date and that the freshness pass keeps it current.
+  notes: The two postures stay legible because following is the ABSENCE of a row: choosing the platform's option never writes today's default. Neither the Workers AI binding nor the AI Gateway REST API enumerates models, so the roster is the catalog and the page states its date. Where the platform holds a read-only ANTHROPIC_MODELS_API_KEY, the route also reads Anthropic's GET /v1/models (cached six hours, five minutes on failure; packages/inference/src/provider-roster.ts and apps/api-worker/src/inference/provider-roster-source.ts) and reports, per roster entry, whether it is still published and which published models await verification. That list never makes a model selectable.
 
 - id: ai.inference.confidentiality
   name: Confidentiality control plane
@@ -81,7 +81,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0113
-  evidence: Per-firm token meter feeding the firm-usage diagnostics surface (apps/api-worker/src/routes/firm-usage.ts).
+  evidence: Per-firm token meter feeding the firm-usage diagnostics surface (apps/api-worker/src/http/routes/firm/firm-usage.ts).
 
 - id: ai.inference.fairness
   name: Multi-tenant fairness
@@ -129,7 +129,7 @@
   scope: Platform-managed adapter (one platform key, credential none), per-firm consent setting enforced at the chokepoint, paste-text endpoint, per-firm usage metering.
   status: shipped
   surface: awaiting-screen
-  evidence: POST /api/v1/ai-detection/detect (apps/api-worker/src/routes/ai-detection.ts) over packages/ai-detection/src/adapters, with the manifest, the per-firm consent setting (consent.ts, settings.ts) and the ai_detection_usage metering table.
+  evidence: POST /api/v1/ai-detection/detect (apps/api-worker/src/http/routes/files/ai-detection.ts) over packages/ai-detection/src/adapters, with the manifest, the per-firm consent setting (consent.ts, settings.ts) and the ai_detection_usage metering table.
 
 - id: ai.text-detection.ui
   name: Detection UI
@@ -160,7 +160,7 @@
   slices: magnus
   adrs: ADR-0109, ADR-0111, ADR-0112, ADR-0113
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. The member-facing interface is built in both of its homes and the firm-administrator enablement screen now exists, so a firm can turn the assistant on; token streaming is a later slice.
+  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/http/routes/magnus/magnus.ts; three per-firm tables in the 20260806T050000 migration. The member-facing interface is built in both of its homes and the firm-administrator enablement screen now exists, so a firm can turn the assistant on; token streaming is a later slice.
   audience: public
   public-name: Magnus, the in-app assistant
   public-summary: Ask a question about your matters in plain language and get an answer, with nothing you ask retained by the model provider.
@@ -184,7 +184,7 @@
   scope: The one screen a firm opens both consent gates from, and the only writer of the pair the assistant's resolver reads. Carries the assistant's daily question ceiling beside them, states the model in force with its pinned snapshot and both confidentiality facts, and states the EFFECTIVE answer over the staged values, so an assistant switched on above a closed processing gate never reads as working.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/(app)/settings/ai over GET/PATCH /api/v1/firm/ai/settings (apps/api-worker/src/routes/firm-ai-settings.ts), behind firm:manageAiSettings — Owner/Admin alone by 20260909T000000_seed-ai-settings-permission, deliberately not magnus:converse. apps/api-worker/test/firm-ai-settings-routes.test.ts asserts the seam that matters: what the screen writes is what resolveMagnusFirmGates reads.
+  evidence: apps/web/src/routes/(app)/settings/ai over GET/PATCH /api/v1/firm/ai/settings (apps/api-worker/src/http/routes/firm/firm-ai-settings.ts), behind firm:manageAiSettings — Admin alone by 20260909T000000_seed-ai-settings-permission, deliberately not magnus:converse. apps/api-worker/test/firm-ai-settings-routes.test.ts asserts the seam that matters: what the screen writes is what resolveMagnusFirmGates reads.
   audience: public
   public-name: Turning AI on for your firm
   public-summary: Decide whether your firm's content may be sent to a model at all, and whether the assistant is one of the things that may send it. Both are off until you turn them on.
@@ -217,7 +217,7 @@
   surface: screen
   spec: docs/specs/2026-09-07-magnus-interface-design.md
   evidence: The design-system Conversation component (packages/design-system/src/lib/components/conversation), the shared surface composed of the rail, the transcript, the composer and the in-place name (apps/web/src/lib/magnus), and the two routes it serves — apps/web/src/routes/(app)/magnus and apps/web/src/routes/(app)/matters/[id]/magnus. The rail sorts by date, name or matter on the server; a conversation is renamed in place, kept on a matter after the fact, and carries the matter's files by reference; the composer names the answering model. Both registries light up: the sidebar destination is shipped and the matter section is at stage alpha. The owner's first round is recorded in docs/conventions/magnus-rulings.md.
-  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The workspace's two sides are the design system's NavigationLayout, its second consumer after Settings.
+  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The workspace's two sides are the design system's NavigationLayout, its second consumer after Settings. The owner's second round (2026-11-09, docs/conventions/magnus-rulings.md R2) redesigns the page; the first piece is built: the transcript in the Conversation component's exchange arrangement (members right under real names, Magnus left behind the blackletter M, Copy on every message) and the matter beneath the title. The rest of R2 (the page menu, the right-hand pane, the composer's model and effort choice, citations as block quotes, multi-file and folder attach) is open.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants
@@ -265,7 +265,7 @@
   scope: One instance per firm under a derived opaque name and a single versioned configuration constant; queue-dispatched provisioning and teardown; catalog-driven deletion reconciled against the bucket; a weekly keep-alive inside the inactivity-pause window; a usage meter keeping authoritative counts structurally apart from the one estimated figure.
   status: shipped
   surface: internal
-  evidence: apps/api-worker/src/search/natural-language-lifecycle.ts, apps/api-worker/src/search/natural-language-keep-alive.ts and apps/api-worker/src/search/natural-language-binding.ts; packages/search/src/natural-language-instance.ts, packages/search/src/natural-language-provisioning.ts and packages/search/src/natural-language-instance-statements.ts; the control-plane ai_search_instance table and the per-firm ai_search_usage_meter. Managed storage is recorded as a named unmetered gap rather than estimated. Both bindings are declared and commented out in apps/api-worker/wrangler.jsonc.
+  evidence: apps/api-worker/src/search/natural-language-lifecycle.ts, apps/api-worker/src/background/search/natural-language-keep-alive.ts and apps/api-worker/src/search/natural-language-binding.ts; packages/search/src/natural-language-instance.ts, packages/search/src/natural-language-provisioning.ts and packages/search/src/natural-language-instance-statements.ts; the control-plane ai_search_instance table and the per-firm ai_search_usage_meter. Managed storage is recorded as a named unmetered gap rather than estimated. Both bindings are declared and commented out in apps/api-worker/wrangler.jsonc.
 
 - id: ai.natural-language-search.retrieval
   name: Matter-scoped retrieval and read-time re-authorization

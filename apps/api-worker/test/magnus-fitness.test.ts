@@ -1,8 +1,9 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { resolveMagnusInferencePort } from "../src/magnus/inference-port-binding.ts";
 
 // The two guarantees a merged, unconfigured build has to make, asserted by running the code rather
@@ -13,7 +14,7 @@ import { resolveMagnusInferencePort } from "../src/magnus/inference-port-binding
 // the Workers pool and cannot read the repository's files.
 
 const CONVERSATION_INPUT = {
-  modelId: "anthropic/claude-opus-4-8",
+  modelId: "anthropic/claude-opus-5-5",
   firmId: "firm_fitness" as FirmId,
   systemPrompt: "platform-authored text",
   messages: [{ role: "member" as const, content: "hello" }],

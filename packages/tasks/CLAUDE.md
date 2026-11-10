@@ -225,8 +225,13 @@ delegate.
 
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
   `@magna-carta/calendar` (the visible-matter predicate and the civil-date resolver, and nothing
-  else), and `@magna-carta/matters` (the close-advisory shape alone).
-- The route layer (`apps/api-worker/src/routes/tasks.ts`) hands the service the firm-scoped database,
+  else), `@magna-carta/matters` (the close-advisory shape alone), and `@magna-carta/meetings` (one
+  statement, `clearActionItemTaskStatement`, and nothing else). A meeting summary's action item made
+  into a task names it through an ENFORCED reference, so `deleteMatterTask` composes that statement into
+  its batch before the delete: the item stops naming the task and reads again as untasked. The meetings
+  package must never depend on this one — that would be a cycle — and this package writes no SQL of its
+  own over a meetings table.
+- The route layer (`apps/api-worker/src/http/routes/notes-and-tasks/tasks.ts`) hands the service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 - **The timeline source is not here.** A task joins the federated read as one declared entry in
   `packages/calendar/src/sources/all.ts`, keyed `matterTask`, which reads `matter_task` by table name.

@@ -81,15 +81,15 @@ Every file created or modified, with its one responsibility.
 
 - `src/timer/live-timer-durable-object.ts` (new) — the `LiveTimerDurableObject` class (start/pause/resume/bind/read/stopAndCommit/discard + the abandoned alarm).
 - `src/timer/timer-runtime.ts` (new) — the pure timer state machine + elapsed math the DO and its tests share.
-- `src/routes/time-entries.ts` (new) — the time-entry routes.
-- `src/routes/timer.ts` (new) — the timer proxy routes to the DO + stop-commit through the chokepoint.
-- `src/routes/rate-cards.ts` (new) — rate-card/rate CRUD + `reRateUnbilledDrafts`.
-- `src/routes/utbms-codes.ts` (new) — list/enable/disable.
-- `src/routes/non-billable-categories.ts` (new) — CRUD.
-- `src/routes/my-day.ts` (new) — the visibility read.
+- `src/http/routes/timekeeping/time-entries.ts` (new) — the time-entry routes.
+- `src/http/routes/timekeeping/timer.ts` (new) — the timer proxy routes to the DO + stop-commit through the chokepoint.
+- `src/http/routes/timekeeping/rate-cards.ts` (new) — rate-card/rate CRUD + `reRateUnbilledDrafts`.
+- `src/http/routes/timekeeping/utbms-codes.ts` (new) — list/enable/disable.
+- `src/http/routes/timekeeping/non-billable-categories.ts` (new) — CRUD.
+- `src/http/routes/notes-and-tasks/my-day.ts` (new) — the visibility read.
 - `src/timekeeping/narrative-inference.ts` (new) — the gated AI call-site over `InferencePort.generateStream` + the `InferenceJob` idempotency-key structure + the pre-call consent/dedup-check design.
-- `src/inference/inference-consumer.ts` (modified) — add the `InferenceJob.idempotencyKey` field + the two dedup guards' design (pre-call read + same-batch record).
-- `src/app.ts` — register the six route groups; add `DURABLE_TIMER` to `Bindings`.
+- `src/background/inference/inference-consumer.ts` (modified) — add the `InferenceJob.idempotencyKey` field + the two dedup guards' design (pre-call read + same-batch record).
+- `src/http/app.ts` — register the six route groups; add `DURABLE_TIMER` to `Bindings`.
 - `src/index.ts` — export the `LiveTimerDurableObject` class.
 - `wrangler.jsonc` — add the `durable_objects` binding + the DO migration tag.
 - `openapi/openapi.json` — regenerated snapshot.
@@ -115,30 +115,31 @@ The canonical cross-task vocabulary. Every fill agent uses these exact names/typ
 ### New per-firm tables (exact columns + types)
 
 **`time_entry`** (the WIP store; `time_entry-statements.ts`)
-| column | type | notes |
-|---|---|---|
-| `id` | TEXT PK | `timeEntry_` handle |
-| `matter_id` | TEXT NOT NULL → `matter.id` | bound at commit |
-| `timekeeper_user_id` | TEXT NOT NULL → `member.user_id` | who the time is for |
-| `work_date` | TEXT NOT NULL | civil `PlainDate` (YYYY-MM-DD); the effective date |
-| `duration_minutes` | INTEGER NOT NULL | rounded billable quantity |
-| `raw_duration_minutes` | INTEGER NOT NULL | captured pre-rounding minutes |
-| `narrative` | TEXT NOT NULL | |
-| `billable` | INTEGER NOT NULL | 0/1, CHECK IN (0,1) |
-| `non_billable_category_id` | TEXT → `non_billable_category.id` | nullable; set only when `billable = 0` |
-| `currency` | TEXT NOT NULL | ISO-4217, CHECK against registered set, seed `USD` |
-| `rate_e4` | INTEGER | nullable (null for non-billable internal time) |
-| `rate_card_id` | TEXT → `rate_card.id` | null ⟺ `rate_e4` null |
-| `rate_source` | TEXT | CHECK IN (`override`,`matter`,`client`,`timekeeper`,`role`,`card_default`); null when `rate_e4` null |
-| `amount_minor` | INTEGER | CHECK: (`amount_minor` IS NULL) = (`rate_e4` IS NULL) |
-| `utbms_task_code_id` | TEXT → `utbms_code.id` | nullable |
-| `utbms_activity_code_id` | TEXT → `utbms_code.id` | nullable |
-| `status` | TEXT NOT NULL | CHECK IN (`draft`,`submitted`,`approved`,`billed`,`void`) |
-| `source` | TEXT NOT NULL | CHECK IN (`timer`,`manual`,`quick_add`,`grid`,`offline_sync`,`calendar`) |
-| `live_run_id` | TEXT | nullable; set for `source = timer`, the stop-commit dedup anchor |
-| `invoice_id` | TEXT | nullable; set at billing |
-| `created_at`/`updated_at` | TEXT NOT NULL | ISO instants |
-| `created_by` | TEXT | actor user handle (not an FK) |
+
+| column                     | type                              | notes                                                                                                |
+| -------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `id`                       | TEXT PK                           | `timeEntry_` handle                                                                                  |
+| `matter_id`                | TEXT NOT NULL → `matter.id`       | bound at commit                                                                                      |
+| `timekeeper_user_id`       | TEXT NOT NULL → `member.user_id`  | who the time is for                                                                                  |
+| `work_date`                | TEXT NOT NULL                     | civil `PlainDate` (YYYY-MM-DD); the effective date                                                   |
+| `duration_minutes`         | INTEGER NOT NULL                  | rounded billable quantity                                                                            |
+| `raw_duration_minutes`     | INTEGER NOT NULL                  | captured pre-rounding minutes                                                                        |
+| `narrative`                | TEXT NOT NULL                     |                                                                                                      |
+| `billable`                 | INTEGER NOT NULL                  | 0/1, CHECK IN (0,1)                                                                                  |
+| `non_billable_category_id` | TEXT → `non_billable_category.id` | nullable; set only when `billable = 0`                                                               |
+| `currency`                 | TEXT NOT NULL                     | ISO-4217, CHECK against registered set, seed `USD`                                                   |
+| `rate_e4`                  | INTEGER                           | nullable (null for non-billable internal time)                                                       |
+| `rate_card_id`             | TEXT → `rate_card.id`             | null ⟺ `rate_e4` null                                                                                |
+| `rate_source`              | TEXT                              | CHECK IN (`override`,`matter`,`client`,`timekeeper`,`role`,`card_default`); null when `rate_e4` null |
+| `amount_minor`             | INTEGER                           | CHECK: (`amount_minor` IS NULL) = (`rate_e4` IS NULL)                                                |
+| `utbms_task_code_id`       | TEXT → `utbms_code.id`            | nullable                                                                                             |
+| `utbms_activity_code_id`   | TEXT → `utbms_code.id`            | nullable                                                                                             |
+| `status`                   | TEXT NOT NULL                     | CHECK IN (`draft`,`submitted`,`approved`,`billed`,`void`)                                            |
+| `source`                   | TEXT NOT NULL                     | CHECK IN (`timer`,`manual`,`quick_add`,`grid`,`offline_sync`,`calendar`)                             |
+| `live_run_id`              | TEXT                              | nullable; set for `source = timer`, the stop-commit dedup anchor                                     |
+| `invoice_id`               | TEXT                              | nullable; set at billing                                                                             |
+| `created_at`/`updated_at`  | TEXT NOT NULL                     | ISO instants                                                                                         |
+| `created_by`               | TEXT                              | actor user handle (not an FK)                                                                        |
 
 Indexes: `(timekeeper_user_id, work_date)`; `(matter_id, status)`; `(status, work_date)`. Partial UNIQUE on `live_run_id WHERE live_run_id IS NOT NULL` (collapses racing stop-commits).
 
@@ -250,7 +251,7 @@ alarm()     // flags the run "abandoned" (no auto-commit, no auto-discard)
 
 `live_run_id` is minted on `start` (a `newIdentifier`-shaped token). The stored shape: `{ startedAt, pausedIntervals, matterId?, label?, narrative?, utbmsTaskCodeId?, lastActivityAt, status, liveRunId }`. Pure elapsed math + the state machine live in `timer-runtime.ts`. The DO never writes a `time_entry`.
 
-### Stop-commit derivation (`apps/worker/src/routes/timer.ts`)
+### Stop-commit derivation (`apps/worker/src/routes/timekeeping/timer.ts`)
 
 The route reads the DO's `stopAndCommit` result, then derives **deterministically from `live_run_id`**: the chokepoint Idempotency-Key (`timer-stop:<liveRunId>`) and the `timeEntry_` handle (`timeEntry_<liveRunId-derived-token>`). It resolves the rate + rounds the duration, calls `captureTimeEntry({ ..., source: "timer", liveRunId })` inside `runIdempotentEffect`, and on success tells the DO to clear. Two racing commits collapse to one entry via the chokepoint UNIQUE key + the `time_entry.live_run_id` partial UNIQUE.
 
@@ -7049,11 +7050,11 @@ I now have all patterns confirmed. Here are the expanded Tasks 17–20.
 
 The time-entry HTTP surface, every write through the chokepoint over `runIdempotentEffect`. The handler is the **rate-resolution + duration-rounding site**: it calls `resolveRate` (Task 7) and `roundDuration`/`computeAmountMinor` (Task 4) with the scope-resolved increment/direction (`resolveScopedSetting`, Task 3), then hands the resolved `rate: RateResolution` + `durationMinutes` + `currency` to `captureTimeEntry` (Task 9), which only composes the insert. `previewQuickAdd` is a read-shaped POST (no write) that runs `parseQuickAdd` (Task 13) and surfaces matter candidates for confirm — mirroring `numbering.preview`. Lifecycle review (`submit`/`approve`/`kickBack`) carries `time:approve`; all other writes carry `time:track`.
 
-This task matches `apps/worker/src/routes/locations.ts` exactly: a shared `commitTimeEntryEffect` helper modeled on `commitLocationEffect`, the same `RouteMeta` builders, the same `writeErrorResponses`/`readErrorResponses` blocks, the same `Idempotency-Replayed` surfacing.
+This task matches `apps/worker/src/routes/matters/locations.ts` exactly: a shared `commitTimeEntryEffect` helper modeled on `commitLocationEffect`, the same `RouteMeta` builders, the same `writeErrorResponses`/`readErrorResponses` blocks, the same `Idempotency-Replayed` surfacing.
 
 **Files**
 
-- Create: `apps/worker/src/routes/time-entries.ts`
+- Create: `apps/worker/src/routes/timekeeping/time-entries.ts`
 - Modify: `apps/worker/src/app.ts` (register), `packages/timekeeping/package.json` (the consumed exports must be declared)
 - Test: `apps/worker/test/time-entries-routes.test.ts`
 
@@ -7428,7 +7429,7 @@ describe("idempotency and permission", () => {
 pnpm --filter @magna-carta/worker test -- time-entries-routes
 ```
 
-Expected output: the suite fails to resolve the route module — `Cannot find module '../src/routes/time-entries.ts'` (the file does not exist yet) and, once it does, every `SELF.fetch` to `/api/v1/time-entries` returns 404 (the asset fallthrough) because the routes are unregistered. Vitest reports the `time-entries-routes` file as failed, e.g. `FAIL apps/worker/test/time-entries-routes.test.ts`.
+Expected output: the suite fails to resolve the route module — `Cannot find module '../src/routes/timekeeping/time-entries.ts'` (the file does not exist yet) and, once it does, every `SELF.fetch` to `/api/v1/time-entries` returns 404 (the asset fallthrough) because the routes are unregistered. Vitest reports the `time-entries-routes` file as failed, e.g. `FAIL apps/worker/test/time-entries-routes.test.ts`.
 
 #### Step 3 — Implement the routes
 
@@ -7446,7 +7447,7 @@ First declare the consumed package exports. Add to `packages/timekeeping/package
     "./queries": "./src/queries.ts",
 ```
 
-Create `apps/worker/src/routes/time-entries.ts`. It mirrors `routes/locations.ts`: the `RouteMeta` builders, the `writeErrorResponses`/`readErrorResponses` blocks, a `commitTimeEntryEffect` helper modeled on `commitLocationEffect` that maps `TimeEntryValidationError` to a problem and surfaces replay. The capture handler is the rate-resolution + rounding site.
+Create `apps/worker/src/routes/timekeeping/time-entries.ts`. It mirrors `routes/matters/locations.ts`: the `RouteMeta` builders, the `writeErrorResponses`/`readErrorResponses` blocks, a `commitTimeEntryEffect` helper modeled on `commitLocationEffect` that maps `TimeEntryValidationError` to a problem and surfaces replay. The capture handler is the rate-resolution + rounding site.
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -8301,7 +8302,7 @@ async function transitionHandler(
 Register in `apps/worker/src/app.ts` — add the import beside the other route imports and the registration beside the slice-1·x block:
 
 ```ts
-import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
+import { registerTimeEntriesRoutes } from "./routes/timekeeping/time-entries.ts";
 ```
 
 ```ts
@@ -8320,7 +8321,7 @@ Expected output: `Test Files  1 passed (1)` / all `time-entries-routes` cases gr
 #### Step 5 — Commit
 
 ```
-git add apps/worker/src/routes/time-entries.ts apps/worker/src/app.ts apps/worker/test/time-entries-routes.test.ts packages/timekeeping/package.json
+git add apps/worker/src/routes/timekeeping/time-entries.ts apps/worker/src/app.ts apps/worker/test/time-entries-routes.test.ts packages/timekeeping/package.json
 git commit -m "feat(worker): time-entry routes through the chokepoint (capture/list/lifecycle/quick-add/grid)"
 ```
 
@@ -8332,7 +8333,7 @@ The timer HTTP surface. `start`/`pause`/`resume`/`bind`/`read`/`discard` are thi
 
 **Files**
 
-- Create: `apps/worker/src/routes/timer.ts`
+- Create: `apps/worker/src/routes/timekeeping/timer.ts`
 - Modify: `apps/worker/src/app.ts` (register)
 - Test: `apps/worker/test/timer-routes.test.ts` (Miniflare)
 
@@ -8471,11 +8472,11 @@ describe("two racing stop-commits collapse to one entry", () => {
 pnpm --filter @magna-carta/worker test -- timer-routes
 ```
 
-Expected output: `Cannot find module '../src/routes/timer.ts'`, and once stubbed, every `/api/v1/timer/*` POST returns 404 (unregistered → asset fallthrough). `FAIL apps/worker/test/timer-routes.test.ts`.
+Expected output: `Cannot find module '../src/routes/timekeeping/timer.ts'`, and once stubbed, every `/api/v1/timer/*` POST returns 404 (unregistered → asset fallthrough). `FAIL apps/worker/test/timer-routes.test.ts`.
 
 #### Step 3 — Implement the routes
 
-Create `apps/worker/src/routes/timer.ts`. The DO is reached through `c.env.DURABLE_TIMER`. The deterministic derivations live in one place so the two-phase guarantee is auditable. `time_entry`-derived handle uses `deriveTimeEntryHandle(liveRunId)` — a stable transform (the `liveRunId` token suffixed into a `timeEntry_` handle) so two routes computing it agree.
+Create `apps/worker/src/routes/timekeeping/timer.ts`. The DO is reached through `c.env.DURABLE_TIMER`. The deterministic derivations live in one place so the two-phase guarantee is auditable. `time_entry`-derived handle uses `deriveTimeEntryHandle(liveRunId)` — a stable transform (the `liveRunId` token suffixed into a `timeEntry_` handle) so two routes computing it agree.
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -8928,7 +8929,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
 Register in `apps/worker/src/app.ts`:
 
 ```ts
-import { registerTimerRoutes } from "./routes/timer.ts";
+import { registerTimerRoutes } from "./routes/timekeeping/timer.ts";
 ```
 
 ```ts
@@ -8946,7 +8947,7 @@ Expected output: `Test Files  1 passed (1)` — start→bind→stop-commit mints
 #### Step 5 — Commit
 
 ```
-git add apps/worker/src/routes/timer.ts apps/worker/src/app.ts apps/worker/test/timer-routes.test.ts
+git add apps/worker/src/routes/timekeeping/timer.ts apps/worker/src/app.ts apps/worker/test/timer-routes.test.ts
 git commit -m "feat(worker): timer routes — DO proxy + idempotent stop-commit derived from live_run_id"
 ```
 
@@ -8954,11 +8955,11 @@ git commit -m "feat(worker): timer routes — DO proxy + idempotent stop-commit 
 
 ### Task 19: rate-cards / utbms-codes / non-billable / narrative-templates / my-day routes
 
-The remaining HTTP surface, each through the chokepoint over `runIdempotentEffect`, each permission-gated per §11: rates → `time:manageRates`, UTBMS → `time:manageUtbms`, categories + templates → `time:manageSettings`, My Day → `time:track` (read). All five route files follow `routes/locations.ts` exactly. The My Day read pulls the firm-level targets (`time.target_daily_hours`, the flat `setting` seam) and hands them to `readMyDay` (Task 13).
+The remaining HTTP surface, each through the chokepoint over `runIdempotentEffect`, each permission-gated per §11: rates → `time:manageRates`, UTBMS → `time:manageUtbms`, categories + templates → `time:manageSettings`, My Day → `time:track` (read). All five route files follow `routes/matters/locations.ts` exactly. The My Day read pulls the firm-level targets (`time.target_daily_hours`, the flat `setting` seam) and hands them to `readMyDay` (Task 13).
 
 **Files**
 
-- Create: `apps/worker/src/routes/rate-cards.ts`, `apps/worker/src/routes/utbms-codes.ts`, `apps/worker/src/routes/non-billable-categories.ts`, `apps/worker/src/routes/narrative-templates.ts`, `apps/worker/src/routes/my-day.ts`
+- Create: `apps/worker/src/routes/timekeeping/rate-cards.ts`, `apps/worker/src/routes/timekeeping/utbms-codes.ts`, `apps/worker/src/routes/timekeeping/non-billable-categories.ts`, `apps/worker/src/routes/timekeeping/narrative-templates.ts`, `apps/worker/src/routes/notes-and-tasks/my-day.ts`
 - Modify: `apps/worker/src/app.ts` (register all five)
 - Test: `apps/worker/test/rate-cards-routes.test.ts`, `apps/worker/test/utbms-routes.test.ts`, `apps/worker/test/non-billable-categories-routes.test.ts`, `apps/worker/test/narrative-templates-routes.test.ts`, `apps/worker/test/my-day-routes.test.ts`
 
@@ -9115,11 +9116,11 @@ The remaining three test files (`utbms-routes.test.ts`, `non-billable-categories
 pnpm --filter @magna-carta/worker test -- rate-cards-routes utbms-routes non-billable-categories-routes narrative-templates-routes my-day-routes
 ```
 
-Expected output: all five files fail — `Cannot find module '../src/routes/rate-cards.ts'` (and the four siblings), then every route 404s once stubbed. `FAIL` on each of the five files.
+Expected output: all five files fail — `Cannot find module '../src/routes/timekeeping/rate-cards.ts'` (and the four siblings), then every route 404s once stubbed. `FAIL` on each of the five files.
 
 #### Step 3 — Implement the routes
 
-Create `apps/worker/src/routes/rate-cards.ts`. Mirrors `routes/locations.ts`: `RouteMeta` builders carrying `permission: "time:manageRates"`, a `commitRateEffect` helper modeled on `commitLocationEffect` that maps `RateValidationError` to 422, the same replay surfacing.
+Create `apps/worker/src/routes/timekeeping/rate-cards.ts`. Mirrors `routes/matters/locations.ts`: `RouteMeta` builders carrying `permission: "time:manageRates"`, a `commitRateEffect` helper modeled on `commitLocationEffect` that maps `RateValidationError` to 422, the same replay surfacing.
 
 ```ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -9510,7 +9511,7 @@ export function registerRateCardsRoutes(app: RatesApp, chokepoint: Chokepoint): 
 }
 ```
 
-Create `apps/worker/src/routes/utbms-codes.ts` (permission `time:manageUtbms`; `enable`/`disable` toggle `active` through `enableUtbmsCode`/`disableUtbmsCode`; list reads `UTBMS_CODE_TABLE` filtered by `code_set`), `apps/worker/src/routes/non-billable-categories.ts` (permission `time:manageSettings`; create/update/archive through the Task-12 service, soft-archive only), `apps/worker/src/routes/narrative-templates.ts` (permission `time:manageSettings`; create/list + a `recent-narratives` read through `recentNarrativesStatement`), and `apps/worker/src/routes/my-day.ts` (permission `time:track`, read-only). Each is the same locations-shaped module: `RouteMeta` builders, the shared `writeErrorResponses`/`readErrorResponses`, `runIdempotentEffect` on every write, replay surfacing. `my-day.ts` reads the firm-level targets via `readFirmSetting(firm.firmDatabase, targetDailyHoursDefinition)` and passes them to `readMyDay`:
+Create `apps/worker/src/routes/timekeeping/utbms-codes.ts` (permission `time:manageUtbms`; `enable`/`disable` toggle `active` through `enableUtbmsCode`/`disableUtbmsCode`; list reads `UTBMS_CODE_TABLE` filtered by `code_set`), `apps/worker/src/routes/timekeeping/non-billable-categories.ts` (permission `time:manageSettings`; create/update/archive through the Task-12 service, soft-archive only), `apps/worker/src/routes/timekeeping/narrative-templates.ts` (permission `time:manageSettings`; create/list + a `recent-narratives` read through `recentNarrativesStatement`), and `apps/worker/src/routes/notes-and-tasks/my-day.ts` (permission `time:track`, read-only). Each is the same locations-shaped module: `RouteMeta` builders, the shared `writeErrorResponses`/`readErrorResponses`, `runIdempotentEffect` on every write, replay surfacing. `my-day.ts` reads the firm-level targets via `readFirmSetting(firm.firmDatabase, targetDailyHoursDefinition)` and passes them to `readMyDay`:
 
 ```ts
 // my-day.ts — the visibility read handler body
@@ -9528,11 +9529,11 @@ return c.json(view, 200);
 Register all five in `apps/worker/src/app.ts`, beside the Task-17/18 registrations:
 
 ```ts
-import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
-import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
-import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
-import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
-import { registerMyDayRoutes } from "./routes/my-day.ts";
+import { registerRateCardsRoutes } from "./routes/timekeeping/rate-cards.ts";
+import { registerUtbmsCodesRoutes } from "./routes/timekeeping/utbms-codes.ts";
+import { registerNonBillableCategoriesRoutes } from "./routes/timekeeping/non-billable-categories.ts";
+import { registerNarrativeTemplatesRoutes } from "./routes/timekeeping/narrative-templates.ts";
+import { registerMyDayRoutes } from "./routes/notes-and-tasks/my-day.ts";
 ```
 
 ```ts
@@ -9556,7 +9557,7 @@ Expected output: `Test Files  5 passed (5)` — the card create/append/list/re-r
 #### Step 5 — Commit
 
 ```
-git add apps/worker/src/routes/rate-cards.ts apps/worker/src/routes/utbms-codes.ts apps/worker/src/routes/non-billable-categories.ts apps/worker/src/routes/narrative-templates.ts apps/worker/src/routes/my-day.ts apps/worker/src/app.ts packages/timekeeping/package.json apps/worker/test/rate-cards-routes.test.ts apps/worker/test/utbms-routes.test.ts apps/worker/test/non-billable-categories-routes.test.ts apps/worker/test/narrative-templates-routes.test.ts apps/worker/test/my-day-routes.test.ts
+git add apps/worker/src/routes/timekeeping/rate-cards.ts apps/worker/src/routes/timekeeping/utbms-codes.ts apps/worker/src/routes/timekeeping/non-billable-categories.ts apps/worker/src/routes/timekeeping/narrative-templates.ts apps/worker/src/routes/notes-and-tasks/my-day.ts apps/worker/src/app.ts packages/timekeeping/package.json apps/worker/test/rate-cards-routes.test.ts apps/worker/test/utbms-routes.test.ts apps/worker/test/non-billable-categories-routes.test.ts apps/worker/test/narrative-templates-routes.test.ts apps/worker/test/my-day-routes.test.ts
 git commit -m "feat(worker): rate-card, UTBMS, non-billable, narrative-template, and my-day routes"
 ```
 

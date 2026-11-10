@@ -69,7 +69,8 @@ export type SourceAvailability = "searched" | "unavailable";
 export type EvidenceTier = 1 | 2 | 3 | 4;
 
 /** Where a run of a check is in its life. */
-export type RunStatus = "queued" | "running" | "completed" | "failed";
+/** `cancelled` is a run a member stopped: an act, never a fault. */
+export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 /** Where a running search is, in the order the engine actually works. */
 export type RunStage = "sources" | "walking" | "matching" | "candidates";
@@ -208,6 +209,14 @@ export interface ConflictsCheckSummary {
   /** True when the firm's floor raised the scope above what was asked for — it searched WIDER. */
   floorRaised: boolean | null;
   hitCount: number | null;
+  /** Who the latest run searches, by name. */
+  subjectParties: SubjectParty[];
+}
+
+/** One party a check was asked about. `party` is null where the Directory no longer resolves it. */
+export interface SubjectParty {
+  entityId: string;
+  party: HitParty | null;
 }
 
 export interface ConflictsCheckPage {
@@ -367,8 +376,14 @@ export interface RunSummary {
   finishedAt: string | null;
   /** Why a failed run failed, in a sentence a person can act on. Null unless it failed. */
   failure: string | null;
+  /** Who stopped a cancelled run. Null on every other run. */
+  cancelledByUserId: string | null;
+  /** What the run was asked to search, readable from the moment it is queued. */
+  askedScope: { sources: string[]; strictness: string } | null;
   /** How many candidates this run's record holds. Null while it has no record. */
   hitCount: number | null;
+  /** Who this run searches, by name, from the moment it is queued. */
+  subjectParties: SubjectParty[];
 }
 
 /** The numbered check itself: what a person refers to. */
@@ -590,6 +605,23 @@ export function rerunConflictsCheck(
     body: {},
     idempotencyKey,
   });
+}
+
+/**
+ * Stop a run that has not finished. Answers with how the run now stands: `cancelled`, or how it had
+ * already settled when the press arrived.
+ */
+export function cancelConflictsRun(
+  fetchImpl: typeof fetch,
+  checkId: string,
+  runId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string; status: RunStatus }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}/runs/${encodeURIComponent(runId)}/cancel`,
+    { method: "POST", body: {}, idempotencyKey },
+  );
 }
 
 /** File a check on a matter. No search record moves; the next run searches with the matter's parties. */

@@ -73,11 +73,13 @@
    * their own, which is what an allowance was recording.
    */
   import type { Snippet } from "svelte";
+  import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import X from "@lucide/svelte/icons/x";
   import * as Dialog from "../dialog/index.ts";
   import * as AlertDialog from "../alert-dialog/index.ts";
+  import * as DropdownMenu from "../dropdown-menu/index.ts";
   import Button from "../button/index.ts";
   import SoonAffordance from "../maturity/soon-affordance.svelte";
   import type { SoonControlProperties } from "../maturity/soon-affordance.ts";
@@ -129,6 +131,20 @@
      * panel.
      */
     notice?: Snippet;
+    /**
+     * The panel's own menu: what can be done with the thing being shown rather than to it — copy
+     * its link, download a copy — as DropdownMenu items. The same place and the same control as
+     * the record window's kind's menu, so a record reads alike in either shell. Given, the header
+     * leads its control set with it; withheld, nothing renders. Only a panel that offers the corner
+     * controls draws it: a question is answered or declined, never browsed.
+     */
+    menu?: Snippet;
+    /**
+     * What stands before the heading: the picture of the person or the logo of the organization a
+     * record is about, so the panel is recognised before it is read. A face, never a control strip;
+     * the header's controls stay at its far end.
+     */
+    leading?: Snippet;
     /**
      * The body. Handed `busy` so ONE snippet renders the fields at rest and while the commit is in
      * flight — two snippets would be two layouts, and they would disagree within a week — and
@@ -223,6 +239,8 @@
     heading,
     subtitle,
     notice,
+    menu,
+    leading,
     fields,
     context,
     commitLabel,
@@ -410,6 +428,21 @@
        run. -->
   {#if traits.showsCornerDismiss}
     <div class="mc-modal-frame-header-actions">
+      {#if menu}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            data-action-dialog-action="menu"
+            class="mc-modal-frame-header-action"
+            title="More"
+            aria-label="More"
+          >
+            <EllipsisVertical class="mc-modal-frame-header-icon" aria-hidden="true" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end">
+            {@render menu()}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      {/if}
       {#if traits.expandable}
         <button
           type="button"
@@ -573,14 +606,24 @@
       onCloseAutoFocus={keepFocusWhereItIs}
     >
       <div class="mc-modal-frame-header">
-        <div class="mc-modal-frame-identity">
-          <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
-          {#if hasSubtitle}
-            <AlertDialog.Description class="mc-modal-frame-subtitle">
-              {@render subtitleContent()}
-            </AlertDialog.Description>
-          {/if}
-        </div>
+        {#snippet identity()}
+          <div class="mc-modal-frame-identity">
+            <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
+            {#if hasSubtitle}
+              <AlertDialog.Description class="mc-modal-frame-subtitle">
+                {@render subtitleContent()}
+              </AlertDialog.Description>
+            {/if}
+          </div>
+        {/snippet}
+        {#if leading}
+          <div class="mc-modal-frame-lead">
+            {@render leading()}
+            {@render identity()}
+          </div>
+        {:else}
+          {@render identity()}
+        {/if}
         {@render headerActions()}
       </div>
       {@render body()}
@@ -611,14 +654,24 @@
       onCloseAutoFocus={keepFocusWhereItIs}
     >
       <div class="mc-modal-frame-header">
-        <div class="mc-modal-frame-identity">
-          <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
-          {#if hasSubtitle}
-            <Dialog.Description class="mc-modal-frame-subtitle">
-              {@render subtitleContent()}
-            </Dialog.Description>
-          {/if}
-        </div>
+        {#snippet identity()}
+          <div class="mc-modal-frame-identity">
+            <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
+            {#if hasSubtitle}
+              <Dialog.Description class="mc-modal-frame-subtitle">
+                {@render subtitleContent()}
+              </Dialog.Description>
+            {/if}
+          </div>
+        {/snippet}
+        {#if leading}
+          <div class="mc-modal-frame-lead">
+            {@render leading()}
+            {@render identity()}
+          </div>
+        {:else}
+          {@render identity()}
+        {/if}
         {@render headerActions()}
       </div>
       {@render body()}

@@ -1085,7 +1085,7 @@ git commit -m "feat(access-control): add firm:recordUsage permission + usage-bea
 
 - [ ] **Step 2: Run it, expect failure** — Run: `pnpm --filter @magna-carta/worker test routes/usage`; Expected: FAIL.
 
-- [ ] **Step 3: Implement** — `apps/worker/src/routes/usage.ts` (modelled on `routes/incidents.ts`):
+- [ ] **Step 3: Implement** — `apps/worker/src/routes/usage.ts` (modelled on `routes/platform/incidents.ts`):
 
 ```typescript
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -1345,5 +1345,5 @@ Per golden rule 5, fold these into the commits of the tasks that produce the beh
 ## Self-review notes (author)
 
 - **Spec coverage:** §1 scope → A/C/E (reached, completed, performance dimension is the existing `request.completed` + the new `feature` dimension is covered by emitting `reached` per route; the retention seam is the `userIdHash` in A1/C2). §2 consent → B. §3 event model → A1/A3/C2. §4 origins → C2/C3/D2. §5 taxonomy → A2 + C1 + D2 enum. §6 storage/query → E + F. §7 placement → all. §8 fitness → folded into each task's tests. §9 cost / §10 docs → G. §11 sequencing → the A–F structure. §12 risks → F notes.
-- **Open dependency to confirm at execution time:** the exact chokepoint context-accessor names (`requireChokepointFirmContext`/`requireChokepointUserId` confirmed in `routes/incidents.ts`; the non-throwing `optional*` variants used by the reached middleware may need to be added — flagged in Task C2 Step 6).
+- **Open dependency to confirm at execution time:** the exact chokepoint context-accessor names (`requireChokepointFirmContext`/`requireChokepointUserId` confirmed in `routes/platform/incidents.ts`; the non-throwing `optional*` variants used by the reached middleware may need to be added — flagged in Task C2 Step 6).
 - **Type consistency:** `emitUsage` params, the `usageFeature` field set, and the beacon body all use `feature: FeatureKey`, `phase: "reached" | "completed"`, `surface: "web" | "desktop" | "portal" | null`, `userId: string | null`. The AE counter uses `surface ?? "none"` (string-only dimensions).

@@ -1,7 +1,8 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { CONFLICTS_PERSONNEL_TOPIC } from "@magna-carta/conflicts/recheck-cause";
 import { CONFLICTS_RECHECK_REQUESTED_TOPIC } from "@magna-carta/conflicts/topics";
-import { parseRecheckRunPayload } from "../src/conflicts/recheck-run-consumer.ts";
+import { parseRecheckRunPayload } from "../src/background/conflicts/recheck-run-consumer.ts";
 
 // The worker half of the automated re-check path: the two consumers, the context they run under, and
 // the periodic re-scan. Everything here is either a SOURCE SCAN (for the rules that cannot be tested
@@ -36,7 +37,9 @@ function sourceOf(suffix: string): string {
 }
 
 function conflictsModulePaths(): string[] {
-  return Object.keys(WORKER_SOURCES).filter((path) => path.includes("/src/conflicts/"));
+  return Object.keys(WORKER_SOURCES).filter(
+    (path) => path.includes("/src/conflicts/") || path.includes("/src/background/conflicts/"),
+  );
 }
 
 // An import of the disposition module by any spelling — the package export, a relative file, a
@@ -59,7 +62,7 @@ describe("the automated re-check consumers", () => {
     // Separate consumers so a slow check cannot back-pressure the recording of causes; the recording
     // is what makes staleness visible and has to keep up with the write path. An import here would
     // collapse them back into one and the back-pressure would return silently.
-    const source = sourceOf("/src/conflicts/recheck-request-consumer.ts");
+    const source = sourceOf("/src/background/conflicts/recheck-request-consumer.ts");
     // An import of the check orchestrator, or a call of it. Naming it in a comment that states the
     // rule is not a violation of the rule — a scan that cannot tell those apart is a scan people
     // work around by deleting the comment.
@@ -99,12 +102,14 @@ describe("the producers and their subscribers share one spelling", () => {
     // for the resolver to import — this pins the two together instead. An unrecognized topic on the
     // per-firm bus is acked and ignored by design, so a drift here does not throw, it just stops
     // delivering, which is the failure this assertion exists to catch.
-    expect(sourceOf("/src/member-provision-consumer.ts")).toContain("CONFLICTS_PERSONNEL_TOPIC");
+    expect(sourceOf("/src/background/member-provision-consumer.ts")).toContain(
+      "CONFLICTS_PERSONNEL_TOPIC",
+    );
     expect(CONFLICTS_PERSONNEL_TOPIC).toBe("member.provisioned");
   });
 
   it("registers the drain signal on the per-firm dispatch table", () => {
-    expect(sourceOf("/src/costs/recoverable-charge-consumer.ts")).toContain(
+    expect(sourceOf("/src/background/costs/recoverable-charge-consumer.ts")).toContain(
       "CONFLICTS_RECHECK_REQUESTED_TOPIC",
     );
     expect(CONFLICTS_RECHECK_REQUESTED_TOPIC).toBe("conflicts.recheck.requested");

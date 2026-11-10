@@ -10,6 +10,7 @@ import type {
   MatterEventId,
   MeetingAttendanceId,
   MeetingId,
+  MeetingRecordingId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { isGuestStayHandle } from "./guest-removal.ts";
@@ -42,6 +43,7 @@ import {
   readLiveHostGrant,
 } from "./hosting-statements.ts";
 import { requireHostGrant } from "./hosting-service.ts";
+import { stopRecordingForMeetingEnd } from "./recording-service.ts";
 import {
   MAX_MEETING_PARTICIPANTS,
   type MeetingDepartureReason,
@@ -649,17 +651,32 @@ export async function endMeeting(
  *
  * The audit row is the same `meetings.meeting.ended` event: what happened is that the meeting ended,
  * and a second event name for the same fact would split every later reading of the record in two.
+ *
+ * A RECORDING RUNNING IN THE ROOM STOPS WITH IT, in this same batch, exactly as it does on the host's
+ * own ending — `meeting-ended`, attributed to the member cancelling. A room nobody walked into can
+ * still be recorded (a recording may start before anybody speaks), and a meeting closed under a
+ * running recording would leave the record saying a recording ran on in a meeting that had finished.
+ * Its statements go AFTER the closing guard, so a cancel refused by the race rolls the stop back with
+ * it. Nobody is in the room to be told; the recorder lets go of it on its own next pass, once it reads
+ * that the record is no longer `recording`, and `stoppedRecordingId` names it for a caller that would
+ * rather tell it at once.
  */
 export async function endScheduledMeetingForCancelledEvent(
   database: SqlDatabase,
   meetingId: MeetingId,
   options: MeetingServiceOptions,
-): Promise<{ effect: EffectWrite }> {
+): Promise<{ effect: EffectWrite; stoppedRecordingId: MeetingRecordingId | null }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
 
   const now = options.clock.now();
+  const stopped = await stopRecordingForMeetingEnd(database, meetingId, {
+    clock: { now: () => now },
+    actorUserId: options.actorUserId,
+    randomSource: options.randomSource,
+  });
   return {
+    stoppedRecordingId: stopped?.recording.id ?? null,
     effect: {
       statements: [
         // NO CLOSE-ALL BESIDE IT, unlike the host's own ending. The guard below refuses unless the
@@ -685,6 +702,7 @@ export async function endScheduledMeetingForCancelledEvent(
           randomSource: options.randomSource,
           metadata: { startedAt: meeting.started_at, endedAt: now },
         }),
+        ...(stopped?.effect.statements ?? []),
       ],
       outboxMessages: [],
     },

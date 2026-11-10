@@ -38,19 +38,24 @@
    */
   import type { Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
-  import Button from "@magna-carta/design-system/button";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
-  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
-  import FolderInput from "@lucide/svelte/icons/folder-input";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Briefcase from "@lucide/svelte/icons/briefcase";
   import AttachFileDialog from "./attach-file-dialog.svelte";
   import ConversationDeleteDialog from "./conversation-delete-dialog.svelte";
+  import ConversationMenu from "./conversation-menu.svelte";
   import ConversationName from "./conversation-name.svelte";
+  import { conversationAuthor } from "./conversation-author.svelte.ts";
+  import { conversationFromAddress, CONVERSATION_PARAMETER } from "./conversation-link.ts";
+  import { readWholeTranscript, transcriptFileName, transcriptMarkdown } from "./transcript-export.ts";
+  import { saveToTarget } from "$lib/export/save-target.ts";
+  import { toast } from "@magna-carta/design-system/toast";
+  import { page } from "$app/state";
+  import { replaceState } from "$app/navigation";
   import MagnusComposer from "./magnus-composer.svelte";
   import MagnusDisclosure from "./magnus-disclosure.svelte";
   import MagnusRail from "./magnus-rail.svelte";
@@ -187,7 +192,20 @@
   const allowanceWorthSaying = $derived(
     remainingDailyTurns !== undefined && remainingDailyTurns <= ALLOWANCE_WORTH_SAYING_AT,
   );
-  const selected = $derived(rows?.find((row) => row.id === selectedId) ?? null);
+  /*
+   * The open conversation's record. Usually a row in the rail; a conversation opened from a link can
+   * be one the rail has not paged to yet, and then the record the transcript read stands in.
+   */
+  const selected = $derived(
+    rows?.find((row) => row.id === selectedId) ??
+      (session.conversation !== null && session.conversation.id === selectedId
+        ? session.conversation
+        : null),
+  );
+  let conversationName = $state<ReturnType<typeof ConversationName> | null>(null);
+  let downloading = $state(false);
+  /* Who asked, named the way the transcript names them, for the downloaded file's heading. */
+  const author = conversationAuthor(() => selected?.createdBy ?? null);
   const sendRefused = $derived(allowanceSpent || starting || session.sending);
   /** The matter the OPEN conversation is kept on, which is what attaching reaches and moving leaves. */
   const openMatterId = $derived(selected?.matterId ?? matterId);
@@ -233,6 +251,13 @@
 
   $effect(() => {
     createRefusal = startRefusal;
+  });
+
+  /* The open conversation's matter is named under its title, so its citation is read even where the
+     rail itself cites none. The read is remembered, so reopening the same matter costs nothing. */
+  $effect(() => {
+    const keptOn = selected?.matterId ?? null;
+    if (matterId === null && keptOn !== null) void citations.resolve([keptOn]);
   });
 
   /*
@@ -335,6 +360,13 @@
    */
   function openNewestIfNothingIsOpen(): void {
     if (composingNew || selectedId !== null) return;
+    // A link to one conversation opens that one, whether or not the rail has paged to it; a link
+    // to a conversation the reader cannot see settles as the transcript's own failure notice.
+    const named = conversationFromAddress(page.url);
+    if (named !== null) {
+      select(named);
+      return;
+    }
     const newest = conversations.items?.[0];
     if (newest === undefined) return;
     select(newest.id);
@@ -376,6 +408,7 @@
   export function startNew(): void {
     if (startRefusal !== undefined) return;
     selectedId = null;
+    mirrorAddress(null);
     composingNew = true;
     session.close();
     draft = "";
@@ -390,6 +423,51 @@
     startFailure = null;
     detachFailure = null;
     if (!session.showing(conversationId)) session.open(conversationId);
+    mirrorAddress(conversationId);
+  }
+
+  /*
+   * The address names the open conversation, so reloading reopens it and the browser's own Copy
+   * Link copies it. `replaceState`, never a navigation: choosing a conversation is not a new page,
+   * and a history entry per click would make Back walk through every conversation looked at.
+   */
+  function mirrorAddress(conversationId: string | null): void {
+    if (conversationFromAddress(page.url) === conversationId) return;
+    const next = new URL(page.url.href);
+    if (conversationId === null) next.searchParams.delete(CONVERSATION_PARAMETER);
+    else next.searchParams.set(CONVERSATION_PARAMETER, conversationId);
+    replaceState(next, page.state);
+  }
+
+  /** The matter line under the title, as words, for the downloaded file's heading. */
+  function matterLineFor(keptOn: string | null): string | null {
+    if (keptOn === null) return null;
+    const number = citations.numberFor(keptOn);
+    const title = citations.titleFor(keptOn);
+    if (number !== null && title !== null) return `${number} · ${title}`;
+    return number ?? title ?? "A matter";
+  }
+
+  async function downloadTranscript(): Promise<void> {
+    const conversation = selected;
+    if (conversation === null || downloading) return;
+    downloading = true;
+    const outcome = await readWholeTranscript(fetch, conversation.id);
+    if (outcome.kind !== "ok") {
+      downloading = false;
+      toast.error("The transcript could not be read, so nothing was downloaded. Try again.");
+      return;
+    }
+    const document = transcriptMarkdown(conversation, outcome.value, {
+      memberName: author.name,
+      matterLine: matterLineFor(conversation.matterId),
+      downloadedAt: new Date(),
+    });
+    const where = await saveToTarget(document, transcriptFileName(conversation), "text/markdown");
+    downloading = false;
+    toast.success(
+      where === "folder" ? "Transcript saved to your downloads folder." : "Transcript downloaded.",
+    );
   }
 
   function switchTo(value: string): void {
@@ -458,6 +536,8 @@
   function conversationDeleted(): void {
     deletingConversation = null;
     selectedId = null;
+    // The address no longer names a conversation that exists, or arriving would reopen it.
+    mirrorAddress(null);
     composingNew = false;
     session.close();
     void loadConversations();
@@ -506,51 +586,47 @@
 {/snippet}
 
 {#snippet conversationHeadRow()}
-  <!-- The conversation's name, edited where it is read, and the acts on the record beside it. The
-       acts are named controls with the design system's hover, never native titles, and each one is
-       refused with its reason while nothing is open rather than absent. -->
-  <div class="flex flex-wrap items-center justify-between gap-8 px-24 pt-8">
-    <ConversationName
-      conversation={selected}
-      disabled={session.sending}
-      onRenamed={conversationRenamed}
-    />
-    <div class="flex items-center gap-4">
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant="ghost"
-              size="icon-sm"
-              disabled={selected === null}
-              onclick={() => (movingConversation = selected)}
-              aria-label="Keep this conversation on a matter"
-            >
-              <FolderInput class="size-16" aria-hidden="true" />
-            </Button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content>Keep on a matter</Tooltip.Content>
-      </Tooltip.Root>
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant="ghost"
-              size="icon-sm"
-              disabled={selected === null}
-              onclick={() => (deletingConversation = selected)}
-              aria-label="Delete this conversation"
-            >
-              <Trash2 class="size-16" aria-hidden="true" />
-            </Button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content>Delete</Tooltip.Content>
-      </Tooltip.Root>
+  <!-- The conversation's name, edited where it is read, and its one menu of acts beside it
+       (conversation-menu.svelte): the owner's ruling put every act on the conversation behind one
+       `…` rather than a row of icons. -->
+  <div class="flex flex-wrap items-start justify-between gap-8 px-24 pt-8">
+    <!-- The name over the matter it is kept on, set small: the matter is where the conversation
+         lives, and a reader on the workspace (which spans every matter) needs it without it
+         competing with the name. Inside a matter's own section the masthead already says it. -->
+    <div class="flex min-w-0 flex-col gap-4">
+      <ConversationName
+        bind:this={conversationName}
+        conversation={selected}
+        disabled={session.sending}
+        onRenamed={conversationRenamed}
+      />
+      {#if matterId === null && selected !== null}
+        {@const keptOn = selected.matterId}
+        <p class="flex min-w-0 items-center gap-4 text-xs text-text-muted">
+          <Briefcase class="size-12 shrink-0" aria-hidden="true" />
+          {#if keptOn === null}
+            <span>Not kept on a matter</span>
+          {:else}
+            {@const number = citations.numberFor(keptOn)}
+            {@const title = citations.titleFor(keptOn)}
+            <span class="truncate">
+              {#if number !== null}<span class="font-medium">{number}</span>{/if}
+              {#if number !== null && title !== null}<span aria-hidden="true"> · </span>{/if}
+              {title ?? (number === null ? "A matter" : "")}
+            </span>
+          {/if}
+        </p>
+      {/if}
     </div>
+    <ConversationMenu
+      conversationId={selected?.id ?? null}
+      disabled={session.sending}
+      {downloading}
+      onRename={() => conversationName?.rename()}
+      onMove={() => (movingConversation = selected)}
+      onDownload={() => void downloadTranscript()}
+      onDelete={() => (deletingConversation = selected)}
+    />
   </div>
 {/snippet}
 

@@ -399,6 +399,85 @@ path the PDF, decryption, email and seven-zip cores already take.
 
 ---
 
+## 7a. Amendment, 2026-11-09 — the first slice-2 measurement
+
+The owner ruled on 2026-11-09 that background blur is built memory-safely, Rust first, which is
+the order the media-effects design already sets
+([`docs/specs/2026-09-20-meetings-media-effects-design.md`](../specs/2026-09-20-meetings-media-effects-design.md),
+_Slice 2_). The same day the owner asked for **image backgrounds** as well as blur; they use the
+same mask with a different composite, so they ride the same runtime. The first measurement was
+taken in a throwaway crate outside the repository, and what it found is recorded here.
+
+**Section 4.4 was wrong about `tract`.** It said `tract` reads `.tflite` directly, so it could run
+MediaPipe's SelfieSegmenter file unconverted. `tract-tflite` 0.23.10 cannot load that file. The
+model's last layer is MediaPipe's own custom operator `Convolution2DTransposeBias` (a transposed
+convolution with its bias fused in), and `tract-tflite` registers no custom operators, and no
+`TRANSPOSE_CONV` either. Its registry is private, so a caller cannot add one.
+
+**With that one operator added, it runs and is exact.** A 25-line handler in a patched copy of
+`tract-tflite` maps the custom operator onto `tract-core`'s own `Deconv`. It reads the raw
+`TfLiteTransposeConvParams` options (padding, stride width, stride height as little-endian `i32`).
+It handles only the case this model uses, a kernel equal to its stride with no overlap. The
+landscape model (`selfie_segmenter_landscape.tflite`, float16, 250,177 bytes) then loads and runs.
+On a real portrait resized to 256 × 144, its mask matches the reference LiteRT interpreter to a
+largest absolute difference of 1.4 × 10⁻⁵, and every pixel lands on the same side of 0.5. LiteRT
+served as the test oracle only and is not in the artefact.
+
+**Speed (bar 1 of the design).** Over 100 runs after 5 warm-ups, headless Chromium 153 ran
+`wasm32` with SIMD128 on one thread, on a 4-vCPU cloud Xeon at 2.10 GHz:
+
+| Measure                  | Result  | Bar                                |
+| ------------------------ | ------- | ---------------------------------- |
+| Inference p50, 256 × 144 | 8.4 ms  |                                    |
+| Inference p95, 256 × 144 | 13.3 ms | ≤ 20 ms                            |
+| Inference max            | 16.3 ms |                                    |
+| Model load and plan      | 302 ms  | once, when the effect is turned on |
+
+A cloud server is not the reference laptop that `docs/conventions/performance.md` names, so this
+is evidence that bar 1 is reachable rather than a pass. Bars 2 to 5 (24 fps published at 720p,
+2 ms on the main thread, 35% of a core, no flicker) need the Worker, the WebGL2 composite and a
+real camera, and none of them has been measured yet.
+
+**Size is over budget.** The release `.wasm` is 11.1 MB raw and 2.17 MB gzipped, against the
+design's ≤ 1.5 MB for module plus model. It carries the whole of `tract`'s operator set and
+TensorFlow Lite deserialiser. The next step is to cut it down: drop the flatbuffer loader by
+building the graph from a model converted once at build time (`tract`'s own NNEF output), turn off
+the features this model does not use, and run `wasm-opt -Oz`. `rten` with an ONNX conversion
+stays the alternative if `tract` cannot get under the line.
+
+**What production needs from this.** The custom-operator handler has to live somewhere the build
+owns: upstream in `tract` (the preferred route, as one small pull request), or in a vendored
+patch under `crates/` until then. Either way it is safe Rust, and nothing here adds C or C++.
+
+## 7b. Amendment, 2026-11-09 (later the same day) — rten, not tract
+
+The tract result in section 7a needed one thing the owner would have had to consent to under golden
+rule 14: `tract-linalg`'s build script uses `cc` to assemble hand-written matrix kernels whenever it is
+built for a native target, as `cargo test` does. The browser module itself is pure Rust, but the
+native-build gate reads the lockfile, and the owner chose to measure the alternative instead.
+
+**`rten` 0.28 has no native build anywhere in its tree** (33 crates, no `cc`, no `-sys` crate). It reads
+ONNX, and no off-the-shelf converter takes this model because of the same custom operator, so the
+model was converted by a small script that writes the ONNX graph operator by operator. The script and
+the provenance are in [`crates/segmentation-core/model/`](../../crates/segmentation-core/model/README.md).
+The converted model matches the reference interpreter to 9 × 10⁻⁶ under ONNX Runtime and to 1.2 × 10⁻⁵
+under rten, with every pixel on the same side of 0.5.
+
+Measured the same way as section 7a (headless Chromium 153, one thread, SIMD128, 4-vCPU cloud Xeon):
+
+| Build                          | Download, gzipped, model included | Inference p50 | Inference p95 | Load    |
+| ------------------------------ | --------------------------------- | ------------- | ------------- | ------- |
+| tract, `opt-level "s"`         | 1.50 MB                           | 12.4 ms       | 16.3 ms       | ~300 ms |
+| rten, `opt-level 3`, SIMD128   | 1.16 MB                           | 14.2–14.9 ms  | 18.9–22.0 ms  | ~22 ms  |
+| rten, `opt-level "z"`, SIMD128 | 0.75 MB                           | 26 ms         | 30–34 ms      | ~28 ms  |
+| rten, `opt-level 3`, no SIMD   | —                                 | 21 ms         | 28 ms         | —       |
+
+**rten is taken**, built at `opt-level 3` with SIMD128: it ties tract on speed within this machine's
+noise, is smaller, loads an order of magnitude faster, and needs no consent.
+[`crates/segmentation-core`](../../crates/segmentation-core/CLAUDE.md) is the engine and
+[`packages/segmentation`](../../packages/segmentation/CLAUDE.md) its TypeScript seam. Bars 2 to 5 still
+wait on the Worker and the WebGL composite.
+
 ## 8. Sources
 
 Every source, with the date it carries and the date it was read (2026-09-20 throughout).

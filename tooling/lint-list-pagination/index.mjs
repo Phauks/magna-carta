@@ -1,7 +1,7 @@
 /*
  * A list endpoint may not quietly answer with an unbounded array.
  *
- * The contract module in apps/api-worker/src/contracts/pagination.ts states the rule outright — "every
+ * The contract module in apps/api-worker/src/http/contracts/pagination.ts states the rule outright — "every
  * list endpoint returns the uniform { data, nextCursor } envelope" — and forty-seven endpoints did
  * not follow it. A rule written down and enforced by nothing is a rule that decays, and this one had:
  * two of the forty-seven read a matter's whole record with no LIMIT at any layer, which is a response
@@ -48,7 +48,7 @@ if (added.length > 0) {
   console.error(
     "lint:list-pagination: a list endpoint answers with an array and no cursor.\n\n" +
       "  A list endpoint returns the uniform { data, nextCursor } envelope — see\n" +
-      "  apps/api-worker/src/contracts/pagination.ts, and packages/data-access/src/cursor-pagination.ts\n" +
+      "  apps/api-worker/src/http/contracts/pagination.ts, and packages/data-access/src/cursor-pagination.ts\n" +
       "  for the keyset helpers. An unbounded array is a response whose size the caller does not\n" +
       "  control and the firm's own history does.\n",
   );

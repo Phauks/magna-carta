@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 /*
  * The aggregate version read's resolution rules: every rostered service binding lands in exactly
  * one honest state — reported (its own answer), unbound (no binding here), unreachable (bound but
@@ -12,7 +13,7 @@ import {
   resetServiceVersionsCache,
   SERVICE_VERSION_ROSTER,
   type ServiceVersionBindings,
-} from "../src/routes/meta-versions.ts";
+} from "../src/http/routes/platform/meta-versions.ts";
 
 const REPORTED_IDENTITY = {
   commit: "abc1234",

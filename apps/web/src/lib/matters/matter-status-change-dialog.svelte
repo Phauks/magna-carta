@@ -58,6 +58,9 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import StatusMark from "@magna-carta/design-system/status-mark";
   import Textarea from "@magna-carta/design-system/textarea";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { formatDate } from "@magna-carta/design-system/data-table";
+  import { civilDateTextOrEmpty, civilDateValue, todayInUtc } from "$lib/dates";
   import Archive from "@lucide/svelte/icons/archive";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
@@ -74,6 +77,8 @@
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
+    earliestFileDestructionDate,
+    fileDestructionDateRefusal,
     holdReasonRefusal,
     matterCloseRefusals,
     matterGraduateRefusals,
@@ -95,6 +100,7 @@
     readMatterCloseReadiness,
     readMatterGraduateReadiness,
     readMatterOpenReadiness,
+    readMatterSettings,
     releaseMatter,
     reopenMatter,
     type MatterCloseNotice,
@@ -158,6 +164,24 @@
   let holdReason = $state("");
   let holdReasonTouched = $state(false);
   const holdReasonError = $derived(holdReasonTouched ? holdReasonRefusal(holdReason) : null);
+  /*
+   * THE CLOSE ASKS WHEN THE PAPER FILE MAY BE DESTROYED (owner ruling, 2026-11-09): at least the
+   * firm's minimum after the close, a later date, or none. It opens on the floor itself where the
+   * firm has one, so the common answer is already given; with no minimum it opens on a date not yet
+   * chosen, because the platform never picks a period. The minimum is read on every opening — a
+   * firm can change it between two — and a failed read leaves the floor to the server, which is
+   * the authority either way. Nothing is ever destroyed when the date arrives.
+   */
+  let minimumYears = $state<number | null>(null);
+  let destructionChoice = $state<"date" | "none">("date");
+  let destructionDraft = $state("");
+  let destructionTouched = $state(false);
+  const earliestDestruction = $derived(
+    minimumYears === null ? null : earliestFileDestructionDate(todayInUtc(), minimumYears),
+  );
+  const destroyOn = $derived(destructionChoice === "none" ? null : destructionDraft);
+  const destructionRefusal = $derived(fileDestructionDateRefusal(destroyOn, earliestDestruction));
+
   /** The whole failure record, not a sentence squeezed out of it: the Error ID rides with it. */
   let failure = $state<StatedFailure | null>(null);
   /** The step that was taken, held so the result reads about it and not about the next one. */
@@ -181,6 +205,7 @@
     // An unanswered question is NOT a refusal and never shuts the commit: nothing has been
     // predicted, and the step itself is the authority either way.
     if (standing?.refused === true) return "What this step requires is not met.";
+    if (chosen?.action === "close" && destructionRefusal !== null) return destructionRefusal;
     return undefined;
   });
 
@@ -201,12 +226,26 @@
     taken = null;
     notices = [];
     readiness = NO_LIFECYCLE_READINESS;
+    minimumYears = null;
+    destructionChoice = "date";
+    destructionDraft = "";
+    destructionTouched = false;
     if (isSample) return;
     void sessionPermissions.load(fetch);
     const matterId = matter.id;
     for (const candidate of steps) {
       switch (candidate.action) {
         case "close":
+          void (async () => {
+            const outcome = await readMatterSettings(fetch);
+            if (outcome.kind !== "ok") return;
+            minimumYears = outcome.value.fileRetentionMinimumYears;
+            // Opens on the floor, unless the reader has already started answering.
+            if (!destructionTouched) {
+              destructionDraft =
+                earliestFileDestructionDate(todayInUtc(), minimumYears) ?? destructionDraft;
+            }
+          })();
           void (async () => {
             const outcome = await readMatterCloseReadiness(fetch, matterId);
             readiness =
@@ -258,7 +297,7 @@
       case "release":
         return releaseMatter(fetch, matter.id, idempotencyKey);
       case "close":
-        return closeMatter(fetch, matter.id, idempotencyKey);
+        return closeMatter(fetch, matter.id, idempotencyKey, destroyOn);
       case "reopen":
         return reopenMatter(fetch, matter.id, idempotencyKey);
     }
@@ -397,6 +436,59 @@
         >
           Open the Intake section
         </a>
+      {/if}
+      {#if chosen.action === "close"}
+        <!-- When the paper file may be destroyed, asked here because the close is where the date
+             is set. Two answers, chosen like the steps are: a date, or none. -->
+        <div class="flex flex-col gap-8">
+          <FieldLabel as="h3">Paper File</FieldLabel>
+          <ChoiceRow
+            selected={destructionChoice === "date"}
+            onclick={() => {
+              destructionChoice = "date";
+              destructionTouched = true;
+            }}
+          >
+            Destroy After
+            {#snippet detail()}
+              {earliestDestruction === null
+                ? "The firm sets no minimum. Choose the date."
+                : `No earlier than ${formatDate(earliestDestruction)}, the firm's minimum of ${String(minimumYears)} year${minimumYears === 1 ? "" : "s"}. A later date is allowed.`}
+            {/snippet}
+          </ChoiceRow>
+          {#if destructionChoice === "date"}
+            <!-- A wrapper, because the picker renders its label and its field as two siblings. -->
+            <div class="flex flex-col gap-4">
+              <DatePicker
+                aria-label="Destroy after"
+                value={civilDateValue(destructionDraft)}
+                onValueChange={(next) => {
+                  destructionDraft = civilDateTextOrEmpty(next);
+                  destructionTouched = true;
+                }}
+              />
+            </div>
+          {/if}
+          <ChoiceRow
+            selected={destructionChoice === "none"}
+            onclick={() => {
+              destructionChoice = "none";
+              destructionTouched = true;
+            }}
+          >
+            No Destruction Date
+            {#snippet detail()}
+              The file is kept with no date set. One can be added later on the status window.
+            {/snippet}
+          </ChoiceRow>
+          {#if destructionTouched && destructionRefusal !== null}
+            <p class="text-xs text-status-danger-subtle-foreground">{destructionRefusal}</p>
+          {/if}
+          <p class="text-xs text-text-subtle">
+            A reminder on the calendar under File Destruction Dates. Nothing is destroyed when it
+            arrives.
+          </p>
+        </div>
       {/if}
       {#if chosen.action === "hold"}
         <!-- The pause's reason, asked here because this is where the pause is recorded. The

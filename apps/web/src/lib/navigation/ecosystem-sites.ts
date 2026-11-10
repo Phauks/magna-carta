@@ -11,6 +11,12 @@
  * entries should then ALSO surface in the command palette as a provider group
  * (src/lib/components/command-palette.svelte) — extend the palette from THIS registry when the
  * first site ships; never hand-list a site there.
+ *
+ * `route` is the in-application stand-in. A site whose content the application already renders for
+ * itself names that screen here, and while its `href` is still null the menu and the palette take
+ * the member there instead of showing a disabled "Soon" — the content is real, only its public
+ * address is not. Once the site goes live, `href` wins and the entry leaves the app as every other
+ * site does.
  */
 import type { Component } from "svelte";
 import Activity from "@lucide/svelte/icons/activity";
@@ -20,6 +26,7 @@ import BookOpen from "@lucide/svelte/icons/book-open";
 import CodeXml from "@lucide/svelte/icons/code-xml";
 import ScrollText from "@lucide/svelte/icons/scroll-text";
 import ShieldCheck from "@lucide/svelte/icons/shield-check";
+import { aboutWindow } from "$lib/about/about-window.svelte.ts";
 
 export interface EcosystemSite {
   readonly id: string;
@@ -29,6 +36,16 @@ export interface EcosystemSite {
   readonly description?: string;
   /** Absolute URL once the site is live; null until wired (renders disabled, marked "Soon"). */
   readonly href: string | null;
+  /**
+   * An in-application screen that already renders this site's content, used while `href` is null.
+   * Absent for a site the application has no copy of.
+   */
+  readonly route?: string;
+  /**
+   * An in-application window that stands in for this site while `href` is null, opened by calling
+   * it. Absent for a site the application has no window for.
+   */
+  readonly opensWindow?: () => void;
   readonly icon: Component;
 }
 
@@ -54,7 +71,10 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     id: "about",
     label: "About Magna Carta",
     description: "The public magna-carta.com site",
+    // The public site is not deployed yet; the About window states this copy's version and links
+    // to the changelog, help and the legal pages in the meantime.
     href: null,
+    opensWindow: () => aboutWindow.open(),
     icon: Globe,
   },
   {
@@ -75,7 +95,10 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     id: "changelog",
     label: "Changelog",
     description: "What shipped, release by release",
+    // The public changelog page at magnacarta.esq/changelog is not deployed yet; the application's
+    // own Changelog screen renders the same document, built into the bundle, in the meantime.
     href: null,
+    route: "/updates",
     icon: ScrollText,
   },
   {

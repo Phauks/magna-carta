@@ -1,6 +1,7 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
-import { createTurnstileVerifier } from "../src/human-verification/turnstile-verifier.ts";
-import { verifierNotConfigured } from "../src/human-verification/human-verification-port.ts";
+import { createTurnstileVerifier } from "../src/http/human-verification/turnstile-verifier.ts";
+import { verifierNotConfigured } from "../src/http/human-verification/human-verification-port.ts";
 
 // The siteverify adapter against the documented response shapes. A fake fetch stands in for
 // Cloudflare so every branch — including the ones a live endpoint would never produce on demand — is

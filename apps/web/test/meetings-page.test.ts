@@ -43,6 +43,9 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     locked: false,
     lobby: "off",
     configured: true,
+    recordingState: "none",
+    recordingConfigured: true,
+    captionsAvailable: false,
     ...overrides,
   };
 }

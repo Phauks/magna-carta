@@ -11,6 +11,14 @@ describe("catalog zdrEligible invariant (fitness)", () => {
   it("exactly one embedding entry exists (the platform-fixed, index-pinned model)", () => {
     expect(CATALOG.filter((e) => e.slot === "embedding")).toHaveLength(1);
   });
+
+  it("exactly one captioning entry exists (the platform-fixed live-caption model)", () => {
+    expect(CATALOG.filter((e) => e.slot === "captioning")).toHaveLength(1);
+  });
+
+  it("exactly one transcription entry exists (the platform-fixed speech-to-text model)", () => {
+    expect(CATALOG.filter((e) => e.slot === "transcription")).toHaveLength(1);
+  });
 });
 
 describe("recorded provenance is the provider's, not something that resembles it (fitness)", () => {
@@ -34,12 +42,17 @@ describe("recorded provenance is the provider's, not something that resembles it
     const recorded = Object.fromEntries(CATALOG.map((e) => [e.modelId, e.snapshotId]));
     expect(recorded).toEqual({
       // Published dateless: from the 4.6 generation on, the undated id is itself the pinned snapshot.
-      "anthropic/claude-opus-4-8": "claude-opus-4-8",
-      "anthropic/claude-sonnet-4-6": "claude-sonnet-4-6",
-      // Predates that change, so the undated name is an alias and the dated id is the pin.
-      "anthropic/claude-haiku-4-5": "claude-haiku-4-5-20251001",
+      "anthropic/claude-opus-5-5": "claude-opus-5-5",
+      "anthropic/claude-sonnet-5-5": "claude-sonnet-5-5",
+      "anthropic/claude-haiku-5-5": "claude-haiku-5-5",
+      // Published dateless: Cloudflare issues no dated form of its Workers AI model ids.
+      "@cf/openai/gpt-oss-120b": "@cf/openai/gpt-oss-120b",
       // Composed rather than published: the model paired with the index generation its vectors belong to.
       "@cf/baai/bge-large-en-v1.5": "bge-large-en-v1.5-vectorize-index-v1",
+      // Published dateless: Cloudflare issues no dated form of its Workers AI model ids.
+      "@cf/openai/whisper-large-v3-turbo": "@cf/openai/whisper-large-v3-turbo",
+      // Published dateless, for the same reason: the live-caption model.
+      "@cf/deepgram/nova-3": "@cf/deepgram/nova-3",
     });
   });
 });

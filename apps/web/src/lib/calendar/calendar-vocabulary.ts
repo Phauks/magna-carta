@@ -44,12 +44,20 @@ export interface CalendarLayer {
 export const CALENDAR_LAYERS: readonly CalendarLayer[] = [
   {
     key: "custody",
-    label: "Custody dates",
+    label: "Custody Dates",
     sources: ["custodyDueBack", "custodyReviewDue"],
     kindLabels: {
       dueBack: "Due back",
       packetReviewDue: "Packet review due",
       itemReviewDue: "Item review due",
+    },
+  },
+  {
+    key: "fileDestruction",
+    label: "File Destruction Dates",
+    sources: ["matterFileDestruction"],
+    kindLabels: {
+      fileDestruction: "Destroy after",
     },
   },
 ];

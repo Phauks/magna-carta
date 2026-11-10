@@ -13,6 +13,7 @@
     "./nickname": "./src/nickname.ts",
     "./honorifics": "./src/honorifics.ts",
     "./person": "./src/person.ts",
+    "./entity-photo": "./src/entity-photo.ts",
     "./person-record": "./src/person-record.ts",
     "./person-name": "./src/person-name.ts",
     "./pronouns": "./src/pronouns.ts",
@@ -34,13 +35,15 @@
     "./contact-address": "./src/contact-address.ts",
     "./contact-points": "./src/contact-points.ts",
     "./contact-preference": "./src/contact-preference.ts",
+    "./phone-match": "./src/phone-match.ts",
     "./phone-number": "./src/phone-number.ts",
     "./postal-address": "./src/postal-address.ts",
     "./statements": "./src/statements.ts",
     "./usage": "./src/usage.ts",
     "./topics": "./src/topics.ts",
     "./audit": "./src/audit.ts",
-    "./run-directory-effect": "./src/run-directory-effect.ts"
+    "./run-directory-effect": "./src/run-directory-effect.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -52,7 +55,8 @@
     "@magna-carta/database": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "double-metaphone": "catalog:"
+    "double-metaphone": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

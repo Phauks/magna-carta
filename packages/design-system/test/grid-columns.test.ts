@@ -63,6 +63,25 @@ const ROWS: Entry[] = [
 ];
 
 describe("sorting", () => {
+  it("reads runs of digits in text as numbers, so 3333-10 follows 3333-9 without padding", () => {
+    const titles = ["3333-10", "3333-2", "10000-1", "3333-1", "9999-1", "3333-9"];
+    const rows: Entry[] = titles.map((title, index) => ({
+      id: `r${index}`,
+      date: null,
+      title,
+      hours: null,
+      amount: null,
+    }));
+    expect(sortGridRows(rows, titleColumn, "ascending", rowKey).map((row) => row.title)).toEqual([
+      "3333-1",
+      "3333-2",
+      "3333-9",
+      "3333-10",
+      "9999-1",
+      "10000-1",
+    ]);
+  });
+
   it("is numeric for number columns, not lexicographic", () => {
     const rows: Entry[] = [
       { id: "a", date: null, title: "", hours: 10, amount: null },

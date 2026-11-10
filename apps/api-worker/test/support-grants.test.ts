@@ -16,7 +16,7 @@ let poolFirmId: FirmId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   poolFirmId = (await seedFirm({ name: "Support Grants Test Firm" })).firmId;
-  // Seed the member who will request grants. Owner/Admin carries support:request (seeded to every
+  // Seed the member who will request grants. Admin carries support:request (seeded to every
   // default role in the per-firm migrations). The FirmDatabase DO self-migrates on first
   // mirrorMemberWithOwnerRole access, applying those role_permission rows automatically.
   const { userId } = await seedCredentialedUser("req-diag@example.com", { firmId: poolFirmId });

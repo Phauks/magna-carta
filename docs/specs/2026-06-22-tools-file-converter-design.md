@@ -45,8 +45,8 @@ exported so callers need not depend on the DOM `File` type.
 - **`@magna-carta/tools`** — add a **`documents`** subject group to `SUBJECT_GROUP_ORDER` +
   `SubjectGroup`, and the catalog row:
   `{ id: "file-converter", name: "File Converter", icon: "file-cog", subjectGroup: "documents",
-permission: assertPermission("tools:fileConverter"), contextTags: ["none"],
-backing: { kind: "library" }, matterContext: "none" }`. Update the catalog test.
+  permission: assertPermission("tools:fileConverter"), contextTags: ["none"],
+  backing: { kind: "library" }, matterContext: "none" }`. Update the catalog test.
 
 ## Deferred (correctly gated)
 

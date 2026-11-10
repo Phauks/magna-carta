@@ -15,7 +15,27 @@ import type { InferenceModelId } from "./port.ts";
 // runs is a decision, and the freshness pass exists to put that decision in front of someone rather than
 // to make it for them.
 
-export type ModelSlot = "reasoning" | "utility" | "embedding";
+// "transcription" is platform-fixed for the same structural reason as "embedding": the operation that
+// uses it takes no model argument, so no firm can select a different one.
+//
+// "captioning" is platform-fixed on the same terms, and kept apart from "transcription" because the two
+// are different models doing different jobs: the transcript of record is heard afterwards, a piece at a
+// time, by a model that answers once; a live caption is heard as it is spoken, over a socket, by a model
+// that answers with guesses and then corrects them. One slot for both would let moving one move the
+// other.
+//
+// "platform-reasoning" is a reasoning model the PLATFORM fixes for a feature of its own and no firm
+// selects: it is kept apart from "reasoning" so it never appears on the roster a firm chooses its
+// assistant's model from. The one there is today is hosted on Cloudflare and answers 256 tokens unless a
+// caller asks for more; a firm that picked it for the assistant would have every answer cut off with
+// nothing to say so, and a feature that needs it (the meeting summary) asks for it by this role instead.
+export type ModelSlot =
+  | "reasoning"
+  | "platform-reasoning"
+  | "utility"
+  | "embedding"
+  | "transcription"
+  | "captioning";
 
 // The platform-maintained, evergreen name a reasoning selection resolves through. The tier is what other
 // code and configuration refer to; WHICH curated model occupies it is data in this file. Tracking model
@@ -27,6 +47,14 @@ export type ModelSlot = "reasoning" | "utility" | "embedding";
 export type ReasoningTier = "most-capable" | "balanced";
 
 export const REASONING_TIERS: readonly ReasoningTier[] = ["most-capable", "balanced"];
+
+// The provider's effort control: how much thinking and output a request may spend, sent per request
+// (output_config.effort). The current generation accepts all five; which of them a given model accepts,
+// and which it uses when a request names none, is the provider's fact about that model, so each entry
+// records its own.
+export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 // Whether the platform embedding model may still change.
 //
@@ -70,6 +98,9 @@ export interface CatalogEntry {
   readonly slot: ModelSlot;
   // The gateway-routable, provider-prefixed id passed to the AI binding.
   readonly modelId: InferenceModelId;
+  // The provider's own name for the model, as its model reference prints it, for the screen an
+  // administrator chooses on. A label only: nothing resolves or compares through it.
+  readonly displayName: string;
   // The pinned snapshot in effect — persisted per run so a result is reproducible.
   //
   // This value is written into the per-request provenance record, which exists to answer WHICH EXACT
@@ -110,9 +141,24 @@ export interface CatalogEntry {
   // platform's confidentiality posture rather than a derivation from a provider's release notes. The
   // field exists so the freshness pass can say "a successor exists, and nobody has decided about it".
   readonly supersededBy?: string;
+  // Provider models only (not the embedding entry): the effort levels the provider accepts for this
+  // model, lowest first, and the one it applies when a request names none. Read off the provider's
+  // effort reference on availabilityVerifiedOn, with the other lifecycle facts.
+  readonly effortLevels?: readonly ReasoningEffort[];
+  readonly defaultEffort?: ReasoningEffort;
   // Reasoning entries only: the tier this entry currently occupies, if any. A reasoning entry without a
-  // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to.
+  // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to. A
+  // platform-reasoning entry never holds one, because no firm selects it.
   readonly tier?: ReasoningTier;
+  // How many tokens one request to this model may hold, prompt and answer together, as the provider
+  // publishes it on the model's own page (read on availabilityVerifiedOn). Required of every reasoning
+  // entry, because a caller that sends a whole document — a meeting's transcript — has to know when it
+  // must cut the document into parts, and a guess at this figure is a request the provider refuses.
+  // Required of a platform-reasoning entry for the same reason.
+  readonly contextWindowTokens?: number;
+  // The most tokens one answer may hold, where the provider publishes a limit. Absent where it names
+  // none; the caller then bounds the answer itself.
+  readonly maximumOutputTokens?: number;
   // Embedding entry only: whether the pin may still move. See EmbeddingPinState.
   readonly pinState?: EmbeddingPinState;
   // Embedding entry only: the index generation these vectors belong to. Carried beside the model id so a
@@ -122,6 +168,12 @@ export interface CatalogEntry {
 }
 
 const isoDate = z.string().regex(CIVIL_DATE_PATTERN);
+
+// Both reasoning roles carry firm content to a model that writes prose about it, so both are held to
+// the same confidentiality bar and must state their context window.
+function isReasoningSlot(slot: ModelSlot): boolean {
+  return slot === "reasoning" || slot === "platform-reasoning";
+}
 
 // True when snapshotId is exactly referenceId plus a -YYYYMMDD suffix. Built from string operations
 // rather than a regex composed around referenceId, because a reference id legitimately contains regex
@@ -140,8 +192,16 @@ function isDatedSnapshotOf(snapshotId: string, referenceId: string): boolean {
 // harmless extra.
 export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .object({
-    slot: z.enum(["reasoning", "utility", "embedding"]),
+    slot: z.enum([
+      "reasoning",
+      "platform-reasoning",
+      "utility",
+      "embedding",
+      "transcription",
+      "captioning",
+    ]),
     modelId: z.string().min(1),
+    displayName: z.string().min(1),
     snapshotId: z.string().min(1),
     snapshotForm: z.enum(["provider-dated", "provider-dateless", "platform-composed"]),
     referenceId: z.string().min(1),
@@ -151,16 +211,35 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
     availabilityVerifiedOn: isoDate,
     retirementNotBefore: isoDate.optional(),
     supersededBy: z.string().min(1).optional(),
+    effortLevels: z.array(z.enum(REASONING_EFFORTS)).min(1).optional(),
+    defaultEffort: z.enum(REASONING_EFFORTS).optional(),
     tier: z.enum(["most-capable", "balanced"]).optional(),
+    contextWindowTokens: z.number().int().positive().optional(),
+    maximumOutputTokens: z.number().int().positive().optional(),
     pinState: z.enum(["open", "frozen"]).optional(),
     indexVersion: z.string().min(1).optional(),
   })
-  .refine((entry) => entry.slot !== "reasoning" || entry.zdrEligible, {
+  .refine((entry) => !isReasoningSlot(entry.slot) || entry.zdrEligible, {
     message: "a reasoning model must be ZDR-eligible",
   })
   .refine((entry) => entry.tier === undefined || entry.slot === "reasoning", {
     message: "only a reasoning model may occupy a reasoning tier",
   })
+  // Every model a request can name an effort for records the levels it accepts and its own default, and
+  // the default is one of those levels; the embedding, speech-to-text and caption models take no
+  // effort and record none.
+  .refine(
+    (entry) =>
+      entry.slot === "embedding" || entry.slot === "transcription" || entry.slot === "captioning"
+        ? entry.effortLevels === undefined && entry.defaultEffort === undefined
+        : entry.effortLevels !== undefined &&
+          entry.defaultEffort !== undefined &&
+          entry.effortLevels.includes(entry.defaultEffort),
+    {
+      message:
+        "a reasoning or utility model records its effort levels and a default among them; the embedding, speech-to-text and caption models record none",
+    },
+  )
   .refine((entry) => entry.pinState === undefined || entry.slot === "embedding", {
     message: "only the embedding model carries a pin state",
   })
@@ -206,8 +285,8 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 3;
-export const CATALOG_EFFECTIVE_DATE = "2026-08-14";
+export const CATALOG_VERSION = 5;
+export const CATALOG_EFFECTIVE_DATE = "2026-11-09";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
 // constant does not change when the platform moves to a newer model.
@@ -220,58 +299,168 @@ export const PLATFORM_DEFAULT_REASONING_TIER: ReasoningTier = "most-capable";
 // ZDR-verified by the reasoning-reference process.
 export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 
-// The launch catalog. Reasoning models first, each on the tier it currently occupies; the small utility
-// model; the platform-fixed embedding model pinned to the index generation. claude-fable-5 is
-// intentionally absent — it mandates a retention window and returns a hard error under ZDR, so it is not
-// ZDR-eligible and never enters the reasoning slot.
+// The platform-fixed speech-to-text model. Like the embedding id it is the one place this model is
+// named: the transcription operation closes over the catalog entry below, and no caller passes a model.
+// Unlike the embedding pin it binds no stored index, so moving it costs a re-verification of the entry
+// and nothing else — transcripts already written keep the model id they recorded.
+export const PLATFORM_TRANSCRIPTION_MODEL_ID = "@cf/openai/whisper-large-v3-turbo";
+
+// The platform-fixed live-caption model. Named here and nowhere else, like the transcription model: the
+// caption stream closes over the catalog entry below, and no caller passes a model. It binds no stored
+// index and writes no record, so moving it costs a re-verification of the entry and nothing else.
+export const PLATFORM_CAPTION_MODEL_ID = "@cf/deepgram/nova-3";
+
+// THE REASONING MODEL HOSTED ON CLOUDFLARE ITSELF, in the platform-reasoning role: what a feature of the
+// platform's own runs on by default (the meeting summary), never offered to a firm as its assistant's
+// model. It holds no tier, so an unconfigured firm's default for the assistant is unchanged by it.
+export const PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID = "@cf/openai/gpt-oss-120b";
+
+// Whether a model runs on Cloudflare's own infrastructure. Read off the id's `@cf/` prefix because that
+// prefix is exactly what the AI binding routes on — a `@cf/` id is run by Workers AI and anything else is
+// sent through the gateway to its provider — so a recorded field could only ever disagree with what
+// actually happens to the request.
+export function isOnCloudflareModel(modelId: string): boolean {
+  return modelId.startsWith("@cf/");
+}
+
+// The catalog. The current generation only, by the owner's ruling of 2026-11-09: the most capable and the
+// balanced reasoning model, each on the tier it occupies; the small utility model; the platform-fixed
+// embedding model pinned to the index generation. A previous-generation model is not offered. A firm
+// that had pinned one resolves to the platform default instead, because the settings read is total (an
+// id the catalog no longer carries is treated as no choice, ./settings.ts), and an administrator sees
+// the platform's model on the AI screen and may choose again.
+//
+// The Fable line (claude-fable-5, claude-fable-5-1) is intentionally absent, and so is anything else
+// the provider designates a Covered Model: those require a 30-day retention window and return a hard
+// error under ZDR, so they are not ZDR-eligible and can never enter the reasoning slot. The live
+// provider roster (./provider-roster.ts) will still SHOW such a model to an administrator as published
+// and not on the roster, which is the honest answer; it never makes one selectable.
+//
+// Every Anthropic entry's lifecycle facts were read off the provider's model-deprecations page and its
+// confidentiality facts off the zero-data-retention page on availabilityVerifiedOn / verifiedOn. From
+// the 4.6 generation on, the provider publishes dateless ids that are themselves pinned snapshots, so
+// every reasoning entry below is provider-dateless.
+//
+// Beside them, the platform's own entries, which no firm chooses: the reasoning model hosted on
+// Cloudflare that a platform feature (the meeting summary) runs on, the speech-to-text model, and the
+// live-caption model.
 const RAW_CATALOG: readonly CatalogEntry[] = [
   {
+    // The platform default from catalog version 4, by the owner's decision of 2026-11-09.
     slot: "reasoning",
     tier: "most-capable",
-    modelId: "anthropic/claude-opus-4-8",
-    // The provider publishes no dated id for this model: from the 4.6 generation onward its ids use a
-    // dateless format that is itself a pinned snapshot rather than a pointer to one. The undated id IS
-    // the pin, so recording it unchanged is the complete provenance, not an abbreviation of it.
-    snapshotId: "claude-opus-4-8",
+    modelId: "anthropic/claude-opus-5-5",
+    displayName: "Claude Opus 5.5",
+    snapshotId: "claude-opus-5-5",
     snapshotForm: "provider-dateless",
-    referenceId: "claude-opus-4-8",
+    referenceId: "claude-opus-5-5",
     zdrEligible: true,
     noTrainingEligible: true,
-    verifiedOn: "2026-06-17",
-    availabilityVerifiedOn: "2026-08-14",
-    retirementNotBefore: "2027-05-28",
-    supersededBy: "claude-opus-5",
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-09-22",
+    effortLevels: ["low", "medium", "high", "xhigh", "max"],
+    defaultEffort: "medium",
+    // Read 2026-11-09 at https://platform.claude.com/docs/en/about-claude/models/overview: "Context
+    // window: 1M tokens", "Max output: 128K tokens".
+    contextWindowTokens: 1_000_000,
+    maximumOutputTokens: 128_000,
   },
   {
     slot: "reasoning",
     tier: "balanced",
-    modelId: "anthropic/claude-sonnet-4-6",
-    // Dateless for the same reason as the entry above: this is the 4.6 generation, where the published
-    // id is the pinned snapshot itself.
-    snapshotId: "claude-sonnet-4-6",
+    modelId: "anthropic/claude-sonnet-5-5",
+    displayName: "Claude Sonnet 5.5",
+    snapshotId: "claude-sonnet-5-5",
     snapshotForm: "provider-dateless",
-    referenceId: "claude-sonnet-4-6",
+    referenceId: "claude-sonnet-5-5",
     zdrEligible: true,
     noTrainingEligible: true,
-    verifiedOn: "2026-06-17",
-    availabilityVerifiedOn: "2026-08-14",
-    retirementNotBefore: "2027-02-17",
-    supersededBy: "claude-sonnet-5",
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-09-28",
+    effortLevels: ["low", "medium", "high", "xhigh", "max"],
+    defaultEffort: "high",
+    // Read 2026-11-09 at https://platform.claude.com/docs/en/about-claude/models/overview: "Context
+    // window: 1M tokens", "Max output: 128K tokens".
+    contextWindowTokens: 1_000_000,
+    maximumOutputTokens: 128_000,
   },
   {
-    slot: "utility",
-    modelId: "anthropic/claude-haiku-4-5",
-    // This model predates the dateless generation, so its undated name is a convenience alias and the
-    // provider's published pin is the dated id below. Here the date is load-bearing: recording the alias
-    // instead would name a pointer rather than the release that produced the output.
-    snapshotId: "claude-haiku-4-5-20251001",
-    snapshotForm: "provider-dated",
-    referenceId: "claude-haiku-4-5",
+    // Workers AI on-Cloudflare reasoning model, in the platform-reasoning role (see ModelSlot).
+    //
+    // WHY THIS MODEL. It is text-only and published under the Apache License 2.0, which grants its
+    // rights to everybody with no carve-out by place: the Hugging Face model card's own LICENSE file,
+    // read 2026-10-03 at https://huggingface.co/openai/gpt-oss-120b/blob/main/LICENSE ("Apache License,
+    // Version 2.0"), and its usage policy at
+    // https://huggingface.co/openai/gpt-oss-120b/blob/main/USAGE_POLICY, which asks only that the use
+    // comply with applicable law. The model it replaced, Llama 4 Scout, is multimodal, and the Llama 4
+    // acceptable-use policy withholds the licence's rights in its multimodal models from a company whose
+    // principal place of business is in the European Union
+    // (https://github.com/meta-llama/llama-models/blob/main/models/llama4/USE_POLICY.md, read
+    // 2026-10-03) — a firm this platform serves can be one. CLOUDFLARE'S OWN MODEL PAGE STATES NO
+    // LICENCE for this model (it carries no "Terms and License" row, as its page for Llama 4 Scout
+    // does), so the licence above rests on the publisher's pages, not Cloudflare's.
+    //
+    // The confidentiality facts rest on Cloudflare's Workers AI data terms, read 2026-10-03 at
+    // https://developers.cloudflare.com/workers-ai/platform/data-usage/ — Customer Content is not used
+    // to train any model, is not made available to another customer, and is stored only where we
+    // ourselves store it — and the model is Cloudflare-hosted, so the conversation does not leave the
+    // platform for a third-party provider. Zero data retention is a third-party provider's concept;
+    // zdrEligible records that these terms meet the same bar, as the embedding entry below reasons.
+    //
+    // THE REQUEST. Model page, read 2026-10-03:
+    // https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/ — "Context Window: 128,000
+    // tokens"; reasoning effort low, medium (the default) or high. Its input schema, read the same day at
+    // https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/sync-input.json, takes either a
+    // `prompt` or a `messages` array whose roles include `system`, with `max_tokens` (default 256, no
+    // published upper limit, so the entry records none and a caller asks for the length it needs) and
+    // `response_format` (`json_object` or `json_schema`). The Workers AI changelog for 2026-02-17,
+    // https://developers.cloudflare.com/workers-ai/changelog/, says the binding detects which of
+    // `messages`, `prompt` or a Responses-style `input` it was sent, so the chat translation every
+    // Cloudflare-hosted model takes in ./gateway.ts is the request this one takes. Its output schema is
+    // published as an untyped object, so ./gateway.ts reads the answer from each shape the binding is
+    // known to return. A reasoning model spends part of `max_tokens` thinking before it answers, which
+    // the caller's answer room has to allow for.
+    //
+    // Cloudflare publishes no dated form of its Workers AI model ids and no retirement date for this one.
+    slot: "platform-reasoning",
+    modelId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+    displayName: "gpt-oss-120b",
+    snapshotId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+    snapshotForm: "provider-dateless",
+    referenceId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
     zdrEligible: true,
     noTrainingEligible: true,
-    verifiedOn: "2026-06-17",
-    availabilityVerifiedOn: "2026-08-14",
-    retirementNotBefore: "2026-10-15",
+    verifiedOn: "2026-10-03",
+    availabilityVerifiedOn: "2026-10-03",
+    // The effort levels the same model page publishes, medium being the one applied when none is named.
+    effortLevels: ["low", "medium", "high"],
+    defaultEffort: "medium",
+    contextWindowTokens: 128_000,
+  },
+  {
+    // Nothing calls the utility slot yet, so moving it from claude-haiku-4-5 (whose earliest published
+    // retirement, 2026-10-15, has passed) changes no running behaviour. The 5.5 generation publishes a
+    // dateless id, unlike its predecessor, so this entry is provider-dateless where the old one was
+    // provider-dated.
+    slot: "utility",
+    modelId: "anthropic/claude-haiku-5-5",
+    displayName: "Claude Haiku 5.5",
+    snapshotId: "claude-haiku-5-5",
+    snapshotForm: "provider-dateless",
+    referenceId: "claude-haiku-5-5",
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-11-09",
+    availabilityVerifiedOn: "2026-11-09",
+    retirementNotBefore: "2027-10-07",
+    effortLevels: ["low", "medium", "high", "xhigh", "max"],
+    defaultEffort: "medium",
+    // Read 2026-11-09 at https://platform.claude.com/docs/en/about-claude/models/overview: "Context
+    // window: 1M tokens", "Max output: 128K tokens".
+    contextWindowTokens: 1_000_000,
+    maximumOutputTokens: 128_000,
   },
   {
     // Workers AI on-Cloudflare embedding model. Confidentiality rests on Cloudflare's own data terms
@@ -285,6 +474,7 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     // nothing to read here, which is why the pin-state gate rather than a date is what protects it.
     slot: "embedding",
     modelId: PLATFORM_EMBEDDING_MODEL_ID,
+    displayName: "BGE Large EN v1.5",
     snapshotId: "bge-large-en-v1.5-vectorize-index-v1",
     snapshotForm: "platform-composed",
     referenceId: PLATFORM_EMBEDDING_MODEL_ID,
@@ -295,18 +485,81 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     pinState: "open",
     indexVersion: "vectorize-index-v1",
   },
+  {
+    // Workers AI on-Cloudflare speech-to-text model, the platform-fixed transcription slot. The
+    // confidentiality facts rest on Cloudflare's Workers AI data terms, read 2026-10-03 at
+    // https://developers.cloudflare.com/workers-ai/platform/data-usage/ — Customer Content (the audio
+    // in, the transcript out) is not used to train any model and is not made available to another
+    // customer, and it is stored only where we ourselves store it. The model is Cloudflare-hosted, so
+    // the audio does not leave the platform for a third-party provider.
+    //
+    // Cloudflare publishes no dated form of its Workers AI model ids and no retirement date for this
+    // one (model page read 2026-10-03:
+    // https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/), so the published id
+    // is itself the pin and the entry carries no retirement date.
+    slot: "transcription",
+    modelId: PLATFORM_TRANSCRIPTION_MODEL_ID,
+    displayName: "Whisper Large v3 Turbo",
+    snapshotId: PLATFORM_TRANSCRIPTION_MODEL_ID,
+    snapshotForm: "provider-dateless",
+    referenceId: PLATFORM_TRANSCRIPTION_MODEL_ID,
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-10-03",
+    availabilityVerifiedOn: "2026-10-03",
+  },
+  {
+    // Workers AI on-Cloudflare streaming speech-to-text model, the platform-fixed captioning slot.
+    // Deepgram publishes it; Cloudflare hosts and runs it, so the audio does not leave the platform for
+    // a third-party provider. The confidentiality facts rest on the same Workers AI data terms the
+    // transcription entry cites, read 2026-10-03 at
+    // https://developers.cloudflare.com/workers-ai/platform/data-usage/ — Customer Content is not used
+    // to train any model and is not made available to another customer. The model page lists the
+    // provider's own model-improvement opt-out (`mip_opt_out`) among its inputs, and the stream sends it
+    // switched on (./gateway.ts), so the publisher's improvement programme is refused as well.
+    //
+    // Model page, read 2026-10-03: https://developers.cloudflare.com/workers-ai/models/nova-3/ — the
+    // WebSocket transport, `encoding` (`linear16` among its values), `channels`, `punctuate`,
+    // `interim_results`, priced per audio minute ($0.0092 over WebSocket). Cloudflare publishes no dated
+    // form of its Workers AI model ids and no retirement date for this one.
+    slot: "captioning",
+    modelId: PLATFORM_CAPTION_MODEL_ID,
+    displayName: "Deepgram Nova-3",
+    snapshotId: PLATFORM_CAPTION_MODEL_ID,
+    snapshotForm: "provider-dateless",
+    referenceId: PLATFORM_CAPTION_MODEL_ID,
+    zdrEligible: true,
+    noTrainingEligible: true,
+    verifiedOn: "2026-10-03",
+    availabilityVerifiedOn: "2026-10-03",
+  },
 ];
 
 // Module-load validation: every entry parses (all fields present, every reasoning entry ZDR-eligible),
-// exactly one embedding entry exists, and every reasoning tier has exactly one occupant so the platform
-// default always resolves. A malformed table aborts the import.
+// exactly one entry fills each platform-fixed slot (embedding, transcription, captioning,
+// platform-reasoning), every
+// reasoning entry states its context window, the platform-reasoning entry is hosted on Cloudflare, and
+// every reasoning tier has exactly one occupant so the platform default always resolves. A malformed
+// table aborts the import.
 function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntry[] {
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
-  const embeddings = validated.filter((entry) => entry.slot === "embedding");
-  if (embeddings.length !== 1) {
-    throw new Error(
-      `the catalog must declare exactly one embedding entry (found ${embeddings.length})`,
-    );
+  for (const slot of ["embedding", "transcription", "captioning", "platform-reasoning"] as const) {
+    const occupants = validated.filter((entry) => entry.slot === slot);
+    if (occupants.length !== 1) {
+      throw new Error(
+        `the catalog must declare exactly one ${slot} entry (found ${occupants.length})`,
+      );
+    }
+  }
+  for (const entry of validated) {
+    if (isReasoningSlot(entry.slot) && entry.contextWindowTokens === undefined) {
+      throw new Error(`reasoning entry ${entry.modelId} must declare its context window`);
+    }
+    // The platform's own reasoning model exists so a privileged conversation can be reasoned over
+    // without leaving the platform; one run by a third party would defeat the reason it is kept.
+    if (entry.slot === "platform-reasoning" && !isOnCloudflareModel(entry.modelId)) {
+      throw new Error(`the platform-reasoning entry ${entry.modelId} must be hosted on Cloudflare`);
+    }
   }
   for (const tier of REASONING_TIERS) {
     const occupants = validated.filter((entry) => entry.tier === tier);
@@ -334,6 +587,22 @@ const ZDR_IDS: ReadonlySet<string> = new Set(
 const EMBEDDING_ENTRY: CatalogEntry = (() => {
   const entry = CATALOG.find((e) => e.slot === "embedding");
   if (entry === undefined) throw new Error("no embedding entry in the catalog");
+  return entry;
+})();
+
+// Precomputed at module init for the same reason: validateCatalog guarantees exactly one transcription
+// entry.
+const TRANSCRIPTION_ENTRY: CatalogEntry = (() => {
+  const entry = CATALOG.find((e) => e.slot === "transcription");
+  if (entry === undefined) throw new Error("no transcription entry in the catalog");
+  return entry;
+})();
+
+// Precomputed at module init for the same reason: validateCatalog guarantees exactly one captioning
+// entry.
+const CAPTIONING_ENTRY: CatalogEntry = (() => {
+  const entry = CATALOG.find((e) => e.slot === "captioning");
+  if (entry === undefined) throw new Error("no captioning entry in the catalog");
   return entry;
 })();
 
@@ -367,9 +636,28 @@ export function reasoningModelForTier(tier: ReasoningTier): CatalogEntry {
   return entry;
 }
 
+// The platform's own reasoning model, hosted on Cloudflare — exactly one, by module-load validation. It is
+// never on the roster reasoningEntries() answers, so no firm can choose it for the assistant.
+export function onCloudflareReasoningEntry(): CatalogEntry {
+  const entry = CATALOG.find((candidate) => candidate.slot === "platform-reasoning");
+  if (entry === undefined) throw new Error("no platform-reasoning entry in the catalog");
+  return entry;
+}
+
 // The single platform-fixed embedding entry the embedding operation closes over.
 export function embeddingEntry(): CatalogEntry {
   return EMBEDDING_ENTRY;
+}
+
+// The single platform-fixed transcription entry the transcription operation closes over.
+export function transcriptionEntry(): CatalogEntry {
+  return TRANSCRIPTION_ENTRY;
+}
+
+// The single platform-fixed live-caption entry the caption stream closes over. Never on the roster
+// reasoningEntries() answers: it is not a reasoning model and no firm selects it.
+export function captioningEntry(): CatalogEntry {
+  return CAPTIONING_ENTRY;
 }
 
 export function isZdrEligible(modelId: string): boolean {

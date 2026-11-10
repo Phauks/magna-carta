@@ -19,8 +19,8 @@ currently a JSON placeholder). Static mockups for owner review; winners get buil
   omitted from the feed). Providers get the extra status `status_unavailable` = _their feed_
   unreachable, never counted against us.
 - `events[]` — `{ title, impact (minor|major|critical|maintenance), lifecycle
-(investigating|identified|monitoring|resolved), affectedComponentIds[], startedAt,
-resolvedAt?, updates[{ at, lifecycle, body }] }`. Public audience: no author identity, ever.
+  (investigating|identified|monitoring|resolved), affectedComponentIds[], startedAt,
+  resolvedAt?, updates[{ at, lifecycle, body }] }`. Public audience: no author identity, ever.
   Resolved events are never pruned — the feed **is** the incident history.
 - `stale` — true when the derived snapshot is older than 20 minutes (twice the 10-minute cron).
 

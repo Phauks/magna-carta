@@ -146,6 +146,10 @@ is usually the fastest way to understand the rule.
 
 ### Lists and tables
 
+- **Numbers in text sort as they are read.** A table's text column compares a run of digits as the
+  number it is, so `3333-2` comes before `3333-10`, `9999-1` before `10000-1`, and "Exhibit 2"
+  before "Exhibit 10". Nobody is asked to pad a number with zeros so that a list will order it.
+  _(client and matter numbering, 2026-11-09)_
 - **A list OFFERS more columns than it SHOWS, and the difference is where the design lives.** A
   register is read for a different reason on a different day — sorted by surname to work down it,
   narrowed to one place to see who is local, scanned for whether a fact was ever recorded — and a
@@ -445,6 +449,20 @@ is usually the fastest way to understand the rule.
   the same words the picker offers — so a reader can tell a colleague from a contact from a name
   typed once. And a source is named plainly: "Staff", not "Firm member"; "Other", not "Someone
   else". _(the participant picker, 2026-09-18)_
+- **A moment is ONE field: the day and the time in one box, chosen from one panel.** The design
+  system's `DateTimeField` holds a day, a time of day, or both (`mode`); its button opens the month
+  beside a list of times, and in date-only or time-only mode the panel shows only that half. The list
+  steps in fifteen minutes but the field takes any minute, and a time off the step appears in the list
+  in its place. "No time" is the list's first row where a record allows it ("All day" on an event),
+  replacing the All Day checkbox. This supersedes the platform time control the entry below asked for,
+  which drew in a different shape from every field around it. _(the calendar's event form,
+  2026-11-09: "can we combine the date and the time into a single component (which allows for one or
+  both) ... the time is not good looking"; option B chosen 2026-11-10, "in certain instance only the
+  left and right would show up ... non 15 minute intervals will occur")_
+- **An event's end starts as its start.** Choosing the start date fills the end date with it, and a
+  start time on an event with no end time puts the end an hour later. An end the reader set is kept.
+  _(the calendar's event form, 2026-11-09: "when making an event, assume start and end date are the
+  same")_
 - **A moment is a date, a time FIELD, and its zone as a shortcode, on one line.** The day, the hour
   and the zone that hour is read in are one fact (the one-moment-one-line rule, applied): a platform
   time control rather than a box hoping for `HH:MM`, and "PST" rather than "America / Los Angeles",
@@ -549,6 +567,36 @@ is usually the fastest way to understand the rule.
   carrying all three, not a category control that reveals a second field once it is answered.
   Answering a question in two steps makes a reader answer it twice. _(the call log's Belongs to,
   2026-09-08)_
+- **A record that starts from a phone number is built around the number.** The number is usually
+  the only fact the person taking a call has, so it leads the form, what was said comes straight
+  after it (where somebody still on the line is typing), and when it happened folds to one line
+  because it is almost always now. Everything that FOLLOWS from the number — who it belongs to,
+  their open matters, earlier calls with it — sits beside the form as the window's Identification
+  and History tabs, and asks nothing until the number is whole. A contact on many matters gets a
+  search over them rather than a long list (a public defender's office can have a hundred). _(the
+  call log, 2026-11-09: "most of the information people get is the phone number, and maybe a caller
+  ID"; "i like how we can gain some information ... look up information once number is set")_
+  - **Two fixed words are pressed, not picked.** Call / Text and Incoming / Outgoing are buttons in
+    a group, the pressed one marked (`$lib/components/button-choice.svelte`). This narrows the
+    typed-into rule above to lists that can grow: a two-word answer that never changes is faster
+    pressed. _(the call log, 2026-11-09: "make the call text, incoming/outgoing as a toggle")_
+  - **Several calls at once, listed down the left.** A second call arriving while the first is
+    being written down gets its own entry in the same window; saving one, or starting an intake from
+    one, leaves the others standing, and the window closes on the last. _(the call log, 2026-11-09:
+    "handle multiple numbers coming in at the same time"; "calls should be on the leftside, not above
+    it"; "save and start an intake needs to be a safe operation for the other calls")_
+  - **Start An Intake is in the header's menu, and the commit is Save.** A second commit-shaped
+    button beside Save was pressed in its place; the intake is a rarer act and reads as one from the
+    menu. The previewed number under the heading is the number alone, in italics. _(the call log,
+    2026-11-09)_
+  - **Activity, in formal words, with spam among them.** What happened on a call is its own
+    pressed choice, per direction: Answered, Transferred, Message Taken, Spam for a call taken;
+    Connected, Voicemail Left, No Answer for one placed. A transfer names the colleague, who becomes
+    the member on the call; a message names who it is for, what was asked, by when and whether it
+    is urgent, and becomes a task in their list; spam names its kind and files the call as spam by
+    itself. The caller's own name is a separate optional field, "Caller ID (optional)", never a
+    Directory record. _(the call log, 2026-11-09: "what happened and associated buttons beneath are
+    so informal. Change it to Activity"; "add a way to show it was spam")_
 - **A telephone number's ghost text is its country's own grouping** — `(XXX) XXX-XXXX` here, and
   whatever the chosen country writes anywhere else. It is the ONE placeholder in the product that is
   not simply its field's name: the grouping cannot be said anywhere else, it is what tells a reader
@@ -702,6 +750,19 @@ is usually the fastest way to understand the rule.
   the directory's, carrying which record to open, so a pasted link still lands on it. Chosen over an
   origin-aware way back ("hard to keep track of over time") and over a breadcrumb trail. _(the
   directory record, 2026-09-05)_
+- **A directory record is one scrolling document, entered and read alike.** Every section of a
+  person stands on one page that scrolls, on the New Person screen and in the entity window both;
+  the side rail is a table of contents that jumps to a section and lights the one the reader is in,
+  never a switch that swaps one section in at a time. A pane-at-a-time rail put a person's phone
+  number and address two presses from their name and left Tab unable to walk the record. A section
+  holding one answer is folded into a neighbour (pronouns and life dates are one About section);
+  the record's own facts stand in the header under its name; the right-hand pane holds only what
+  the host knows (a matter's roles for a party) and is absent otherwise; a long list shows its
+  first rows and Show All, so it cannot bury the sections after it. The New Person screen's right
+  side reads the entry back as values, never counts. Chosen over tabs and over an Overview page
+  that summarised the sections in cards. Supersedes the "chosen section beside it" half of the side
+  rail and one-window rulings above; the rail itself stands. Composed through
+  `apps/web/src/lib/directory/record-sections.svelte`. _(the person screen, 2026-11-09)_
 - **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
   panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
   icon control the file manager uses, reading its state through its glyph, and it sits last among a
@@ -1014,6 +1075,18 @@ is usually the fastest way to understand the rule.
   rides the one component every screen already builds its title from rather than being added screen
   by screen — a favourite control thirty screens have to opt into is a favourite control that covers
   twenty. _(favourites, 2026-09-16)_
+- **Every page has a menu beside its title, and the favourite lives in it.** The `…` on the
+  title's row holds what is about the page rather than work on it: Add to Favorites (Remove from
+  Favorites, with the star filled gold, once saved), Copy Link and Open in New Tab on every screen,
+  then the screen's own secondary page-level items (`pageMenu` on `ScreenHeader`) — a hand-off to
+  the settings page behind it, a history it can forget. The star first shipped beside the menu, on
+  the reasoning that a gold star at rest is how a member sees a page is already a favourite; the
+  owner moved it into the menu the same day ("move star to page ... menu"), trading that at-rest
+  signal for one control by every title — the Favorites group in the sidebar is where a member
+  sees what they have saved. Search, create, filters and the screen's main action never move in,
+  and an unwired item stays on the row marked Soon rather than going behind the glyph. A screen
+  being redesigned passes its page-level extras here instead of growing its own header overflow.
+  _(page menu, 2026-11-09)_
 - **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
   truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
   inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
@@ -1540,6 +1613,61 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
+
+The owner, reviewing in-app About pages and then About windows:
+
+- **Three page layouts that described the product, and a plainer rewrite of the best of them, were
+  all turned down: "so much of the stuff is weirdly written."** Somebody signed in already knows
+  what Magna Carta is, and a tagline and principles written to fill a page read as marketing. The
+  in-app About states facts about the copy in front of the reader and carries no product prose;
+  describing the product is the public site's job.
+- **It is a window, opened from Websites > About Magna Carta**, standing in for the public site
+  until that has an address, as the Changelog screen does for its own site.
+- **"Two columns with links on right and other stuff on left."** The owner chose the variant whose
+  left column is the chrome-register ink panel carrying the brand mark and the facts (version,
+  released, signed in as, firm, environment, browser) with Copy Version Details at its foot, and
+  whose right column groups the links under What's New, Help and Legal.
+- **"You can remove the up to date part."** The version row states the commit and nothing about
+  whether a newer build is live; the version chip already says that.
+
+### 2026-11-09 — the numbering editor: preview beside current, parts that drag, and counts that need no padding
+
+The owner, reviewing client and matter numbering over a mockup of Settings, Numbering:
+
+- **"A client may be assigned a code, as in numbers, instead of letters ... 3333 is the client,
+  3333-1 is the first matter ... 3333-9 and 3333-10 should be allowed and not require setting the
+  amount of white space between."** The engine already wrote a counter's width as a floor rather
+  than a fixed width; a new counter now starts at one digit, so a scheme of Client Code, `-` and a
+  Counter with a separate count per client issues `3333-1` through `3333-10` with no zeros. The
+  column that set it is **Format**, and on a counter it reads as the fewest digits.
+- **Numbers sort as they are read.** `3333-10` filing between `3333-1` and `3333-2` was the cost of
+  dropping the padding, so every text column in the product's table compares runs of digits as
+  numbers. Promoted to _Lists and tables_.
+- **"Instead of up and down arrows, would prefer drag ability of those items."** A part moves by
+  its grip, and the grip keeps the keyboard path (Alt with an arrow key). Replaces the move-up and
+  move-down buttons at the row's end, which had been placed there on 2026-09-19.
+- **"Preview should sit beneath the current area."** Current and Preview are one above the other,
+  ahead of the parts, so the number in force and the number the edit would issue are compared at a
+  glance. **"We don't need the text beneath current and preview that explains it, nor the
+  continuation count."** Both rows state their number and nothing else, except that an unset
+  scheme still says what being unset means, which is a consequence rather than an explanation.
+- **"Rename Restarts the Count."** Asked what it does and how it is said elsewhere (a separate run
+  for each value of the part: Client Code on gives 3333-1, 3333-2, 4444-1; off gives one firm-wide
+  count with the code as a label), the owner chose **Separate Count**.
+- **"Load example and add parts ... don't need to be as big ... prefer no load example."** The
+  examples are gone; **Add Part** is a quiet line under the last part.
+- **"Numbers already drawn" becomes "Numbering Scheme only affects future generation."**, in the
+  owner's words, beside Save.
+- **"Date numbered should be 2026.11.11 ... client name should have - between words ... allow a
+  minor setting for how the user wants to delineate."** Date Numbered and Client Name each take a
+  separator: Dash, Period, Underscore, Tilde or None. A slash is refused, because a number rides in
+  links. A new part starts with a period for the date and a dash for the name; a scheme saved before
+  the choice existed renders exactly what it always did (`20261111`, `AshfordHoldings`), because a
+  firm's run must not change shape on its own. **"When clicking into the dropdown, show what the
+  output would look like from there."** The Part picker shows beside each choice what that part
+  would put into the number.
 
 ### 2026-09-18 — a Communications group
 
@@ -2139,7 +2267,7 @@ different document types to different files at the same time". What binds:
   as the transfer runs, which resized the progress bar several times a second. The measure is a
   token, the way the create control's width is, and the bar is what does not move.
 - **A second browser dialog over ours is a defect, not a browser fact to accept.** An `<input
-webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
+  webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
   just chosen, in a dialog we neither control nor word. The File System Access pickers raise no such
   confirmation and are used wherever the engine has them.
 - **A failure states WHERE the fault is, not only that there was one.** The byte write is the one
@@ -3340,3 +3468,73 @@ width.
   one. Generalizes: **a component that refuses its own props by throwing needs a gate that reads the
   props from source**, because review does not catch a label that is one character too long and the
   type-checker sees a string.
+
+### 2026-11-09 — the calendar screen: one View menu, the date as its heading, three firm calendars
+
+The owner, on the firm calendar: "the calendar preview area on the left side is pretty big. the
+calendar on the right has a scrollbar when it should not. should swap the kinds button and the
+button that changes the view, should combine those view buttons into a single view dropdown." Then,
+over three rounds on a mockup: "rename to Firm Events, title case. should we separate out matters and
+deadlines?"; "we don't need to duplicate which month it is and year in two different locations,
+picking the month or date in those dropdowns is bad and can be hard to read"; "source should be
+changed to Court Order and Firm"; "not sure how necessary kinds is when we already have the settings
+on the left side. the calendar on the left needs a picker. we still need the calendar names in both
+places though. move today to left of view dropdown"; "calendar is showing six weeks, when a month has
+at most 5. think we need to find a better way to showcase the date above the calendar".
+
+- **The views are one labelled menu, not four icon buttons.** `View` names the view the reader is in;
+  the week and the day add how concurrent entries are drawn as a section of it, and the agenda adds
+  Hide settled. A choice that means nothing on a view is not drawn there. _(built 2026-11-09)_
+- **The window's name is the heading over the grid, and it is the way to go somewhere far.** Large,
+  at the reading edge, with the arrows BEFORE it so they hold still whatever the name's length;
+  pressing it opens `MonthJump`, twelve months a year at a time. Today and View sit together at the
+  far end, Today first. _(built 2026-11-09)_
+- **A month and a year are never chosen from native selects on the calendar screen.** The rail's
+  month names its month in words with arrows of its own, and its name opens the same `MonthJump`.
+  The month name reads in both places, because the rail's month browses on its own and must say
+  which month it is showing. _(built 2026-11-09 for the compact `Calendar`; the framed date picker
+  still carries the two selects and is the open follow-up.)_
+- **The rail's month fits the rail.** The compact density drops the frame and steps the days down
+  one control rung, so seven make exactly the navigation measure; the framed picker was wider than
+  the column it stood in. _(built 2026-11-09)_
+- **A month grid draws only the weeks the month touches, and never scrolls for nothing.** Four, five
+  or six rows sharing the height. A month told to fill its host while also drawing a blank caption
+  line was the host's height plus that line, so the region scrolled on every screen; a grid with
+  nothing to say keeps its caption for assistive technology only. _(built 2026-11-09)_
+- **The firm's own calendars are three: Case Settings, Deadlines, Firm Events.** Each has its own row
+  and colour, so a hearing and a filing deadline read differently and either can be turned off alone.
+  That is also why the separate **Kinds** filter is gone: what sort of thing is on screen is the
+  rail's question now, as whose calendar it is already was. Every rail name is Title Case.
+  _(built 2026-11-09)_
+- **A deadline's Source reads Court Order or Firm.** The stored values are unchanged.
+  _(built 2026-11-09)_
+
+### 2026-11-09 — the notification centre: one grid, read and dismissed kept apart, and a priority only where one occurs
+
+The owner, reviewing mockups of the notification centre beside the task screen's (the two were
+designed together on his instruction). What was said, and what each part generalizes to:
+
+- **The task screen's "A is the basis, but should be able to group", applied to both.** The feed
+  became the one grid; its Everything/Unread toggle and category select were removed, not moved,
+  because the Status and Category columns already answer both. Already covered by _A list of
+  records is the product's one grid_ and _Filtering belongs to the columns_; recorded here because
+  the notification centre was the last register still hand-built as a list. Grouping is the grid's
+  own group-by (`DataTable.GroupByMenu` and the state's `grouping`): Day by default, then Category,
+  Priority, Matter, Read State and No Grouping. Day bands are the reader's own calendar days, read
+  "Today" and "Yesterday" and then the date, and their order flips with the table's sort direction.
+  Opened, the dismissed shelf is always the last band, whatever the grouping; in a flat list it stays
+  the quieted run at the foot. Home: `apps/web/src/lib/notifications/notification-grouping.ts`.
+- **"Show dismissed should somehow showcase differently."** Dismissed rows had read exactly like read
+  ones. Generalizes: **a row a member has set aside is shown apart from the live rows, never mixed in
+  among them** — after them whatever the sort, quieter, with the act that undoes setting it aside
+  (Restore) where the act that did it (Dismiss) was.
+- **"The seen versus delete is interesting" — the owner chose to keep both.** Reading and dismissing
+  stay two acts: seen, and finished with. Neither deletes; the retention clock ages every row out
+  whatever its state. Generalizes: **"finished with" is a state with a way back, not a deletion**,
+  so the control that sets it can be pressed without a confirmation.
+- **"What happened -> Notification", "severity -> Priority".** A column is named for the thing its
+  rows are, and for the word a reader uses, not the platform's field name. The wire field stays
+  `severity`; what a reader sees is decided at the presentation layer.
+- **"Remove for information, priority only if a priority actually occurs."** Generalizes: **a column
+  whose ordinary value is "nothing in particular" is blank in the ordinary case.** A word on every
+  routine row is noise that hides the few rows that carry one.

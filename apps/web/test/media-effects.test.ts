@@ -116,7 +116,11 @@ describe("what a capture asks for", () => {
   });
 
   it("follows the member's choice about noise", () => {
-    const asked = captureConstraints("video", { background: "none", reduceNoise: false });
+    const asked = captureConstraints("video", {
+      background: "none",
+      reduceNoise: false,
+      removeNoise: false,
+    });
     expect(asked.audio).toHaveProperty("noiseSuppression", false);
     // The other two are not the noise choice and stay on.
     expect(asked.audio).toHaveProperty("echoCancellation", true);
@@ -234,6 +238,7 @@ describe("the pass-through stage", () => {
     const effected = await passThroughEffects().applyEffects(asStream(stream), {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
 
     expect(camera.asked).toEqual([
@@ -260,12 +265,66 @@ describe("the pass-through stage", () => {
     );
     expect(effected.applied.blur).toBe("off");
 
-    const applied = await effected.update({ background: "blur", reduceNoise: true });
+    const applied = await effected.update({
+      background: "blur",
+      reduceNoise: true,
+      removeNoise: false,
+    });
 
     expect(camera.asked.at(-1)).toHaveProperty("backgroundBlur", true);
     expect(applied.blur).toBe("on");
     expect(applied.refusal).toBeNull();
     expect(effected.applied).toEqual(applied);
+  });
+
+  it("leaves a blur the member never touched alone when only noise reduction changes", async () => {
+    // A camera the product may set, which the machine's own settings have blurred: the member asked
+    // for their own background and has never pressed a background row.
+    const camera = new FakeTrack(
+      "video",
+      { backgroundBlur: true },
+      { backgroundBlur: [false, true] },
+    );
+    const stream = new FakeStream([new FakeTrack("audio"), camera]);
+    const effected = await passThroughEffects().applyEffects(
+      asStream(stream),
+      DEFAULT_EFFECT_SETTINGS,
+    );
+    expect(effected.applied.blur).toBe("on");
+
+    // Said to be about the microphone, and not said at all: neither moves the camera.
+    await effected.update(
+      { background: "none", reduceNoise: false, removeNoise: false },
+      "microphone",
+    );
+    const applied = await effected.update({
+      background: "none",
+      reduceNoise: true,
+      removeNoise: false,
+    });
+
+    expect(camera.asked).toEqual([]);
+    expect(applied.blur).toBe("on");
+    expect(applied.refusal).toBeNull();
+  });
+
+  it("turns that blur off when the member presses None for it", async () => {
+    const camera = new FakeTrack(
+      "video",
+      { backgroundBlur: true },
+      { backgroundBlur: [false, true] },
+    );
+    const stream = new FakeStream([new FakeTrack("audio"), camera]);
+    const effected = await passThroughEffects().applyEffects(
+      asStream(stream),
+      DEFAULT_EFFECT_SETTINGS,
+    );
+
+    // The same background the member had already asked for, pressed on the row that is not lit.
+    const applied = await effected.update(DEFAULT_EFFECT_SETTINGS, "background");
+
+    expect(camera.asked.at(-1)).toHaveProperty("backgroundBlur", false);
+    expect(applied.blur).toBe("off");
   });
 
   it("turns a refused blur into a refusal and leaves the effect off", async () => {
@@ -281,7 +340,11 @@ describe("the pass-through stage", () => {
     );
     camera.refuses = true;
 
-    const applied = await effected.update({ background: "blur", reduceNoise: true });
+    const applied = await effected.update({
+      background: "blur",
+      reduceNoise: true,
+      removeNoise: false,
+    });
 
     expect(applied.refusal).toBe(blurRefusal(true));
     // The browser offered the control and then declined it, so from here the machine decides — and
@@ -302,7 +365,11 @@ describe("the pass-through stage", () => {
       DEFAULT_EFFECT_SETTINGS,
     );
 
-    const applied = await effected.update({ background: "none", reduceNoise: false });
+    const applied = await effected.update({
+      background: "none",
+      reduceNoise: false,
+      removeNoise: false,
+    });
 
     // Whole, because `applyConstraints` replaces: noise alone would drop the echo cancellation.
     expect(microphone.asked).toEqual([
@@ -319,7 +386,11 @@ describe("the pass-through stage", () => {
       DEFAULT_EFFECT_SETTINGS,
     );
 
-    const applied = await effected.update({ background: "none", reduceNoise: false });
+    const applied = await effected.update({
+      background: "none",
+      reduceNoise: false,
+      removeNoise: false,
+    });
 
     expect(applied.refusal).toBe(AUDIO_TREATMENT_REFUSED);
     expect(applied.audio.noiseSuppression).toBe(true);

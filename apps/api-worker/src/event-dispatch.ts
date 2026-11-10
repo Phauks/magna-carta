@@ -17,24 +17,39 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import { createApp, type Bindings } from "./app.ts";
-import { documentAssemblyQueue } from "./assemblies/assembly-consumer.ts";
+import { createApp } from "./http/app.ts";
+import type { Bindings } from "./bindings.ts";
+import { documentAssemblyQueue } from "./background/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "./assemblies/assembly-types.ts";
-import { runTemplateOrphanSweep } from "./assemblies/template-orphan-sweep.ts";
-import { conversionQueue } from "./conversions/conversion-consumer.ts";
+import { runTemplateOrphanSweep } from "./background/assemblies/template-orphan-sweep.ts";
+import { conversionQueue } from "./background/conversions/conversion-consumer.ts";
 import type { ConversionMessage } from "./conversions/conversion-types.ts";
-import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
-import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
+import {
+  perFirmQueue,
+  type PerFirmQueueMessage,
+} from "./background/costs/recoverable-charge-consumer.ts";
+import { bundleBuildQueue } from "./background/downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
-import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-consumer.ts";
-import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
-import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
-import { magnusQueue } from "./magnus/magnus-consumer.ts";
+import { emailsCaptureQueue } from "./background/emails/capture-consumer.ts";
+import type { EmailsCaptureMessage } from "./emails/capture-types.ts";
+import { ingestQueue, type R2EventMessage } from "./background/files/ingest-consumer.ts";
+import { inferenceQueue, type InferenceJob } from "./background/inference/inference-consumer.ts";
+import { magnusQueue } from "./background/magnus/magnus-consumer.ts";
+import type {
+  MeetingRecordingComposeMessage,
+  MeetingRecordingQueueMessage,
+  MeetingSummaryMessage,
+  MeetingTranscriptMessage,
+} from "./meetings/meeting-recorder.ts";
+import { meetingRecordingComposeQueue } from "./meetings/recording-compose-consumer.ts";
+import { runRecordingSweep } from "./meetings/recording-sweep.ts";
+import { meetingSummaryQueue } from "./meetings/summary-consumer.ts";
+import { meetingTranscriptQueue } from "./meetings/transcript-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
-import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
-import { runTieringSweep } from "./editing/tiering-sweep.ts";
-import { runDimensionBackfillSweep } from "./files/dimension-backfill-sweep.ts";
-import { recoveryQueue } from "./recovery/recovery-consumer.ts";
+import { runIdleCheckoutSweep } from "./background/editing/idle-checkout-sweep.ts";
+import { runTieringSweep } from "./background/editing/tiering-sweep.ts";
+import { runDimensionBackfillSweep } from "./background/files/dimension-backfill-sweep.ts";
+import { recoveryQueue } from "./background/recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import {
   runConflictsRecheckSweep,
@@ -44,16 +59,16 @@ import {
   runScheduledSweep,
   runStatusSnapshot,
   runStorageReconciliation,
-} from "./scheduled.ts";
-import { runDownloadShelfRetentionSweep } from "./downloads/shelf-retention-sweep.ts";
-import { runReextractionSweep } from "./search/reextraction-sweep.ts";
-import { discoveryProcessQueue } from "./discovery/process-consumer.ts";
+} from "./background/scheduled.ts";
+import { runDownloadShelfRetentionSweep } from "./background/downloads/shelf-retention-sweep.ts";
+import { runReextractionSweep } from "./background/search/reextraction-sweep.ts";
+import { discoveryProcessQueue } from "./background/discovery/process-consumer.ts";
 import type { DiscoveryLaneMessage } from "./discovery/discovery-process-types.ts";
-import { searchIndexQueue } from "./search/index-consumer.ts";
-import { searchCompactionQueue } from "./search/compaction-consumer.ts";
+import { searchIndexQueue } from "./background/search/index-consumer.ts";
+import { searchCompactionQueue } from "./background/search/compaction-consumer.ts";
 import type { SearchCompactionMessage } from "./search/compaction-types.ts";
-import { runSearchCompactionSweep } from "./search/compaction-sweep.ts";
-import { runNaturalLanguageKeepAliveSweep } from "./search/natural-language-keep-alive.ts";
+import { runSearchCompactionSweep } from "./background/search/compaction-sweep.ts";
+import { runNaturalLanguageKeepAliveSweep } from "./background/search/natural-language-keep-alive.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
 
 // Announced here rather than in index.ts, which is held to a startup CPU budget this package's
@@ -98,6 +113,11 @@ const DOCUMENT_ASSEMBLY_QUEUE = "magna-carta-production-document-assembly";
 // consumer, which re-reads the firm's consent gates, builds the bounded conversation window, calls the
 // one inference chokepoint, and settles the pending turn.
 const MAGNUS_QUEUE = "magna-carta-production-magnus";
+
+// The meeting-recording compose queue's name — routeQueueBatch routes its batches to the compose
+// consumer, which mixes one bounded window of a stopped recording's staged tracks into the composite,
+// re-enqueues the next window, and files the finished recording through the upload pipeline.
+const MEETING_RECORDING_COMPOSE_QUEUE = "magna-carta-production-meeting-recording-compose";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -220,7 +240,26 @@ export async function runScheduledPass(
           },
         }
       : controller.cron === STATUS_SNAPSHOT_CRON
-        ? { operation: "cron:status-snapshot", run: () => runStatusSnapshot(env) }
+        ? {
+            operation: "cron:status-snapshot",
+            run: async () => {
+              await runStatusSnapshot(env);
+              // The recording sweep rides this ten-minute pass rather than a trigger of its own (the
+              // trigger set is one atomic write, and a fourth has never been proved on this account)
+              // and rather than the five-minute sweep (which also runs on a request's tail). Wrapped,
+              // so a sweep that fails can never cost the status snapshot, and the reverse is already
+              // true because the snapshot records its own failures.
+              try {
+                await runRecordingSweep(env);
+              } catch (caught) {
+                logOperationFailed(
+                  createWorkersLogger(env.TELEMETRY),
+                  "cron:recording-sweep",
+                  caught,
+                );
+              }
+            },
+          }
         : controller.cron === NOTIFICATION_DIGEST_CRON
           ? {
               operation: "cron:notification-digest",
@@ -285,6 +324,11 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
   if (batch.queue === DISCOVERY_PROCESS_QUEUE) {
     return discoveryProcessQueue(batch as MessageBatch<DiscoveryLaneMessage>, env);
   }
+  // The meeting-recording queue carries two kinds of message, routed by `kind`: the compose (mix a
+  // window -> file) and the transcript the filing begins (transcribe a window -> assemble -> file).
+  if (batch.queue === MEETING_RECORDING_COMPOSE_QUEUE) {
+    return routeMeetingRecordingBatch(batch as MessageBatch<MeetingRecordingQueueMessage>, env);
+  }
   // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
   if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {
     return documentAssemblyQueue(batch as MessageBatch<DocumentAssemblyMessage>, env);
@@ -292,4 +336,70 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
   // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
   // same ingest handler — the lane separation is entirely in queue topology and concurrency.
   return ingestQueue(batch as MessageBatch<R2EventMessage>, env);
+}
+
+/**
+ * ONE QUEUE, THREE CONSUMERS: the recording queue's messages split by their `kind` — the compose, the
+ * transcript and the summary — and each share handed to its own consumer as a batch of its own. A message of a kind neither knows — a message sent by a later
+ * deploy and read by an earlier one during a rollout — is retried rather than acknowledged, so it is
+ * read again by the code that knows it instead of being lost.
+ */
+async function routeMeetingRecordingBatch(
+  batch: MessageBatch<MeetingRecordingQueueMessage>,
+  env: Bindings,
+): Promise<void> {
+  const { compose, transcript, summary } = splitMeetingRecordingBatch(batch);
+  if (compose !== null) await meetingRecordingComposeQueue(compose, env);
+  if (transcript !== null) await meetingTranscriptQueue(transcript, env);
+  if (summary !== null) await meetingSummaryQueue(summary, env);
+}
+
+/**
+ * The split itself, with no consumer behind it: the compose, transcript and summary shares as batches of
+ * their own (null when a kind has no message), every message of an unknown kind already retried.
+ * Exported so the routing is tested apart from the consumers it hands to.
+ */
+export function splitMeetingRecordingBatch(batch: MessageBatch<MeetingRecordingQueueMessage>): {
+  readonly compose: MessageBatch<MeetingRecordingComposeMessage> | null;
+  readonly transcript: MessageBatch<MeetingTranscriptMessage> | null;
+  readonly summary: MessageBatch<MeetingSummaryMessage> | null;
+} {
+  const compose: Message<MeetingRecordingComposeMessage>[] = [];
+  const transcript: Message<MeetingTranscriptMessage>[] = [];
+  const summary: Message<MeetingSummaryMessage>[] = [];
+  for (const message of batch.messages) {
+    const body = message.body as { readonly kind?: unknown };
+    if (body.kind === "meeting-transcript") {
+      transcript.push(message as Message<MeetingTranscriptMessage>);
+    } else if (body.kind === "meeting-recording-compose") {
+      compose.push(message as Message<MeetingRecordingComposeMessage>);
+    } else if (body.kind === "meeting-summary") {
+      summary.push(message as Message<MeetingSummaryMessage>);
+    } else {
+      message.retry();
+    }
+  }
+  return {
+    compose: compose.length > 0 ? subBatch(batch, compose) : null,
+    transcript: transcript.length > 0 ? subBatch(batch, transcript) : null,
+    summary: summary.length > 0 ? subBatch(batch, summary) : null,
+  };
+}
+
+/** Some of a batch's messages, as a batch of their own for a consumer that reads only `messages`. */
+function subBatch<Body>(
+  batch: MessageBatch,
+  messages: readonly Message<Body>[],
+): MessageBatch<Body> {
+  return {
+    queue: batch.queue,
+    metadata: batch.metadata,
+    messages,
+    ackAll: () => {
+      for (const message of messages) message.ack();
+    },
+    retryAll: (options?: QueueRetryOptions) => {
+      for (const message of messages) message.retry(options);
+    },
+  };
 }

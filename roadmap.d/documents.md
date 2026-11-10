@@ -30,14 +30,14 @@
   scope: Folder model, CRUD, and listing over the firm-scoped data-access layer.
   status: shipped
   surface: awaiting-screen
-  evidence: packages/file-manager/src/folder-service.ts + apps/api-worker/src/routes/folders.ts (folders.list landed via the file-manager-contract stream).
+  evidence: packages/file-manager/src/folder-service.ts + apps/api-worker/src/http/routes/files/folders.ts (folders.list landed via the file-manager-contract stream).
 
 - id: documents.file-manager.document-types
   name: Document types
   scope: Per-firm document-type taxonomy attached to files.
   status: shipped
   surface: awaiting-screen
-  evidence: packages/file-manager/src/document-type-service.ts + apps/api-worker/src/routes/document-types.ts.
+  evidence: packages/file-manager/src/document-type-service.ts + apps/api-worker/src/http/routes/firm/document-types.ts.
 
 - id: documents.file-manager.ui-primitives
   name: File UI primitives
@@ -80,7 +80,7 @@
   status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0082, ADR-0027
-  evidence: packages/file-manager/src/zip-composition.ts + zip-entries-from-r2.ts + apps/api-worker/src/routes/downloads.ts; audit.ts logs exports.
+  evidence: packages/file-manager/src/zip-composition.ts + zip-entries-from-r2.ts + apps/api-worker/src/http/routes/files/downloads.ts; audit.ts logs exports.
 
 - id: documents.file-manager.bulk-download.async
   name: Async bulk bundle
@@ -89,7 +89,7 @@
   surface: awaiting-screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   spec: docs/specs/2026-06-17-slice-2-1-plan-3-async-bulk-download-implementation-plan.md
-  evidence: apps/api-worker/src/routes/bundle-status.ts; slice 2-1 fragment records the async bulk download as the platform's first Durable Object, built.
+  evidence: apps/api-worker/src/http/routes/files/bundle-status.ts; slice 2-1 fragment records the async bulk download as the platform's first Durable Object, built.
 
 - id: documents.file-manager.storage-metering
   name: Storage metering
@@ -97,7 +97,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0078, ADR-0103
-  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/api-worker/src/routes/firm-usage.ts, rendered by the Firm Usage screen built over apps/web/src/lib/firm-usage/; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
+  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/api-worker/src/http/routes/firm/firm-usage.ts, rendered by the Firm Usage screen built over apps/web/src/lib/firm-usage/; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
 
 - id: documents.upload
   name: Upload & ingest pipeline
@@ -106,7 +106,7 @@
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0081
   spec: docs/specs/2026-06-16-slice-2-1-inbound-upload-untrusted-pipeline-design.md
-  evidence: apps/api-worker/src/routes/uploads.ts + packages/file-manager/src/ingest-core.ts on main; the Upload dialog (apps/web/src/lib/file-manager/upload-dialog.svelte), the upload queue and the top-bar upload tray on main.
+  evidence: apps/api-worker/src/http/routes/files/uploads.ts + packages/file-manager/src/ingest-core.ts on main; the Upload dialog (apps/web/src/lib/file-manager/upload-dialog.svelte), the upload queue and the top-bar upload tray on main.
   notes: The single-shot PUT is the built browser path; the resumable multipart client above the mode threshold is still unbuilt on the web surface, so a file over the threshold is refused with its reservation given back.
 
 - id: documents.upload.direct-to-r2
@@ -115,7 +115,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0081
-  evidence: apps/api-worker/src/routes/uploads.ts (uploads.get added by the file-manager-contract stream); slice 2-1 fragment built/deployed.
+  evidence: apps/api-worker/src/http/routes/files/uploads.ts (uploads.get added by the file-manager-contract stream); slice 2-1 fragment built/deployed.
 
 - id: documents.upload.policy-gates
   name: Pre-acceptance gates
@@ -192,7 +192,7 @@
   surface: awaiting-screen
   adrs: ADR-0158
   spec: docs/specs/2026-06-25-scan-per-firm-policy-design.md
-  evidence: packages/file-manager/src/scan-policy-settings.ts + verdict.ts + apps/api-worker/src/routes/scan-policy.ts; histogram seam per docs/specs/2026-06-28-scan-policy-histogram-seam-design.md.
+  evidence: packages/file-manager/src/scan-policy-settings.ts + verdict.ts + apps/api-worker/src/http/routes/firm/scan-policy.ts; histogram seam per docs/specs/2026-06-28-scan-policy-histogram-seam-design.md.
 
 - id: documents.scanning.verdict
   name: Verdict as file metadata
@@ -207,14 +207,14 @@
   status: shipped
   surface: internal
   spec: docs/specs/2026-06-22-access-triggered-rescan-design.md
-  evidence: packages/file-manager/src/scan-cache.ts + apps/api-worker/src/routes/scan-matter.ts; dev seed provisions a re-scan-flagged file.
+  evidence: packages/file-manager/src/scan-cache.ts + apps/api-worker/src/http/routes/files/scan-matter.ts; dev seed provisions a re-scan-flagged file.
 
 - id: documents.scanning.tool-ui
   name: Malware Scan tool page
   scope: User-facing scan/diagnose tool in the Tools area.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/scan-diagnose.ts; 2026-07-14 baseline report lists the Malware Scan page merged in the tools UI wave.
+  evidence: apps/api-worker/src/http/routes/files/scan-diagnose.ts; 2026-07-14 baseline report lists the Malware Scan page merged in the tools UI wave.
 
 - id: documents.scanning.cdr
   name: CDR disarmed rendition
@@ -269,7 +269,7 @@
   surface: awaiting-screen
   adrs: ADR-0126
   evidence: packages/file-manager/src/checkout-statements.ts + apps/api-worker/src/editing idle-checkout-sweep.ts. The four permissions the chokepoint enforces across this surface are seeded as of packages/database/drizzle/per-firm/20260908T000000_baseline.sql — until then documents:edit, documents:checkout, documents:reconcile and documents:forceReleaseLock were granted to no role and every route answered 403 to every member of every firm.
-  awaiting-owner: Should documents:forceReleaseLock also reach Attorney? It is seeded to Owner/Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
+  awaiting-owner: Should documents:forceReleaseLock also reach Attorney? It is seeded to Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
 
 - id: documents.editing.export-copy
   name: Accepted copies on the way out
@@ -278,6 +278,14 @@
   surface: internal
   spec: docs/specs/2026-09-17-document-history-and-attribution-design.md
   evidence: packages/document-assembly/src/ooxml/accept-tracked-changes.ts (the pass) + apps/api-worker/src/exports (the queue handler, the resolver every download lane calls); the outbound paths, what is deliberately not one, and what must join the list when built are enumerated in apps/api-worker/src/editing/CLAUDE.md. A document past the pass's caps downloads as stored with the audit saying so, chosen over refusing a member their own document.
+
+- id: documents.editing.attribution
+  name: Who changed what, per version
+  scope: A version's tracked changes read from the document into rows attributed to members (participants first, roster second), the per-author summary on every history row, and the changes by author opened from Version History.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-09-17-document-history-and-attribution-design.md
+  evidence: packages/document-assembly/src/ooxml/read-tracked-changes.ts (the reader) + packages/file-manager/src/version-changes.ts (the rows, the set difference, the summary) + apps/api-worker/src/exports/record-version-changes.ts (attribution, riding the export copy's batch) + files.versionChanges; the Version History tab of apps/web/src/lib/file-manager/file-inspector.svelte.
 
 - id: documents.editing.editor-ui
   name: Editor UI
@@ -315,7 +323,7 @@
   scope: Superseded versions transitioned Standard to Infrequent Access server-side on a sweep; tiering, never pruning.
   status: shipped
   surface: internal
-  evidence: apps/api-worker/src/editing/tiering-sweep.ts (daily reconciliation cron; respects the 30-day IA minimum-duration floor).
+  evidence: apps/api-worker/src/background/editing/tiering-sweep.ts (daily reconciliation cron; respects the 30-day IA minimum-duration floor).
 
 - id: documents.versioning.storage-encoding-seam
   name: storage_encoding seam
@@ -374,7 +382,7 @@
   scope: Short-lived tokened URLs minted only after matter/RBAC checks; originals stream from R2 (progressive playback, free egress).
   status: shipped
   surface: internal
-  evidence: apps/api-worker/src/downloads + routes/downloads.ts; slice 2-3 fragment: delivery under a first-party HMAC token, backend on main.
+  evidence: apps/api-worker/src/downloads + routes/files/downloads.ts; slice 2-3 fragment: delivery under a first-party HMAC token, backend on main.
 
 - id: documents.preview.sandbox-origin
   name: Safe-delivery sandbox
@@ -456,7 +464,7 @@
   scope: Upload-and-submit conversion endpoints in the OpenAPI contract.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions.
+  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions.
   notes: Execution currently limited to the built engine edges (raster, image-to-PDF).
 
 - id: documents.conversion.raster
@@ -588,7 +596,7 @@
   adrs: ADR-0136
   spec: docs/specs/2026-06-22-pdf-document-scrub-design.md
   evidence: crates/pdf-core/src/scrub.rs removes thirteen document-level surfaces — Info, Metadata, StructTreeRoot, MarkInfo, Outlines, optional-content properties, the destinations name tree, field values and appearances, XFA, embedded files, Collection, file associations, and file-attachment annotations — then verify_scrub_absence walks the document model before it is serialized, gating all seven option groups across thirteen checks and refusing to emit anything at all if a surface it was asked to remove is still reachable. Only the field appearance stream is cleared without being checked. It is a check on the model rather than on the bytes written from it; redact.rs runs the same model check and re-reads its output only for the strings a caller asked to have redacted, so no path in the crate verifies a scrub against what it actually emitted. One named gap inside its own scope: it clears the /Names/Dests tree and neither clears nor checks the legacy catalog /Dests dictionary, which the crate knows exists.
-  awaiting-owner: Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — the document-level JavaScript name tree, the action that fires when the file is opened, the catalog actions that fire on save, print and close, the additional-actions on pages and on form fields, and the action attached to any annotation. A document produced to an opposing party can therefore still carry code, from the step whose whole purpose is that it does not. This is not a hypothetical path: prepareFormTemplateVersion in packages/document-assembly/src/pdf-form.ts runs the scrub on every PDF form template a firm registers, so whichever way this is answered changes something already running. Detection is not the missing half: inspect_pdf in containers/scan already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan fallback for a compressed catalog, and records the finding as active-content on the verdict. Two things are done with it — nothing, and nothing. It blocks no upload unless the firm's policy flags the file for another reason, and scanAndGateStatements in apps/api-worker/src/routes/templates.ts activates a template version even on an unscanned verdict, discarding verdict.activeContent entirely. So the third option below is closer to wiring up an answer the platform already computes than to building one. Stripping is not free, and the cost falls on fillable forms a FIRM uploaded — a court form still uses field actions for validation and formatting, so a scrub that removes them hands back a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that. Strip with an exception a firm marks at upload for forms it needs to keep working, which puts the choice on the person who knows what the form is for and has to be recorded so a recipient cannot forge it. Or surface the active content without removing it, and let whoever is producing the document decide per file — which means carrying a verdict flag that is already computed and today thrown away, and closing the unscanned hole so the flag cannot be silently absent. Note that an exception keyed on "templates the platform authored" would exempt nothing today: every fillable template in the tree is a firm upload, and whether the platform ever authors its own is itself unanswered on document-automation.filing-grade-generation. The page-split path in crates/pdf-core/src/generate.rs removes some of the same entries, and does so for safety — but a different safety, that no byte of an excluded page survives into the output: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page only when that action points at an excluded one, with a fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a scrub, and neither path settles what the other should do.
+  awaiting-owner: Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — the document-level JavaScript name tree, the action that fires when the file is opened, the catalog actions that fire on save, print and close, the additional-actions on pages and on form fields, and the action attached to any annotation. A document produced to an opposing party can therefore still carry code, from the step whose whole purpose is that it does not. This is not a hypothetical path: prepareFormTemplateVersion in packages/document-assembly/src/pdf-form.ts runs the scrub on every PDF form template a firm registers, so whichever way this is answered changes something already running. Detection is not the missing half: inspect_pdf in containers/scan already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan fallback for a compressed catalog, and records the finding as active-content on the verdict. Two things are done with it — nothing, and nothing. It blocks no upload unless the firm's policy flags the file for another reason, and scanAndGateStatements in apps/api-worker/src/http/routes/documents/templates.ts activates a template version even on an unscanned verdict, discarding verdict.activeContent entirely. So the third option below is closer to wiring up an answer the platform already computes than to building one. Stripping is not free, and the cost falls on fillable forms a FIRM uploaded — a court form still uses field actions for validation and formatting, so a scrub that removes them hands back a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that. Strip with an exception a firm marks at upload for forms it needs to keep working, which puts the choice on the person who knows what the form is for and has to be recorded so a recipient cannot forge it. Or surface the active content without removing it, and let whoever is producing the document decide per file — which means carrying a verdict flag that is already computed and today thrown away, and closing the unscanned hole so the flag cannot be silently absent. Note that an exception keyed on "templates the platform authored" would exempt nothing today: every fillable template in the tree is a firm upload, and whether the platform ever authors its own is itself unanswered on document-automation.filing-grade-generation. The page-split path in crates/pdf-core/src/generate.rs removes some of the same entries, and does so for safety — but a different safety, that no byte of an excluded page survives into the output: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page only when that action points at an excluded one, with a fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a scrub, and neither path settles what the other should do.
 
 - id: documents.pdf.surgery
   name: Structural surgery & repair
@@ -672,7 +680,7 @@
   status: partial
   slices: 2-5-pdf-services-e-signature-core
   adrs: ADR-0045, ADR-0205, ADR-0206
-  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/api-worker/src/routes/document-seal.ts on main; the signing flow, field placement, and adoption UI are not started.
+  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/api-worker/src/http/routes/documents/document-seal.ts on main; the signing flow, field placement, and adoption UI are not started.
   audience: public
   public-name: Electronic signatures
   public-summary: Send a document for signature and get the signed copy back with a record of who signed it and when.
@@ -685,7 +693,7 @@
   surface: awaiting-screen
   slices: 2-5-pdf-services-e-signature-core
   adrs: ADR-0205, ADR-0206
-  evidence: crates/pdf-core seal primitive (incremental update, ByteRange, CMS splice) with WASM bindings; packages/signing CMS backend at PAdES-B-B with signing-certificate-v2; apps/sign-worker holding the platform key; apps/api-worker/src/routes/document-seal.ts over a SealPort binding; tooling/platform-seal-certificate provisions the identity.
+  evidence: crates/pdf-core seal primitive (incremental update, ByteRange, CMS splice) with WASM bindings; packages/signing CMS backend at PAdES-B-B with signing-certificate-v2; apps/sign-worker holding the platform key; apps/api-worker/src/http/routes/documents/document-seal.ts over a SealPort binding; tooling/platform-seal-certificate provisions the identity.
   notes: ADR-0206 resolves the Worker-crypto vs Container question in favour of pkijs over WebCrypto in the Worker. Baseline B-B only — timestamp/LTV levels (B-T/B-LT/B-LTA, needs a TSA) and independent-validator conformance remain.
 
 - id: documents.esignature.signing-flow
@@ -755,7 +763,7 @@
   slices: ocr-engine
   adrs: ADR-0060
   spec: docs/specs/2026-07-09-ocr-engine-design.md
-  evidence: crates/ocr-core + containers/ocr + apps/ocr-worker + apps/api-worker/src/routes/ocr.ts on main; UI deferred; deploy verification is the named next step.
+  evidence: crates/ocr-core + containers/ocr + apps/ocr-worker + apps/api-worker/src/http/routes/files/ocr.ts on main; UI deferred; deploy verification is the named next step.
 
 - id: documents.ocr.engine
   name: ocr-core engine
@@ -771,7 +779,7 @@
   scope: POST /api/v1/ocr behind the tools:ocr permission.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
+  evidence: apps/api-worker/src/http/routes/files/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
   notes: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md.
 
 - id: documents.ocr.raster-cap
@@ -801,7 +809,7 @@
   status: partial
   slices: file-repair-salvage
   spec: docs/specs/2026-06-28-file-repair-salvage-design.md
-  evidence: crates/recovery-core + containers/file-repair + apps/file-repair-worker + apps/api-worker/src/routes/file-repair.ts; UI and deploy smoke test deferred.
+  evidence: crates/recovery-core + containers/file-repair + apps/file-repair-worker + apps/api-worker/src/http/routes/files/file-repair.ts; UI and deploy smoke test deferred.
   notes: Decision fragments file-repair-single-container-lane and engine-host-r2-optional pending assembly (unnumbered).
 
 - id: documents.file-repair.format-pillars
@@ -816,7 +824,7 @@
   scope: /api/v1/file-repair/{diagnose,repair,carve}; reconstructed output re-scanned and withheld if flagged.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/file-repair.ts + apps/file-repair-worker + FILE_REPAIR_SERVICE binding per the status fragment.
+  evidence: apps/api-worker/src/http/routes/files/file-repair.ts + apps/file-repair-worker + FILE_REPAIR_SERVICE binding per the status fragment.
 
 - id: documents.file-repair.attach-to-matter
   name: Attach repaired output to matter
@@ -882,7 +890,7 @@
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   spec: docs/specs/2026-06-22-metadata-tool-design.md
-  evidence: @magna-carta/metadata + apps/api-worker/src/routes/metadata.ts; HEIC/PDF/container engine deferred; UI todo.
+  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts; HEIC/PDF/container engine deferred; UI todo.
   audience: public
   public-name: Metadata scrubbing
   public-summary: See what is hidden inside a file — tracked changes, comments, author details, the place a photograph was taken — and strip it out before you send it.
@@ -922,7 +930,7 @@
   slices: file-hash-integrity
   adrs: ADR-0143
   spec: docs/specs/2026-06-23-file-hash-integrity-design.md
-  evidence: @magna-carta/file-integrity (hash/compare/receipt) + apps/api-worker/src/routes/file-integrity.ts; introduced the file context tag.
+  evidence: @magna-carta/file-integrity (hash/compare/receipt) + apps/api-worker/src/http/routes/files/file-integrity.ts; introduced the file context tag.
   notes: Backend shipped; tool UI deferred to the shell wave.
 
 - id: documents.file-type
@@ -942,7 +950,7 @@
   status: partial
   slices: email-core-parse-engine
   spec: docs/specs/2026-07-09-email-core-parse-engine-design.md
-  evidence: crates/email-core + @magna-carta/email + apps/api-worker/src/routes/email-inspector.ts; tested done in the status fragment.
+  evidence: crates/email-core + @magna-carta/email + apps/api-worker/src/http/routes/email/email-inspector.ts; tested done in the status fragment.
   notes: Parse-only by design — rendering and DKIM verification stand outside; container/native lane deferred until Discovery's bulk mbox needs.
 
 - id: documents.email.parse
@@ -972,7 +980,7 @@
   scope: Worker route exposing the parse engine, surfaced as the File Workbench's Email tab.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/email-inspector.ts. The tab exists and renders the pending treatment; the route has no panel reading it yet. The email-inspector catalog row is retired into this tab.
+  evidence: apps/api-worker/src/http/routes/email/email-inspector.ts. The tab exists and renders the pending treatment; the route has no panel reading it yet. The email-inspector catalog row is retired into this tab.
 
 - id: documents.engine-host
   name: Engine-host harness
@@ -984,3 +992,38 @@
   spec: docs/specs/2026-06-28-engine-host-framework-design.md
   evidence: crates/engine-host; file-repair is the first container-on-harness engine, email-core rides the same seam.
   notes: Status fragment marks tested todo.
+
+- id: documents.legal-citations
+  name: Legal citations
+  scope: One pure citation engine behind a stand-alone tool and embeddable components; Uniform System from The Indigo Book, per-court formats, link-first reading with typed overrides.
+  status: partial
+  spec: docs/specs/2026-11-09-legal-citations-design.md
+  evidence: packages/citations; the FormattedCitation design-system component; apps/web /legal-citations (Build). Provider lookups, Check a Document, Table of Authorities and the Magnus and editor consumers are not built.
+
+- id: documents.legal-citations.engine
+  name: Citation engine (@magna-carta/citations)
+  scope: Recognizes links and rough citations, keeps per-field provenance with typed overrides, formats full, short and Id. forms, and resolves per-court formats.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-11-09-legal-citations-design.md
+  evidence: packages/citations/src and its tests; consumed by apps/web/src/routes/(app)/legal-citations.
+
+- id: documents.legal-citations.build-tool
+  name: Legal Citations tool, Build
+  scope: Paste a link or citation, see the read fields with their provenance, override any, copy the formatted forms in the chosen court format.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Legal Citations
+  public-summary: Paste a link or a rough citation and get it formatted for your court, ready to copy.
+  evidence: apps/web/src/routes/(app)/legal-citations/+page.svelte; packages/design-system formatted-citation.
+
+- id: documents.legal-citations.lookups
+  name: Citation provider lookups
+  scope: Worker adapters that fill a case's name, court and year from CourtListener and govinfo, and Westlaw and Lexis through the legal-research port.
+  status: designed
+
+- id: documents.legal-citations.checker
+  name: Check a Document and Table of Authorities
+  scope: Find every citation in a document, flag form errors with the rule, offer fixes, and build a table of authorities.
+  status: designed

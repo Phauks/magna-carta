@@ -21,27 +21,61 @@ need that, and stays a list of names on the day you do not. When something is na
 The search finds a record by any name it has ever held: a maiden name, a former trading name or a
 typo still finds the right record, and the results say which name matched.
 
-Press **New** to record a person or an organization. A person is recorded whole: the screen puts
-the record's sections down its left side, each with a count of what it holds, and the section you
-are on beside it, so a name, a way to reach them, an address, their pronouns, dates, sealed
-identifiers and the organizations they belong to can all be entered before the record exists. Moving between the
-sections never changes the size of the window. On the right, as you type
+Press **New** to record a person or an organization. A person is recorded whole, on one form that
+scrolls: their names, the ways to reach them, an address, an About section for their pronouns and
+dates, sealed identifiers and the organizations they belong to, one under another. Press **Tab**
+to move through every field in order. The list down the left side jumps to a section, shows how
+many entries each one holds, and highlights the section you are in. On the right, as you type
 the name, the Directory shows records that may already be the same person, with a way to open each
-beside your draft, so the same client does not end up in the book twice under two spellings.
-Everything you entered is recorded together when you press Record Person, or not at all.
+beside your draft, so the same client does not end up in the book twice under two spellings. Below
+that, the record is read back as it will read, with the email address and the address themselves,
+so you can check it before you save. Everything you entered is recorded together when you press
+Save, or not at all.
 
 ## A record
 
 A record opens in a window over whatever you were doing, and it looks the way it did when it was
-recorded: the record's sections down the left side, the section you are on beside it, and on the
-right what stands about the record as a whole. Close the window and you are back exactly where you
+recorded: one page that scrolls, with every section of the record one under another, and the list
+down the left side jumping between them. A person's pronouns and dates of birth and death are
+under their name at the top. A long list, such as the matters a record is on, shows its first few
+lines and a **Show All** button. Close the window and you are back exactly where you
 were, with nothing to retrace. It is the same window from the Directory's list, from a party on a
 matter, from the client on a matter's overview and from a conflicts check, so a record has one shape
-everywhere. Opened from a matter, the right side also lists the roles this record holds on that
+everywhere. Opened from a matter, a column on the right lists the roles this record holds on that
 matter.
 
 A record has an address you can paste into a message. Following it opens the Directory with that
-record's window already open.
+record's window already open. The **More** button (the three dots at the top right of the window)
+holds what you can do with the record as a whole:
+
+- **Copy Link** copies the record's address, ready to paste.
+- **Email Link** starts a message in your mail program with the record's name and address in it.
+- **Download** saves the record as a file, in one of three formats:
+  - **PDF**, a printout of the record: its names, dates, every way to reach the person (with the
+    ones they asked the firm not to use marked), addresses, relationships and matters. Sealed
+    identifiers are never on it. Making a PDF needs the permission to export reports.
+  - **Plain Text**, the same printout as a `.txt` file that pastes into an email.
+  - **Contact Card (.vcf)**, a file that phones, Outlook and other address books open. It carries
+    the name, a person's date of birth, and the email addresses, numbers and postal addresses the
+    person allows the firm to use. A contact point marked as former, or one the person asked the
+    firm not to use, is left off, and so are identifiers, matters and relationships, because a
+    contact card is meant to be handed on. If the record has a picture, the card carries it too.
+
+A record can have a picture: a person's photograph or an organization's logo. It sits in the circle
+beside the name at the top of the window, and the record's initials stand in until there is one.
+
+- **Add a picture**: press the circle (it shows a small camera while it is empty), choose a PNG or
+  JPEG, and drag the picture, or use the arrow keys, until the face sits inside the ring. **Zoom In**
+  and **Zoom Out** enlarge it. Only the square you see is saved, so the rest of the photograph never
+  reaches the firm's storage.
+- **Change, view or remove it**: press the picture. **Change Photo** opens the same cropping window,
+  **View Full Size** opens the picture in a new tab, and **Remove Photo** takes it off the record.
+- When you record a new person, **Add Photo** above the name fields does the same before the person
+  is saved. If the person is saved but the picture is not, a message says so, and you can add it
+  from their record.
+
+Adding, changing and removing a picture needs the permission to edit the Directory. Somebody who
+may only read it sees the picture and can open it full size.
 
 A record answers the questions the firm keeps an answer to:
 
@@ -64,11 +98,22 @@ A record answers the questions the firm keeps an answer to:
   Choose the country first and the rest of the form follows it — an Irish address asks for a county
   and an Eircode, a German one puts the postal code before the town, a Japanese one starts with the
   postal code and reads down to the street, and none of them is asked for a state that does not
-  exist. Nothing is required: an address the firm holds half of is still worth recording. Each
+  exist. Nothing is required: an address the firm holds half of is still worth recording.
+  Where address suggestions are available, the street box offers real addresses as you type, and
+  choosing one fills in the town, the state or province and the postal code while keeping any
+  apartment or suite you had already typed. A building with several units is offered once, with how
+  many addresses it holds, and choosing it lists the units. Addresses in the state you have already
+  chosen — or, before you choose one, the state your office is in — are offered first; the rest of
+  the country is still offered. In the United States the suggestions come from public address records
+  published by states, counties and cities, so a very new street, or the unit number in some
+  buildings, may not be there yet. The offers are only a shortcut: what you type is what is kept,
+  whether or not you choose one. If a postal code does not look like one for
+  the chosen country, a note beneath it says so and the address saves anyway, and the state or
+  province box offers the country's list without refusing a name that is not on it. Each
   address also says what it is for and whether the place physically exists, which is the difference
   between somewhere a document can be served and a delivery point that cannot. Addresses are
   corrected in place, the same way.
-- **Pronouns** and **Dates** on a person: what the person stated, and their dates of birth and death.
+- **About**, on a person: the pronouns they stated, and their dates of birth and death.
 - **Identifiers**: sealed values such as a social security number, a driver's licence, a bar
   number or an account. The type decides what is asked for: nine digits for a social security
   number, the issuing state and the number for a licence, and for an account who it is held with,

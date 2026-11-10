@@ -1,8 +1,9 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import type { SearchQueryInput } from "@magna-carta/search/port";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { resolveSearchIndexPort } from "../src/search/search-engine.ts";
 
 // The engine adapter mints a split-object capability token per operation, so it needs the signing

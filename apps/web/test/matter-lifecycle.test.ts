@@ -29,6 +29,8 @@ import {
   matterLifecycleSteps,
   MATTER_LIFECYCLE_STEPS,
   MATTER_PHYSICAL_FILE_FACTS,
+  earliestFileDestructionDate,
+  fileDestructionDateRefusal,
   NO_LIFECYCLE_READINESS,
 } from "../src/lib/matters/matter-lifecycle.ts";
 import { MATTER_STATUSES } from "../src/lib/matters/matter-status.ts";
@@ -350,13 +352,13 @@ describe("the physical file", () => {
     }
   });
 
-  it("serves where the file is kept, and nothing else", () => {
+  it("serves where the file is kept and the date the firm stated, and not what holds it", () => {
     // Location resolves to one of the firm's own offices, which is a record the product holds.
-    // What a folder sits INSIDE is a record that does not exist, and no retention clock exists
-    // anywhere to derive a destruction date from — so both of those stay marked Soon rather than
-    // being invented. A date made up here would be a date somebody destroys a client's file on.
+    // Destroy After is a date a person at the firm records — never one derived, because a date
+    // made up here would be a date somebody destroys a client's file on. What a folder sits INSIDE
+    // is a record that does not exist, so it stays marked Soon rather than being invented.
     const served = MATTER_PHYSICAL_FILE_FACTS.filter((fact) => fact.served).map((fact) => fact.key);
-    expect(served).toEqual(["location"]);
+    expect(served).toEqual(["location", "destroy-after"]);
   });
 });
 
@@ -456,5 +458,23 @@ describe("what opening requires", () => {
       }),
     ).toEqual(blockers);
     expect(matterOpenRefusals({ type: "conflict", title: "Conflict", status: 409 })).toEqual([]);
+  });
+});
+
+describe("the destruction date the close asks for", () => {
+  it("offers the firm's floor: the day of the close plus its minimum, a leap day rolling forward", () => {
+    expect(earliestFileDestructionDate("2026-11-09", 7)).toBe("2033-11-09");
+    expect(earliestFileDestructionDate("2028-02-29", 1)).toBe("2029-03-01");
+    expect(earliestFileDestructionDate("2026-11-09", 0)).toBeNull();
+  });
+
+  it("takes the floor, a later date, or none, and refuses an earlier date or no answer", () => {
+    expect(fileDestructionDateRefusal("2033-11-09", "2033-11-09")).toBeNull();
+    expect(fileDestructionDateRefusal("2040-01-01", "2033-11-09")).toBeNull();
+    expect(fileDestructionDateRefusal(null, "2033-11-09")).toBeNull();
+    expect(fileDestructionDateRefusal("2033-11-08", "2033-11-09")).toContain("2033-11-09");
+    expect(fileDestructionDateRefusal("", null)).toContain("No Destruction Date");
+    // With no minimum, any chosen date stands.
+    expect(fileDestructionDateRefusal("2027-01-01", null)).toBeNull();
   });
 });

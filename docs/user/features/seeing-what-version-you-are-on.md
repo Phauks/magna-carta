@@ -24,6 +24,12 @@ Under **Database**, the overlay checks the connection between your session and y
 
 A line headed **This page** appears when nothing else in the list can state your page's version — before you sign in, when the read fails, or when `magna-carta-web` itself does not answer. It comes from the page itself rather than from the network, so it is there exactly when the network is not.
 
+## The About window
+
+Choose **About Magna Carta** under **Websites** in your profile menu (or search for it) to open a short summary of the copy you are using: its version and release date, who you are signed in as and which firm, the kind of build, and your browser. **Copy Version Details** puts all of those on your clipboard as plain lines, ready to paste into a support request.
+
+The right side of the window links to the **Changelog**, the **Full version report** (the Versions page described above), **Service status** and **Report an issue**. Documentation and the legal pages are listed as **Soon** until they are published.
+
 ## When a new version ships
 
 The application checks about once a minute whether a newer deployment has gone live. When one has, a small amber dot appears on the version chip, and opening it shows an **Update Available** notice. An amber reload symbol appears at the top of the overlay, beside the refresh control. Pressing it brings you onto the new version; until you do, the page you already loaded keeps working as it was.

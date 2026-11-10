@@ -104,7 +104,9 @@ export interface SettingsSection {
     | "integrations"
     | "calendar"
     | "reports"
-    | "ai";
+    | "meetings"
+    | "ai"
+    | "retention";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -187,8 +189,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
-    // Text preferences (typeface, size). Its rows are honest Soon seams until the type system
-    // grows the machinery (font tokens / a text-scale overlay) — see the page.
+    // Text preferences: the reading typeface (live) and text size (a Soon seam until the type
+    // system grows a text-scale overlay) — see the page.
     id: "text",
     label: "Text",
     href: "/settings/text",
@@ -204,12 +206,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     //
     // Instant rather than the firm scope's draft default: it is one field, and the footer's
     // staged-count-and-recap anatomy over a single row would be more machinery than the act. The
-    // rest of "identity" — an address, a telephone number, a letterhead root — belongs to an
-    // office, which has its own page, rather than being a second firm-wide answer no letterhead
-    // reads.
+    // firm's marks live on Firm Brand and its offices on Offices, each on its own page, so the
+    // identity page never repeats a register that has a home of its own.
     id: "firm-profile",
     label: "Firm Profile",
     href: "/settings/firm-profile",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's marks: the primary mark every office's letterhead prints unless the office has a
+    // logo of its own, and the additional images kept beside it. Every act (add, make primary,
+    // caption, remove) commits at once against the brand-image routes, so nothing is staged. Its
+    // own page rather than a plate on Firm Profile because how the firm looks is a different
+    // question from what it is called, and it is where firm-wide branding grows.
+    id: "firm-brand",
+    label: "Firm Brand",
+    href: "/settings/firm-brand",
     group: "firm",
     scope: "firm",
     commitMode: "instant",
@@ -231,6 +247,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "instant",
     editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
+    // settings form: each act (add, change, retire) commits through its own dialog against
+    // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
+    // nothing is staged. Its edit right is the calendar's own `calendar:manage`, read from the
+    // session on the page, because the area seam here is still a mock.
+    id: "resources",
+    label: "Rooms and Resources",
+    href: "/settings/resources",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendar",
     shipped: true,
   },
   // Notifications
@@ -317,6 +348,37 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The firm's meeting settings: whether its meetings may be recorded, summarized and captioned,
+    // and how many people one recording hears at once. Under Practice beside Calendar, because a
+    // meeting hangs from a calendar event and these decide what happens to the conversation held in
+    // it. Server-backed over GET/PATCH /api/v1/firm/meetings/settings, the four switches the
+    // recording start route, the recorder and the summary consumer read. Draft mode, emphatically
+    // not instant: switching recording or summaries on is the firm deciding where its privileged
+    // conversations go, which is not a decision anybody should make by brushing a switch.
+    id: "meetings",
+    label: "Meetings",
+    href: "/settings/meetings",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "meetings",
+    shipped: true,
+  },
+  {
+    // The firm's minimum retention for a closed matter's paper file (owner ruling 2026-11-09):
+    // closing a matter asks for a destruction date at least this many years out, a later one, or
+    // none. Server-backed from the start — GET/PATCH /api/v1/matters/settings — and its edit right
+    // is `matters:manageRetention`, Admin alone, checked against the session on the page.
+    id: "file-retention",
+    label: "File Retention",
+    href: "/settings/file-retention",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "retention",
+    shipped: true,
+  },
+  {
     // The firm's report policy: what its trust-compliance document lists. A FIRM setting rather
     // than a per-run choice (owner-ruled 2026-09-07): a compliance document should read the same
     // every time the firm produces it. Server-backed from the start — the page reads and writes
@@ -339,21 +401,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: "event-types",
     label: "Event Types",
     href: "/settings/event-types",
-    group: "practice",
-    scope: "firm",
-    commitMode: "instant",
-    editPermissionArea: "calendar",
-    shipped: true,
-  },
-  {
-    // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
-    // settings form: each act (add, change, retire) commits through its own dialog against
-    // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
-    // nothing is staged. Its edit right is the calendar's own `calendar:manage`, read from the
-    // session on the page, because the area seam here is still a mock.
-    id: "resources",
-    label: "Rooms and Resources",
-    href: "/settings/resources",
     group: "practice",
     scope: "firm",
     commitMode: "instant",
@@ -542,7 +589,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // privileged client content leaving for a third party, which is not a decision anybody should
     // make by brushing a switch.
     id: "ai",
-    label: "AI and the Assistant",
+    label: "AI",
     href: "/settings/ai",
     group: "data-platform",
     scope: "firm",

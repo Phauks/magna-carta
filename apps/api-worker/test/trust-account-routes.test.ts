@@ -14,7 +14,7 @@ import {
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-import type { ProblemBody } from "../src/contracts/problem.ts";
+import type { ProblemBody } from "../src/http/contracts/problem.ts";
 
 // Opening a trust account over HTTP. What is proved here is the wiring the domain suite cannot
 // reach: that the chokepoint gates the route on trust:manage, that the jurisdiction on the opened
@@ -293,6 +293,12 @@ describe("a trust account's position", () => {
     return (await readJson<TrustAccountRow>(opened)).id;
   }
 
+  // The position is read as of the HOLDING OFFICE'S day, so money moved in these tests is dated on that
+  // day too. Dated today in UTC instead, it lands a day ahead of the office from midnight until the
+  // office's own midnight, and the position rightly leaves money dated tomorrow out of today's figure.
+  const todayAtTheHoldingOffice = (): string =>
+    zonedReading(Date.now(), "America/Los_Angeles").civilDate;
+
   const positionOf = async (accountId: string): Promise<PositionRow> => {
     const response = await get(`/api/v1/trust/accounts/${accountId}/position`);
     expect(response.status).toBe(200);
@@ -327,7 +333,7 @@ describe("a trust account's position", () => {
       matterId,
       amountMinor: 250000,
       currency: "USD",
-      effectiveDate: todayInUtc(),
+      effectiveDate: todayAtTheHoldingOffice(),
       description: "Retainer received",
       method: "check",
       reference: "7781",
@@ -356,7 +362,7 @@ describe("a trust account's position", () => {
           matterId,
           amountMinor: 400000,
           currency: "USD",
-          effectiveDate: todayInUtc(),
+          effectiveDate: todayAtTheHoldingOffice(),
           description: "Retainer received",
           method: "check",
           reference: "7782",
@@ -380,7 +386,7 @@ describe("a trust account's position", () => {
           trustAccountId: accountId,
           amountMinor: 15000,
           currency: "USD",
-          effectiveDate: todayInUtc(),
+          effectiveDate: todayAtTheHoldingOffice(),
           description: "Cushion for service charges",
           method: "electronic_transfer",
         })
@@ -436,7 +442,7 @@ describe("a trust account's position", () => {
           matterId,
           amountMinor: 300000,
           currency: "USD",
-          effectiveDate: todayInUtc(),
+          effectiveDate: todayAtTheHoldingOffice(),
           description: "Retainer received",
           method: "check",
           reference: "7783",
@@ -451,7 +457,7 @@ describe("a trust account's position", () => {
       matterId,
       amountMinor: 90000,
       currency: "USD",
-      effectiveDate: todayInUtc(),
+      effectiveDate: todayAtTheHoldingOffice(),
       description: "Filing fee",
       method: "check",
       reference: "2207",

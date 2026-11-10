@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { WEEK_STARTS_ON_DEFINITION } from "../src/lib/calendar/calendar-settings-draft.svelte.ts";
 import { FILE_SAFETY_DEFINITIONS } from "../src/lib/file-manager/scan-policy-draft.svelte.ts";
 import { BILLING_DEFINITIONS } from "../src/lib/settings/firm-time-policy-draft.svelte.ts";
+import { MEETINGS_DEFINITIONS } from "../src/lib/settings/meeting-settings-draft.svelte.ts";
 import {
   SETTING_DEFINITIONS,
   type SettingDefinition,
@@ -31,6 +32,7 @@ const SURFACE_DEFINITIONS: readonly SettingDefinition[] = [
   WEEK_STARTS_ON_DEFINITION,
   ...FILE_SAFETY_DEFINITIONS,
   ...BILLING_DEFINITIONS,
+  ...MEETINGS_DEFINITIONS,
 ];
 
 function sectionForDefinition(sectionId: string): SettingsSection | undefined {
@@ -43,7 +45,7 @@ describe("settings mode purity", () => {
   it("gathers the settings surface (so the assertions below are not vacuous)", () => {
     expect(SURFACE_DEFINITIONS.length).toBeGreaterThanOrEqual(7);
     expect(new Set(SURFACE_DEFINITIONS.map((definition) => definition.sectionId))).toEqual(
-      new Set(["calendar", "file-safety", "billing"]),
+      new Set(["calendar", "file-safety", "billing", "meetings"]),
     );
   });
 

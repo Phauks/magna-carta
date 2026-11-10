@@ -134,6 +134,27 @@ const CLIENT_DISPATCH = join(
   "signaling.ts",
 );
 
+/**
+ * FRAMES WHOSE BROWSER HALF IS BUILT IN A LATER CHANGE, and the only exception this scan admits.
+ *
+ * The room's half of live captions landed first: the room handles a host's `captions` frame and sends
+ * `caption`, and the strip that draws them is the next change, made in apps/web alone. Until it lands
+ * the two names are listed here and the browser-side checks skip exactly them — the room-side checks
+ * and the builder checks still read them like any other.
+ *
+ * A REGISTER THAT ONLY SHRINKS. The last block below fails the moment the browser names one of these
+ * (so the entry has to come off in the change that wires it), and fails for a name this package does
+ * not declare (so a rename cannot leave a stale exemption behind). An entry is a promise with a
+ * deadline, not a way to land one end of a frame.
+ */
+const AWAITING_THE_BROWSER: {
+  readonly client: readonly string[];
+  readonly room: readonly string[];
+} = {
+  client: ["captions"],
+  room: ["caption"],
+};
+
 const roomSource = readAll(ROOM_SOURCES);
 const clientSource = readAll(CLIENT_SOURCES);
 const protocolSource = readFileSync(PROTOCOL_SOURCE, "utf8");
@@ -149,7 +170,9 @@ describe("every client frame the protocol declares", () => {
     ).toBe(true);
   });
 
-  it.each([...MEETING_CLIENT_FRAME_TYPES])("is sent by the browser: %s", (frameType) => {
+  it.each(
+    [...MEETING_CLIENT_FRAME_TYPES].filter((type) => !AWAITING_THE_BROWSER.client.includes(type)),
+  )("is sent by the browser: %s", (frameType) => {
     expect(
       names(clientSource, frameType),
       `nothing in apps/web/src/lib/meetings/client sends the client frame "${frameType}". ` +
@@ -159,7 +182,9 @@ describe("every client frame the protocol declares", () => {
 });
 
 describe("every room frame the protocol declares", () => {
-  it.each([...MEETING_ROOM_FRAME_TYPES])("is handled by the browser: %s", (frameType) => {
+  it.each(
+    [...MEETING_ROOM_FRAME_TYPES].filter((type) => !AWAITING_THE_BROWSER.room.includes(type)),
+  )("is handled by the browser: %s", (frameType) => {
     expect(
       names(clientSource, frameType),
       `the browser has no handler for the room frame "${frameType}". ` +
@@ -204,8 +229,36 @@ describe("the dispatch each side actually runs", () => {
       ].toSorted(),
       "the browser's receive switch in signaling.ts and MEETING_ROOM_FRAME_TYPES disagree. An " +
         "unhandled frame is dropped, which reads as a tile that never arrives.",
-    ).toEqual([...MEETING_ROOM_FRAME_TYPES].toSorted());
+    ).toEqual(
+      [...MEETING_ROOM_FRAME_TYPES]
+        .filter((type) => !AWAITING_THE_BROWSER.room.includes(type))
+        .toSorted(),
+    );
   });
+});
+
+describe("the frames awaiting the browser", () => {
+  it.each([...AWAITING_THE_BROWSER.client])(
+    "is a client frame this package declares: %s",
+    (type) => {
+      expect(MEETING_CLIENT_FRAME_TYPES as readonly string[]).toContain(type);
+    },
+  );
+
+  it.each([...AWAITING_THE_BROWSER.room])("is a room frame this package declares: %s", (type) => {
+    expect(MEETING_ROOM_FRAME_TYPES as readonly string[]).toContain(type);
+  });
+
+  it.each([...AWAITING_THE_BROWSER.client, ...AWAITING_THE_BROWSER.room])(
+    "is still unwired in the browser, so its exemption still means something: %s",
+    (type) => {
+      expect(
+        names(clientSource, type),
+        `apps/web/src/lib/meetings/client now names "${type}". Take it off AWAITING_THE_BROWSER in ` +
+          "this file in the same change, so the ordinary checks above read it.",
+      ).toBe(false);
+    },
+  );
 });
 
 describe("the scan itself", () => {

@@ -1,8 +1,9 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { found, searchEngineNotImplemented, type SearchHit } from "@magna-carta/search/port";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import type { KeywordSearchInput } from "../src/search/keyword-search.ts";
 import { runHybridSearch, type SearchHalf } from "../src/search/hybrid-search.ts";
 

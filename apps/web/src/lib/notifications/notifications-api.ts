@@ -58,7 +58,8 @@ export interface NotificationItem {
 /** What may narrow the feed. Everything is optional; the default is everything, newest first. */
 export interface NotificationQuery {
   readonly category?: NotificationCategory;
-  readonly state?: NotificationState;
+  /** One state, or several sent as a repeated parameter: the live feed is `["unread", "read"]`. */
+  readonly state?: NotificationState | readonly NotificationState[];
   readonly pageSize?: number;
   /**
    * A member's query, in the shape this subsystem's search has to take.
@@ -93,7 +94,9 @@ export function listNotifications(
   const parameters = new URLSearchParams();
   if (cursor !== undefined) parameters.set("cursor", cursor);
   if (query.category !== undefined) parameters.set("category", query.category);
-  if (query.state !== undefined) parameters.set("state", query.state);
+  const states =
+    query.state === undefined ? [] : typeof query.state === "string" ? [query.state] : query.state;
+  for (const state of states) parameters.append("state", state);
   if (query.pageSize !== undefined) parameters.set("pageSize", String(query.pageSize));
   // Repeated parameters rather than a joined string: a kind is a dotted identifier and a category a
   // bare word, and neither needs a separator invented for it that one of them could contain.
@@ -154,6 +157,21 @@ export function dismissNotification(
   return requestJson<NotificationMarkResponse>(
     fetchImpl,
     `/api/v1/notifications/${encodeURIComponent(notificationRecipientId)}/dismiss`,
+    { method: "POST" },
+  );
+}
+
+/**
+ * Put a dismissed notification back on the feed. It comes back READ: dismissing it said the member
+ * had dealt with it, so the badge does not count it as waiting a second time.
+ */
+export function restoreNotification(
+  fetchImpl: typeof fetch,
+  notificationRecipientId: string,
+): Promise<ApiOutcome<NotificationMarkResponse>> {
+  return requestJson<NotificationMarkResponse>(
+    fetchImpl,
+    `/api/v1/notifications/${encodeURIComponent(notificationRecipientId)}/restore`,
     { method: "POST" },
   );
 }

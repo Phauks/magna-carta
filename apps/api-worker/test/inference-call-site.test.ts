@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { AiBinding } from "@magna-carta/inference/gateway";
@@ -31,14 +32,14 @@ describe("resolveReasoningModel", () => {
   it("returns the firm's stored model through the firm-scoped read", async () => {
     expect(
       await resolveReasoningModel(
-        fakeFirmDatabase("anthropic/claude-sonnet-4-6") as unknown as SqlDatabase,
+        fakeFirmDatabase("anthropic/claude-sonnet-5-5") as unknown as SqlDatabase,
       ),
-    ).toBe("anthropic/claude-sonnet-4-6");
+    ).toBe("anthropic/claude-sonnet-5-5");
   });
 
   it("returns the safe default when no firm row is set", async () => {
     expect(await resolveReasoningModel(fakeFirmDatabase() as unknown as SqlDatabase)).toBe(
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-5-5",
     );
   });
 });

@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 // The dev-only response validator: a dev-only response-validation middleware parses outgoing
 // payloads against the route's response schema to catch handler/contract divergence before it
 // reaches a client. Enabled only when c.env.ENVIRONMENT === "development" (Miniflare / wrangler
@@ -9,8 +10,8 @@ import { describe, expect, it } from "vitest";
 import {
   createResponseValidator,
   ResponseContractDivergenceError,
-} from "../../src/chokepoint/response-validator";
-import { defineOpenAPIRoute, type RouteMeta } from "../../src/contracts/route-meta";
+} from "../../src/http/chokepoint/response-validator";
+import { defineOpenAPIRoute, type RouteMeta } from "../../src/http/contracts/route-meta";
 
 function sampleMeta(overrides: Partial<RouteMeta> = {}): RouteMeta {
   return {

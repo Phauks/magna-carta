@@ -3,76 +3,97 @@
    * One conflicts check, read back — the Record Detail archetype over the firm's append-only log.
    *
    * THE CHECK IS THE RECORD; A RUN IS ONE SEARCH UNDER IT. A check has a number the firm refers to
-   * it by, and it is run as often as the firm needs: the first run is the opening, a re-run is a
-   * further run under the same number, and an automatic re-check lands here too. The screen carries
-   * that history in one place and shows ONE run at a time — the one the address names, else the
-   * latest — so a reader looking at a run from March is never handed September's candidates.
+   * it by and is run as often as the firm needs. The screen shows ONE run at a time — the one the
+   * address names, else the latest — so a reader looking at a run from March is never handed
+   * September's results.
    *
-   * INPUT AND OUTPUT ARE TOLD APART AT A GLANCE (owner's ruling, 2026-09-11). What was asked for —
-   * the parties, the matter, the scope that ran — sits in one card; what came back — the platform's
-   * own account of its search, then the candidates — sits in another. They used to run together as
-   * three sections of equal weight, which is how a candidate count comes to be read without the
-   * account of the search that produced it, and misread as a verdict.
+   * REPORT AND RUNS ARE TWO TABS (owner's ruling, 2026-11-09, after Cloudflare's Workers pages). The
+   * run history used to be a column beside the report, taking a third of the screen to hold a list
+   * people open once. It is a tab now, and the report has the width.
    *
-   * A RUN IN FLIGHT SAYS WHERE IT IS. The search runs after the request that opened it answers, and
-   * a search nobody can watch is exactly the one that has to report on itself: the screen reads the
-   * run every second until it settles and shows the engine's stages with what each has counted so
-   * far, in the engine's own order.
+   * THE REPORT IS THREE COLLAPSIBLE SECTIONS (the same rulings): Details, what was asked for —
+   * the parties one per line, then the settings; Status, where each place stands, with its own log,
+   * live while the run is in flight and kept afterwards; Results, what surfaced, one card per result
+   * saying why and where, filterable, each reviewable from its card.
    *
-   * NOTHING ON THIS PAGE CONCLUDES ANYTHING. There is no summary line, no aggregate, no tick. A
-   * check that surfaced nothing says the search ended; a reviewer's answer to one candidate says
-   * whose conclusion it is and what they reasoned.
+   * A RUN IN FLIGHT CAN BE STOPPED FROM ITS OWN BADGE. "Running · 31 s" and Cancel are one control
+   * in the header, so the one thing a person can do about a running search sits on the word that
+   * says it is running. A cancelled run says so in that badge and on the Runs tab; the report
+   * needs no paragraph about it.
    *
-   * THE REPORT HAS EXACTLY TWO CONTROLS: Print Report and Download Report. Both hand over the same
-   * sheet; the download is that sheet rendered as a PDF and kept on the member's Downloads shelf,
-   * the way every export on the platform is.
+   * NOTHING ON THIS PAGE CONCLUDES ANYTHING. A check that surfaced nothing says 0 results; a
+   * reviewer's answer to one result says whose conclusion it is and what they reasoned.
+   *
+   * PRINT AND DOWNLOAD ARE ICON BUTTONS (owner's ruling, 2026-11-09), named for assistive
+   * technology and on hover. Both hand over the same sheet; the download is that sheet as a PDF on
+   * the member's Downloads shelf.
    */
-  import * as Card from "@magna-carta/design-system/card";
+  import * as Accordion from "@magna-carta/design-system/accordion";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
-  import ProgressSteps from "@magna-carta/design-system/progress-steps";
   import { toast } from "@magna-carta/design-system/toast";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
+  import Ban from "@lucide/svelte/icons/ban";
+  import Check from "@lucide/svelte/icons/check";
+  import Circle from "@lucide/svelte/icons/circle";
   import Download from "@lucide/svelte/icons/download";
   import FolderInput from "@lucide/svelte/icons/folder-input";
+  import Activity from "@lucide/svelte/icons/activity";
+  import Timer from "@lucide/svelte/icons/timer";
+  import Minus from "@lucide/svelte/icons/minus";
   import Printer from "@lucide/svelte/icons/printer";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import ScrollText from "@lucide/svelte/icons/scroll-text";
+  import Square from "@lucide/svelte/icons/square";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import CheckResults from "$lib/conflicts/check-results.svelte";
   import DispositionDialog from "$lib/conflicts/disposition-dialog.svelte";
-  import HitList from "$lib/conflicts/hit-list.svelte";
   import HitWindow from "$lib/conflicts/hit-window.svelte";
   import MatterChoice from "$lib/conflicts/matter-choice.svelte";
-  import ScopeInForce from "$lib/conflicts/scope-in-force.svelte";
   import { checkReportSheet } from "$lib/conflicts/conflicts-report.ts";
   import { downloadReport } from "$lib/conflicts/report-download.ts";
-  import { runProgressSteps } from "$lib/conflicts/run-progress.ts";
+  import { resultCountText } from "$lib/conflicts/check-results.ts";
+  import {
+    PLACE_STATE_LABELS,
+    statusCaption,
+    statusPlaces,
+    type PlaceState,
+  } from "$lib/conflicts/check-status.ts";
   import type { ChosenMatter } from "$lib/conflicts/check-request.ts";
   import {
+    cancelConflictsRun,
     fileConflictsCheckOnMatter,
     readConflictsCheck,
     rerunConflictsCheck,
     runInFlight,
-    scopeOfCheck,
+    DISPOSE_CONFLICTS_PERMISSION,
     RUN_CHECK_PERMISSION,
     RUN_POLL_INTERVAL_MILLISECONDS,
     type CheckRead,
+    type DispositionKind,
     type HitDetail,
-    type ScopeInForceRecord,
+    type RunSummary,
   } from "$lib/conflicts/conflicts-api.ts";
   import {
+    DIRECTORY_SPECIFICS,
+    SEARCH_LOCATIONS,
     runStatusVocabulary,
+    strictnessVocabulary,
     triggerVocabulary,
   } from "$lib/conflicts/conflicts-vocabulary.ts";
+  import { entityKindText } from "$lib/conflicts/hit-columns.ts";
   import { readDirectoryEntity } from "$lib/directory/directory-api.ts";
   import { directoryEntityName } from "$lib/directory/entity-presentation.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
@@ -90,34 +111,21 @@
   let openHit = $state<HitDetail | null>(null);
   let windowOpen = $state(false);
   let dialogOpen = $state(false);
+  let dialogKind = $state<DispositionKind>("cleared");
   let printOpen = $state(false);
   let downloading = $state(false);
   let rerunning = $state(false);
+  let cancelling = $state(false);
   let filing = $state(false);
   let matterToFile = $state<ChosenMatter | null>(null);
   let actFailure = $state<StatedFailure | null>(null);
   let entityNames = $state<ReadonlyMap<string, string>>(new Map());
   let unnameable = $state<ReadonlySet<string>>(new Set());
-
-  /*
-   * The shape the page takes while the check is read: its own cards, over an invented search.
-   * Inert and hidden from assistive technology while it stands, so none of it can be quoted as
-   * what a search did.
-   */
-  const STATEMENT_FIXTURE: readonly string[] = [
-    "Searched the Directory for 4 subject parties under balanced matching, comparing surnames, given names and dates of birth.",
-    "Followed every recorded relationship to closure and reached 31 entities; the longest chain ran 3 relationships.",
-    "Prior firm history could not be searched: no corpus is registered for it.",
-  ];
-  const SCOPE_FIXTURE: ScopeInForceRecord = {
-    sources: { party: "searched", graph: "searched", imputation: "unavailable", content: "unavailable" },
-    strictness: "balanced",
-    depth: 3,
-    floorRaised: false,
-    matching: null,
-    traversal: null,
-    candidates: null,
-  };
+  let tab = $state("report");
+  let sections = $state<string[]>(["details", "status", "results"]);
+  let openPlaces = $state<ReadonlySet<string>>(new Set(["directory"]));
+  /** The clock the Running badge counts from, ticking only while a run is in flight. */
+  let now = $state(Date.now());
 
   async function read(runId: string | null = askedRunId): Promise<void> {
     loading = true;
@@ -173,7 +181,11 @@
 
   const permissions = $derived(session?.permissions ?? null);
   const mayRun = $derived(permissions === null || permissions.includes(RUN_CHECK_PERMISSION));
-  const RUN_REFUSAL = permissionRefusal("Running this check again", RUN_CHECK_PERMISSION);
+  const mayReview = $derived(
+    permissions === null || permissions.includes(DISPOSE_CONFLICTS_PERMISSION),
+  );
+  const RUN_REFUSAL = permissionRefusal("Running this check", RUN_CHECK_PERMISSION);
+  const REVIEW_REFUSAL = permissionRefusal("Reviewing a result", DISPOSE_CONFLICTS_PERMISSION);
 
   const memberNames = $derived(
     new Map((firmRoster.members ?? []).map((member) => [member.userId, member.displayName])),
@@ -194,9 +206,33 @@
     return consentingPartyId === null ? null : (entityNames.get(consentingPartyId) ?? null);
   });
 
+  // The Running badge counts seconds; the clock ticks only while there is something to count.
+  $effect(() => {
+    if (!inFlight) return;
+    now = Date.now();
+    const interval = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(interval);
+  });
+
+  /** A member's name, never their account handle. */
   function memberText(userId: string | null): string {
     if (userId === null) return "Nobody — run automatically";
-    return personName(memberNames.get(userId) ?? null, { whenUnrecorded: userId });
+    return personName(memberNames.get(userId) ?? null, {
+      whenUnrecorded: "A member the firm's roster does not name",
+    });
+  }
+
+  function seconds(fromInstant: string | null, toMilliseconds: number): string {
+    if (fromInstant === null) return "";
+    const elapsed = Math.max(0, Math.round((toMilliseconds - Date.parse(fromInstant)) / 1000));
+    if (elapsed < 60) return `${String(elapsed)} s`;
+    return `${String(Math.floor(elapsed / 60))} min ${String(elapsed % 60)} s`;
+  }
+
+  function tookText(entry: RunSummary): string {
+    if (entry.startedAt === null) return "";
+    if (entry.finishedAt === null) return runInFlight(entry) ? `${seconds(entry.startedAt, now)} so far` : "";
+    return seconds(entry.startedAt, Date.parse(entry.finishedAt));
   }
 
   /** One read, for a waiver's consenting party. What it learns is kept for the rest of the visit. */
@@ -219,8 +255,16 @@
     if (consentingPartyId !== null) void nameEntity(consentingPartyId);
   }
 
+  /** A review state picked from a result's card: the answer dialog opens on it. */
+  function review(hit: HitDetail, kind: DispositionKind): void {
+    openHit = hit;
+    dialogKind = kind;
+    dialogOpen = true;
+  }
+
   /** Show a different run of this check. The address names it, so the read follows. */
   function selectRun(runId: string): void {
+    tab = "report";
     void goto(`/conflicts/checks/${encodeURIComponent(checkId)}?run=${encodeURIComponent(runId)}`, {
       keepFocus: true,
       noScroll: true,
@@ -238,6 +282,20 @@
       return;
     }
     selectRun(outcome.value.runId);
+  }
+
+  async function cancelRun(): Promise<void> {
+    if (cancelling || check === null || run === null) return;
+    cancelling = true;
+    actFailure = null;
+    const outcome = await cancelConflictsRun(fetch, check.id, run.id, crypto.randomUUID());
+    cancelling = false;
+    if (outcome.kind !== "ok") {
+      actFailure = stated(outcome.failure, "The run could not be cancelled.");
+      return;
+    }
+    if (outcome.value.status === "completed") toast.success("The run had already finished.");
+    await read();
   }
 
   async function fileOnMatter(): Promise<void> {
@@ -289,46 +347,143 @@
     }
   }
 
-  const steps = $derived(run === null ? [] : runProgressSteps(run));
+  const places = $derived(run === null ? [] : statusPlaces(run, record));
+  const askedSources = $derived(new Set(run?.askedScope?.sources ?? []));
+  const strictness = $derived(record?.check.strictness ?? run?.askedScope?.strictness ?? null);
+  const hits = $derived(record?.hits ?? []);
+  const NO_SHEET = "The report exists once the run has finished.";
+
+  const detailsCaption = $derived.by(() => {
+    if (run === null) return "";
+    const parties = run.subjectParties.length;
+    const searchable = SEARCH_LOCATIONS.filter((entry) => entry.searchable).length;
+    return [
+      `${String(parties)} ${parties === 1 ? "party" : "parties"}`,
+      `${String(searchable)} of ${String(SEARCH_LOCATIONS.length)} locations`,
+      strictness === null ? null : strictnessVocabulary(strictness).label,
+    ]
+      .filter((part) => part !== null)
+      .join(" · ");
+  });
+
+  const resultsCaption = $derived.by(() => {
+    if (run === null) return "";
+    if (record !== null) {
+      const unreviewed = hits.filter((hit) => hit.disposition === null).length;
+      return hits.length === 0
+        ? "0 results"
+        : `${resultCountText(hits.length)}, ${String(unreviewed)} not reviewed`;
+    }
+    if (inFlight) return "Results appear as the search finishes";
+    return "0 results";
+  });
+
+  /** The Directory's options as this run asked for them. */
+  const directorySettings = $derived(
+    DIRECTORY_SPECIFICS.filter((specific) => askedSources.has(specific.source))
+      .map((specific) => specific.label)
+      .join(", "),
+  );
+
   const title = $derived(check?.checkNumber ?? "Conflicts Check");
+  const runWord = $derived(run === null ? null : runStatusVocabulary(run.status));
+
+  function togglePlace(location: string): void {
+    const next = new Set(openPlaces);
+    if (next.has(location)) next.delete(location);
+    else next.add(location);
+    openPlaces = next;
+  }
 </script>
 
 <svelte:head>
   <title>{title} · Conflicts · Magna Carta</title>
 </svelte:head>
 
-<ScreenHeader {title} back="conflicts" class="mb-24">
+{#snippet placeMark(state: PlaceState)}
+  {#if state === "done"}
+    <Check class="size-16 text-status-success" aria-hidden="true" />
+  {:else if state === "searching"}
+    <Activity class="size-16 text-status-info" aria-hidden="true" />
+  {:else if state === "waiting"}
+    <Circle class="size-16 text-text-muted" aria-hidden="true" />
+  {:else if state === "stopped"}
+    <Ban class="size-16 text-text-muted" aria-hidden="true" />
+  {:else if state === "failed"}
+    <TriangleAlert class="size-16 text-status-warning" aria-hidden="true" />
+  {:else}
+    <Minus class="size-16 text-text-muted" aria-hidden="true" />
+  {/if}
+{/snippet}
+
+<ScreenHeader {title} back="conflicts" class="mb-16">
   {#snippet meta()}
     {#if check !== null && run !== null}
       <span>Opened {formatInstant(check.createdAt)}</span>
-      <Masthead.MetaSeparator />
-      <span>{result?.runs.length === 1 ? "1 run" : `${String(result?.runs.length ?? 0)} runs`}</span>
       <Masthead.MetaSeparator />
       <span title={triggerVocabulary(run.trigger).meaning}>
         {triggerVocabulary(run.trigger).label}
       </span>
       <Masthead.MetaSeparator />
       <span>{memberText(run.requestedByUserId)}</span>
+      <Masthead.MetaSeparator />
+      {#if check.matterId !== null}
+        <a class="underline underline-offset-2" href="/matters/{check.matterId}/conflicts">
+          Filed on a matter
+        </a>
+      {:else}
+        <span>No Matter</span>
+      {/if}
     {/if}
   {/snippet}
   {#snippet actions()}
+    {#if run !== null && runWord !== null}
+      {#if inFlight}
+        <!-- The run's state and the one thing to do about it, as one control. -->
+        <Button
+          variant="secondary"
+          disabled={cancelling || !mayRun}
+          title={mayRun ? "Cancel this run" : RUN_REFUSAL}
+          aria-label="Running for {seconds(run.startedAt ?? run.createdAt, now)}. Cancel run"
+          onclick={() => void cancelRun()}
+        >
+          <Timer class="size-16" aria-hidden="true" />
+          {run.status === "queued" ? "Queued" : "Running"} · {seconds(
+            run.startedAt ?? run.createdAt,
+            now,
+          )}
+          <span class="ms-8 flex items-center gap-4 border-s border-border-default ps-8">
+            <Square class="size-12" aria-hidden="true" />
+            {cancelling ? "Cancelling" : "Cancel"}
+          </span>
+        </Button>
+      {:else}
+        <Badge variant={runWord.tone} title={runWord.meaning}>
+          {run.status === "completed" && run.hitCount !== null
+            ? `${runWord.label} · ${resultCountText(run.hitCount)}`
+            : runWord.label}
+        </Badge>
+      {/if}
+    {/if}
     <Button
       variant="secondary"
+      size="icon"
       disabled={sheet === null}
-      title={sheet === null ? "The report exists once the run has finished." : undefined}
+      aria-label="Print Report"
+      title={sheet === null ? NO_SHEET : "Print Report"}
       onclick={() => (printOpen = true)}
     >
       <Printer class="size-16" aria-hidden="true" />
-      Print Report
     </Button>
     <Button
-      variant="primary"
+      variant="secondary"
+      size="icon"
       disabled={sheet === null || downloading}
-      title={sheet === null ? "The report exists once the run has finished." : undefined}
+      aria-label={downloading ? "Downloading Report" : "Download Report"}
+      title={sheet === null ? NO_SHEET : "Download Report"}
       onclick={() => void download()}
     >
       <Download class="size-16" aria-hidden="true" />
-      {downloading ? "Downloading" : "Download Report"}
     </Button>
   {/snippet}
 </ScreenHeader>
@@ -345,29 +500,11 @@
   {/if}
 {/snippet}
 
-{#snippet runRow(entry: CheckRead["run"], selected: boolean)}
-  {@const word = runStatusVocabulary(entry.status)}
-  <li>
-    <Button
-      variant={selected ? "secondary" : "ghost"}
-      class="w-full justify-between"
-      aria-current={selected ? "true" : undefined}
-      onclick={() => selectRun(entry.id)}
-    >
-      <span class="flex items-baseline gap-8">
-        <span>Run {String(entry.ordinal)}</span>
-        <span class="text-xs text-text-muted">{formatInstant(entry.createdAt)}</span>
-      </span>
-      <span class="flex items-baseline gap-8">
-        {#if entry.hitCount !== null}
-          <span class="text-xs text-text-muted">
-            {entry.hitCount === 1 ? "1 candidate" : `${String(entry.hitCount)} candidates`}
-          </span>
-        {/if}
-        <Badge variant={word.tone} title={word.meaning}>{word.label}</Badge>
-      </span>
-    </Button>
-  </li>
+{#snippet sectionTrigger(name: string, caption: string)}
+  <span class="flex min-w-0 items-baseline gap-12">
+    <span class="font-semibold">{name}</span>
+    <span class="truncate text-sm text-text-muted">{caption}</span>
+  </span>
 {/snippet}
 
 <LoadingRegion
@@ -377,30 +514,16 @@
   failure={failureNotice}
   label="Reading the check"
   onRetry={() => void read()}
-  class="flex flex-col gap-24"
+  class="flex flex-col gap-16"
 >
   {#snippet fixture()}
-    <Card.Root>
-      <Card.Header>
-        <Card.Title data-loading-keep>What Was Asked For</Card.Title>
-      </Card.Header>
-      <Card.Content>
-        <ScopeInForce scope={SCOPE_FIXTURE} />
-      </Card.Content>
-    </Card.Root>
-    <Card.Root>
-      <Card.Header>
-        <Card.Title data-loading-keep>What Came Back</Card.Title>
-      </Card.Header>
-      <Card.Content class="flex flex-col gap-16">
-        <ol class="flex flex-col gap-8 text-sm">
-          {#each STATEMENT_FIXTURE as line (line)}
-            <li>{line}</li>
-          {/each}
-        </ol>
-        <HitList hits={null} loading onOpen={() => undefined} />
-      </Card.Content>
-    </Card.Root>
+    <div class="flex flex-col gap-8">
+      {#each ["Details", "Status", "Results"] as heading (heading)}
+        <div class="rounded-md border border-border-default p-16">
+          <span class="font-semibold" data-loading-keep>{heading}</span>
+        </div>
+      {/each}
+    </div>
   {/snippet}
 
   {#if result !== null && check !== null && run !== null}
@@ -413,154 +536,239 @@
       />
     {/if}
 
-    <div class="grid grid-cols-1 gap-24 lg:grid-cols-3">
-      <div class="flex min-w-0 flex-col gap-24 lg:col-span-2">
-        <!-- INPUT: what was asked for. -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>What Was Asked For</Card.Title>
-            <Card.Description>
-              Run {String(run.ordinal)} of {check.checkNumber}
-              {#if run.startedAt !== null}
-                , started {formatInstant(run.startedAt)}
-              {/if}
-            </Card.Description>
-          </Card.Header>
-          <Card.Content class="flex flex-col gap-16">
-            <dl class="flex flex-col gap-4 text-sm">
-              <div class="flex items-baseline justify-between gap-16">
-                <dt class="text-text-muted">Subject Parties</dt>
-                <dd class="text-right">
-                  {record === null
-                    ? "Read once the run has finished"
-                    : String(record.check.subjectEntityIds.length)}
-                </dd>
-              </div>
-              <div class="flex items-baseline justify-between gap-16">
-                <dt class="text-text-muted">Asked By</dt>
-                <dd class="text-right">{memberText(run.requestedByUserId)}</dd>
-              </div>
-              <div class="flex items-baseline justify-between gap-16">
-                <dt class="text-text-muted">Matter</dt>
-                <dd class="text-right">
-                  {#if check.matterId !== null}
-                    <a
-                      class="underline underline-offset-2"
-                      href="/matters/{check.matterId}/conflicts"
-                    >
-                      <ScrollText class="me-4 inline size-16" aria-hidden="true" />
-                      Where the matter stands
-                    </a>
-                  {:else}
-                    <span class="text-text-muted">Not filed on a matter</span>
-                  {/if}
-                </dd>
-              </div>
-            </dl>
+    <Tabs.Root bind:value={tab} class="flex flex-col gap-16">
+      <Tabs.List>
+        <Tabs.Trigger value="report">Report</Tabs.Trigger>
+        <Tabs.Trigger value="runs">
+          Runs
+          <span class="ms-4 text-text-muted tabular-nums">{String(result.runs.length)}</span>
+        </Tabs.Trigger>
+      </Tabs.List>
 
-            {#if check.matterId === null}
-              <!-- A check run before there was a matter is the ordinary case, and the moment a
-                   matter exists is the moment somebody is looking at this. Filing moves no search
-                   record; the next run searches with the matter's own parties. -->
-              <div class="flex flex-col gap-8 border-t border-border-default pt-12">
-                <Label for="file-on-matter">File on a Matter</Label>
-                <div class="flex flex-wrap items-end gap-8">
-                  <div class="min-w-0 flex-1">
-                    <MatterChoice
-                      subjectEntityIds={record?.check.subjectEntityIds ?? []}
-                      value={matterToFile}
-                      inputId="file-on-matter"
-                      disabled={filing || !mayRun}
-                      title={mayRun ? undefined : RUN_REFUSAL}
-                      placeholder="Matter"
-                      onpick={(matter) => (matterToFile = matter)}
-                    />
-                  </div>
-                  <Button
-                    variant="secondary"
-                    disabled={matterToFile === null || filing || !mayRun}
-                    title={mayRun ? undefined : RUN_REFUSAL}
-                    onclick={() => void fileOnMatter()}
-                  >
-                    <FolderInput class="size-16" aria-hidden="true" />
-                    {filing ? "Filing" : "File"}
-                  </Button>
-                </div>
-              </div>
-            {/if}
+      <Tabs.Content value="report" class="flex flex-col gap-8">
+        {#if result.runs.length > 1}
+          <p class="text-sm text-text-muted">
+            Showing run {String(run.ordinal)} of {String(result.runs.length)}, started
+            {formatInstant(run.startedAt ?? run.createdAt)}.
+            <button type="button" class="underline underline-offset-2" onclick={() => (tab = "runs")}>
+              Other runs
+            </button>
+          </p>
+        {/if}
 
-            {#if record !== null}
-              <div class="border-t border-border-default pt-12">
-                <ScopeInForce scope={scopeOfCheck(record.check)} />
+        <Accordion.Root
+      type="multiple"
+      value={sections}
+      onValueChange={(value: string[]) => (sections = value)} class="flex flex-col gap-8">
+          <!-- DETAILS: what was asked for. -->
+          <Accordion.Item value="details" class="rounded-md border border-border-default">
+            <Accordion.Trigger class="px-16">
+              {@render sectionTrigger("Details", detailsCaption)}
+            </Accordion.Trigger>
+            <Accordion.Content class="flex flex-col gap-16 px-16 pb-16">
+              <div class="flex flex-col gap-8">
+                <FieldLabel as="h3">Parties</FieldLabel>
+                {#if run.subjectParties.length === 0}
+                  <p class="text-sm text-text-muted">None named</p>
+                {:else}
+                  <ul class="flex flex-col gap-4">
+                    {#each run.subjectParties as subject (subject.entityId)}
+                      <li class="flex items-baseline gap-8 text-sm">
+                        <a class="underline-offset-2 hover:underline" href="/directory/{subject.entityId}">
+                          {subject.party?.displayName ?? "Unnamed record"}
+                        </a>
+                        <span class="text-xs text-text-muted">
+                          {entityKindText(subject.entityId)}
+                        </span>
+                      </li>
+                    {/each}
+                  </ul>
+                {/if}
               </div>
-            {/if}
-          </Card.Content>
-        </Card.Root>
 
-        <!-- OUTPUT: what came back, or where the run is. -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>What Came Back</Card.Title>
-            {#if inFlight}
-              <Card.Description>
-                The search is running. This screen follows it until it finishes.
-              </Card.Description>
-            {:else if run.status === "failed"}
-              <Card.Description>The search stopped before it finished. Nothing was recorded.</Card.Description>
-            {/if}
-          </Card.Header>
-          <Card.Content class="flex flex-col gap-16">
-            {#if record === null}
-              <ProgressSteps {steps} />
-            {:else}
-              <section class="flex flex-col gap-8">
-                <FieldLabel as="h3">What The Search Did</FieldLabel>
-                <!-- The engine's own sentences, in the order it wrote them. Nothing here rewrites or
-                     summarizes them: a firm defending its procedure quotes this. -->
-                <ol class="flex flex-col gap-8 text-sm">
-                  {#each record.statement as line, index (`${String(index)}-${line}`)}
-                    <li>{line}</li>
+              <div class="flex flex-col gap-8 border-t border-border-default pt-16">
+                <FieldLabel as="h3">Settings</FieldLabel>
+                <DefinitionList.Root>
+                  {#each SEARCH_LOCATIONS as entry (entry.location)}
+                    <DefinitionList.Row term={entry.label}>
+                      {#if !entry.searchable}
+                        Not searched
+                      {:else}
+                        {directorySettings === "" ? "As the firm's floor sets it" : directorySettings}
+                      {/if}
+                    </DefinitionList.Row>
                   {/each}
-                </ol>
-              </section>
-              <div class="border-t border-border-default pt-12">
-                <HitList hits={record.hits} {loading} onOpen={openOne} />
+                  {#if strictness !== null}
+                    <DefinitionList.Row term="Name Matching">
+                      {strictnessVocabulary(strictness).label}
+                    </DefinitionList.Row>
+                  {/if}
+                  <DefinitionList.Row term="Asked By">
+                    {memberText(run.requestedByUserId)}
+                  </DefinitionList.Row>
+                  {#if run.status === "cancelled"}
+                    <DefinitionList.Row term="Cancelled By">
+                      {memberText(run.cancelledByUserId)}
+                    </DefinitionList.Row>
+                  {/if}
+                  <DefinitionList.Row term="Matter">
+                    {#if check.matterId !== null}
+                      <a class="underline underline-offset-2" href="/matters/{check.matterId}/conflicts">
+                        Where the matter stands
+                      </a>
+                    {:else}
+                      No Matter
+                    {/if}
+                  </DefinitionList.Row>
+                </DefinitionList.Root>
+                {#if check.matterId === null}
+                  <!-- Filing moves no search record; the next run searches with the matter's own
+                       parties. -->
+                  <div class="flex flex-col gap-8 pt-8">
+                    <Label for="file-on-matter">File on a Matter</Label>
+                    <div class="flex flex-wrap items-end gap-8">
+                      <div class="min-w-0 flex-1">
+                        <MatterChoice
+                          subjectEntityIds={run.subjectParties.map((subject) => subject.entityId)}
+                          value={matterToFile}
+                          inputId="file-on-matter"
+                          disabled={filing || !mayRun}
+                          title={mayRun ? undefined : RUN_REFUSAL}
+                          placeholder="Matter"
+                          onpick={(matter) => (matterToFile = matter)}
+                        />
+                      </div>
+                      <Button
+                        variant="secondary"
+                        disabled={matterToFile === null || filing || !mayRun}
+                        title={mayRun ? undefined : RUN_REFUSAL}
+                        onclick={() => void fileOnMatter()}
+                      >
+                        <FolderInput class="size-16" aria-hidden="true" />
+                        {filing ? "Filing" : "File"}
+                      </Button>
+                    </div>
+                  </div>
+                {/if}
               </div>
-            {/if}
-          </Card.Content>
-        </Card.Root>
-      </div>
+            </Accordion.Content>
+          </Accordion.Item>
 
-      <!-- THE HISTORY: every run of this check, newest first, with the one showing marked. -->
-      <Card.Root class="self-start">
-        <Card.Header>
-          <Card.Title>Runs</Card.Title>
-          <Card.Description>Every search run under {check.checkNumber}.</Card.Description>
-        </Card.Header>
-        <Card.Content>
-          <ul class="flex flex-col gap-4">
-            {#each result.runs.toReversed() as entry (entry.id)}
-              {@render runRow(entry, entry.id === run.id)}
-            {/each}
-          </ul>
-        </Card.Content>
-        <Card.Footer>
+          <!-- STATUS: where each place stands, with its own log. -->
+          <Accordion.Item value="status" class="rounded-md border border-border-default">
+            <Accordion.Trigger class="px-16">
+              {@render sectionTrigger("Status", statusCaption(places))}
+            </Accordion.Trigger>
+            <Accordion.Content class="flex flex-col gap-4 px-16 pb-16">
+              <ul class="flex flex-col divide-y divide-border-default">
+                {#each places as place (place.location)}
+                  {@const placeOpen = openPlaces.has(place.location) && place.lines.length > 0}
+                  <li class="flex flex-col" data-place={place.location} data-state={place.state}>
+                    <button
+                      type="button"
+                      class="flex items-center gap-12 py-8 text-start text-sm disabled:cursor-default"
+                      aria-expanded={place.lines.length > 0 ? placeOpen : undefined}
+                      disabled={place.lines.length === 0}
+                      onclick={() => togglePlace(place.location)}
+                    >
+                      <span role="img" aria-label={PLACE_STATE_LABELS[place.state]}>
+                        {@render placeMark(place.state)}
+                      </span>
+                      <span class="w-96 font-semibold">{place.label}</span>
+                      <span class="flex-1 text-text-muted">{place.summary}</span>
+                    </button>
+                    {#if placeOpen}
+                      <ol class="flex flex-col gap-4 pb-12 ps-32 text-sm" aria-live="polite">
+                        {#each place.lines as line, index (`${String(index)}-${line}`)}
+                          <li>{line}</li>
+                        {/each}
+                      </ol>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            </Accordion.Content>
+          </Accordion.Item>
+
+          <!-- RESULTS: what surfaced. -->
+          <Accordion.Item value="results" class="rounded-md border border-border-default">
+            <Accordion.Trigger class="px-16">
+              {@render sectionTrigger("Results", resultsCaption)}
+            </Accordion.Trigger>
+            <Accordion.Content class="px-16 pb-16">
+              {#if record !== null}
+                <CheckResults
+                  {hits}
+                  {mayReview}
+                  reviewRefusal={REVIEW_REFUSAL}
+                  memberName={(userId) => memberText(userId)}
+                  onOpen={openOne}
+                  onReview={review}
+                />
+              {:else if inFlight}
+                <p class="text-sm text-text-muted">The search is running.</p>
+              {:else}
+                <p class="text-sm">0 results.</p>
+              {/if}
+            </Accordion.Content>
+          </Accordion.Item>
+        </Accordion.Root>
+      </Tabs.Content>
+
+      <Tabs.Content value="runs" class="flex flex-col gap-16">
+        <div class="flex items-center justify-between gap-16">
+          <p class="text-sm text-text-muted">
+            Every search run under {check.checkNumber}. Open one to read its report.
+          </p>
           <Button
             variant="secondary"
             disabled={rerunning || inFlight || !mayRun}
-            title={!mayRun
-              ? RUN_REFUSAL
-              : inFlight
-                ? "A run is already under way."
-                : "Search again with this check's parties and settings, as a further run under the same number."}
+            title={!mayRun ? RUN_REFUSAL : inFlight ? "A run is already under way." : undefined}
             onclick={() => void runAgain()}
           >
             <RotateCcw class="size-16" aria-hidden="true" />
             {rerunning ? "Opening" : "Run Again"}
           </Button>
-        </Card.Footer>
-      </Card.Root>
-    </div>
+        </div>
+        <DataTable.Root>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Run</DataTable.Head>
+              <DataTable.Head>Started</DataTable.Head>
+              <DataTable.Head>Took</DataTable.Head>
+              <DataTable.Head>Asked By</DataTable.Head>
+              <DataTable.Head>Results</DataTable.Head>
+              <DataTable.Head>State</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            {#each result.runs.toReversed() as entry (entry.id)}
+              {@const word = runStatusVocabulary(entry.status)}
+              <DataTable.Row aria-current={entry.id === run.id ? "true" : undefined}>
+                <DataTable.Cell>
+                  <button
+                    type="button"
+                    class="font-semibold underline-offset-2 hover:underline"
+                    onclick={() => selectRun(entry.id)}
+                  >
+                    Run {String(entry.ordinal)}
+                  </button>
+                </DataTable.Cell>
+                <DataTable.Cell>{formatInstant(entry.startedAt ?? entry.createdAt)}</DataTable.Cell>
+                <DataTable.Cell class="tabular-nums">{tookText(entry)}</DataTable.Cell>
+                <DataTable.Cell>{memberText(entry.requestedByUserId)}</DataTable.Cell>
+                <DataTable.Cell class="tabular-nums">
+                  {entry.hitCount === null ? "" : resultCountText(entry.hitCount)}
+                </DataTable.Cell>
+                <DataTable.Cell>
+                  <Badge variant={word.tone} title={word.meaning}>{word.label}</Badge>
+                </DataTable.Cell>
+              </DataTable.Row>
+            {/each}
+          </DataTable.Body>
+        </DataTable.Root>
+      </Tabs.Content>
+    </Tabs.Root>
   {/if}
 </LoadingRegion>
 
@@ -571,7 +779,10 @@
     consentingPartyName={openConsentingPartyName}
     {reviewerName}
     checkInstant={record.check.createdAt}
-    onAnswer={() => (dialogOpen = true)}
+    onAnswer={() => {
+      dialogKind = "cleared";
+      dialogOpen = true;
+    }}
   />
 
   <DispositionDialog
@@ -581,6 +792,7 @@
     matterId={check.matterId}
     reviewerName={signedInName}
     permissions={session?.permissions ?? null}
+    initialKind={dialogKind}
     onRecorded={() => void read()}
   />
 

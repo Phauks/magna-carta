@@ -133,9 +133,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -171,6 +171,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -420,9 +422,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -458,6 +460,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -707,9 +711,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -745,6 +749,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -994,9 +1000,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -1032,6 +1038,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1281,9 +1289,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -1319,6 +1327,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1568,9 +1578,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -1606,6 +1616,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -1855,9 +1867,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -1893,6 +1905,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -2142,9 +2156,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -2180,6 +2194,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -2429,9 +2445,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -2467,6 +2483,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -2716,9 +2734,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -2754,6 +2772,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -3003,9 +3023,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
@@ -3041,6 +3061,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -3290,9 +3312,9 @@
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   /* On-screen movement between two visible positions (strong ease-in-out). */
   --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
-  --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
+  --mc-elevation-0: 0px 0px oklch(13% 0.006 250 / 0);
+  --mc-elevation-1: 0px 1px 2px oklch(13% 0.006 250 / 0.08);
+  --mc-elevation-2: 0px 1px 2px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
@@ -3328,6 +3350,8 @@
   --mc-size-prose: 480px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
+  /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
+  --mc-size-record-form: 832px;
   /* How wide the record itself gets — the left pane of the record window, and the point past which it stops. Wider than size.prose because this pane carries rows of fields as well as running text, and a three-column field row needs more room than a paragraph does; narrower than the window, because a description set across a wide monitor is harder to read, not easier. Growth past this belongs to the pane beside it. */
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
@@ -3471,4 +3495,20 @@
   /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
   --mc-duration-signature: 0ms;
   --mc-duration-slow: 0ms;
+}
+
+:root[data-typeface="lexend"] {
+--mc-font-sans: "Lexend Variable", "Lexend", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+:root[data-typeface="opendyslexic"] {
+--mc-font-sans: "OpenDyslexic", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+:root[data-typeface="serif"] {
+--mc-font-sans: "Literata Variable", "Literata", "Georgia", "Times New Roman", serif;
+}
+
+:root[data-typeface="system"] {
+--mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 }

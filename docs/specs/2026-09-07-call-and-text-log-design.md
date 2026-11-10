@@ -29,7 +29,7 @@ portal secure messaging (`portal.capabilities.messaging`) and email. Section 7 s
 ## 2. Why email is not in this row
 
 The strongest case for folding email in is real and should be stated before it is refused. Captured
-mail that routes to no matter lands unrouted today — `apps/api-worker/src/emails/capture-consumer.ts`
+mail that routes to no matter lands unrouted today — `apps/api-worker/src/background/emails/capture-consumer.ts`
 says so in as many words: "a firm catch-all (or an unknown token) lands unrouted — the message is
 captured to the firm with no matter link, for staff to route." **There is no screen anywhere in the
 product where a member can see those.** Mail is being captured into a place nobody can look at, and
@@ -177,8 +177,8 @@ the case, so it earns a `communication` timeline source owned by the Messaging s
 ## 6. Recording and transcription have a legal gate, not just a technical one
 
 The voice half carries a hard constraint the text half does not. ADR-0047 puts call-recording
-consent behind the jurisdiction-profile machinery — roughly a dozen states require all-party consent
-where Nevada requires one — and that machinery is itself still in design (`trust-jurisdictions` is
+consent behind the jurisdiction-profile machinery — roughly a dozen states require all-party consent,
+Nevada among them (NRS 200.620; corrected 2026-11-09, when the owner also ruled call recording out) — and that machinery is itself still in design (`trust-jurisdictions` is
 the package it reuses). **Recording must not ship ahead of the gate that decides whether it is
 lawful for a given call.** Text logging, manual call logging and carrier call _metadata_ logging
 carry no such gate; the audio does. Sequencing the build so recording arrives last is not caution,

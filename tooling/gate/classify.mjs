@@ -62,6 +62,7 @@ export const ACCEPTANCE_SUITES = new Map([
   ["libreoffice", "containers/libreoffice/tests/acceptance.sh"],
 ]);
 export const NOT_YET_COVERED = new Set([
+  "address",
   "collabora",
   "discovery",
   "file-repair",

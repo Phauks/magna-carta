@@ -14,6 +14,7 @@ const CHECK: ReportedCheck = {
   createdAt: "2026-08-13T15:04:05.000Z",
   trigger: "comprehensive",
   actorUserId: "user_attorney",
+  actorDisplayName: "Avery Attorney",
   strictness: "over_inclusive",
   depth: 1,
   floorRaised: false,
@@ -32,7 +33,7 @@ const FULL_SOURCES: readonly ReportedSource[] = [
 
 test("a zero-hit check ends by saying the search ended, and says nothing about the matter", () => {
   const statements = describeCheck(CHECK, [], FULL_SOURCES);
-  expect(statements.at(-1)).toBe("Nothing surfaced.");
+  expect(statements.at(-1)).toBe("0 results.");
 
   const whole = statements.join(" ").toLowerCase();
   // Not a clearance, in any of the shapes a reader could take as one. The list is the same one the
@@ -46,7 +47,7 @@ test("a zero-hit check ends by saying the search ended, and says nothing about t
 test("the statement says what ran, with what settings, over how many entities", () => {
   const statements = describeCheck(CHECK, [], FULL_SOURCES);
   expect(statements[0]).toBe(
-    "Searched on 13 August 2026 (UTC) by user_attorney, trigger comprehensive.",
+    "Searched on 13 August 2026 (UTC) by Avery Attorney, as a comprehensive check.",
   );
   expect(statements).toContainEqual(
     "Party — name and identifier similarity at over_inclusive strictness, over 4 subject parties.",
@@ -55,7 +56,7 @@ test("the statement says what ran, with what settings, over how many entities", 
     "Graph — 43 entities reached from the subject parties, at a 1-hop traversal budget.",
   );
   expect(statements).toContainEqual(
-    "Imputation — identity join between the matter's parties and the firm's own members. Never a name match.",
+    "Firm employees — identity join between the firm's own members and the matter's parties, or every entity reached where no matter is named. Never a name match.",
   );
 });
 
@@ -107,18 +108,18 @@ test("hits are counted and grouped by tier, and the count is a fact about the se
     [{ evidenceTier: 1 }, { evidenceTier: 4 }, { evidenceTier: 4 }],
     FULL_SOURCES,
   );
-  expect(statements.at(-1)).toBe("3 candidates surfaced for review (tier 1: 1, tier 4: 2).");
+  expect(statements.at(-1)).toBe("3 results surfaced for review (tier 1: 1, tier 4: 2).");
 });
 
 test("one hit reads in the singular", () => {
   const statements = describeCheck(CHECK, [{ evidenceTier: 2 }], FULL_SOURCES);
-  expect(statements.at(-1)).toBe("1 candidate surfaced for review (tier 2: 1).");
+  expect(statements.at(-1)).toBe("1 result surfaced for review (tier 2: 1).");
 });
 
 test("a check with no acting member on the row does not attribute the run to anyone", () => {
   const statements = describeCheck({ ...CHECK, actorUserId: null }, [], FULL_SOURCES);
   expect(statements[0]).toBe(
-    "Searched on 13 August 2026 (UTC) with no acting member recorded, trigger comprehensive.",
+    "Searched on 13 August 2026 (UTC) with no acting member recorded, as a comprehensive check.",
   );
 });
 
@@ -162,10 +163,10 @@ test("a truncated traversal is stated as an incomplete search, never as a comple
   expect(truncation).toContain("137 further entities were reachable and not searched");
   expect(truncation).toContain("42 reached entities were matched but not expanded");
   expect(truncation).toContain("incomplete");
-  // "Nothing surfaced." is still the last line — the search ended and found nothing, and that remains
+  // "0 results." is still the last line — the search ended and found nothing, and that remains
   // a fact about the search. It is the truncation sentence above it that stops it reading as a sweep
   // of the whole graph.
-  expect(statements.at(-1)).toBe("Nothing surfaced.");
+  expect(statements.at(-1)).toBe("0 results.");
 });
 
 test("a completed traversal states its budgets and claims no truncation", () => {
@@ -286,8 +287,8 @@ test("a truncated candidate set is stated in words, with the refusal broken out 
   expect(truncation).toContain("tier 4: 206187");
 });
 
-test("a run whose cap refused everything never ends with Nothing surfaced", () => {
-  // "Nothing surfaced." is a fact about the machine writing everything it found. A run that found
+test("a run whose cap refused everything never ends with 0 results", () => {
+  // "0 results." is a fact about the machine writing everything it found. A run that found
   // plenty and recorded none did not do that, and appending the sentence would state the opposite of
   // what happened — the exact shape of a search reported as more complete than it was.
   const statements = describeCheck(
@@ -305,7 +306,7 @@ test("a run whose cap refused everything never ends with Nothing surfaced", () =
     [],
     FULL_SOURCES,
   );
-  expect(statements).not.toContain("Nothing surfaced.");
+  expect(statements).not.toContain("0 results.");
   expect(statements.some((line) => line.includes("THE CANDIDATE SET WAS TRUNCATED"))).toBe(true);
 });
 
@@ -335,8 +336,16 @@ test("a bounded run says its candidates were RECORDED, not that they were everyt
     [{ evidenceTier: 4 }, { evidenceTier: 4 }],
     FULL_SOURCES,
   );
-  expect(bounded.at(-1)).toBe("2 candidates recorded for review (tier 4: 2).");
+  expect(bounded.at(-1)).toBe("2 results recorded for review (tier 4: 2).");
 
   const unbounded = describeCheck(CHECK, [{ evidenceTier: 4 }], FULL_SOURCES);
-  expect(unbounded.at(-1)).toBe("1 candidate surfaced for review (tier 4: 1).");
+  expect(unbounded.at(-1)).toBe("1 result surfaced for review (tier 4: 1).");
+});
+
+test("the statement names the member, never their handle", () => {
+  const unnamed = describeCheck({ ...CHECK, actorDisplayName: null }, [], FULL_SOURCES);
+  expect(unnamed[0]).toBe(
+    "Searched on 13 August 2026 (UTC) by a member the firm's roster does not name, as a comprehensive check.",
+  );
+  expect(unnamed.join("\n")).not.toContain("user_attorney");
 });

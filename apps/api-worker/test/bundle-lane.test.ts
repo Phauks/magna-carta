@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { BundleOptions } from "@magna-carta/file-manager/bundle-options";
 import { selectBundleLane, type BundleLane } from "../src/downloads/bundle-lane.ts";

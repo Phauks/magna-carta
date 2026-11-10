@@ -193,14 +193,14 @@ describe("POST /api/v1/firms", () => {
 
     // The firm's per-firm database is its firmId-addressed FirmDatabase DO, which self-migrated to
     // head on first access (no provisioning step) — its _migrations carries the lineage head and
-    // the 0002 Owner/Admin role seed exists.
+    // the 0002 Admin role seed exists.
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmOneBody.id);
     const latestApplied = await firmDatabase
       .prepare("SELECT tag FROM _migrations ORDER BY tag DESC LIMIT 1")
       .all<{ tag: string }>();
     expect(latestApplied.results[0]?.tag).toBe(perFirmHeadSchemaVersion());
     const ownerRole = await firmDatabase
-      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .prepare("SELECT id FROM role WHERE name = 'Admin'")
       .all<{ id: string }>();
     expect(ownerRole.results[0]?.id).toMatch(/^role_/);
 
@@ -216,7 +216,7 @@ describe("POST /api/v1/firms", () => {
       firm_id: firmOneBody.id,
     });
 
-    // The owner's member.provision outbox row carries the Owner/Admin role.
+    // The owner's member.provision outbox row carries the Admin role.
     const outboxRow = await env.DB_CONTROL.prepare(
       "SELECT topic, payload, status FROM outbox WHERE payload LIKE '%' || ?1 || '%'",
     )
@@ -225,12 +225,12 @@ describe("POST /api/v1/firms", () => {
     expect(outboxRow?.topic).toBe("member.provision");
     // pending OR dispatched: provisioning fires a best-effort request-path sweep on commit (the R1
     // latency optimization), which may consume this row before the assertion reads it. Its status
-    // is incidental here — the row's enqueued topic + Owner/Admin payload is what this test pins.
+    // is incidental here — the row's enqueued topic + Admin payload is what this test pins.
     expect(["pending", "dispatched"]).toContain(outboxRow?.status);
     expect(JSON.parse(outboxRow?.payload ?? "{}")).toEqual({
       displayName: "Firm Owner",
       firmId: firmOneBody.id,
-      roleName: "Owner/Admin",
+      roleName: "Admin",
       userId: firmOneBody.owner.id,
     });
 
@@ -360,10 +360,10 @@ describe("POST /api/v1/firms", () => {
       status: "active",
     });
     // The resumed firm's per-firm database (its FirmDatabase DO) self-migrated on first access —
-    // the Owner/Admin role seed is resolvable.
+    // the Admin role seed is resolvable.
     const firmTwoDatabase = firmDatabaseFor(env.FIRM_DATABASE, correctedBody.id);
     const roleRows = await firmTwoDatabase
-      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .prepare("SELECT id FROM role WHERE name = 'Admin'")
       .all<{ id: string }>();
     expect(roleRows.results[0]?.id).toMatch(/^role_/);
   });

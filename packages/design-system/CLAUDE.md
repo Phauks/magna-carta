@@ -46,8 +46,8 @@ properties; off-token values are machine-rejected.
   reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
 - `src/lib/components/address-fields/` — `AddressFields`, the product's ONE address form. Its shape
   is the country's (`address-format.ts`), not the platform's; see the Compound Inputs note below for
-  the three rules it keeps. Domain-blind: it takes the parts and the countries to offer and knows
-  nothing about whose address it is — what an address is FOR (its use, whether the place physically
+  the three rules it keeps. Domain-blind: it takes the parts, the countries to offer and — optionally —
+  the constraints and an address lookup, and knows nothing about whose address it is — what an address is FOR (its use, whether the place physically
   exists) belongs to the consumer
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
@@ -203,6 +203,21 @@ is still an `ActionDialog` inside it, not a panel of its own.
   gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
   question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
   design; the caller's binding wins over the memory.
+- **Both shells take an optional `menu` snippet, drawn first in the header as the "More"
+  dropdown.** The record window calls it the kind's menu; `ActionDialog` draws it only on the kinds
+  that show the corner controls, because a question is answered, never browsed. It holds what is
+  done WITH the thing shown (copy its link, download a copy), and it follows the "a menu earns its
+  glyph" ruling in `docs/conventions/design-corrections.md`: a caller with fewer than two live items
+  passes no menu.
+- **A primary pane that carries a section rail stops at `size.record-form`, not `size.record-pane`.**
+  The frame recognises it by `data-record-rail` on the rail's container
+  (`.mc-modal-frame-pane:has([data-record-rail])`, `styles/recipes/modal-frame.css`), so the rail
+  is added to the pane's measure instead of being taken out of the fields beside it. A pane alone in
+  its frame still fills it.
+- **`ActionDialog` takes an optional `leading` snippet, drawn before the heading** (in
+  `.mc-modal-frame-lead`, `styles/recipes/modal-frame.css`). It is for one small square that names
+  what the panel is about, such as the directory record's picture; it is not a second toolbar, so
+  actions still go in `menu` or the footer.
 - **Where a modal panel sits on the screen is one module, in four named parts, and no panel
   touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
   (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:
@@ -605,7 +620,7 @@ one and the rows are not.
   will demand merge cases — follow its messages. Never hand-invent utility names outside the
   generated theme; unregistered ones fail silently.
 - **No `vite.config.ts` in this package on purpose** — `svelte()` is registered in `.storybook/
-main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compiled output). A
+  main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compiled output). A
   package `svelte.config.js` exists for svelte-check. Root-cwd runs log a harmless
   "no Svelte config found" warning three times.
 - **Story class strings must be literal** — Tailwind's scanner cannot see computed classes.
@@ -616,27 +631,24 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
 - **Storybook coverage toggle errors ("Cannot find package '@vitest/coverage-v8'") — flagged for
   Fable, deferred.** Tests run fine (CLI `vp test` green, and the Storybook test panel runs without
   the coverage toggle); only the addon's coverage feature fails, because Vite+'s test runner
-  lazy-imports `@vitest/coverage-v8`, which isn't installed. Wiring it is non-trivial: catalog pins
-  `vitest: 4.1.8` but an `overrides` block aliases `vitest` to Vite+'s own dist
-  (`@voidzero-dev/vite-plus-test`), and coverage providers hook deep into vitest internals — so a
-  stock `@vitest/coverage-v8@4.1.8` must be verified against the aliased runtime (fork/upstream
-  identity mismatch is the risk). To enable: add `@vitest/coverage-v8` (matching 4.1.8) to the
-  catalog + root devDeps, install, and confirm coverage actually runs under the alias.
+  lazy-imports `@vitest/coverage-v8`, which isn't installed. Vite+ now runs upstream Vitest (the
+  catalog `vitest` pin equals the version vite-plus depends on), so no fork stands in the way: to
+  enable, add `@vitest/coverage-v8` at that same version to the catalog + root devDeps, install,
+  and confirm coverage runs.
 - **Node 25 ships a dead `localStorage` global that happy-dom cannot replace** — stub storage via
   `vi.stubGlobal` (see `theme-preference.test.ts`).
 - **CSP (`test/csp-spike/VERDICT.md`):** Floating UI positioning is CSP-clean; Bits' scroll-lock
-  RESTORE used `setAttribute("style", …)`, which strict `style-src` blocks. **Patched** with the
-  first scroll-locking Tier 3 component (Dialog): `patches/bits-ui@2.18.1.patch` rewrites the
-  restore to `style.cssText` (the CSP-clean CSSOM channel). Never loosen `style-src` instead. The
-  spike asserts the patched verdict and fails if a bits-ui upgrade regresses it — re-run on every
-  bits-ui/svelte bump (`tools/run-csp-spike.cmd`) and drop the patch if #1995 lands upstream.
-- **The same patch makes `onFocusOutside` preventable.** A focus event is not cancelable, so the
+  RESTORE used `setAttribute("style", …)`, which strict `style-src` blocks. That was patched locally
+  until upstream fixed it: as of 2.20.6 Bits restores the body through `style.setProperty` /
+  `removeProperty` (CSSOM), so the scroll-lock half of `patches/bits-ui@2.20.6.patch` is gone. Never
+  loosen `style-src` instead. The spike asserts the CSP-clean verdict and fails if a bits-ui upgrade
+  regresses it — re-run on every bits-ui/svelte bump (`tools/run-csp-spike.cmd`).
+- **The patch makes `onFocusOutside` preventable.** A focus event is not cancelable, so the
   `event.preventDefault()` Bits documents as the way to keep a layer open on focus leaving was a
   no-op and Bits closed the layer anyway — a submenu hosting a DatePicker closed the moment its
   calendar took focus. The patch wraps the focus event the way Bits already wraps a pointer event,
-  so the prevented state is tracked; `context-menu/menu-field-layer.ts` relies on it. Both halves
-  of the patch are re-checked on every bits-ui bump; upstream still passes the raw event as of
-  2.19.2.
+  so the prevented state is tracked; `context-menu/menu-field-layer.ts` relies on it. Re-check it
+  on every bits-ui bump; upstream still passes the raw event as of 2.20.6.
 - **Visual regression baselines are authoritative ONLY from the pinned Playwright container**
   (`update-baselines.cmd`/`.sh`; no Docker on the dev machine — first baselines land via CI).
   After any local VRT run, check `git status` for stray `visual-regression/baselines/*.png` —
@@ -663,7 +675,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **PhoneInput** (compound): a country/dial-code selector + national-number field, with formatting and validation (libphonenumber-class). `type="tel"` Input is only raw text entry — `tel` is unvalidated by the platform, so a real phone field needs the compound. QoL idea: surface what the area/dialing code maps to (region) as a hint.
     - **Calendar / DatePicker family** (Tier 3/4, on bits-ui + **`@internationalized/date`**): BUILT, and since the owner's ruling of 2026-09-08 the interim is over — **`type="date"` is banned outright** and `lint:date-handling` fails one anywhere, this package included (`docs/conventions/dates.md`). The other native types (`datetime-local`/`month`/`week`/`time`) remain a thin interim. In particular **native `type="week"` is hard-locked to ISO 8601 (Monday-start, ISO week numbers) — not locale-aware, not configurable**; firm/locale-configurable week-start (Sunday/Saturday/Monday) requires the custom picker, where week-start is driven by locale and/or a firm setting (ADR-0040). `@internationalized/date` (the ADR-0055 civil date) supplies locale-aware `startOfWeek`/week-info.
     - **Country selector / State·Province·County (admin-subdivision) selector**: data-backed Selects (on the future Select/Combobox, Tier 3), populated from a reference dataset and searchable; Country feeds PhoneInput's dial code AND drives the subdivision list + postal format. Address-field family.
-    - **AddressFields** — **BUILT** (2026-09-08, `src/lib/components/address-fields/`), so it has left this planned list. `address-format.ts` is the per-country table — the field SET, the labels and the ORDER, keyed by ISO 3166-1 alpha-2, with `INTERNATIONAL_FORMAT` for a country nobody has entered; `address-fields.svelte` puts the country FIRST because it decides the rest. Three rules it must keep: it never moves a value between fields when the country changes (the stored columns are named for their POSITION in an address, which is what makes the form a presentation of them); a value the new country's form has no line for is STATED, never dropped; and nothing is required, because an address a firm holds half of is still the address it holds. The table is a curated shape, deliberately NOT the libaddressinput dataset — it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state, and adopting that corpus is an open question with a monthly-staleness cost attached. Adding a country is one entry in `FORMATS`; removing one silently re-labels every address already entered under it.
+    - **AddressFields** — **BUILT** (2026-09-08, `src/lib/components/address-fields/`), so it has left this planned list. `address-format.ts` is the per-country table — the field SET, the labels and the ORDER, keyed by ISO 3166-1 alpha-2, with `INTERNATIONAL_FORMAT` for a country nobody has entered; `address-fields.svelte` puts the country FIRST because it decides the rest. Three rules it must keep: it never moves a value between fields when the country changes (the stored columns are named for their POSITION in an address, which is what makes the form a presentation of them); a value the new country's form has no line for is STATED, never dropped; and nothing is required, because an address a firm holds half of is still the address it holds. The table is a curated SHAPE, deliberately not a reference dataset. The CONSTRAINTS — postal-code patterns and administrative-area lists — are `@magna-carta/address-formats`, generated from the address-internationalization corpus, and reach the form as the optional `postalCodeNote` and `administrativeAreas` props, because this package links exactly one workspace package by design and the form stays domain-blind. A malformed code is the field's hint, never its error; the region list is a native datalist, because the region is not a closed choice. The optional `lookup` prop (`street-lookup.ts`, `street-suggestion-field.svelte`) turns the street box into a free-text combobox that offers real addresses: what is typed IS the street line, a chosen address replaces the parts it carries and leaves the rest, a group opens rather than fills, and after a failure it asks nothing until Try Again. Its three primitive traps — a choice writes the row's label into the input, `open` reaches bits one way only, an identical re-choice reads as no change — are each pinned in `apps/web/test/address-fields-street-lookup.test.ts`. Adding a country is one entry in `FORMATS`; removing one silently re-labels every address already entered under it.
     - **PaymentFields** (credit card): **do NOT build raw card-number (PAN) inputs** — wrap the payment processor's tokenized/hosted fields (Stripe-Elements-style) so raw card data never touches our app and **PCI-DSS** scope stays out. Card-type detection / Luhn / expiry / CVC formatting are the processor's, not ours.
     - **National / Tax ID** (SSN, EIN / NINO, Company No.): **jurisdiction-aware** (not US-hardcoded), masked display (show last 4), strict per-jurisdiction format. Sensitive **PII** — golden rule 4 (never logged) + the secrets/encryption invariants (encrypted at rest).
     - **ColorPicker** (theming/firm-settings, with 0·7b settings registry): bespoke (Bits has no color primitive), built on **Culori** so it speaks **OKLCH** and gamut-maps — NOT native `type="color"` (sRGB hex, no gamut, no OKLCH anchors). Its brand-color use feeds `@magna-carta/design-tokens`'s `scripts/generate-theme.ts` (brand hue/chroma/neutral-tint anchors → generated ramps); a generation-time contrast check already exists there. Note: launch theming is the curated theme **gallery** (ADR-0040 firm setting) — a custom-brand picker is the UI for the generation engine's custom path, a step beyond the gallery.
@@ -680,7 +692,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **`Select.Root` needs an `items` (value/label) list.** Bits unmounts the Item components when the listbox closes, so without `items` the trigger Value falls back to the raw value after closing (the label is gone) and typeahead-while-closed + form autofill don't work. Pass the same list that backs the rows.
     - **Multiple value is normalised to `items` (list) order.** Bits appends to the value array in SELECTION order, so the trigger would join labels in pick order; Root re-presents it in list order via a pure `$derived` fed through the **function-form `bind:value`** (getter returns the reordered value, setter writes raw selections back — no write-in-`$effect`). The discriminated-union value (string vs string[]) can't be statically narrowed through a wrapper, hence the one `as never` getter cast.
     - **`allowDeselect` defaults to true** (bits ships it false): a single select returns to the empty/placeholder state by re-clicking the selected option (multiple ignores it). Required fields that must keep a value pass `allowDeselect={false}`. bits closes a single select on a NEW pick but not on deselect, so Root also closes it when the single value clears (via `bind:open` + the value setter) — every single-select pick (set or clear) closes consistently.
-    - **The trigger's role is `button` + `aria-haspopup="listbox"`, NOT `combobox`** (combobox is the Tier-4 Combobox, a different bits primitive). Query it as a button in tests; the listbox/options use `listbox`/`option` with `aria-selected`.
+    - **The trigger's role is `combobox` + `aria-haspopup="listbox"`** (the ARIA select-only combobox; Bits made the switch from `button` in 2.20). Query it as a combobox by name in tests; the listbox/options use `listbox`/`option` with `aria-selected`. The role is also what keeps a labelled trigger clear of axe's `label-content-name-mismatch`: a combobox's name is its field and its shown text is its value, whereas a button's shown text is its content and has to sit inside its name. `MergeFieldPicker`'s Popover trigger takes `role="combobox"` for the same reason. Any trigger that SHOWS a chosen value under a caller's label is one of these, never a plain button.
     - **Content sizing rides inline `style` on the element, not the recipe:** the panel uses the GENERIC `min-width: var(--bits-floating-anchor-width)` + `max-width: var(--bits-floating-available-width)` (`LISTBOX_PANEL_STYLE` in `internal/floating.ts`) and the viewport's `max-height: var(--bits-floating-available-height)` (not the `--bits-select-*` aliases) — Bits-owned variables, not `--mc-` tokens, so the components.css purity gate keeps them out of the recipe, and the generic names let the same `select-content` component serve Combobox too. The alignment and collision defaults are the shared ones (see the z-order and alignment gotchas below).
   - **Command (Tier 4) — the command palette:**
     - **A palette has no open/close of its own — host it in a Dialog** (the Cmd+K pattern): the Dialog supplies the trigger, focus trap, and dismissal on outside-click/Escape. Give `Dialog.Content` `class="overflow-hidden p-0"` + `showClose={false}` and the `Command.Root` `class="border-0 bg-transparent"` so the dialog chrome hosts a border-less palette edge-to-edge. (Testing the outside-click: the body has `pointer-events:none` while a dialog is open, so click the `.mc-dialog-overlay` scrim, not `document.body`.)
@@ -703,6 +715,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **Month/year navigation is native `MonthSelect` + `YearSelect`** in the header (not a static Heading), so any month/year is one pick away — essential for far-back dates like a birthdate. They are native `<select>`s (need an `aria-label`); query them as `combobox` by name and assert with `getByDisplayValue`. The year list defaults to ±111 years and is bounded by `minValue`/`maxValue`.
     - **"No past dates" / "earliest date" is the `minValue`/`maxValue` setting** — it flows through all three (pass-through), blocks out-of-range dates (`data-disabled`, unselectable) AND floors/caps the year dropdown. No past dates → `minValue={today(getLocalTimeZone())}`; a birthdate floor → `minValue` of 1900 so pre-1900 (bad data) is never offered. `isDateDisabled` / `isDateUnavailable` block individual dates. (Stories pin fixed CalendarDates for VRT determinism — never `today()` in a test.)
     - **Two bits quirks:** the `Header` is a `<header>` banner landmark — neutralize it with `role="presentation"` (axe `landmark-banner-is-top-level`); and the prev/next buttons are labelled "Previous"/"Next" by bits (its props win), so query those names, not "Previous month".
+    - **DateTimeField is the one field for a moment** (`date-time-field/`, owner 2026-11-10): a day, a time of day, or both (`mode`), typed as Bits DateField and TimeField segments inside ONE `mc-date-field` box, with one Popover panel holding the compact `Calendar` beside a list of times. Its value is split on purpose — `date` is a CalendarDate, `time` the stored `HH:MM` string — because a record stores a civil day and a wall-clock time, never a ZonedDateTime. The list is a shortcut, not a constraint: `time-choices.ts` steps by `timeStep` and inserts an off-step time in its place so the list always marks what the field holds; `durationFrom` starts the list after a same-day start and labels each row with how long it runs. `allowNoTime` adds a first row (`noTimeLabel`) bound to `noTime`, which is how a record's "all day" is said. The times are printed by `formatWallClockTime` (formatters/wall-clock.ts), the display vocabulary's answer for a time with no day or zone. The panel opens with focus on the chosen day or time rather than on the month heading.
     - **DatePicker.Content needs `DatePicker.Portal`; DateRangePicker.Content self-portals** (no Portal export) — match each component's bits exports.
     - **DateRangePicker: `closeOnRangeSelect` defaults false** (stays open to adjust) and supports **drag-to-select** — bits' range calendar is click-only, so we drive the bound `value` from the day's pointerdown→pointerenter (a drag spans different days, so no bits `click` fires for it and the two paths coexist; `<svelte:window onpointerup>` ends the drag). The in-range band keeps `text-default` (the endpoints' white must not bleed onto it).
     - **`pointerdown` resets the selection to the pressed day ONLY when a COMPLETE range already exists** (`value.start && value.end`) — so pressing a day clears the old range at once instead of it lingering until the pointer reaches another day (the owner's "only changes once I cover the other date" feel). It deliberately does NOT reset while a selection is in progress (start picked, end not), so bits' native click-a-start-then-click-an-end still works. Both paths are covered by the story's play test (click-click, drag, and press-resets-at-once).
@@ -802,7 +815,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   sub-pixel **paint seam**. Fix: the collapsed-state widths/tracks now change **instantly** and the
   collapse is composited via the **View Transitions API** — the Trigger flips state through
   `runViewTransition` (`internal/view-transition.ts`), `.mc-sidebar` carries `view-transition-name:
-mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
+  mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
   it morphs rather than ghosting. The browser tweens before/after layouts on the GPU, so the seam is
   sampled, never re-rasterized → no tear. Reduced-motion / unsupported browsers fall back to an instant
   collapse. **The UX principle this establishes platform-wide: animate only compositor properties

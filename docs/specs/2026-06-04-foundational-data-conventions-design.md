@@ -32,7 +32,7 @@ Two integer scales in D1, both `INTEGER` (SQLite 64-bit signed, ±~$92 quadrilli
 type Money = { readonly __brand: "Money" /* dinero<bigint> @ scale 2 + currency */ };
 type Rate = { readonly __brand: "Rate" /* dinero<bigint> @ scale 4 + currency */ };
 type Ratio = {
-  readonly __brand: "Ratio"; /* dimensionless decimal, e.g. tax/interest/contingency % */
+  readonly __brand: "Ratio" /* dimensionless decimal, e.g. tax/interest/contingency % */;
 };
 ```
 

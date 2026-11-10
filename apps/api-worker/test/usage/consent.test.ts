@@ -1,3 +1,4 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it, vi } from "vitest";
 import { createUsageConsentResolver } from "../../src/usage/consent.ts";
 

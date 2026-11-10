@@ -5,8 +5,10 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./caller-identity": "./src/caller-identity.ts",
     "./communication-service": "./src/communication-service.ts",
     "./communication-statements": "./src/communication-statements.ts",
+    "./contract": "./src/contract.ts",
     "./numbering": "./src/numbering.ts",
     "./types": "./src/types.ts",
     "./validation": "./src/validation.ts"
@@ -20,7 +22,9 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/sequence-numbering": "workspace:*"
+    "@magna-carta/sequence-numbering": "workspace:*",
+    "@magna-carta/tasks": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

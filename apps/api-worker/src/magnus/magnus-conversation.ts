@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { MagnusConversationId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { MagnusConversationSockets, type MagnusSubscriptionAttachment } from "./magnus-sockets.ts";

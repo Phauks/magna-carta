@@ -50,6 +50,18 @@ export const CATALOG: readonly ToolManifest[] = [
     matterContext: "none",
   },
   {
+    // Reads public law sources (a code section, a regulation, an opinion) for a citation; it opens
+    // a record the way the lookups beside it do, and stores nothing.
+    id: "legal-citations",
+    name: "Legal Citations",
+    icon: "scale",
+    subjectGroup: "records",
+    permission: assertPermission("tools:legalCitations"),
+    contextTags: ["none"],
+    backing: { kind: "library" },
+    matterContext: "optional",
+  },
+  {
     id: "property-listing-links",
     name: "Property Listing Links",
     icon: "house",

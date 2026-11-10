@@ -74,7 +74,7 @@ deleted, because the position was really taken.
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`, and
   `@magna-carta/calendar` — the last for the visible-matter predicate ALONE, which is where that seam
   lives (`packages/notifications` depends on it for the same reason and nothing else).
-- The route layer (`apps/api-worker/src/routes/notes.ts`) hands the service the firm-scoped database,
+- The route layer (`apps/api-worker/src/http/routes/notes-and-tasks/notes.ts`) hands the service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 - **The timeline source is not here.** A note joins the federated read as one declared entry in
   `packages/calendar/src/sources/all.ts`, keyed `matterNote`, which reads `matter_note` by table name.
@@ -84,7 +84,7 @@ deleted, because the position was really taken.
 ## Gotchas
 
 - **The ordering expression appears twice and must agree.** `COALESCE(occurred_on, substr(created_at,
-1, 10))` is both the list's `ORDER BY` and its keyset cursor, and it is the timeline source's sort
+  1, 10))` is both the list's `ORDER BY` and its keyset cursor, and it is the timeline source's sort
   column. If one moves and the others do not, the walk skips or repeats rows at a page boundary.
 - **The fallback is a DATE cut from the instant, never the instant.** Mixing `2026-08-25` and
   `2026-08-25T09:00:00.000Z` in one sort column orders a note typed in the morning before a note that

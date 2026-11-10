@@ -159,7 +159,12 @@ fn scan_archive(
         let (is_dir, name, encrypted, declared, compressed) = match archive.by_index_raw(index) {
             Ok(entry) => (
                 entry.is_dir(),
-                entry.name().to_ascii_lowercase(),
+                entry
+                    .name()
+                    .map(|name| name.to_ascii_lowercase())
+                    .unwrap_or_else(|_| {
+                        String::from_utf8_lossy(entry.name_raw()).to_ascii_lowercase()
+                    }),
                 entry.encrypted(),
                 entry.size(),
                 entry.compressed_size(),

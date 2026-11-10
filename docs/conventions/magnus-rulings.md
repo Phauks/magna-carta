@@ -155,3 +155,83 @@ whole: one screen improves two.
   a rename, a move, an attach, a detach), dense (paged rail, paged transcript). The head-row acts wear
   the design system's Tooltip rather than native titles. Unverified in a browser this round: the
   owner should look at the workspace rail and the composer's attachment rows first.
+
+## R2 — round two: a page several people work in, and answers that cite
+
+The owner's notes of 2026-11-09, given over a sequence of reviewed boards ("Round 2: A with the
+refined pane" was the one approved, with "good enough to start, get this built and then figure out
+how to make it look better"). Numbered `R2.n` so they never collide with round one's rows. Rows
+marked `settled` are built in the first pull request of the round; every `open` row is approved and
+not yet built. The board's citation block quotes are approved in principle and the owner has said
+they still need to look better, so their styling is expected to change.
+
+### The conversation
+
+| #    | Ruling                                                                                                                                                                                                                                   | Status  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| R2.1 | **Members on the right, Magnus on the left.** Several members can work in one conversation, so who asked what is attributed on every turn; Magnus answers on the left. Supersedes "no alignment carrying meaning" for this surface only. | settled |
+| R2.2 | **Real names, never "You".** A member's turn carries their name and initials; the reader's own turns are named the same way.                                                                                                             | settled |
+| R2.3 | **Magnus wears the product's M.** The blackletter letter of the brand mark, gold on the chrome ink, is its mark in the conversation.                                                                                                     | settled |
+| R2.4 | **Copy on every message**, members' and Magnus's alike.                                                                                                                                                                                  | settled |
+| R2.5 | **Edit and delete one's own message.** Editing re-asks from that point; deleting leaves a marker that something was removed.                                                                                                             | open    |
+| R2.6 | **Search within a conversation and within an artifact.**                                                                                                                                                                                 | open    |
+
+### Citations
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Status |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| R2.7 | **Every claim cites its source**, in the conversation directly under the claim, never in the side pane and never as a chip alone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | open   |
+| R2.8 | **Citations are source cards, styled by source type** (the owner chose "The Source Card", option D of four, on 2026-11-09): a coloured tab naming the type and the source number, the source name and location with Open and Copy, the quote in the display serif, a footer strip with the check and when it was read. Built as the design system's `SourceQuote`; Magnus answers do not use it yet, because they are plain text with no source structure. Hues: a statute (gilt rule, section title), a case (blue rule, italic case name, citator result), a matter file (grey rule, page or clause, "Verified Quote" when the quote matches the file). | open   |
+| R2.9 | **An exact quote is preferred over any restatement.** Magnus's own words are a short lead-in or a paragraph labelled "Analysis"; each answer ends with a numbered list of its sources.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | open   |
+
+### The page
+
+| #     | Ruling                                                                                                                                                                                                                                                | Status  |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| R2.10 | **The matter sits beneath the title, small.**                                                                                                                                                                                                         | settled |
+| R2.11 | **One "..." menu for the conversation's acts**: the shared Copy Link and Open in New Tab, then Share, Pin, Rename, Move to a Folder, Save to a Different Matter (which warns), Download Transcript (optionally with its artifacts as a .zip), Delete. | open    |
+| R2.12 | **The rail**: a split New control, search, sort by date, name or matter number, folders, sections that fold (a closed caret points right), and a Pinned section that duplicates its items rather than moving them out of their folders.               | open    |
+| R2.13 | **A new conversation is saved to "General"** unless the member chooses a folder or matter.                                                                                                                                                            | open    |
+| R2.14 | **The composer** offers templates, the model and effort level from the catalog (current generation only, every effort level the model supports), and the context and allowance in a popup.                                                            | open    |
+
+### The right-hand pane
+
+| #     | Ruling                                                                                                                                                                                                                                                                                                                                                | Status |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| R2.15 | **Context**: shared files and artifacts as one kind of card with View and Download and their metadata.                                                                                                                                                                                                                                                | open   |
+| R2.16 | **Permissions, grouped**: This Matter (with its number; documents down to folders and files, notes, time and fees, trust, tasks, details, and other conversations in this matter), Firm Records (calendar, parties, directory), This Client (each matter), Research Services (Westlaw, Lexis, PACER), Firm Library. Each is Allow, Ask, Off or Mixed. | open   |
+| R2.17 | **Artifacts** keep versions, download, and open in the firm's document editor once saved to Matter Files.                                                                                                                                                                                                                                             | open   |
+
+### Finding and attaching matter content
+
+| #     | Ruling                                                                                                                                                                                                                                                                                                                                                   | Status |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| R2.18 | **Attach from a matter or from this computer.** From a matter: a folder tree with ticked files and whole folders that stay up to date as files are added, with sizes. From the computer: a malware check, then kept with the conversation or filed in the matter's Uploads folder. Built from the design system's ActionDialog, FolderTree and Checkbox. | open   |
+| R2.19 | **A large matter is searched, never stuffed.** Magnus searches the matter's index (keyword and passage search, re-authorised per hit) and shows what it searched.                                                                                                                                                                                        | open   |
+| R2.20 | **Per-matter reading priorities and skip rules** (document-type order; skip images, duplicates and superseded versions).                                                                                                                                                                                                                                 | open   |
+| R2.21 | **Westlaw and Lexis are a firm integration plus a per-conversation permission**, not a plugin a member installs.                                                                                                                                                                                                                                         | open   |
+
+### Notes recorded this round (2026-11-09)
+
+- **R2.11 is still open, with the conversation's menu built with its live acts.** Copy Link, Open in New
+  Tab, Rename, Save to a Different Matter (the existing move dialog, which warns that the matter
+  decides who can read it), Download Transcript (the whole conversation as Markdown, read across
+  every page) and Delete (`apps/web/src/lib/magnus/conversation-menu.svelte`). It is a menu on the
+  conversation's head row, not items in the screen header's page menu, because the page's address is
+  the whole workspace and only the head row knows which conversation is open; the address now names
+  it as `?conversation=<id>`, so the link opens it directly. Share, Pin and Move to a Folder wait for
+  their tables, and Download Transcript gains the artifacts `.zip` when artifacts exist.
+
+- **R2.1 changes the design-system component, not only the page.** The Conversation component was
+  written as a record with no alignment carrying meaning, and the meetings chat still reads that way.
+  So the change is a second arrangement (`arrangement="exchange"` on `Conversation.Transcript`, with
+  `TurnMark`, `TurnContent` and `TurnActions` parts) rather than a new default; `record` stays the
+  default.
+- **R2.2 names the conversation's creator.** The record keeps one author per conversation
+  (`createdBy`), not one per turn, so every member turn is named after the creator today. Several
+  members asking in one conversation needs a per-turn author on `magnus_turn`, which comes with the
+  sharing work (R2.11).
+- **Still to settle before the open rows that change what Magnus reads** (R2.16 to R2.21): the member
+  disclosure has to move to a new version, with a decision record, because Magnus reading the matter
+  is a change in what it can see; folders and pins need tables and routes; retrieval waits on the
+  ethical-wall filter experiment.

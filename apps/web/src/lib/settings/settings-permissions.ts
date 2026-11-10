@@ -35,7 +35,9 @@ export type SettingsPermissionArea =
   | "integrations"
   | "calendar"
   | "reports"
-  | "ai";
+  | "meetings"
+  | "ai"
+  | "retention";
 
 /**
  * The capability that stands for each area — what a firm grants when it means "you may set our
@@ -54,10 +56,17 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   integrations: "firm:manageSecrets",
   calendar: "calendar:manage",
   reports: "firm:manageReportPolicy",
+  // Whether the firm's meetings may be recorded, captioned and summarized at all. Its own key rather
+  // than meetings:record: recording one meeting is a practitioner's act, deciding that every
+  // meeting may be recorded is the firm's.
+  meetings: "meetings:manageSettings",
   // Whether the firm's content may reach a model at all, and whether the assistant may send it.
   // Its own key rather than firm:manageMembers: consenting to privileged client content leaving
   // the platform is not an act of administering who works here.
   ai: "firm:manageAiSettings",
+  // How long a closed matter's paper file is kept: the firm's policy, not a choice for whoever is
+  // closing a matter.
+  retention: "matters:manageRetention",
 };
 
 /** Whether the signed-in member may edit this firm area. False until the session read lands. */

@@ -32,7 +32,7 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   Google Magika's ML model (EMBEDDED in the `magika` crate, no runtime egress, no external model file) and
   returns the **raw facts** `RawIdentifyResult` (`label`, `score`, `group`, `magikaVersion`, `modelVersion`)
   — no verdict, no extension recommendation: the app decides whether the content type matches the claimed
-  extension (`apps/api-worker/src/routes/file-type.ts`). The session takes `&mut self`, so it lives behind a
+  extension (`apps/api-worker/src/http/routes/files/file-type.ts`). The session takes `&mut self`, so it lives behind a
   `Mutex` shared via `Arc<IdentifyEngine>` in `AppState`; inference runs on a `spawn_blocking` thread and a
   fault maps to the same retryable 503 as the scan path. NOTE: magika 1.1 is **not** pure Rust — it infers
   through `ort` (ONNX Runtime, C++); see Local rules.
@@ -78,14 +78,17 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   materialized bytes (not the forgeable declared size) against `max_uncompressed_bytes` before recursing,
   and `MAX_NESTED_BYTES` is sized so `max_depth * MAX_NESTED_BYTES` fits the instance — the recursion holds
   every level's buffer live at once.
-- **clamd limits track the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
-  `MaxScanSize` / `MaxFileSize` to 2048M (= `fileManager.inspectableSizeCapBytes`, 2 GiB) so clamd scans
-  every file the pipeline feeds it; the two must stay aligned, and the deploy instance must be sized for a
+- **clamd limits sit above the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
+  `MaxScanSize` / `MaxFileSize` to 2048M so clamd scans every file the pipeline feeds it. The pipeline
+  now feeds at most 40 MiB: the Worker reads the body into its own 128 MB isolate before sending it, so
+  `IN_MEMORY_INSPECTION_CEILING_BYTES` in `packages/file-manager/src/upload-policy.ts` caps
+  `fileManager.inspectableSizeCapBytes` there, and a larger file commits unscanned as `oversize`. The
+  container's 2 GiB is headroom for a scan that streams, not a figure to lower; the deploy instance must be sized for a
   full-size scan (the service buffers the body, clamd its own copy, atop the resident clamd DB **and the
   resident `Arc<yara_x::Rules>` + yara-x per-scan working set**) — operations.md §11.
-- **The `/scan` body limit tracks the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body limit
-  — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
-  (`MAX_SCAN_BODY_BYTES` = `fileManager.inspectableSizeCapBytes`). Keep it aligned with the clamd limits.
+- **The `/scan` body limit sits above the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body
+  limit — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
+  (`MAX_SCAN_BODY_BYTES`). Keep it aligned with the clamd limits, and at or above the Worker's ceiling.
 - **`/identify` runs Magika with an embedded model — but on a C++ backend (golden rule 14 flag).** The
   identification model ships inside the `magika` crate, so there is **no runtime egress and no external
   model file** — the running container stays sealed. However, magika 1.1 has **no pure-Rust backend**: it
@@ -98,7 +101,7 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   The runtime stage carries `libstdc++6` and `libgomp1` (C++ standard library + OpenMP): onnxruntime
   is statically linked into the binary but its C++ code still calls into these shared system libs at
   run time, so they must be present in the container. The container remains egress-free (`enableInternet
-= false`) — no onnxruntime network traffic at run time. On a dev host the `ort` link requires
+  = false`) — no onnxruntime network traffic at run time. On a dev host the `ort` link requires
   `download-binaries` (already on by default for the crate); without it the link fails
   (`unresolved external OrtGetApiBase`). Identification returns **raw facts**; the app decides the
   extension verdict.
@@ -126,7 +129,7 @@ node harness/scan-proxy.mjs                  # browser harness vs a running cont
 
 ## Gotchas
 
-- The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there —
+- The engine **cannot run under `@cloudflare/vitest-plugin`** (containers unsupported there —
   workers-sdk#10408), so the worker binding is a **deploy-time activation** and the EICAR acceptance gate
   runs in the `scan-container` CI job, not the local worker suite.
 - yara rules are the **YARA Forge `extended`** package (`YARA_FORGE_TIER` ARG), fetched + compiled +

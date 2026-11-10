@@ -140,7 +140,7 @@ ADR-0039.)
 - **Primacy is taken once, held by the database, and never moves.** `claimDedupPrimaryStatement` is a
   single statement whose `WHERE NOT EXISTS` refuses the claim while a holder exists, and the partial
   unique index on `(review_set_id, dedup_group_id) WHERE dedup_group_id IS NOT NULL AND
-is_dedup_primary = 1` is the same rule held for the write path nobody has written yet. A read
+  is_dedup_primary = 1` is the same rule held for the write path nobody has written yet. A read
   followed by a write would let two consumers each see "nobody holds it".
 - **The record artifacts are reproducible, and that is a property of `src/manifest.ts` rather than a
   habit.** It reads NO CLOCK: the knowledge instant is an argument, and the caller passes the load
@@ -221,7 +221,7 @@ produced it forbids.
   `zod` (for the one firm-setting definition). It depends on no other domain package: a file, a file
   version, an email message, and a Directory entity all arrive as handles, following the
   `matter_party` precedent of an id column with no cross-domain foreign key.
-- The route layer (`apps/api-worker/src/routes/discovery.ts`) hands every service the firm-scoped
+- The route layer (`apps/api-worker/src/http/routes/discovery/discovery.ts`) hands every service the firm-scoped
   database, the real clock, a crypto random source, and the authenticated actor. None of those is
   client input. The firm's document ceiling is read there and passed in, so this package reads no
   configuration of its own.

@@ -5,6 +5,7 @@ import {
   type MeetingRefusalReason,
 } from "@magna-carta/meeting-protocol/frames";
 import type {
+  MeetingCaptionsState,
   MeetingHostRole,
   MeetingLobbyMode,
   MeetingParticipantKind,
@@ -12,7 +13,7 @@ import type {
   MeetingSpotlight,
 } from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "@magna-carta/meetings/types";
-import type { Bindings } from "../../app.ts";
+import type { Bindings } from "../../bindings.ts";
 import { realtimeLoggerFor, recordRealtimeFailure } from "../sfu/realtime-failure.ts";
 
 // WHAT ONE MEETING'S ROOM HOLDS BETWEEN FRAMES, and the two places it can be held.
@@ -58,6 +59,12 @@ const ROOM_KEY = "room";
 // browser, where a spotlight is the host deciding what the room is looking at. It dies with the
 // room, which is why it is here and not in the firm's record.
 const SPOTLIGHT_KEY = "spotlight";
+
+// WHETHER LIVE CAPTIONS ARE RUNNING IN THIS ROOM, and which host turned them on. Room-level for the
+// spotlight's reason: a host turns them on for everybody. It is the switch and nothing else — no caption
+// is ever written here or anywhere in this object; the words pass through on their way to the sockets.
+// It dies with the room.
+const CAPTIONS_KEY = "captions";
 
 // WHAT THE ROOM HAS BEEN THROWN THIS SECOND AND NOT YET SENT ON — the coalescing bucket a large
 // room's reactions accumulate into. Room-level for the same reason the spotlight is: it is a fact
@@ -532,13 +539,35 @@ export async function deleteReactionBucket(room: RoomContext): Promise<void> {
   await room.ctx.storage.delete(REACTIONS_KEY);
 }
 
-/** The three room-level facts, composed for the wire. */
+/** Whether captions are running, and who turned them on — undefined while they are off. */
+export async function readCaptions(room: RoomContext): Promise<MeetingCaptionsState | undefined> {
+  return await room.ctx.storage.get<MeetingCaptionsState>(CAPTIONS_KEY);
+}
+
+/** Turns captions on, or with null off. */
+export async function putCaptions(
+  room: RoomContext,
+  captions: MeetingCaptionsState | null,
+): Promise<void> {
+  if (captions === null) await room.ctx.storage.delete(CAPTIONS_KEY);
+  else await room.ctx.storage.put(CAPTIONS_KEY, captions);
+}
+
+/** The room-level facts, composed for the wire. */
 export async function roomStateOf(room: RoomContext): Promise<MeetingRoomState> {
-  const [spotlight, stored] = await Promise.all([readSpotlight(room), readRoom(room)]);
+  const [spotlight, stored, captions] = await Promise.all([
+    readSpotlight(room),
+    readRoom(room),
+    readCaptions(room),
+  ]);
   return {
     spotlight: spotlight ?? null,
     locked: stored?.locked ?? false,
     lobby: stored?.lobby ?? "off",
+    // ABSENT, not null, while captions are off — so the room state of a room nobody has captioned is
+    // byte-for-byte the one it always was, the rule a welcome's recording keeps, and a browser reads
+    // the missing field as off, which is what it means.
+    ...(captions === undefined ? {} : { captions }),
   };
 }
 
@@ -738,12 +767,20 @@ export function broadcastExcludingStay(
  *
  * Nothing is lost by swallowing it: the socket's close handler is already running, and the roster and
  * the record are that path's to fix.
+ *
+ * ANSWERS WHETHER THE FRAME WAS HANDED TO THE SOCKET. Most callers ignore it, because a frame that
+ * did not go out is the close handler's business. The one that cannot is the recording's consent
+ * record: a notice says the server told this person, and a frame swallowed here told nobody — so the
+ * announcement counts a stay as told only on `true`. It is what the runtime accepted for sending, not
+ * what a browser rendered; nothing on this side can know the second.
  */
-export function trySend(socket: WebSocket, payload: string): void {
+export function trySend(socket: WebSocket, payload: string): boolean {
   try {
     socket.send(payload);
+    return true;
   } catch {
-    // Deliberately empty — see above.
+    // Deliberately swallowed — see above.
+    return false;
   }
 }
 

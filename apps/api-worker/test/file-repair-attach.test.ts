@@ -7,10 +7,10 @@ import {
 } from "@magna-carta/data-access/member-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FirmId, FolderId, MatterId, RoleId } from "@magna-carta/identifiers/types";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -18,7 +18,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The Owner/Admin role id is a committed literal from 0002_member-rbac.sql.
+// The Admin role id is a committed literal from 0002_member-rbac.sql.
 const OWNER_ADMIN_ROLE_ID = "role_Gw-zKO8hOHQuNv2bWokMp";
 const ISO = "2026-07-03T00:00:00.000Z";
 
@@ -44,14 +44,14 @@ beforeAll(async () => {
 
   firmDb = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
 
-  // tools:fileRepair is seeded by a later migration; grant it directly to Owner/Admin so the route
+  // tools:fileRepair is seeded by a later migration; grant it directly to Admin so the route
   // tests do not depend on migration ordering in the pool (mirrors file-repair.test.ts).
   await firmDb
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
     .bind("rolePermission_FileRepairAttachTest0001", OWNER_ADMIN_ROLE_ID, "tools:fileRepair")
     .run();
 
-  // A minimal role holding ONLY tools:fileRepair (never files:upload) — Owner/Admin carries
+  // A minimal role holding ONLY tools:fileRepair (never files:upload) — Admin carries
   // files:upload by default, so the "has the tool permission but not the upload permission" case
   // needs its own role.
   toolOnlyRoleId = newIdentifier("role");
@@ -102,7 +102,7 @@ beforeAll(async () => {
     .run();
 });
 
-// A fresh Owner/Admin member: carries files:upload (built into the seeded role) plus the
+// A fresh Admin member: carries files:upload (built into the seeded role) plus the
 // tools:fileRepair grant added in beforeAll — both permissions the attach route's dual gate requires.
 async function ownerCookie(email: string, name: string): Promise<string> {
   const { userId } = await seedCredentialedUser(email, { userName: name, firmId: poolFirmId });

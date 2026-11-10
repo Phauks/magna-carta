@@ -12,7 +12,8 @@
  * failed read replaces the table rather than standing an empty one over the failure.
  */
 import { flushSync, mount, unmount, type ComponentProps } from "svelte";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pageRecordingSounds } from "../src/lib/meetings/client/recording-sounds.ts";
 import MeetingListSection from "../src/lib/meetings/meeting-list-section.svelte";
 import MeetingsScreen from "../src/lib/meetings/meetings-screen.svelte";
 import {
@@ -20,6 +21,8 @@ import {
   meetingAddress,
   meetingColumns,
   meetingEnded,
+  meetingHasRecordings,
+  meetingIsBeingRecorded,
   meetingWhen,
   meetingWhere,
   MEETING_COLUMN_IDENTIFIERS,
@@ -48,6 +51,9 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     locked: false,
     lobby: "off",
     configured: true,
+    recordingState: "none",
+    recordingConfigured: true,
+    captionsAvailable: false,
     ...overrides,
   };
 }
@@ -78,6 +84,22 @@ describe("what a row says", () => {
   it("names the room by the meeting rather than letting an identifier shape the address", () => {
     expect(meetingAddress(meeting())).toBe("/meetings/meeting_1");
     expect(meetingAddress(meeting({ id: "a/b" }))).toBe("/meetings/a%2Fb");
+  });
+
+  it("marks a meeting as being recorded only while it is live and its recording is running", () => {
+    expect(meetingIsBeingRecorded(meeting({ recordingState: "recording" }))).toBe(true);
+    expect(meetingIsBeingRecorded(meeting())).toBe(false);
+    // Stopped and on its way to the matter: nobody in the room is being recorded any more.
+    expect(meetingIsBeingRecorded(meeting({ recordingState: "composing" }))).toBe(false);
+    expect(
+      meetingIsBeingRecorded(
+        meeting({
+          status: "ended",
+          endedAt: "2026-09-18T16:00:00.000Z",
+          recordingState: "recording",
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("leaves the ended column empty for a meeting that has not ended", () => {
@@ -170,6 +192,24 @@ describe("a section of the screen", () => {
     // somebody who cannot see the glyph.
     expect(rendered.querySelector('[aria-label="Call"]')).not.toBeNull();
     expect(rendered.querySelector('[aria-label="Video meeting"]')).toBeNull();
+  });
+
+  it("carries the room's Recording mark on the row of a live meeting being recorded, and no other", () => {
+    const rendered = draw({
+      scope: "live",
+      meetings: [
+        meeting({ recordingState: "recording" }),
+        meeting({ id: "meeting_2", title: "Client call", recordingState: "composing" }),
+      ],
+    });
+
+    const marks = [...rendered.querySelectorAll("[data-recording-mark]")];
+    expect(marks).toHaveLength(1);
+    expect(marks[0]?.textContent).toContain("Recording");
+    // Beside the name of the meeting it is about, in that row's own cell.
+    expect(marks[0]?.closest("td, [role='gridcell'], [role='cell']")?.textContent).toContain(
+      "Hearing preparation",
+    );
   });
 
   it("says a locked room is locked, where the row would otherwise offer a way in", () => {
@@ -281,5 +321,82 @@ describe("the screen", () => {
     expect(rendered.textContent).toContain("Meetings Are Not Turned On");
     expect(rendered.querySelector("table")).toBeNull();
     expect(rendered.querySelectorAll("h2")).toHaveLength(0);
+  });
+});
+
+describe("an ended meeting that was recorded", () => {
+  it("offers its recordings beside its attendance, and only where a recording was made", () => {
+    const opened: string[] = [];
+    const rendered = draw({
+      scope: "recent",
+      meetings: [
+        meeting({
+          status: "ended",
+          endedAt: "2026-09-18T16:00:00.000Z",
+          liveCount: 0,
+          recordingState: "filed",
+        }),
+        meeting({
+          id: "meeting_2",
+          title: "Client call",
+          status: "ended",
+          endedAt: "2026-09-18T17:00:00.000Z",
+          liveCount: 0,
+        }),
+      ],
+      onAttendance: () => {},
+      onRecordings: (row) => opened.push(row.id),
+    });
+
+    const offered = [...rendered.querySelectorAll("button")].filter(
+      (control) => control.textContent?.trim() === "Recordings",
+    );
+    expect(offered).toHaveLength(1);
+    offered[0]?.click();
+    expect(opened).toEqual(["meeting_1"]);
+  });
+
+  it("is a meeting on a matter with a recording of any state, and no other", () => {
+    expect(meetingHasRecordings(meeting({ recordingState: "none" }))).toBe(false);
+    expect(meetingHasRecordings(meeting({ recordingState: "composing" }))).toBe(true);
+    expect(meetingHasRecordings(meeting({ recordingState: "failed" }))).toBe(true);
+    expect(
+      meetingHasRecordings(meeting({ eventKind: "firm", matterId: null, recordingState: "filed" })),
+    ).toBe(false);
+  });
+});
+
+describe("the press on a row's Join", () => {
+  afterEach(() => {
+    pageRecordingSounds.release();
+    vi.unstubAllGlobals();
+  });
+
+  it("wakes the page's recording tone on its way into the room", () => {
+    const made: { resumes: number }[] = [];
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        state = "suspended";
+        resumes = 0;
+        constructor() {
+          made.push(this);
+        }
+        resume(): Promise<void> {
+          this.resumes += 1;
+          return Promise.resolve();
+        }
+        close(): Promise<void> {
+          return Promise.resolve();
+        }
+      },
+    );
+    const rendered = draw({ scope: "live", meetings: [meeting()] });
+    // The navigation itself is the router's; what is pinned is what the press does before it.
+    rendered.addEventListener("click", (event) => event.preventDefault());
+
+    rendered.querySelector<HTMLAnchorElement>('a[href="/meetings/meeting_1"]')?.click();
+    expect(made).toHaveLength(1);
+    expect(made[0]?.resumes).toBe(1);
   });
 });

@@ -1,5 +1,6 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
-import type { Bindings } from "../../src/app.ts";
+import type { Bindings } from "../../src/bindings.ts";
 import { resolveScanPort } from "../../src/files/scan-port-binding.ts";
 
 // Regression test: a multi-MiB body forwarded through resolveScanPort → containerScanAdapter →

@@ -8,7 +8,7 @@ import { translateOutboxMessage } from "@magna-carta/notifications/translate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { INCIDENT_CREATED_TOPIC } from "../src/routes/incidents.ts";
+import { INCIDENT_CREATED_TOPIC } from "../src/http/routes/platform/incidents.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -226,6 +226,46 @@ describe("settling a notification", () => {
     });
     expect(dismissed.status).toBe(200);
     expect(await dismissed.json()).toEqual({ id, state: "dismissed" });
+
+    // The feed the centre opens on asks for unread and read together, and a dismissed row is not
+    // one of them; the shelf asks for dismissed alone and finds it there.
+    const live = (await (
+      await SELF.fetch("https://example.com/api/v1/notifications?state=unread&state=read", {
+        headers: { cookie: ownerCookie },
+      })
+    ).json()) as { data: { id: string }[] };
+    expect(live.data.map((row) => row.id)).not.toContain(id);
+    const shelf = (await (
+      await SELF.fetch("https://example.com/api/v1/notifications?state=dismissed", {
+        headers: { cookie: ownerCookie },
+      })
+    ).json()) as { data: { id: string; state: string }[] };
+    expect(shelf.data.map((row) => row.id)).toContain(id);
+
+    // Restoring puts it back READ, never unread: the member had already dealt with it, so the badge
+    // must not count it as waiting a second time. A second restore changes nothing.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const restored = await SELF.fetch(`https://example.com/api/v1/notifications/${id}/restore`, {
+        method: "POST",
+        headers: { cookie: ownerCookie },
+      });
+      expect(restored.status).toBe(200);
+      expect(await restored.json()).toEqual({ id, state: "read" });
+    }
+    const after = (await (
+      await SELF.fetch("https://example.com/api/v1/notifications/unread-count", {
+        headers: { cookie: ownerCookie },
+      })
+    ).json()) as { unreadCount: number };
+    expect(after.unreadCount).toBe(0);
+  });
+
+  it("answers 404 when restoring a notification that is not this member's", async () => {
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/notifications/${newIdentifier("notificationRecipient")}/restore`,
+      { method: "POST", headers: { cookie: ownerCookie } },
+    );
+    expect(response.status).toBe(404);
   });
 
   it("answers 404 for a notification that is not this member's", async () => {

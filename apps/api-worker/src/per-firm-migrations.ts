@@ -44,6 +44,22 @@ import arrivalsWaitInALobbySql from "@magna-carta/database/drizzle/per-firm/2026
 import aGuestHoldsASignedLinkAndAStayOfItsOwnSql from "@magna-carta/database/drizzle/per-firm/20260924T182332_a-guest-holds-a-signed-link-and-a-stay-of-its-own.sql";
 import meetingPollsAndQuestionsSql from "@magna-carta/database/drizzle/per-firm/20260924T184938_meeting-polls-and-questions.sql";
 import communicationNumberScopePartsSql from "@magna-carta/database/drizzle/per-firm/20261002T192145_communication-number-scope-parts.sql";
+import versionChangesSql from "@magna-carta/database/drizzle/per-firm/20261002T192301_version-changes.sql";
+import aMatterFileCarriesItsDestructionDateSql from "@magna-carta/database/drizzle/per-firm/20261109T180511_a-matter-file-carries-its-destruction-date.sql";
+import attorneySubRolesSql from "@magna-carta/database/drizzle/per-firm/20261109T192537_attorney-sub-roles.sql";
+import aLookedUpCallerIdentityIsKeptSql from "@magna-carta/database/drizzle/per-firm/20261109T213357_a-looked-up-caller-identity-is-kept.sql";
+import aDirectoryRecordCarriesAPictureSql from "@magna-carta/database/drizzle/per-firm/20261109T231237_a-directory-record-carries-a-picture.sql";
+import aConflictsRunCanBeCancelledSql from "@magna-carta/database/drizzle/per-firm/20261109T234343_a-conflicts-run-can-be-cancelled.sql";
+import legalCitationsToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261109T235619_legal-citations-tool-permission.sql";
+import aCallRecordsWhatHappenedOnTheLineSql from "@magna-carta/database/drizzle/per-firm/20261110T000018_a-call-records-what-happened-on-the-line.sql";
+import meetingRecordingAndWhoWasToldSql from "@magna-carta/database/drizzle/per-firm/20261110T000101_meeting-recording-and-who-was-told.sql";
+import meetingRecordingComposeCursorSql from "@magna-carta/database/drizzle/per-firm/20261110T000102_meeting-recording-compose-cursor.sql";
+import meetingRecordingSegmentsAndComposeClaimSql from "@magna-carta/database/drizzle/per-firm/20261110T000103_meeting-recording-segments-and-compose-claim.sql";
+import meetingTranscriptSql from "@magna-carta/database/drizzle/per-firm/20261110T000104_meeting-transcript.sql";
+import meetingTranscriptModelFailuresAndMillisecondsSql from "@magna-carta/database/drizzle/per-firm/20261110T000105_meeting-transcript-model-failures-and-milliseconds.sql";
+import meetingSummarySql from "@magna-carta/database/drizzle/per-firm/20261110T000106_meeting-summary.sql";
+import meetingSummaryRetryAndFailedCallSql from "@magna-carta/database/drizzle/per-firm/20261110T000107_meeting-summary-retry-and-failed-call.sql";
+import seedMeetingSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20261110T000108_seed-meeting-settings-permission.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -85,6 +101,26 @@ export function perFirmMigrations(): Migration[] {
       aGuestHoldsASignedLinkAndAStayOfItsOwnSql,
     "20260924T184938_meeting-polls-and-questions": meetingPollsAndQuestionsSql,
     "20261002T192145_communication-number-scope-parts": communicationNumberScopePartsSql,
+    "20261002T192301_version-changes": versionChangesSql,
+    "20261109T180511_a-matter-file-carries-its-destruction-date":
+      aMatterFileCarriesItsDestructionDateSql,
+    "20261109T192537_attorney-sub-roles": attorneySubRolesSql,
+    "20261109T213357_a-looked-up-caller-identity-is-kept": aLookedUpCallerIdentityIsKeptSql,
+    "20261109T231237_a-directory-record-carries-a-picture": aDirectoryRecordCarriesAPictureSql,
+    "20261109T234343_a-conflicts-run-can-be-cancelled": aConflictsRunCanBeCancelledSql,
+    "20261109T235619_legal-citations-tool-permission": legalCitationsToolPermissionSql,
+    "20261110T000018_a-call-records-what-happened-on-the-line":
+      aCallRecordsWhatHappenedOnTheLineSql,
+    "20261110T000101_meeting-recording-and-who-was-told": meetingRecordingAndWhoWasToldSql,
+    "20261110T000102_meeting-recording-compose-cursor": meetingRecordingComposeCursorSql,
+    "20261110T000103_meeting-recording-segments-and-compose-claim":
+      meetingRecordingSegmentsAndComposeClaimSql,
+    "20261110T000104_meeting-transcript": meetingTranscriptSql,
+    "20261110T000105_meeting-transcript-model-failures-and-milliseconds":
+      meetingTranscriptModelFailuresAndMillisecondsSql,
+    "20261110T000106_meeting-summary": meetingSummarySql,
+    "20261110T000107_meeting-summary-retry-and-failed-call": meetingSummaryRetryAndFailedCallSql,
+    "20261110T000108_seed-meeting-settings-permission": seedMeetingSettingsPermissionSql,
   });
 }
 

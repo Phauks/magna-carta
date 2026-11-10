@@ -1,6 +1,9 @@
+// @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  CaptionStream,
+  CaptionStreamInput,
   ConversationInput,
   EmbedInput,
   EmbeddingResult,
@@ -8,6 +11,8 @@ import type {
   GenerateResult,
   InferencePort,
   StreamResult,
+  TranscribeInput,
+  TranscriptionResult,
 } from "@magna-carta/inference/port";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import {
@@ -60,6 +65,14 @@ function recordingPort(calls: GenerateInput[]): InferencePort {
       calls.push(input as unknown as GenerateInput);
       throw new Error("embed must not be reached when the gate is off");
     },
+    transcribe: async (input: TranscribeInput): Promise<Dispatch<TranscriptionResult>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("transcribe must not be reached when the gate is off");
+    },
+    openCaptionStream: async (input: CaptionStreamInput): Promise<Dispatch<CaptionStream>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("openCaptionStream must not be reached when the gate is off");
+    },
   };
 }
 
@@ -74,7 +87,7 @@ describe("suggestNarrative — dark until the firm's AI-processing gate is on", 
   it("returns a typed feature-disabled result and reaches NO model when eligibility is the default (off)", async () => {
     const calls: GenerateInput[] = [];
     const result = await suggestNarrative(fakeFirmDatabase(), recordingPort(calls), {
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       input: INPUT,
     });
     expect(result).toEqual({ status: "feature-disabled" });
@@ -84,7 +97,7 @@ describe("suggestNarrative — dark until the firm's AI-processing gate is on", 
   it("still returns feature-disabled (no model) when eligibility is explicitly false", async () => {
     const calls: GenerateInput[] = [];
     const result = await suggestNarrative(fakeFirmDatabase(false), recordingPort(calls), {
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       input: INPUT,
     });
     expect(result.status).toBe("feature-disabled");

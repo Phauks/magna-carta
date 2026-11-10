@@ -1,6 +1,11 @@
 # Meetings — recording, live captions, transcript and summary, design
 
-**Status:** Design (brainstormed), 2026-09-20. Extends
+**Status:** Design (brainstormed), 2026-09-20. Slice R1's server half built 2026-10-02 behind a fake
+routing service, switched off until the §6.1 experiment answers (see the amendments, §18). Slice R2's
+server half (compose, filing and the sweep) built 2026-10-02 (A18 to A26). Slice R3's server half (the
+transcript of record) built 2026-10-03 (A34 to A44). Slice R5's server half (the summary) built
+2026-10-03 (A57 to A67), and corrected after its review (A68 to A80). Slice R4's server half (live
+captions) built 2026-10-03 (A81 to A89). Extends
 [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md), which owns the meeting record, the
 `MeetingRoom` Durable Object, the SFU client, the routes and the screen. Nothing below rebuilds any
 of that.
@@ -354,7 +359,7 @@ per track. `MeetingRoom` stays exactly as it is.
 `ctx.storage`, all of it transient and deleted when the recording settles:
 
 - `track:<trackName> → { attendanceId, userId, adapterId, uploadId, stagingKey, partNumber,
-partsEtags[], carry, framesReceived, framesDropped, firstFrameAt, lastFrameAt, socketLostAt }`
+  partsEtags[], carry, framesReceived, framesDropped, firstFrameAt, lastFrameAt, socketLostAt }`
 - `recording → { meetingId, matterId, medium, startedAt, state, captionsOn }`
 
 ### Starting
@@ -891,3 +896,928 @@ Written as fragments under `docs/decisions/pending/` in the commit that lands R1
 - **The summary runs through `InferencePort`, not as a Magnus conversation**, on the on-Cloudflare
   model path by default, and remains subject to ADR-0108's open consent question for the frontier
   path.
+
+---
+
+## 18. Amendments
+
+Recorded as the build met the design. Each says what changed and why; the section it amends is named.
+
+**A1 — The stay is named by kind and by value (§3, §5). 2026-10-02.** `meeting_recording_track` and
+`meeting_recording_notice` carry `participant_kind` (`member` | `guest` | `attendee`), `participant_id`
+with no foreign key, and a nullable `user_id`, in place of `attendance_id` and a NOT NULL `user_id` —
+`meeting_message`'s precedent. A guest's stay is a `meeting_guest_stay` row and a webinar attendee's
+will be a table of its own, so a foreign key onto `meeting_attendance` would have barred both from the
+consent record, and widening it later is the rebuild this lineage refuses. A guest or a phone caller is
+now recorded as having been told, and as having a track, exactly as a member is.
+
+**A2 — `meeting_recording.breakout_id`, nullable, by value (§5). 2026-10-02.** On the poll's
+precedent, null for the main room, which is every recording today. The one-running-recording index is
+partial on `state = 'recording' AND breakout_id IS NULL`, because NULLs are distinct in a unique index;
+a breakout's own recordings take an index of their own when breakouts land.
+
+**A3 — The §6.1 gate is an OWNER ACTION outstanding, and R1 was built behind the fake (§6.1, §16).
+2026-10-02.** The experiment needs the live Cloudflare Realtime application, which the building session
+did not have. R1 was built against the routing-service fake the meeting tests already use, extended with
+`adapters/websocket/new` and `adapters/websocket/close`, keeping the token design of §6.1 exactly: the
+token rides the PATH (`/internal/meeting-audio/<token>`), never a query string, so the experiment needs
+to prove only that the adapter dials the endpoint with its path intact. Until it has — and the envelope's
+field numbers (`sequenceNumber = 1`, `timestamp = 2`, `payload = 5`, named once in
+`packages/meetings/src/pcm-frame.ts`) are confirmed in the same run — `MEETING_SINK_SIGNING_KEY` is not
+set and the start route answers 503 `meeting-recording-not-configured`. The owner's steps, in order: run
+the experiment; set `MEETING_SINK_SIGNING_KEY` with `wrangler secret put`; add the `/internal/*` zone
+route to the api Worker (a new top-level family, `run_worker_first` already names it); then a firm
+switches `meetings.recordingEnabled` on.
+
+**A4 — Announced first, captured second (§6 "Starting", step 4). 2026-10-02.** The design had the
+recorder open every adapter and then ask the room to announce. The build reverses it: the start route
+asks the room to broadcast and write the `start` notices, and only then hands the recording to the
+recorder, so nobody's voice is captured before the announcement reached them. A start the room could not
+announce, or the recorder could not take, is stopped and failed in the record with the Error ID, and the
+room is told it stopped. Symmetrically on stop: the recorder closes every adapter first and the room
+announces after, so nothing is captured after the stop is announced.
+
+**A5 — A late track is admitted by the recorder's reconciliation, not by a hook in the room's publish
+(§6 "Starting"). 2026-10-02.** The recorder asks the room (`recordingCandidates`) every five seconds
+while it records and reconciles: arrivals are admitted (or recorded `lost` past the ceiling), a
+participant no longer publishing has their adapter closed and their track `closed`, the same track on a
+new session gets a new adapter into the SAME staged object (one track with a gap, not two), and a track
+whose socket has been gone fifteen seconds is `lost`. This keeps the room's media path free of any
+recording concern, at the cost of up to five seconds before a late arrival's audio is captured — and the
+arrival was told on their welcome at once, which is what the ruling is about.
+
+**A6 — The staged object key is minted from the track ROW, not the track name (§6 "Starting", step 3).
+2026-10-02.** `meeting-recordings/<meetingId>/<recordingId>/<trackId>.pcm`. The track name is chosen by
+a browser; an object key is opaque and server-minted, the rule every other object a firm holds is
+written under. The staged object is stamped with the matter and a new object class,
+`meeting-recording-track`.
+
+**A7 — The carry is in memory only (§6 "What it holds"). 2026-10-02.** §6.2 says the recorder writes no
+content to its own storage; §6's list put `carry` in storage beside the metadata. The build keeps §6.2:
+storage holds each track's upload, parts and counters, and the carry (at most one 8 MiB part per track)
+is in memory. A recorder that dies loses at most its carry, which is the abandoned-recording sweep's
+case (R2).
+
+**A8 — Compose is handed on through an optional queue binding (§6 "Stopping", §16 R2). 2026-10-02.**
+The task for R1 included enqueuing compose. The message type is defined
+(`MeetingRecordingComposeMessage` in `apps/api-worker/src/meetings/meeting-recorder.ts`); the queue
+binding (`MEETING_RECORDING_COMPOSE`) is optional and not declared in `wrangler.jsonc`, because the queue
+and its consumer are R2's. Until then a stopped recording waits in `composing`. A recording that
+captured nothing at all is `failed` with an Error ID at the stop, and its empty staged uploads are
+aborted.
+
+**A9 — The welcome's `recording` field is absent, not null, when nothing is recorded (§3, §7).
+2026-10-02.** So a welcome to a room that is not recording is byte-for-byte the welcome it always was.
+A browser reads the missing field as not recording. `by` is nullable on the frame, for a stop nobody
+made (every track lost), and a guest's copy carries `by.userId: null`.
+
+**A10 — Stop is gated on `meetings:join` at the chokepoint (§4, §7). 2026-10-02.** A member holding
+`meetings:record` and a member running the meeting may both stop a recording, and a chokepoint gate on
+either key would refuse the other; the handler reads the key and the service asks the grant, and anybody
+holding neither is answered 403 `permission-denied`. `MeetingSummary.recordingState` also carries
+`abandoned`, the fifth state, so the field never has to widen.
+
+### Amendments from the adversarial review of the first slice
+
+Recorded 2026-10-02, after an adversarial review of the recorder and its sink. Each names the section it
+amends and says what changed and why.
+
+**A11 — The recorder reads the record on every pass (§6 "Stopping", §14).** A stop the route committed
+whose call never reached the recorder — it failed, or was cancelled — left the recorder capturing,
+because the alarm reconciled only against the room and a frame was checked only against memory. Each
+pass now reads the recording's row first and settles (adapters closed, uploads flushed and completed,
+capture stopped) when it is no longer `recording`, so capture after any stop is bounded by one alarm
+interval (five seconds). The route's half: a cancelled event's batch must stop a running recording too.
+
+**A12 — A recording nobody stops ends (§6, §14).** With no track open and the room reporting nobody
+publishing audio for ten minutes, the recorder stops the recording itself with `stop_reason: 'abandoned'`
+— a recording that never had a track is held to the same rule. At `MAXIMUM_RECORDING_HOURS` (twelve) it
+stops with `stop_reason: 'ceiling'`; that constant was a token lifetime only, and every sink token now
+expires with the recording's own maximum length rather than twelve hours after it was minted. Both stops
+commit the same three statements as every stop with nobody behind it and are announced to the room.
+
+**A13 — The memory ceiling is arithmetic, and the track ceiling follows from it (§6.2, §8).** §8's
+"thirty-two tracks is 256 MiB of worst-case carry" was twice an isolate's 128 MB. The staging is now one
+buffer per open track, preallocated when it opens, written in place and released when it closes: a part
+of R2's minimum size (5 MiB — the part size moves from 8 MiB) plus a 1 MiB overflow for the frames that
+arrive while a part uploads. At most one part per track and two per recorder are in flight; a frame that
+arrives when the overflow is full is dropped, counted, and kept on the timeline as silence. A gap is a
+count of silence, uploaded from one shared part of zeros, never an allocation of its length. With 40 MiB
+reserved for everything that is not audio, one shared silence part and a copy per upload in flight, the
+recorder holds `floor((122.07 − 40 − 5 − 10) / 6) = 11` tracks, and `meetings.recordedTrackCeiling`
+defaults to and is capped at that number; the arithmetic is stated once in
+`packages/meetings/src/settings.ts`. Two recordings the platform places in one isolate share its memory;
+that is the margin's to absorb, and a larger room is the sharded recorder §8 already names.
+
+**A14 — A restart is accounted for, not silently absorbed (§6, §14).** A recorder that restarts marks
+every open track as having lost its socket and as resuming on the wall clock, so a track whose socket is
+not redialled is lost on the ordinary path and a redialled one lands at its own instant. Whatever was
+buffered and not uploaded is counted as dropped frames once (a second restart before anything more
+uploads does not count it again) and put back as silence; `stagedSamples` counts only parts that have
+uploaded, and the captured length never includes silence that stands in for lost audio.
+
+**A15 — Sequence numbers are resynchronised, and every discarded frame is counted (§6.2).** The first
+frame on every accepted socket is placed by the wall clock, because a new socket is a new counter as far
+as the recorder can tell. A frame up to fifty behind the last one taken is a repeat and is discarded; a
+jump further back, or forward past the five-minute gap limit, is a counter that started again and is
+placed by the wall clock. `frames_dropped` counts every frame the recorder discarded — repeats included —
+as well as every frame that never arrived.
+
+**A16 — The sink token names the track row and the adapter, and admits one socket (§6.1).** The token
+carries the track ROW's identifier (never the browser-chosen track name) and a nonce the recorder mints
+for each adapter it opens and rotates on reopen, so an earlier adapter's token opens nothing. The recorder
+refuses a dial against a track whose socket is live. The sink route also takes the token from
+`Sec-WebSocket-Protocol: meeting-sink, <token>` (on the bare `/internal/meeting-audio` too) and answers
+`meeting-sink`, so the token can leave the address once the A3 experiment confirms the live adapter
+offers a subprotocol; until then the path is still what the recorder hands out.
+
+**A17 — Smaller fixes (§6, §8).** The recorder writes only the tracks that changed since its last write,
+in batches of at most 128 keys (the storage API's limit). The ceiling counts STAYS: a stay holds one open
+recorded track, and its further audio tracks are recorded `lost` rather than taking another
+participant's slot. A part that fails to upload keeps its bytes and is retried once on the next pass; if
+that fails too it is replaced by a part of silence and its frames are counted as dropped, so the timeline
+keeps its length.
+
+### Amendments from slice R2 — compose and file
+
+Recorded 2026-10-02, as the compose step, the filing and the sweep were built. Each names the section it
+amends and says what changed and why.
+
+**A18 — The WAV header goes at the head of the FIRST part, and every part is one minute (§9).** §9 had
+the header "written last once the length is known, via a final small multipart part at the head". R2
+refuses that: every part of a multipart upload but the last must be at least 5 MiB and all of them one
+size, so a 44-byte part cannot sit anywhere but last. It is also unnecessary — by the time a recording is
+handed on, every staged track is a complete object of known size and lands at its first frame's offset,
+so the composite's length is known before the first sample is mixed. The header (`packages/meetings/src/
+wav.ts`) is written into the first part's first 44 bytes; parts are sixty seconds of audio (5,760,000
+bytes, above R2's minimum), and one invocation composes ten of them — the ten minutes §9 names — before
+re-enqueuing itself. Memory per invocation is about 40 MB whatever the length or track count: one part's
+32-bit sums, the mixed part, its bytes, one track's span and its copy as samples, and the copy the binding
+may make of the part — the arithmetic is in `apps/api-worker/src/meetings/recording-compose-consumer.ts`.
+The mixer (`pcm-mix.ts`) sums in 32 bits and clamps once, so two loud speakers saturate rather than wrap.
+
+**A19 — The cursor is five columns on `meeting_recording` (§5, §9).** Migration
+`20261110T000102_meeting-recording-compose-cursor` adds `compose_upload_session_id` (the file pipeline's
+session, by value), `compose_parts_done` (the cursor), `compose_parts` (each part's number and entity tag,
+because completing the upload needs them and the storage binding cannot list an upload's parts),
+`compose_attempts` and `compose_progress_at`. Added, never rebuilt: the table is a parent. The cursor
+advance is guarded on the value it started from, so two deliveries of one message never both advance it;
+the begin is guarded on no session yet, in one batch with the session, so a racing begin leaves nothing.
+
+**A20 — An abandoned recording is not composed (§14).** §14 had the sweep compose "whatever completed
+parts exist" of a recording whose recorder died. A staged track is only an object once its upload
+completes, and a recorder that has stopped reconciling is exactly the one whose account of its parts
+cannot be trusted to line a composite up. So the sweep moves the recording to `abandoned` (stop reason
+`abandoned`, nobody behind it, every open track `lost`, one audit row), asks the recorder — if it answers
+— to close its adapters and ABORT its uploads (`MeetingRecorder.abandon`), and tells the room it stopped
+so the mark clears. "Stopped reconciling" is read from the recorder itself: each alarm pass stamps
+`reconciledAt` in its own storage, and `MeetingRecorder.heartbeat` answers it; a recorder holding no
+running recording (a start whose hand-over never arrived) counts as stopped, and one that cannot be asked
+decides nothing that pass. The recorder's own empty-room stop (A12) is unchanged: it composes.
+
+**A21 — The sweep rides the ten-minute cron (§16 R2).** The trigger set is one atomic write and a
+fourth trigger has never been proved on this account (`wrangler.jsonc` says why), and the five-minute
+sweep also runs on the tail of a provisioning request. So `runRecordingSweep` runs after the status
+snapshot on `*/10`, wrapped so neither can cost the other. Its windows are multiples of that cadence: a
+recorder silent five minutes, a compose with no progress for thirty (twice a queue consumer's longest
+run, so a working invocation is never raced), three hand-ons before a compose is failed with an Error ID,
+seven days' retention for a failed or abandoned recording's staging, a day's grace for a filed one's.
+
+**A22 — The staged tracks are deleted when the recording is filed (§9, §10).** As §9 says. §10 has the
+transcript read each track's staged PCM, kept "until the transcript settles, not until the compose
+settles"; that is R3's to reconcile — either the compose leaves the staging for the transcript to
+release, or the transcript reads its spans out of the filed composite at each track's offset. Named here
+so R3 starts from it.
+
+**A23 — Who files it, and what it is called (§9).** The pipeline records the member who started the
+recording as uploading it: the document is what their pressing Record produced. The name is
+`Meeting recording — <event title> — <YYYY-MM-DD HH:mm>.wav`, the start read in the event's own zone
+through `@magna-carta/civil-time`; a zone the runtime cannot resolve is read in UTC and the name says
+`UTC`. A compose the pipeline refuses (`FileManagerValidationError`), or one with nothing staged, fails the
+recording with an Error ID whose message is a fixed sentence and a code — never the name.
+
+**A24 — Loose ends from R1 (§3, §8).** The start counts STAYS against the ceiling, as the recorder does,
+so eleven people each sharing a screen's audio beside their microphone are not refused. A guest's
+`recording` frame and welcome carry `recordingId: null` — the handle names a firm record, on the
+`by.userId` rule — and a browser tells announcements apart by the transition. The room announces one
+recording once however many requests carry its start out (a replay and the request it replays both
+reach it), and the room holding the recording is that proof. An end, or a calendar cancel, whose running
+recording is stopped between its read and its commit is composed again from what is true now rather than
+answering a server error.
+
+**A25 — The load-profile fixture is measured where the work is, not in the load-profile harness (§15).**
+That harness generates firms and measures SQL; an hour of five tracks is 1.7 GB of staged audio, which is
+not a fixture it can hold. The mixer's CPU is measured over one invocation's window of five tracks in
+`packages/meetings/test/pcm-mix.test.ts`, and the compose test crosses a window boundary end to end. The
+one-hour five-track fixture §15 names, and the recorder's memory measured at the ceiling under it, remain
+to build.
+
+**A26 — `MeetingRecordingSummary` gains `failureErrorId`, and `stoppedBy` is "the actor, or null" (§7).**
+The screen shows a failed recording's Error ID for support. `stoppedBy` is declared as a union with null
+rather than `.nullable()` on the component, which the contract emitted as an intersection the generated
+client read as always present; it is now `anyOf: [MeetingRecordingActor, null]`.
+
+### Amendments from the adversarial review of slice R2 — the recorder, the compose and the sweep
+
+Recorded 2026-10-03. Migration `20261110T000103_meeting-recording-segments-and-compose-claim` adds the two
+columns these need, both added rather than rebuilt.
+
+**A27 — A staged track is placed stretch by stretch (§6.2, §9).** A participant who left had their buffer
+closed with silence to a part boundary (up to a part, about 55 s) and, on returning, was placed after that
+silence: everything they said afterwards landed up to 55 s late for the rest of the meeting. And the
+wall-clock silence was clamped at 300 s, so a return after a long absence landed early by the excess.
+Now `meeting_recording_track.segments` records each STRETCH of the staged object — the staged sample it
+begins at, the instant it was heard, and for a stretch a departure closed, the staged sample its audio
+ends at. The recorder begins a new stretch when the wall clock places a frame more than half a second
+behind the end of the object (a return before the padding ran out) or more than 300 s past it (a gap not
+worth uploading as zeros); any other wall-clock gap is staged as silence of its full length, never
+clamped. The compose places every stretch at its own instant (`placeTrackSegments`, shared with the
+recorder's captured-length arithmetic), never places the padding, and never lays a stretch over the one
+before it. A row with no stretches reads as one from `first_frame_at`, which is what it always meant. A
+track records at most 256 stretches, because they ride its metadata in the recorder's storage; past that
+a return is placed on the timeline, late by at most one departure's padding.
+
+**A28 — A compose window is claimed, and a stall is measured from the claim (§9, §14).**
+`meeting_recording.compose_claimed_at` is a lease: a consumer claims the window at the cursor it read
+(guarded, `COMPOSE_CLAIM_GUARD`) before reading a byte, the window's progress releases it, and a holder
+past fifteen minutes — a consumer's longest run — is gone. Two deliveries of one message, or a sweep's
+hand-on racing the queue's own, therefore never upload the same part numbers at once, whatever R2 derives
+an entity tag from. A consumer that throws releases its own claim, so the queue's retry is not locked out.
+Progress resets `compose_attempts`, so a long recording nudged once is not one strike down for good. The
+sweep hands on a compose untouched — no claim, progress or hand-on — for thirty minutes, least recently
+touched first, and fails it only after three hand-ons with nothing between. The compose reads the record
+again immediately before it completes the composite, and stops if the recording is no longer composing
+or the claim is no longer its own. Queue concurrency is a deployment setting outside this change.
+
+**A29 — A failed compose leaves nothing behind (§14).** `failRecordingCompose` — the compose's own
+refusals and the sweep's failure alike — commits the recording `failed` (now guarded,
+`FAIL_COMPOSE_GUARD`) in one batch with the file manager's own `abortUploadSession` (session aborted,
+pending version abandoned), then aborts the multipart upload and deletes anything a completion left at
+the key. A failure that lost the race to a filing rolls back whole and lets go of nothing. The upload
+session is opened with a two-day expiry as the stale-upload sweep's backstop.
+
+**A30 — The layout is checked, and a missing track is said (§9).** Each window lays the tracks out again,
+and a layout whose length differs from the upload session's declared size — the length the header
+already written says — is refused rather than written. A staged object missing when the compose BEGINS is
+composed without: the row carries the Error ID of that fault (a fault on the way, not the outcome), the
+track's row stops naming the object, and filing brings `captured_seconds` down to the composite's own
+length. One that vanishes after the compose began fails the recording, because the windows already
+written placed it. `readComposeTarget` deliberately reads the file manager's `upload_session` and
+`file_version` rows rather than calling `loadUploadSession`: it needs the declared size and the file the
+version belongs to, which that function does not return, and it now checks the session's status. It is
+addressed by the session handle the recording itself recorded, in the firm's own database.
+
+**A31 — The WAV-length policy (§9).** A composite past the signed 32-bit boundary (about 6.2 hours) is
+still filed as ONE canonical WAV, whole, with lengths written as the format defines them (unsigned). Not
+capped — a seven-hour deposition is an ordinary day — and not split, because one recording is one document
+on the matter. A reader that misreads the lengths as signed fails on that file; FLAC or the RF64 container
+removes the boundary and is the size follow-up §9 already names. Only past the unsigned limit, which the
+recorder's twelve-hour maximum never reaches, is a composite refused (before anything is opened).
+`WAV_SIGNED_READER_MAXIMUM_DATA_BYTES` in `packages/meetings/src/wav.ts` states it.
+
+**A32 — An abandoned recording keeps what it captured (§14, amends A20).** `MeetingRecorder.abandon()`
+now uploads each buffer's remainder and COMPLETES every upload, aborting only one that staged nothing,
+and writes what each track carried; nothing is composed. The sweep's seven-day retention of an abandoned
+recording's staging therefore keeps real audio, which an aborted upload never did.
+
+**A33 — Smaller fixes (§9, §14, §15).** The filed name's title has controls, bidirectional and invisible
+characters removed, path separators replaced, runs of space collapsed, and is cut at 120 characters with
+an ellipsis; an empty result is "Untitled meeting". The sweep costs a firm with nothing to tend one read,
+not three — it is deliberately not skipped on `meetings.recordingEnabled`, because a firm that switched
+recording off mid-compose still needs that recording filed — and its three duties fail independently,
+so a queue that refuses a hand-on no longer skips the staging clean-up. Staging keys are cleared in
+statements of at most ninety handles: a Durable Object's SQLite binds at most a hundred variables, and
+the sweep's page of two hundred failed every time. The mixer's CPU test now covers one invocation at the
+eleven-track ceiling with both byte conversions, bounded at a third of a consumer's thirty-second budget.
+
+### Amendments from slice R3 — the transcript of record
+
+Recorded 2026-10-03, as the transcript's server half was built. Migration
+`20261110T000104_meeting-transcript` adds both tables. Each names the section it amends and says what
+changed and why.
+
+**A34 — The staging is the transcript's until it settles (§9, §10, §14; resolves A22).** The compose no
+longer deletes the staged tracks when it files the recording: the transcript reads each track's own staged
+PCM, and the staged tracks are deleted when the transcript SETTLES — `ready` or `failed` alike. The sweep's
+retention for a filed recording's staging waits for its transcript (a recording with a `pending` transcript
+is never released, and one whose transcript settled is released a day's grace after it last moved, as a
+backstop for a settle that could not let go), and the sweep fails a transcript stuck past its attempts so
+the staging is released even then. Reading spans out of the filed composite was the other way A22 named; it
+was not taken, because the composite is the sum of every track and a span read out of it is no longer one
+person's voice.
+
+**A35 — Speech spans come from each track's energy, not from presence (§10).** §10 said the recorder knows
+who was speaking from the room's relayed `speaking` presence; the recorder never recorded presence, and the
+room keeps none. So the spans are found in the staged audio itself (`packages/meetings/src/speech-spans.ts`):
+twenty-millisecond frames measured in dB below full scale; a noise floor at the tenth percentile of a
+region's frames; a frame is voiced at ten decibels above that floor, the threshold held between -55 dB (so
+hiss on a silent track is not speech) and -25 dB (so a stretch that is nearly all speech still hears it); a
+span begins 100 ms before its first voiced frame, runs through quiet of up to 300 ms and ends 300 ms after
+its last voiced frame (the hangover that keeps a word's end), and fewer than 60 ms of voiced frames is a
+click, not speech. A staged sample is mapped onto the recording's timeline through the track's stretches
+(`placeTrackSegments`, the compose's own placement, A27) and a piece never crosses from one stretch into the
+next. Attribution is the track: a member's stay and `user_id`, or a guest's stay, by value.
+
+**A36 — Pieces, the rate, and the prompt (§10).** A span longer than thirty seconds is cut at the quietest
+frame of the two seconds before the thirty when that frame is below the threshold, and at exactly thirty
+otherwise. Each piece is downsampled from 48 kHz to 16 kHz (`resample.ts`): a 127-tap Blackman-windowed
+sinc low-pass with its cutoff at 7 kHz, evaluated only at the kept samples, then one sample in three — so
+nothing above about 8 kHz folds back into the speech band. A piece is wrapped as a 16 kHz mono 16-bit WAV
+(`wavHeader` takes the rate) — thirty seconds is 960 kB, inside §10's 1 MB — and sent with the last 200
+characters of the same track's previous line, begun at a word, as `initialPrompt`. No language hint is sent;
+the model detects it.
+
+**A37 — No new queue; a window is a bounded number of model calls (§10, §16 R3).** The transcript is a
+second kind of message (`MeetingTranscriptMessage`, `kind: "meeting-transcript"`, identifiers only) on the
+existing `meeting-recording-compose` queue, routed by `kind` in `apps/api-worker/src/event-dispatch.ts` (a
+kind neither consumer knows is retried rather than lost), so the deploy needs nothing new. The pending row is
+written in the batch that files the recording — a recording is never filed without one, and a filing that
+lost its race takes it back — and the first message is sent once that batch has committed. One message is at
+most eight model calls and four five-minute regions measured (`transcript-consumer.ts`); the cursor (the
+track, the staged sample, the segments written) is on the row, each window is CLAIMED with a fifteen-minute
+lease on the compose's terms, every piece's lines commit in one guarded batch with the cursor that moves past
+them, and the claim is released before the next window is sent. A region still open at its end resumes at
+the start of its last piece, so no span is cut at a region's edge. Memory per invocation is about twenty
+megabytes.
+
+**A38 — The schema, adjusted to the built tables (§5).** `meeting_transcript.recording_id` is NOT NULL
+with a plain unique index — every transcript is a recording's. `model_id` and `language` are nullable and
+are what the model REPORTED (the first language it names), because a row written before the first answer
+cannot name a model it has not heard from. Added: `transcribed_seconds` (audio sent, what it is billed by),
+`file_version_id` beside `file_id`, the cursor (`cursor_track`, `cursor_sample`, `segments_written`), the
+filing's `upload_session_id`, `attempts`, `progress_at` and `claimed_at`; a CHECK that a `ready` transcript
+names its file and a `failed` one its Error ID. `meeting_transcript_segment` names the stay by value
+(`participant_kind`, `participant_id`, `user_id`) on A1's precedent, plus the `track_id` it came from, in
+place of `attendance_id`. While a transcript is pending its lines carry NEGATIVE provisional ordinals in the
+order written, because a line's place among the other tracks' is known only at the end; the settle renumbers
+them chronologically (start, end, handle) in one `UPDATE … FROM` over a window function, and a negative
+ordinal can never collide with a final one under the unique index. The PII registry classes the segment's
+`text`, `participant_id` and `user_id` as `retain-under-matter` content and identifiers, and
+`meeting_transcript` as holding no personal data.
+
+**A39 — Where the transcript could not hear (§8, §10, §14).** A gap line is attributed to the stay whose
+audio is missing — §14's "naming the member", over §5's "null on a gap" — and is: a lost track from its last
+frame to the recording's stop; a lost track that carried nothing (the ceiling refused it) from its arrival
+to the stop; a track that carried audio whose staged object was not there to read, over the span it was
+captured. A recording in which nothing at all was heard is `ready` with ONE unattributed gap over its whole
+length, beside any per-track gaps, as §14 says. The gaps are written in the same batch that renumbers the
+lines and begins the filing, guarded, so they are written once.
+
+**A40 — The filed document (§10).** WebVTT, named `Meeting transcript — <event title> — <YYYY-MM-DD
+HH:mm>.vtt` with the audio's own title cleaning and start stamp (`meetingDocumentFileName`), so the pair sit
+together on the matter and a second recording of one meeting is told apart by its time; declared
+`text/vtt`, filed through `initiateUpload` (single put) and `completeUploadSession` by the member who started
+the recording, then the ingest queue. The declared size is left null: the document is rendered from the rows,
+and a filing resumed after a crash renders it again, which a speaker renamed in between would make a
+different length. A NOTE carries the meeting's title; each cue's identifier is `<n> <speaker>` and its
+payload a voice span `<v speaker>`; a gap's cue says whose audio was not captured, or that no speech was.
+Every piece of text is made safe for where it goes: one line, no controls, no `-->` in a NOTE or an
+identifier, and `&`, `<`, `>` as character references in a payload. The audit rows (`meetings.transcript.ready`,
+`.failed`) carry handles and counts only.
+
+**A41 — Failure (§14).** A model that refuses for now (a retryable problem) is the queue's redelivery; after
+three deliveries of the window the transcript is `failed` with an Error ID. A refusal no retry can change, a
+staged object that vanished mid-transcript, or a recording that is not filed fails it at once. The recording
+sweep hands on a transcript nothing has claimed, moved or handed on for thirty minutes and fails it after
+three hand-ons with nothing between. Every failure — `failMeetingTranscript` — is guarded on `pending`,
+aborts a filing that had begun (its session and pending version), deletes anything at its key, and releases
+the staging. The filed audio is never touched. Every Error ID is recorded against a fixed sentence and a
+code; no word, name, document name or key reaches a log line, an audit row or an error.
+
+**A42 — The read (§7).** `GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript` on
+`meetings:join`, per RECORDING rather than §7's per meeting, because a meeting may hold several recordings.
+It reaches the meeting through the visible-matter predicate and then the recording within it, so a walled
+matter's transcript is not found. It answers `{ transcript, data, nextCursor }`: the header always, and the
+lines (two hundred a page, the cursor the last ordinal) only once the transcript is `ready` — a pending or
+failed one answers its header with an empty page rather than §7's `meeting-transcript-not-ready` 409, so a
+screen can say where it stands; no transcript is 404. Each line is `{ id, ordinal, kind, startedMs, endedMs,
+text, speaker }`, the speaker `{ participantKind, participantId, userId, displayName }` or null, the name
+read off the stay at the moment of asking. The recording list entry gains `transcript: { id, state, fileId }
+| null`, and `transcriptId` on the summary is filled from it.
+
+**A43 — The model port (§10).** The consumer reaches `InferencePort.transcribe` the way the inference
+consumer reaches the port — through the composition root, `deploymentInferencePort` in `apps/api-worker/src/inference/call-site.ts`, the gateway — with no deploy-time switch, because the
+speech model is hosted on Cloudflare and a transcript of stub text filed on a matter would be worse than
+none; a test hands its own port in. The audio seconds sent are on the row (`transcribed_seconds`); writing
+them to the token-usage meter is not done.
+
+**A44 — Not built here.** The repository-wide fitness scan §15 names (no transcript, summary or caption text
+reaching a logger or an audit builder) is not added; the transcript panel is the web half; the load-profile
+fixture of A25 is still open; live captions (R4) and the summary (R5) are next.
+
+### Amendments from the adversarial review of slice R3 — the transcript
+
+Recorded 2026-10-03. Migration `20261110T000105_meeting-transcript-model-failures-and-milliseconds`
+adds two columns to `meeting_transcript`. Each names the amendment or section it changes.
+
+**A45 — A speech model that is down for a while is outlasted (amends A41).** Counting the queue's
+deliveries of one window failed a transcript after about thirty seconds of a Workers AI outage (two
+retries at ten and twenty seconds), and failed one that made progress on every delivery but met a refusal
+on a different piece each time. Now a retryable refusal is counted on the row (`model_failures`, reset by
+any progress, in the same guarded write as the claim's release), and the window is sent again on a NEW
+message after `min(900, 30 × 2^(n−1))` seconds — a new message because the queue's own redelivery is
+bounded by its retry budget of three, which an outage of tens of minutes outlasts. The tenth refusal in a
+row fails the transcript: thirty seconds to fifteen minutes, about an hour and a quarter in all. The
+longest delay is held under the sweep's thirty-minute stall, and the failure write stamps `progress_at`,
+so a transcript waiting on a scheduled retry is never judged stalled.
+
+**A46 — What a failure does with the staging depends on why (amends A34 and A41).** A failure a later
+attempt could get past — a model that stayed unavailable, or the sweep finding the transcript stalled —
+KEEPS the staged tracks, under the seven-day `UNSETTLED_STAGING_RETENTION_MILLISECONDS` a failed compose's
+staging has, because they are the only per-speaker copy of the audio (§14's own reason for the compose).
+`listExpiredStagingTracks` releases a filed recording's staging seven days after its transcript FAILED,
+and a day after it became ready. A refusal no retry can change (the model's non-retryable answer, a
+staged object that vanished, a recording not filed, the upload pipeline's refusal) still releases the
+staging at once. There is no re-run path yet; the retention is what keeps one possible.
+
+**A47 — Every failure is guarded on what it read (amends A41).** `failTranscriptStatement` is guarded on
+the upload session the failure read (`upload_session_id IS ?`) as well as on `pending`, so a filing that
+begins between a failure's read and its commit refuses the failure instead of being left open on the
+matter. The sweep's failure is further guarded on the `progress_at` and `claimed_at` it judged stalled, so
+a consumer that claimed the transcript in between is not failed under (and its staging is not taken while
+it reads). A document written at the session's key whose completion the pipeline then refuses (the
+session expired in between) is deleted before the refusal fails the transcript, so no bytes are left that
+nothing names.
+
+**A48 — A redelivery that meets a live lease is retried, not acknowledged (amends A37).** A claim refused
+because another consumer's lease is still live at the very cursor this delivery read — its holder evicted
+mid-window by a deploy, most often, and every merge to `main` deploys — answers `claimed-elsewhere`, and
+the queue retries the message once the lease has run out. A refusal because the cursor or the state moved
+is still nothing to do. The transcript waits at most the rest of a lease rather than the sweep's stall and
+one of its hand-ons.
+
+**A49 — A lost speaker whose audio is missing (amends A39).** A39 wrote a lost track's gap from its last
+frame, so a lost track whose staged object was not there to read had nothing said for the span it WAS
+captured. The settle now asks every track that carried audio whether its object is there, lost or not, and
+a missing one's gap begins at its first frame — running to its last frame for a track that closed, and to
+the stop for one that was lost.
+
+**A50 — A track whose staging vanishes part-way is refused (amends A41).** A track whose object is missing
+once its cursor has moved into it is the fault `readStagedSamples` already refuses, not a track with
+nothing more to hear: moving on would have let the settle write a first-to-last-frame gap over lines
+already transcribed from it.
+
+**A51 — The settle releases, then drives ingest, and both ingest hand-ons are best effort (amends A40 and
+§9).** A redelivery after `ready` (or after `filed`) does nothing, so an ingest enqueue that threw used to
+leave the transcript's staging for the sweep's backstop and, in the compose, kept the transcript's first
+message from being sent. The staging is released first, and a failed ingest enqueue is recorded and does
+not throw — the deployment's own object-created event drives ingest without it.
+
+**A52 — What the speech is measured against, and what is kept of the answer (amends A35 and A36).** The
+noise floor leaves the recorder's own digital silence out of its percentile (a mute or frames that never
+arrived), which otherwise put the floor at -100 dB and sent ordinary room noise to the model as speech. A
+segment the model reports as beginning at or past the end of the piece it was sent is dropped, not clamped
+to a zero-length line: it is words where no audio was (the hallucinated tail). The audio sent is counted in
+milliseconds (`transcribed_milliseconds`, backfilled from the seconds; `transcribed_seconds` is no longer
+written), because rounding each piece to whole seconds counted a half-second "yes" as nothing.
+
+**A53 — The language (amends A36 and A38).** The first piece of at least eight seconds
+(`LANGUAGE_DETECTION_MINIMUM_MILLISECONDS`) names the transcript's language, and every later piece is sent
+with it as the hint. A shorter piece's detection is not recorded: a misread "yes" used to fix the record's
+language and, with no hint, later short pieces could come back in the wrong language. The port carries no
+confidence figure (`language_probability` is not passed on), so length is the measure; a transcript with
+no piece that long has a null language.
+
+**A54 — The read follows the filed document, and is audited (amends A42).** The lines are a second copy of
+the WebVTT document's words, so the route serves them only while the transcript's filed version exists, is
+not in the trash and is not held by the scan — read from the file pipeline's own record of that version and
+gated on the file's own matter (`recording-document-state.ts`); a version still being scanned, or one a
+later upload replaced on the file, still serves. Otherwise the header is answered with no lines and
+`linesWithheld` — `removed`, `held` or `unavailable` — says why. The route is `audited`, as the document's
+download is: every page of lines served writes ONE `meetings.transcript.read` row naming the reader, the
+transcript, the meeting, the recording, the document and its version, where the page began and how many
+lines it held — never a word or a name. A header with no lines is not a read of the words and writes none.
+This is the conservative reading; the owner has not ruled on whether the route is instead a preview.
+
+**A55 — Purging the document does not yet delete the segments.** The file manager has no purge or
+deletion hook another subsystem can join: deletion is a soft delete that destroys only the working copy,
+and `purgeableVersionObjects` — the one door to destroying a version's bytes — is called by nothing yet,
+by design, until the retention-policy engine is built. So nothing deletes `meeting_transcript_segment` when
+the `.vtt` goes. Until that engine exists, A54's gate is what keeps a trashed or purged document's words off
+the read (a purged version reads as `unavailable`); when it is built, purging a transcript's version must
+delete its segments in the same act, and the retention engine is where that belongs.
+
+**A56 — What is still not built (replaces A44).** The repository-wide fitness scan §15 names is built for
+the transcript: `packages/meetings/test/no-transcript-text-escape.test.ts` finds every first-party module
+that reaches a transcript's words and fails when one passes the words, a speaker's name, the model's prompt
+or the document's name to the failure pipeline, a logger, an audit builder, an Error or a problem body. It
+reads names, so text laundered through a variable named for nothing is still a review question. Summary and
+caption text join it when R4 and R5 add them. The load-profile fixture of A25 is still open. A thrown Workers
+AI error carries only a message (no status or code), so a permanent input error is still retried as an
+unavailable model (`gateway.ts`, beside `gatewayFailure`).
+
+### Amendments from slice R5 — the summary
+
+Recorded 2026-10-03, as the summary's server half was built. Migration `20261110T000106_meeting-summary`
+adds both tables. Each names the section it amends and says what changed and why.
+
+**A57 — No new queue, and a ready transcript always has a summary (§11, §16 R5).** The summary is a third
+kind of message (`MeetingSummaryMessage`, `kind: "meeting-summary"`, identifiers only) on the existing
+`meeting-recording-compose` queue, routed by `kind` in `apps/api-worker/src/event-dispatch.ts` beside the
+compose and the transcript, so the deploy needs nothing new. The pending row is written in the batch that makes the transcript `ready` — a
+transcript is never ready without one, and a ready that lost its race takes it back — and the first
+message is sent, best effort, once that batch has committed. A send that fails leaves the summary pending,
+and a member's re-run (A63) sends it on. Whether the summary is then written is decided when it RUNS, not
+when it is begun, so a switch turned off in between is honoured.
+
+**A58 — Which model writes it, and when none does (§11). An owner decision is assumed here.** Read at run
+time through the firm-scoped data-access layer, in this order: `meetings.summariesEnabled` off is `refused`,
+`disabled`; a firm that has CHOSEN no reasoning model (no stored `inference.primaryReasoningModel` row —
+`resolveChosenReasoningModel` in `apps/api-worker/src/inference/call-site.ts`, because the setting's own
+read answers the platform tier's third-party model for a missing row) is summarized by the catalog's
+reasoning model HOSTED ON CLOUDFLARE; a firm that chose a model hosted on Cloudflare gets it; a firm that
+chose a third-party model gets it only where `inference.aiProcessingEligibility` allows, and is otherwise
+`refused`, `not-eligible`, with the chosen model named on the row — the firm's choice is never swapped for
+another model behind its back. The catalog had no reasoning model hosted on Cloudflare, so one is added
+(`@cf/meta/llama-4-scout-17b-16e-instruct`, catalog version 5): its facts were read 2026-10-03 off
+Cloudflare's model page (a 131,000-token context window; no published answer limit, the default being 256
+tokens) and its confidentiality facts off the Workers AI data-usage page the transcription entry already
+cites. It holds no tier, so an unconfigured firm's default for the assistant is unchanged, and a firm may
+select it on its AI settings screen like any other reasoning entry. **Assumed:** that a summary written on
+Cloudflare's own infrastructure needs `meetings.summariesEnabled` and not the AI-processing eligibility —
+the eligibility setting asks whether content may reach a third-party provider, and on this path it does
+not. ADR-0108's open consent question is the owner's; if the answer is that every reasoning model needs
+the eligibility, the change is one branch in `resolveSummaryModel`.
+
+**A59 — A transcript too long for one call, and the bound (§11).** The catalog now records each reasoning
+entry's `contextWindowTokens` (and `maximumOutputTokens` where the provider publishes one), read off the
+providers' own pages on 2026-10-03 — 1,000,000 for both third-party reasoning entries, 131,000 for the one
+on Cloudflare — and module-load validation requires it of every reasoning entry. One call carries at most
+`context − 8,192 (the answer) − 2,048 (the instruction and participant list)` tokens of transcript,
+measured as UTF-8 bytes at three bytes a token, a deliberate over-count (English runs nearer four): about
+362 kB on the model hosted on Cloudflare, an hour of meeting being about 36 kB. A longer transcript is cut
+into parts at line boundaries, each part summarized with a 4,096-token answer and the parts' answers
+combined in one last call. The bound is the per-message budget: a whole run is one message, whose CPU is
+string work over a few megabytes and whose wall clock is the model's writing — at a conservative forty
+tokens a second, five parts and the combination are about 700 seconds, inside the 900 a consumer may run —
+so `SUMMARY_PARTS_MAXIMUM` is five (about 600,000 tokens on the smallest context in the catalog, past the
+recorder's twelve-hour maximum spoken without pause). A transcript that would need more fails with an Error
+ID rather than being summarized in part. The arithmetic is stated once, in
+`packages/meetings/src/summary-prompt.ts`.
+
+**A60 — The answer is a strict structure, and two facts are never the model's word (§11).** The model is
+asked for one JSON object — `summary`, and `actionItems` of `text`, `owner`, `dueOn` and `dueOnStated` —
+documented in `summary-prompt.ts` and read by `summary-parse.ts`, which refuses anything else with a closed
+reason (`not-json`, `wrong-shape`, `summary-too-long`, …) and repairs nothing; the one envelope tolerated is
+a single code fence wrapping the whole answer. Each part's answer is held to the same structure before it
+is combined. A refused answer fails the summary with an Error ID — a model that answered badly is not a
+model that is down — and a member may run it again. An owner is linked only when the name the model gave
+is exactly the name of one participant the transcript knows and that participant is a member (a guest, a
+near match, or a name two members share leave it unowned). A due date is kept only when it is a real
+civil date, the model quoted the transcript's words stating it, those words appear verbatim in what it was
+sent, and they carry the date's day of the month as a number — so "next Friday" is never a date, and a
+quote naming a different day drops it. Gap lines are not sent; the participant list is the stays that
+spoke, by the names the transcript read gives them.
+
+**A61 — The schema, adjusted to the built tables (§5).** `meeting_summary` carries `recording_id` beside
+`meeting_id` and `transcript_id` (the read and the recording list are per recording, A42); `model_id` and
+`snapshot_id` are nullable — a pending row, a `disabled` refusal and a transcript with no speech name no
+model — and a `not-eligible` refusal names the model the firm chose; the token counts are NOT NULL from
+zero and summed across a run's calls, beside `model_calls`; added are `model_failures`, `claimed_at`,
+`progress_at` and `requested_by_user_id` (the member behind the run on the row, null for the platform's
+own); a CHECK that a `ready` summary carries its text, a `failed` one its Error ID, and that a refusal —
+and only a refusal — carries a reason. `meeting_summary_action_item.due_on` carries the shared civil-date
+guard, and `task_id` is indexed. The PII registry classes `summary_text` and the action item's `text` as
+`retain-under-matter` content and work product, and `requested_by_user_id` and `owner_user_id` as
+identifiers.
+
+**A62 — A model that will not answer, two deliveries, and the meter (§14).** A retryable refusal is
+outlasted exactly as the transcript's speech model is (A45): counted on the row in the guarded write that
+lets go of the claim, the run sent again on a NEW message after the transcript's doubling delay, and the
+transcript's limit of refusals in a row fails it with an Error ID. A run is claimed on the row with a
+fifteen-minute lease before a word is sent, so a second delivery meets the claim and is retried when the
+lease runs out. Every settle — ready, failed, or a model refusing for now — writes the provider's usage for
+every call the run made to `token_usage_meter` in its own guarded batch, so tokens spent on a run that did
+not finish are counted, and a run that lost its claim meters nothing. A retry re-runs every part, and the
+parts a failed run had already summarized are spent again; keeping part answers between messages would be
+a second store of derived content, and is not done.
+
+**A63 — The routes (§7).** Per RECORDING, as the transcript's read is (A42), all reached through the meeting
+read with the visible-matter predicate, then the recording within it, then its transcript:
+`GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/summary` on `meetings:join` answers
+`{ summary, text, actionItems, withheld }` — the header always; the text and the action items (each
+`{ id, ordinal, text, owner: { userId, displayName } | null, dueOn, taskId }`) only for a `ready` summary
+whose transcript's filed document can still be opened, otherwise `withheld` is `removed`, `held` or
+`unavailable` on A54's reading; no summary is 404. `POST` on the same path, on `meetings:host`, asks for it
+again: a summary being written is left alone (and sent on only when nobody holds it), a settled one is
+rewritten in place — its text, its spend and its action items cleared in one guarded batch, so two requests
+start one run — and a transcript with none gets one; a transcript not ready is 409
+`meeting-transcript-not-ready`. A task already made of a replaced action item is kept; the item that named it
+goes with the text it was read from. `POST …/summary/action-items/{actionItemId}/task` is on `tasks:write` at
+the chokepoint and asks `meetings:join` in the handler (the item is the meeting's), and `tasks:assign` to put
+it in another member's name; it composes `createMatterTask` — the task subsystem's own path, its
+validation, audit row and assignment notice — on the recording's matter, titled with the item (cut at the
+title limit with the whole as the body), due on the item's date read in the meeting's event zone, in the
+owner's name unless `assignToOwner` is false, in one batch with the item's `task_id` guarded on its having
+none (409 `meeting-summary-action-item-tasked`); a summary not ready or withheld is 409
+`meeting-summary-not-ready`. The recording list entry gains `summary: { id, state, refusalReason } | null`,
+and `summaryState` is filled from it. §7's `meeting-summary-not-eligible` 409 is not used: eligibility
+answers a refused summary, never an error.
+
+**A64 — The audit rows (§5).** `meetings.summary.ready` (models, calls, tokens and counts of items, owned
+items and dated items), `.refused` (the reason and the model), `.failed` (the Error ID), `.requested` (a
+member asking for a run), `.read` (one per read of the words, identifiers and the item count) and
+`.actionItemTasked` (the item and the task). Never a sentence of the summary, an item's text or a name.
+
+**A65 — The model port (§11).** `ConversationInput` gains an optional `maximumOutputTokens`, sent as the
+provider's `max_tokens`: Workers AI answers 256 tokens unless told otherwise, which would cut every summary
+mid-object. A model hosted on Cloudflare takes the platform's instruction as its first message in the
+`system` role its chat schema defines, still written from the port's own `systemPrompt` field and never from
+a member message; a third-party model keeps it on its own top-level field. The consumer reaches the port
+through `deploymentInferencePort`, as the transcript does, with no deploy-time switch to the stub: a summary
+of stub text on a matter would be worse than none.
+
+**A66 — No summary text reaches a sink (§15, amends A56).** `packages/meetings/test/no-transcript-text-escape.test.ts`
+now finds every module that reaches a summary — its statements, service, prompt, parse and types, the
+consumer, the routes — and fails when one hands the summary text, an item's text, the lines the model was
+sent or its answer to the failure pipeline, a logger, an audit builder, an Error or a problem body.
+
+**A67 — What is still not built.** The summary card is the web half. A pending summary whose first message
+was lost is rescued by a member's re-run rather than by the recording sweep. Purging the transcript's
+document does not delete the summary rows, on A55's terms: the withholding is what keeps their words off
+the read until the retention-policy engine exists, and that engine must delete them with the transcript's
+segments. Caption text (R4) is not yet in the scan.
+
+### Amendments from slice R5's review — the summary, corrected
+
+Recorded 2026-10-03, after an adversarial review of the summary's server half. Migration
+`20261110T000107_meeting-summary-retry-and-failed-call` adds two columns to `meeting_summary`. Each names
+what it amends.
+
+**A68 — A summary needs the firm's AI-processing eligibility on every path (amends A58; owner decision).**
+A summary sends a privileged conversation to a reasoning model to reason over, whichever model that is, so
+it needs BOTH `meetings.summariesEnabled` and `inference.aiProcessingEligibility`. A58's assumption — that
+the model hosted on Cloudflare needed only the first — is withdrawn. `resolveSummaryModel` reads, in
+order: summaries off is `refused`, `disabled`; eligibility off is `refused`, `not-eligible`, naming the
+model the summary would have run on (the firm's chosen model, or the platform's own); otherwise the firm's
+chosen third-party model, or, where it chose none, the platform's model hosted on Cloudflare — still the
+default. The AI settings screen's "Every AI feature is off while this is off" therefore stays true of the
+summary. (The transcript's speech model is platform-fixed and runs whatever that switch says; that is the
+transcript's design, unchanged here.)
+
+**A69 — The platform's own reasoning model is `@cf/openai/gpt-oss-120b`, in a role no firm selects
+(amends A58, A59, A65).** Llama 4 Scout is replaced. It is multimodal, and the Llama 4 acceptable-use
+policy withholds the licence's rights in its multimodal models from a company whose principal place of
+business is in the European Union (read 2026-10-03,
+https://github.com/meta-llama/llama-models/blob/main/models/llama4/USE_POLICY.md); the firm buckets here use
+the EU jurisdiction, so a firm this platform serves can be one. `gpt-oss-120b` is text-only and published
+under the Apache License 2.0 with a usage policy that asks only for lawful use (its Hugging Face card's
+LICENSE and USAGE_POLICY, read 2026-10-03). Cloudflare's model page states a 128,000-token context window,
+a `messages` input with a `system` role, `max_tokens` defaulting to 256, `response_format` (JSON mode) and
+reasoning effort low/medium/high (read 2026-10-03,
+https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/ and its `sync-input.json`); the Workers
+AI changelog for 2026-02-17 says the binding accepts `messages`, `prompt` or a Responses-style `input`. The
+chat translation every model hosted on Cloudflare already takes is therefore its request; the gateway now
+also reads a JSON-mode `response` object and a Responses-style `output` answer. The catalog (version 6)
+puts it in a new `platform-reasoning` slot, so it is NOT on the roster a firm chooses its assistant's
+model from: a firm that picked it for the assistant would have every answer cut at 256 tokens. As a guard
+for any caller that forgets, the gateway sends a model hosted on Cloudflare a default answer length
+(`ON_CLOUDFLARE_DEFAULT_MAXIMUM_OUTPUT_TOKENS`, 4,096) on `generate`, `generateStream` and
+`generateConversation` when none is asked for. With no Cloudflare-hosted entry on the roster, the settings
+screen never labels one "Zero data retention: In force"; the label is rendered outside `apps/web/src/lib/ai`
+(in the settings route itself) and is unchanged, and the catalog entry's own comment says its
+confidentiality rests on Cloudflare's Workers AI data terms rather than a third party's retention promise.
+
+**A70 — The answer's form is asked for in the model's own terms (amends A60, A65).** `ConversationInput`
+gains `answerFormat: "json-object"`, sent to a model hosted on Cloudflare as `response_format: { type:
+"json_object" }`, so somebody in the meeting saying "answer in plain text" cannot change the answer's form
+and fail every run. A third-party model is sent no such field on this path (its messages API has none
+there), and the strict parse remains the guard.
+
+**A71 — The bound, re-reckoned (amends A59).** Bytes are no longer a safe over-count: a line's
+`HH:MM:SS ` prefix is nine bytes and five or six tokens, and Devanagari or Thai runs three bytes a
+character and often a token or more a character. Text is now reckoned per UTF-8 byte — a non-ASCII byte
+as a whole token (a byte-level tokenizer can make no more), an ASCII byte as two thirds of one
+(`estimatedTokens`) — and the participant list is reckoned into each call rather than assumed inside the
+instruction's reserve. Every call's answer room is 16,384 tokens, because a reasoning model spends part
+of it thinking and the documented structure at its fullest is about 5,000. A long transcript's parts are
+summarized as before, but only their PROSE is combined: each part's action items are kept as the part
+gave them, in order, so the combining call (`{ "summary": string }` alone, `readCombinedSummaryAnswer`)
+can neither drop nor alter an obligation, and a summary may hold `SUMMARY_RUN_ACTION_ITEMS_MAXIMUM` (200)
+items — forty an answer, five parts. An undertaking restated in two parts is listed twice.
+
+**A72 — The wall clock is enforced, and each call is metered as it completes (amends A59, A62).** A call
+starts only while the run has `SUMMARY_CALL_ALLOWANCE_MILLISECONDS` (five minutes) left of
+`SUMMARY_RUN_BUDGET_MILLISECONDS` (fourteen, one short of the consumer's fifteen); otherwise the run is
+let go as a refusal for now (A73) rather than killed mid-call with its claim held. Each answered call's
+usage is committed to `token_usage_meter` in a batch of its own straight away, not in the settle, so a
+run that lost its claim, threw, or was cut off still has every call it made counted; only a fault between
+an answer and its own meter write loses one. The settle batches no longer carry the meter.
+
+**A73 — A call the model will never take stops being retried, and a put-off run is not doubled (amends
+A62, A63).** Nothing the binding throws tells an outage from an input the model will never take, so
+`model_failure_call` records the call (from zero) at which a run was refused for now: a run refused at the
+SAME call as the run before it, after every earlier call of the run was answered, fails with an Error ID —
+the model is evidently up. `retry_at` records when a put-off run is due: nothing claims the run before then
+(a duplicate early message is answered `not-yet-due` and retried), and a host's re-run while a retry waits
+writes and sends nothing, where it used to read the released claim as stranded and start a second chain.
+
+**A74 — The gate is read again before every call (amends A58).** Before each call after the first,
+`resolveSummaryModel` is read again: a firm that switched summaries or its eligibility off mid-run is
+`refused` before another word is sent, and a firm whose chosen model changed has its run started over on
+the new one (released, `retry_at` now, sent again, nothing counted).
+
+**A75 — A due date needs its day AND month in what somebody said (amends A60).** The model's quote must
+fall inside ONE spoken line — what a person said, never the `HH:MM:SS Name:` before it — and contain no
+clock time. It must name the date's month by name (May only capitalized; abbreviations only capitalized)
+with the day as a number, or give day and month in figures that read only one way ("14/11", "2026-11-14";
+"3/12" is dropped). A quoted year must be the date's year; with none, the year must be within one of the
+year the summary was begun. The instruction's example is now "on 14 November 2026".
+
+**A76 — A transcript whose document cannot be opened is not summarized (amends A57, A63).** The consumer
+reads the transcript's filed document as the read routes do; trashed, held by the scan or gone, the run
+fails with an Error ID and no model is asked. A host's re-run is refused 409
+`meeting-summary-not-ready` on the same reading, so it cannot destroy action items the host cannot see.
+
+**A77 — The routes' retries, and a task's title (amends A63).** Both POSTs declare a path fingerprint: the
+idempotency record keeps a pointer (the summary's or the task's handle) and a retry with the same key is
+answered by reading the record as it stands — `MeetingSummaryView` for a re-run, `{ taskId, actionItem }`
+for Create task, with `Idempotency-Replayed: true` — where the default gate replayed the stored pointer as
+the body. The "already a task" check moved inside the effect so it cannot pre-empt the retry of the very
+request that made the task. A task's title is cut between characters, never inside a surrogate pair.
+`assignToOwner` stays true by default (owner decision): the web panel confirms the assignee before it
+asks.
+
+**A78 — A task made of an action item can be deleted (amends A61).** `meeting_summary_action_item.task_id`
+keeps its enforced reference, and the task subsystem's own delete composes the meetings package's
+`clearActionItemTaskStatement` into its batch before the delete, so the item stops naming the task and
+reads again as one nobody has made a task of. `@magna-carta/tasks` now depends on `@magna-carta/meetings`
+for that one statement; nothing in the meetings package depends on tasks, so there is no cycle.
+
+**A79 — Nothing a firm can reach switches meetings on (amends A67).** No route or screen writes
+`meetings.recordingEnabled`, `meetings.captionsEnabled` or `meetings.summariesEnabled`; there is no generic
+firm-settings path, and each feature's settings have their own route (`firm-ai-settings.ts`,
+`scan-policy.ts`, …). Until a meetings settings surface is built, every summary in production is refused
+`disabled`, and recording answers `meeting-recording-not-configured`. Building that surface is not done
+here.
+
+**A80 — Provider facts, verified and not (2026-10-03).** Verified: the gpt-oss-120b facts and licence
+above; the Llama 4 policy's European Union exclusion for multimodal models (with its exception for end
+users of a product that incorporates one); Workers AI's data-usage terms. Not verified: Cloudflare's own
+page for gpt-oss-120b states no licence (the licence rests on the publisher's pages); the model's output
+schema is published as an untyped object, so which shape the binding returns for a `messages` request is
+read defensively (`response` string or object, `choices`, a Responses `output`) rather than known; whether
+the reasoning the model does is counted inside `max_tokens` is not published, so the answer room allows
+for it; whether a JSON-mode request to this model honours `response_format` exactly as the schema says is
+not confirmed against a live call; Claude's one-million-token context through the AI binding may need a
+header the binding cannot send (unreachable for an English transcript within five parts).
+
+### Amendments from slice R4 — live captions
+
+Recorded 2026-10-03, as the server half of live captions was built. No migration: nothing about a
+caption is stored. Each names the section it amends and says what changed and why.
+
+**A81 — The caption feed is a sibling Durable Object, not a fork in the recorder (§6.2 step 5, §10, §16
+R4).** `MeetingCaptioner` (`apps/api-worker/src/meetings/meeting-captioner.ts`), one per MEETING, keyed
+`${firmId}:${meetingId}`, a new class with its own binding (`MEETING_CAPTIONER`) and migration tag
+(`v12-meeting-captioner`) in `wrangler.jsonc`. The recorder is unchanged. Four reasons, from the
+ownership and the memory arithmetic. **Ownership:** a recorder is one recording's and lives exactly as
+long as it, while captions are the meeting's, run with or without a recording (§10) and outlive a
+recording that stops while people talk on; captions in the recorder would have no object to live in when
+nothing is recorded and would be torn down by a stop nobody meant for them. **Memory:** the recorder's
+isolate is already spent by A13's arithmetic — eleven 6 MiB staging buffers against a 40 MiB reserve —
+and every byte a caption session added would come out of the reserve that arithmetic promises is
+untouched; the captioner holds at most eight sessions of under half a megabyte each. **Reach:** the
+recorder hears at most eleven stays, and a caption has to hear whoever speaks in a room of three
+hundred. **Isolation:** a caption model failing mid-meeting cannot reach the recording's buffers,
+uploads or alarm from another object. The cost is §12's captions-only egress line paid on top of the
+recording while both run — the speaker's audio leaves the routing service twice for the seconds they
+speak, about $0.045 a meeting-hour — which amends §12's "captions add no egress on top". The binding is
+typed in `caption-binding.ts` rather than on `Bindings`, so the change touched no file another stream
+was editing; folding it beside `MEETING_RECORDER` is a one-line move. The class is exported from
+`src/index.ts`. R4's file list therefore reads: `meeting-captioner.ts`, `caption-sink-token.ts`,
+`caption-binding.ts` and `room/room-captions.ts` (new), with wiring in `meeting-room.ts`,
+`room-frames.ts`, `room-hosting.ts`, `room-presence.ts`, `room-state.ts`, `room-lifecycle.ts`,
+`room-media.ts` and `routes/meeting-sink.ts`; `packages/meetings/src/caption-sessions.ts` (new) holds the
+arithmetic.
+
+**A82 — The model, through the chokepoint (§10).** `InferencePort.openCaptionStream` — one streaming
+operation, platform-fixed like `transcribe` (no model argument), audio fixed by the port at mono 16-bit
+little-endian PCM at 48 kHz so nothing is transcoded — implemented in `packages/inference/src/gateway.ts`
+and in the stub. The catalog (version 7) gains a `captioning` slot holding exactly one entry,
+`@cf/deepgram/nova-3`, off the roster a firm chooses from. The gateway opens it with
+`env.AI.run(model, input, { gateway, websocket: true })` and accepts the socket on the Response's
+`webSocket`; every input is a STRING, because the binding carries them in the socket's address:
+`encoding: "linear16"`, `sample_rate: "48000"`, `channels: "1"`, `interim_results: "true"`,
+`punctuate: "true"`, `diarize: "false"` (the speaker is the track), `mip_opt_out: "true"` (the
+publisher's model-improvement programme refused), and a well-formed BCP-47 `language` when given. Answers
+are Deepgram's `Results` messages — the words at `channel.alternatives[0].transcript`, final when
+`is_final` — and the control messages are `{"type":"KeepAlive"}` and `{"type":"CloseStream"}` as text
+frames; a close waits three seconds for the model to end the stream before closing it from this side.
+The sources, every one read 2026-10-03 and cited in `gateway.ts`: Cloudflare's Nova-3 model page and
+Workers AI changelog (WebSocket support for `@cf/deepgram/nova-3`, 2025-08-27); the Deepgram Flux
+changelog post (the binding's `websocket: true`); Cloudflare's own Agents SDK, which runs exactly this
+from inside a Durable Object (`packages/agents/src/voice/workers-ai.ts`, the `Nova3Session` class); the
+workerd source of the binding (`src/cloudflare/internal/ai-api.ts`); the AI Gateway realtime WebSocket
+page; and Deepgram's keepalive page. **The same confidentiality settings ride the request** — caching
+off, logging off, the derived firm metadata under `slot: "captioning"` — **but the binding's socket path
+posts to `/run` and never to `/ai-gateway/run`**, so the gateway is not on the path at all: nothing is
+cached or logged there because nothing passes through it, and the firm metadata is not a gateway spend
+dimension for captions. The confidentiality of the audio rests on the Workers AI data terms the catalog
+entry cites. **Not confirmed against a live call:** that the service accepts the gateway options beside
+`websocket: true` (the Agents SDK sends none), and that `channels` and `mip_opt_out` are honoured on the
+socket transport; a refusal answers `upstream`, which the captioner degrades to no captions. The stub
+answers every run of audio with an interim naming the bytes heard in the stretch and makes a stretch
+final at one second of audio (`STUB_CAPTION_FINAL_EVERY_BYTES`), with no clock.
+
+**A83 — When a session opens and closes (§10).** The room tells the captioner when somebody's
+`speaking` MOVES — `relayPresence` now answers that beside its deadline, read from the stored record, so
+the frame a room of three hundred sends most costs captions nothing unless it says something new and
+then one storage read while captions are off — and the captioner is told in the background, so a
+presence frame never waits on it. A host's mute and a departure (`releaseParticipant`) tell it too. A
+start opens a SESSION for that stay: a routing-service WebSocket adapter on their microphone, dialling the
+captioner back through the sink route on a signed caption token, and the model's stream, opened
+together; audio that arrives while the stream opens is held, at most two seconds, oldest dropped first. A
+stop starts the count: three seconds later the captioner's alarm closes the session — adapter closed,
+socket hung up, the model asked to finish so its last words still arrive as a final caption — and a start
+inside the three seconds cancels it. A session whose audio socket has been gone ten seconds (twice the
+routing service's redial window) closes for want of it; a stream with no audio for four seconds is sent a
+keepalive. At most eight sessions are open per meeting (`CAPTION_SESSION_CEILING`) — a cost bound, not a
+memory one; speakers past it are counted and not captioned. Each update carries the room's instant, and
+one older than the last the captioner acted on for that stay is ignored, so a stop overtaken by a later
+start on the way never closes a live session. Turning captions on opens a session for everybody already
+speaking. **The first words of a turn are the cost:** presence trails speech, and the adapter and the
+stream take a round trip each to open, so the opening fraction of a second of each turn may go uncaptioned;
+the three-second close keeps a session open across the pauses inside a turn. The transcript, which reads
+the staged audio, is unaffected.
+
+**A84 — The frames (§7).** Room → client `caption`: `participantId` (the stay), `userId` (the member;
+null on a guest's socket and for a guest speaker), `displayName` (the roster's name — a guest's is the
+name typed at the door), `segmentId`, `text`, `final`, `at`. `segmentId` replaces §7's `sequence`: it is
+opaque and unique per stretch of one person's speech — every interim of a stretch carries it, the final
+settles it — where a counter would restart with the captioner and collide with a line a browser had
+already settled. `displayName` is added so a caption is readable without a roster lookup. Client → room
+`captions { enabled }`: a HOST's frame, on the spotlight's terms — captions leave nothing anybody could
+later ask who did, so they are a frame and not an audited route — authorized from the stored participant
+record and refused `not-host` otherwise. Whether captions are on rides the ROOM STATE as `captions: { by,
+at }` (`by` the stay of the host who turned them on), ABSENT while they are off, so the room state of a
+room nobody captions is byte-for-byte what it was (A9's rule) and every welcome carries it; this replaces
+§7's `welcome.captions: boolean`. A new refusal, `captions-unavailable`, answers a host where the firm or
+the deployment does not allow captions, socket open. **The browser half is not built:** the
+frames-have-handlers fitness test lists `captions` and `caption` in an `AWAITING_THE_BROWSER` register
+that only shrinks — it fails the moment the browser names either, so the entry comes off in the change
+that wires the caption strip.
+
+**A85 — Nothing is stored, and what reaches a socket is bounded (§10).** A caption passes through the
+captioner's memory and the room's broadcast and is written nowhere: not in either object's storage, not
+in the firm's database, not in a log line, an Error ID or a telemetry field. The test reads both objects'
+storage after a caption for the words. Interims are COALESCED in the captioner — at most one per speaker
+per half second (`CAPTION_INTERIM_INTERVAL_MILLISECONDS`), the latest guess kept, the earlier never sent —
+and every caption spends from a room-wide budget of ten a second (`CAPTION_FRAME_BUDGET_PER_SECOND`, half
+the twenty a second a browser may itself send, so captions never ask a browser to read faster than it is
+allowed to write; every socket receives every caption, so a bound on the room is a bound on each socket).
+An interim that finds the budget spent waits; a FINAL is never held or dropped, because nothing later
+restates it. They are coalesced in the captioner rather than in the room's per-second bucket because that
+bucket is a storage key, and a caption is content the room never writes. Text is put on one line, cleaned
+of control, bidirectional and invisible characters, and cut at a thousand characters as a reader counts
+them (`captionText`). A caption arriving at the room after a host turned captions off is dropped. The
+interim's half-second window adds up to that much to §10's latency estimate.
+
+**A86 — The gate, and the AI-processing eligibility (§10, §11). An owner decision is assumed here.**
+Captions run where the firm has switched `meetings.captionsEnabled` on — read when a host turns captions
+on, and again at every session the captioner opens, so a firm that switches them off mid-meeting is
+honoured at the next person who speaks and every socket is told by the room state — and a host has turned
+them on for the room. A recording is not required. **The firm's `inference.aiProcessingEligibility` is
+NOT required**, the reading consistent with the transcript of record: the audio goes to a platform-fixed
+speech model hosted on Cloudflare, exactly as the transcript's does, and the transcript runs without that
+switch; the summary needs it (A68) because it sends a privileged conversation to a reasoning model to
+reason over, which a speech model does not do. If the owner rules that every model a meeting's content
+reaches needs the eligibility, the change is one more `readFirmSetting` beside each of the two reads above.
+
+**A87 — Failure (§14).** A model that will not open, an adapter the routing service will not open, or a
+stream that drops part-way: that speaker's session closes (only its own adapter is closed), the failure is
+recorded through the standard pipeline as `meetings.captioner.*` with an Error ID and no word, the room
+sends no frame and changes no state, and the speaker's next turn tries again. The recording is untouched
+— it is another object and does not go through this model. A captioner that restarts has lost its
+sessions; it stores the handles of the adapters it holds open (handles only) and closes them on waking,
+so a restart never leaves the routing service sending audio to nobody. The sink route takes a caption
+token on the recorder's address under the same secret, told apart by its `typ`
+(`meeting-caption-sink`); the captioner is the authority on whether that stay's session is open and the
+token its current adapter's, since no row exists for a caption session, and every refusal is the
+recorder's bare 404. Captions are therefore configured exactly when recording is: until A3's owner
+actions are done, `MEETING_SINK_SIGNING_KEY` is unset and a host's switch is answered
+`captions-unavailable`.
+
+**A88 — The meter.** There is no audio meter to write to: `token_usage_meter` counts tokens, and the
+transcript keeps its audio milliseconds on its own row (A43, A52), which a caption does not have. The
+captioner counts, in its own storage and as counts only, the milliseconds of audio it sent the model —
+what the model bills, $0.0092 an audio minute over a socket — the sessions it opened, the speakers it
+refused past the ceiling and the sessions that failed; its `inspect()` answers them. A firm-scoped usage
+record for audio (for captions and the transcript alike) is not built.
+
+**A89 — What is still not built.** The caption strip and the host's switch are the web half (the
+`caption` frame shape above is the contract). `MeetingSummary.captionsAvailable` (§7) is not added — the
+routes were not part of this change — so a host learns that captions are unavailable from the refusal. No
+`meetings.captioner.*` telemetry events beyond failures, because events are declared in the telemetry
+catalog, which this change did not touch. The load-profile measurement of caption latency (§15) and
+translated captions remain open. The repository-wide scan in
+`packages/meetings/test/no-transcript-text-escape.test.ts` now reads every module that opens the caption
+stream, reads its answers, imports the caption arithmetic or names a caption's shape (amends A56, A67).
+
+**A90 — A firm Owner switches meetings on (supersedes A79).** `GET` and `PATCH
+/api/v1/firm/meetings/settings` (`apps/api-worker/src/routes/meeting-settings.ts`) read and write
+`meetings.recordingEnabled`, `meetings.summariesEnabled`, `meetings.captionsEnabled` and
+`meetings.recordedTrackCeiling` under a new `meetings:manageSettings` permission seeded to Owner and
+Admin, with one audit row per change. The screen is Settings, Practice, Meetings. The answer also says
+whether the recording service is configured on this deployment and whether the firm's AI processing is
+on, so the screen can say why a switch that is on still does nothing.

@@ -22,6 +22,8 @@ import {
   memberParticipant,
   participantsBySource,
   readsAsAllDay,
+  withStartsAtTime,
+  withStartsOn,
   recurrenceChanged,
   withMemberListed,
 } from "$lib/calendar/event-draft.ts";
@@ -190,6 +192,31 @@ describe("the deadline draft", () => {
     expect(shortfallSentences(deadlineDraftShortfalls({ ...draft, dueAtTime: "5pm" }))).toEqual([
       "The time does not read as a time of day.",
     ]);
+  });
+
+  it("refuses a time that is not a time of day, and a half-typed one the control reports as empty", () => {
+    const draft = {
+      ...emptyDeadlineDraft("America/Los_Angeles"),
+      title: "Response due",
+      dueOn: "2026-09-10",
+    };
+    for (const dueAtTime of ["abc", "5pm", "24:00", "17:60", "9:30"]) {
+      expect(
+        shortfallSentences(deadlineDraftShortfalls({ ...draft, dueAtTime })),
+        dueAtTime,
+      ).toEqual(["The time does not read as a time of day."]);
+    }
+    // The time control holding "5:" reports an empty value. Read alone that would be "end of the
+    // day"; told the entry is unfinished, the draft refuses it instead of recording the wrong hour.
+    expect(deadlineDraftReady(draft)).toBe(true);
+    expect(deadlineDraftReady(draft, { timeEntryUnfinished: true })).toBe(false);
+    expect(
+      deadlineDraftShortfalls(draft, { timeEntryUnfinished: true }).map((each) => each.field),
+    ).toEqual(["dueAtTime"]);
+    // A finished time wins over a stale flag: the value the control reports is the answer.
+    expect(
+      deadlineDraftReady({ ...draft, dueAtTime: "17:00" }, { timeEntryUnfinished: true }),
+    ).toBe(true);
   });
 
   it("reads a recorded deadline back into a draft and sees no change until one is made", () => {
@@ -381,6 +408,37 @@ describe("all day", () => {
     expect(cleared.endsAtTime).toBe("");
     expect(cleared.startsOn).toBe("2026-09-14");
     expect(readsAsAllDay(cleared)).toBe(true);
+  });
+});
+
+describe("the end follows the start", () => {
+  const blank = emptyEventDraft("America/Chicago");
+
+  it("fills an empty end date with the start date", () => {
+    expect(withStartsOn(blank, "2026-11-16").endsOn).toBe("2026-11-16");
+  });
+
+  it("moves an end that matched the start along with it", () => {
+    const sameDay = withStartsOn(blank, "2026-11-16");
+    expect(withStartsOn(sameDay, "2026-11-18").endsOn).toBe("2026-11-18");
+  });
+
+  it("keeps an end the reader set, unless the new start has passed it", () => {
+    const trial = { ...withStartsOn(blank, "2026-11-16"), endsOn: "2026-11-18" };
+    expect(withStartsOn(trial, "2026-11-17").endsOn).toBe("2026-11-18");
+    expect(withStartsOn(trial, "2026-11-20").endsOn).toBe("2026-11-20");
+  });
+
+  it("puts a new event's end an hour after its start", () => {
+    const timed = withStartsAtTime(withStartsOn(blank, "2026-11-16"), "09:40");
+    expect(timed.endsAtTime).toBe("10:40");
+    expect(timed.endsOn).toBe("2026-11-16");
+  });
+
+  it("leaves an end time the reader chose, and never wraps past midnight", () => {
+    const chosen = { ...withStartsOn(blank, "2026-11-16"), endsAtTime: "15:00" };
+    expect(withStartsAtTime(chosen, "09:00").endsAtTime).toBe("15:00");
+    expect(withStartsAtTime(withStartsOn(blank, "2026-11-16"), "23:30").endsAtTime).toBe("");
   });
 });
 

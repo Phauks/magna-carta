@@ -2,8 +2,9 @@
   /*
    * Conversation — the transcript surface the assistant is read in.
    *
-   * It reads as a RECORD, not a chat window: no bubbles, no avatars, no coloured left/right
-   * alignment. A turn is a speaker label over a body, hairline-separated, in the register the rest
+   * By default it reads as a RECORD, not a chat window: no bubbles, no avatars, no coloured left/right
+   * alignment. (The `exchange` arrangement, in the last story, is the deliberate exception for a
+   * conversation several members hold with the assistant.) A turn is a speaker label over a body, hairline-separated, in the register the rest
    * of the platform reads its records in. The member's turn and the assistant's are told apart by
    * the label and by the body's weight, never by which side of the canvas they sit on.
    *
@@ -496,6 +497,79 @@ And is a scanned signature enough?`;
 
     await step("The reason it is refused is on screen, beside the control", async () => {
       await expect(canvas.getByText(/still with Magnus/)).toBeVisible();
+    });
+  }}
+/>
+
+{#snippet exchangeArrangement()}
+  <div class="flex aspect-square w-xl max-w-full min-h-0 flex-col">
+    <Conversation.Root>
+      <Conversation.Transcript arrangement="exchange" label="Exchange with Magnus">
+        <Conversation.Turn speaker="member">
+          <Conversation.TurnMark>MO</Conversation.TurnMark>
+          <Conversation.TurnContent>
+            <Conversation.TurnSpeaker>{MEMBER}</Conversation.TurnSpeaker>
+            <Conversation.TurnBody>{MULTI_LINE_QUESTION}</Conversation.TurnBody>
+            <Conversation.TurnActions>
+              <Button variant="ghost" size="sm">Copy</Button>
+            </Conversation.TurnActions>
+          </Conversation.TurnContent>
+        </Conversation.Turn>
+        <Conversation.Turn speaker="magnus">
+          <Conversation.TurnMark>M</Conversation.TurnMark>
+          <Conversation.TurnContent>
+            <Conversation.TurnSpeaker>{ASSISTANT}</Conversation.TurnSpeaker>
+            <Conversation.TurnBody>{SETTLED_ANSWER}</Conversation.TurnBody>
+            <Conversation.TurnActions>
+              <Button variant="ghost" size="sm">Copy</Button>
+            </Conversation.TurnActions>
+          </Conversation.TurnContent>
+        </Conversation.Turn>
+      </Conversation.Transcript>
+    </Conversation.Root>
+  </div>
+{/snippet}
+
+<Story
+  name="The exchange arrangement"
+  template={exchangeArrangement}
+  play={async ({ canvas, step }) => {
+    const transcript = canvas.getByRole("log", { name: "Exchange with Magnus" });
+    const turns = canvas.getAllByRole("article");
+
+    await step("The transcript says it is laid out as an exchange", async () => {
+      await expect(transcript).toHaveAttribute("data-arrangement", "exchange");
+    });
+
+    await step("Members sit on the trailing side and the assistant on the leading side", async () => {
+      const [member, assistant] = turns;
+      if (member === undefined || assistant === undefined) throw new Error("two turns expected");
+      const memberBox = member.querySelector(".mc-conversation-turn-content")?.getBoundingClientRect();
+      const assistantBox = assistant
+        .querySelector(".mc-conversation-turn-content")
+        ?.getBoundingClientRect();
+      if (memberBox === undefined || assistantBox === undefined) throw new Error("content expected");
+      await expect(memberBox.right).toBeGreaterThan(assistantBox.left + assistantBox.width / 2);
+      // The sides are read off the marks, which are the same size whatever the turn says. A
+      // member's words can run the width of the column, so the left edge of their panel says how
+      // long the question was, not which side it sits on.
+      const memberMark = member
+        .querySelector(".mc-conversation-turn-mark")
+        ?.getBoundingClientRect();
+      const assistantMark = assistant
+        .querySelector(".mc-conversation-turn-mark")
+        ?.getBoundingClientRect();
+      if (memberMark === undefined || assistantMark === undefined) {
+        throw new Error("marks expected");
+      }
+      await expect(assistantMark.right).toBeLessThanOrEqual(assistantBox.left);
+      await expect(memberMark.left).toBeGreaterThanOrEqual(memberBox.right);
+    });
+
+    await step("The marks are presentation; the names are what is read", async () => {
+      for (const mark of canvas.getAllByText(/^(MO|M)$/)) {
+        await expect(mark.closest("[aria-hidden='true']")).not.toBeNull();
+      }
     });
   }}
 />

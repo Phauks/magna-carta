@@ -41,10 +41,13 @@ import {
 } from "$lib/directory/phone-entry.ts";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
 import type {
+  CallOutcome,
   Communication,
   CommunicationChannel,
   CommunicationDirection,
   CommunicationDisposition,
+  LogCommunicationInput,
+  SpamKind,
 } from "./communications-api.ts";
 import {
   endInstantFromLocalParts,
@@ -133,7 +136,26 @@ export interface LogDraft {
    * silently delete it. Null on everything made since.
    */
   preservedTextNote: string | null;
+  /** The name the caller gave, as typed. Optional, and never a Directory record. */
+  callerIdName: string;
+  /** What happened on the line, or null while nobody has said. Only asked while a record is MADE. */
+  outcome: CallOutcome | null;
+  /** On a spam call, which kind. */
+  spamKind: SpamKind | null;
+  /** The member a transferred call went to. They become the member on the call. */
+  transferToUserId: string | null;
+  /** The member a message is for. */
+  messageForUserId: string | null;
+  /** What the caller asked for, which becomes the line on that member's task. */
+  messageRequest: MessageRequest;
+  /** By when, as a civil date in the reader's zone; empty for no date. */
+  messageByDate: string;
+  messageUrgent: boolean;
 }
+
+/** What a caller who left a message asked for. Each one words the task it becomes. */
+export const MESSAGE_REQUESTS = ["callBack", "willCallAgain", "noReplyNeeded"] as const;
+export type MessageRequest = (typeof MESSAGE_REQUESTS)[number];
 
 export function emptyLogDraft(now: string): LogDraft {
   return {
@@ -154,7 +176,93 @@ export function emptyLogDraft(now: string): LogDraft {
     durationText: "",
     description: "",
     preservedTextNote: null,
+    ...emptyActivity(),
   };
+}
+
+/** The Activity fields, all unanswered. */
+function emptyActivity(): Pick<
+  LogDraft,
+  | "callerIdName"
+  | "outcome"
+  | "spamKind"
+  | "transferToUserId"
+  | "messageForUserId"
+  | "messageRequest"
+  | "messageByDate"
+  | "messageUrgent"
+> {
+  return {
+    callerIdName: "",
+    outcome: null,
+    spamKind: null,
+    transferToUserId: null,
+    messageForUserId: null,
+    messageRequest: "callBack",
+    messageByDate: "",
+    messageUrgent: false,
+  };
+}
+
+/** The outcomes that need no notes and no length: saying so is the whole record. */
+const SELF_DESCRIBING: ReadonlySet<CallOutcome> = new Set(["spam", "noAnswer", "voicemailLeft"]);
+
+/** Who the caller is, as the record can best say it: the Directory name, the given name, the number. */
+export function draftCallerLabel(draft: LogDraft): string {
+  const typed = draft.callerIdName.trim();
+  return draft.counterpartyName ?? (typed === "" ? draft.counterpartyNumber.trim() : typed);
+}
+
+/** The line a message becomes on the member's task list. */
+export function messageTaskTitle(draft: LogDraft): string {
+  const who = draftCallerLabel(draft);
+  switch (draft.messageRequest) {
+    case "callBack":
+      return `Call back ${who}`;
+    case "willCallAgain":
+      return `${who} will call again`;
+    case "noReplyNeeded":
+      return `Message from ${who}`;
+  }
+}
+
+/**
+ * The Activity half of a NEW record: the caller's name, what happened, and the transfer or message
+ * that came of it. Kept apart from logDraftRequest because a correction does not send it.
+ */
+export function activityRequest(
+  draft: LogDraft,
+  timeZone: string,
+): Pick<
+  LogCommunicationInput,
+  "callerIdName" | "outcome" | "spamKind" | "memberUserId" | "message" | "disposition" | "matterId"
+> {
+  const callerIdName = draft.callerIdName.trim();
+  const outcome = isTextDraft(draft) && draft.outcome !== "spam" ? null : draft.outcome;
+  const fields: ReturnType<typeof activityRequest> = {
+    callerIdName: callerIdName === "" ? null : callerIdName,
+    outcome,
+    spamKind: outcome === "spam" ? draft.spamKind : null,
+  };
+  if (outcome === "spam") {
+    // A spam call IS set aside as spam, whatever the anchor fields were left saying.
+    return { ...fields, matterId: null, disposition: "spam" };
+  }
+  if (outcome === "transferred") return { ...fields, memberUserId: draft.transferToUserId };
+  if (outcome === "messageTaken" && draft.messageForUserId !== null) {
+    const dueOn = draft.messageByDate.trim();
+    return {
+      ...fields,
+      message: {
+        forUserId: draft.messageForUserId,
+        title: messageTaskTitle(draft),
+        dueOn: dueOn === "" ? null : dueOn,
+        timeZone: dueOn === "" ? null : timeZone,
+        urgent: draft.messageUrgent,
+      },
+    };
+  }
+  return fields;
 }
 
 /** Whether this draft carries text rather than audio. */
@@ -244,9 +352,14 @@ export function logDraftShortfalls(draft: LogDraft, now: string): readonly strin
     }
   }
 
+  const describedByOutcome = draft.outcome !== null && SELF_DESCRIBING.has(draft.outcome);
   if (isTextDraft(draft)) {
     if (draft.description.trim() === "") shortfalls.push("What the text said.");
-  } else if (draft.description.trim() === "" && draft.durationText.trim() === "") {
+  } else if (
+    draft.description.trim() === "" &&
+    draft.durationText.trim() === "" &&
+    !describedByOutcome
+  ) {
     shortfalls.push("What was said, or how long the call ran.");
   }
 
@@ -259,6 +372,16 @@ export function logDraftShortfalls(draft: LogDraft, now: string): readonly strin
   if (!isTextDraft(draft) && draft.endTime.trim() !== "" && draftEndedAt(draft) === "") {
     shortfalls.push("When the call ended.");
   }
+
+  if (!isTextDraft(draft) && draft.outcome === "transferred" && draft.transferToUserId === null) {
+    shortfalls.push("Who the call went to.");
+  }
+  if (!isTextDraft(draft) && draft.outcome === "messageTaken" && draft.messageForUserId === null) {
+    shortfalls.push("Who the message is for.");
+  }
+
+  // A spam call files itself as spam, so the anchor fields are not asked about.
+  if (draft.outcome === "spam") return shortfalls;
 
   if (draft.anchor === "matter" && draft.matterId === null) {
     shortfalls.push("Which matter.");
@@ -393,6 +516,10 @@ export function draftFromCommunication(
     // A note recorded beside a text under the two-field form, where the text itself is in `body`.
     // Nothing to keep when the summary IS what the field is showing.
     preservedTextNote: text && communication.body !== null ? communication.summary : null,
+    ...emptyActivity(),
+    callerIdName: communication.callerIdName ?? "",
+    outcome: communication.outcome,
+    spamKind: communication.spamKind,
   };
 }
 

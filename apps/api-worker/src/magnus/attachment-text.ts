@@ -4,7 +4,7 @@ import { ATTACHMENT_SOURCE_MAX_BYTES } from "@magna-carta/magnus/limits";
 import { listAttachmentsWithFiles, type AttachmentWithFile } from "@magna-carta/magnus/statements";
 import type { WindowAttachment } from "@magna-carta/magnus/window";
 import type { TextExtractionPort } from "@magna-carta/search/extraction";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { resolveTextExtractionPort } from "../search/text-extraction.ts";
 
