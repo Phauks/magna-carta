@@ -31,6 +31,12 @@ export interface EntryReference {
   readonly matterId?: string | null;
   /** The civil day the entry sits on, where the surface knows it. A deadline is read through it. */
   readonly date?: string;
+  /**
+   * Which day of its series the reference is, where the record repeats and a particular day of it
+   * was pressed. The window shows that day and asks, on a change, whether it reaches only that day,
+   * that day and every later one, or the whole series.
+   */
+  readonly occurrenceOn?: string;
 }
 
 /** The record a reference resolves to, once its own read has answered. */
@@ -67,14 +73,24 @@ export function entryReferenceFromIdentifier(identifier: string | null): EntryRe
 /** The reference behind a painted entry, or null for a kind that opens nowhere here. */
 export function entryReferenceOf(entry: CalendarEntry): EntryReference | null {
   if (entry.kind === "other") return null;
-  return { kind: entry.kind, recordId: entry.recordId, matterId: entry.matterId, date: entry.date };
+  return {
+    kind: entry.kind,
+    recordId: entry.recordId,
+    matterId: entry.matterId,
+    date: entry.date,
+    occurrenceOn: entry.occurrenceOn,
+  };
 }
 
 /** One key per reference, so a window can tell "the same record again" from "a different one". */
 export function entryReferenceKey(reference: EntryReference): string {
-  return [reference.kind, reference.recordId, reference.matterId ?? "", reference.date ?? ""].join(
-    "|",
-  );
+  return [
+    reference.kind,
+    reference.recordId,
+    reference.matterId ?? "",
+    reference.date ?? "",
+    reference.occurrenceOn ?? "",
+  ].join("|");
 }
 
 /** The record's title, whichever kind it is. */

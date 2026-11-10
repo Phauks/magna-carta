@@ -51,20 +51,21 @@ WHOIS Lookup, and "ocr" reaches the File Workbench.
 
 ## Saving a page to Favorites
 
-**Every screen has a star beside its title.** Click it and that page joins Favorites at the top of
-your sidebar; click it again to remove it.
+**Every screen has a menu beside its title (the three dots).** Choose **Add to Favorites** there and
+that page joins Favorites at the top of your sidebar. On a page you have already saved, the same
+entry shows a gold star and reads **Remove from Favorites**.
 
 It works on any page, which is the point — a matter you are in every day, one tool you use and eight
 you do not, a client's record, a section inside a matter. The name that appears is the name the page
-had when you saved it, so if a matter is renamed later, open it and press the star again to update
-what your sidebar calls it.
+had when you saved it, so if a matter is renamed later, open it, remove it from Favorites and add it
+again to update what your sidebar calls it.
 
 Favorites are kept in the browser you saved them in, so they do not follow you to another computer
 yet.
 
 ## The page menu
 
-**Beside the star is a menu (the three dots)** with what you can do with the page itself:
+The same menu holds what else you can do with the page itself:
 
 - **Copy Link** puts the page's address on your clipboard, ready to paste to a colleague.
 - **Open in New Tab** opens the same page again in a second tab, so you can keep your place here.

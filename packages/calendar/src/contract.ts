@@ -573,3 +573,78 @@ export const ResourceAvailability = z
 export const ContinuanceChain = z
   .object({ data: z.array(ContinuanceChainNodeDetail) })
   .meta({ id: "ContinuanceChain" });
+
+// ---- a repeating setting, read as its days, and one day of it changed ----
+
+/** Which side of the firm's calendar a series read covers: a matter's settings, the firm's own, both. */
+export const SERIES_SIDES = ["matter", "firm", "all"] as const;
+
+export const SeriesOccurrencesDetail = z
+  .object({
+    source: z.enum(["matterEvent", "firmEvent"]),
+    id: z.string(),
+    matterId: z.string().nullable(),
+    // Null on a matter series read across the firm, for the reason the federated read carries no
+    // title: free text about a case does not belong on a read spanning every case. Read for one
+    // matter, and for the firm's own events, it is the record's title.
+    title: z.string().nullable(),
+    // The PLATFORM type code, a shared vocabulary term, where the type is one.
+    typeCode: z.string().nullable(),
+    typeName: z.string().nullable(),
+    audience: z.enum(FIRM_EVENT_AUDIENCES).nullable(),
+    status: z.enum(MATTER_EVENT_STATUSES),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    endsOn: z.string().nullable(),
+    endsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    recurrenceRule: z.string(),
+    // Every day in the window the series falls on, its first day included, and the days an
+    // exception stands in for left out — that exception is an ordinary event the other reads paint.
+    occurrences: z.array(z.string()),
+  })
+  .meta({ id: "CalendarSeriesOccurrences" });
+
+export const SeriesInWindow = z
+  .object({
+    data: z.array(SeriesOccurrencesDetail),
+    // True where more series could touch the window than one read returns.
+    truncated: z.boolean(),
+  })
+  .meta({ id: "CalendarSeriesInWindow" });
+
+/** "this": the one occurrence. "following": it and every later one. The whole series is a plain edit. */
+export const OCCURRENCE_SCOPES = ["this", "following"] as const;
+
+const occurrenceCancel = z.object({
+  kind: z.literal("cancel"),
+  statusReason: z.string().max(2000).nullable().optional(),
+});
+
+export const ChangeEventOccurrenceRequest = z
+  .object({
+    occurrenceOn: z.string().regex(CIVIL_DATE),
+    scope: z.enum(OCCURRENCE_SCOPES),
+    change: z.discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("update"),
+        fields: z.object(matterEventRequestFields).partial(),
+      }),
+      occurrenceCancel,
+    ]),
+  })
+  .meta({ id: "ChangeEventOccurrenceRequest" });
+
+export const ChangeFirmEventOccurrenceRequest = z
+  .object({
+    occurrenceOn: z.string().regex(CIVIL_DATE),
+    scope: z.enum(OCCURRENCE_SCOPES),
+    change: z.discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("update"),
+        fields: z.object(firmEventRequestFields).partial(),
+      }),
+      occurrenceCancel,
+    ]),
+  })
+  .meta({ id: "ChangeFirmEventOccurrenceRequest" });

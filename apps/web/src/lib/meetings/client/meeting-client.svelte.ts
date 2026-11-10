@@ -77,7 +77,9 @@ import {
   type WaitingParticipant,
 } from "./lobby.ts";
 import { browserBackgroundSeams } from "../effects/background-processor.ts";
+import { browserNoiseSeams } from "../effects/noise-processor.ts";
 import { backgroundEffects } from "./background-effects.ts";
+import { noiseRemoval } from "./noise-removal.ts";
 import {
   DEFAULT_EFFECT_SETTINGS,
   NO_EFFECTS,
@@ -364,12 +366,16 @@ export function browserMeetingSeams(): MeetingClientSeams {
     // name `voiceIsolation` at all. Asked here because this is the one function in the client that
     // may touch `navigator`.
     // The product draws the background itself where the browser can draw in a worker, over the
-    // pass-through that still owns the microphone's treatment. The seams are the browser's own; the
-    // worker behind them is only loaded once somebody chooses a background.
+    // pass-through that still owns the microphone's treatment, and cleans the microphone itself where
+    // the browser can run an audio worklet. The seams are the browser's own; neither the worker nor
+    // the worklet is loaded until somebody turns its effect on.
     createMediaEffects: () =>
-      backgroundEffects(
-        passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
-        browserBackgroundSeams(),
+      noiseRemoval(
+        backgroundEffects(
+          passThroughEffects({ voiceIsolation: knowsVoiceIsolation() }),
+          browserBackgroundSeams(),
+        ),
+        browserNoiseSeams(),
       ),
     // A hold on the page's one device rather than one of the room's own: the press that unlocks it
     // is often on the screen before this one — the calendar entry's Join — and a device made here,
@@ -1129,6 +1135,7 @@ export class MeetingClient {
       if (this.#capture !== effected) return;
       this.appliedEffects = applied;
       void this.#swapPublishedPicture(next);
+      void this.#swapPublishedSound(next);
     });
     this.appliedEffects = effected.applied;
     this.localStream = stream;
@@ -1190,6 +1197,36 @@ export class MeetingClient {
           : {
               ...this.appliedEffects,
               refusal: "Your new background could not be sent to the room.",
+            };
+    }
+  }
+
+  /**
+   * Send different sound for this member: the filtered microphone when the product's noise filter
+   * starts, the microphone's own when it stops.
+   *
+   * IN PLACE, WITH NO NEW OFFER, on the picture's terms: the media section and the room's
+   * subscription to it are kept, and `#microphoneMid` still names it, so a host's mute and the
+   * member's return through `#republishMicrophone` go on addressing the same section and send
+   * whichever track `localStream` now holds. A section with no sender yet (the offer has not gone
+   * out) needs nothing here, because the offer reads the stream as it stands.
+   */
+  async #swapPublishedSound(next: MediaStream): Promise<void> {
+    const mid = this.#microphoneMid;
+    const connection = this.#negotiation.connection;
+    const [sound] = next.getAudioTracks();
+    if (mid === null || connection === null || sound === undefined) return;
+    const sender = connection.getTransceivers().find((each) => each.mid === mid)?.sender;
+    if (sender === undefined || sender.track === null || sender.track === sound) return;
+    try {
+      await sender.replaceTrack(sound);
+    } catch {
+      this.appliedEffects =
+        this.appliedEffects === null
+          ? null
+          : {
+              ...this.appliedEffects,
+              refusal: "Your filtered microphone could not be sent to the room.",
             };
     }
   }

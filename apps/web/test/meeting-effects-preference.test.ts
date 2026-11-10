@@ -47,8 +47,16 @@ afterEach(() => {
 
 describe("the default", () => {
   it("is no background treatment, with noise reduction on", () => {
-    expect(DEFAULT_EFFECT_SETTINGS).toEqual({ background: "none", reduceNoise: true });
-    expect(meetingEffectsCodec.decode(null)).toEqual({ background: "none", reduceNoise: true });
+    expect(DEFAULT_EFFECT_SETTINGS).toEqual({
+      background: "none",
+      reduceNoise: true,
+      removeNoise: false,
+    });
+    expect(meetingEffectsCodec.decode(null)).toEqual({
+      background: "none",
+      reduceNoise: true,
+      removeNoise: false,
+    });
   });
 
   it("is what a browser that has stored nothing reads", () => {
@@ -59,15 +67,19 @@ describe("the default", () => {
 describe("a stored choice", () => {
   it("round-trips through storage", () => {
     const first = meetingEffectsPreference();
-    first.set({ background: "blur", reduceNoise: false });
+    first.set({ background: "blur", reduceNoise: false, removeNoise: false });
 
     expect(storage.getItem(MEETING_EFFECTS_STORAGE_KEY)).not.toBeNull();
     // A second reader is the next join on the same machine: it reads what the first one wrote.
-    expect(meetingEffectsPreference().current).toEqual({ background: "blur", reduceNoise: false });
+    expect(meetingEffectsPreference().current).toEqual({
+      background: "blur",
+      reduceNoise: false,
+      removeNoise: false,
+    });
   });
 
   it("round-trips through the codec alone", () => {
-    const chosen = { background: "blur", reduceNoise: true } as const;
+    const chosen = { background: "blur", reduceNoise: true, removeNoise: false } as const;
     expect(meetingEffectsCodec.decode(meetingEffectsCodec.encode(chosen))).toEqual(chosen);
   });
 });
@@ -88,10 +100,14 @@ describe("a corrupt payload", () => {
     expect(readMeetingEffects({ background: "blur", reduceNoise: "yes" })).toEqual({
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
-    expect(readMeetingEffects({ background: "sepia", reduceNoise: false })).toEqual({
+    expect(
+      readMeetingEffects({ background: "sepia", reduceNoise: false, removeNoise: false }),
+    ).toEqual({
       background: "none",
       reduceNoise: false,
+      removeNoise: false,
     });
   });
 });

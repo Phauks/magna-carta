@@ -82,7 +82,7 @@
   name="Single"
   args={{ name: "matter" }}
   play={async ({ canvas, canvasElement, step }) => {
-    const trigger = canvas.getByRole("button", { name: "Matter" });
+    const trigger = canvas.getByRole("combobox", { name: "Matter" });
     const body = within(document.body);
 
     await step("Shows the placeholder until a selection is made", async () => {
@@ -172,7 +172,7 @@
   name="Multiple"
   args={{ type: "multiple" }}
   play={async ({ canvas, step }) => {
-    const trigger = canvas.getByRole("button", { name: "Tags" });
+    const trigger = canvas.getByRole("combobox", { name: "Tags" });
     const body = within(document.body);
 
     await step("Opens the listbox", async () => {
@@ -226,7 +226,7 @@
 <Story
   name="Long list"
   play={async ({ canvas, step }) => {
-    const trigger = canvas.getByRole("button", { name: "Code word" });
+    const trigger = canvas.getByRole("combobox", { name: "Code word" });
     const body = within(document.body);
 
     await step("Opens from the keyboard", async () => {
@@ -296,14 +296,14 @@
     const body = within(document.body);
 
     await step("A disabled select does not open", async () => {
-      const trigger = canvas.getByRole("button", { name: "Disabled select" });
+      const trigger = canvas.getByRole("combobox", { name: "Disabled select" });
       await expect(trigger).toHaveAttribute("data-disabled");
       await userEvent.click(trigger, { pointerEventsCheck: 0 });
       await expect(body.queryByRole("listbox")).toBeNull();
     });
 
     await step("Long options grow the listbox toward the start of the control, never past its end", async () => {
-      const trigger = canvas.getByRole("button", { name: "Wide options" });
+      const trigger = canvas.getByRole("combobox", { name: "Wide options" });
       await userEvent.click(trigger);
       const listbox = await body.findByRole("listbox");
       await waitFor(() => {
@@ -319,7 +319,7 @@
 
     await step("Options wider than the screen are capped to it, and their rows wrap", async () => {
       await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
-      const trigger = canvas.getByRole("button", { name: "Overlong options" });
+      const trigger = canvas.getByRole("combobox", { name: "Overlong options" });
       await userEvent.click(trigger);
       const listbox = await body.findByRole("listbox");
       await waitFor(() => {

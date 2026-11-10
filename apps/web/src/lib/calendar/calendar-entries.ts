@@ -11,6 +11,7 @@
  * comes back to the record it came from.
  */
 import { civilDayOf } from "@magna-carta/civil-time/civil-date";
+import { movedLikeOccurrence } from "@magna-carta/civil-time/recurrence";
 import {
   wallClockMinutes,
   type CalendarGridColor,
@@ -25,6 +26,7 @@ import {
   type EventType,
   type FirmEvent,
   type ResourceAvailabilityEntry,
+  type SeriesOccurrences,
   type TimelineEntry,
 } from "./calendar-api.ts";
 import { isMatterScope, type CalendarScope } from "./calendar-scope.ts";
@@ -74,6 +76,12 @@ export interface CalendarEntry extends CalendarGridEntry {
    * agenda's "hide settled" filter narrows out of "what is coming".
    */
   readonly settled: boolean;
+  /**
+   * The day of its series this entry is, where it is one day of a repeating setting. The record is
+   * the SERIES (`recordId`), and this says which of its days was pressed — which is what an edit to
+   * "this event only" or "this and all later events" needs to know. Absent on everything else.
+   */
+  readonly occurrenceOn?: string;
 }
 
 /** What the projection needs to know beyond the row: the names identifiers resolve to. */
@@ -308,6 +316,77 @@ export function entryFromFirmEvent(event: FirmEvent, context: EntryContext): Cal
     tone: event.status === "cancelled" ? "warning" : "accent",
     struck: event.status === "cancelled",
   };
+}
+
+/**
+ * A repeating setting as one entry per day of it inside the window.
+ *
+ * Every day is the SERIES' record — pressing any of them opens the series — with the day it is
+ * riding along as `occurrenceOn`, and an identifier that carries the day so a month of Tuesdays is
+ * a month of distinct rows. A span keeps its length on every day: a two-day series' Friday runs to
+ * Saturday. The words follow the read the series came from: a matter series read across the firm
+ * paints its type and matter number, as the federated read does; one read for its own matter, and
+ * every firm series, paints its title.
+ */
+export function entriesFromSeries(
+  series: SeriesOccurrences,
+  context: EntryContext,
+  scope: CalendarScope,
+): CalendarEntry[] {
+  const cancelled = series.status === "cancelled";
+  const isFirm = series.source === "firmEvent";
+  const kind: CalendarEntryKind = isFirm ? "firmEvent" : "event";
+  const forOwnMatter = isMatterScope(scope);
+  const label = isFirm
+    ? (series.title ?? UNCLASSIFIED_FIRM_EVENT_LABEL)
+    : (series.title ?? eventTypeNameForCode(series.typeCode, context.eventTypesByCode));
+  const detail = isFirm
+    ? [
+        series.typeName ?? UNCLASSIFIED_FIRM_EVENT_LABEL,
+        firmEventAudienceLabel(series.audience ?? "participants"),
+      ].join(" · ")
+    : forOwnMatter
+      ? (series.typeName ?? UNCLASSIFIED_EVENT_LABEL)
+      : matterLine(series.matterId, context);
+  return series.occurrences.map((day) => ({
+    id: entryId(kind, `${series.id}@${day}`),
+    kind,
+    recordId: series.id,
+    matterId: series.matterId,
+    detailIsMatterNumber: !isFirm && !forOwnMatter,
+    link: null,
+    settled: cancelled,
+    sourceKeys: [],
+    occurrenceOn: day,
+    date: day,
+    endDate:
+      series.endsOn === null ? undefined : movedLikeOccurrence(series.endsOn, series.startsOn, day),
+    label,
+    detail,
+    time:
+      formatWallClock(series.startsAtTime, series.timeZone, context.readerTimeZone, day) ??
+      undefined,
+    startMinute: minutesOf(series.startsAtTime),
+    endMinute: minutesOf(series.endsAtTime),
+    tone: cancelled ? "warning" : isFirm ? "accent" : eventTypeTone(series.typeCode),
+    struck: cancelled,
+    repeats: true,
+  }));
+}
+
+/**
+ * The entries a read returned with the series' own rows taken out, where the series read stands in
+ * for them. The ordinary reads return a series' row once, on its first day — which is wrong twice
+ * over: that day may be one somebody moved, and every other day is missing. The series read paints
+ * every day instead, so the row it replaces goes.
+ */
+export function withoutSeriesRows(
+  entries: readonly CalendarEntry[],
+  seriesIds: ReadonlySet<string>,
+): CalendarEntry[] {
+  return entries.filter(
+    (entry) => entry.occurrenceOn !== undefined || !seriesIds.has(entry.recordId),
+  );
 }
 
 /** What a booking on a resource's schedule paints as when it double-books. */

@@ -1,0 +1,96 @@
+@layer components {
+  /*
+   * DateTimeField. The box is the date field's own recipe (mc-date-field + its size), so a moment
+   * field and a date field in the same form are the same height, border and focus edge; this file
+   * adds only what a moment needs on top: the separator between the day and the hour, the zone's
+   * shortcode, the "no time" reading, and the panel's list of times beside the month.
+   */
+  .mc-date-time-field-stack {
+    display: flex;
+    flex-direction: column;
+  }
+  .mc-date-time-field {
+    display: flex;
+    gap: var(--mc-space-4);
+  }
+  .mc-date-time-field[data-disabled] {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+  }
+  .mc-date-time-field-part {
+    display: inline-flex;
+    align-items: center;
+    outline-style: none;
+  }
+  .mc-date-time-field-separator {
+    color: var(--mc-text-muted);
+  }
+  .mc-date-time-field-absent {
+    color: var(--mc-text-muted);
+    padding-inline: var(--mc-space-4);
+  }
+  .mc-date-time-field-zone {
+    padding-inline: var(--mc-space-4);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    background-color: var(--mc-surface-raised);
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-date-time-field-panel {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mc-space-16);
+  }
+  /* The list scrolls inside a fixed height that matches the month beside it, and sizes its width to
+     its longest row so a duration never wraps under its time. */
+  .mc-date-time-field-times {
+    display: flex;
+    flex-direction: column;
+    inline-size: max-content;
+    max-block-size: var(--mc-size-popover);
+    overflow-y: auto;
+  }
+  .mc-date-time-field-time {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-12);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    text-align: start;
+    white-space: nowrap;
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+  }
+  .mc-date-time-field-time:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-date-time-field-time:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-date-time-field-time[aria-current="true"] {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-date-time-field-time-none {
+    color: var(--mc-text-muted);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+    border-radius: var(--mc-space-0);
+  }
+  .mc-date-time-field-time-span {
+    color: var(--mc-text-muted);
+  }
+  .mc-date-time-field-time[aria-current="true"] .mc-date-time-field-time-span {
+    color: var(--mc-action-primary-foreground);
+  }
+}

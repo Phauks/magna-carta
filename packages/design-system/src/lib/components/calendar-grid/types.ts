@@ -65,6 +65,12 @@ export interface CalendarGridEntry {
    */
   struck?: boolean;
   /**
+   * One day of a series that repeats. Marked with the repeat glyph before the time and said in
+   * words to a reader who cannot see it, because a weekly conference and a one-off hearing on the
+   * same Tuesday are different facts about what moving one of them will do.
+   */
+  repeats?: boolean;
+  /**
    * Where activating the entry goes, when it goes somewhere: the chip renders as a link. A caller
    * that opens a window instead leaves this absent and handles `onActivate`.
    */

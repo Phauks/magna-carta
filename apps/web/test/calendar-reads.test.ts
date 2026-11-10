@@ -32,6 +32,14 @@ function fakeFetch(routes: readonly Route[]): { fetch: typeof fetch; requests: U
     const url = new URL(String(input), "https://firm.example");
     requests.push(url);
     const route = routes.find((candidate) => candidate.match(url));
+    // The repeating settings are read beside every events read; a test that is not about them
+    // answers that the window holds none.
+    if (route === undefined && url.pathname === "/api/v1/calendar/series") {
+      return new Response(JSON.stringify({ data: [], truncated: false }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (route === undefined) return new Response("{}", { status: 404 });
     const { status, body } = route.answer(url);
     return new Response(JSON.stringify(body), {
@@ -296,7 +304,10 @@ describe("readCalendarWindow, firm scope", () => {
 
   it("reads one member's calendar through the member filter the server resolves", async () => {
     const { fetch, requests } = fakeFetch([
-      { match: () => true, answer: () => page([timelineRow]) },
+      {
+        match: (url) => url.pathname !== "/api/v1/calendar/series",
+        answer: () => page([timelineRow]),
+      },
     ]);
     const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
       sources: [
@@ -315,7 +326,12 @@ describe("readCalendarWindow, firm scope", () => {
   });
 
   it("reads one record arriving from two calendars as one row that knows it is on both", async () => {
-    const { fetch } = fakeFetch([{ match: () => true, answer: () => page([timelineRow]) }]);
+    const { fetch } = fakeFetch([
+      {
+        match: (url) => url.pathname !== "/api/v1/calendar/series",
+        answer: () => page([timelineRow]),
+      },
+    ]);
     const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
       sources: [
         {
@@ -467,5 +483,76 @@ describe("how a failed read is named", () => {
         describeReadFailure(read).toLowerCase().replace(/\.$/, ""),
       );
     }
+  });
+});
+
+describe("readCalendarWindow, repeating settings", () => {
+  const window = calendarWindow("month", "2026-09-15");
+
+  it("paints every day a series falls on and drops the series' own once-only row", async () => {
+    const { fetch, requests } = fakeFetch([
+      {
+        match: (url) => url.pathname === "/api/v1/calendar/events",
+        answer: () => page([timelineRow]),
+      },
+      { match: (url) => url.pathname === "/api/v1/calendar/deadlines", answer: () => page([]) },
+      { match: (url) => url.pathname === "/api/v1/firm-events", answer: () => page([]) },
+      {
+        match: (url) => url.pathname === "/api/v1/calendar/series",
+        answer: () => ({
+          status: 200,
+          body: {
+            data: [
+              {
+                source: "matterEvent",
+                id: "matterEvent_in",
+                matterId: "matter_1",
+                title: null,
+                typeCode: "HEARING",
+                typeName: "Hearing",
+                audience: null,
+                status: "scheduled",
+                startsOn: "2026-09-14",
+                startsAtTime: "09:00",
+                endsOn: null,
+                endsAtTime: null,
+                timeZone: "America/New_York",
+                recurrenceRule: "FREQ=WEEKLY",
+                occurrences: ["2026-09-14", "2026-09-28"],
+              },
+            ],
+            truncated: false,
+          },
+        }),
+      },
+    ]);
+    const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context);
+
+    expect(result.failures).toEqual([]);
+    const series = requests.find((url) => url.pathname === "/api/v1/calendar/series");
+    expect(series?.searchParams.get("from")).toBe(window.from);
+    expect(series?.searchParams.get("side")).toBe("matter");
+    const days = result.entries.filter((entry) => entry.recordId === "matterEvent_in");
+    expect(days.map((entry) => entry.occurrenceOn)).toEqual(["2026-09-14", "2026-09-28"]);
+    expect(days.every((entry) => entry.repeats === true)).toBe(true);
+  });
+
+  it("names the events read when the series read fails, and keeps the rest", async () => {
+    const { fetch } = fakeFetch([
+      {
+        match: (url) => url.pathname === "/api/v1/calendar/events",
+        answer: () => page([timelineRow]),
+      },
+      { match: (url) => url.pathname === "/api/v1/calendar/deadlines", answer: () => page([]) },
+      { match: (url) => url.pathname === "/api/v1/firm-events", answer: () => page([]) },
+      {
+        match: (url) => url.pathname === "/api/v1/calendar/series",
+        answer: () => ({ status: 503, body: { title: "Unavailable" } }),
+      },
+    ]);
+    const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context);
+    // The firm's own series are read beside its firm events, so that read is named too.
+    expect(result.failures.map((failure) => failure.read)).toEqual(["events", "firmEvents"]);
+    expect(result.entries.map((entry) => entry.recordId)).toEqual(["matterEvent_in"]);
   });
 });

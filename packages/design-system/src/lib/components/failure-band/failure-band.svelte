@@ -53,6 +53,11 @@
   let copied = $state<CopyResult | null>(null);
   let resetTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /** What pressing the chip does, or what the last press came to. */
+  const copyHint = $derived(
+    copied === "copied" ? "copied" : copied === "failed" ? "select to copy" : "copy",
+  );
+
   async function copyErrorId(): Promise<void> {
     if (errorId === null) return;
     copied = await copyText(errorId);
@@ -75,22 +80,16 @@
       {#if errorId === null}
         <span></span>
       {:else}
+        <!-- The name reads the chip as it is drawn, ID first and then the hint, because a name
+             has to hold the words a reader sees on the control and a speech user says those. -->
         <button
           type="button"
           class="mc-failure-band-error-id"
           onclick={copyErrorId}
-          aria-label="Copy error ID {errorId}"
+          aria-label="Error ID {errorId}, {copyHint}"
         >
-          <span aria-hidden="true">{errorId}</span>
-          <span class="mc-failure-band-error-id-hint" aria-live="polite">
-            {#if copied === "copied"}
-              copied
-            {:else if copied === "failed"}
-              select to copy
-            {:else}
-              copy
-            {/if}
-          </span>
+          <span>{errorId}</span>
+          <span class="mc-failure-band-error-id-hint" aria-live="polite">{copyHint}</span>
         </button>
       {/if}
       {#if actions !== undefined}
