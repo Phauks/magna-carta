@@ -262,7 +262,9 @@ beneath them. Rows here supersede R1 where they say so.
   database and is not searched; the report says so. A result records where it was found in
   `conflicts_hit.found_in_json` (kind, id, matter, instant, never the record's text), and the "Found
   In" chips now name the kind of record. Tasks' Archived option means archived tasks; matters have no
-  archived status.
+  archived status. Since 2026-11-10 the names in calls and texts, tasks and Magnus are read through
+  the record index (#751) as exact phrases, so matching is by whole word and folds accents; email
+  stays on its own columns because it is not an index source.
 - **Files is searchable through the file contents index** (`packages/conflicts/src/file-search.ts`),
   in line with the indexing and discovery design Trevor approved on 2026-11-10. The run asks each
   matter's own index in turn (never a discovery review set's), one question per party per matter with

@@ -337,6 +337,8 @@ function parsePlacesRecord(value: unknown): ReportedPlaces | null {
     fileMattersNotSearched: count(record["fileMattersNotSearched"]),
     fileMattersFailed: count(record["fileMattersFailed"]),
     nameFloor: count(record["nameFloor"]),
+    namesAtCeiling: count(record["namesAtCeiling"]),
+    nameResultCeiling: count(record["nameResultCeiling"]),
     resultsFound: count(record["resultsFound"]),
     resultsRefused: count(record["resultsRefused"]),
   };
