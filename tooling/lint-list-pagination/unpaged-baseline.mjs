@@ -49,6 +49,14 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "schema's partial uniques) and the settings a person related it to by hand. Read through " +
     "selectLinksTouchingEventStatement in packages/calendar/src/link-statements.ts, whose LIMIT " +
     "(200) is a backstop on a read whose natural size is a handful.",
+  // --- The repeating settings ONE window touches -------------------------------------------------
+  "calendar.listSeries":
+    "The repeating settings that touch one required, capped window, each with the days inside it " +
+    "that it falls on. Read through readSeriesInWindow in packages/calendar/src/series-service.ts, " +
+    "whose MAX_SERIES_PER_READ (200) bounds the series and answers `truncated` when more could " +
+    "touch the window; the days per series are bounded by the window's own cap. A series is one " +
+    "row however many days it has, so the natural size is the firm's standing meetings and " +
+    "status conferences, and the grid needs every one of them for the window at once to paint it.",
   "calendar.listFirmEventLinks":
     "The same read for a firm event, through the same statement and the same backstop " +
     "(packages/calendar/src/link-statements.ts).",
