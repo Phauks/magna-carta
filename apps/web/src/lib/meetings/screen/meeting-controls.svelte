@@ -80,6 +80,8 @@
     audioTreatmentStatement,
     BLUR_UNAVAILABLE_STATEMENT,
     DEFAULT_EFFECT_SETTINGS,
+    NOISE_REMOVAL_DESCRIPTION,
+    NOISE_REMOVAL_ON_STATEMENT,
     platformBlurStatement,
     type AppliedEffects,
     type EffectsChange,
@@ -305,8 +307,15 @@
    * member their sound is cleaned up when it is not.
    */
   const reducingNoise = $derived(
-    appliedEffects?.audio.noiseSuppression ?? effectSettings.reduceNoise,
+    appliedEffects?.noiseRemoval === "on" ||
+      (appliedEffects?.audio.noiseSuppression ?? effectSettings.reduceNoise),
   );
+
+  /**
+   * Whether the product's own filter is cleaning the microphone, read off what the stage reports it
+   * started, never off the preference: a filter that could not start must not show as on.
+   */
+  const removingNoise = $derived(appliedEffects?.noiseRemoval === "on");
 
   /**
    * Whether the member pressed Image before any picture was chosen, so the panel is asking for one.
@@ -337,7 +346,23 @@
    * only asked for less noise.
    */
   function chooseNoiseReduction(reduceNoise: boolean): void {
-    onChangeEffects?.({ ...effectSettings, reduceNoise }, "microphone");
+    // No noise reduction at all means the stronger filter too: it is the same request, made harder.
+    onChangeEffects?.(
+      { ...effectSettings, reduceNoise, removeNoise: reduceNoise && effectSettings.removeNoise },
+      "microphone",
+    );
+  }
+
+  /** The stronger filter implies the ordinary request for less noise, so turning it on asks both. */
+  function chooseNoiseRemoval(removeNoise: boolean): void {
+    onChangeEffects?.(
+      {
+        ...effectSettings,
+        removeNoise,
+        reduceNoise: removeNoise || effectSettings.reduceNoise,
+      },
+      "microphone",
+    );
   }
 </script>
 
@@ -435,7 +460,24 @@
           />
           <Label id="meeting-effects-noise-label">Reduce background noise</Label>
         </div>
-        <p class="text-xs text-text-muted">{audioTreatmentStatement(applied.audio)}</p>
+        {#if applied.noiseRemoval === "on"}
+          <p class="text-xs text-text-muted">{NOISE_REMOVAL_ON_STATEMENT}</p>
+        {:else}
+          <p class="text-xs text-text-muted">{audioTreatmentStatement(applied.audio)}</p>
+        {/if}
+        {#if applied.noiseRemoval !== "unavailable"}
+          <div class="flex items-center gap-8">
+            <Switch
+              aria-labelledby="meeting-effects-noise-removal-label"
+              aria-describedby="meeting-effects-noise-removal-description"
+              bind:checked={() => removingNoise, chooseNoiseRemoval}
+            />
+            <Label id="meeting-effects-noise-removal-label">Stronger noise removal</Label>
+          </div>
+          <p id="meeting-effects-noise-removal-description" class="text-xs text-text-muted">
+            {NOISE_REMOVAL_DESCRIPTION}
+          </p>
+        {/if}
       </section>
 
       {#if applied.refusal !== null}

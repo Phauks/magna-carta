@@ -203,6 +203,9 @@
       "path": "packages/money/tsconfig.test.json"
     },
     {
+      "path": "packages/noise-suppression/tsconfig.test.json"
+    },
+    {
       "path": "packages/notes/tsconfig.test.json"
     },
     {
