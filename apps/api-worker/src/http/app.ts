@@ -1,4 +1,5 @@
 import { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
+import type { ConnectedAccountsRouteDeps } from "./routes/calendar/connected-accounts.ts";
 import type { SealPort } from "@magna-carta/signing/port";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { authForEnv } from "../auth-instance.ts";
@@ -60,6 +61,9 @@ export interface CreateAppOptions {
   // out of the captured message because the server hands it to nobody else. Production sends
   // through the environment's email adapter.
   meetingGuestMail?: (env: Bindings) => SendEmail;
+  // Overrides the calendar provider behind the connected-accounts routes for tests (a fake
+  // provider and a fixed clock). Production reaches Microsoft with the global fetch.
+  connectedAccounts?: ConnectedAccountsRouteDeps;
 }
 
 // The chokepoint over the REAL ports: session resolution, firm-context resolution (control-plane
@@ -177,6 +181,7 @@ export function createApp(options: CreateAppOptions = {}) {
     sealPort: options.sealPort,
     humanVerification: options.humanVerification,
     meetingGuestMail: options.meetingGuestMail,
+    connectedAccounts: options.connectedAccounts,
   };
   for (const module of DOMAIN_MODULES) module.mount(app, chokepoint, domainDeps);
 

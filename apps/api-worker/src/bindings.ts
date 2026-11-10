@@ -321,6 +321,16 @@ export type Bindings = {
   // Deliberately NOT in wrangler.jsonc's secrets.required: listing it would make every deploy fail
   // until a credential nobody has provisioned exists. Never logged, never echoed to a caller.
   TURNSTILE_SECRET_KEY?: string;
+  // The Microsoft application members sign in to their own Microsoft 365 account through, for
+  // calendar sync. The client id is public configuration and the secret is a secret
+  // (`wrangler secret put MICROSOFT_CLIENT_SECRET`). Optional, and the feature is dormant without
+  // them: with either absent no member is offered an Outlook connection and the sign-in route
+  // answers that this deployment cannot do it (src/calendar-sync/microsoft-application.ts).
+  // MICROSOFT_TENANT narrows sign-in to one tenant; absent, any work, school or personal account
+  // may sign in.
+  MICROSOFT_CLIENT_ID?: string;
+  MICROSOFT_CLIENT_SECRET?: string;
+  MICROSOFT_TENANT?: string;
   // The Smarty key pair behind address autocomplete (address-lookup/address-lookup-engine.ts).
   // Optional, and ABSENT IS THE SHIPPED STATE: with either missing, every request gets the deferred
   // port and the address form behaves exactly as it did before autocomplete existed. Production sets

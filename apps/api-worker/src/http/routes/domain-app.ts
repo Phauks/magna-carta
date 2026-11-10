@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import type { SealPort } from "@magna-carta/signing/port";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { HumanVerificationGateOptions } from "../human-verification/human-verification-gate.ts";
+import type { ConnectedAccountsRouteDeps } from "./calendar/connected-accounts.ts";
 import type { SafeBrowseRouteDeps } from "./tools/safe-browse.ts";
 import type { WhoisRouteDeps } from "./tools/whois.ts";
 import type { Bindings } from "../../bindings.ts";
@@ -36,6 +37,7 @@ export interface DomainDeps {
   readonly sealPort?: SealPort;
   readonly humanVerification?: HumanVerificationGateOptions;
   readonly meetingGuestMail?: (env: Bindings) => SendEmail;
+  readonly connectedAccounts?: ConnectedAccountsRouteDeps;
 }
 
 // One entry of the manifest (src/http/routes/manifest.ts).

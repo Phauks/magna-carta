@@ -185,6 +185,19 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
+  // A connection a member made to their OWN account at a provider (their calendar). principal_ref is
+  // the member's user id on such a row and account_label is their sign-in address there, so the row
+  // is theirs and goes when they do. A firm's own connection carries the firm's id in principal_ref
+  // and matches no subject, so it is untouched. The sealed token beside it (integration_credential,
+  // addressed by this row's credential_ref) has to go in the same act: read credential_ref before
+  // deleting the row, or a working token to a departed member's calendar stays sealed where nothing
+  // points at it.
+  {
+    table: "integration_connection",
+    subjectKey: "principal_ref",
+    action: "hard-delete",
+    note: "member-scoped rows only; delete the integration_credential row its credential_ref names in the same act",
+  },
   // A file attached to a conversation is a reference to the matter's file, holding nothing of
   // it; it goes with the conversation it is attached to.
   {
@@ -1290,13 +1303,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // user's own identity/activity PII.
   "setting",
   "scoped_setting",
-  // A connection's principal_ref names a firm- or user-scoped OAuth principal, but the row is current
-  // connection *state* (mirrors member_role/document_checkout above), not an activity record.
-  "integration_connection",
   "firm_secret", // firm-owned integration secrets (encrypted), not data-subject personal data
-  // A connected integration's credential for the FIRM's own external account (a postage account's API
-  // key). It identifies the firm to a vendor, never a data subject, so erasing a person leaves it
-  // untouched — and erasing it because somebody exercised a right would disconnect the firm's account.
+  // A connected integration's credential: a firm's own external account (a postage account's API
+  // key) or a member's own (their calendar). The row has no column naming anybody, so it resolves to
+  // a subject only through the integration_connection row whose credential_ref addresses it, and
+  // that entry above says the two go together. A firm's credential identifies the firm to a vendor
+  // and never a data subject, so erasing a person leaves it untouched.
   "integration_credential",
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",

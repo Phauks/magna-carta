@@ -60,6 +60,7 @@ import meetingTranscriptModelFailuresAndMillisecondsSql from "@magna-carta/datab
 import meetingSummarySql from "@magna-carta/database/drizzle/per-firm/20261110T000106_meeting-summary.sql";
 import meetingSummaryRetryAndFailedCallSql from "@magna-carta/database/drizzle/per-firm/20261110T000107_meeting-summary-retry-and-failed-call.sql";
 import seedMeetingSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20261110T000108_seed-meeting-settings-permission.sql";
+import connectionAccountLabelSql from "@magna-carta/database/drizzle/per-firm/20261110T021248_connection-account-label.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -121,6 +122,7 @@ export function perFirmMigrations(): Migration[] {
     "20261110T000106_meeting-summary": meetingSummarySql,
     "20261110T000107_meeting-summary-retry-and-failed-call": meetingSummaryRetryAndFailedCallSql,
     "20261110T000108_seed-meeting-settings-permission": seedMeetingSettingsPermissionSql,
+    "20261110T021248_connection-account-label": connectionAccountLabelSql,
   });
 }
 

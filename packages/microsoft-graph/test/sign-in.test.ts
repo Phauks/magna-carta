@@ -5,6 +5,7 @@ import {
   authorizationUrl,
   codeChallengeFor,
   codeVerifierFrom,
+  readSignedInAccount,
   redeemAuthorizationCode,
   refreshAccessToken,
   type MicrosoftApplication,
@@ -205,6 +206,41 @@ describe("refreshing", () => {
     expect(await refreshAccessToken({ http: unreachable, now }, application, "r")).toMatchObject({
       ok: false,
       problem: { category: "network", retryable: true },
+    });
+  });
+});
+
+describe("reading the signed-in account", () => {
+  it("prefers the mailbox address and falls back to the sign-in name", async () => {
+    const withMail = answering(200, {
+      mail: "a@firm.example",
+      userPrincipalName: "a_1@tenant.example",
+    });
+    expect(await readSignedInAccount(withMail.http, "access-1")).toEqual({
+      ok: true,
+      address: "a@firm.example",
+    });
+    expect(withMail.sent[0]?.headers).toEqual({ Authorization: "Bearer access-1" });
+    const withoutMail = answering(200, { mail: null, userPrincipalName: "a_1@tenant.example" });
+    expect(await readSignedInAccount(withoutMail.http, "access-1")).toEqual({
+      ok: true,
+      address: "a_1@tenant.example",
+    });
+  });
+
+  it("refuses an answer that names no account", async () => {
+    const { http } = answering(200, {});
+    expect(await readSignedInAccount(http, "access-1")).toMatchObject({
+      ok: false,
+      problem: { category: "validation" },
+    });
+  });
+
+  it("reads a refused token as the member having to sign in again", async () => {
+    const { http } = answering(401, {});
+    expect(await readSignedInAccount(http, "access-1")).toMatchObject({
+      ok: false,
+      problem: { category: "auth" },
     });
   });
 });

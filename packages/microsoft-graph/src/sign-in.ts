@@ -245,3 +245,70 @@ export function refreshAccessToken(
     refreshToken,
   );
 }
+
+const accountSchema = z.object({
+  mail: z.string().nullish(),
+  userPrincipalName: z.string().nullish(),
+});
+
+export type AccountOutcome =
+  | { readonly ok: true; readonly address: string }
+  | { readonly ok: false; readonly problem: IntegrationProblem };
+
+// Which account the member just signed in to, as Microsoft names it. A member with a work account
+// and a personal one has to be able to see which of them is connected. The mailbox address is
+// preferred because it is what the member recognises; an account with no mailbox still has a
+// sign-in name.
+export async function readSignedInAccount(
+  http: HttpClient,
+  accessToken: string,
+): Promise<AccountOutcome> {
+  let response;
+  try {
+    response = await http.request({
+      method: "GET",
+      url: "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    return {
+      ok: false,
+      problem: integrationProblem("network", 503, "Microsoft could not be reached"),
+    };
+  }
+  if (response.status === 401) {
+    return {
+      ok: false,
+      problem: integrationProblem("auth", 401, "Microsoft refused the access token"),
+    };
+  }
+  if (response.status >= 400) {
+    return {
+      ok: false,
+      problem: integrationProblem(
+        response.status >= 500 ? "upstream" : "validation",
+        502,
+        `Microsoft responded ${response.status}`,
+      ),
+    };
+  }
+  let parsed;
+  try {
+    parsed = accountSchema.safeParse(await response.json());
+  } catch {
+    parsed = undefined;
+  }
+  const address =
+    parsed?.success === true ? (parsed.data.mail ?? parsed.data.userPrincipalName) : undefined;
+  if (address === undefined || address === null || address === "") {
+    return {
+      ok: false,
+      problem: integrationProblem(
+        "validation",
+        502,
+        "Microsoft's account answer could not be read",
+      ),
+    };
+  }
+  return { ok: true, address };
+}

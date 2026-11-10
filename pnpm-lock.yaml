@@ -446,6 +446,9 @@ importers:
       '@magna-carta/metadata':
         specifier: workspace:*
         version: link:../../packages/metadata
+      '@magna-carta/microsoft-graph':
+        specifier: workspace:*
+        version: link:../../packages/microsoft-graph
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
