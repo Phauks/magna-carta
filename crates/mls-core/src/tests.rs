@@ -289,3 +289,41 @@ fn a_member_who_proposes_an_admission_is_refused() {
         Err(MlsError::Refused)
     );
 }
+
+/// What the wire has to carry at the room's ceiling, which sets the meeting protocol's frame ceiling
+/// (`MAX_MLS_MESSAGE_BASE64_LENGTH` in packages/meeting-protocol/src/frames.ts, 240 KiB of base64,
+/// so 184,320 bytes before encoding). Slow unoptimized, so run by hand:
+/// `cargo test --release -p mls-core sizes -- --ignored`. On 2026-11-10 the three hundredth
+/// admission's welcome was 59,737 bytes, its commit 476, a key package 303, and a removal's commit at
+/// three hundred 25,124.
+#[test]
+#[ignore = "a measurement at three hundred, run by hand in release"]
+fn the_sizes_at_three_hundred_fit_one_frame() {
+    const MESSAGE_CEILING: usize = 184_320;
+    let mut host = session("host");
+    host.create_group(GROUP).unwrap();
+    for index in 1..300 {
+        let joiner = session(&format!("stay_{index:024}"));
+        let key_package = joiner.key_package().unwrap();
+        host.stage_add(joiner_identity(&joiner).as_slice(), &key_package)
+            .unwrap();
+        let output = host.commit().unwrap();
+        host.confirm_commit().unwrap();
+        let welcome = output.welcome.unwrap();
+        assert!(
+            key_package.len() < 1_024,
+            "key package {}",
+            key_package.len()
+        );
+        assert!(
+            output.commit.len() < MESSAGE_CEILING,
+            "commit {}",
+            output.commit.len()
+        );
+        assert!(welcome.len() < MESSAGE_CEILING, "welcome {}", welcome.len());
+    }
+    let leaver = host.members().unwrap()[150].identity.clone();
+    host.stage_remove(&leaver).unwrap();
+    let removal = host.commit().unwrap().commit;
+    assert!(removal.len() < MESSAGE_CEILING, "removal {}", removal.len());
+}
