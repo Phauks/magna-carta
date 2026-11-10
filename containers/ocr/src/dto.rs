@@ -97,5 +97,8 @@ impl From<Provenance> for ProvenanceDto {
 #[serde(rename_all = "camelCase")]
 pub struct OcrResultDto {
     pub pages: Vec<PageDto>,
+    /// How many pages the document has in all, which is more than `pages` holds when the
+    /// request asked for one window of a long document.
+    pub page_count: usize,
     pub provenance: ProvenanceDto,
 }
