@@ -54,6 +54,9 @@ pub enum SignError {
     /// The CMS blob handed to [`embed_signature`] does not fit the reserved `/Contents`
     /// capacity. Re-prepare with a larger `contents_capacity`.
     CapacityExceeded,
+    /// The `/ByteRange` or `/Contents` span handed to [`signed_bytes`] or [`embed_signature`]
+    /// does not lie inside the document: it runs backwards or past the end.
+    InvalidRange,
 }
 
 /// Options for the appended signature dictionary. Every text field is optional; the ones
@@ -106,12 +109,30 @@ pub struct PreparedSignature {
 /// The bytes a signer must digest and sign: everything the `/ByteRange` covers, i.e. the
 /// file with its `/Contents` gap (and the enclosing angle brackets) cut out. Concatenated,
 /// never the raw file.
-pub fn signed_bytes(prepared: &PreparedSignature) -> Vec<u8> {
+///
+/// The range arrives from the host as plain numbers, so it is checked against the document
+/// before anything is sliced: a range that runs backwards or past the end is
+/// [`SignError::InvalidRange`], never an out-of-bounds abort.
+pub fn signed_bytes(prepared: &PreparedSignature) -> Result<Vec<u8>, SignError> {
     let [_, gap_start, gap_end, suffix_len] = prepared.byte_range;
-    let mut out = Vec::with_capacity(gap_start + suffix_len);
-    out.extend_from_slice(&prepared.document[0..gap_start]);
-    out.extend_from_slice(&prepared.document[gap_end..gap_end + suffix_len]);
-    out
+    let suffix_end = gap_end
+        .checked_add(suffix_len)
+        .ok_or(SignError::InvalidRange)?;
+    let prefix = prepared
+        .document
+        .get(..gap_start)
+        .ok_or(SignError::InvalidRange)?;
+    let suffix = prepared
+        .document
+        .get(gap_end..suffix_end)
+        .ok_or(SignError::InvalidRange)?;
+    if gap_end < gap_start {
+        return Err(SignError::InvalidRange);
+    }
+    let mut out = Vec::with_capacity(prefix.len() + suffix.len());
+    out.extend_from_slice(prefix);
+    out.extend_from_slice(suffix);
+    Ok(out)
 }
 
 /// Splice a detached CMS/PKCS#7 signature (DER) into the reserved `/Contents` gap, returning
@@ -120,15 +141,25 @@ pub fn signed_bytes(prepared: &PreparedSignature) -> Vec<u8> {
 /// Fails if the CMS is larger than the reserved capacity.
 pub fn embed_signature(prepared: &PreparedSignature, cms_der: &[u8]) -> Result<Vec<u8>, SignError> {
     let (start, end) = prepared.contents_span;
+    // The span arrives from the host as plain numbers: refuse one that runs backwards or
+    // past the end of the document before measuring or writing into it.
+    if end < start || end > prepared.document.len() {
+        return Err(SignError::InvalidRange);
+    }
     let capacity_hex = end - start;
-    let needed_hex = cms_der.len() * 2;
+    let needed_hex = cms_der
+        .len()
+        .checked_mul(2)
+        .ok_or(SignError::CapacityExceeded)?;
     if needed_hex > capacity_hex {
         return Err(SignError::CapacityExceeded);
     }
     let mut out = prepared.document.clone();
     let hex = hex_encode(cms_der);
-    let region = &mut out[start..end];
-    region[..hex.len()].copy_from_slice(hex.as_bytes());
+    let region = out
+        .get_mut(start..start + hex.len())
+        .ok_or(SignError::InvalidRange)?;
+    region.copy_from_slice(hex.as_bytes());
     // The remainder stays '0' padding (the placeholder was all zeros); nothing else to do.
     Ok(out)
 }
@@ -804,7 +835,7 @@ mod tests {
     fn signed_bytes_are_the_two_ranges_concatenated() {
         let input = base_pdf();
         let prepared = prepare_signature(&input, &opts()).expect("prepare");
-        let signed = signed_bytes(&prepared);
+        let signed = signed_bytes(&prepared).expect("signed bytes");
         let [_, gap_start, gap_end, suffix_len] = prepared.byte_range;
         assert_eq!(signed.len(), gap_start + suffix_len);
         assert_eq!(&signed[..gap_start], &prepared.document[..gap_start]);
@@ -821,10 +852,46 @@ mod tests {
     }
 
     #[test]
+    fn a_byte_range_outside_the_document_is_refused_not_a_panic() {
+        let input = base_pdf();
+        let prepared = prepare_signature(&input, &opts()).expect("prepare");
+        let length = prepared.document.len();
+        for byte_range in [
+            [0, length + 1, length + 2, 0],
+            [0, 10, 5, 0],
+            [0, 10, 20, length],
+            [0, 10, usize::MAX, 2],
+        ] {
+            let bad = PreparedSignature {
+                byte_range,
+                ..prepared.clone()
+            };
+            assert_eq!(signed_bytes(&bad), Err(SignError::InvalidRange));
+        }
+    }
+
+    #[test]
+    fn a_contents_span_outside_the_document_is_refused_not_a_panic() {
+        let input = base_pdf();
+        let prepared = prepare_signature(&input, &opts()).expect("prepare");
+        let length = prepared.document.len();
+        for contents_span in [(20, 10), (length, length + 64), (0, usize::MAX)] {
+            let bad = PreparedSignature {
+                contents_span,
+                ..prepared.clone()
+            };
+            assert_eq!(
+                embed_signature(&bad, &[0xAB; 4]),
+                Err(SignError::InvalidRange)
+            );
+        }
+    }
+
+    #[test]
     fn embedding_a_signature_leaves_the_signed_bytes_untouched() {
         let input = base_pdf();
         let prepared = prepare_signature(&input, &opts()).expect("prepare");
-        let signed_before = signed_bytes(&prepared);
+        let signed_before = signed_bytes(&prepared).expect("signed bytes");
 
         let cms = vec![0xDEu8, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03, 0x04];
         let sealed = embed_signature(&prepared, &cms).expect("embed");
@@ -835,7 +902,7 @@ mod tests {
             document: sealed.clone(),
             ..prepared.clone()
         };
-        let signed_after = signed_bytes(&sealed_prepared);
+        let signed_after = signed_bytes(&sealed_prepared).expect("signed bytes");
         assert_eq!(
             signed_before, signed_after,
             "the digested bytes must not move"

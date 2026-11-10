@@ -4,6 +4,8 @@
 
 use lopdf::{Dictionary, Document, Object, ObjectId};
 
+use crate::surgery::resolve_array;
+
 /// Which document-level surfaces to remove. Every field defaults to `true`
 /// (scrub everything); set a field false to retain that surface.
 #[derive(Debug, Clone)]
@@ -14,7 +16,8 @@ pub struct ScrubOptions {
     pub attachments: bool,
     /// AcroForm `/XFA` (the XML form dataset).
     pub xfa: bool,
-    /// Clear each form field's value (`/V`, `/DV`) and rendered appearance (`/AP`).
+    /// Clear each form field's value (`/V`, `/DV`, `/RV`) and the rendered appearance (`/AP`)
+    /// of every field that is not a button. A button keeps its appearance, reset to off.
     pub form_field_values: bool,
     /// `/StructTreeRoot` + `/MarkInfo` (Tagged-PDF `ActualText`/`Alt`).
     pub structure_tree: bool,
@@ -114,26 +117,49 @@ fn scrub_optional_content(doc: &mut Document) {
     }
 }
 
-/// Every field/widget object reachable from `AcroForm /Fields` (depth-first
-/// through `/Kids`). Used to clear values and, by the gate, to verify none survive.
+/// How deep a field tree or a `/Parent` chain is followed before it is treated as a cycle.
+const MAX_FIELD_DEPTH: usize = 64;
+
+/// Whether a dictionary is a form field or a widget, judged from the object alone: it
+/// declares a field type, is a widget annotation, or is a named node with children.
+fn is_field_like(dict: &Dictionary) -> bool {
+    dict.has(b"FT")
+        || matches!(dict.get(b"Subtype"), Ok(Object::Name(name)) if name == b"Widget")
+        || (dict.has(b"T") && dict.has(b"Kids"))
+}
+
+/// Every field or widget dictionary in the document, found by scanning the objects
+/// themselves instead of walking down from `AcroForm /Fields`. A widget a page lists but
+/// the field tree does not, or a tree the walk cannot follow, is still found here, which
+/// is what lets the gate check the scrub without repeating the scrub's own walk.
+fn scan_field_like_ids(doc: &Document) -> Vec<ObjectId> {
+    doc.objects
+        .iter()
+        .filter(|(_, object)| object.as_dict().map(is_field_like).unwrap_or(false))
+        .map(|(id, _)| *id)
+        .collect()
+}
+
+/// Every field/widget object: those reachable from `AcroForm /Fields` (depth-first
+/// through `/Kids`, each stored inline or behind a reference) together with every
+/// field-like object the document holds. Used to clear values and to report them.
 pub(crate) fn collect_field_ids(doc: &Document) -> Vec<ObjectId> {
     let mut stack: Vec<ObjectId> = catalog_subdict(doc, b"AcroForm")
         .and_then(|acro| acro.get(b"Fields").ok())
-        .and_then(|o| o.as_array().ok())
+        .and_then(|o| resolve_array(doc, o))
         .map(|arr| arr.iter().filter_map(|o| o.as_reference().ok()).collect())
         .unwrap_or_default();
     let mut seen = std::collections::BTreeSet::new();
-    let mut ids = Vec::new();
     while let Some(id) = stack.pop() {
         if !seen.insert(id) {
             continue;
         }
-        ids.push(id);
-        if let Ok(kids) = doc
+        if let Some(kids) = doc
             .get_object(id)
             .and_then(|o| o.as_dict())
             .and_then(|d| d.get(b"Kids"))
-            .and_then(|o| o.as_array())
+            .ok()
+            .and_then(|o| resolve_array(doc, o))
         {
             for kid in kids {
                 if let Ok(kid_id) = kid.as_reference() {
@@ -142,15 +168,47 @@ pub(crate) fn collect_field_ids(doc: &Document) -> Vec<ObjectId> {
             }
         }
     }
-    ids
+    seen.extend(scan_field_like_ids(doc));
+    seen.into_iter().collect()
+}
+
+/// Whether a field or widget is a button (checkbox, radio button or push button). The
+/// field type is inheritable, so a widget with none of its own takes its parent's.
+fn is_button_field(doc: &Document, id: ObjectId) -> bool {
+    let mut current = Some(id);
+    for _ in 0..MAX_FIELD_DEPTH {
+        let Some(dict) = current
+            .and_then(|id| doc.get_object(id).ok())
+            .and_then(|o| o.as_dict().ok())
+        else {
+            return false;
+        };
+        if let Ok(field_type) = dict.get(b"FT").and_then(|o| o.as_name()) {
+            return field_type == b"Btn";
+        }
+        current = dict.get(b"Parent").and_then(|o| o.as_reference()).ok();
+    }
+    false
 }
 
 fn scrub_form_field_values(doc: &mut Document) {
     for id in collect_field_ids(doc) {
+        let is_button = is_button_field(doc, id);
         if let Ok(field) = doc.get_object_mut(id).and_then(|o| o.as_dict_mut()) {
             field.remove(b"V");
             field.remove(b"DV");
-            field.remove(b"AP");
+            field.remove(b"RV");
+            if is_button {
+                // A button's appearance is the drawing of its states (the tick, the dot),
+                // not anything the person entered, and it is the only place the name of
+                // the "on" state is recorded. Removing it leaves a checkbox that can never
+                // be ticked again, so it stays and the widget is reset to its off state.
+                if field.has(b"AS") {
+                    field.set("AS", Object::Name(b"Off".to_vec()));
+                }
+            } else {
+                field.remove(b"AP");
+            }
         }
     }
     if let Some(acroform) = catalog_subdict_mut(doc, b"AcroForm") {
@@ -284,10 +342,12 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
         }
     }
     if opts.form_field_values {
-        let any_value = collect_field_ids(doc).into_iter().any(|id| {
+        // Deliberately the object scan and not the field-tree walk the scrub used: a
+        // check that repeats the scrub's walk passes whenever that walk finds nothing.
+        let any_value = scan_field_like_ids(doc).into_iter().any(|id| {
             doc.get_object(id)
                 .and_then(|o| o.as_dict())
-                .map(|d| d.has(b"V") || d.has(b"DV"))
+                .map(|d| d.has(b"V") || d.has(b"DV") || d.has(b"RV"))
                 .unwrap_or(false)
         });
         if any_value {
@@ -464,6 +524,138 @@ mod tests {
         // NeedAppearances set so a viewer regenerates blank appearances.
         let acro = catalog_subdict(&doc, b"AcroForm").unwrap();
         assert!(acro.get(b"NeedAppearances").unwrap().as_bool().unwrap());
+    }
+
+    /// A one-checkbox form: a merged field and widget, ticked, with an on-state named `Agree`.
+    fn checkbox_form(fields_behind_a_reference: bool) -> (Document, ObjectId) {
+        let mut doc = base_doc();
+        let on_id = doc.add_object(Stream::new(Dictionary::new(), b"q Q".to_vec()));
+        let off_id = doc.add_object(Stream::new(Dictionary::new(), b"q Q".to_vec()));
+        let mut states = Dictionary::new();
+        states.set("Agree", Object::Reference(on_id));
+        states.set("Off", Object::Reference(off_id));
+        let mut appearance = Dictionary::new();
+        appearance.set("N", Object::Dictionary(states));
+        let mut field = Dictionary::new();
+        field.set("FT", Object::Name(b"Btn".to_vec()));
+        field.set("Subtype", Object::Name(b"Widget".to_vec()));
+        field.set("T", Object::string_literal("agree"));
+        field.set("V", Object::Name(b"Agree".to_vec()));
+        field.set("AS", Object::Name(b"Agree".to_vec()));
+        field.set("AP", Object::Dictionary(appearance));
+        let field_id = doc.add_object(Object::Dictionary(field));
+        let fields = Object::Array(vec![Object::Reference(field_id)]);
+        let mut acro = Dictionary::new();
+        if fields_behind_a_reference {
+            let fields_id = doc.add_object(fields);
+            acro.set("Fields", Object::Reference(fields_id));
+        } else {
+            acro.set("Fields", fields);
+        }
+        let acro_id = doc.add_object(Object::Dictionary(acro));
+        set_on_catalog(&mut doc, "AcroForm", Object::Reference(acro_id));
+        (doc, field_id)
+    }
+
+    #[test]
+    fn a_button_keeps_its_appearance_and_is_reset_to_off() {
+        let (mut doc, field_id) = checkbox_form(false);
+
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+
+        let field = doc.get_object(field_id).unwrap().as_dict().unwrap();
+        assert!(!field.has(b"V"));
+        assert_eq!(field.get(b"AS").unwrap().as_name().unwrap(), b"Off");
+        // The on-state name survives, so the box can be ticked again after the scrub.
+        let states = field
+            .get(b"AP")
+            .unwrap()
+            .as_dict()
+            .unwrap()
+            .get(b"N")
+            .unwrap()
+            .as_dict()
+            .unwrap();
+        assert!(states.has(b"Agree"));
+        verify_scrub_absence(&doc, &ScrubOptions::default()).unwrap();
+    }
+
+    #[test]
+    fn a_widget_inherits_button_from_its_parent_and_a_text_field_loses_its_appearance() {
+        let mut doc = base_doc();
+        let parent_id = doc.new_object_id();
+        let mut widget = Dictionary::new();
+        widget.set("Subtype", Object::Name(b"Widget".to_vec()));
+        widget.set("Parent", Object::Reference(parent_id));
+        widget.set("AS", Object::Name(b"Yes".to_vec()));
+        widget.set("AP", Object::Dictionary(Dictionary::new()));
+        let widget_id = doc.add_object(Object::Dictionary(widget));
+        let mut parent = Dictionary::new();
+        parent.set("FT", Object::Name(b"Btn".to_vec()));
+        parent.set("T", Object::string_literal("choice"));
+        parent.set("V", Object::Name(b"Yes".to_vec()));
+        parent.set("Kids", Object::Array(vec![Object::Reference(widget_id)]));
+        doc.objects.insert(parent_id, Object::Dictionary(parent));
+        let mut text = Dictionary::new();
+        text.set("FT", Object::Name(b"Tx".to_vec()));
+        text.set("T", Object::string_literal("name"));
+        text.set("V", Object::string_literal("Jane Doe"));
+        text.set("RV", Object::string_literal("<p>Jane Doe</p>"));
+        text.set("AP", Object::Dictionary(Dictionary::new()));
+        let text_id = doc.add_object(Object::Dictionary(text));
+        let mut acro = Dictionary::new();
+        acro.set(
+            "Fields",
+            Object::Array(vec![
+                Object::Reference(parent_id),
+                Object::Reference(text_id),
+            ]),
+        );
+        set_on_catalog(&mut doc, "AcroForm", Object::Dictionary(acro));
+
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+
+        let widget = doc.get_object(widget_id).unwrap().as_dict().unwrap();
+        assert!(widget.has(b"AP"));
+        assert_eq!(widget.get(b"AS").unwrap().as_name().unwrap(), b"Off");
+        let text = doc.get_object(text_id).unwrap().as_dict().unwrap();
+        assert!(!text.has(b"V"));
+        assert!(!text.has(b"RV"));
+        assert!(!text.has(b"AP"));
+    }
+
+    #[test]
+    fn a_field_list_behind_a_reference_is_still_cleared() {
+        let (mut doc, field_id) = checkbox_form(true);
+
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+
+        let field = doc.get_object(field_id).unwrap().as_dict().unwrap();
+        assert!(!field.has(b"V"));
+        verify_scrub_absence(&doc, &ScrubOptions::default()).unwrap();
+    }
+
+    #[test]
+    fn a_widget_outside_the_field_tree_is_cleared_and_the_gate_sees_one_that_was_not() {
+        let mut doc = base_doc();
+        let mut stray = Dictionary::new();
+        stray.set("Subtype", Object::Name(b"Widget".to_vec()));
+        stray.set("FT", Object::Name(b"Tx".to_vec()));
+        stray.set("V", Object::string_literal("left behind"));
+        let stray_id = doc.add_object(Object::Dictionary(stray.clone()));
+        set_on_catalog(&mut doc, "AcroForm", Object::Dictionary(Dictionary::new()));
+
+        // The gate finds the value although no field tree leads to it.
+        assert!(matches!(
+            verify_scrub_absence(&doc, &ScrubOptions::default()),
+            Err(ScrubError::GateFailed { .. })
+        ));
+
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+
+        let stray = doc.get_object(stray_id).unwrap().as_dict().unwrap();
+        assert!(!stray.has(b"V"));
+        verify_scrub_absence(&doc, &ScrubOptions::default()).unwrap();
     }
 
     #[test]
