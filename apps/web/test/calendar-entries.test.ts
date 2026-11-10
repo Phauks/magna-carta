@@ -19,6 +19,7 @@ import {
   recordKeyOf,
   taggedWith,
   type CalendarEntry,
+  entryFromOwnAccountEvent,
   type EntryContext,
 } from "$lib/calendar/calendar-entries.ts";
 import {
@@ -471,5 +472,67 @@ describe("a matter number arriving after the chips", () => {
   it("is unchanged for a matter the read did not return — a capped walk loses no chip", () => {
     const elsewhere = chip({ matterId: "matter_beyond_the_cap", detail: undefined });
     expect(numbered(elsewhere, NUMBERS)).toBe(elsewhere);
+  });
+});
+
+describe("one of the reader's own events from their connected account", () => {
+  const own = {
+    id: "own-1",
+    calendarRemoteId: "cal-main",
+    calendarName: "Calendar",
+    title: "Dentist",
+    location: "Main Street",
+    wholeDay: false,
+    startsOn: null,
+    endsOn: null,
+    startsAt: "2026-11-12T15:00:00.000Z",
+    endsAt: "2026-11-12T16:30:00.000Z",
+  };
+
+  it("paints its own title at the reader's hour, and opens nowhere", () => {
+    // The context's reader is in New York, five hours behind UTC in November.
+    expect(entryFromOwnAccountEvent(own, context)).toMatchObject({
+      id: "other:ownAccount:own-1",
+      kind: "other",
+      label: "Dentist",
+      detail: "Main Street",
+      date: "2026-11-12",
+      time: "10:00 AM",
+      startMinute: 600,
+      endMinute: 690,
+      link: null,
+      matterId: null,
+    });
+  });
+
+  it("lands on the reader's day, which is not always the day the instant is on in UTC", () => {
+    const late = {
+      ...own,
+      startsAt: "2026-11-13T02:00:00.000Z",
+      endsAt: "2026-11-13T03:00:00.000Z",
+    };
+    expect(entryFromOwnAccountEvent(late, context)).toMatchObject({
+      date: "2026-11-12",
+      time: "9:00 PM",
+    });
+  });
+
+  it("draws a whole-day one on its civil days, unconverted", () => {
+    const trip = {
+      ...own,
+      title: "",
+      wholeDay: true,
+      startsOn: "2026-11-26",
+      endsOn: "2026-11-27",
+      startsAt: null,
+      endsAt: null,
+    };
+    const entry = entryFromOwnAccountEvent(trip, context);
+    expect(entry).toMatchObject({ date: "2026-11-26", endDate: "2026-11-27", label: "(No Title)" });
+    expect(entry?.time).toBeUndefined();
+  });
+
+  it("is left out when it cannot be placed", () => {
+    expect(entryFromOwnAccountEvent({ ...own, startsAt: null }, context)).toBeNull();
   });
 });

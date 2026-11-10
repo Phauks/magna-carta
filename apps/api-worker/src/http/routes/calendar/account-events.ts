@@ -8,6 +8,7 @@ import {
 import { SyncRuleRefusal } from "@magna-carta/calendar/sync-rule-service";
 import {
   readExternalEvents,
+  readShownCalendars,
   replaceShownCalendars,
 } from "@magna-carta/calendar/sync-shown-service";
 import { addCalendarDays, type CivilDate } from "@magna-carta/civil-time/civil-date";
@@ -224,21 +225,23 @@ export function registerCalendarAccountEventRoutes(
         });
       }
       const connection = await memberAccount(c);
-      if (connection === null) return c.json({ events: [], truncated: false }, 200);
-      const { events, truncated } = await readExternalEvents(
-        requireChokepointFirmContext(c).firmDatabase,
-        connection.id as IntegrationConnectionId,
-        {
-          from,
-          to,
-          // A day either side, so an event on the window's first or last day is inside it
-          // wherever on earth the reader is. Their screen places each one exactly.
-          fromInstant: `${addCalendarDays(from as CivilDate, -1)}T00:00:00.000Z`,
-          toInstant: `${addCalendarDays(to as CivilDate, 2)}T00:00:00.000Z`,
-        },
-      );
+      if (connection === null) {
+        return c.json({ shownCalendars: [], events: [], truncated: false }, 200);
+      }
+      const database = requireChokepointFirmContext(c).firmDatabase;
+      const connectionId = connection.id as IntegrationConnectionId;
+      const shownCalendars = await readShownCalendars(database, connectionId);
+      const { events, truncated } = await readExternalEvents(database, connectionId, {
+        from,
+        to,
+        // A day either side, so an event on the window's first or last day is inside it
+        // wherever on earth the reader is. Their screen places each one exactly.
+        fromInstant: `${addCalendarDays(from as CivilDate, -1)}T00:00:00.000Z`,
+        toInstant: `${addCalendarDays(to as CivilDate, 2)}T00:00:00.000Z`,
+      });
       return c.json(
         {
+          shownCalendars,
           events: events.map((event) => ({
             id: event.remoteEventId,
             calendarRemoteId: event.calendarRemoteId,

@@ -255,7 +255,9 @@ departure from the table as designed above, which carried a rule. A whole-day ev
 civil days and a timed one as two instants, because the provider answers in its own zone and the
 reader's screen decides the day and hour. The read route
 (`GET /api/v1/me/calendar-sync/account-events`) finds the account through the session member and
-nothing a request names, and answers from the table without asking the provider. Colleagues see
+nothing a request names, and answers from the table without asking the provider. On the web the events are one calendar in the rail, `My Outlook Calendar`, listed only
+for a member who chose a calendar and painted with their own titles at the reader's hour
+(`apps/web/src/lib/calendar/own-account-events.ts`). Colleagues see
 nothing, not even busy time, which leaves that open question as it was. Attaching one of these
 events to a matter is not built. The whole window is read again on each pass; a delta cursor is the
 next step if that proves slow.

@@ -6437,6 +6437,10 @@ export type CalendarSyncShownCalendarsReplace = {
 };
 
 export type CalendarSyncAccountEventList = {
+    /**
+     * The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
+     */
+    shownCalendars: Array<CalendarSyncShownCalendar>;
     events: Array<CalendarSyncAccountEvent>;
     /**
      * True when the window held more events than one answer carries.

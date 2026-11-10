@@ -27290,6 +27290,13 @@
       "CalendarSyncAccountEventList": {
         "type": "object",
         "properties": {
+          "shownCalendars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncShownCalendar"
+            },
+            "description": "The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them."
+          },
           "events": {
             "type": "array",
             "items": {
@@ -27302,6 +27309,7 @@
           }
         },
         "required": [
+          "shownCalendars",
           "events",
           "truncated"
         ]

@@ -268,6 +268,12 @@ export const CalendarSyncAccountEvent = z
 
 export const CalendarSyncAccountEventList = z
   .object({
+    shownCalendars: z
+      .array(CalendarSyncShownCalendar)
+      .describe(
+        "The calendars these events are read from: the member's own choice. Empty when they " +
+          "have no account or chose none, in which case there is nothing to show them.",
+      ),
     events: z.array(CalendarSyncAccountEvent),
     truncated: z
       .boolean()
