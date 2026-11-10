@@ -37,6 +37,7 @@ fn text_watermark(text: &str) -> WatermarkOptions {
         opacity: 1.0,
         rotation_deg: 0.0,
         placement: WatermarkPlacement::Center,
+        pages: pdf_core::PageSelection::All,
     }
 }
 
