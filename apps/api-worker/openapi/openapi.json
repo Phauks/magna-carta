@@ -16268,6 +16268,152 @@
           "link"
         ]
       },
+      "SearchAcrossMattersAnswer": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "broad": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchAcrossMattersGroup"
+            }
+          }
+        },
+        "required": [
+          "query",
+          "broad",
+          "groups"
+        ]
+      },
+      "SearchAcrossMattersGroup": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "answerShape": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "ranked"
+            ]
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchAcrossMattersHit"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "skipped": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "one-matter-only",
+              "permission",
+              "query-too-short",
+              "engine-unavailable",
+              "engine-not-connected",
+              "not-indexed",
+              null
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "section",
+          "answerShape",
+          "matchedFields",
+          "hits",
+          "hasMore",
+          "skipped"
+        ]
+      },
+      "SearchAcrossMattersHit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "matter": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "number": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "number"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "snippet",
+          "secondary",
+          "actorUserId",
+          "sortKey",
+          "link",
+          "matter"
+        ]
+      },
       "MatterPlanTemplateList": {
         "type": "object",
         "properties": {
@@ -73473,6 +73619,120 @@
         }
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one.",
+        "operationId": "search.acrossMatters",
+        "tags": [
+          "search"
+        ],
+        "x-mc-operationId": "search.acrossMatters",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "search:matter",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "search"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "required": false,
+            "name": "in",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One group per place",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchAcrossMattersAnswer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matter-plans": {
       "get": {
         "description": "The firm's matter plans. Deactivated plans are left out unless asked for; a plan is never deleted, because tasks accepted from it name it and a firm asking which matters came off the old intake plan needs it to still be there.",
@@ -127978,6 +128238,9 @@
     },
     {
       "name": "scanPolicy"
+    },
+    {
+      "name": "search"
     },
     {
       "name": "shipping"

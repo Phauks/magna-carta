@@ -122,10 +122,12 @@
 
 - id: notes.search.firm-wide
   name: Firm-wide note search
-  scope: Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
-  status: designed
+  scope: Searching every matter's notes from one place, under the same visibility predicate the timeline composes.
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-08-15-notes-and-activity-design.md
-  notes: The index decision is made (owner approval 2026-11-10, docs/specs/2026-11-10-indexing-and-discovery-design.md): notes are a source of the firm's record index, built as search.record-index, and every note is indexed today. What is unbuilt is the surface that reads it across matters — search.across-matters — so this stays designed. The snippet answer on this node (no snippet, notes design flag W6) predates that approval, whose proposal recommended showing a snippet in firm-wide results; the surface must settle which stands before it shows one.
+  evidence: The notes source's acrossMatters declaration in packages/matter-search/src/sources/all.ts, read by GET /api/v1/search (apps/api-worker/src/http/routes/matters/search-across-matters.ts) behind notes:read and the visible-matter predicate, and shown as the Notes place on apps/web/src/routes/(app)/search/+page.svelte; held by packages/matter-search/test/across-matters.test.ts and apps/api-worker/test/search-across-matters-routes.test.ts
+  notes: Built as one place of the search across matters (search.across-matters), which is where its limits are recorded. The index decision is the owner's approval of 2026-11-10 (docs/specs/2026-11-10-indexing-and-discovery-design.md): notes are a source of the firm's record index, built as search.record-index. A result shows a line of the note. The notes design held that a firm-wide result should carry none and put the question to the owner as flag W6; the proposal approved on 2026-11-10 drew the excerpt and its build order says "snippets shown", so that is what was built, and the excerpt is returned only behind notes:read for a matter the reader may see.
 
 - id: notes.entity-note
   name: Notes on a Directory entity

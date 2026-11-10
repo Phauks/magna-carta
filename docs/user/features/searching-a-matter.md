@@ -14,9 +14,10 @@ The dropdown at the left of the search field is the scope. It opens on **This se
 screen you are on — because that is usually the question. Above the list of sections is **Everything
 on this matter**, which searches every part of the matter you have access to.
 
-The scope never goes wider than the matter you are in. Searching the whole application is the job of
-the box at the top of the window, which finds screens, settings and tools rather than records. Two
-different searches, in two different places, so that neither one surprises you.
+The scope never goes wider than the matter you are in. Searching every matter at once is the job of
+the box at the top of the window: it finds screens, settings and tools, and its last row takes your
+words to the Search page ([Searching across matters](searching-across-matters.md)). Two different
+searches, in two different places, so that neither one surprises you.
 
 Sections that cannot be searched yet are still in the list, greyed out, each with a short line saying
 what it is waiting for. They are shown rather than hidden so you can see what the search does and

@@ -308,10 +308,11 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // it is an assembly INPUT, not a matter document — so the firm is its tenancy root, which is also
   // why the catalogue lives in its own tables rather than as matter-rooted file rows. The act of
   // ASSEMBLING is matter-rooted and rides documents:assemble instead.
-  // search:matter runs one consolidated search across a matter's sections. It names one matter, it
-  // cannot run without one, and it never widens past it — searching the whole application is the
-  // command palette's job and carries no permission at all.
-  search: "matter",
+  // search:matter runs the consolidated search. A matter's own search names one matter and never
+  // widens past it. The search across matters names none, so its resource is the firm; what it
+  // reaches is every matter the visible-matter predicate admits, through the same sources behind
+  // the same per-source capabilities.
+  search: ["matter", "firm"],
   templates: "firm",
   // trust:* governs the trust account and the client/matter sub-ledger under it. It binds the FIRM
   // rather than the matter, on the custody reasoning rather than the costs one: a trust account is

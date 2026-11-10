@@ -461,9 +461,12 @@
 - id: search.across-matters
   name: Search across matters
   scope: One search from the top bar over every matter the reader may see, answered from the record index and, once it is on, the file-contents index.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
-  notes: Step 4 of the specification's build order. The record index it reads is built (search.record-index); the surface is not.
+  evidence: runSearchAcrossMatters in packages/matter-search/src/run-across-matters.ts runs the sources that declare an acrossMatters reading in packages/matter-search/src/sources/all.ts (files, time, costs, notes, communications) through visibleMattersSearchSelect in sources/build.ts, which binds no matter and composes the visible-matter predicate before the limit; the record index's newest-matches form (recordIndexNewestMatchesFrom in packages/search/src/record-index-query.ts) caps what is joined and countRecordIndexMatchesUpToStatement marks an answer broad. apps/api-worker/src/http/routes/matters/search-across-matters.ts serves GET /api/v1/search behind search:matter; apps/web/src/routes/(app)/search/+page.svelte is the page, reached from the last row of apps/web/src/lib/components/command-palette.svelte. Held by packages/matter-search/test/across-matters.test.ts, apps/api-worker/test/search-across-matters-routes.test.ts (real Durable Object storage, a second firm unreachable) and apps/web/test/search-across-matters.test.ts. Measured by packages/matter-search/scripts/measure-across-matters.mts.
+  awaiting-owner: Whether calendar events are searched across matters. The firm-wide timeline withholds an event's title from a reader outside its matter, and matching titles and descriptions here would show them, so the calendar source declares no across-matters reading until the owner says which stands.
+  notes: PARTIAL because five places answer across matters and five are still searched inside a matter only (the words inside files, parties, custody, billing, calendar); the page names them from the server's own answer. Not built - the scope choices other than every matter the reader can see, marking the matched words in an excerpt, and a name index for file names, whose substring match grows with the number of files a firm holds. A snippet is shown, on the owner's approval of 2026-11-10 (build order step 4, "snippets shown"), which settles notes design flag W6 for this surface.
 
 - id: search.status-screen
   name: Search and Indexing status

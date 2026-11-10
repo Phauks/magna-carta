@@ -7,6 +7,7 @@ import { registerMatterPlanRoutes } from "./matter-plans.ts";
 import { registerMatterRecordsRoutes } from "./matter-records.ts";
 import { registerMatterSearchRoutes } from "./matter-search.ts";
 import { registerMattersRoutes } from "./matters.ts";
+import { registerSearchAcrossMattersRoutes } from "./search-across-matters.ts";
 
 // The matter shell and everything that hangs on its identity: records, search, plans, intake, the asset register, and the firm's offices.
 //
@@ -24,6 +25,9 @@ export function mountMatters(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   registerMatterRecordsRoutes(domain, chokepoint);
   registerLocationsRoutes(domain, chokepoint);
   registerMatterSearchRoutes(domain, chokepoint);
+  // The same registry read across every matter the member may see. Its path is a literal outside
+  // the matter family, so nothing here can shadow it.
+  registerSearchAcrossMattersRoutes(domain, chokepoint);
   registerMatterPlanRoutes(domain, chokepoint);
   registerIntakeRoutes(domain, chokepoint);
   // The matter asset register — what a client or an estate owns, kept on the matter: the asset row

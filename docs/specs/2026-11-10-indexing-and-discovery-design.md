@@ -4,7 +4,8 @@
 **Status:** Approved by the owner on 2026-11-10 ("I approve, begin work to fulfill this"). Steps 1
 and 2 of the build order below are built by the change that adds this file. The owner moved file
 contents in a matter's search ahead of steps 3 and 4 the same day; its reading half is built (step
-6a below). The rest are not.
+6a below). The status screen's counts (section 4.1) and the search across matters (section 4.2)
+followed. The build order in section 5 says what is not built.
 **Scope:** How the platform finds things: which indexes exist, what each one is for, who may ask
 each one what, and the order the missing parts are built in. It adds one index — the **record
 index**, over the text held in a firm's own database rows — and fixes the rules every index and
@@ -309,6 +310,90 @@ belongs on a queue, not on a request.
 A firm's database refuses a compound SELECT of more than five terms, and there are eight sources,
 so the expected counts are one row with a column per source and not a row per source.
 
+### 4.2 The search across matters
+
+One question, asked of every matter the reader may see. It is the matter search's sibling: the same
+registry of sources, the same two permission gates, the same groups in the same order, read through
+a second door.
+
+**A source says whether it answers across matters.** Each source in
+`packages/matter-search/src/sources/all.ts` may carry an `acrossMatters` declaration beside its
+one-matter statements: what it matches on across matters and the statements that do it. A matter's
+own search is unchanged by this. Its builder still binds one matter and cannot be handed a
+statement without one; the across-matters builder (`visibleMattersSearchSelect`) binds no matter
+and composes the visible-matter predicate in its place, before the limit. A source with no
+declaration is not run and is reported as `one-matter-only`, so the page can say what it did not
+look at.
+
+| Place        | Across matters                                  | Why not, where not                                         |
+| ------------ | ----------------------------------------------- | ---------------------------------------------------------- |
+| Files        | File names and folder names                     |                                                            |
+| Inside Files | No                                              | The file contents index is one corpus per matter           |
+| Time         | Narratives, through the record index            |                                                            |
+| Costs        | Descriptions, through the record index          |                                                            |
+| Billing      | No                                              | A substring scan of one matter's invoice lines and numbers |
+| Parties      | No                                              | A substring scan; a person is found through the directory  |
+| Calendar     | No                                              | Open with the owner (section 6)                            |
+| Notes        | A note's current text, through the record index |                                                            |
+| Custodian    | No                                              | Substring scans of one matter's packets                    |
+| Messaging    | What was said and the caller's name             | A telephone number is matched inside a matter, not across  |
+
+**What it costs is bounded before it runs.** Inside a matter the record index is narrowed by the
+matter's token, so a common word costs what that one matter holds. Across matters there is no such
+fence: a statement that joined every match to its own table and then sorted would read every
+record containing the word. So the across-matters form (`recordIndexNewestMatchesFrom`) takes the
+newest matches of the index first, up to a cap of 2,000 across all sources, and only those are
+joined, checked against the visible-matter predicate and the source's own conditions, and sorted.
+A second statement counts the matches up to one past the cap. When it reaches that, the answer is
+marked `broad`: the groups then hold the most recent records with those words and not every one,
+and a group with no hits has not shown that its place holds none. The page says so in words.
+
+`packages/matter-search/scripts/measure-across-matters.mts` builds 200,000 records and 200,000
+files over 400 matters and times the read. On the machine that built this:
+
+| Question                             | Capped at 2,000 | Uncapped |
+| ------------------------------------ | --------------- | -------- |
+| A word few records hold              | 0.7 ms          | 0.7 ms   |
+| A word one record in a hundred holds | 6.8 ms          | 6.8 ms   |
+| A word every record holds            | 25.7 ms         | 362.8 ms |
+| A common word typed part way         | 25.7 ms         | 346.6 ms |
+
+A cap of 500 saved about two milliseconds on the worst case and marked the one-in-a-hundred word
+broad; a cap of 10,000 cost thirteen more. File and folder names read no index. They are a
+substring match over the firm's file table, which cost between 21 and 71 ms on 200,000 files, and
+that cost grows with the number of files a firm holds. A name index is the step to take for a firm
+several times that size, measured first.
+
+**Matters and people are found by the reads their own screens use.** The page asks the matters
+listing for its title, number and client match and the directory for its name match, beside the
+search across matters, and presents the three as one list of places. Nothing new matches a name.
+
+**No totals.** A group says how many results are on screen and whether there are more, measured by
+reading one row past the limit. The proposal's drawing showed "Top 3 of 14". Counting to fourteen
+is a second read of everything the first one bounded, so the page does not claim it.
+
+**A snippet is shown.** The notes design held that a firm-wide result should carry no excerpt and
+put the question to the owner as its flag W6
+([`2026-08-15-notes-and-activity-design.md`](2026-08-15-notes-and-activity-design.md), section 10).
+The proposal the owner approved on 2026-11-10 drew a line of matched text under each result and
+its build order says "snippets shown", so that is what is built. Each excerpt is returned only for
+a record on a matter the reader may see, from a place whose own read permission the reader holds.
+Turning it off for one place is that place's `acrossMatters` declaration answering no excerpt.
+
+**One permission.** The route, `GET /api/v1/search`, is gated by `search:matter`, the key the
+matter search already uses, with the firm as its resource. A second key would have been refused to
+every member of every firm until a seed migration granted it, and it would have asked a firm to
+understand two permissions for one capability whose reach is decided by the visible-matter
+predicate and each place's own read permission in both cases.
+
+**Reached from the top bar.** The palette there finds the application's own screens, as before.
+Its last row sends whatever was typed to the page at `/search`, where the question and the chosen
+place ride in the address.
+
+Not built in this step: the scope choices other than every matter the reader can see (one client,
+only my own matters), marking the matched words in an excerpt, and the places the table above
+answers "No" for.
+
 ## 5. Build order
 
 | Step | What                                                                                        | State                                                                               |
@@ -316,7 +401,7 @@ so the expected counts are one row with a column per source and not a row per so
 | 1    | This specification and its decision record                                                  | Built                                                                               |
 | 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
 | 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Counts and standings built (section 4.1); the rebuild action is not                 |
-| 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                           |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, with matters and people by name (section 4.2)                |
 | 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                               |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
 | 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |
@@ -324,6 +409,11 @@ so the expected counts are one row with a column per source and not a row per so
 | 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                           |
 
 ## 6. Open with the owner
+
+- **Calendar events across matters.** The firm-wide timeline withholds an event's title from a
+  reader outside its matter. A search across matters that matched event titles and descriptions
+  would show them. The source declares no across-matters reading until the owner says which
+  stands; adding it is one declaration.
 
 - **Step 6** needs the search service bound in Cloudflare, and natural-language retrieval needs the
   two live experiments in
