@@ -177,6 +177,17 @@ pub(crate) fn guard_input(bytes: &[u8], limits: &GuardLimits) -> Result<(), Bomb
     Ok(())
 }
 
+/// Whether `doc` is still encrypted after loading: it needs a password that was not given.
+///
+/// The parser opens a file whose open password is empty by itself, and such a document is
+/// plain by the time it is returned. One that needs a real password is returned with every
+/// string and stream still enciphered. Work done on that is done on noise: pages merged
+/// from it are unreadable, text drawn onto it is mixed with ciphertext, and the file written
+/// back opens nowhere. Every operation asks this first and refuses.
+pub(crate) fn is_locked(doc: &lopdf::Document) -> bool {
+    doc.is_encrypted()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -82,6 +82,9 @@ pub struct RedactionOutcome {
 /// What redaction can fail at. `GateFailed` means text survived — no PDF is emitted.
 #[derive(Debug)]
 pub enum RedactError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// Input rejected by the decompression-bomb guard (oversize or a bomb).
     Rejected,
     Parse,
@@ -600,6 +603,7 @@ fn map_scrub_err(e: crate::ScrubError) -> RedactError {
     match e {
         crate::ScrubError::Rejected => RedactError::Rejected,
         crate::ScrubError::Parse => RedactError::Parse,
+        crate::ScrubError::Encrypted => RedactError::Encrypted,
         crate::ScrubError::Reassemble => RedactError::Reassemble,
         crate::ScrubError::GateFailed { detail } => RedactError::GateFailed { detail },
     }
@@ -618,8 +622,13 @@ pub fn redact(
         by_page.entry(region.page).or_default().push(region.rect);
     }
 
-    let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
+    // The editable copy is loaded first: it can tell a locked document from a damaged one,
+    // and the renderer reports both as a file it cannot parse.
     let mut lo = lopdf::Document::load_mem(&bytes).map_err(|_| RedactError::Parse)?;
+    if crate::guard::is_locked(&lo) {
+        return Err(RedactError::Encrypted);
+    }
+    let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
     let pages = lo.get_pages(); // 1-based number -> ObjectId
 
     let mut all_affected: Vec<usize> = Vec::new();

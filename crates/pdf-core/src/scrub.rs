@@ -45,6 +45,9 @@ impl Default for ScrubOptions {
 /// survived verification — no PDF is emitted.
 #[derive(Debug)]
 pub enum ScrubError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// Input rejected by the decompression-bomb guard (oversize or a bomb).
     Rejected,
     Parse,
@@ -364,6 +367,9 @@ pub fn sanitize(bytes: Vec<u8>, opts: &ScrubOptions) -> Result<Vec<u8>, ScrubErr
     crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| ScrubError::Rejected)?;
     let mut doc = Document::load_mem(&bytes).map_err(|_| ScrubError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(ScrubError::Encrypted);
+    }
     sanitize_document(&mut doc, opts)?;
     doc.prune_objects();
     verify_scrub_absence(&doc, opts)?;
