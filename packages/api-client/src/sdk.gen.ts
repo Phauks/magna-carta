@@ -3714,7 +3714,7 @@ export const calendarSyncSetFirmLimits = <ThrowOnError extends boolean = false>(
 export const calendarSyncListMyIssues = <ThrowOnError extends boolean = false>(options?: Options<CalendarSyncListMyIssuesData, ThrowOnError>): RequestResult<CalendarSyncListMyIssuesResponses, CalendarSyncListMyIssuesErrors, ThrowOnError> => (options?.client ?? client).get<CalendarSyncListMyIssuesResponses, CalendarSyncListMyIssuesErrors, ThrowOnError>({ url: '/api/v1/me/calendar-sync/issues', ...options });
 
 /**
- * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.
+ * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.
  */
 export const calendarSyncPutBackMyCopy = <ThrowOnError extends boolean = false>(options: Options<CalendarSyncPutBackMyCopyData, ThrowOnError>): RequestResult<CalendarSyncPutBackMyCopyResponses, CalendarSyncPutBackMyCopyErrors, ThrowOnError> => (options.client ?? client).post<CalendarSyncPutBackMyCopyResponses, CalendarSyncPutBackMyCopyErrors, ThrowOnError>({ url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back', ...options });
 

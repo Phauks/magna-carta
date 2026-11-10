@@ -158,6 +158,7 @@ describe("a copy the member changed in Outlook", () => {
       foundText({ ...issue, found: { ...sent, title: "Hearing (moved)", location: null } }),
     ).toBe('Titled "Hearing (moved)" · No location');
     expect(foundText({ ...issue, kind: "removed", found: null })).toBe("Deleted in Outlook");
+    expect(foundText({ ...issue, kind: "not_sent", found: null })).toContain("Not sent");
   });
 
   it("keys a row by its copy and offers its answers in a trailing column", () => {

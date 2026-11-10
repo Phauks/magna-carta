@@ -193,6 +193,21 @@ Magna Carta stores an RFC 5545 rule. Google uses the same text; Graph uses a str
 the Microsoft adapter converts both ways, with a test for every shape the repeat editor can produce.
 A rule Graph cannot hold is not sent and raises an issue.
 
+As built for Graph, a series leaves as one event carrying a `recurrence` pattern and range
+([recurrencePattern](https://learn.microsoft.com/en-us/graph/api/resources/recurrencepattern?view=graph-rest-1.0),
+[recurrenceRange](https://learn.microsoft.com/en-us/graph/api/resources/recurrencerange?view=graph-rest-1.0)).
+The conversion is one way so far (`graphRecurrenceOf` in
+`packages/microsoft-graph/src/calendar-sync-adapter.ts`). It refuses the rules where the two
+readings could part ways, because Graph's documentation does not say what it does with them: a
+monthly or yearly date past the 28th and a fifth weekday (this platform skips a month without one),
+and a weekly rule that leaves out the series' own first day (this platform counts that day). A
+refused series is not sent and raises a `not_sent` issue. A changed day is sent as an ordinary event
+of its own, and every day a row stands in for, changed or called off, is removed from the Graph
+series by deleting that occurrence
+([list instances](https://learn.microsoft.com/en-us/graph/api/event-list-instances?view=graph-rest-1.0)),
+again after every write, since changing a series' rule restores them. A day a member changes inside
+a series in Outlook is not noticed yet.
+
 One changed or cancelled occurrence is an exception row (`recurrence_parent_id` plus
 `recurrence_occurrence_on`) and an exception instance at the provider. "This and all later events" is
 two series locally, so sync sends one update and one create and moves the affected links.

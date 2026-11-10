@@ -591,6 +591,25 @@ describe("a copy the member changed in their own calendar", () => {
     await settleBackgroundWork();
   });
 
+  it("reads an event the provider would not take as not sent, and tries it again when asked", async () => {
+    await raise("matterEvent_issue0000000004", "removed");
+    await firmDatabase
+      .prepare(
+        "UPDATE connection_sync_issue SET provider_refused = 1 WHERE local_id = 'matterEvent_issue0000000004'",
+      )
+      .run();
+    const listed = await app.request(ISSUES_URL, { headers: headers(memberCookie) }, PROVISIONED);
+    expect(await readJson(listed)).toMatchObject({
+      issues: [{ localId: "matterEvent_issue0000000004", kind: "not_sent", found: null }],
+    });
+    // Trying again keeps the link and clears what was agreed, so the next pass sends it.
+    expect((await answer(memberCookie, "matterEvent_issue0000000004", "put-back")).status).toBe(
+      200,
+    );
+    expect(await linkOf("matterEvent_issue0000000004")).toEqual({ agreed_hash: "" });
+    await settleBackgroundWork();
+  });
+
   it("leaves a copy as the member made it, and keeps the answer", async () => {
     await raise("matterEvent_issue0000000003", "changed");
     const response = await answer(memberCookie, "matterEvent_issue0000000003", "leave");
@@ -607,7 +626,7 @@ describe("a copy the member changed in their own calendar", () => {
         "SELECT COUNT(*) AS count FROM audit_log WHERE event IN ('calendar_sync.copy_put_back', 'calendar_sync.copy_left')",
       )
       .first<{ count: number }>();
-    expect(audit?.count).toBe(3);
+    expect(audit?.count).toBe(4);
   });
 });
 

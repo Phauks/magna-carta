@@ -37,11 +37,23 @@ change to the calendar in Magna Carta.
 - Nobody is invited. The copy is a plain entry in your own calendar, and Outlook emails no one.
 - Events from a month back to two years ahead are kept in step.
 
+## Repeating events
+
+A repeating event goes to Outlook as one repeating event, not as a copy for each day. A day you
+changed in Magna Carta appears as its own entry, and a day you called off is taken out of the series
+in Outlook.
+
+Outlook cannot repeat every rule on exactly the same days as Magna Carta. A monthly event on the
+29th, 30th or 31st, a monthly event on a fifth weekday, a yearly event on 29 February, and a weekly
+event whose first day is not one of its weekdays are not sent. Each appears on this page under
+**Different in Outlook** as **Not sent**, with **Try Again** and **Dismiss**, so an event is never
+quietly missing from your calendar.
+
 ## If you change a copy in Outlook
 
 Magna Carta is the record, and an event there is shared by everyone on the matter. Moving, renaming
 or deleting your copy in Outlook changes nothing in Magna Carta. Instead the copy appears on this
-page under **Changed in Outlook**, with what Magna Carta has beside what Outlook has, and two
+page under **Different in Outlook**, with what Magna Carta has beside what Outlook has, and two
 answers:
 
 - **Put Back** writes the event to Outlook again as Magna Carta has it. A deleted copy is made

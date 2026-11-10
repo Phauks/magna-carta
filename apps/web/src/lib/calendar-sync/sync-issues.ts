@@ -41,6 +41,7 @@ export function whenText(reading: CalendarSyncCopyReading): string {
 
 /** What Outlook holds now, naming only what differs from what was sent. */
 export function foundText(issue: CalendarSyncIssue): string {
+  if (issue.kind === "not_sent") return "Not sent. Outlook would not take this event.";
   if (issue.found === null) return "Deleted in Outlook";
   const differences: string[] = [];
   if (issue.found.title !== issue.sent.title) differences.push(`Titled "${issue.found.title}"`);

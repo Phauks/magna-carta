@@ -8590,7 +8590,7 @@ export const calendarSyncListMyIssuesOptions = (options?: Options<CalendarSyncLi
 });
 
 /**
- * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.
+ * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.
  */
 export const calendarSyncPutBackMyCopyMutation = (options?: Partial<Options<CalendarSyncPutBackMyCopyData>>): MutationOptions<CalendarSyncPutBackMyCopyResponse, CalendarSyncPutBackMyCopyError, Options<CalendarSyncPutBackMyCopyData>> => {
     const mutationOptions: MutationOptions<CalendarSyncPutBackMyCopyResponse, CalendarSyncPutBackMyCopyError, Options<CalendarSyncPutBackMyCopyData>> = {

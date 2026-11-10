@@ -1,7 +1,7 @@
 {
   "missing-note": {
     "note": "Workspace packages and apps with no CLAUDE.md, recorded 2026-09-16. This register may only shrink: a new package must arrive with its note, and an entry the repository has since fixed fails the gate. Burning these down is a separate pass. Two entries will not burn down the way the rest will: packages/tsconfig holds shared compiler configuration and no source, and packages/api-client is generated from the OpenAPI contract. The register does not distinguish permanent exemptions from debt, deliberately, because a register with two kinds of entry becomes a place to file things rather than a list to empty.",
-    "count": 29,
+    "count": 28,
     "entries": [
       "apps/bundle-worker",
       "apps/convert-worker",
@@ -13,7 +13,6 @@
       "apps/scan-worker",
       "apps/sign-worker",
       "apps/web",
-      "apps/web-worker",
       "packages/ai-detection",
       "packages/api-client",
       "packages/data-access",
