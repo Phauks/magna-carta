@@ -1,3 +1,4 @@
+import { registerProviderNoticeRoutes } from "./provider-notices.ts";
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { requestCalendarSync } from "../../../calendar-sync/request-sync.ts";
@@ -78,6 +79,8 @@ export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: Doma
   registerCalendarSyncSettingsRoutes(domain, chokepoint, deps.connectedAccounts);
   // The copies a member changed in their own calendar, and their answer to each.
   registerCalendarSyncIssueRoutes(domain, chokepoint, deps.connectedAccounts);
+  // Where a calendar provider says a member's calendar changed.
+  registerProviderNoticeRoutes(domain, chokepoint);
   // Repeating settings: the days a series falls on in a window, and one day of it changed.
   registerCalendarSeriesRoutes(domain, chokepoint);
   app.route("/", domain);

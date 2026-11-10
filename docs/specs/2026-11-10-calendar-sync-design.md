@@ -139,6 +139,34 @@ id; it is written in a `pending` state with the request's `transactionId` before
 so a create whose answer was lost is repeated under the same identifier. A repeating series is not
 sent until section 7 is built.
 
+As built, a change at the provider is picked up by a watch and not by waiting. A pass that reaches
+Microsoft keeps one Graph subscription per account on `me/events` for created, updated and deleted
+([create subscription](https://learn.microsoft.com/en-us/graph/api/subscription-post-subscriptions?view=graph-rest-1.0)),
+asked for three days where Graph allows a little under seven, and renewed once less than two days
+are left (`apps/api-worker/src/calendar-sync/change-watch.ts`). The notice address is
+`/api/v1/calendar-sync/provider-notices/microsoft/{firmId}/{connectionId}` on the deployment's
+stated public address, and the same address is the subscription's lifecycle address. It differs
+from the plan above in one way: the path names the account in the clear and proves nothing, and the
+account's object believes a notice only when its `clientState` is the secret that object generated
+for the subscription, compared in constant time. A request without it is answered `202` like any
+other and changes nothing, so no signing key exists to manage. The route answers Graph's validation
+token as plain text
+([webhook delivery](https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks)),
+reads only the secret and the lifecycle word from a notice, and never which event changed: a
+believed notice brings the account's ordinary pass forward to one second away, and the pass reads
+the account. `reauthorizationRequired` renews at the next pass, `subscriptionRemoved` begins a new
+subscription, and `missed` runs a pass
+([lifecycle notifications](https://learn.microsoft.com/en-us/graph/change-notifications-lifecycle-events)).
+A delta query is not used yet: the pass still lists the copies it wrote, which is what it needs
+until events made at the provider are read. The watch is three methods on `CalendarSyncPort`
+(`watchChanges`, `renewWatch`, `stopWatch`) and the notice reader is the provider package's own
+(`packages/microsoft-graph/src/change-notices.ts`), so a second provider adds a reader and a route
+and changes nothing in the object or the pass. Our own writes come back as notices too, and each
+costs one pass that finds nothing to send. The six-hour safety pass stays, because Graph says a
+notice can be delayed or dropped. A watch is not ended when a member disconnects: the token that
+could end it is deleted in that same step, the notices are no longer believed, and Graph drops the
+subscription within three days.
+
 As built, the first step of the direction back notices and does not apply. Every copy is written
 with a named extended property of the platform's own, and a pass that has nothing left to send asks
 Graph for the events carrying it

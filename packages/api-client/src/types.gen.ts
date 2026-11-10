@@ -30478,6 +30478,44 @@ export type CalendarSyncLeaveMyCopyResponses = {
 
 export type CalendarSyncLeaveMyCopyResponse = CalendarSyncLeaveMyCopyResponses[keyof CalendarSyncLeaveMyCopyResponses];
 
+export type CalendarSyncReceiveMicrosoftNoticeData = {
+    body?: never;
+    path: {
+        firmId: string;
+        connectionId: string;
+    };
+    query?: {
+        validationToken?: string;
+    };
+    url: '/api/v1/calendar-sync/provider-notices/microsoft/{firmId}/{connectionId}';
+};
+
+export type CalendarSyncReceiveMicrosoftNoticeErrors = {
+    /**
+     * The address or the validation token is not one this route could have issued
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReceiveMicrosoftNoticeError = CalendarSyncReceiveMicrosoftNoticeErrors[keyof CalendarSyncReceiveMicrosoftNoticeErrors];
+
+export type CalendarSyncReceiveMicrosoftNoticeResponses = {
+    /**
+     * The validation token, answered back as it was sent
+     */
+    200: string;
+    /**
+     * The notice was received
+     */
+    202: unknown;
+};
+
+export type CalendarSyncReceiveMicrosoftNoticeResponse = CalendarSyncReceiveMicrosoftNoticeResponses[keyof CalendarSyncReceiveMicrosoftNoticeResponses];
+
 export type CalendarListSeriesData = {
     body?: never;
     path?: never;

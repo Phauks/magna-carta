@@ -19,6 +19,10 @@ random bytes, so every branch runs in a test with no network.
   returns null for a rule Graph is not documented to put on the same days; a null is refused before
   any request, never approximated
 
+- `src/change-notices.ts` — reads what Graph posts to a subscription's address into the calendar's
+  `ProviderNotice`: the secret and whether the notice is about the subscription itself. Which event
+  changed is deliberately not read
+
 ## Local rules
 
 - **No mailbox scope.** Nothing here asks for a `Mail.*` permission. How a message is matched to a
