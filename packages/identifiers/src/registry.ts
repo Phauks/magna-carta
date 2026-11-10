@@ -302,13 +302,14 @@ export const ENTITY_PREFIXES = {
   // that list's own statuses, with a colour and a place in its flow. A `taskTeam` is a named group of
   // members assigned as one. A `matterTaskAssignee` is one assignee of a task, a member or a team; a
   // `matterTaskChecklistItem` is one line of a task's checklist; a `matterTaskLink` is one address a
-  // task points at.
+  // task points at; a `matterTaskComment` is one comment in a task's thread.
   taskList: "taskList",
   taskListStatus: "taskListStatus",
   taskTeam: "taskTeam",
   matterTaskAssignee: "matterTaskAssignee",
   matterTaskChecklistItem: "matterTaskChecklistItem",
   matterTaskLink: "matterTaskLink",
+  matterTaskComment: "matterTaskComment",
   // The matter plan: a firm's own statement of the work a kind of matter takes. A
   // `matterPlanTemplate` is the plan; a `matterPlanTaskTemplate` is one task it PROPOSES, carrying a
   // due-date anchor rather than a date and a role rather than a member, because both alternatives are

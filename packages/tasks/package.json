@@ -19,6 +19,8 @@
     "./organisation-service": "./src/organisation-service.ts",
     "./subtask-statements": "./src/subtask-statements.ts",
     "./recurrence-service": "./src/recurrence-service.ts",
+    "./comment-statements": "./src/comment-statements.ts",
+    "./comment-service": "./src/comment-service.ts",
     "./contract": "./src/contract.ts"
   },
   "scripts": {

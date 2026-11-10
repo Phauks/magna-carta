@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "02cb5982-e855-48d9-972f-2ff05f54f71c",
-  "prevId": "43977b3f-9e13-4336-a281-256897bd8398",
+  "id": "5e9b35d6-cc69-40e2-9308-d10273b5b69f",
+  "prevId": "d1dcf56a-96c6-4048-8830-81ebc1ca5dc8",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -19154,6 +19154,132 @@
           "value": "(\"matter_task_checklist_item\".\"done_at\" IS NULL) = (\"matter_task_checklist_item\".\"done_by\" IS NULL)"
         }
       }
+    },
+    "matter_task_comment": {
+      "name": "matter_task_comment",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "author_user_id": {
+          "name": "author_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "matter_task_comment_task_index": {
+          "name": "matter_task_comment_task_index",
+          "columns": [
+            "task_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "matter_task_comment_task_id_matter_task_id_fk": {
+          "name": "matter_task_comment_task_id_matter_task_id_fk",
+          "tableFrom": "matter_task_comment",
+          "tableTo": "matter_task",
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "matter_task_comment_body_nonempty_check": {
+          "name": "matter_task_comment_body_nonempty_check",
+          "value": "length(\"matter_task_comment\".\"body\") > 0"
+        }
+      }
+    },
+    "matter_task_comment_mention": {
+      "name": "matter_task_comment_mention",
+      "columns": {
+        "comment_id": {
+          "name": "comment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "matter_task_comment_mention_comment_id_matter_task_comment_id_fk": {
+          "name": "matter_task_comment_mention_comment_id_matter_task_comment_id_fk",
+          "tableFrom": "matter_task_comment_mention",
+          "tableTo": "matter_task_comment",
+          "columnsFrom": [
+            "comment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "matter_task_comment_mention_comment_id_user_id_pk": {
+          "columns": [
+            "comment_id",
+            "user_id"
+          ],
+          "name": "matter_task_comment_mention_comment_id_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "matter_task_deletion": {
       "name": "matter_task_deletion",

@@ -10,6 +10,7 @@ import {
   MAX_PLAN_OFFSET_DAYS,
   MAX_TASK_BODY_LENGTH,
   MAX_TASK_CHECKLIST_ITEM_LENGTH,
+  MAX_TASK_COMMENT_LENGTH,
   MAX_TASK_LINK_LABEL_LENGTH,
   MAX_TASK_LINK_URL_LENGTH,
   MAX_TASK_LIST_NAME_LENGTH,
@@ -138,7 +139,13 @@ export type TaskValidationCode =
   // Repeating.
   | "task-recurrence-invalid"
   | "task-recurrence-needs-due-date"
-  | "task-recurrence-subtask";
+  | "task-recurrence-subtask"
+  // The comment thread.
+  | "task-comment-invalid"
+  | "task-comment-unknown"
+  | "task-comment-not-yours"
+  | "task-comment-too-many"
+  | "task-comment-mention-invalid";
 
 export class TaskValidationError extends Error {
   constructor(
@@ -458,6 +465,19 @@ export function normalizeChecklistItemText(text: string): string {
     refuse(
       "task-checklist-item-invalid",
       `a checklist line is at most ${String(MAX_TASK_CHECKLIST_ITEM_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+// A comment as it will be stored. Trimmed at the edges; the lines inside are the author's own.
+export function normalizeTaskCommentBody(body: string): string {
+  const normalized = body.trim();
+  if (normalized.length === 0) refuse("task-comment-invalid", "a comment needs words");
+  if (normalized.length > MAX_TASK_COMMENT_LENGTH) {
+    refuse(
+      "task-comment-invalid",
+      `a comment is at most ${String(MAX_TASK_COMMENT_LENGTH)} characters; a longer one belongs in a note on the matter`,
     );
   }
   return normalized;

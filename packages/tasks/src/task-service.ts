@@ -81,6 +81,7 @@ import {
   normalizeTaskTitle,
 } from "./validation.ts";
 import { promoteSubtasksStatement } from "./subtask-statements.ts";
+import { deleteTaskCommentsForTaskStatements } from "./comment-statements.ts";
 import { nextCopyEffect } from "./recurrence-service.ts";
 import {
   deleteExternalLinksForTaskStatement,
@@ -775,6 +776,9 @@ export async function deleteMatterTask(
         // nobody can open.
         deleteMatterTaskDocumentsStatement(database, taskId),
         ...deleteTaskOrganisationRowsStatements(database, taskId),
+        // The comment thread goes with the task: it was talk about this work, and a thread with no
+        // task to open it from is talk nobody can find.
+        ...deleteTaskCommentsForTaskStatements(database, taskId),
         clearBlockedByStatement(database, { taskId, now, actor: options.actorUserId }),
         // Its sub-tasks are not deleted with it: they move up to where it stood, so deleting a
         // parent never quietly takes work somebody else is doing.

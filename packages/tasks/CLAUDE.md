@@ -35,6 +35,8 @@ scoped against a wider brief in
 - `src/recurrence-service.ts` — a repeating task: setting its rule, the next copy (pure), the guarded
   batch that writes it on completion, and the read and effects the hourly pass in
   `apps/api-worker/src/background/tasks/recurring-task-pass.ts` commits for `scheduled` repeats
+- `src/comment-service.ts` / `src/comment-statements.ts` — a task's flat comment thread: add,
+  reword and remove (the author's alone), the colleagues a comment names, and who is told
 - `src/close-advisory.ts` — the count that rides a successful matter close and can never block one
 - `src/plan-statements.ts` — the plan's SQL: the offered-plans read, the matter anchor cut from
   `opened_at`, the role resolution, and the template chain walk
@@ -176,6 +178,13 @@ team already on it. **A watcher is copied in, as on a CC line**: told when they 
 the task is completed, reopened, moved to another status, changes hands or has its due date moved.
 Those reach the watchers named in the payload through the `named-members` audience and are
 informational where an assignment asks for attention. A reworded title or body tells nobody.
+
+**A comment tells the people on the task, and a mention asks for attention.** `commented` reaches
+the people assigned (each live member of an assigned team) and watching; `commentMentioned` reaches
+the people the comment names, who are dropped from the first so nobody is told twice. The people
+named are rows in `matter_task_comment_mention`, sent by id: never find them by reading "@Name" in
+the words, because a name is not an identity. Neither payload nor the audit row carries a word of
+the comment.
 
 **The two comparison-shaped points are declared and wired to nothing.** No write makes a task become
 due. When the sub-slice that sweeps deadlines lands, it sweeps tasks through the same mechanism
