@@ -72,6 +72,9 @@ describe("schema conformance (fitness functions)", () => {
       conflicts_check_number_counter: "scope_key",
       setting: "key",
       platform_operator: "user_id",
+      // The community board's display identity: one per person, keyed by the GLOBAL user handle,
+      // the same idiom as platform_operator.
+      community_profile: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
       // A class's structured attributes are one-to-one WITH the asset and have no identity of their
@@ -205,6 +208,8 @@ describe("schema conformance (fitness functions)", () => {
       // What a conversation has been given to read: the pair IS the fact, and a file is attached to
       // a conversation once, so a surrogate key would let the same attachment exist twice.
       "magnus_conversation_attachment",
+      // A community vote: one per person per post, so the pair IS the vote.
+      "community_vote",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

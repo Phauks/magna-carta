@@ -1,4 +1,12 @@
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AccountId,
@@ -631,7 +639,8 @@ export const communityVote = sqliteTable(
     createdAt: text("created_at").notNull(), // ISO-8601 instant
   },
   (table) => [
-    uniqueIndex("community_vote_post_user_unique_index").on(table.postId, table.userId),
+    // The pair IS the vote: one per person per post, so a surrogate key would let one person vote twice.
+    primaryKey({ columns: [table.postId, table.userId] }),
     index("community_vote_user_index").on(table.userId),
   ],
 );

@@ -7,7 +7,7 @@
 - id: community
   name: Community and feedback forum
   scope: Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
-  status: in-build
+  status: partial
   adrs: ADR-0044
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: The domain package (packages/community) and the control-plane tables are built and tested; the board worker, its sign-in handoff and the screens follow. Board home layout: option A, list with a product-area rail, picked by the owner 2026-11-10.
@@ -15,7 +15,7 @@
 - id: community.board
   name: Feedback board
   scope: Feature requests with popularity-ranked upvotes, comments, tags, status pipeline, and roadmap-as-filtered-view-by-status.
-  status: in-build
+  status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema; no route or screen yet.
@@ -35,7 +35,7 @@
 - id: community.confidentiality
   name: Confidentiality boundary
   scope: Posting always opt-in and user-authored; nothing flows automatically from private matters or the private bug pipeline into the public forum.
-  status: in-build
+  status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: Format-only detector (packages/community/src/confidentiality-detector.ts) holds posts and comments that look like client detail; one confidentiality flag hides; author delete is one write. The composer notice and "send to support instead" arrive with the screens.
@@ -43,7 +43,7 @@
 - id: community.identity
   name: Display-name identity and SSO
   scope: Better Auth SSO with display-name-only public identity; real name/firm never shown; aggregate vote counts only.
-  status: in-build
+  status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: Separate community_profile record with a display name; firm written at write time and never returned; voter list never read. The Better Auth handoff to the community host is still open.
@@ -89,7 +89,7 @@
 - id: community.moderation
   name: Moderation and abuse handling
   scope: Permanent moderation, spam/abuse, and security operation of a public board, owned in-house.
-  status: in-build
+  status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: First-contribution hold, detector hold, single-flag confidentiality hide, three-firm spam threshold, and the publish/remove decision are built in the package; the moderation screen and the read-only kill switch arrive with the worker.

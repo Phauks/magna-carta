@@ -360,6 +360,7 @@ export async function countPublishedRequestsByStatus(
 // The author's delete. ONE write, and the text is gone: title and body are blanked in place, so no
 // copy survives anywhere and no second store has to be chased. The row stays so the number and any
 // replies still resolve.
+// fitness:unguarded-write — board-service.ts checks the author and the state first; a zero is a repeat delete of an already-deleted post, which is the outcome asked for
 export function deletePostByAuthorStatement(
   database: SqlDatabase,
   input: { postId: CommunityPostId; authorUserId: UserId },
@@ -373,6 +374,7 @@ export function deletePostByAuthorStatement(
     .bind(input.postId, input.authorUserId, now);
 }
 
+// fitness:unguarded-write — board-service.ts reads the post first; a zero means it was deleted by its author in between, and a deleted post is never re-published
 export function setPostModerationStatement(
   database: SqlDatabase,
   input: { postId: CommunityPostId; state: ModerationState; heldReason: HeldReason | null },
@@ -420,6 +422,7 @@ export function setPostStatusStatement(
     );
 }
 
+// fitness:unguarded-write — board-service.ts has already refused anything but a published question; the kind guard is a backstop and a zero changes nothing a reader can see
 export function setAcceptedAnswerStatement(
   database: SqlDatabase,
   input: { postId: CommunityPostId; commentId: CommunityCommentId | null },
@@ -450,6 +453,7 @@ export function insertVoteStatement(
     .bind(input.postId, input.userId, input.firmId, now);
 }
 
+// fitness:unguarded-write — withdrawing a vote that does not exist is the outcome asked for; the recount in the same batch is what readers see
 export function deleteVoteStatement(
   database: SqlDatabase,
   input: { postId: CommunityPostId; userId: UserId },
@@ -544,6 +548,7 @@ export function insertCommentStatement(
     );
 }
 
+// fitness:unguarded-write — the WHERE names the post by id only to scope the recount; a zero means the post row is gone, and there is nothing to count
 export function recountCommentsStatement(
   database: SqlDatabase,
   postId: CommunityPostId,
@@ -625,6 +630,7 @@ export async function findComment(
       };
 }
 
+// fitness:unguarded-write — board-service.ts checks the author and the state first; a zero is a repeat delete, which is the outcome asked for
 export function deleteCommentByAuthorStatement(
   database: SqlDatabase,
   input: { commentId: CommunityCommentId; authorUserId: UserId },
@@ -638,6 +644,7 @@ export function deleteCommentByAuthorStatement(
     .bind(input.commentId, input.authorUserId, now);
 }
 
+// fitness:unguarded-write — board-service.ts reads the comment first; a zero means its author deleted it in between, which a moderator decision must not undo
 export function setCommentModerationStatement(
   database: SqlDatabase,
   input: { commentId: CommunityCommentId; state: ModerationState; heldReason: HeldReason | null },
@@ -708,6 +715,7 @@ export async function countOpenFlagFirms(
   return results[0]?.firms ?? 0;
 }
 
+// fitness:unguarded-write — a target with no open flags (a first-post hold, a detector hold) has nothing to resolve; a zero is normal
 export function resolveFlagsStatement(
   database: SqlDatabase,
   input: { postId: CommunityPostId; commentId: CommunityCommentId | null },

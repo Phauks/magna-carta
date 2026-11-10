@@ -78,10 +78,10 @@ CREATE TABLE `community_vote` (
 	`user_id` text NOT NULL,
 	`firm_id` text NOT NULL,
 	`created_at` text NOT NULL,
+	PRIMARY KEY(`post_id`, `user_id`),
 	FOREIGN KEY (`post_id`) REFERENCES `community_post`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`firm_id`) REFERENCES `firm`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `community_vote_post_user_unique_index` ON `community_vote` (`post_id`,`user_id`);--> statement-breakpoint
 CREATE INDEX `community_vote_user_index` ON `community_vote` (`user_id`);

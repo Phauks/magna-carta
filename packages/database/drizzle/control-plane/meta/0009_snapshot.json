@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "aaa6443d-79ae-4bc9-be0e-aea31b41c3cb",
+  "id": "77738b9c-0923-4d69-aec5-e575437bebfe",
   "prevId": "bfe0fbb1-2d1a-4fd9-8933-0f902b236e49",
   "tables": {
     "account": {
@@ -865,14 +865,6 @@
         }
       },
       "indexes": {
-        "community_vote_post_user_unique_index": {
-          "name": "community_vote_post_user_unique_index",
-          "columns": [
-            "post_id",
-            "user_id"
-          ],
-          "isUnique": true
-        },
         "community_vote_user_index": {
           "name": "community_vote_user_index",
           "columns": [
@@ -922,7 +914,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "community_vote_post_id_user_id_pk": {
+          "columns": [
+            "post_id",
+            "user_id"
+          ],
+          "name": "community_vote_post_id_user_id_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
