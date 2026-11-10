@@ -31,6 +31,7 @@ describe("where a destination opens beside the reader", () => {
       "session",
       "unsaved-work",
       "live-meeting",
+      "requested",
     ]);
   });
 

@@ -37,6 +37,7 @@
   import { page } from "$app/state";
   import type { Snippet } from "svelte";
   import { isFavorite, toggleFavorite } from "$lib/navigation/favorites.svelte.ts";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
 
   let { title, items }: { title: string; items?: Snippet } = $props();
 
@@ -55,8 +56,7 @@
   }
 
   function openInNewTab(): void {
-    // `noopener` so the new tab cannot reach back into this one through `window.opener`.
-    window.open(page.url.href, "_blank", "noopener");
+    openBeside(page.url.href, "requested");
   }
 </script>
 
