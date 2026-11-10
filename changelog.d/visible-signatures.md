@@ -1,0 +1,6 @@
+---
+category: Added
+audience: internal
+---
+
+**A signature can be seen on the page, and a document can be signed more than once.** `prepare_signature` (`crates/pdf-core/src/sign.rs`) signed invisibly and only that way: the signature was in the file and in a viewer's signature panel, and nothing on the page said the document was signed. `SignatureOptions` gains `appearance`: a page, a box in points, and lines of text such as the signer's name and the time. The engine draws a thin border and the lines in Helvetica, sized so every line fits the box, and writes them into the same incremental update the signature covers, so the text cannot be changed afterwards without breaking the signature. It reads no clock and knows no signer; it draws what the caller gives it. `prepareSignature` in `@magna-carta/pdf` takes the same optional `appearance`. A page the document does not have is "page index out of range" and a box with no width or height is "the signature box has no usable size". Every signature field was also named `Signature1`, so a second signature shared the first one's name; each now takes the first of `Signature1`, `Signature2`, ... that the form does not already hold. A page stored with a rotation shows the box turned with it.

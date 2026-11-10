@@ -11,7 +11,7 @@ import * as asn1js from "asn1js";
 import * as pkijs from "pkijs";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createSealEngine, ensureReady, PdfDocument } from "../src/index.js";
+import { createSealEngine, ensureReady, extractPdfText, PdfDocument } from "../src/index.js";
 
 const wasmBytes = readFileSync(
   fileURLToPath(new URL("../src/pkg/pdf_core_bg.wasm", import.meta.url)),
@@ -90,6 +90,30 @@ describe("PAdES seal end to end (WASM engine + pkijs CMS)", () => {
     const cmsDer = Uint8Array.from(cmsHex.match(/../g)!.map((byte) => parseInt(byte, 16)));
 
     expect(await verifyDetachedCms(cmsDer, signed, [certificate])).toBe(true);
+  });
+
+  it("draws a visible signature on the page and refuses a page the document does not have", async () => {
+    const engine = createSealEngine(wasmBytes);
+    const lines = ["Signed by José Álvarez", "2026-11-10 14:02 UTC"];
+    const prepared = await engine.prepare(helloPdf, {
+      name: "José Álvarez",
+      appearance: { page: 0, rect: [72, 72, 272, 112], lines },
+    });
+
+    // Still an incremental update, and the box's text is on the page for a reader to see.
+    expect(prepared.document.slice(0, helloPdf.length)).toEqual(helloPdf);
+    const text = await extractPdfText(prepared.document);
+    const pageText = text.pages[0]!.lines.map((line) => line.text).join("\n");
+    for (const line of lines) {
+      expect(pageText).toContain(line);
+    }
+
+    await expect(
+      engine.prepare(helloPdf, { appearance: { page: 9, rect: [72, 72, 272, 112], lines } }),
+    ).rejects.toThrow("page index out of range");
+    await expect(
+      engine.prepare(helloPdf, { appearance: { page: 0, rect: [72, 72, 72, 112], lines } }),
+    ).rejects.toThrow("the signature box has no usable size");
   });
 
   it("rebuilding a CMS over tampered bytes does not verify against the sealed range", async () => {
