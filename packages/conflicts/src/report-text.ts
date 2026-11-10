@@ -64,6 +64,10 @@ export interface ReportedPlaces {
   readonly fileMattersNotSearched?: number | null;
   readonly fileMattersFailed?: number | null;
   readonly nameFloor: number | null;
+  // How many names reached the most records one name keeps from one place, and that ceiling. Absent
+  // on rows written before the record index was read.
+  readonly namesAtCeiling?: number | null;
+  readonly nameResultCeiling?: number | null;
   readonly resultsFound: number | null;
   readonly resultsRefused: number | null;
 }
@@ -315,6 +319,14 @@ function describePlaces(places: ReportedPlaces | null, partyCount: number): stri
         `${failed} ${failed === 1 ? "matter's files" : "matters' files"} could not be searched: the file index did not answer for ${failed === 1 ? "it" : "them"}.`,
       );
     }
+  }
+  const atCeiling = places.namesAtCeiling ?? 0;
+  if (atCeiling > 0) {
+    const ceiling = places.nameResultCeiling ?? null;
+    const most = ceiling === null ? "the most records" : `the first ${ceiling} records`;
+    statements.push(
+      `${atCeiling} ${atCeiling === 1 ? "name was" : "names were"} found in more records of one place than a check keeps; ${most} for ${atCeiling === 1 ? "it" : "each"} were recorded.`,
+    );
   }
   if (places.resultsRefused !== null && places.resultsRefused > 0) {
     statements.push(
