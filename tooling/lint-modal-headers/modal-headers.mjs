@@ -74,6 +74,7 @@ export const ACT_VERBS = new Set([
   "describe",
   "detach",
   "discard",
+  "disconnect",
   "draft",
   "edit",
   "end",

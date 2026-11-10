@@ -200,6 +200,9 @@
       "path": "packages/metadata/tsconfig.build.json"
     },
     {
+      "path": "packages/microsoft-graph/tsconfig.build.json"
+    },
+    {
       "path": "packages/money/tsconfig.build.json"
     },
     {
