@@ -79,7 +79,8 @@ const searchRoute = defineOpenAPIRoute(searchMeta, {
     "`one-matter-only` is a place searched inside a matter and not across them, and `permission` " +
     "is one the member lacks the capability for. `broad` is true when the words are in more of " +
     "the firm's records than one search reads; the groups then hold the most recent records with " +
-    "those words and not every one.",
+    "those words and not every one. A long text is quoted at the stretch the words are in, and " +
+    "`titleMarks` and `snippetMarks` say where they are in what is shown.",
   request: { query: searchQuery },
   responses: {
     200: {
@@ -160,7 +161,9 @@ function wireAnswer(
           {
             id: hit.id,
             title: hit.title,
+            titleMarks: hit.titleMarks.map((mark) => ({ start: mark.start, end: mark.end })),
             snippet: hit.snippet,
+            snippetMarks: hit.snippetMarks.map((mark) => ({ start: mark.start, end: mark.end })),
             secondary: hit.secondary,
             actorUserId: hit.actorUserId,
             sortKey: hit.sortKey,

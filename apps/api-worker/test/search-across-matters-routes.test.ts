@@ -35,7 +35,9 @@ let secondMatterId: string;
 interface Hit {
   readonly id: string;
   readonly title: string;
+  readonly titleMarks: readonly { readonly start: number; readonly end: number }[];
   readonly snippet: string | null;
+  readonly snippetMarks: readonly { readonly start: number; readonly end: number }[];
   readonly link: string;
   readonly matter: { readonly id: string; readonly title: string; readonly number: string | null };
 }
@@ -251,6 +253,17 @@ describe("one question, answered from every matter the member may see", () => {
     expect(first?.matter.number).toMatch(/^AM-\d{4}$/);
     expect(second?.matter.number).toMatch(/^AM-\d{4}$/);
     expect(first?.matter.number).not.toBe(second?.matter.number);
+  });
+
+  it("says where the reader's words are in each hit, and marks no title that is a date", async () => {
+    const notes = group(await search("ease"), "notes");
+    expect(notes.hits).toHaveLength(2);
+    for (const hit of notes.hits) {
+      // Found by its start, marked as the whole word on the page.
+      const marked = hit.snippetMarks.map((mark) => hit.snippet?.slice(mark.start, mark.end));
+      expect(marked).toEqual(["easement"]);
+      expect(hit.titleMarks).toEqual([]);
+    }
   });
 
   it("links each hit into its own section on its own matter", async () => {

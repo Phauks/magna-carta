@@ -7,6 +7,7 @@ import type {
   AnswerShape,
   MatterSearchHit,
   MatterSearchRawRow,
+  SourceMarking,
   SourceSkipReason,
 } from "../types.ts";
 
@@ -88,6 +89,10 @@ export interface MatterSearchSource {
   // a decision with a reason — a source over a protected() column declares false and returns a
   // pointer, so the reader follows the link into that subsystem's own audited read.
   readonly declaresSnippet: boolean;
+  // How this source's match is found again in the title and the excerpt of a hit, so the words
+  // that answered can be marked. Applied by the runners after `project` (marks.ts), to the rows a
+  // reader is about to be shown and to nothing else.
+  readonly marking: SourceMarking;
   // Below this length the source cannot answer usefully and reports itself skipped rather than
   // returning an empty answer that reads like "nothing here".
   readonly minimumQueryLength: number;

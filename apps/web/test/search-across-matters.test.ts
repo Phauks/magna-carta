@@ -41,7 +41,9 @@ function hit(id: string, matterId = "matter_a") {
   return {
     id,
     title: "2026-06-04T15:00:00.000Z",
+    titleMarks: [],
     snippet: "The easement runs along the eastern boundary.",
+    snippetMarks: [{ start: 4, end: 12 }],
     secondary: null,
     actorUserId: null,
     sortKey: "2026-06-04T15:00:00.000Z",
