@@ -35,6 +35,7 @@ export function readMeetingEffects(parsed: unknown): MediaEffectSettings {
   if (typeof parsed !== "object" || parsed === null) return { ...DEFAULT_EFFECT_SETTINGS };
   const background: unknown = Reflect.get(parsed, "background");
   const reduceNoise: unknown = Reflect.get(parsed, "reduceNoise");
+  const removeNoise: unknown = Reflect.get(parsed, "removeNoise");
   return {
     background:
       background === "blur" || background === "none" || background === "image"
@@ -42,6 +43,8 @@ export function readMeetingEffects(parsed: unknown): MediaEffectSettings {
         : DEFAULT_EFFECT_SETTINGS.background,
     reduceNoise:
       typeof reduceNoise === "boolean" ? reduceNoise : DEFAULT_EFFECT_SETTINGS.reduceNoise,
+    removeNoise:
+      typeof removeNoise === "boolean" ? removeNoise : DEFAULT_EFFECT_SETTINGS.removeNoise,
   };
 }
 
