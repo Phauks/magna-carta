@@ -85,6 +85,7 @@
 @import "./recipes/palette-swatches.css";
 @import "../components/date-picker/date-picker.css";
 @import "../components/date-range-picker/date-range-picker.css";
+@import "../components/date-time-field/date-time-field.css";
 @import "./recipes/scrollbar.css";
 /* The gilt scroll-edge rule, beside the scrollbar recipe because the two answer the same
    question: the scrollbar where a surface shows one, this where it does not or cannot.
