@@ -187,6 +187,8 @@ export interface ConflictsCheckSummaryRow {
   readonly hit_count: number | null;
   /** The latest run's stored request, read for who it searches. Null before any run exists. */
   readonly request_json: string | null;
+  // Set when a member stopped the latest run; the list reports such a run as cancelled.
+  readonly run_cancelled_at: string | null;
 }
 
 const NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
@@ -289,7 +291,7 @@ export function selectConflictsChecksStatement(
       `SELECT numbered.id, numbered.check_number, numbered.subject_matter_id, numbered.created_at, ` +
         `numbered.created_by_user_id, numbered.latest_run_id, ` +
         `COALESCE(run.ordinal, 0) AS run_count, run.status AS run_status, run.created_at AS latest_run_at, ` +
-        `run.trigger, run.trigger_source, run.requested_by_user_id, run.request_json, ` +
+        `run.trigger, run.trigger_source, run.requested_by_user_id, run.request_json, run.cancelled_at AS run_cancelled_at, ` +
         `record.strictness, record.floor_raised, ` +
         // A correlated count rather than a GROUP BY join: the page is at most a few dozen rows, the
         // (check_id) index on conflicts_hit serves each one, and a join would have to de-duplicate

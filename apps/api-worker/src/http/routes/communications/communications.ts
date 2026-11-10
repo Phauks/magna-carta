@@ -27,19 +27,23 @@ import {
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import { previewNextNumber } from "@magna-carta/sequence-numbering/scheme-draw";
 import {
-  COMMUNICATION_CHANNELS,
-  COMMUNICATION_DIRECTIONS,
-  COMMUNICATION_DISPOSITIONS,
   COMMUNICATION_SCOPES,
-  MAX_CALL_DURATION_SECONDS,
-  MAX_COMMUNICATION_BODY_LENGTH,
   MAX_COMMUNICATION_PAGE_SIZE,
-  MAX_COMMUNICATION_SUMMARY_LENGTH,
-  MAX_COUNTERPARTY_NUMBER_LENGTH,
 } from "@magna-carta/communications/types";
+import {
+  channelField,
+  CommunicationDetail,
+  LogCommunicationRequest,
+  RouteCommunicationRequest,
+  SetDispositionRequest,
+  UpdateCommunicationRequest,
+} from "@magna-carta/communications/contract";
+import { createMatterTask } from "@magna-carta/tasks/task-service";
+import { TaskValidationError } from "@magna-carta/tasks/validation";
+import type { Permission } from "@magna-carta/access-control/registry";
 import { CommunicationValidationError } from "@magna-carta/communications/validation";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { CommunicationId, MatterId } from "@magna-carta/identifiers/types";
+import type { CommunicationId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
@@ -53,7 +57,6 @@ import {
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
-import { identifierField } from "@magna-carta/identifiers/field";
 import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
@@ -78,114 +81,11 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 const READ = "communications:read" as const;
 const WRITE = "communications:log" as const;
 const REVIEW_UNROUTED = "communications:reviewUnrouted" as const;
+// The keys a message taken on a call needs, because it becomes a task (tasks.ts holds the same).
+const TASKS_WRITE = "tasks:write" as const;
+const TASKS_ASSIGN = "tasks:assign" as const;
 
-// ---- request/response contracts ----
-
-const channelField = z.enum(COMMUNICATION_CHANNELS);
-const directionField = z.enum(COMMUNICATION_DIRECTIONS);
-const dispositionField = z.enum(COMMUNICATION_DISPOSITIONS);
-
-const LogCommunicationRequest = z
-  .object({
-    channel: channelField,
-    direction: directionField,
-    // Optional, and an UNNUMBERED matter counts: matter_number is null until a matter opens, and an
-    // intake or a consultation is a real anchor a first contact usually lands on. Omit it and the
-    // row lands in the unrouted queue for somebody to file.
-    matterId: identifierField("matter").nullable().optional(),
-    counterpartyNumber: z.string().min(1).max(MAX_COUNTERPARTY_NUMBER_LENGTH),
-    counterpartyEntityId: z.string().min(1).max(64).nullable().optional(),
-    // Who was ON the call. Defaults to whoever is logging it, which is the overwhelmingly common
-    // case; a receptionist logging the call they transferred is the other one.
-    memberUserId: identifierField("user").nullable().optional(),
-    occurredAt: z.string().datetime(),
-    // When the line closed, which is NOT how long the call ran. A caller left on hold occupies the
-    // span without spending it, so the two are recorded separately and neither is derived from the
-    // other; a length that disagrees with the span is a fact about the call, not a contradiction.
-    endedAt: z.string().datetime().nullable().optional(),
-    durationSeconds: z.number().int().min(0).max(MAX_CALL_DURATION_SECONDS).nullable().optional(),
-    body: z.string().max(MAX_COMMUNICATION_BODY_LENGTH).nullable().optional(),
-    summary: z.string().max(MAX_COMMUNICATION_SUMMARY_LENGTH).nullable().optional(),
-    // The other anchor: why this belongs to no matter. Not every call a firm takes is about a case —
-    // spam, a wrong number, the landlord, a prospect who never came back — and a row that can only
-    // be filed onto a matter sits in the queue forever. Refused together with matterId: a row is on
-    // a matter, or set aside, never both.
-    disposition: dispositionField.nullable().optional(),
-  })
-  .openapi("LogCommunicationRequest");
-
-const SetDispositionRequest = z
-  .object({ disposition: dispositionField })
-  .openapi("SetCommunicationDispositionRequest");
-
-// A CORRECTION, not a patch of arbitrary shape: every field a member could have mistyped, each
-// optional and each keeping what the row holds when it is omitted. The ANCHOR is deliberately absent
-// — a matter and a disposition move a row between queues through their own acts, and a correction to
-// a summary must not be able to re-file a message somebody else has just filed.
-const UpdateCommunicationRequest = z
-  .object({
-    channel: channelField.optional(),
-    direction: directionField.optional(),
-    counterpartyNumber: z.string().min(1).max(MAX_COUNTERPARTY_NUMBER_LENGTH).optional(),
-    counterpartyEntityId: z.string().min(1).max(64).nullable().optional(),
-    memberUserId: identifierField("user").nullable().optional(),
-    occurredAt: z.string().datetime().optional(),
-    endedAt: z.string().datetime().nullable().optional(),
-    durationSeconds: z.number().int().min(0).max(MAX_CALL_DURATION_SECONDS).nullable().optional(),
-    body: z.string().max(MAX_COMMUNICATION_BODY_LENGTH).nullable().optional(),
-    summary: z.string().max(MAX_COMMUNICATION_SUMMARY_LENGTH).nullable().optional(),
-  })
-  .openapi("UpdateCommunicationRequest");
-
-const RouteCommunicationRequest = z
-  .object({ matterId: identifierField("matter") })
-  .openapi("RouteCommunicationRequest");
-
-const CommunicationDetail = z
-  .object({
-    id: z.string(),
-    // The number the firm says out loud — the day the call happened and that day's own sequence,
-    // "2026-09-08-0042". A handle is what the platform joins on; this is what a receptionist writes
-    // on a message slip and reads back down a telephone. Null only on rows recorded before the
-    // sequence existed and never numbered.
-    referenceNumber: z.string().nullable(),
-    channel: channelField,
-    direction: directionField,
-    // Null while the row is in the unrouted queue.
-    matterId: z.string().nullable(),
-    // The matter as it stands, resolved by the read rather than kept as a second copy that could
-    // drift. The STATUS is not decoration: an anchor may be an intake or a consultation, and what
-    // may be said to a prospect and to a client are different things, so somebody about to reply
-    // needs to see which. matterNumber is null on exactly those, and the rung's own number — a
-    // consultation's tentative one, an intake's — is what a surface shows in its place.
-    matterTitle: z.string().nullable(),
-    matterStatus: z.string().nullable(),
-    matterNumber: z.string().nullable(),
-    consultationNumber: z.string().nullable(),
-    intakeNumber: z.string().nullable(),
-    // Why the row belongs to no matter, where somebody has said so. Null on a filed row and on one
-    // nobody has decided about yet — those two are told apart by matterId, not by this.
-    disposition: dispositionField.nullable(),
-    counterpartyNumber: z.string(),
-    counterpartyEntityId: z.string().nullable(),
-    memberUserId: z.string().nullable(),
-    occurredAt: z.string(),
-    // When the line closed. The span from occurredAt to here is how long the line was open;
-    // durationSeconds is how long the call actually took. A caller on hold makes them differ, and
-    // both are true.
-    endedAt: z.string().nullable(),
-    durationSeconds: z.number().nullable(),
-    body: z.string().nullable(),
-    summary: z.string().nullable(),
-    // How the row came to exist. A member's recollection of a call and a carrier's report of the
-    // same call carry different weight, and a surface that cannot tell them apart will present the
-    // wrong one as fact.
-    producer: z.enum(["member", "carrier"]),
-    loggedByUserId: z.string().nullable(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  })
-  .openapi("CommunicationDetail");
+// ---- request/response contracts: the bodies live in packages/communications/src/contract.ts ----
 
 const CommunicationPage = paginated(CommunicationDetail).openapi("CommunicationPage");
 const UnroutedCount = z
@@ -650,6 +550,10 @@ function communicationDetail(row: CommunicationWithMatterRow): z.infer<typeof Co
     summary: row.summary,
     producer: row.producer,
     loggedByUserId: row.logged_by_user_id,
+    callerIdName: row.caller_id_name,
+    outcome: row.outcome,
+    spamKind: row.spam_kind,
+    messageTaskId: row.message_task_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -723,6 +627,19 @@ async function commitEffect(
   } catch (caught) {
     if (caught instanceof CommunicationValidationError) {
       return { ok: false, problem: communicationErrorResponse(c, caught) };
+    }
+    // A message's task refused by the tasks subsystem: an assignee who is not a member, or who
+    // cannot see the matter the call is filed on. The call is not saved either, by design.
+    if (caught instanceof TaskValidationError) {
+      return {
+        ok: false,
+        problem: problemJson(c, {
+          type: "validation",
+          title: "Message could not be left",
+          status: 422,
+          detail: caught.message,
+        }),
+      };
     }
     throw caught;
   }
@@ -861,6 +778,23 @@ export function registerCommunicationsRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const mayReview = mayReviewUnrouted(c);
+      // A message is a task in somebody's list, so leaving one needs what putting a task there
+      // needs: the tasks write key, and the assign key when it is for somebody else.
+      const message = request.message ?? null;
+      if (message !== null) {
+        const permissions = requireChokepointPermissions(c);
+        const mayLeave =
+          permissions.has(TASKS_WRITE as unknown as Permission) &&
+          (message.forUserId === userId || permissions.has(TASKS_ASSIGN as unknown as Permission));
+        if (!mayLeave) {
+          return problemJson(c, {
+            type: "permission-denied",
+            title: "Forbidden",
+            status: 403,
+            detail: "Leaving a message for a member needs the permission to give them a task.",
+          });
+        }
+      }
       // THE NUMBER IS DRAWN INSIDE THE WRITE, so the record and its number are one batch or neither.
       // A concurrent recording on the same day that took the value first aborts this batch on the
       // partial unique index over the rendered number; the shared loop advances the counter out of
@@ -884,6 +818,34 @@ export function registerCommunicationsRoutes(
               firm.firmDatabase,
               { ...request, matterId: (request.matterId ?? null) as MatterId | null },
               { ...serviceOptions(userId, mayReview), observeDraw: observe },
+              message === null
+                ? undefined
+                : async (call) => {
+                    const task = await createMatterTask(
+                      firm.firmDatabase,
+                      {
+                        matterId: call.matterId,
+                        title: message.title,
+                        // Which call it came from, by the number the firm says out loud. What was
+                        // said stays on the call, behind the call's own read.
+                        body: `Message taken on call ${call.referenceNumber}.`,
+                        assigneeUserId: message.forUserId as UserId,
+                        priority: message.urgent === true ? "urgent" : "normal",
+                        dueOn: message.dueOn ?? null,
+                        timeZone:
+                          message.dueOn === undefined || message.dueOn === null
+                            ? null
+                            : (message.timeZone ?? null),
+                      },
+                      {
+                        clock: { now: () => new Date().toISOString() },
+                        actorUserId: userId as UserId,
+                        randomSource: cryptoRandomSource,
+                        visibility: visibleMatterPredicate(),
+                      },
+                    );
+                    return { taskId: task.taskId, effect: task.effect };
+                  },
             );
             return { id: created.communicationId, effect: created.effect };
           }),

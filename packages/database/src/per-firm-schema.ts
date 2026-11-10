@@ -3091,6 +3091,11 @@ export const conflictsCheckRun = sqliteTable(
     finishedAt: text("finished_at"),
     // Why a failed run failed, in a sentence a reader can act on. Null unless the status is failed.
     failure: text("failure"),
+    // Set when a member stopped the run. A cancelled run is settled with status 'failed' and these
+    // two columns, rather than a fifth status: the status set is a CHECK constraint, and widening it
+    // in SQLite rebuilds the table. A read reports such a run as cancelled, never as failed.
+    cancelledAt: text("cancelled_at"),
+    cancelledByUserId: text("cancelled_by_user_id").$type<UserId>(),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -3781,6 +3786,23 @@ export const communication = sqliteTable(
     // table that already holds rows, and SQLite cannot add a CHECK to one without the destructive
     // table rebuild the expand-contract rule forbids (test/expand-contract.test.ts).
     disposition: text("disposition"),
+    // THE NAME THE CALLER GAVE, typed by whoever took the call. A number is usually all a
+    // receptionist has, and a name said down the line is the next thing they write on the slip; it
+    // is kept apart from counterparty_entity_id because a name somebody heard is not a Directory
+    // record somebody chose, and a reader must be able to tell which one they are looking at.
+    callerIdName: text("caller_id_name"),
+    // WHAT HAPPENED ON THE LINE, which is a different fact from where the record is filed. A call
+    // can be answered and filed on a matter, or answered and set aside; a transferred call names
+    // the member it went to in member_user_id. Validated in packages/communications/src/validation.ts
+    // rather than by a CHECK, for the same expand-contract reason as `disposition`.
+    outcome: text("outcome"),
+    // Which kind of unwanted call this was, on an outcome of spam only: a sales call, a wrong number
+    // and a scam are each worth counting separately when the same number rings again.
+    spamKind: text("spam_kind"),
+    // The task a message taken on this call became. The message is open exactly while that task is,
+    // so nothing here duplicates its state; a plain id on the matter_party precedent, because a task
+    // may be on no matter and the two live in different subsystems.
+    messageTaskId: text("message_task_id"),
     // The adapter's own id for the message or call. The idempotency key for a redelivered webhook —
     // carriers retry, and a retried delivery must not become a second row. Null on every
     // member-produced row, which is why the unique index below is partial.

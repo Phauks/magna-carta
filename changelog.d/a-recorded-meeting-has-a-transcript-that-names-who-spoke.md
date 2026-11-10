@@ -5,7 +5,7 @@ audience: public
 
 **Meeting recording, the server half of the transcript.** Every filed recording now has a transcript,
 begun in the batch that files the audio (`meeting_transcript` and `meeting_transcript_segment`, migration
-`20261110T000004_meeting-transcript`) and made on the existing `meeting-recording-compose` queue as a
+`20261110T000104_meeting-transcript`) and made on the existing `meeting-recording-compose` queue as a
 second kind of message, so a deployment needs no new queue. The transcript reads each track's own staged
 audio — the compose no longer deletes the staging when it files — finds where its speaker was talking
 from the audio's energy against the track's own noise floor (`packages/meetings/src/speech-spans.ts`),

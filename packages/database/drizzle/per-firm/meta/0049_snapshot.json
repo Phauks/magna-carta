@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "95b199c2-8f51-43c2-8466-3891c8952a6b",
-  "prevId": "02d30af0-4361-48d8-bb2d-933940b52af5",
+  "id": "8989d5b9-8dc0-40d5-aa10-2bbd988d0fad",
+  "prevId": "259224aa-d9b2-4b9e-873f-ff3f82d11ca7",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -1008,6 +1008,34 @@
           "notNull": false,
           "autoincrement": false
         },
+        "caller_id_name": {
+          "name": "caller_id_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "spam_kind": {
+          "name": "spam_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "message_task_id": {
+          "name": "message_task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "carrier_reference": {
           "name": "carrier_reference",
           "type": "text",
@@ -1485,6 +1513,20 @@
         },
         "failure": {
           "name": "failure",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cancelled_at": {
+          "name": "cancelled_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cancelled_by_user_id": {
+          "name": "cancelled_by_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

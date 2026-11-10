@@ -2,11 +2,13 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { CommunicationId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import type {
+  CallOutcome,
   CommunicationChannel,
   CommunicationDirection,
   CommunicationDisposition,
   CommunicationProducer,
   CommunicationScope,
+  SpamKind,
 } from "./types.ts";
 
 // Table name tracked against @magna-carta/database's per-firm schema by the schema-name-sync
@@ -61,6 +63,13 @@ export interface CommunicationRow {
   readonly producer: CommunicationProducer;
   readonly logged_by_user_id: UserId | null;
   readonly carrier_reference: string | null;
+  // The name the caller gave, as typed. Never a Directory record; counterparty_entity_id is that.
+  readonly caller_id_name: string | null;
+  // What happened on the line, and on a spam call which kind it was (types.ts).
+  readonly outcome: CallOutcome | null;
+  readonly spam_kind: SpamKind | null;
+  // The task a message taken on this call became. The message is open while the task is.
+  readonly message_task_id: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -96,6 +105,10 @@ const COLUMNS = [
   "producer",
   "logged_by_user_id",
   "carrier_reference",
+  "caller_id_name",
+  "outcome",
+  "spam_kind",
+  "message_task_id",
   "created_at",
   "updated_at",
 ]
@@ -129,6 +142,10 @@ export interface InsertCommunicationInput {
   // spam the moment it is written down, and making somebody file it first and set it aside second
   // would be two acts for one fact.
   readonly disposition: CommunicationDisposition | null;
+  readonly callerIdName: string | null;
+  readonly outcome: CallOutcome | null;
+  readonly spamKind: SpamKind | null;
+  readonly messageTaskId: string | null;
   readonly loggedByUserId: UserId;
   readonly now: string;
 }
@@ -145,8 +162,10 @@ export function insertCommunicationStatement(
       `INSERT INTO ${COMMUNICATION_TABLE} (id, reference_number, channel, direction, matter_id, ` +
         `counterparty_number, counterparty_entity_id, member_user_id, occurred_at, ended_at, ` +
         `duration_seconds, body, summary, disposition, producer, logged_by_user_id, ` +
-        `carrier_reference, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'member', ?15, NULL, ?16, ?16)`,
+        `carrier_reference, caller_id_name, outcome, spam_kind, message_task_id, created_at, ` +
+        `updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'member', ?15, NULL, ` +
+        `?17, ?18, ?19, ?20, ?16, ?16)`,
     )
     .bind(
       input.id,
@@ -165,6 +184,10 @@ export function insertCommunicationStatement(
       input.disposition,
       input.loggedByUserId,
       input.now,
+      input.callerIdName,
+      input.outcome,
+      input.spamKind,
+      input.messageTaskId,
     );
 }
 

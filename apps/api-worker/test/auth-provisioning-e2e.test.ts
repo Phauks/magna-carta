@@ -409,10 +409,10 @@ describe("end-to-end", () => {
         // Whether the firm's meetings may be recorded, captioned and summarized at all reaches
         // Owner/Admin alone, the firm:manageAiSettings bracket: recording one meeting is a
         // practitioner's act, deciding for every meeting is the firm's
-        // (20261110T000008_seed-meeting-settings-permission).
+        // (20261110T000108_seed-meeting-settings-permission).
         "meetings:manageSettings",
         // meetings:record is seeded to exactly the seats that hold meetings:host, so no firm's
-        // behaviour changes the day it lands (20261110T000001_meeting-recording-and-who-was-told).
+        // behaviour changes the day it lands (20261110T000101_meeting-recording-and-who-was-told).
         "meetings:record",
         // The two matter-notes keys, each seeded to the same three practising seats — Admin,
         // Attorney and Paralegal — and to neither Billing nor Read-only. The separate withdrawal key
@@ -474,6 +474,7 @@ describe("end-to-end", () => {
         "tools:fileTypeVerifier",
         "tools:fileWorkbench",
         "tools:firmUsage",
+        "tools:legalCitations",
         "tools:metadataScrubber",
         "tools:ocr",
         "tools:propertyListings",

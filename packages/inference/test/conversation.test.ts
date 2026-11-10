@@ -178,7 +178,7 @@ describe("generateConversation on the gateway port", () => {
     expect(result.ok && JSON.parse(result.value.text)).toEqual({ summary: "s", actionItems: [] });
 
     await port.generateConversation({
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       firmId: FIRM,
       systemPrompt: SYSTEM_PROMPT,
       messages: MESSAGES,
@@ -217,7 +217,7 @@ describe("generateConversation on the gateway port", () => {
     const { ai, calls } = fakeAi({ response: "ok", usage: {} });
     const port = createGatewayInferencePort({ ai, env: "production" });
     const base = {
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       firmId: FIRM,
       systemPrompt: SYSTEM_PROMPT,
       messages: MESSAGES,

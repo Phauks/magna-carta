@@ -22532,6 +22532,7 @@
               "running",
               "completed",
               "failed",
+              "cancelled",
               null
             ]
           },
@@ -22819,7 +22820,8 @@
               "queued",
               "running",
               "completed",
-              "failed"
+              "failed",
+              "cancelled"
             ]
           },
           "stage": {
@@ -22874,6 +22876,33 @@
               "null"
             ]
           },
+          "cancelledByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "askedScope": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "strictness": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sources",
+              "strictness"
+            ]
+          },
           "hitCount": {
             "type": [
               "integer",
@@ -22900,6 +22929,8 @@
           "startedAt",
           "finishedAt",
           "failure",
+          "cancelledByUserId",
+          "askedScope",
           "hitCount",
           "subjectParties"
         ]
@@ -23879,6 +23910,28 @@
           "givenByEntityId",
           "confirmedInWriting",
           "givenOn"
+        ]
+      },
+      "ConflictsCancelledRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
         ]
       },
       "TimelineEntryPage": {
@@ -27491,6 +27544,46 @@
               "null"
             ]
           },
+          "callerIdName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "answered",
+              "transferred",
+              "messageTaken",
+              "spam",
+              "connected",
+              "voicemailLeft",
+              "noAnswer",
+              null
+            ]
+          },
+          "spamKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sales",
+              "wrongNumber",
+              "scam",
+              null
+            ]
+          },
+          "messageTaskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -27520,6 +27613,10 @@
           "summary",
           "producer",
           "loggedByUserId",
+          "callerIdName",
+          "outcome",
+          "spamKind",
+          "messageTaskId",
           "createdAt",
           "updatedAt"
         ]
@@ -27647,6 +27744,44 @@
               "noAction",
               null
             ]
+          },
+          "callerIdName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "answered",
+              "transferred",
+              "messageTaken",
+              "spam",
+              "connected",
+              "voicemailLeft",
+              "noAnswer",
+              null
+            ]
+          },
+          "spamKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sales",
+              "wrongNumber",
+              "scam",
+              null
+            ]
+          },
+          "message": {
+            "$ref": "#/components/schemas/CallMessageRequest"
           }
         },
         "required": [
@@ -27654,6 +27789,45 @@
           "direction",
           "counterpartyNumber",
           "occurredAt"
+        ]
+      },
+      "CallMessageRequest": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "forUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "urgent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "forUserId",
+          "title"
         ]
       },
       "CommunicationAcknowledged": {
@@ -82741,6 +82915,139 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel": {
+      "post": {
+        "description": "Stops a run that has not finished. The run is kept in the check's history as cancelled, naming who stopped it, and records no result: whatever it had not finished is not searched. A run that had already settled is left exactly as it settled, and the answer says how.",
+        "operationId": "conflicts.cancelRun",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.cancelRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run as it now stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsCancelledRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the run is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {

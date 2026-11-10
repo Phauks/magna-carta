@@ -9,7 +9,7 @@ mixed into one mono 48 kHz WAV by a queue consumer on the new `meeting-recording
 track at its first frame's offset, summed in 32 bits and clamped once (`packages/meetings/src/pcm-mix.ts`),
 the 44-byte header at the head of the first part (`packages/meetings/src/wav.ts`), about 40 MB of working
 memory per invocation whatever the length or track count. The cursor is five added columns on
-`meeting_recording` (migration `20261110T000002_meeting-recording-compose-cursor`). The finished recording
+`meeting_recording` (migration `20261110T000102_meeting-recording-compose-cursor`). The finished recording
 is filed through the upload pipeline unchanged — `initiateUpload` on the recording's matter,
 `completeUploadSession`, the ingest queue — named `Meeting recording — <event title> — <start in the
 event's zone>.wav`; the recording moves to `filed` with its file and version, and the staged tracks are

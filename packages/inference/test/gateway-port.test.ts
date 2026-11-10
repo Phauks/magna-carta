@@ -241,7 +241,7 @@ describe("createGatewayInferencePort.generateStream", () => {
       firmId: FIRM,
     });
     await port.generateStream({
-      modelId: "anthropic/claude-opus-4-8",
+      modelId: "anthropic/claude-opus-5-5",
       prompt: "Draft.",
       firmId: FIRM,
     });

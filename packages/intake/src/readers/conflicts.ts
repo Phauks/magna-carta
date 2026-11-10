@@ -47,7 +47,7 @@ export const conflictsCheckStepReader: IntakeStepReader = async ({ database, mat
     satisfied: true,
     statement:
       hits === 0
-        ? `A check ran on ${(latest?.createdAt ?? "").slice(0, 10)} at the firm's floor. Nothing surfaced.`
+        ? `A check ran on ${(latest?.createdAt ?? "").slice(0, 10)} at the firm's floor. 0 results.`
         : `A check ran on ${(latest?.createdAt ?? "").slice(0, 10)} at the firm's floor; ${String(hits)} ${hits === 1 ? "hit" : "hits"} surfaced and every one has a reviewer's answer.`,
   };
 };

@@ -22,4 +22,4 @@ recording spec.
   never take stops being retried, a host's re-run no longer doubles a scheduled retry, the gate is read
   before every call, a withheld transcript is never sent, the answer is asked for in JSON mode, and a
   task's title is cut between characters. Migration
-  `20261110T000007_meeting-summary-retry-and-failed-call` adds `model_failure_call` and `retry_at`.
+  `20261110T000107_meeting-summary-retry-and-failed-call` adds `model_failure_call` and `retry_at`.

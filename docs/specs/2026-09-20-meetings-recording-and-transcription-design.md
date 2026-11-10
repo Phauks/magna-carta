@@ -1057,7 +1057,7 @@ may make of the part — the arithmetic is in `apps/api-worker/src/meetings/reco
 The mixer (`pcm-mix.ts`) sums in 32 bits and clamps once, so two loud speakers saturate rather than wrap.
 
 **A19 — The cursor is five columns on `meeting_recording` (§5, §9).** Migration
-`20261110T000002_meeting-recording-compose-cursor` adds `compose_upload_session_id` (the file pipeline's
+`20261110T000102_meeting-recording-compose-cursor` adds `compose_upload_session_id` (the file pipeline's
 session, by value), `compose_parts_done` (the cursor), `compose_parts` (each part's number and entity tag,
 because completing the upload needs them and the storage binding cannot list an upload's parts),
 `compose_attempts` and `compose_progress_at`. Added, never rebuilt: the table is a parent. The cursor
@@ -1119,7 +1119,7 @@ client read as always present; it is now `anyOf: [MeetingRecordingActor, null]`.
 
 ### Amendments from the adversarial review of slice R2 — the recorder, the compose and the sweep
 
-Recorded 2026-10-03. Migration `20261110T000003_meeting-recording-segments-and-compose-claim` adds the two
+Recorded 2026-10-03. Migration `20261110T000103_meeting-recording-segments-and-compose-claim` adds the two
 columns these need, both added rather than rebuilt.
 
 **A27 — A staged track is placed stretch by stretch (§6.2, §9).** A participant who left had their buffer
@@ -1193,7 +1193,7 @@ eleven-track ceiling with both byte conversions, bounded at a third of a consume
 ### Amendments from slice R3 — the transcript of record
 
 Recorded 2026-10-03, as the transcript's server half was built. Migration
-`20261110T000004_meeting-transcript` adds both tables. Each names the section it amends and says what
+`20261110T000104_meeting-transcript` adds both tables. Each names the section it amends and says what
 changed and why.
 
 **A34 — The staging is the transcript's until it settles (§9, §10, §14; resolves A22).** The compose no
@@ -1307,7 +1307,7 @@ fixture of A25 is still open; live captions (R4) and the summary (R5) are next.
 
 ### Amendments from the adversarial review of slice R3 — the transcript
 
-Recorded 2026-10-03. Migration `20261110T000005_meeting-transcript-model-failures-and-milliseconds`
+Recorded 2026-10-03. Migration `20261110T000105_meeting-transcript-model-failures-and-milliseconds`
 adds two columns to `meeting_transcript`. Each names the amendment or section it changes.
 
 **A45 — A speech model that is down for a while is outlasted (amends A41).** Counting the queue's
@@ -1408,7 +1408,7 @@ unavailable model (`gateway.ts`, beside `gatewayFailure`).
 
 ### Amendments from slice R5 — the summary
 
-Recorded 2026-10-03, as the summary's server half was built. Migration `20261110T000006_meeting-summary`
+Recorded 2026-10-03, as the summary's server half was built. Migration `20261110T000106_meeting-summary`
 adds both tables. Each names the section it amends and says what changed and why.
 
 **A57 — No new queue, and a ready transcript always has a summary (§11, §16 R5).** The summary is a third
@@ -1541,7 +1541,7 @@ segments. Caption text (R4) is not yet in the scan.
 ### Amendments from slice R5's review — the summary, corrected
 
 Recorded 2026-10-03, after an adversarial review of the summary's server half. Migration
-`20261110T000007_meeting-summary-retry-and-failed-call` adds two columns to `meeting_summary`. Each names
+`20261110T000107_meeting-summary-retry-and-failed-call` adds two columns to `meeting_summary`. Each names
 what it amends.
 
 **A68 — A summary needs the firm's AI-processing eligibility on every path (amends A58; owner decision).**

@@ -2,26 +2,19 @@
 /*
  * The two panes of the New Check panel, as a reader meets them.
  *
- * The owner's rulings of 2026-09-11 reshaped the right pane: it says less, it lists PLACES rather
- * than techniques, a place the product cannot search yet stands on the panel disabled and marked
- * Soon, name matching is a dropdown whose rows show a name each band catches, and the whole thing
- * is two tabs. None of that is the kind of thing a type-checker holds in place, so it is pinned
- * here, where a later round that quietly reverts one fails instead of shipping.
+ * The owner's rulings of 2026-11-09 reshaped the panel: the left pane asks for the parties and
+ * nothing else — no matter field, no read-back of what the check will do — and the right pane lists
+ * five places, each opening onto what it searches, with no sentence explaining any option. A place
+ * the engine cannot search yet stands disabled and marked Soon. None of that is the kind of thing a
+ * type-checker holds in place, so it is pinned here, where a later round that quietly reverts one
+ * fails instead of shipping.
  */
 import { flushSync, mount, unmount, type ComponentProps } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import CheckScope from "$lib/conflicts/check-scope.svelte";
 import CheckSubject from "$lib/conflicts/check-subject.svelte";
 import { CheckDraft } from "$lib/conflicts/check-draft.svelte.ts";
-import { OPENING_DRAFT, checkPlan } from "$lib/conflicts/check-request.ts";
-import type { FirmConflictsPolicy } from "$lib/conflicts/conflicts-api.ts";
 import { SEARCH_LOCATIONS, sourceVocabulary } from "$lib/conflicts/conflicts-vocabulary.ts";
-
-const POLICY: FirmConflictsPolicy = {
-  floorSources: ["party"],
-  floorStrictness: "balanced",
-  balancedNameRoles: ["current", "former", "maiden", "alias"],
-};
 
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
@@ -77,16 +70,22 @@ afterEach(() => {
 
 describe("the locations tab", () => {
   it("is two tabs, Locations and Advanced Settings, and opens on Locations", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft() });
     const tabs = [...rendered.querySelectorAll('[role="tab"]')].map((tab) =>
       tab.textContent?.trim(),
     );
     expect(tabs).toEqual(["Locations", "Advanced Settings"]);
-    expect(text(rendered)).toContain("Search Locations");
   });
 
-  it("lists the places the product can search, as places, in the catalogue's order", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
+  it("lists five places, in the catalogue's order: Directory, Files, Messaging, Tasks, Magnus", () => {
+    expect(SEARCH_LOCATIONS.map((entry) => entry.label)).toEqual([
+      "Directory",
+      "Files",
+      "Messaging",
+      "Tasks",
+      "Magnus",
+    ]);
+    const rendered = drawScope({ draft: new CheckDraft() });
     const shown = text(rendered);
     let last = -1;
     for (const entry of SEARCH_LOCATIONS) {
@@ -96,69 +95,73 @@ describe("the locations tab", () => {
     }
   });
 
-  it("draws a place it cannot search yet, disabled, marked Soon, saying what it waits on", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
-    const shown = text(rendered);
-    for (const entry of SEARCH_LOCATIONS) {
-      if (entry.waitsOn === null) continue;
-      expect(shown).toContain(`Waiting on ${entry.waitsOn}`);
-      const control = rendered.querySelector(`[id$="-${entry.location}"]`);
-      expect(
-        control?.hasAttribute("disabled") || control?.getAttribute("aria-disabled") === "true",
-        entry.label,
-      ).toBe(true);
+  it("opens every place on what it searches, in the owner's words", () => {
+    const shown = text(drawScope({ draft: new CheckDraft() }));
+    for (const option of [
+      "Names and identifiers",
+      "Relationships",
+      "Firm Employees",
+      "Consultations",
+      "Open",
+      "Closed",
+      "Archived",
+      "Calls",
+      "Texts",
+      "Email",
+      "All Employee Conversations",
+    ]) {
+      expect(shown).toContain(option);
     }
-    expect(shown).toContain("Soon");
   });
 
-  it("puts the Directory's specifics beneath it, behind a caret", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
-    const caret = rendered.querySelector("[data-accordion-trigger], [aria-expanded]");
-    expect(caret).not.toBeNull();
-    expect(text(rendered)).toContain("What it searches there");
+  it("draws a place it cannot search yet with its options disabled, marked Soon", () => {
+    const rendered = drawScope({ draft: new CheckDraft() });
+    for (const entry of SEARCH_LOCATIONS.filter((place) => !place.searchable)) {
+      const place = rendered.querySelector(`[data-location="${entry.location}"]`);
+      expect(place, entry.label).not.toBeNull();
+      expect(text(place as HTMLElement)).toContain("Soon");
+      const boxes = place?.querySelectorAll('[role="checkbox"]') ?? [];
+      expect(boxes.length, entry.label).toBe(entry.options.length);
+      for (const box of place?.querySelectorAll('[role="checkbox"]') ?? []) {
+        expect(
+          box.hasAttribute("disabled") || box.getAttribute("aria-disabled") === "true",
+          entry.label,
+        ).toBe(true);
+      }
+    }
   });
 
-  it("carries no line of explanation under a place", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
-    const shown = text(rendered);
-    // The old pane put each source's meaning under its checkbox. The meaning is still the hover's
-    // and the vocabulary's; it is no longer the page's.
+  it("lets Firm Employees be chosen without a matter", () => {
+    const rendered = drawScope({ draft: new CheckDraft() });
+    const box = rendered.querySelector('[id$="-source-imputation"]');
+    expect(box?.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("carries no line of explanation under any option", () => {
+    const shown = text(drawScope({ draft: new CheckDraft() }));
     for (const source of ["party", "graph", "imputation"]) {
       expect(shown).not.toContain(sourceVocabulary(source).meaning);
     }
+    expect(shown).not.toContain("floor");
+    expect(shown).not.toContain("Waiting on");
   });
 });
 
 describe("the advanced settings tab", () => {
-  it("offers name matching as a dropdown, with an example of what each band catches", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY, tab: "advanced" });
+  it("offers name matching as a dropdown", () => {
+    const rendered = drawScope({ draft: new CheckDraft(), tab: "advanced" });
     const field = rendered.querySelector('input[role="combobox"], input[aria-autocomplete]');
     expect(field).not.toBeNull();
     expect(text(rendered)).toContain("Name matching");
-    // The examples live on the rows, which open with the list; the field itself holds the band.
     expect((field as HTMLInputElement).value).toBe("Standard");
-  });
-
-  it("draws the two dimensions that are not places, both waiting", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY, tab: "advanced" });
-    const shown = text(rendered);
-    expect(shown).toContain(sourceVocabulary("prior_firm_history").label);
-    expect(shown).toContain(sourceVocabulary("nickname_equivalence").label);
-    expect(shown).toContain("Not built yet");
-  });
-
-  it("states the floor as something that widens a check, never as a limit on it", () => {
-    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY, tab: "advanced" });
-    expect(text(rendered)).toContain("raised back up before the search runs");
   });
 
   it("offers no number anywhere: nothing limits the search", () => {
     for (const tab of ["locations", "advanced"]) {
-      const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY, tab });
+      const rendered = drawScope({ draft: new CheckDraft(), tab });
       expect(rendered.querySelector('input[type="number"]')).toBeNull();
       const shown = text(rendered);
       expect(shown).not.toContain("hops");
-      expect(shown).not.toContain("cap");
       if (instance !== undefined) void unmount(instance);
       instance = undefined;
       flushSync();
@@ -168,29 +171,15 @@ describe("the advanced settings tab", () => {
 });
 
 describe("the subject pane", () => {
-  it("states the surface's own matter where it has one", () => {
-    const rendered = drawSubject({
-      draft: new CheckDraft(),
-      matterLabel: "2026-0001 · Acme",
-      plan: [],
-    });
+  it("asks for the parties, and no matter", () => {
+    const rendered = drawSubject({ draft: new CheckDraft() });
+    expect(text(rendered)).toContain("Parties");
+    expect(rendered.querySelector('[id$="-matter"]')).toBeNull();
+    expect(text(rendered)).not.toContain("What This Check Will Do");
+  });
+
+  it("states the surface's own matter where it was opened from one", () => {
+    const rendered = drawSubject({ draft: new CheckDraft(), matterLabel: "2026-0001 · Acme" });
     expect(text(rendered)).toContain("2026-0001 · Acme");
-  });
-
-  it("offers a matter field when asked to, and no explanation under it", () => {
-    const rendered = drawSubject({ draft: new CheckDraft(), chooseMatter: true, plan: [] });
-    expect(rendered.querySelector('[id$="-matter"]')).not.toBeNull();
-    expect(text(rendered)).not.toContain("where the check is filed, not what");
-  });
-
-  it("reads back what the check will do, from the values the request is composed from", () => {
-    const plan = checkPlan(
-      { ...OPENING_DRAFT, subjectEntityIds: ["entity-1"] },
-      { matterId: null, matterEngaged: false, permissions: null },
-    );
-    const rendered = drawSubject({ draft: new CheckDraft(), plan });
-    const shown = text(rendered);
-    expect(shown).toContain("What This Check Will Do");
-    for (const sentence of plan) expect(shown).toContain(sentence);
   });
 });

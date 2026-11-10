@@ -16,7 +16,7 @@ arithmetic), never clamped. The read also reports two facts it never writes:
 `aiProcessingEligible`, the gate a summary needs beside its own switch.
 
 **A fourth meetings key.** `meetings:manageSettings` gates both verbs and is seeded to Owner/Admin
-alone (`20261110T000008_seed-meeting-settings-permission`): recording one meeting is a practitioner's
+alone (`20261110T000108_seed-meeting-settings-permission`): recording one meeting is a practitioner's
 act on `meetings:record`, deciding that every meeting may be recorded, captioned or summarized is the
 firm's.
 

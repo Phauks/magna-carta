@@ -8,7 +8,7 @@ of stretches anchored to the instant each began (`meeting_recording_track.segmen
 whose connection drops and returns is placed where they were heard rather than up to a padded part late;
 the 300-second clamp on wall-clock silence is gone. A compose consumer claims each window on the row
 (`meeting_recording.compose_claimed_at`, migration
-`20261110T000003_meeting-recording-segments-and-compose-claim`) so two deliveries cannot upload the same
+`20261110T000103_meeting-recording-segments-and-compose-claim`) so two deliveries cannot upload the same
 parts; recorded progress resets the attempt count, stalls are measured from the latest stop, claim or
 progress, and the record is re-read before the composite is completed. A failed compose aborts its
 upload session and multipart upload in the same failure, and `initiateUpload` gets a two-day

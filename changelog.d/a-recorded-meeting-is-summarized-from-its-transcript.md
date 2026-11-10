@@ -7,7 +7,7 @@ audience: internal
 task.** The server half; the summary card is the web half and is next.
 
 - Every transcript that becomes ready begins a summary in the same batch (`meeting_summary`,
-  `meeting_summary_action_item`, migration `20261110T000006_meeting-summary`), written on the recording's
+  `meeting_summary_action_item`, migration `20261110T000106_meeting-summary`), written on the recording's
   own queue as a third kind of message by `apps/api-worker/src/meetings/summary-consumer.ts` — no new
   queue. It is `refused` with a reason when the firm has not switched `meetings.summariesEnabled` on
   (`disabled`), when the firm has not allowed its content to reach a model at all (`not-eligible`), or

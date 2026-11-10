@@ -277,7 +277,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "communication",
     subjectKey: "counterparty_number",
     action: "retain-under-matter",
-    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body and a call summary are content-level residue for the residue report",
+    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body, a call summary and the name a caller gave are content-level residue for the residue report",
   },
   {
     table: "communication",

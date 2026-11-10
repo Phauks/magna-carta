@@ -72,6 +72,7 @@ describe("the curated model catalog", () => {
     const base = {
       slot: "platform-reasoning" as const,
       modelId: "@cf/example/model",
+      displayName: "Example",
       snapshotId: "@cf/example/model",
       snapshotForm: "provider-dateless" as const,
       referenceId: "@cf/example/model",
@@ -79,6 +80,8 @@ describe("the curated model catalog", () => {
       noTrainingEligible: true,
       verifiedOn: "2026-10-03",
       availabilityVerifiedOn: "2026-10-03",
+      effortLevels: ["low", "medium", "high"] as const,
+      defaultEffort: "medium" as const,
       contextWindowTokens: 1_000,
     };
     expect(catalogEntrySchema.safeParse(base).success).toBe(true);
@@ -299,8 +302,9 @@ describe("the curated model catalog", () => {
 
   it("records each provider model's effort levels, with its default among them", () => {
     // The current generation accepts the full range; the default differs by model, so each is pinned.
+    // The platform's own models are left out where they take no effort at all.
     const defaults = Object.fromEntries(
-      CATALOG.filter((entry) => entry.slot !== "embedding").map((entry) => [
+      CATALOG.filter((entry) => entry.effortLevels !== undefined).map((entry) => [
         entry.modelId,
         [entry.effortLevels, entry.defaultEffort],
       ]),
@@ -310,6 +314,7 @@ describe("the curated model catalog", () => {
       "anthropic/claude-opus-5-5": [allLevels, "medium"],
       "anthropic/claude-sonnet-5-5": [allLevels, "high"],
       "anthropic/claude-haiku-5-5": [allLevels, "medium"],
+      "@cf/openai/gpt-oss-120b": [["low", "medium", "high"], "medium"],
     });
     expect(embeddingEntry().effortLevels).toBeUndefined();
 

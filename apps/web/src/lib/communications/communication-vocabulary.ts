@@ -9,10 +9,12 @@
  */
 import { formatStoredPhone } from "$lib/directory/phone-entry.ts";
 import type {
+  CallOutcome,
   Communication,
   CommunicationChannel,
   CommunicationDirection,
   CommunicationDisposition,
+  SpamKind,
 } from "./communications-api.ts";
 
 export interface VocabularyEntry {
@@ -222,3 +224,25 @@ export function saidText(communication: Communication): string {
   if (said !== "") return said;
   return communication.channel === "voice" ? "No description written" : "";
 }
+
+/*
+ * WHAT HAPPENED ON THE LINE, in the firm's own formal words (owner ruling, 2026-11-09: the first
+ * wording was "so informal"). Each direction has its own set, and the server refuses one from the
+ * other. Spam is among them because a robocall is a call that happened, and saying so is what lets
+ * the next call from the same number be recognised.
+ */
+export const CALL_OUTCOME_LABELS: Readonly<Record<CallOutcome, string>> = Object.freeze({
+  answered: "Answered",
+  transferred: "Transferred",
+  messageTaken: "Message Taken",
+  spam: "Spam",
+  connected: "Connected",
+  voicemailLeft: "Voicemail Left",
+  noAnswer: "No Answer",
+});
+
+export const SPAM_KIND_LABELS: Readonly<Record<SpamKind, string>> = Object.freeze({
+  sales: "Sales Or Robocall",
+  wrongNumber: "Wrong Number",
+  scam: "Scam",
+});
