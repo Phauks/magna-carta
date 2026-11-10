@@ -999,12 +999,12 @@ describe("GET /api/v1/files/{id}/preview", () => {
     expect(stored?.inline_playable).toBe("playable");
   });
 
-  it("files.preview: a never-judged HEVC video is judged download-only and offered as a download", async () => {
-    const { fileId, versionId, r2Key } = await seedCleanFile("phone.mov", null, "x", ISO, {
+  it("files.preview: a never-judged ProRes video is judged download-only and offered as a download", async () => {
+    const { fileId, versionId, r2Key } = await seedCleanFile("edit.mov", null, "x", ISO, {
       inlinePlayable: null,
       sniffedContentType: "video/quicktime",
     });
-    const movie = minimalMovie("hvc1");
+    const movie = minimalMovie("apch");
     await env.R2.put(r2Key, movie);
     await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
       .prepare("UPDATE file_version SET size_bytes = ?2 WHERE id = ?1")
