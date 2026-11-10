@@ -10,6 +10,7 @@
     "./matter-statements": "./src/matter-statements.ts",
     "./matter-party": "./src/matter-party.ts",
     "./matter-assignment": "./src/matter-assignment.ts",
+    "./matter-narrowing": "./src/matter-narrowing.ts",
     "./matter-court-case": "./src/matter-court-case.ts",
     "./matter-estate": "./src/matter-estate.ts",
     "./matter-file-retention": "./src/matter-file-retention.ts",

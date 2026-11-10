@@ -16,6 +16,7 @@ import {
 } from "@magna-carta/api-client";
 import { outcomeOf } from "$lib/api/api-client.ts";
 import type { ApiOutcome } from "$lib/api/request.ts";
+import type { SearchReach } from "./search-address.ts";
 
 /**
  * One question's answer. `broad` is true when the words are in more of the firm's records than one
@@ -39,6 +40,8 @@ export interface AcrossMattersRequest {
   /** The places to answer from. Empty means every place the member may read. */
   readonly sources: readonly string[];
   readonly limit?: number;
+  /** The matters to answer from. Absent means every matter the member may see. */
+  readonly reach?: SearchReach;
   /** Aborts a search the reader has already typed past. */
   readonly signal?: AbortSignal;
 }
@@ -55,6 +58,8 @@ export async function searchAcrossMatters(
         q: query.trim(),
         ...(request.sources.length > 0 ? { in: [...request.sources] } : {}),
         ...(request.limit !== undefined ? { limit: request.limit } : {}),
+        ...(request.reach?.kind === "mine" ? { mine: "true" as const } : {}),
+        ...(request.reach?.kind === "client" ? { clientEntityId: request.reach.entityId } : {}),
       },
       signal: request.signal,
       throwOnError: true,

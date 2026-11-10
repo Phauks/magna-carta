@@ -102,13 +102,18 @@ export function selectRecordIndexPointersStatement(
 // deliberate: the newest-matches form caps the same set, before any source or matter is known. The
 // one fact it yields is whether the cap was reached. Never show the number to a reader, because
 // below the cap it is a count of records they may not all be allowed to see.
+//
+// `matters` is the list the newest-matches form was given, where it was given one, so the two cap
+// the same set: the count is then of those matters' matches and no others.
 export function countRecordIndexMatchesUpToStatement(
   database: SqlDatabase,
   text: string,
   cap: number,
+  matters?: RecordQueryScope["matters"],
 ): SqlStatement | null {
   const match = recordMatchExpression(text, {
     sourceKeys: recordIndexSources.map((source) => source.key),
+    ...(matters === undefined ? {} : { matters }),
   });
   if (match === null) return null;
   return database
