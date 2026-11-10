@@ -34,6 +34,7 @@ export type SettingsPermissionArea =
   | "documents"
   | "integrations"
   | "calendar"
+  | "calendarSync"
   | "reports"
   | "meetings"
   | "ai"
@@ -55,6 +56,10 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   // that store is the right to connect the firm to anything.
   integrations: "firm:manageSecrets",
   calendar: "calendar:manage",
+  // What may be copied to members' own calendars at a provider. Its own key rather than
+  // calendar:manage: recording a hearing is a practitioner's act, deciding that hearings may sit
+  // on a third party's servers is the firm's.
+  calendarSync: "calendar:manageSyncPolicy",
   reports: "firm:manageReportPolicy",
   // Whether the firm's meetings may be recorded, captioned and summarized at all. Its own key rather
   // than meetings:record: recording one meeting is a practitioner's act, deciding that every

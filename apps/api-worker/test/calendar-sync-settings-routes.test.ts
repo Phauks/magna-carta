@@ -1,0 +1,388 @@
+/*
+ * Calendar sync settings through the real chokepoint over Miniflare bindings, with Microsoft
+ * answered by a script. What is pinned: a member's rule never exceeds the firm's limit (a save is
+ * refused, and closing a subject removes the rules that depended on it); a rule can only point at a
+ * calendar the member's account really has and can write to; one member cannot read or change
+ * another's rules; and only a seat that sets firm policy can set the limit.
+ */
+import { env } from "cloudflare:test";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import type { HttpRequest } from "@magna-carta/integrations/http";
+import { createApp } from "../src/http/app.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import {
+  mirrorMemberWithRole,
+  readJson,
+  seedCredentialedUser,
+  seedFirm,
+  seedFirmKey,
+  setCookies,
+  signInForSessionCookie,
+} from "./support/test-auth.ts";
+
+const ORIGIN = "https://example.com";
+const SETTINGS_URL = `${ORIGIN}/api/v1/me/calendar-sync`;
+const RULES_URL = `${ORIGIN}/api/v1/me/calendar-sync/rules`;
+const FIRM_LIMITS_URL = `${ORIGIN}/api/v1/calendar-sync/firm-limits`;
+const START_URL = `${ORIGIN}/api/v1/me/connected-accounts/microsoft/sign-in`;
+const CALLBACK_URL = `${ORIGIN}/api/v1/integrations/microsoft/callback`;
+const ATTEMPT_COOKIE = "__Host-calendar-sign-in";
+
+const PROVISIONED = {
+  ...env,
+  MICROSOFT_CLIENT_ID: "client-1",
+  MICROSOFT_CLIENT_SECRET: "secret-1",
+};
+
+const microsoftCalls: HttpRequest[] = [];
+let tokenAnswer: { status: number; body: unknown };
+let calendarsAnswer: { status: number; body: unknown };
+
+const app = createApp({
+  connectedAccounts: {
+    now: () => new Date("2026-11-10T12:00:00.000Z"),
+    http: {
+      request: (input) => {
+        microsoftCalls.push(input);
+        const answer = input.url.startsWith("https://login.microsoftonline.com/")
+          ? tokenAnswer
+          : input.url.startsWith("https://graph.microsoft.com/v1.0/me/calendars")
+            ? calendarsAnswer
+            : { status: 200, body: { mail: "jane@firm.example" } };
+        return Promise.resolve({ status: answer.status, json: () => Promise.resolve(answer.body) });
+      },
+    },
+  },
+});
+
+let firmId: FirmId;
+let firmDatabase: ReturnType<typeof firmDatabaseFor>;
+let memberCookie: string;
+let colleagueCookie: string;
+let adminCookie: string;
+let hearingTypeId: string;
+let trialTypeId: string;
+
+interface Subject {
+  subject: string;
+  kind: string;
+  name: string | null;
+  mayLeave: boolean;
+  detail: string;
+}
+interface Settings {
+  account: { id: string; status: string; accountLabel: string | null } | null;
+  calendars: { remoteId: string; name: string; canWrite: boolean }[] | null;
+  subjects: Subject[];
+  rules: { subject: string; calendarRemoteId: string; calendarName: string; scope: string }[];
+}
+
+function headers(cookie: string, attempt?: string): Record<string, string> {
+  return {
+    cookie: attempt === undefined ? cookie : `${cookie}; ${ATTEMPT_COOKIE}=${attempt}`,
+    origin: ORIGIN,
+    "content-type": "application/json",
+  };
+}
+
+async function connect(cookie: string): Promise<void> {
+  const started = await app.request(
+    START_URL,
+    { method: "POST", headers: headers(cookie) },
+    PROVISIONED,
+  );
+  const url = new URL((await readJson<{ authorizationUrl: string }>(started)).authorizationUrl);
+  const attempt = setCookies(started).find((entry) => entry.name === ATTEMPT_COOKIE);
+  if (attempt === undefined) throw new Error("the sign-in start set no attempt cookie");
+  const query = new URLSearchParams({ code: "code-1", state: url.searchParams.get("state") ?? "" });
+  const returned = await app.request(
+    `${CALLBACK_URL}?${query.toString()}`,
+    { headers: headers(cookie, attempt.value) },
+    PROVISIONED,
+  );
+  expect(returned.headers.get("location")).toContain("outcome=connected");
+}
+
+async function readSettings(cookie: string): Promise<Settings> {
+  const response = await app.request(SETTINGS_URL, { headers: headers(cookie) }, PROVISIONED);
+  expect(response.status).toBe(200);
+  return readJson<Settings>(response);
+}
+
+async function saveRules(cookie: string, rules: unknown[]): Promise<Response> {
+  return await app.request(
+    RULES_URL,
+    { method: "PUT", headers: headers(cookie), body: JSON.stringify({ rules }) },
+    PROVISIONED,
+  );
+}
+
+async function setLimits(cookie: string, limits: unknown[]): Promise<Response> {
+  return await app.request(
+    FIRM_LIMITS_URL,
+    { method: "PUT", headers: headers(cookie), body: JSON.stringify({ limits }) },
+    PROVISIONED,
+  );
+}
+
+beforeAll(async () => {
+  await applyControlPlaneMigrations(env.DB_CONTROL);
+  firmId = (await seedFirm({ name: "Calendar Sync Firm" })).firmId;
+  await seedFirmKey(firmId);
+  firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+
+  // A Read-only seat on purpose: choosing where one's own events go is open to every seat that can
+  // see the calendar.
+  const member = await seedCredentialedUser("sync-member@example.com", {
+    userName: "Jane Doe",
+    firmId,
+  });
+  await mirrorMemberWithRole(member.userId, "Jane Doe", firmId, "Read-only");
+  memberCookie = await signInForSessionCookie("sync-member@example.com");
+
+  const colleague = await seedCredentialedUser("sync-colleague@example.com", {
+    userName: "Sam Roe",
+    firmId,
+  });
+  await mirrorMemberWithRole(colleague.userId, "Sam Roe", firmId, "Attorney");
+  colleagueCookie = await signInForSessionCookie("sync-colleague@example.com");
+
+  const admin = await seedCredentialedUser("sync-admin@example.com", {
+    userName: "Ada Min",
+    firmId,
+  });
+  await mirrorMemberWithRole(admin.userId, "Ada Min", firmId, "Admin");
+  adminCookie = await signInForSessionCookie("sync-admin@example.com");
+
+  const { results } = await firmDatabase
+    .prepare("SELECT id, name FROM matter_event_type WHERE name IN ('Hearing', 'Trial')")
+    .all<{ id: string; name: string }>();
+  hearingTypeId = results.find((row) => row.name === "Hearing")?.id ?? "";
+  trialTypeId = results.find((row) => row.name === "Trial")?.id ?? "";
+  expect(hearingTypeId).not.toBe("");
+  expect(trialTypeId).not.toBe("");
+
+  tokenAnswer = {
+    status: 200,
+    body: {
+      access_token: "access-1",
+      refresh_token: "refresh-1",
+      expires_in: 3600,
+      scope: "https://graph.microsoft.com/Calendars.ReadWrite",
+    },
+  };
+  calendarsAnswer = { status: 200, body: { value: [] } };
+  await connect(memberCookie);
+});
+
+beforeEach(() => {
+  microsoftCalls.length = 0;
+  tokenAnswer = {
+    status: 200,
+    body: { access_token: "access-2", refresh_token: "refresh-2", expires_in: 3600 },
+  };
+  calendarsAnswer = {
+    status: 200,
+    body: {
+      value: [
+        { id: "cal-main", name: "Calendar", canEdit: true, isDefaultCalendar: true },
+        { id: "cal-court", name: "Court", canEdit: true, isDefaultCalendar: false },
+        { id: "cal-holidays", name: "Holidays", canEdit: false, isDefaultCalendar: false },
+      ],
+    },
+  };
+});
+
+describe("a member's calendar sync settings", () => {
+  it("lists every event type on its own row, deadlines last, with nothing synced", async () => {
+    const settings = await readSettings(memberCookie);
+    expect(settings.account?.accountLabel).toBe("jane@firm.example");
+    expect(settings.calendars?.map((calendar) => calendar.remoteId)).toEqual([
+      "cal-main",
+      "cal-court",
+      "cal-holidays",
+    ]);
+    expect(settings.rules).toEqual([]);
+    const hearing = settings.subjects.find((subject) => subject.subject === hearingTypeId);
+    expect(hearing).toMatchObject({ kind: "eventType", name: "Hearing", mayLeave: true });
+    expect(settings.subjects.at(-1)).toMatchObject({ subject: "deadline", kind: "deadline" });
+  });
+
+  it("answers a member with no account, and asks Microsoft nothing", async () => {
+    const settings = await readSettings(colleagueCookie);
+    expect(settings.account).toBeNull();
+    expect(settings.calendars).toBeNull();
+    expect(settings.subjects.length).toBeGreaterThan(1);
+    expect(microsoftCalls).toHaveLength(0);
+
+    const response = await saveRules(colleagueCookie, []);
+    expect(response.status).toBe(409);
+  });
+
+  it("saves rules, taking each calendar's name from the provider", async () => {
+    const response = await saveRules(memberCookie, [
+      { subject: hearingTypeId, calendarRemoteId: "cal-court", scope: "mine" },
+      { subject: "deadline", calendarRemoteId: "cal-main", scope: "my_matters" },
+    ]);
+    expect(response.status).toBe(200);
+    const settings = await readJson<Settings>(response);
+    expect(settings.rules.toSorted((a, b) => a.subject.localeCompare(b.subject))).toEqual(
+      [
+        {
+          subject: hearingTypeId,
+          calendarRemoteId: "cal-court",
+          calendarName: "Court",
+          scope: "mine",
+        },
+        {
+          subject: "deadline",
+          calendarRemoteId: "cal-main",
+          calendarName: "Calendar",
+          scope: "my_matters",
+        },
+      ].toSorted((a, b) => a.subject.localeCompare(b.subject)),
+    );
+    const audit = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'calendar_sync.rules_replaced'",
+      )
+      .first<{ count: number }>();
+    expect(audit?.count).toBe(1);
+    // The colleague still sees none of it.
+    expect((await readSettings(colleagueCookie)).rules).toEqual([]);
+  });
+
+  it("stores the replacement sign-in Microsoft hands back", async () => {
+    await readSettings(memberCookie);
+    tokenAnswer = {
+      status: 200,
+      body: { access_token: "access-3", refresh_token: "refresh-3", expires_in: 3600 },
+    };
+    microsoftCalls.length = 0;
+    await readSettings(memberCookie);
+    const refresh = microsoftCalls.find((call) =>
+      call.url.startsWith("https://login.microsoftonline.com/"),
+    );
+    expect(String(refresh?.body)).toContain("refresh_token=refresh-2");
+  });
+
+  it.each([
+    ["a calendar the account does not have", "cal-gone", "calendar-sync-unknown-calendar"],
+    ["a calendar the account cannot write to", "cal-holidays", "calendar-sync-calendar-read-only"],
+  ])("refuses %s and keeps the rules as they were", async (_label, calendarRemoteId, code) => {
+    const before = (await readSettings(memberCookie)).rules;
+    const response = await saveRules(memberCookie, [
+      { subject: trialTypeId, calendarRemoteId, scope: "mine" },
+    ]);
+    expect(response.status).toBe(422);
+    const problem = await readJson<{ errors: { path: string; code: string }[] }>(response);
+    expect(problem.errors).toEqual([expect.objectContaining({ path: trialTypeId, code })]);
+    expect((await readSettings(memberCookie)).rules).toEqual(before);
+  });
+
+  it("refuses a subject that is no event type, and the same subject twice", async () => {
+    const unknown = await saveRules(memberCookie, [
+      { subject: "matterEventType_nope", calendarRemoteId: "cal-main", scope: "mine" },
+    ]);
+    expect(unknown.status).toBe(422);
+    const twice = await saveRules(memberCookie, [
+      { subject: trialTypeId, calendarRemoteId: "cal-main", scope: "mine" },
+      { subject: trialTypeId, calendarRemoteId: "cal-court", scope: "mine" },
+    ]);
+    expect(twice.status).toBe(422);
+  });
+
+  it("saves nothing when Microsoft cannot be asked, and still shows the saved rules", async () => {
+    calendarsAnswer = { status: 503, body: {} };
+    const response = await saveRules(memberCookie, []);
+    expect(response.status).toBe(503);
+    const settings = await readSettings(memberCookie);
+    expect(settings.calendars).toBeNull();
+    expect(settings.rules.length).toBe(2);
+  });
+
+  it("says the account needs signing in to again when Microsoft says so", async () => {
+    tokenAnswer = { status: 400, body: { error: "invalid_grant" } };
+    const settings = await readSettings(memberCookie);
+    expect(settings.account?.status).toBe("needs_reauth");
+    expect(settings.calendars).toBeNull();
+    const stored = await firmDatabase
+      .prepare("SELECT status FROM integration_connection WHERE id = ?1")
+      .bind(settings.account?.id)
+      .first<{ status: string }>();
+    expect(stored?.status).toBe("needs_reauth");
+  });
+});
+
+describe("the firm's limit", () => {
+  it("is set only by a seat that holds the policy permission", async () => {
+    for (const cookie of [memberCookie, colleagueCookie]) {
+      const read = await app.request(FIRM_LIMITS_URL, { headers: headers(cookie) }, PROVISIONED);
+      expect(read.status).toBe(403);
+      const write = await setLimits(cookie, [
+        { subject: hearingTypeId, mayLeave: false, detail: "full" },
+      ]);
+      expect(write.status).toBe(403);
+    }
+  });
+
+  it("removes every member's rule for a subject it closes, and refuses a new one", async () => {
+    expect((await readSettings(memberCookie)).rules.map((rule) => rule.subject)).toContain(
+      hearingTypeId,
+    );
+    const response = await setLimits(adminCookie, [
+      { subject: hearingTypeId, mayLeave: false, detail: "full" },
+      { subject: "deadline", mayLeave: true, detail: "minimal" },
+    ]);
+    expect(response.status).toBe(200);
+    const limits = await readJson<{ subjects: Subject[] }>(response);
+    expect(limits.subjects.find((subject) => subject.subject === hearingTypeId)).toMatchObject({
+      mayLeave: false,
+    });
+    expect(limits.subjects.find((subject) => subject.subject === "deadline")).toMatchObject({
+      mayLeave: true,
+      detail: "minimal",
+    });
+    // A subject not named keeps the limit it had.
+    expect(limits.subjects.find((subject) => subject.subject === trialTypeId)).toMatchObject({
+      mayLeave: true,
+      detail: "full",
+    });
+
+    const after = await readSettings(memberCookie);
+    expect(after.rules.map((rule) => rule.subject)).toEqual(["deadline"]);
+
+    const refused = await saveRules(memberCookie, [
+      { subject: hearingTypeId, calendarRemoteId: "cal-court", scope: "mine" },
+    ]);
+    expect(refused.status).toBe(422);
+    const problem = await readJson<{ errors: { code: string }[] }>(refused);
+    expect(problem.errors[0]?.code).toBe("calendar-sync-subject-not-allowed");
+  });
+
+  it("refuses a limit on a subject that is no event type", async () => {
+    const response = await setLimits(adminCookie, [
+      { subject: "matterEventType_nope", mayLeave: true, detail: "full" },
+    ]);
+    expect(response.status).toBe(422);
+  });
+});
+
+describe("disconnecting", () => {
+  it("takes the member's rules with the account", async () => {
+    const settings = await readSettings(memberCookie);
+    expect(settings.rules.length).toBeGreaterThan(0);
+    const response = await app.request(
+      `${ORIGIN}/api/v1/me/connected-accounts/${settings.account?.id}`,
+      { method: "DELETE", headers: headers(memberCookie) },
+      PROVISIONED,
+    );
+    expect(response.status).toBe(200);
+    const left = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM calendar_sync_rule")
+      .first<{ count: number }>();
+    expect(left?.count).toBe(0);
+  });
+});

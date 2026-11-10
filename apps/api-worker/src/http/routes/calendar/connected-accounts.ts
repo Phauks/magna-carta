@@ -6,6 +6,7 @@ import {
   ConnectedAccountSignInStart,
 } from "@magna-carta/calendar/sync-contract";
 import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
+import { deleteSyncRulesStatement } from "@magna-carta/calendar/sync-rule-statements";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
@@ -421,6 +422,8 @@ export function registerConnectedAccountsRoutes(
         firm.firmDatabase,
         {
           statements: [
+            // The member's rules first: they point at the connection row and mean nothing without it.
+            deleteSyncRulesStatement(firm.firmDatabase, existing.id as IntegrationConnectionId),
             deleteConnectionStatement(firm.firmDatabase, existing.id as IntegrationConnectionId),
             // The sealed token goes with the row, in the same batch: a working token to somebody's
             // calendar that outlives the only row pointing at it is material nothing will ever clear.
