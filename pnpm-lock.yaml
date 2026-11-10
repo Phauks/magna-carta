@@ -1382,6 +1382,9 @@ importers:
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters
+      '@magna-carta/search':
+        specifier: workspace:*
+        version: link:../search
       '@magna-carta/sequence-numbering':
         specifier: workspace:*
         version: link:../sequence-numbering
