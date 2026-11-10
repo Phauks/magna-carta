@@ -13,4 +13,7 @@ anything a format-only detector reads as a case name, docket or matter number, e
 or an amount beside a name. One confidentiality flag hides a post; spam needs three firms. Five
 additive control-plane tables back it (`community_profile`, `community_post`, `community_vote`,
 `community_comment`, `community_flag`). The package cannot reach a firm's own database, held by a
-test. No route or screen yet; the board's worker and its screens follow.
+test. The board's screens (the home list with its product-area rail, an opened post, and the
+composer with its live confidentiality check) are built from the design system and reviewable at
+`/developer-console/community-board` in development builds; the board's request and question
+statuses join the status register. No route serves them yet; the board's worker follows.

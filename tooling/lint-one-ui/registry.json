@@ -295,6 +295,21 @@
       "reason": "predates the status register; the dev gallery holds its own STATUS_BADGE map so the grid states have something to render. It should read the register instead, which is also what would make the gallery show the real tones."
     },
     {
+      "rule": "status-tone",
+      "file": "apps/web/src/lib/discovery/panels/facts-panel.svelte",
+      "reason": "predates the community board's statuses joining the register, which is what made `Duplicate` a register word. This badge marks a deduplicated copy in discovery, a different fact from a board post closed as a duplicate. It should get a discovery key of its own in the register, which is a change to the discovery panel rather than to the board."
+    },
+    {
+      "rule": "status-tone",
+      "file": "apps/web/src/lib/meetings/screen/meeting-questions-panel.svelte",
+      "reason": "predates the community board's statuses joining the register, which is what made `Answered` a register word. A meeting question being answered is a different fact from a board question being answered. It should get a meetings key of its own in the register, which is a change to the meetings panel rather than to the board."
+    },
+    {
+      "rule": "status-tone",
+      "file": "apps/web/src/routes/(app)/settings/beta-access/+page.svelte",
+      "reason": "predates the community board's statuses joining the register, which is what made `Beta` a register word. This marks a firm enrolled on the beta channel, not a board request in beta. It should get a settings key of its own in the register, which is a change to the settings page rather than to the board."
+    },
+    {
       "rule": "placeholder",
       "file": "apps/web/src/lib/components/recipient-picker.svelte",
       "text": "Search colleagues\u2026",

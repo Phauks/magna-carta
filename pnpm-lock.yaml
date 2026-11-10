@@ -936,6 +936,9 @@ importers:
       '@magna-carta/civil-time':
         specifier: workspace:*
         version: link:../../packages/civil-time
+      '@magna-carta/community':
+        specifier: workspace:*
+        version: link:../../packages/community
       '@magna-carta/conversion':
         specifier: workspace:*
         version: link:../../packages/conversion
