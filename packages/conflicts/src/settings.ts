@@ -68,9 +68,12 @@ export interface ConflictsPolicy {
 export interface ScopeRequest {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
-  // The firm's own records to search beyond the Directory: calls, texts, email, tasks, Magnus.
-  // Absent means none, which is what every caller that predates them means.
-  readonly places?: PlacesRequest;
+  // The firm's own records to search beyond the Directory: calls, texts, email, tasks, Magnus and
+  // files. Absent means none, which is what every caller that predates them means; so does an absent
+  // `files` inside it.
+  readonly places?: Omit<PlacesRequest, "files"> & {
+    readonly files?: PlacesRequest["files"] | undefined;
+  };
 }
 
 export interface ResolvedScope {

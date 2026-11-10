@@ -75,6 +75,11 @@ and never calls external services.
   conflict between two different parties of the same matter), only flagged `co_party` on the hit so a
   reviewer buckets it apart from a conflict with a prior/other client. The only match that is dropped
   is an entity matching **itself** (`match.entityId === entity.entityId`).
+- `src/file-search.ts` — Files: asks each matter's file contents index (through an injected
+  `FileContentsSearcher` the application supplies; never a review set's corpus) for each subject
+  party's names as exact phrases, bounded by `FILE_QUERY_CEILING`, and keeps only files the database
+  still files on that matter and the options asked for. No searcher, or an unreachable index, records
+  `files` unavailable rather than searched and empty. Never stores document text.
 - `src/content-search.ts` — the firm's own records as places a check searches: calls and texts
   (`communication`), email (`email_participant` and `email_message.subject`), tasks (`matter_task`
   title and body, by matter status) and Magnus conversations. `readPartyNeedles` reads what each

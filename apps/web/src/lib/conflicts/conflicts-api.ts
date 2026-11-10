@@ -92,14 +92,21 @@ export type MessagingChannel = "calls" | "texts" | "email";
 /** The matter statuses a task is searched under; a task on no matter is searched whenever tasks are. */
 export type TaskMatterStatus = "consultations" | "open" | "closed" | "archived";
 
-/** Calls, texts, email, tasks and Magnus conversations. An empty list, or false, is not asked for. */
+/** The matter statuses a file is searched under; Archived is files deleted from a matter. */
+export type FileMatterStatus = TaskMatterStatus;
+
+/**
+ * Calls, texts, email, tasks, Magnus conversations and files. An empty list, or false, is not asked
+ * for; `files` is absent on a run asked for before Files could be searched.
+ */
 export interface PlacesRequest {
   messaging: MessagingChannel[];
   tasks: TaskMatterStatus[];
   magnus: boolean;
+  files?: FileMatterStatus[];
 }
 
-export type FoundInKind = "call" | "text" | "email" | "task" | "magnus_conversation";
+export type FoundInKind = "call" | "text" | "email" | "task" | "magnus_conversation" | "file";
 
 /** Where in the firm's own records a result was found. Never the record's text. */
 export interface FoundIn {

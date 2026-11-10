@@ -44,4 +44,8 @@ export const OPERATIONS: readonly string[] = [
   "calendar.updateResource",
   "calendar.updateSettings",
   "calendar.vacateDeadline",
+  "connectedAccounts.disconnect",
+  "connectedAccounts.finishMicrosoftSignIn",
+  "connectedAccounts.list",
+  "connectedAccounts.startMicrosoftSignIn",
 ];

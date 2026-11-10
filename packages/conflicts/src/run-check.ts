@@ -24,6 +24,7 @@ import {
 } from "./check-run.ts";
 import {
   asksForAnyPlace,
+  asksForRecordPlaces,
   NAME_FLOOR,
   NUMBER_FLOOR,
   readPartyNeedles,
@@ -31,6 +32,7 @@ import {
   type FoundIn,
 } from "./content-search.ts";
 import { assignTier, describeEvidence } from "./evidence.ts";
+import { FILE_QUERY_CEILING, searchFiles, type FileContentsSearcher } from "./file-search.ts";
 import { expandGraph, WALK_CEILING, type ExpansionTruncation } from "./expansion.ts";
 import { findImputationHits, findMemberEntities } from "./imputation.ts";
 import { matchPartyBatch } from "./matching.ts";
@@ -40,6 +42,7 @@ import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
 import {
   availabilityOf,
+  FILES_SOURCE,
   MAGNUS_CONVERSATIONS_SOURCE,
   MESSAGING_SOURCE,
   NICKNAME_EQUIVALENCE_SOURCE,
@@ -79,6 +82,9 @@ export interface RunCheckInput {
 export interface RunToExecute {
   readonly runId: ConflictsCheckId;
   readonly input: RunCheckInput;
+  // How the run reaches the file contents index, which only the application can supply. Without one,
+  // a run asked to search Files records it as not searched.
+  readonly fileContents?: FileContentsSearcher;
 }
 
 // The sentence a run failed with. Generic on purpose: the error itself goes to the telemetry
@@ -361,6 +367,7 @@ async function search(
   const places = scope.places;
   let placeResultsFound = 0;
   let placeResultsRefused = 0;
+  let fileOutcome: Awaited<ReturnType<typeof searchFiles>> | null = null;
   if (asksForAnyPlace(places)) {
     await report("places", {
       entitiesReached: expanded.length,
@@ -368,7 +375,16 @@ async function search(
       candidatesSurfaced: similarityHits.length,
     });
     const needles = await readPartyNeedles(context.database, [...seedIds], scope.nameRoles);
-    const found = await searchContent(context.database, needles, places);
+    const recordHits = asksForRecordPlaces(places)
+      ? await searchContent(context.database, needles, places)
+      : [];
+    fileOutcome = await searchFiles(
+      context.database,
+      needles,
+      places.files,
+      run.fileContents ?? null,
+    );
+    const found = [...recordHits, ...fileOutcome.hits];
     const room = Math.max(0, CANDIDATE_WRITE_CEILING - hits.length);
     placeResultsFound = found.length;
     placeResultsRefused = Math.max(0, found.length - room);
@@ -413,6 +429,11 @@ async function search(
   if (places.messaging.length > 0) scopeRecord[MESSAGING_SOURCE] = "searched";
   if (places.tasks.length > 0) scopeRecord[TASKS_SOURCE] = "searched";
   if (places.magnus) scopeRecord[MAGNUS_CONVERSATIONS_SOURCE] = "searched";
+  // Files is recorded searched only when the file contents index answered; a run that could not
+  // reach it records why rather than reading as searched and empty.
+  if (places.files.length > 0) {
+    scopeRecord[FILES_SOURCE] = fileOutcome?.status === "searched" ? "searched" : "unavailable";
+  }
 
   const triggerSource = input.triggerSource ?? null;
 
@@ -493,6 +514,17 @@ async function search(
             messaging: places.messaging,
             tasks: places.tasks,
             magnus: places.magnus,
+            files: places.files,
+            ...(fileOutcome === null || places.files.length === 0
+              ? {}
+              : {
+                  filesSearched: fileOutcome.status === "searched",
+                  fileMattersInReach: fileOutcome.mattersInReach,
+                  fileMattersSearched: fileOutcome.mattersSearched,
+                  fileMattersNotSearched: fileOutcome.mattersNotSearched,
+                  fileMattersFailed: fileOutcome.mattersFailed,
+                  fileQueryCeiling: FILE_QUERY_CEILING,
+                }),
             partiesSearched: [...seedIds].length,
             nameFloor: NAME_FLOOR,
             numberFloor: NUMBER_FLOOR,
@@ -607,6 +639,7 @@ export async function runConflictsCheck(
   context: DirectoryIdentifierContext,
   input: RunCheckInput,
   options: ConflictsWriteOptions,
+  fileContents?: FileContentsSearcher,
 ): Promise<ConflictsCheckId> {
   const opened: OpenedRun = await openCheckRun(
     context.database,
@@ -622,7 +655,11 @@ export async function runConflictsCheck(
     },
     options,
   );
-  const executed = await executeCheckRun(context, { runId: opened.runId, input }, options);
+  const executed = await executeCheckRun(
+    context,
+    { runId: opened.runId, input, ...(fileContents === undefined ? {} : { fileContents }) },
+    options,
+  );
   // A replayed idempotency key returns the run the first request opened, which has been executed
   // already (or is being executed now); its id is the record's id either way.
   return executed ?? opened.runId;

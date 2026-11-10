@@ -62,6 +62,7 @@
     "@magna-carta/meeting-protocol": "workspace:*",
     "@magna-carta/meetings": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
+    "@magna-carta/microsoft-graph": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/notes": "workspace:*",
     "@magna-carta/notifications": "workspace:*",

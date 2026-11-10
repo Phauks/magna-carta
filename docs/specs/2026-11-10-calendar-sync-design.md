@@ -171,8 +171,18 @@ to an unverified multitenant app
 A firm whose administrator consents for the tenant is a separate path. That reading is the author's and
 is proved against the owner's tenant before sync is switched on for it.
 
-Disconnecting revokes the token at the provider, deletes the credential, cancels the subscriptions,
-and asks whether the provider copies stay.
+Disconnecting deletes the credential, cancels the subscriptions, and asks whether the provider copies
+stay. Google's token is also revoked at Google. Microsoft offers no way to revoke one application's
+token for one member short of ending all of that member's sessions, so the Microsoft token is deleted
+and not revoked, and the member can remove the application's access from their Microsoft account.
+That last sentence is the author's reading of the Microsoft identity documentation, which describes
+no per-token revocation endpoint in the
+[authorization-code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow).
+
+Connecting and disconnecting take `calendar:read`: a member connects an account so that the events
+they can already see reach their own calendar, and every statement behind the routes is scoped to the
+session's own user. The connection row carries the account's own address (`account_label`), so a
+member with two Microsoft accounts can see which one is connected.
 
 ## 10. Screens
 
@@ -193,7 +203,10 @@ and asks whether the provider copies stay.
 5. Repeating events.
 6. Google Calendar.
 
-Every step ships behind the `calendar-sync` feature flag until the owner turns it on for a firm.
+Every step ships dormant. The flag provider is not bound in production, so a catalog flag could never
+be turned on; the switch is instead the Microsoft application's two secrets, absent until the owner
+registers one ([`../deploy-queue.md`](../deploy-queue.md)). Pages stay out of the settings navigation
+until there is something for a member to do on them.
 
 ## 12. Open
 
