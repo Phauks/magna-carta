@@ -46,6 +46,9 @@ pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, Gener
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(GenerateError::Encrypted);
+    }
     let every_page: Vec<ObjectId> = doc.get_pages().into_values().collect();
     if every_page.is_empty() {
         return Err(GenerateError::NoPages);

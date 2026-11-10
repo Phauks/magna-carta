@@ -9,6 +9,7 @@ impl From<PdfError> for JsError {
     fn from(e: PdfError) -> Self {
         JsError::new(match e {
             PdfError::Parse => "failed to parse PDF",
+            PdfError::Encrypted => "the document is locked with a password; unlock it first",
             PdfError::PageOutOfRange => "page index out of range",
             PdfError::Render => "failed to render page",
             PdfError::Rejected => "decompression-bomb",
@@ -91,6 +92,9 @@ impl From<crate::RedactError> for JsError {
     fn from(e: crate::RedactError) -> Self {
         match e {
             crate::RedactError::Parse => JsError::new("failed to parse PDF"),
+            crate::RedactError::Encrypted => {
+                JsError::new("the document is locked with a password; unlock it first")
+            }
             crate::RedactError::PageOutOfRange => JsError::new("page index out of range"),
             crate::RedactError::Render => JsError::new("failed to render page"),
             crate::RedactError::Reassemble => JsError::new("failed to reassemble PDF"),
@@ -202,6 +206,9 @@ impl From<crate::ScrubError> for JsError {
     fn from(e: crate::ScrubError) -> Self {
         match e {
             crate::ScrubError::Parse => JsError::new("failed to parse PDF"),
+            crate::ScrubError::Encrypted => {
+                JsError::new("the document is locked with a password; unlock it first")
+            }
             crate::ScrubError::Reassemble => JsError::new("failed to reassemble PDF"),
             crate::ScrubError::GateFailed { detail } => {
                 JsError::new(&format!("sanitize verification failed: {detail}"))
@@ -256,6 +263,9 @@ impl From<crate::bates::BatesError> for JsError {
     fn from(e: crate::bates::BatesError) -> Self {
         JsError::new(match e {
             crate::bates::BatesError::Parse => "failed to parse PDF",
+            crate::bates::BatesError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::bates::BatesError::NoPages => "document has no pages",
             crate::bates::BatesError::Reassemble => "failed to reassemble PDF",
             crate::bates::BatesError::RangeExceeded => {
@@ -293,6 +303,9 @@ impl From<crate::FormError> for JsError {
     fn from(e: crate::FormError) -> Self {
         JsError::new(match e {
             crate::FormError::Parse(_) => "failed to parse PDF",
+            crate::FormError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::FormError::Reassemble(_) => "failed to reassemble PDF",
             crate::FormError::NoAcroForm => "document has no interactive form",
             crate::FormError::Rejected => "decompression-bomb",
@@ -809,6 +822,9 @@ impl From<crate::GenerateError> for JsError {
     fn from(e: crate::GenerateError) -> Self {
         JsError::new(match e {
             crate::GenerateError::Parse => "failed to parse PDF",
+            crate::GenerateError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::GenerateError::NoPages => "document has no pages",
             crate::GenerateError::PageOutOfRange => "page index out of range",
             crate::GenerateError::EmptyInput => "no documents provided",
@@ -1014,6 +1030,9 @@ impl From<crate::SignError> for JsError {
     fn from(e: crate::SignError) -> Self {
         JsError::new(match e {
             crate::SignError::Parse => "failed to parse PDF",
+            crate::SignError::Encrypted => {
+                "the document is locked with a password; unlock it first"
+            }
             crate::SignError::Rejected => "decompression-bomb",
             crate::SignError::NoPages => "document has no pages",
             crate::SignError::MissingCatalog => "document has no catalog",

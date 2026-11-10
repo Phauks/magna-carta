@@ -11,6 +11,9 @@ use std::collections::BTreeSet;
 /// What an assembly operation can fail at. No logging here — the caller owns that.
 #[derive(Debug, PartialEq, Eq)]
 pub enum GenerateError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// Input rejected by the decompression-bomb guard (oversize or a bomb).
     Rejected,
     /// The bytes are not a parseable PDF.
@@ -80,6 +83,9 @@ pub fn rotate(
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
+    if crate::guard::is_locked(&doc) {
+        return Err(GenerateError::Encrypted);
+    }
     let ids = page_ids(&doc);
     if ids.is_empty() {
         return Err(GenerateError::NoPages);
@@ -330,6 +336,9 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
     let source = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
+    if crate::guard::is_locked(&source) {
+        return Err(GenerateError::Encrypted);
+    }
     let total = page_ids(&source).len();
     if total == 0 {
         return Err(GenerateError::NoPages);
@@ -432,6 +441,9 @@ pub fn merge(documents: &[&[u8]]) -> Result<Vec<u8>, GenerateError> {
     let mut source_catalogs: Vec<ObjectId> = Vec::new();
     for bytes in documents {
         let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
+        if crate::guard::is_locked(&doc) {
+            return Err(GenerateError::Encrypted);
+        }
         doc.renumber_objects_with(next_id);
         next_id = doc.max_id + 1;
         page_order.extend(doc.get_pages().into_values());

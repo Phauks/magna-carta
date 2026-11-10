@@ -71,6 +71,9 @@ pub struct FormFillOptions {
 /// Errors from AcroForm operations.
 #[derive(Debug)]
 pub enum FormError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     /// The bytes could not be parsed as a valid PDF.
     Parse(String),
     /// The modified document could not be serialised.
@@ -764,6 +767,9 @@ pub fn read_form(bytes: &[u8]) -> Result<Vec<FormField>, FormError> {
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| FormError::Rejected)?;
     let doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
+    if crate::guard::is_locked(&doc) {
+        return Err(FormError::Encrypted);
+    }
 
     if catalog_subdict(&doc, b"AcroForm").is_none() {
         return Ok(vec![]);
@@ -917,6 +923,9 @@ pub fn fill_form(
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| FormError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
+    if crate::guard::is_locked(&doc) {
+        return Err(FormError::Encrypted);
+    }
 
     if catalog_subdict(&doc, b"AcroForm").is_none() {
         return Err(FormError::NoAcroForm);
@@ -1108,6 +1117,9 @@ pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| FormError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
+    if crate::guard::is_locked(&doc) {
+        return Err(FormError::Encrypted);
+    }
 
     if catalog_subdict(&doc, b"AcroForm").is_none() {
         return Err(FormError::NoAcroForm);

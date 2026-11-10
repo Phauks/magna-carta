@@ -69,6 +69,9 @@ use hayro::{render, RenderCache, RenderSettings};
 /// What a PDF operation can fail at. No logging here — the caller owns that.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PdfError {
+    /// The document is locked with a password and was not opened: nothing in it can be
+    /// read, so there is nothing to work on until [`crate::decrypt`] has unlocked it.
+    Encrypted,
     Parse,
     PageOutOfRange,
     Render,
