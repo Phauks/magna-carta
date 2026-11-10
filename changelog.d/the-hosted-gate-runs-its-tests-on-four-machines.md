@@ -14,6 +14,6 @@ laptop, it runs the whole suite as before.
 
 **The WASM cache was never being written.** The combined cache step saves only when its job
 succeeds, and no hosted run had succeeded, so every run compiled the artefacts from cold (251 to 320
-seconds). Each cache is now saved by its own step right after the build, the fifth artefact
-(`packages/segmentation/src/pkg`) is in the cached paths, and the cargo cache is kept on failure.
+seconds). Each cache is now saved by its own step right after the build, the cached paths are
+every `packages/*/src/pkg` instead of a list that had fallen two artefacts behind, and the cargo cache is kept on failure.
 Home: `docs/conventions/build-performance.md`, _The hosted run_.

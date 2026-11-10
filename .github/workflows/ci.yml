@@ -74,15 +74,13 @@ env:
   # One checkout per runner, so the crates workspace's own target directory is the one worth caching
   # (on a laptop the bootstrap shares one target directory across worktrees instead).
   MAGNA_CARTA_SHARED_CARGO_TARGET: "0"
-  # The generated, git-ignored WASM outputs, one directory per crate tooling/bootstrap builds. The
-  # stamp the bootstrap writes beside each output holds the hash of the sources it was built from, so
-  # a restored entry is re-verified by the gate's `wasm` dimension, never trusted.
-  WASM_PATHS: |
-    packages/pdf/src/pkg
-    packages/decryption/src/pkg
-    packages/email/src/pkg
-    packages/seven-zip/src/pkg
-    packages/segmentation/src/pkg
+  # The generated, git-ignored WASM outputs: every crate tooling/bootstrap builds writes to its
+  # package's src/pkg, and nothing tracked lives there. A glob rather than a list, because a list
+  # goes stale the day a crate is added (it held four of five outputs on 2026-11-09, and a sixth
+  # landed the same evening). The stamp the bootstrap writes beside each output holds the hash of the
+  # sources it was built from, so a restored entry is re-verified by the gate's `wasm` dimension,
+  # never trusted.
+  WASM_PATHS: packages/*/src/pkg
 
 jobs:
   prepare:
