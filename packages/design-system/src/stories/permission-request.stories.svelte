@@ -31,6 +31,13 @@
       controls: { include: ["heading", "askedBy", "grants"] },
     },
   });
+
+  // The panel fades in, so a lookup made the moment it mounts finds it before it can be seen.
+  async function standingPanel(body: ReturnType<typeof within>): Promise<HTMLElement> {
+    const panel = await body.findByRole("alertdialog");
+    await waitFor(() => expect(panel).toBeVisible());
+    return panel;
+  }
 </script>
 
 <script lang="ts">
@@ -60,23 +67,23 @@
       const panel = await body.findByRole("alertdialog", {
         name: "Allow Magna Carta to Use Your Outlook Calendar",
       });
-      await expect(panel).toBeVisible();
+      await waitFor(() => expect(panel).toBeVisible());
     });
 
     await step("Names who is asking and lists every grant", async () => {
-      const panel = within(await body.findByRole("alertdialog"));
+      const panel = within(await standingPanel(body));
       await expect(panel.getByText("Asked by Calendar Sync")).toBeVisible();
       await expect(panel.getAllByRole("listitem")).toHaveLength(3);
     });
 
     await step("Offers exactly two answers, Cancel and Allow", async () => {
-      const panel = within(await body.findByRole("alertdialog"));
+      const panel = within(await standingPanel(body));
       await expect(panel.getByRole("button", { name: "Cancel" })).toBeVisible();
       await expect(panel.getByRole("button", { name: "Allow" })).toBeVisible();
     });
 
     await step("Allowing reaches the caller and closes the window", async () => {
-      const panel = within(await body.findByRole("alertdialog"));
+      const panel = within(await standingPanel(body));
       await userEvent.click(panel.getByRole("button", { name: "Allow" }));
       await waitFor(() => expect(body.queryByRole("alertdialog")).toBeNull());
       await expect(body.getByTestId("allowed-count")).toHaveTextContent("1");
@@ -84,7 +91,7 @@
 
     await step("Walking away tells the caller and grants nothing", async () => {
       await userEvent.click(body.getByRole("button", { name: "Connect Outlook" }));
-      const panel = within(await body.findByRole("alertdialog"));
+      const panel = within(await standingPanel(body));
       await userEvent.click(panel.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(body.queryByRole("alertdialog")).toBeNull());
       await expect(body.getByTestId("allowed-count")).toHaveTextContent("1");
@@ -117,7 +124,7 @@
 
     await step("A grant that fails leaves the window standing with the reason", async () => {
       await userEvent.click(body.getByRole("button", { name: "Connect Outlook (refused)" }));
-      const panel = within(await body.findByRole("alertdialog"));
+      const panel = within(await standingPanel(body));
       await userEvent.click(panel.getByRole("button", { name: "Allow" }));
       await expect(await panel.findByText("Microsoft did not answer.")).toBeVisible();
       await expect(panel.getByRole("button", { name: "Allow" })).toBeVisible();
