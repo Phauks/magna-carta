@@ -560,7 +560,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. `@magna-carta/matter-search` is a registry of declared read-side sources on the federated timeline's pattern: a source says where its rows live, which capability gates them, and how to project one, and the shared builder composes the matter binding and the visible-matter predicate itself — so a source physically cannot search across matters, and no registered source may name a discovery review table. `GET /api/v1/matters/{matterId}/search` narrows that registry twice before building anything, by the reader's scope and by the capabilities they hold; a withheld source is reported rather than returned empty. The control is `ScreenSearch` with its `scope` seam filled, rendered from the matter layout so every section inherits it, with a panel for the fast path and a results page whose query rides in the address.\n\nEight sources answer (files by name, time, costs, billing, parties, calendar, notes, custody) against six sections that decline with the line saying what each waits on, and `lint:matter-search-coverage` refuses a section that answers neither way. The registry answers in the section strip's own order, so the answer and the tabs above it never disagree about where things live.\n\n**The load-profile gate has run, and it found one real defect.** The measurement asks the question that decides whether the search can grow: not whether a substring match is fast — it cannot be, and no index makes it so — but whether the MATTER NARROWING is index-served, so the scan reads one case's rows rather than the firm's. The parties source, written as two LEFT JOINs onto the directory, planned a full scan of every entity the firm holds; it now drives from `matter_party` and resolves each name by primary key. Two sources materialise a sort (notes on a computed occurrence date, parties on a case-folded name); both are recorded rather than waved through, because the rows being sorted are rows the scan has already read and bounded by one matter.\n\n**Built is in-progress rather than done, and what remains is no longer ordinary work.** Fees cannot be built at all: a fee is designed as its own dated work-in-progress record and nothing on the wire carries one, so there is nothing to search rather than a source nobody wrote. The matter-asset register is the mirror case — the query is written and reviewed, and it is unregistered because the strip's regrouping left the register with no screen for a hit to land on. File contents wait on a deploy. Everything the schema can answer today, answers. File **contents** are a separate wait — the engine, its write pipeline and its compaction are built, and the port answers `engine-not-implemented` until the search Container is deployed.\n\nFour owner recommendations stand, each reversible and none of them reaching the registry or the route — the snippet within a matter, the `search:matter` key and its broad seeding, per-source rather than global \"include deleted\", and saying so when a source is withheld."
+      "notes": "One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. `@magna-carta/matter-search` is a registry of declared read-side sources on the federated timeline's pattern: a source says where its rows live, which capability gates them, and how to project one, and the shared builder composes the matter binding and the visible-matter predicate itself — so a source physically cannot search across matters, and no registered source may name a discovery review table. `GET /api/v1/matters/{matterId}/search` narrows that registry twice before building anything, by the reader's scope and by the capabilities they hold; a withheld source is reported rather than returned empty. The control is `ScreenSearch` with its `scope` seam filled, rendered from the matter layout so every section inherits it, with a panel for the fast path and a results page whose query rides in the address.\n\nEight sources answer (files by name, time, costs, billing, parties, calendar, notes, custody) against six sections that decline with the line saying what each waits on, and `lint:matter-search-coverage` refuses a section that answers neither way. The registry answers in the section strip's own order, so the answer and the tabs above it never disagree about where things live.\n\n**Since 2026-11-10 the five sections that hold writing match by word, through the record index.** Notes, time, costs, calendar and what was said in messaging read the firm database's full-text index, composed into each source's own statement so the matter binding and the visible-matter predicate still decide what comes back. A search finds a record containing every word typed, in any order, with the last word allowed to be unfinished; part of the middle of a word no longer matches. Names and numbers keep substring matching. The paragraph below describes the substring scan as it was measured before that change, and it still holds for the sources that kept it.\n\n**The load-profile gate has run, and it found one real defect.** The measurement asks the question that decides whether the search can grow: not whether a substring match is fast — it cannot be, and no index makes it so — but whether the MATTER NARROWING is index-served, so the scan reads one case's rows rather than the firm's. The parties source, written as two LEFT JOINs onto the directory, planned a full scan of every entity the firm holds; it now drives from `matter_party` and resolves each name by primary key. Two sources materialise a sort (notes on a computed occurrence date, parties on a case-folded name); both are recorded rather than waved through, because the rows being sorted are rows the scan has already read and bounded by one matter.\n\n**Built is in-progress rather than done, and what remains is no longer ordinary work.** Fees cannot be built at all: a fee is designed as its own dated work-in-progress record and nothing on the wire carries one, so there is nothing to search rather than a source nobody wrote. The matter-asset register is the mirror case — the query is written and reviewed, and it is unregistered because the strip's regrouping left the register with no screen for a hit to land on. File contents wait on a deploy. Everything the schema can answer today, answers. File **contents** are a separate wait — the engine, its write pipeline and its compaction are built, and the port answers `engine-not-implemented` until the search Container is deployed.\n\nFour owner recommendations stand, each reversible and none of them reaching the registry or the route — the snippet within a matter, the `search:matter` key and its broad seeding, per-source rather than global \"include deleted\", and saying so when a source is withheld."
     },
     {
       "slice": "2·1 — Inbound upload + untrusted-file pipeline + async bulk download",
@@ -679,14 +679,14 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "The inline_playable writer at ingest, which nothing sets today, then the Preview tab over the streaming path for images and media.",
+      "next": "Point FILES_ORIGIN at a real cookieless host with its zone route, so a playable grant streams in production; then the Preview tab over the streaming path for images and audio.",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. Player UI → 0·7. A PORTABLE DOCUMENT does not travel this path at all: the reader at /documents/{fileId}/view rasterizes its pages locally through the pure-Rust engine in a Web Worker, so only pixels reach the page and no rendition engine is needed. The streaming path still awaits its `inline_playable` writer, which nothing in the repository sets, so every grant it issues is download-only."
+      "notes": "Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. The video player is built: the design system's own controls over the browser's video element, at /documents/{fileId}/watch and in the Preview tab. A PORTABLE DOCUMENT does not travel this path at all: the reader at /documents/{fileId}/view rasterizes its pages locally through the pure-Rust engine in a Web Worker, so only pixels reach the page and no rendition engine is needed. The `inline_playable` verdict is judged by the first preview of each version, from bounded ranged reads of the recording's track table, and kept on the row; production streaming still waits on the files host."
     },
     {
       "slice": "2·4 — In-app conversion",
@@ -2673,6 +2673,44 @@
       },
       "blockedBy": [],
       "notes": "The worker's 99 flat route files become about twenty domain modules behind a manifest; contract shapes move to the domain packages; an HTTP-versus-background seam and four fitness tests hold the shape. Design proposed 2026-09-18; step 1 (the foundations and the four fitness tests) built 2026-09-19; step 2 (the domain directories, the manifest, the per-domain operation lists) built 2026-09-20; step 3 (the http/ and background/ split, boundary enforced) built 2026-09-24; step 4 begun the same day with the calendar contract moved to its package, and the directory's followed 2026-10-02; the migration plan is section 10 of the spec."
+    },
+    {
+      "slice": "Indexing and discovery",
+      "group": "cross-cutting",
+      "order": 48,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "in-progress"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "in-progress"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/project-thread-rixee1",
+      "activeWork": "docs/active-work/claude/project-thread-rixee1.md",
+      "next": "the Search and Indexing status screen, then the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one",
+      "links": {
+        "spec": "docs/specs/2026-11-10-indexing-and-discovery-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "One structure for everything the platform searches, approved by the owner on 2026-11-10: one list of searchable places, three indexes behind it, and three rules that hold across all of them. Access is checked twice, once where the index narrows and again where the consumer's own statement decides; every asker has a named reach (a person reads the matters they can see, a conflicts check reads the firm, a review reads one review set); and every index is a copy that can be rebuilt from the records it was derived from.\n\n**Built: the record index, and the matter search reading it.** `@magna-carta/search` declares eight sources of prose held in database rows (notes, time narratives, cost descriptions, calendar events, calls and texts, tasks, Magnus conversations and their turns) and renders from each declaration the triggers that keep it indexed, the statement that fills it from existing rows, and the statement that rebuilds it. Triggers are the only write path, so no editor, import or erasure can forget the index, and a lineage test applies every migration and compares the triggers a firm's database carries with what the declarations render today, word for word. The matter search reads the index for its five sections that hold writing and keeps substring matching for names and numbers.\n\n**The shape was measured before it was fixed.** `packages/search/scripts/measure-record-index-shapes.mjs` builds three candidate shapes over 200,000 synthetic records and times the reads against the substring scan they replace. Prefix indexes were dropped because they took the index from about 60 percent of the text's size to 163 percent; the source became a column instead of a token because the token added milliseconds to a read that otherwise takes microseconds. The matter search's own statements, measured on the load-profile volume, are much faster for a word few records contain and about level for a word a quarter of them contain.\n\n**Two limits are recorded instead of solved.** A ranked read scores every match, so its cost grows with how many records contain the word; the search across matters has to bound that before it ships. And the fill runs inside the migration, which is right at today's sizes and should become a batched rebuild before a firm with around a million indexed records applies one.\n\n**Not built:** the status screen, the search across matters, the conflicts content search reading the index (its own stream), file contents (behind the search engine's deploy), and the discovery review screens (the coding panel waits on owner flags P1 and P3)."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",

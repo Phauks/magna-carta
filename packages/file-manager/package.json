@@ -24,6 +24,7 @@
     "./queries": "./src/queries.ts",
     "./scan-cache": "./src/scan-cache.ts",
     "./preview-policy": "./src/preview-policy.ts",
+    "./inline-playable": "./src/inline-playable.ts",
     "./bundle-paths": "./src/bundle-paths.ts",
     "./zip-composition": "./src/zip-composition.ts",
     "./version-changes": "./src/version-changes.ts",

@@ -1,7 +1,7 @@
 # A matter's documents
 
 _The documents screen is early. Uploading files and folders, saving new versions, folders, the
-version history, reading PDFs, and editing text documents all work today. Editing a Word document in
+version history, reading PDFs, watching videos, and editing text documents all work today. Editing a Word document in
 the browser opens a real editing session but needs the editor service running, so on some
 installations the editor stays blank; the screen tells you when that is the case._
 
@@ -260,6 +260,7 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
 - A **text document** (`.txt`, `.md`, `.log`, and other plain-text files such as `.json` or
   `.html`) opens in the text editor, in a new tab.
 - A **PDF** opens in the reader, in a new tab.
+- A **video** (`.mp4`, `.mov`, `.webm`, and other recordings) opens in the player, in a new tab.
 - A **folder** opens itself, and a **zip archive** opens to show what is inside it.
 - **Everything else** opens its preview in the details panel. A document that is still being
   checked, one the check refused, or one with a safety finding open opens its preview too, where
@@ -437,6 +438,29 @@ search for a common or predictable one.
 
 A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document
 or adds a version.
+
+## Watching a video
+
+Open a video and it plays in a new tab, with the controls in a bar beneath the picture so they never
+cover it. Select a video's row and its **Preview** tab in the details panel plays it there too, with
+a smaller set of controls.
+
+The bar holds the time and a seek bar across the top, and beneath them: play and pause, a step back
+and forward of one frame, a jump back and forward of ten seconds, sound, the playback speed (half
+speed up to double), picture in picture where the browser offers it, and full screen. With the
+player selected, the keyboard does the same: **K** plays and pauses, **J** and **L** jump ten
+seconds, **,** and **.** step a frame, **M** mutes and **F** goes full screen.
+
+**Copy Link at** copies an address that opens the video at the moment shown, so you can send a
+colleague straight to the part of a deposition you mean.
+
+Not every video plays in a browser. Many phones record in a format (HEVC) that most browsers cannot
+decode, and some files carry sound in a format browsers lack. Magna Carta reads how each video is
+encoded the first time anyone opens it, and a video that will not play says so and offers the
+download instead, so you can watch it in a video application. The file is stored either way, and
+nothing about it is changed by trying.
+
+A video is read-only here. Nothing you do in the player changes it or adds a version.
 
 ## Editing in the browser
 

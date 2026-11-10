@@ -1,4 +1,10 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import {
+  RECORD_INDEX_MATCH_CONDITION,
+  recordIdsMatchingSubquery,
+  recordIndexLeadingFrom,
+  recordMatchExpression,
+} from "@magna-carta/search/record-index-query";
 import type { SourceSearchRequest } from "./registry.ts";
 
 // The one place a source's SELECT is assembled, so the four properties every source must have are
@@ -14,8 +20,11 @@ import type { SourceSearchRequest } from "./registry.ts";
 //   3. Every statement carries a LIMIT, and it is always the caller's limit plus one. That extra row
 //      is never returned — it is how "there is more" is MEASURED, so a group can say more exists
 //      without ever claiming a total nobody counted.
-//   4. The query text arrives as a BINDING, escaped for LIKE. The wildcards are the reader's text,
-//      not their instruction.
+//   4. The query text arrives as a BINDING and is never an instruction. Where a source matches a
+//      name or a number by substring it is escaped for LIKE, so the wildcards are the reader's
+//      text; where a source matches words through the record index it is rebuilt from the reader's
+//      own tokens (recordIndexLeadingMatch below), so the index's operators are the reader's text
+//      too.
 //
 // Table and column names are code-supplied literals throughout — constants in the source modules,
 // never request input. Everything a caller supplies arrives as a binding.
@@ -31,6 +40,79 @@ import type { SourceSearchRequest } from "./registry.ts";
 export function likeContainsTerm(query: string): string {
   const escaped = query.replace(/[\\%_]/gu, (character) => `\\${character}`);
   return `%${escaped}%`;
+}
+
+// THE MATCH FOR A SOURCE WHOSE WORDS ARE IN THE FIRM'S RECORD INDEX — a note's text, a narrative, an
+// event's description — in the two forms a source can use it.
+//
+// In both, the statement around the match is unchanged: it still reads the source's own table, still
+// binds the matter there, still composes the visibility predicate and still carries the limit, so the
+// index decides nothing about what a reader may see. It proposes candidates and the source's own
+// statement reads them.
+//
+// The matter is named to the index as well as bound by the builder. That is not a second access
+// check — the builder's binding is the check — it is what keeps the index's own work proportional to
+// one matter's matches instead of to every record in the firm that happens to contain the word.
+//
+// WHAT THE READER GETS IS A WORD MATCH: every word typed must be in the record, the last word may be
+// the start of one, quoted words match as that exact run, and case and accents do not matter. It is
+// not a substring match — "sement" does not find "easement". Names and numbers, where a person does
+// mean the characters, stay on `likeContainsTerm`.
+
+// THE USUAL FORM. The index leads and the source's table is reached by key from each match, so the
+// read is proportional to the records that match and not to the rows the matter holds. Hand `from`,
+// `condition` and `binding` to `boundedSearchSelect`.
+//
+// Null when the text holds no letter or digit: there is nothing to ask the index, and the source
+// builds no statement.
+export interface RecordIndexLeadingMatch {
+  readonly from: string;
+  readonly condition: string;
+  readonly binding: string;
+}
+
+export function recordIndexLeadingMatch(
+  request: SourceSearchRequest,
+  recordIndexSourceKey: string,
+  table: string,
+): RecordIndexLeadingMatch | null {
+  const expression = recordMatchExpression(request.query, {
+    sourceKeys: [recordIndexSourceKey],
+    matter: request.matterId,
+  });
+  if (expression === null) return null;
+  return {
+    from: recordIndexLeadingFrom(recordIndexSourceKey, table),
+    condition: RECORD_INDEX_MATCH_CONDITION,
+    binding: expression,
+  };
+}
+
+// THE OTHER FORM, for a source that matches its words OR something else on its own table. A
+// condition narrowing the source's table to the rows the index proposes, with its one binding, for
+// the source to put beside its other condition. The source's table leads here, so the statement
+// reads every row of the matter; that is the right trade only where a matter holds few of them.
+//
+// Null when the text holds no letter or digit, leaving the source its other half.
+export interface RecordIndexMatch {
+  readonly condition: string;
+  readonly binding: string;
+}
+
+export function recordIndexMatch(
+  request: SourceSearchRequest,
+  recordIndexSourceKey: string,
+  idColumn: string,
+): RecordIndexMatch | null {
+  const expression = recordMatchExpression(request.query, {
+    sourceKeys: [recordIndexSourceKey],
+    matter: request.matterId,
+  });
+  if (expression === null) return null;
+  return {
+    condition: `${idColumn} IN (${recordIdsMatchingSubquery(recordIndexSourceKey)})`,
+    binding: expression,
+  };
 }
 
 export interface BoundedSearchSelectSpec {

@@ -25,6 +25,9 @@ pub enum GenerateError {
     Reassemble,
     /// An image watermark's bytes could not be decoded (see `watermark`).
     Image,
+    /// A text watermark holds a character its font cannot draw (anything outside
+    /// Windows-1252).
+    UnsupportedCharacter,
 }
 
 /// An inclusive, 0-based range of pages.

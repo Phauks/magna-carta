@@ -11,11 +11,11 @@ load-profile: n/a
 tested: done by="Opus 4.8" gap
 branch: main
 active-work:
-next: The inline_playable writer at ingest, which nothing sets today, then the Preview tab over the streaming path for images and media.
+next: Point FILES_ORIGIN at a real cookieless host with its zone route, so a playable grant streams in production; then the Preview tab over the streaming path for images and audio.
 link-spec:
 link-plan:
 adrs:
 blocked-by:
 ---
 
-Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. Player UI → 0·7. A PORTABLE DOCUMENT does not travel this path at all: the reader at /documents/{fileId}/view rasterizes its pages locally through the pure-Rust engine in a Web Worker, so only pixels reach the page and no rendition engine is needed. The streaming path still awaits its `inline_playable` writer, which nothing in the repository sets, so every grant it issues is download-only.
+Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. The video player is built: the design system's own controls over the browser's video element, at /documents/{fileId}/watch and in the Preview tab. A PORTABLE DOCUMENT does not travel this path at all: the reader at /documents/{fileId}/view rasterizes its pages locally through the pure-Rust engine in a Web Worker, so only pixels reach the page and no rendition engine is needed. The `inline_playable` verdict is judged by the first preview of each version, from bounded ranged reads of the recording's track table, and kept on the row; production streaming still waits on the files host.

@@ -12,7 +12,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, Stream};
 
 use crate::scrub::catalog_subdict;
-use crate::standard_fonts_data::{HELVETICA, WIN_ANSI_ENCODING};
 use crate::surgery::{resolve_array, resolve_dict};
 
 // ── Public types ───────────────────────────────────────────────────────────────
@@ -533,19 +532,16 @@ pub(crate) fn terminal_fields(doc: &Document) -> Vec<TerminalField> {
 /// Returns 0.0 for code-points ≥ 256, slots with no glyph name assigned, and
 /// glyph names absent from the Helvetica metrics table.
 fn helvetica_advance(ch: char) -> f32 {
-    let code = ch as u32;
-    if code >= 256 {
-        return 0.0;
-    }
-    let name = WIN_ANSI_ENCODING[code as usize];
-    if name.is_empty() {
-        return 0.0;
-    }
-    // HELVETICA is sorted by glyph name; binary search is correct and O(log n).
-    match HELVETICA.binary_search_by_key(&name, |&(n, _)| n) {
-        Ok(index) => HELVETICA[index].1 as f32,
-        Err(_) => 0.0,
-    }
+    // A character the encoding cannot hold is drawn as a question mark, so it is measured
+    // as one.
+    crate::bates::font_advance(
+        crate::bates::BatesFont::Helvetica,
+        if crate::bates::win_ansi_code(ch).is_some() {
+            ch
+        } else {
+            '?'
+        },
+    )
 }
 
 /// Width in points of `text` rendered in Helvetica at `size_pt`.
@@ -596,10 +592,13 @@ pub(crate) fn text_appearance(
     };
     let ty = ((h - size) / 2.0 + size * 0.2).max(2.0);
 
-    let escaped = crate::bates::escape_pdf_literal(value);
-    let content = format!(
-        "/Tx BMC q BT /MagnaCartaFormFont {size:.2} Tf 0 g {tx:.2} {ty:.2} Td ({escaped}) Tj ET Q EMC"
-    );
+    // The field's value keeps every character it was given; only this drawn appearance is
+    // limited to what the font's encoding holds, with a question mark for the rest.
+    let mut content =
+        format!("/Tx BMC q BT /MagnaCartaFormFont {size:.2} Tf 0 g {tx:.2} {ty:.2} Td (")
+            .into_bytes();
+    content.extend(crate::bates::win_ansi_literal_lossy(value));
+    content.extend_from_slice(b") Tj ET Q EMC");
 
     let font_resources = dictionary! {
         "MagnaCartaFormFont" => Object::Reference(font_id),
@@ -619,7 +618,7 @@ pub(crate) fn text_appearance(
         ]),
         "Resources" => Object::Dictionary(resources),
     };
-    let stream = Stream::new(stream_dict, content.into_bytes());
+    let stream = Stream::new(stream_dict, content);
     doc.add_object(Object::Stream(stream))
 }
 
@@ -796,6 +795,7 @@ pub fn fill_form(
         "Type" => Object::Name(b"Font".to_vec()),
         "Subtype" => Object::Name(b"Type1".to_vec()),
         "BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        "Encoding" => Object::Name(b"WinAnsiEncoding".to_vec()),
     }));
 
     // Build a name → TerminalField index for fast lookup.
@@ -1974,6 +1974,26 @@ mod tests {
             (tf_size - 12.0).abs() < 0.01,
             "auto-fitted size for a 20-pt-tall rect must be ≈ 12.0; got {tf_size}"
         );
+    }
+
+    #[test]
+    fn appearance_draws_accents_in_the_fonts_encoding() {
+        // One byte per character through WinAnsiEncoding: "é" is 0xE9, not its two UTF-8
+        // bytes, which a viewer draws as "Ã©". A character outside the encoding is "?".
+        let mut doc = Document::with_version("1.7");
+        let font_id = doc.add_object(Object::Dictionary(Dictionary::new()));
+        let id = text_appearance(
+            &mut doc,
+            [0.0, 0.0, 200.0, 20.0],
+            10.0,
+            0,
+            font_id,
+            "José 山",
+        );
+        let stream = doc.get_object(id).unwrap().as_stream().unwrap();
+        let content = &stream.content;
+        assert!(content.windows(5).any(|w| w == b"(Jos\xe9"), "{content:?}");
+        assert!(content.windows(3).any(|w| w == b" ?)"), "{content:?}");
     }
 
     #[test]

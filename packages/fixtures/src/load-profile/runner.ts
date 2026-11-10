@@ -106,15 +106,27 @@ export function explainStatement(
 // index walk — `SCAN <table> USING COVERING INDEX <index>` (covering-index walk, efficient) and
 // `SEARCH <table> USING INDEX <index>` / `USING INTEGER PRIMARY KEY` must not be flagged.
 // Table-wide aggregates (the fitness queries) scan by nature — allowlist them by label.
+//
+// A VIRTUAL TABLE always reads `SCAN`, because the word describes how SQLite drives it and not what
+// the table does inside. What says whether the read is narrowed is the index string after the
+// colon, which the table itself writes: a full-text table asked a `MATCH` reports its constraints
+// there (`VIRTUAL TABLE INDEX 0:M3`) and is answering from its term index, while one read with no
+// constraint at all reports nothing (`VIRTUAL TABLE INDEX 0:`) and is reading every row. Only the
+// second is a full scan.
+export function isFullScan(detail: string): boolean {
+  if (!detail.startsWith("SCAN")) return false;
+  const virtualTable = / VIRTUAL TABLE INDEX \d+:(.*)$/u.exec(detail);
+  if (virtualTable !== null) return virtualTable[1] === "";
+  return !detail.includes(" USING ");
+}
+
 export function findFullScans(
   plans: readonly LabeledPlan[],
   allowlist: readonly string[] = [],
 ): string[] {
   return plans
     .filter((plan) => !allowlist.includes(plan.label))
-    .filter((plan) =>
-      plan.details.some((detail) => detail.startsWith("SCAN") && !detail.includes(" USING ")),
-    )
+    .filter((plan) => plan.details.some(isFullScan))
     .map((plan) => plan.label);
 }
 

@@ -1456,6 +1456,17 @@ export const NO_PII_TABLES: readonly string[] = [
   // act — who signed the firm up to an arrangement — and is current state rather than an activity
   // record about that person, the same line integration_connection and scoped_setting sit on.
   "ai_search_disclosure_acknowledgement",
+  // The record index's entry rows — which declared source a row came from, the indexed record's own
+  // identifier, its matter, and where it sorts. Identifiers and a date only, and none of the words.
+  // The words are in `record_text_fts`, a contentless full-text table the schema does not declare and
+  // this registry therefore cannot list; it holds the terms of each record and not its text. Neither
+  // half needs an erasure step of its own, and neither can be forgotten by one: both are written only
+  // by triggers on the tables that own the records, in the statement that changes the record. A note
+  // that is hard-deleted takes its entry and its terms with it; a communication whose body is scrubbed
+  // is re-indexed from what is left. An erasure pass that wants the removed terms gone from the
+  // storage pages as well as from every answer follows with `optimizeRecordIndexStatement`
+  // (@magna-carta/search/record-index-statements), which rewrites the index without them.
+  "record_text_entry",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

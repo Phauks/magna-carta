@@ -3292,9 +3292,13 @@ name = "pdf-compose-core"
 version = "0.0.0"
 dependencies = [
  "image",
+ "js-sys",
  "krilla",
  "pdf-core",
  "rustybuzz",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
