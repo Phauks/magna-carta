@@ -7,11 +7,12 @@ import { explainStatement, type LabeledPlan } from "./runner.ts";
 
 // The consolidated matter search, measured for the one thing that decides whether it can grow.
 //
-// EVERY SOURCE MATCHES WITH `LIKE '%term%'`, AND NO INDEX CAN SERVE THAT. That is not a defect to
-// fix, it is the nature of a substring match, and measuring it as though an index could would be
-// measuring the wrong thing. What decides whether the search is affordable is the step BEFORE the
-// match: whether the matter narrowing is served by an index, so the scan runs over ONE case's rows
-// rather than over every row the firm has ever written.
+// TWO KINDS OF MATCH, AND ONE QUESTION ASKED OF BOTH. A source matching a name or a number uses
+// `LIKE '%term%'`, which no index can serve: that is the nature of a substring match, and measuring
+// it as though an index could would be measuring the wrong thing. A source matching prose asks the
+// firm's record index for the words, narrowed inside the index to the matter. What decides whether
+// either is affordable is the same: whether the read is fenced to ONE case's rows, or runs over
+// every row the firm has ever written.
 //
 // That distinction is the whole gate in front of adding more sources. A matter's notes and custody
 // packets are counted in tens, so even a careless plan would look fine on them; a long-running
@@ -20,12 +21,13 @@ import { explainStatement, type LabeledPlan } from "./runner.ts";
 // MATTER does, and the difference does not show up until a firm is large enough that finding out is
 // expensive.
 //
-// So the assertions here are structural rather than timed: every statement the registry builds must
-// SEARCH an index for its matter. A materialised SORT is a second question and is answered
-// separately in the smoke, because it is acceptable in a place a full scan never is — the rows a
-// sort materialises here are the rows the substring scan has already read, bounded by one matter, so
-// it adds a log factor to work already done rather than a new dependency on the size of the firm.
-// Plan shape is timing-noise-free, which is what makes this a gate rather than a reading.
+// So the assertions here are structural rather than timed: no statement the registry builds may
+// read a whole table — an ordinary one without an index, or the full-text one without a match. A
+// materialised SORT is a second question and is answered separately in the smoke, because it is
+// acceptable in a place a full scan never is — the rows a sort materialises here are rows the read
+// has already narrowed to one matter, so it adds a log factor to work already done rather than a
+// new dependency on the size of the firm. Plan shape is timing-noise-free, which is what makes this
+// a gate rather than a reading.
 
 export interface MatterSearchPlanInput {
   readonly database: SqlDatabase;
@@ -93,28 +95,33 @@ export const MATTER_SEARCH_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
 
 // The sources that materialise their sort, as a REGISTER rather than a pass mark. Every one of these
 // is acceptable, and the rule that makes it acceptable is the same for all of them: the rows being
-// sorted are rows the substring scan has ALREADY read, bounded by one matter, so the sort adds a log
-// factor to work already done rather than a new dependency on the size of the firm. A source that
-// sorted rows it had not already narrowed would fail the scan assertion above first, which is why
-// that one is a bar and this one is a list.
+// sorted are rows the read has ALREADY narrowed to one matter, so the sort adds a log factor to work
+// already done rather than a new dependency on the size of the firm. A source that sorted rows it
+// had not already narrowed would fail the scan assertion above first, which is why that one is a
+// bar and this one is a list.
 //
 // It is a list rather than a blanket allowance so that a NEW source materialising a sort has to be
 // added deliberately, with somebody looking at whether it could cheaply have been avoided:
 //
 //   billing      — sorts on created_at; the matter index leads (matter_id, invoice_id).
-//   costs        — sorts on incurred_date; the matter index leads (matter_id, status).
-//   notes        — sorts on COALESCE(occurred_on, date(created_at)), which is computed; the Notes
-//                  tab's own list orders by the same expression and materialises the same sort.
+//   calendar     — the record index leads, so the rows arrive in the index's order and are the
+//                  events on this matter that contain the words; they are sorted by starts_on.
+//   costs        — the record index leads; the matching costs on this matter, sorted by
+//                  incurred_date.
+//   notes        — the record index leads; the matching notes on this matter, sorted by
+//                  COALESCE(occurred_on, date(created_at)), the Notes tab's own order.
 //   parties      — sorts on the case-folded display name, resolved per row by subquery.
-//   time         — sorts on work_date; the matter index leads (matter_id, status).
+//   time         — the record index leads; the matching entries on this matter, sorted by
+//                  work_date.
 //
-// THE FIX IF IT EVER MATTERS, named here so nobody has to re-derive it: a covering index leading
-// (matter_id, <sort column>) would let SQLite walk in order, filter as it goes, and stop at the
-// limit rather than reading every match and sorting them. That is a real win on a matter with
-// thousands of time entries — and it is a write cost on every insert, taken for a read that has no
-// measured problem. Golden rule 10: it is recorded, not pre-emptively bought.
+// WHAT AN INDEX-LED SOURCE COSTS, so nobody has to re-derive it: it reads the records on the matter
+// that MATCH, sorts them, and returns the first page. For a selective word that is a handful of
+// rows where the scan it replaced read the matter's every row; for a word in most of a long
+// matter's entries it is most of them, which is about what the scan cost. Golden rule 10: recorded,
+// and not bought down further without a measured problem.
 export const MATTER_SEARCH_MATERIALISED_SORTS: readonly string[] = [
   "matter-search.billing",
+  "matter-search.calendar",
   "matter-search.costs",
   "matter-search.notes",
   "matter-search.parties",

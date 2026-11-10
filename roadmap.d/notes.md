@@ -125,7 +125,7 @@
   scope: Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
   status: designed
   spec: docs/specs/2026-08-15-notes-and-activity-design.md
-  awaiting-owner: Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
+  notes: The index decision is made (owner approval 2026-11-10, docs/specs/2026-11-10-indexing-and-discovery-design.md): notes are a source of the firm's record index, built as search.record-index, and every note is indexed today. What is unbuilt is the surface that reads it across matters — search.across-matters — so this stays designed. The snippet answer on this node (no snippet, notes design flag W6) predates that approval, whose proposal recommended showing a snippet in firm-wide results; the surface must settle which stands before it shows one.
 
 - id: notes.entity-note
   name: Notes on a Directory entity

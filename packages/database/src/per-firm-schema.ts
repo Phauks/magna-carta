@@ -10779,6 +10779,52 @@ export const aiSearchDisclosureAcknowledgement = sqliteTable(
   ],
 );
 
+// ---------------------------------------------------------------------------------------------
+// The record index — the firm's full-text index over the short text held in its own rows: a note,
+// a time narrative, what was said on a call, a task, a Magnus conversation.
+//
+// It is two tables. This one is the ordinary half: one row per indexed record, saying which
+// declared source it came from, which row, which matter and where it sorts. The other half is
+// `record_text_fts`, a CONTENTLESS full-text table keyed by this table's `id`, which holds the terms
+// and none of the text. It is created by the migration and is not declared here, because a virtual
+// table is not something this schema language can describe.
+//
+// NOTHING WRITES THIS TABLE BUT TRIGGERS. Each declared source carries triggers on its own table
+// that remove and re-derive the row's entry in the statement that changed the record, so the index
+// is never behind and no write path can forget it. The sources, and the triggers rendered from
+// them, live in @magna-carta/search (record-index-sources.ts, record-index-schema.ts).
+//
+// It is a COPY. Every row can be derived again from the record it points at, so a rebuild loses
+// nothing — which is also why the columns below carry no foreign keys: the record's own table is
+// what holds its matter to account, and a constraint here could only ever refuse a write to a
+// record on the index's behalf.
+export const recordTextEntry = sqliteTable(
+  "record_text_entry",
+  {
+    // An integer because the full-text table is keyed by row id. Never shown and never a handle: a
+    // rebuild assigns new ones.
+    id: integer("id").primaryKey(),
+    // The declared source's key. Stored, so a key is permanent once a firm's database holds it.
+    source: text("source").notNull(),
+    // The indexed row's own identifier in its own table.
+    recordId: text("record_id").notNull(),
+    // What a reader opens where that is not the row itself — the conversation a turn belongs to.
+    containerId: text("container_id"),
+    // The matter the record is on, as it stood when the entry was last derived. Null for a record
+    // on no matter.
+    matterId: text("matter_id").$type<MatterId>(),
+    // The order a reader expects this source's records in, as text that sorts: a civil date or an
+    // instant.
+    sortKey: text("sort_key").notNull(),
+  },
+  (table) => [
+    // One entry per record. Also what a count of the index by source reads.
+    uniqueIndex("record_text_entry_source_record_unique").on(table.source, table.recordId),
+    // What a container's change walks to find every row under it.
+    index("record_text_entry_source_container_index").on(table.source, table.containerId),
+  ],
+);
+
 // The download register — one member's shelf of what the platform produced for them, held for a
 // short retention window and then swept. A SHELF, NOT A HISTORY: "what have I ever downloaded" is an
 // audit question `audit_log` already answers under a different key, and nothing here is the firm's

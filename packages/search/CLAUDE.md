@@ -1,10 +1,14 @@
 # @magna-carta/search — CLAUDE.md
 
-**Purpose.** The pure domain package behind both search surfaces: the discovery **keyword** index
-(the corpus scope key, the split-key derivation, the extraction and fusion types, and
-`SearchIndexPort`) and the firm-facing **natural-language** search over a firm's own working
-documents (its consent gate and versioned disclosure, the derived text feed and its catalog, the
-managed-instance configuration and lifecycle, the usage meter, and `NaturalLanguageSearchPort`).
+**Purpose.** The pure domain package behind the platform's three indexes: the discovery **keyword**
+index over the words inside files (the corpus scope key, the split-key derivation, the extraction
+and fusion types, and `SearchIndexPort`); the firm-facing **natural-language** search over a firm's
+own working documents (its consent gate and versioned disclosure, the derived text feed and its
+catalog, the managed-instance configuration and lifecycle, the usage meter, and
+`NaturalLanguageSearchPort`); and the **record index** over the text a firm holds in its own
+database rows (the declared sources, the triggers and statements rendered from them, and how a
+reader's text becomes a question). Which index is for what, and who may ask each one, is
+[`docs/specs/2026-11-10-indexing-and-discovery-design.md`](../../docs/specs/2026-11-10-indexing-and-discovery-design.md).
 
 No binding, no `env`, no network, no bucket handle. Every function here takes a firm-scoped database
 handle from its caller, which is the whole of how firm scoping works in this package — nothing in it
@@ -39,6 +43,19 @@ ADR-0110, ADR-0111.)
 - `natural-language-statements.ts` (per-firm) / `natural-language-instance-statements.ts`
   (control-plane) — the SQL
 - `natural-language-audit.ts`, `natural-language-topics.ts`
+
+**The record index** (every module prefixed `record-index-`)
+
+- `record-index-sources.ts` — **the list of searchable places.** One declaration per source: its
+  table, its words, its matter, when a row is in or out, and which columns re-index it
+- `record-index-schema.ts` — everything the index is in a firm's database, rendered from the
+  declarations: the full-text table, each source's triggers, the fill and the rebuild
+- `record-index-query.ts` — a reader's text taken apart into tokens and rebuilt as a match, and the
+  two forms a consumer composes the index into its own statement in
+- `record-index-statements.ts` — the reads the index offers directly (ranked pointers, counts per
+  source) and its maintenance statements (rebuild one source, optimize)
+- `scripts/render-record-index-migration.mts` — prints the migration text for one source or all
+- `scripts/measure-record-index-shapes.mjs` — the measurement the index's shape was chosen on
 
 **`test/natural-language-filter-wall/`** is not production code and is exported from nothing. It is
 the runnable protocol for verifying the managed index's metadata-filter semantics against a real
@@ -94,6 +111,36 @@ are the ones the production modules adopted; keep the two in step.
   labels — there is no field it could be passed in — and the dropped-hit count never reaches the
   caller, because "your query matched fourteen passages you may not see" is itself a disclosure.
 
+## Local rules — the record index
+
+- **Triggers are the only write path. Nothing calls the index when it saves.** That is the property
+  that makes it impossible for a write path — an editor, an import, an erasure — to forget it. Do
+  not add a function that writes an index row from application code; if a record is not being
+  indexed, the fix is its source's declaration and a migration.
+- **Adding or changing a source is a migration.** The triggers a firm's database carries are text in
+  a migration, rendered from the declarations at the time. Declare the source, run
+  `node packages/search/scripts/render-record-index-migration.mts <key>`, and put what it prints in
+  a new per-firm migration; to change one, the new migration drops the source's triggers first. A
+  source key is stored in every index row, so it is permanent once shipped.
+  `test/record-index-lineage.test.ts` applies the whole lineage and compares its triggers word for
+  word with what the declarations render, so the two cannot part quietly.
+- **A migration that rebuilds an indexed table drops that table's triggers.** SQLite removes a
+  table's triggers with the table. Recreate them in the same migration; the lineage test fails
+  until they are back.
+- **The index proposes; the consumer's own statement decides.** A consumer composes the index into
+  a statement over its own table (`recordIndexLeadingFrom`, or `recordIdsMatchingSubquery` beside
+  another condition) and still binds the matter and composes the visibility predicate there. Never
+  return an index match as a result on the index's say-so.
+- **A read of the firm names its reason.** `RecordQueryScope.matter` left undefined reads every
+  matter. A conflicts check may; a person's own search may not, and passes a matter or composes the
+  visible-matter condition (`matterCondition`) so it is applied before the limit.
+- **A reader's text is never match syntax.** It reaches the index only through
+  `recordMatchExpression`, as a binding. Do not build a match string anywhere else.
+- **Prose only.** Names and numbers stay on substring matches over their own columns; a source may
+  not read a protected column or a review-set table, and a fitness test refuses one that does.
+- **The shape was measured; measure before changing it.** No prefix indexes, the source as a column
+  and the matter as a token each came from `scripts/measure-record-index-shapes.mjs`.
+
 ## Invariants that apply here
 
 - **All business data through the firm-scoped data-access layer** (golden rule 3): this package holds
@@ -114,7 +161,9 @@ are the ones the production modules adopted; keep the two in step.
   `@magna-carta/inference` (the embedding pin only — never a provider).
 - Consumed by `apps/api-worker/src/search/` and, for the keyword half, by `apps/search-worker`.
 - Table names are tracked against `@magna-carta/database` by
-  `test/natural-language-schema-name-sync.test.ts`; renaming a table there fails here.
+  `test/natural-language-schema-name-sync.test.ts`; renaming a table there fails here. The record
+  index's source tables and columns are held the same way by `test/record-index-lineage.test.ts`.
+- The record index is consumed by `@magna-carta/matter-search` (its prose sources).
 
 ## Gotchas
 

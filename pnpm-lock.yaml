@@ -963,6 +963,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
+      '@magna-carta/noise-suppression':
+        specifier: workspace:*
+        version: link:../../packages/noise-suppression
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
@@ -972,9 +975,6 @@ importers:
       '@magna-carta/safe-browse':
         specifier: workspace:*
         version: link:../../packages/safe-browse
-      '@magna-carta/noise-suppression':
-        specifier: workspace:*
-        version: link:../../packages/noise-suppression
       '@magna-carta/segmentation':
         specifier: workspace:*
         version: link:../../packages/segmentation
@@ -2395,6 +2395,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/search':
+        specifier: workspace:*
+        version: link:../search
     devDependencies:
       '@magna-carta/database':
         specifier: workspace:*
