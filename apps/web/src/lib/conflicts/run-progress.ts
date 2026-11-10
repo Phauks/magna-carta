@@ -36,6 +36,10 @@ export function stageCountText(stage: RunStage, progress: RunProgress): string |
       return progress.entitiesMatched === undefined
         ? null
         : `${String(progress.entitiesMatched)} compared`;
+    case "places":
+      return progress.placeResults === undefined
+        ? null
+        : `${String(progress.placeResults)} ${progress.placeResults === 1 ? "result" : "results"} found`;
     case "candidates": {
       if (progress.candidatesSurfaced === undefined) return null;
       const recorded =
@@ -53,8 +57,14 @@ export function stageCountText(stage: RunStage, progress: RunProgress): string |
  * stage it stopped at with the failure sentence in place of its label.
  */
 export function runProgressSteps(run: RunSummary): ProgressStep[] {
-  const current = run.stage === null ? -1 : RUN_STAGES.indexOf(run.stage);
-  return RUN_STAGES.map((stage, index) => {
+  // The search of the firm's own records is a stage only on a run that was asked for one.
+  const places = run.askedScope?.places;
+  const asked =
+    places !== undefined &&
+    (places.messaging.length > 0 || places.tasks.length > 0 || places.magnus);
+  const stages = RUN_STAGES.filter((stage) => stage !== "places" || asked);
+  const current = run.stage === null ? -1 : stages.indexOf(run.stage);
+  return stages.map((stage, index) => {
     const count = stageCountText(stage, run.progress);
     const label =
       count === null ? RUN_STAGE_VOCABULARY[stage] : `${RUN_STAGE_VOCABULARY[stage]} — ${count}`;

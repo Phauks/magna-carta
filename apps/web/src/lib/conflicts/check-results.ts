@@ -14,8 +14,13 @@
  * weird"). Not reviewed, Cleared, Waived, Walled off, Declined — the four kinds a reviewer records,
  * in short words, beside the state nobody has recorded yet.
  */
-import type { DispositionKind, EvidenceTier, HitDetail, SourceClass } from "./conflicts-api.ts";
-import { adjudicationSummary, edgeTypeLabel, sourceVocabulary } from "./conflicts-vocabulary.ts";
+import type { DispositionKind, EvidenceTier, HitDetail } from "./conflicts-api.ts";
+import {
+  adjudicationSummary,
+  edgeTypeLabel,
+  FOUND_IN_VOCABULARY,
+  sourceVocabulary,
+} from "./conflicts-vocabulary.ts";
 import { matchedOnText, partyText } from "./hit-columns.ts";
 
 /** Where a result stands with its reviewer. */
@@ -68,9 +73,13 @@ export const STRENGTH_TONES: Readonly<Record<EvidenceTier, StrengthTone>> = {
   4: "neutral",
 };
 
-/** Which of the check's searches found the result, as the panel names that search. */
-export function foundThroughText(source: SourceClass): string {
-  return sourceVocabulary(source).label;
+/**
+ * Which of the check's searches found the result, as the panel names it: a Directory search, or the
+ * kind of record it was found in — Call, Text, Email, Task, Magnus conversation.
+ */
+export function foundThroughText(hit: HitDetail): string {
+  if (hit.foundIn !== null) return FOUND_IN_VOCABULARY[hit.foundIn.kind].label;
+  return sourceVocabulary(hit.sourceClass).label;
 }
 
 /** Why it surfaced: every channel that fired, in the engine's own words. */
@@ -81,6 +90,15 @@ export function whyText(hit: HitDetail): string {
 
 /** How it was reached: directly, as another party on this check, or through relationships. */
 export function whereText(hit: HitDetail): string {
+  if (hit.foundIn !== null) {
+    const record = FOUND_IN_VOCABULARY[hit.foundIn.kind].label;
+    if (hit.foundIn.matterId === null) {
+      return hit.foundIn.kind === "magnus_conversation"
+        ? `${record} saved to General`
+        : `${record} not filed on a matter`;
+    }
+    return `${record} on ${hit.foundIn.matterNumber ?? "a matter with no number yet"}`;
+  }
   if (hit.sourceClass === "imputation") return "One of the firm's own people";
   if (hit.coParty) return "Also a party on this check";
   if (hit.graphPath.length === 0) return "Found directly in the Directory";
@@ -94,7 +112,8 @@ export function whereText(hit: HitDetail): string {
 /** What the reader has narrowed the list to. An empty set means no narrowing on that facet. */
 export interface ResultFilter {
   readonly text: string;
-  readonly sources: ReadonlySet<SourceClass>;
+  /** The Found In values kept, as `foundThroughText` words them. */
+  readonly sources: ReadonlySet<string>;
   readonly strengths: ReadonlySet<EvidenceTier>;
   readonly reviews: ReadonlySet<ReviewState>;
 }
@@ -119,7 +138,7 @@ export function filterIsActive(filter: ResultFilter): boolean {
 export function filterResults(hits: readonly HitDetail[], filter: ResultFilter): HitDetail[] {
   const needle = filter.text.trim().toLowerCase();
   return hits
-    .filter((hit) => filter.sources.size === 0 || filter.sources.has(hit.sourceClass))
+    .filter((hit) => filter.sources.size === 0 || filter.sources.has(foundThroughText(hit)))
     .filter((hit) => filter.strengths.size === 0 || filter.strengths.has(hit.evidenceTier))
     .filter((hit) => filter.reviews.size === 0 || filter.reviews.has(reviewStateOf(hit)))
     .filter(

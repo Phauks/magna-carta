@@ -18,6 +18,12 @@ export function taskErrorResponse(
     case "task-matter-mismatch":
     case "task-file-matter-mismatch":
     case "task-predecessor-matter-mismatch":
+    case "task-list-unknown":
+    case "task-status-unknown":
+    case "task-team-unknown":
+    case "task-parent-unknown":
+    case "task-checklist-item-unknown":
+    case "task-link-unknown":
       return problemJson(c, {
         type: "not-found",
         title: "Not found",
@@ -31,6 +37,13 @@ export function taskErrorResponse(
     case "task-not-done":
     case "task-already-archived":
     case "task-not-archived":
+    case "task-status-move-not-in-flow":
+    case "task-list-name-taken":
+    case "task-status-name-taken":
+    case "task-team-name-taken":
+    case "task-list-is-default":
+    case "task-status-in-use":
+    case "task-status-last":
       return problemJson(c, {
         type: "conflict",
         title: "That task is not where this change applies",

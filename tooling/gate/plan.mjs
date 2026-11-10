@@ -80,3 +80,32 @@ export function selectDimensions({ only = [], skip = [], checksOnly = false } = 
   }
   return { selected, skippedByFlag };
 }
+
+/** The environment variable that hands the test battery one slice of the suite (see parseShard). */
+export const SHARD_VARIABLE = "MAGNA_CARTA_TEST_SHARD";
+
+/**
+ * One slice of the test battery, as the runner's own `--shard` spelling: "2/4" is the second of four.
+ *
+ * The battery is most of a full gate run, and it is the one dimension that divides cleanly: the
+ * runner assigns each test file to exactly one slice, so four machines each running a quarter have
+ * together run every file once. The hosted run uses that to turn an hour's wait into a quarter of
+ * one; a local run leaves the variable unset and runs the whole suite. A value that is not `i/n`
+ * with 1 <= i <= n is an error, because a mistyped slice that silently ran everything (or nothing)
+ * would read as a pass.
+ *
+ * @param {string | undefined} value
+ * @returns {string | null} the validated `i/n`, or null when no slice was asked for
+ */
+export function parseShard(value) {
+  if (value === undefined || value.trim() === "") return null;
+  const match = /^(\d+)\/(\d+)$/.exec(value.trim());
+  const index = match === null ? Number.NaN : Number(match[1]);
+  const count = match === null ? Number.NaN : Number(match[2]);
+  if (!Number.isInteger(index) || !Number.isInteger(count) || index < 1 || index > count) {
+    throw new Error(
+      `gate: ${SHARD_VARIABLE}="${value}" is not a slice — write it as i/n with 1 <= i <= n, for example 2/4`,
+    );
+  }
+  return `${String(index)}/${String(count)}`;
+}

@@ -151,3 +151,54 @@ export const MAX_PLAN_OFFSET_DAYS = 1_825;
 export const PLAN_DUE_ANCHORS = Object.freeze(["matter_opened", "none"] as const);
 export type PlanDueAnchor = (typeof PLAN_DUE_ANCHORS)[number];
 export const DEFAULT_PLAN_DUE_ANCHOR: PlanDueAnchor = "none";
+
+// ---- lists, statuses, teams, and what a task carries besides its words ----
+
+// The colours a status may wear. A CLOSED vocabulary and a CHECK on the schema: the web side maps
+// each one onto design tokens, so a firm picks a colour without picking a value the design system
+// never reviewed.
+export const TASK_STATUS_COLOURS = Object.freeze([
+  "gray",
+  "blue",
+  "orange",
+  "amber",
+  "green",
+  "purple",
+  "red",
+] as const);
+export type TaskStatusColour = (typeof TASK_STATUS_COLOURS)[number];
+
+// A list's and a team's name, as a reader sees it in a menu: short by design.
+export const MAX_TASK_LIST_NAME_LENGTH = 80;
+export const MAX_TASK_STATUS_NAME_LENGTH = 40;
+export const MAX_TASK_TEAM_NAME_LENGTH = 80;
+
+// How many statuses one list may hold. A flow with more than this is a process map, not a list.
+export const MAX_TASK_LIST_STATUSES = 20;
+// How many lists and teams a firm may keep live, and how many members one team may hold.
+export const MAX_TASK_LISTS = 100;
+export const MAX_TASK_TEAMS = 100;
+export const MAX_TASK_TEAM_MEMBERS = 200;
+
+// How many assignees and watchers one task may name.
+export const MAX_TASK_ASSIGNEES = 20;
+export const MAX_TASK_WATCHERS = 50;
+
+// How deep sub-tasks may nest under a top-level task. Deep enough for "the motion, the brief, the
+// exhibit list, the one exhibit nobody can find"; a deeper tree is a project plan, and bounding it
+// keeps every walk of the tree short.
+export const MAX_SUBTASK_DEPTH = 5;
+
+// A checklist and the links on one task, and their lines.
+export const MAX_TASK_CHECKLIST_ITEMS = 100;
+export const MAX_TASK_CHECKLIST_ITEM_LENGTH = 500;
+export const MAX_TASK_LINKS = 50;
+export const MAX_TASK_LINK_URL_LENGTH = 2_048;
+export const MAX_TASK_LINK_LABEL_LENGTH = 200;
+
+// Where the work happens: a room, an address, a meeting link.
+export const MAX_TASK_LOCATION_LENGTH = 500;
+
+// The list every firm starts with, created by the migration that introduced lists. Named here so a
+// test or a fixture can address it without guessing.
+export const DEFAULT_TASK_LIST_ID = "taskList_firmDefaultList000";

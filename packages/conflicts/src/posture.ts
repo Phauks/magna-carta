@@ -3,7 +3,7 @@ import type { RefusedTierCount } from "./candidate-bound.ts";
 import { readHitDispositionStates } from "./disposition.ts";
 import { readConflictsRecheckSettings, readConflictsRescanState } from "./recheck-settings.ts";
 import { readPendingRecheckRequests } from "./recheck-statements.ts";
-import type { ReportedSource } from "./report-text.ts";
+import type { ReportedPlaces, ReportedSource } from "./report-text.ts";
 import { readConflictsPolicy } from "./settings.ts";
 import { unavailabilityReason } from "./sources.ts";
 import { CONFLICTS_CHECK_TABLE } from "./statements.ts";
@@ -315,6 +315,25 @@ export interface CheckInputs {
   readonly traversal: TraversalRecord | null;
   // Null on a row written before the candidate record existed, and read the same way.
   readonly candidates: CandidateRecord | null;
+  // Null when the run searched none of the firm's own records (or predates searching them).
+  readonly places: ReportedPlaces | null;
+}
+
+function parsePlacesRecord(value: unknown): ReportedPlaces | null {
+  if (typeof value !== "object" || value === null) return null;
+  const record = value as Record<string, unknown>;
+  const strings = (entry: unknown): readonly string[] =>
+    Array.isArray(entry) ? entry.filter((item): item is string => typeof item === "string") : [];
+  const count = (entry: unknown): number | null =>
+    typeof entry === "number" && Number.isFinite(entry) ? entry : null;
+  return {
+    messaging: strings(record["messaging"]),
+    tasks: strings(record["tasks"]),
+    magnus: record["magnus"] === true,
+    nameFloor: count(record["nameFloor"]),
+    resultsFound: count(record["resultsFound"]),
+    resultsRefused: count(record["resultsRefused"]),
+  };
 }
 
 const NO_TRAVERSAL_RECORD = null;
@@ -408,6 +427,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     matching: NO_MATCHING_RECORD,
     traversal: NO_TRAVERSAL_RECORD,
     candidates: NO_CANDIDATE_RECORD,
+    places: null,
   };
   let parsed: unknown;
   try {
@@ -426,6 +446,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     matching: parseMatchingRecord(record["matching"]),
     traversal: parseTraversalRecord(record["traversal"]),
     candidates: parseCandidateRecord(record["candidates"]),
+    places: parsePlacesRecord(record["places"]),
   };
 }
 

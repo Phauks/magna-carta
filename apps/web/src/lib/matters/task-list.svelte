@@ -1,68 +1,82 @@
 <script lang="ts">
   /*
-   * THE task surface. One component, two screens: the matter's Tasks section and the member's own
-   * work list. They differ by which matter a new task lands on, whether the rows name their matter,
-   * and where the host seats this list's controls — and by nothing else, because a task is one
-   * record and a reader moving between the two screens should not have to learn a second layout.
+   * THE task surface. One component, two screens: the matter's Tasks section and the firm's Tasks
+   * page. They differ by which matter a new task lands on, whether the rows name their matter, and
+   * where the host seats this list's controls, and by nothing else, because a task is one record and
+   * a reader moving between the two screens should not have to learn a second layout.
    *
-   * WHAT IS OWED IS THE LIST; WHAT IS CLOSED IS ASKED FOR AT THE FOOT. Open work is all the list
-   * shows until somebody says otherwise, and finished and archived work is added by two controls
-   * below the rows rather than by a filter above them. The row above the list is for the acts a reader
-   * arrives wanting — searching, and making a new task.
+   * EVERYONE SEES EVERY TASK. Me Mode narrows the list to the reader's own work: what is assigned to
+   * them (directly or through a team), what they watch, or both.
    *
-   * THE LIST IS A LIST. A task is READ AND CHANGED in its own record window (task-record-window.svelte)
-   * and so is a new one, which opens that same window with nothing in it yet. Nothing here unfolds
-   * into a form: not the composer, not the edit, not the reason the firm is not doing something, not
-   * the attach picker. Each of those was a second place to learn where a task's fields live, and
-   * each of them took the list's own shape away — its count, its ordering, what is overdue — while
-   * somebody typed in the middle of it. What the rows still carry is what a LIST is for: reading
-   * what is owed, and ticking a thing off.
+   * WHAT IS OWED IS THE LIST; WHAT IS FINISHED IS ASKED FOR AT THE FOOT. Completed and archived work
+   * is added by two controls below the rows rather than by a filter above them.
    *
-   * WHAT IS DUE NEXT IS FIRST, and everything nobody has scheduled is last. That ordering is the
-   * server's and is the same on both screens, so a task does not move when you change surface.
+   * THE ROW EDITS WHAT A ROW IS FOR. Its status is the coloured pill on the left, which opens the
+   * statuses the list's flow allows and Mark Complete at its foot. Start, due and priority change
+   * where they are read. Everything else about a task is changed in its window, opened from its
+   * title. A due date that has passed on a task still owed is drawn red and never named.
    *
-   * OVERDUE IS COMPUTED HERE. There is no overdue field on the wire and no column behind it: it is a
-   * comparison against now, made where somebody is reading, so it is never stale. Only an open task
-   * can be overdue — a done task was done, and an archived one is not owed.
-   *
-   * CANCELLING AND DELETING ARE BOTH OFFERED — in the window, where the rest of a task's acts live —
-   * and the copy says which is which. Cancelling records that the firm decided not to do the work
-   * and keeps the decision; deleting is for a task that should not exist. Collapsing them would lose
-   * the difference the record exists to hold.
+   * SUB-TASKS SIT UNDER THEIR PARENT, at any depth, and fold from the chevron beside the parent's
+   * name. The page reads top-level tasks, then every sub-task under the tasks on it; sorting orders
+   * siblings among themselves so a sub-task never drifts from the task it belongs to, and a band is
+   * chosen by the top of the tree for the same reason.
    */
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { sampleDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { opensBeside } from "$lib/navigation/open-beside.ts";
-  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import * as Popover from "@magna-carta/design-system/popover";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import TaskRecordWindow from "$lib/matters/task-record-window.svelte";
-  import TaskArchiveDialog from "$lib/matters/task-archive-dialog.svelte";
-  import { attachableFoldersFor } from "$lib/matters/record-attachable-documents.ts";
-  import { dueLine } from "$lib/matters/task-print-sheet.ts";
-  import { SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
-  import Paperclip from "@lucide/svelte/icons/paperclip";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import Eye from "@lucide/svelte/icons/eye";
+  import Settings from "@lucide/svelte/icons/settings-2";
+  import UserRound from "@lucide/svelte/icons/user-round";
+  import Columns from "@lucide/svelte/icons/columns-3";
+  import SquareCheck from "@lucide/svelte/icons/square-check";
+  import Square from "@lucide/svelte/icons/square";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import TaskRecordWindow from "$lib/matters/task-record-window.svelte";
+  import TaskArchiveDialog from "$lib/matters/task-archive-dialog.svelte";
+  import TaskStatusMenu from "$lib/matters/task-status-menu.svelte";
+  import TaskDateField from "$lib/matters/task-date-field.svelte";
+  import TaskSettingsDialog from "$lib/matters/task-settings-dialog.svelte";
+  import { attachableFoldersFor } from "$lib/matters/record-attachable-documents.ts";
+  import { SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
+  import { resolveMatterRecord } from "$lib/matters/matter-record.ts";
   import {
-    describeTimeLogged,
-    externalSystemLabel,
-    OPEN_RUNGS,
+    GROUP_BY_OPTIONS,
+    hideableColumns,
+    orderTaskRows,
+    taskColumns,
+    taskGrouping,
+    taskRows,
+    type TaskColumnContext,
+    type TaskGroupBy,
+    type TaskRow,
+  } from "$lib/matters/task-columns.ts";
+  import {
     PRIORITY_LABELS,
-    RUNG_LABELS,
+    TASK_PRIORITIES,
+    editTaskFields,
     isOverdue,
-    moveTaskToRung,
-    newWriteKey,
+    listTaskLists,
+    listTaskTeams,
+    moveTaskToStatus,
+    readSubtaskTrees,
+    setTaskCompletion,
     unarchiveTask,
+    newWriteKey,
     type MatterTask,
+    type MeMode,
     type TaskListFilters,
-    type TaskRung,
+    type TaskListSummary,
+    type TaskPriority,
+    type TaskTeam,
   } from "$lib/matters/tasks-api.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { listMatterFolders, type FolderSummary } from "$lib/file-manager/folder-api.ts";
@@ -74,42 +88,34 @@
   import type { ApiOutcome, Page } from "$lib/api/request.ts";
   import type { Snippet } from "svelte";
   import { permissionRefusal } from "$lib/access/refusal.ts";
+  import { todayInUtc } from "$lib/dates";
 
   interface Props {
     /** What identifies the rows on screen, so a reload is told from a change of subject. */
     subject: string;
     /** Reads one page under the current filters. */
     read: (cursor: string | undefined, filters: TaskListFilters) => Promise<ApiOutcome<Page<MatterTask>>>;
-    /** Which matter a new task lands on. Null on the member's own list: firm work has no matter. */
+    /** Which matter a new task lands on. Null on the firm's Tasks page: firm work has no matter. */
     matterId: string | null;
-    /** Named in the composer so nothing is stored the writer was not shown. */
+    /** Named in the window so nothing is stored the writer was not shown. */
     matterTitle: string | null;
     /** Rows name their matter on a list that spans several. */
     showMatter?: boolean;
     /** A sample matter has no firm behind it and therefore nothing to read. */
     isSample?: boolean;
     /**
-     * Whether the list draws its own New Task button. The member's own work list does; a matter's
-     * Tasks section does not, because the matter header's create control is that screen's one create
+     * Whether the list draws its own New Task button. The firm's Tasks page does; a matter's Tasks
+     * section does not, because the matter header's create control is that screen's one create
      * button and the page puts openNew() behind it (create-action.svelte.ts).
      */
     ownNewButton?: boolean;
-    /**
-     * The label leading the control row. A matter's Tasks section names itself here, because the
-     * matter's own masthead carries the MATTER's name and the section would otherwise be unnamed.
-     * Omitted where the screen's own header already states it, so the name is not said twice.
-     */
+    /** The label leading the control row, where the screen's own header does not already say it. */
     heading?: string;
     /**
-     * The band above the list, drawn by the host and handed this list's controls to seat in it.
-     * A screen with a masthead of its own passes one and puts the controls in its action row, so
-     * the search and the create control sit where every other main screen keeps them; a matter's
-     * Tasks section passes nothing and this list draws its own row under its heading.
+     * The band above the list, drawn by the host and handed this list's controls to seat in it. A
+     * matter's Tasks section passes nothing and this list draws its own row under its heading.
      */
     screenHeader?: Snippet<[Snippet]>;
-    /** What to say when the record is genuinely empty, as opposed to filtered empty. */
-    emptyTitle: string;
-    emptyDescription: string;
   }
 
   let {
@@ -122,91 +128,87 @@
     ownNewButton = true,
     heading,
     screenHeader,
-    emptyTitle,
-    emptyDescription,
   }: Props = $props();
+
+  const MANAGE_PERMISSION = "tasks:managePlans";
 
   const taskList = new PagedList<MatterTask>("The tasks could not be read.");
   const roster = new FirmRoster();
 
-  const tasks = $derived(taskList.items);
-  const readFailure = $derived(taskList.failure);
-  // A failed FIRST read settles the list to the notice with Retry, so the shape never stands over
-  // nothing. A failed further page keeps the rows already read and says so above them.
-  const firstReadFailed = $derived(readFailure !== null && (tasks?.length ?? 0) === 0);
-
   let session = $state<SessionBootstrap | null>(null);
+  let lists = $state<readonly TaskListSummary[]>([]);
+  let teams = $state<readonly TaskTeam[]>([]);
+  let matterTitles = $state<ReadonlyMap<string, string>>(new Map());
   let matterFiles = $state<MatterFile[] | null>(null);
   let matterFolders = $state<readonly FolderSummary[]>([]);
 
-  // WHAT IS NO LONGER OWED, and whether it has been asked for. Both off by default, because a task
-  // list whose job is to say what is outstanding starts by showing what is outstanding; asking for
-  // either is a disclosure at the foot of the list rather than a filter above it (see the controls
-  // in the markup). They are two questions and not one: a done task was done, and an archived one
-  // was put away from wherever it stood — including from done.
-  let showDone = $state(false);
+  /** Every sub-task under the top-level tasks read so far, by id. */
+  let subtasks = $state<ReadonlyMap<string, MatterTask>>(new Map());
+  /** Tasks whose sub-tasks are folded away. */
+  let folded = $state<ReadonlySet<string>>(new Set());
+
+  let showCompleted = $state(false);
   let showArchived = $state(false);
-  // ScreenSearch owns the field and the pause before a query leaves the machine; this holds only
-  // what the last pause actually sent, which is what the read is filtered by.
+  let meMode = $state<"everyone" | MeMode>("everyone");
   let searchText = $state("");
   let appliedSearch = $state("");
 
-  // The three open rungs always, and Done only when it is asked for.
-  const rungs = $derived<readonly TaskRung[]>([
-    ...OPEN_RUNGS,
-    ...(showDone ? (["done"] as const) : []),
-  ]);
-  // What is NARROWING the view, which is the search and nothing else. Its truth is what draws the
-  // clear control, so the control's absence is itself the answer to "is anything hidden". Asking for
-  // done or archived work WIDENS the list and is undone by its own control, so neither belongs
-  // here: a clear control that appeared because more was shown would answer the wrong question.
-  const narrowed = $derived(appliedSearch !== "");
-  // What the clear control says it will undo, so pressing it is never a guess.
-  const narrowingSummary = $derived(appliedSearch === "" ? "" : `searching "${appliedSearch}"`);
+  // THE VIEW: how the rows are laid out, how large, and grouped by what.
+  let groupBy = $state<TaskGroupBy>("list");
+  let layout = $state<"one" | "two">("one");
+  let rowSize = $state<"small" | "medium" | "large">("medium");
+  const ROW_SCALE = { small: 0.875, medium: 1, large: 1.25 } as const;
+
+  const ME_MODE_LABELS: Record<MeMode, string> = {
+    assigned: "Assigned To Me",
+    watching: "Watching",
+    both: "Both",
+  };
+
+  const readFailure = $derived(taskList.failure);
+  const firstReadFailed = $derived(readFailure !== null && (taskList.items?.length ?? 0) === 0);
+
+  const narrowed = $derived(appliedSearch !== "" || meMode !== "everyone");
+  const narrowingSummary = $derived(
+    [
+      appliedSearch === "" ? null : `searching "${appliedSearch}"`,
+      meMode === "everyone" ? null : `Me Mode: ${ME_MODE_LABELS[meMode]}`,
+    ]
+      .filter((part) => part !== null)
+      .join(", "),
+  );
 
   const filters = $derived<TaskListFilters>({
-    rungs,
+    topLevel: true,
+    ...(showCompleted ? {} : { completed: false }),
     ...(showArchived ? { includeArchived: true } : {}),
     ...(appliedSearch === "" ? {} : { search: appliedSearch }),
+    ...(meMode === "everyone" ? {} : { mine: meMode }),
   });
 
   /** Opens the window on a new task, for a screen whose create control lives outside this list. */
   export function openNew(): void {
-    openWindow(null);
+    openWindow(null, null);
   }
 
-  /*
-   * THE WINDOW, and the one task it is open on. Null is a NEW task rather than "no task": the window
-   * has one mode for a record that does not exist yet, and holding that as a separate flag here
-   * would be a second answer to the same question.
-   *
-   * `windowEditing` is bound because the two doors differ in exactly one thing — a new task opens in
-   * its fields because there is nothing to read; an existing one opens in its values, and the
-   * window's own Edit control is what turns them into fields.
-   */
   let openTask = $state<MatterTask | null>(null);
+  /** The task a NEW task is a sub-task of, while one is being written. */
+  let newParent = $state<MatterTask | null>(null);
   let windowOpen = $state(false);
   let windowEditing = $state(false);
 
-  /** The task being put away. Its optional reason is asked for in its own panel. */
   let archiving = $state<MatterTask | null>(null);
   let archivingOpen = $state(false);
+  let settingsOpen = $state(false);
 
   let saving = $state(false);
-  // The failure RECORD, not a sentence assembled from it: the Error ID and the remedy reach the
-  // screen from the record, and a surface that flattened it would drop both. The words travel with
-  // the failure rather than with the surface, because the two acts this list still performs —
-  // ticking a task off and putting it back — fail differently.
   let writeFailure = $state<StatedFailure | null>(null);
 
-  // THE PLANS THIS MATTER IS OFFERED, and the one being reviewed if any.
-  //
-  // The offer lives here rather than on the new-matter screen, and that is a better reading of
-  // propose-and-confirm than hooking the moment a matter is created: a matter opened before its plan
-  // existed can still take it, and somebody who declined at open can come back. What it is not is
-  // automatic — reviewing is a thing a person starts.
   let offeredPlans = $state<readonly MatterPlan[] | null>(null);
   let reviewingPlan = $state<MatterPlan | null>(null);
+
+  /** The record named in the address, opened once its row has been read. */
+  let entryOpened = $state<string | null>(null);
 
   $effect(() => {
     if (taskList.showing(subject)) return;
@@ -217,9 +219,12 @@
     archiving = null;
     searchText = "";
     appliedSearch = "";
-    showDone = false;
+    meMode = "everyone";
+    showCompleted = false;
     showArchived = false;
     writeFailure = null;
+    subtasks = new Map();
+    folded = new Set();
     matterFiles = null;
     matterFolders = [];
     if (isSample) {
@@ -230,19 +235,16 @@
     void readSession(fetch).then((outcome) => {
       session = outcome.kind === "ok" ? outcome.value : null;
     });
-    void taskList.load((cursor) => read(cursor, { rungs: OPEN_RUNGS }));
+    readOrganisation();
+    reload();
     void roster.load(fetch);
     offeredPlans = null;
     reviewingPlan = null;
     if (matterId !== null) {
       void plansOfferedFor(fetch, matterId).then((outcome) => {
-        // A failed plan read never fails the screen: the task list is the point, and the offer is an
-        // addition to it.
+        // A failed plan read never fails the screen: the task list is the point.
         offeredPlans = outcome.kind === "ok" ? outcome.value.data : [];
       });
-      // The matter's files and the folders they are filed in, for the window's Attachments tab. A
-      // failed read never fails the screen: tasks still read, and the picker says what it cannot
-      // offer rather than disappearing.
       void listMatterFiles(fetch, matterId).then((outcome) => {
         matterFiles = outcome.kind === "ok" ? outcome.value.data : [];
       });
@@ -255,41 +257,57 @@
     }
   });
 
-  function nameOf(userId: string | null): string {
-    if (userId === null) return "Unassigned";
-    const member = (roster.members ?? []).find((candidate) => candidate.userId === userId);
-    return member?.displayName ?? "Not recorded";
+  /** The firm's lists and teams. A failed read leaves the rows standing with plainer labels. */
+  function readOrganisation(): void {
+    void listTaskLists(fetch).then((outcome) => {
+      if (outcome.kind === "ok") lists = outcome.value.data;
+    });
+    void listTaskTeams(fetch).then((outcome) => {
+      if (outcome.kind === "ok") teams = outcome.value.data;
+    });
   }
 
-  const myName = $derived(session?.user.name ?? "You");
-  // Writing, editing, moving along the rungs, archiving and deleting are one permission; putting a task in
-  // somebody else's name is a second. A member without either still reads the list, so the controls
-  // are absent rather than present-and-refusing.
-  const canWrite = $derived(session === null || session.permissions.includes("tasks:write"));
-  const canAssign = $derived(session === null || session.permissions.includes("tasks:assign"));
-  // Why nothing can be written, stated once and read by every control that refuses — the one that
-  // opens the window, and the window's own Edit, Save, attach and acts. Two copies of a refusal is
-  // one copy that has already drifted.
-  const writeRefusal = $derived(
-    isSample
-      ? SAMPLE_MATTER_REFUSAL
-      : canWrite
-        ? undefined
-        : permissionRefusal("Changing a task", "tasks:write"),
-  );
+  /** Every sub-task under the given top-level tasks, merged into what is already held. */
+  async function readTreesUnder(roots: readonly MatterTask[]): Promise<void> {
+    if (roots.length === 0) return;
+    const outcome = await readSubtaskTrees(
+      fetch,
+      roots.map((task) => task.id),
+      showArchived,
+    );
+    if (outcome.kind !== "ok") return;
+    const next = new Map(subtasks);
+    for (const task of outcome.value.data) next.set(task.id, task);
+    subtasks = next;
+  }
 
   function reload(): void {
     taskList.reset(subject);
+    subtasks = new Map();
     const current = filters;
-    void taskList.load((cursor) => read(cursor, current));
+    void taskList
+      .load((cursor) => read(cursor, current))
+      .then(() => readTreesUnder(taskList.items ?? []))
+      .then(openEntryOnce);
   }
 
-  function applyFilters(): void {
-    reload();
+  function loadMore(): void {
+    const current = filters;
+    const before = new Set((taskList.items ?? []).map((task) => task.id));
+    void taskList
+      .loadMore((cursor) => read(cursor, current))
+      .then(() => readTreesUnder((taskList.items ?? []).filter((task) => !before.has(task.id))));
   }
 
-  // What the control hands over once typing has stopped. Re-reading on a query that did not change
-  // would spend a request to redraw the rows already on screen.
+  function openEntryOnce(): void {
+    const entry = entryFromUrl();
+    if (entry === null || entry === entryOpened) return;
+    const found = allTasks.find((task) => task.id === entry);
+    if (found === undefined) return;
+    entryOpened = entry;
+    openWindow(found, null);
+  }
+
   function applySearch(query: string): void {
     const term = query.trim();
     if (term === appliedSearch) return;
@@ -300,13 +318,81 @@
   function clearNarrowing(): void {
     searchText = "";
     appliedSearch = "";
+    meMode = "everyone";
     reload();
   }
 
-  async function runWrite(
+  /** Every task held: the top-level page and the sub-tasks under it. Completed sub-tasks wait for Show Completed. */
+  const allTasks = $derived<MatterTask[]>([
+    ...(taskList.items ?? []),
+    ...[...subtasks.values()].filter((task) => showCompleted || task.completedAt === null),
+  ]);
+
+  // Matter names, read once for each matter the rows name, for the Matter column and its bands.
+  const askedMatters = new Set<string>();
+  $effect(() => {
+    if (!showMatter) return;
+    const wanted = [
+      ...new Set(allTasks.flatMap((task) => (task.matterId === null ? [] : [task.matterId]))),
+    ].filter((id) => !askedMatters.has(id));
+    if (wanted.length === 0) return;
+    for (const id of wanted) askedMatters.add(id);
+    void Promise.all(
+      wanted.map(async (id) => [id, (await resolveMatterRecord(fetch, id))?.title] as const),
+    ).then((resolved) => {
+      const next = new Map(matterTitles);
+      for (const [id, title] of resolved) if (title !== undefined) next.set(id, title);
+      matterTitles = next;
+    });
+  });
+
+  function nameOf(userId: string | null): string {
+    if (userId === null) return "Nobody Yet";
+    const member = (roster.members ?? []).find((candidate) => candidate.userId === userId);
+    return member?.displayName ?? "Not recorded";
+  }
+
+  const context = $derived<TaskColumnContext>({
+    showMatter,
+    nameOf,
+    teamName: (teamId) => teams.find((team) => team.id === teamId)?.name ?? "A retired team",
+    matterTitle: (id) =>
+      id === null ? "The Firm's Own Work" : (matterTitles.get(id) ?? "A matter you cannot open"),
+    listOf: (listId) => lists.find((list) => list.id === listId),
+  });
+
+  const rows = $derived(taskRows(allTasks, folded));
+  const columns = $derived(taskColumns(context));
+  const today = todayInUtc();
+
+  const grid = DataTable.createDataTableGrid<TaskRow>({
+    columns: () => columns,
+    rows: () => rows,
+    rowKey: (row) => row.task.id,
+    // Unsorted: the server's order is what is due next first, and the reader sorts by a header.
+    initialSort: { columnId: null, direction: "ascending" },
+    itemNoun: { singular: "task", plural: "tasks" },
+    orderRows: orderTaskRows,
+    grouping: () => taskGrouping(groupBy, rows, context, lists, today),
+    onActivate: (row) => openWindow(row.task, null),
+  });
+
+  const myName = $derived(session?.user.name ?? "You");
+  const canWrite = $derived(session === null || session.permissions.includes("tasks:write"));
+  const canAssign = $derived(session === null || session.permissions.includes("tasks:assign"));
+  const canManage = $derived(session !== null && session.permissions.includes(MANAGE_PERMISSION));
+  const writeRefusal = $derived(
+    isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : canWrite
+        ? undefined
+        : permissionRefusal("Changing a task", "tasks:write"),
+  );
+
+  /** One change made from a row, then the rows read again. */
+  async function rowWrite(
     call: () => Promise<ApiOutcome<unknown>>,
-    whenSilent: string,
-    after?: () => void,
+    whenRefused: string,
   ): Promise<void> {
     if (saving) return;
     saving = true;
@@ -314,83 +400,55 @@
     const outcome = await call();
     saving = false;
     if (outcome.kind === "ok") {
-      after?.();
-      reload();
+      afterWrite(null);
       return;
     }
-    writeFailure = stated(outcome.failure, whenSilent);
+    writeFailure = stated(outcome.failure, whenRefused);
   }
 
-  /*
-   * Open the window on a task, or on a new one.
-   *
-   * A task that exists opens in its VALUES: reading it is what somebody came to do, and the window's
-   * own Edit control is what turns them into fields. A new one has nothing to read, so it opens in
-   * its fields — the one difference between the two doors, and the whole of it.
-   */
-  function openWindow(task: MatterTask | null): void {
+  function openWindow(task: MatterTask | null, parent: MatterTask | null): void {
     openTask = task;
+    newParent = task === null ? parent : null;
     windowEditing = task === null;
     windowOpen = true;
   }
 
   /*
-   * A write landed on the task the window is open on: re-read the list, and re-point the window at
-   * the row the server now holds. Without the second half the window would go on showing the values
-   * it was opened with, which is how a surface comes to disagree with the list underneath it.
+   * A write landed: re-read the list, and re-point the window at the row the server now holds, so
+   * the window never goes on showing what it was opened with.
    */
-  function afterWrite(savedTaskId: string): void {
+  function afterWrite(savedTaskId: string | null): void {
     const current = filters;
+    const keepOpenOn = savedTaskId ?? openTask?.id ?? null;
     taskList.reset(subject);
     void taskList
       .load((cursor) => read(cursor, current))
       .then(() => {
-        if (!windowOpen || openTask === null) return;
-        // The saved task may have left the list entirely — a task just ticked off is not open work
-        // — and the window is still showing it, so the row it was opened with stands rather than
-        // the window emptying under the reader.
-        const reread = (taskList.items ?? []).find((candidate) => candidate.id === savedTaskId);
-        if (reread !== undefined) openTask = reread;
+        subtasks = new Map();
+        return readTreesUnder(taskList.items ?? []);
+      })
+      .then(() => {
+        if (!windowOpen || keepOpenOn === null || openTask === null) return;
+        const reread = allTasks.find((candidate) => candidate.id === keepOpenOn);
+        if (reread !== undefined && reread.id === openTask.id) openTask = reread;
       });
   }
 
-  /** The matter's files as the window's picker offers them, grouped by where they were filed. */
+  function toggleFold(taskId: string): void {
+    const next = new Set(folded);
+    if (next.has(taskId)) next.delete(taskId);
+    else next.add(taskId);
+    folded = next;
+  }
+
   const attachableFolders = $derived(attachableFoldersFor(matterFiles ?? [], matterFolders));
-
-  const assignableMembers = $derived(
-    (roster.members ?? []).filter((member) => member.status === "active"),
+  const assignableMembers = $derived(roster.active);
+  const childrenOfOpen = $derived(
+    openTask === null ? [] : allTasks.filter((task) => task.parentTaskId === openTask?.id),
   );
-
-  // The shape drawn while the first page is read: three rows in the list's own anatomy — title,
-  // priority, who it is with and when it is due, the row's controls. Sample words only: the names
-  // and dates are the sample vocabulary's, the titles are a task's own kind of words.
-  const TASK_FIXTURE = [
-    {
-      title: "Draft the responses to the first set of interrogatories",
-      priority: "High",
-      assignee: samplePerson(0).name,
-      due: sampleDate(0),
-    },
-    {
-      title: "Confirm the deposition venue",
-      priority: "Normal",
-      assignee: samplePerson(1).name,
-      due: sampleDate(3),
-    },
-    {
-      title: "Send the client the hearing summary",
-      priority: "Normal",
-      assignee: "Unassigned",
-      due: sampleDate(4),
-    },
-  ];
+  const hideable = $derived(hideableColumns(columns));
 </script>
 
-<!-- The search, then the create control, then the way back to everything: the same three, in the
-     same order, as the docket and the custody register. The search grows toward the inline start as
-     it opens, so what follows it never moves. WHERE they sit is the host's, not this list's — a
-     screen with a masthead seats them in its action row, which is where every other main screen
-     keeps them, and a matter's Tasks section seats them in the row under its own heading. -->
 {#snippet controls()}
   <ScreenSearch
     bind:value={searchText}
@@ -400,10 +458,82 @@
     disabled={isSample}
     onsearch={applySearch}
   />
+  <!-- ME MODE: the reader's own work. Off, the list is everyone's. -->
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger
+      class={buttonClasses({ variant: meMode === "everyone" ? "secondary" : "primary", size: "default" })}
+      disabled={isSample}
+      aria-pressed={meMode !== "everyone"}
+    >
+      <UserRound aria-hidden="true" />
+      {meMode === "everyone" ? "Me Mode" : ME_MODE_LABELS[meMode]}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end">
+      <DropdownMenu.RadioGroup
+        value={meMode}
+        onValueChange={(value) => {
+          meMode = value as "everyone" | MeMode;
+          reload();
+        }}
+      >
+        <DropdownMenu.GroupHeading>Me Mode</DropdownMenu.GroupHeading>
+        <DropdownMenu.RadioItem value="everyone">Off</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioItem value="assigned">Assigned To Me</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioItem value="watching">Watching</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioItem value="both">Both</DropdownMenu.RadioItem>
+      </DropdownMenu.RadioGroup>
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
+  <DataTable.GroupByMenu options={GROUP_BY_OPTIONS} bind:value={groupBy} />
+  <!-- THE VIEW: one line or two, how large, and which columns. -->
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
+      <Columns aria-hidden="true" />
+      View
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end">
+      <DropdownMenu.RadioGroup value={layout} onValueChange={(value) => (layout = value as "one" | "two")}>
+        <DropdownMenu.GroupHeading>Layout</DropdownMenu.GroupHeading>
+        <DropdownMenu.RadioItem value="one">One Line</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioItem value="two">Two Lines</DropdownMenu.RadioItem>
+      </DropdownMenu.RadioGroup>
+      <DropdownMenu.Separator />
+      <DropdownMenu.RadioGroup
+        value={rowSize}
+        onValueChange={(value) => (rowSize = value as "small" | "medium" | "large")}
+      >
+        <DropdownMenu.GroupHeading>Row Size</DropdownMenu.GroupHeading>
+        <DropdownMenu.RadioItem value="small">Small</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioItem value="medium">Medium</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioItem value="large">Large</DropdownMenu.RadioItem>
+      </DropdownMenu.RadioGroup>
+      <DropdownMenu.Separator />
+      <DropdownMenu.Group>
+        <DropdownMenu.GroupHeading>Columns</DropdownMenu.GroupHeading>
+        {#each hideable as column (column.id)}
+          <DropdownMenu.CheckboxItem
+            checked={grid.isColumnVisible(column.id)}
+            closeOnSelect={false}
+            onCheckedChange={(on) => grid.setColumnVisible(column.id, on === true)}
+          >
+            {column.label}
+          </DropdownMenu.CheckboxItem>
+        {/each}
+      </DropdownMenu.Group>
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
+  {#if canManage}
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Task Settings"
+      title="Task Settings: lists, their statuses, and teams"
+      onclick={() => (settingsOpen = true)}
+    >
+      <Settings aria-hidden="true" />
+    </Button>
+  {/if}
   {#if ownNewButton}
-    <!-- The one create control, the design system's, so this list reads like every other screen. It
-         stays put while the panel is open — the control never leaves its place in the row, and
-         abandoning a draft is asked for in the panel, where the draft is. -->
     <CreateControl
       noun="Task"
       title="Add a task, with whose it is and when it is due."
@@ -411,9 +541,160 @@
       onpress={openNew}
     />
   {/if}
-  <!-- Present only while something is narrowing the list, so its absence answers "is anything
-       hidden". -->
   <DataTable.ClearFilters narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }} />
+{/snippet}
+
+{#snippet taskCell({ row, column, text }: DataTable.GridCellContext<TaskRow>)}
+  {@const task = row.task}
+  {#if column.id === "status"}
+    <TaskStatusMenu
+      {task}
+      list={context.listOf(task.listId)}
+      disabled={!canWrite || isSample || saving || task.archivedAt !== null}
+      onMove={(statusId) =>
+        void rowWrite(() => moveTaskToStatus(fetch, task.id, statusId), "The task was not moved.")}
+      onCompletion={(completed) =>
+        void rowWrite(
+          () => setTaskCompletion(fetch, task.id, completed),
+          completed ? "The task was not completed." : "The task was not reopened.",
+        )}
+    />
+  {:else if column.id === "title"}
+    <span class="flex min-w-0 items-center gap-4" style={`padding-inline-start: calc(var(--mc-space-16) * ${String(row.depth)})`}>
+      {#if row.childCount > 0}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-expanded={!folded.has(task.id)}
+          aria-label={folded.has(task.id) ? "Show the sub-tasks" : "Fold the sub-tasks away"}
+          onclick={(event: MouseEvent) => {
+            event.stopPropagation();
+            toggleFold(task.id);
+          }}
+        >
+          {#if folded.has(task.id)}
+            <ChevronRight aria-hidden="true" />
+          {:else}
+            <ChevronDown aria-hidden="true" />
+          {/if}
+        </Button>
+      {/if}
+      <Button
+        variant="ghost"
+        class="h-auto min-w-0 justify-start p-0 text-left font-normal hover:underline"
+        title="Open this task"
+        onclick={() => openWindow(task, null)}
+      >
+        <span class="truncate" class:text-text-muted={task.completedAt !== null || task.archivedAt !== null}>
+          {task.title}
+        </span>
+      </Button>
+      {#if task.body !== null || task.checklist.length > 0}
+        {@render preview(task)}
+      {/if}
+      {#if task.archivedAt !== null}
+        <Badge variant="neutral">Archived</Badge>
+      {/if}
+    </span>
+  {:else if column.id === "startsOn"}
+    <TaskDateField
+      value={task.startsOn}
+      label="Start"
+      disabled={!canWrite || isSample || saving}
+      onchange={(startsOn) =>
+        void rowWrite(() => editTaskFields(fetch, task, { startsOn }), "The start date was not changed.")}
+    />
+  {:else if column.id === "dueOn"}
+    <TaskDateField
+      value={task.dueOn}
+      label="Due"
+      past={isOverdue(task)}
+      disabled={!canWrite || isSample || saving}
+      onchange={(dueOn) =>
+        void rowWrite(
+          () => editTaskFields(fetch, task, dueOn === null ? { dueOn: null } : { dueOn, dueAtTime: null }),
+          "The due date was not changed.",
+        )}
+    />
+  {:else if column.id === "priority"}
+    {#if !canWrite || isSample}
+      {text}
+    {:else}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          class={`${buttonClasses({ variant: "ghost", size: "sm" })} px-4 font-normal`}
+          disabled={saving}
+          aria-label={`Priority ${text}. Change it`}
+        >
+          {text}
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="start">
+          <DropdownMenu.RadioGroup
+            value={task.priority}
+            onValueChange={(value) =>
+              void rowWrite(
+                () => editTaskFields(fetch, task, { priority: value as TaskPriority }),
+                "The priority was not changed.",
+              )}
+          >
+            {#each TASK_PRIORITIES as priority (priority)}
+              <DropdownMenu.RadioItem value={priority}>{PRIORITY_LABELS[priority]}</DropdownMenu.RadioItem>
+            {/each}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    {/if}
+  {:else if text === ""}
+    <span></span>
+  {:else}
+    <span class="truncate">{text}</span>
+  {/if}
+{/snippet}
+
+<!-- The hover preview: a task's detail and its checklist, without opening it. -->
+{#snippet preview(task: MatterTask)}
+  <Popover.Root>
+    <Popover.Trigger
+      class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
+      aria-label="Preview this task"
+      title="Preview this task"
+    >
+      <Eye aria-hidden="true" />
+    </Popover.Trigger>
+    <Popover.Content class="flex w-80 flex-col gap-8 text-sm">
+      <p class="font-semibold">{task.title}</p>
+      {#if task.body !== null}
+        <p class="whitespace-pre-wrap text-text-muted">{task.body}</p>
+      {/if}
+      {#if task.checklist.length > 0}
+        <ul class="flex flex-col gap-4">
+          {#each task.checklist as item (item.id)}
+            <li class="flex items-center gap-8">
+              {#if item.doneAt === null}
+                <Square aria-hidden="true" class="size-12 text-text-muted" />
+                <span>{item.text}</span>
+              {:else}
+                <SquareCheck aria-hidden="true" class="size-12 text-text-muted" />
+                <span class="text-text-muted line-through">{item.text}</span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </Popover.Content>
+  </Popover.Root>
+{/snippet}
+
+<!-- The second line, in the Two Lines layout: the task's detail, where it has one. -->
+{#snippet rowDetail(row: TaskRow)}
+  {#if row.task.body !== null}
+    <p
+      class="w-full truncate text-xs text-text-muted"
+      style={`padding-inline-start: calc(var(--mc-space-16) * ${String(row.depth)})`}
+    >
+      {row.task.body}
+    </p>
+  {/if}
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-16">
@@ -433,11 +714,7 @@
   {/if}
 
   {#if writeFailure !== null}
-    <FailureNotice
-      failure={writeFailure.failure}
-      title="Nothing Changed"
-      fallback={writeFailure.fallback}
-    />
+    <FailureNotice failure={writeFailure.failure} title="Nothing Changed" fallback={writeFailure.fallback} />
   {/if}
 
   {#if reviewingPlan !== null && matterId !== null}
@@ -452,8 +729,7 @@
       onDismiss={() => (reviewingPlan = null)}
     />
   {:else if canWrite && offeredPlans !== null && offeredPlans.length > 0}
-    <!-- The offer, and it is only ever an offer. Nothing is written until somebody opens this and
-         accepts what they see. -->
+    <!-- The offer, and it is only ever an offer. Nothing is written until somebody accepts it. -->
     <div class="flex flex-wrap items-center justify-between gap-8 rounded-md border border-border-subtle p-12">
       <span class="text-xs text-text-muted">
         {offeredPlans.length === 1
@@ -471,308 +747,60 @@
     </div>
   {/if}
 
-  <LoadingRegion
-    loading={tasks === null}
-    failed={firstReadFailed}
-    empty={tasks !== null && tasks.length === 0}
-    label="Reading the tasks"
-    onRetry={reload}
-    class="flex flex-col gap-16"
-  >
-    {#snippet failure()}
-      {#if readFailure !== null}
-        <FailureNotice
-          failure={readFailure}
-          title="Tasks Unavailable"
-          fallback="The tasks could not be read."
-          onRetry={reload}
-        />
-      {/if}
-    {/snippet}
-    {#snippet emptyState()}
-      <EmptyState title={narrowed ? "Nothing matches" : emptyTitle}>
-        {narrowed
-          ? "No task matches what you are narrowing by. Clear it to see the rest."
-          : emptyDescription}
-      </EmptyState>
-    {/snippet}
-    {#snippet fixture()}
-      <ul class="flex flex-col gap-8">
-        {#each TASK_FIXTURE as task (task.title)}
-          <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
-            <div class="flex items-start justify-between gap-16">
-              <div class="flex min-w-0 flex-col gap-4">
-                <div class="flex flex-wrap items-center gap-8">
-                  <span>{task.title}</span>
-                  <Badge variant="neutral">{task.priority}</Badge>
-                </div>
-                <dl class="flex flex-wrap gap-x-16 gap-y-2 text-xs text-text-muted">
-                  <div class="flex gap-4">
-                    <dt>Assigned to</dt>
-                    <dd class="text-text">{task.assignee}</dd>
-                  </div>
-                  <div class="flex gap-4">
-                    <dt>Due</dt>
-                    <dd class="text-text">{task.due}</dd>
-                  </div>
-                </dl>
-              </div>
-              <div class="flex shrink-0 flex-wrap items-center justify-end gap-4">
-                <Button variant="secondary">Done</Button>
-              </div>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/snippet}
-    {@const shown = tasks ?? []}
+  {#if firstReadFailed && readFailure !== null}
+    <FailureNotice failure={readFailure} title="Tasks Unavailable" fallback="The tasks could not be read." onRetry={reload} />
+  {:else}
     {#if readFailure !== null}
-      <!-- A further page that did not land. The rows above were read and stand. -->
       <FailureNotice
         failure={readFailure}
         title="The Rest Of The Tasks Could Not Be Read"
         fallback="The next page of tasks could not be read. What is shown was read and stands."
-        onRetry={() => {
-          const current = filters;
-          void taskList.loadMore((cursor) => read(cursor, current));
-        }}
+        onRetry={loadMore}
       />
     {/if}
-    {#if shown.length > 0}
-      <ul class="flex flex-col gap-8">
-        {#each shown as task (task.id)}
-          {@const overdue = isOverdue(task)}
-          {@const due = dueLine(task, DataTable.formatDate)}
-          {@const timeLogged = describeTimeLogged(task.timeLogged)}
-          <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
-            <div class="flex items-start justify-between gap-16">
-              <div class="flex min-w-0 flex-col gap-4">
-                <div class="flex flex-wrap items-center gap-8">
-                  <!-- WHAT THE ROW IS, AND THE WAY IN. The task's own words are the control that
-                       opens it, which is how a reader reaches a record everywhere else in the
-                       product; the acts on the record are in the window, not repeated out here. -->
-                  <Button
-                    variant="ghost"
-                    class="h-auto p-0 text-left font-normal whitespace-normal hover:underline"
-                    title="Open this task"
-                    onclick={() => openWindow(task)}
-                  >
-                    <span
-                      class={task.rung === "done" || task.archivedAt !== null
-                        ? "text-text-muted line-through"
-                        : ""}
-                    >
-                      {task.title}
-                    </span>
-                  </Button>
-                  {#if task.priority !== "normal"}
-                    <Badge variant={task.priority === "urgent" ? "danger" : "neutral"}>
-                      {PRIORITY_LABELS[task.priority]}
-                    </Badge>
-                  {/if}
-                  <!-- WHERE IT STANDS, said once. To Do is the resting state of every open task
-                       and a badge on every row saying so would be a badge nobody reads, so it is
-                       the one rung that shows nothing. -->
-                  {#if task.rung !== "to_do"}
-                    <Badge variant="neutral">{RUNG_LABELS[task.rung]}</Badge>
-                  {/if}
-                  {#if task.archivedAt !== null}
-                    <Badge variant="neutral">Archived</Badge>
-                  {/if}
-                  <!-- Overdue is a comparison against now, made here. It is not a state and there is
-                       no column behind it. -->
-                  {#if overdue}
-                    <Badge variant="danger">Overdue</Badge>
-                  {/if}
-                  {#if task.blockedByTaskId !== null}
-                    <!-- Waiting is guidance and gates nothing: this task can still be completed. -->
-                    <Badge variant="neutral">Waiting on another task</Badge>
-                  {/if}
-                </div>
-                {#if task.body !== null}
-                  <p class="text-xs text-text-muted whitespace-pre-wrap">{task.body}</p>
-                {/if}
-                <dl class="flex flex-wrap gap-x-16 gap-y-2 text-xs text-text-muted">
-                  <div class="flex gap-4">
-                    <dt>Assigned to</dt>
-                    <dd class="text-text">{nameOf(task.assigneeUserId)}</dd>
-                  </div>
-                  {#if due !== null}
-                    <div class="flex gap-4">
-                      <dt>Due</dt>
-                      <dd class="text-text">{due}</dd>
-                    </div>
-                  {/if}
-                  {#if showMatter && task.matterId === null}
-                    <div class="flex gap-4">
-                      <dt>Matter</dt>
-                      <dd class="text-text">The firm's own work</dd>
-                    </div>
-                  {/if}
-                  <!-- Only where there IS time. Most tasks carry none, and "0m" on every row would
-                       be noise standing in for a fact nobody recorded. "by you" appears where the
-                       reader may not see other timekeepers' time, so the number is never mistaken
-                       for the whole task's. -->
-                  {#if timeLogged !== null}
-                    <div class="flex gap-4">
-                      <dt>Time logged</dt>
-                      <dd class="text-text">{timeLogged}</dd>
-                    </div>
-                  {/if}
-                  <!-- Where else this task is written down. Absent on nearly every task, because
-                       the product integrates with nothing on its own — a row here means an addon
-                       put it there, and saying so is what stops somebody editing in two places
-                       without knowing the other exists. -->
-                  {#each task.externalLinks as link (link.id)}
-                    <div class="flex gap-4">
-                      <dt>{externalSystemLabel(link.system)}</dt>
-                      <dd class="text-text">
-                        {#if link.externalUrl === null}
-                          <!-- No addressable page over there. The platform will not invent a URL
-                               from an id pattern — that would be guessing at somebody else's
-                               routing — so the handle is the honest thing to show. -->
-                          {link.externalId}
-                        {:else}
-                          <!-- The destination is another system entirely, so it opens beside the
-                               reader rather than in place — through the product's one gate for
-                               that, never a hand-written target. -->
-                          <a class="underline" href={link.externalUrl} {...opensBeside("external")}>
-                            {link.externalId}
-                          </a>
-                        {/if}
-                      </dd>
-                    </div>
-                  {/each}
-                  {#if task.archiveReason !== null}
-                    <div class="flex gap-4">
-                      <dt>Archived because</dt>
-                      <dd class="text-text">{task.archiveReason}</dd>
-                    </div>
-                  {/if}
-                </dl>
-                <!-- What the task points at, NAMED and nothing more. Attaching and detaching are
-                     acts on the record and live in its window's Attachments tab; a row that offered
-                     them would be the list editing a record it is only listing. -->
-                {#if task.documents.length > 0}
-                  <ul class="flex flex-wrap gap-8 text-xs">
-                    {#each task.documents as document (document.id)}
-                      <li class="flex items-center gap-4">
-                        <Paperclip aria-hidden="true" class="size-12 text-text-muted" />
-                        <span>{document.fileName}</span>
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
-              </div>
+    <DataTable.Grid
+      {grid}
+      class="min-h-0 flex-1"
+      caption="Tasks"
+      cell={taskCell}
+      rowDetail={layout === "two" ? rowDetail : undefined}
+      scale={ROW_SCALE[rowSize]}
+      loading={taskList.items === null}
+    />
+    <DataTable.GridFooter {grid}>
+      {#snippet end()}
+        <DataTable.LoadMore
+          noun="tasks"
+          more={taskList.nextCursor !== null}
+          loading={taskList.loadingMore}
+          onLoad={loadMore}
+        />
+      {/snippet}
+    </DataTable.GridFooter>
+  {/if}
 
-              {#if canWrite}
-                <!-- THE ONE ACT A LIST IS FOR: ticking a thing off, and putting it back. The four
-                     rungs are in the task's own window, where the rest of its acts are; a list that
-                     carried the whole group on every row would be four controls deep on work
-                     somebody is only scanning. Done is the one that belongs out here, because
-                     clearing finished work off a list IS what a list is for.
-                     An ARCHIVED row offers only the way back: everything else about it is an act on
-                     a record nobody is looking at from here.
-                     It renders at rest rather than on hover: a control somebody has to discover by
-                     pointing at it is a control most people never find. -->
-                <div class="flex shrink-0 flex-wrap items-center justify-end gap-4">
-                  {#if task.archivedAt !== null}
-                    <Button
-                      variant="secondary"
-                      disabled={saving}
-                      title="Put this task back on the list, on the rung it left from"
-                      onclick={() =>
-                        runWrite(
-                          () => unarchiveTask(fetch, task.id, newWriteKey()),
-                          "The task was not put back.",
-                        )}
-                    >
-                      <ArchiveRestore aria-hidden="true" />
-                      Put Back
-                    </Button>
-                  {:else if task.rung === "done"}
-                    <Button
-                      variant="secondary"
-                      disabled={saving}
-                      title="Put this task back on the list"
-                      onclick={() =>
-                        runWrite(
-                          () => moveTaskToRung(fetch, task.id, "to_do", newWriteKey()),
-                          "The task was not reopened.",
-                        )}
-                    >
-                      <RotateCcw aria-hidden="true" />
-                      Reopen
-                    </Button>
-                  {:else}
-                    <Button
-                      variant="secondary"
-                      disabled={saving}
-                      onclick={() =>
-                        runWrite(
-                          () => moveTaskToRung(fetch, task.id, "done", newWriteKey()),
-                          "The task was not completed.",
-                        )}
-                    >
-                      Done
-                    </Button>
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          </li>
-        {/each}
-      </ul>
-
-      {#if taskList.nextCursor !== null}
-        <div class="flex justify-center">
-          <Button
-            variant="secondary"
-            disabled={taskList.loadingMore}
-            onclick={() => {
-              const current = filters;
-              void taskList.loadMore((cursor) => read(cursor, current));
-            }}
-          >
-            Show More
-          </Button>
-        </div>
-      {/if}
-    {/if}
-  </LoadingRegion>
-
-  <!-- WHAT IS NO LONGER OWED IS ASKED FOR WHERE THE OPEN WORK ENDS. Finished and archived tasks are not what
-       this list is for, so they are not two boxes over it competing with the search for the row a
-       reader searches from: they are two disclosures at the foot, met after everything still owed
-       has been read. Two questions and not one: a task is archived FROM wherever it stood, done
-       included. Each is undone by its own label, which is why neither draws the clear control
-       — a control that says "Show Everything" because MORE is on screen answers the wrong
-       question. Absent while the list has not settled, so nothing offers to widen a list that is
-       not there yet. -->
-  {#if tasks !== null && !firstReadFailed && !isSample}
+  <!-- WHAT IS NO LONGER OWED IS ASKED FOR WHERE THE OPEN WORK ENDS. Two questions, not one: a task
+       is archived from wherever it stood, complete included. -->
+  {#if taskList.items !== null && !firstReadFailed && !isSample}
     <div class="flex flex-wrap items-center justify-center gap-8 border-t border-border-subtle pt-12">
       <Button
         variant="ghost"
         size="sm"
-        class={showDone ? "text-accent-default" : "text-text-muted"}
-        title={showDone ? "Leave the done work out of the list" : "Add the work already done to the list"}
+        class={showCompleted ? "text-accent-default" : "text-text-muted"}
         onclick={() => {
-          showDone = !showDone;
-          applyFilters();
+          showCompleted = !showCompleted;
+          reload();
         }}
       >
-        {showDone ? "Hide Done" : "Show Done"}
+        {showCompleted ? "Hide Completed" : "Show Completed"}
       </Button>
       <Button
         variant="ghost"
         size="sm"
         class={showArchived ? "text-accent-default" : "text-text-muted"}
-        title={showArchived
-          ? "Leave the archived work out of the list"
-          : "Add the work that has been put away to the list"}
         onclick={() => {
           showArchived = !showArchived;
-          applyFilters();
+          reload();
         }}
       >
         {showArchived ? "Hide Archived" : "Show Archived"}
@@ -781,15 +809,17 @@
   {/if}
 </section>
 
-<!-- THE WINDOW a task is read and changed in, and the one a new task is written in. It carries its
-     own fields and its own failures, so no part of a draft or an edit touches this component's
-     state and the list keeps its shape while one is open. -->
 <TaskRecordWindow
   bind:open={windowOpen}
   bind:editing={windowEditing}
   task={openTask}
+  parent={newParent}
+  subtasks={childrenOfOpen}
+  {lists}
+  {teams}
   {matterId}
   {matterTitle}
+  matterTitleOf={context.matterTitle}
   authorName={myName}
   {nameOf}
   {assignableMembers}
@@ -798,13 +828,16 @@
   {writeRefusal}
   {canAssign}
   onSaved={afterWrite}
+  onOpenTask={(task) => openWindow(task, null)}
+  onNewSubtask={(parent) => openWindow(null, parent)}
+  onUnarchive={(task) =>
+    void rowWrite(() => unarchiveTask(fetch, task.id, newWriteKey()), "The task was not put back.")}
   onArchive={(subject) => {
     archiving = subject;
     archivingOpen = true;
   }}
 />
 
-<!-- Putting a task away, asked for once and serving both the window and this list. -->
 <TaskArchiveDialog
   bind:open={archivingOpen}
   task={archiving}
@@ -812,3 +845,16 @@
     if (archiving !== null) afterWrite(archiving.id);
   }}
 />
+
+{#if canManage}
+  <TaskSettingsDialog
+    bind:open={settingsOpen}
+    {lists}
+    {teams}
+    members={assignableMembers}
+    onChanged={() => {
+      readOrganisation();
+      afterWrite(null);
+    }}
+  />
+{/if}

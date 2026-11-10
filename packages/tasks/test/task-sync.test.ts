@@ -1,5 +1,6 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterTaskExternalLinkId, MatterTaskId } from "@magna-carta/identifiers/types";
+import { visibleMatterPredicateExcluding } from "@magna-carta/calendar/visibility";
 import { describe, expect, it } from "vitest";
 import {
   createMatterTask,
@@ -67,6 +68,10 @@ async function makeTask(
   await commit(database, created.effect);
   return created.taskId;
 }
+
+// A colleague behind an ethical wall on the test matter: the one way left for a member not to reach a
+// task, now that a task on no matter is visible to the whole firm.
+const walled = visibleMatterPredicateExcluding([MATTER]);
 
 describe("a task's identity in a system that is not this one", () => {
   it("records the correspondence and reads it back", async () => {
@@ -278,7 +283,7 @@ describe("a task's identity in a system that is not this one", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the policy", assigneeUserId: ACTOR },
+      { matterId: MATTER, title: "Renew the policy", assigneeUserId: ACTOR },
       options,
     );
     await commit(database, created.effect);
@@ -297,9 +302,9 @@ describe("a task's identity in a system that is not this one", () => {
       viewerUserId: ACTOR,
     });
     expect(mine?.taskId).toBe(created.taskId);
-    // A task on no matter is private to its assignee and its creator; the colleague is neither.
+    // The colleague is walled off the matter, so the lookup says nothing either way.
     const theirs = await findTaskByExternalId(database, "clickup", "firmwork", {
-      visibility,
+      visibility: walled,
       viewerUserId: COLLEAGUE,
     });
     expect(theirs).toBeUndefined();
@@ -309,7 +314,7 @@ describe("a task's identity in a system that is not this one", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the policy", assigneeUserId: ACTOR },
+      { matterId: MATTER, title: "Renew the policy", assigneeUserId: ACTOR },
       options,
     );
     await commit(database, created.effect);
@@ -317,7 +322,7 @@ describe("a task's identity in a system that is not this one", () => {
       linkTaskToExternalSystem(
         database,
         { taskId: created.taskId, system: "clickup", externalId: "x" },
-        colleagueOptions,
+        { ...colleagueOptions, visibility: walled },
       ),
     ).rejects.toThrow(expect.objectContaining({ code: "task-unknown" }) as unknown as Error);
   });
@@ -451,14 +456,14 @@ describe("what moved since I last looked", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the policy", assigneeUserId: ACTOR },
+      { matterId: MATTER, title: "Renew the policy", assigneeUserId: ACTOR },
       options,
     );
     await commit(database, created.effect);
     const mine = await readTaskChanges(database, { limit: 50, visibility, viewerUserId: ACTOR });
     const theirs = await readTaskChanges(database, {
       limit: 50,
-      visibility,
+      visibility: walled,
       viewerUserId: COLLEAGUE,
     });
     expect(mine.changed.map((row) => row.id)).toContain(created.taskId);

@@ -11,7 +11,7 @@ load-profile: done
 tested: done
 branch: claude/tasks-feature-planning-ihaq2r
 active-work:
-next: starting a timer from a task, which waits on the live-timer run store becoming plural; due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3; comments on T4 and a flat checklist on T5; a plan's event and document steps wait on the calendar and document-automation seams. One finding to revisit rather than build: tasks.my-work-page-1 scans, at a measured cost of about a millisecond over the same read narrowed
+next: starting a timer from a task, which waits on the live-timer run store becoming plural; due-soon and overdue reminders wait on the notifications comparison sweep; the board view (firm-defined statuses now exist, per list); comments wait on T4; watchers are recorded but not yet notified; a plan's event and document steps wait on the calendar and document-automation seams. One finding to revisit rather than build: tasks.my-work-page-1 scans, at a measured cost of about a millisecond over the same read narrowed
 link-spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
 link-plan: docs/specs/2026-09-01-tasks-scope-study.md
 adrs:
@@ -47,3 +47,5 @@ The read is **minutes and never money** — what a task cost has a different aud
 **Visibility is never relaxed for a sync**: the feed composes the same predicate every other task read does, and the external-id lookup returns the same null for "no such correspondence" and "you cannot see the task it names". What the platform deliberately does NOT decide — status mapping, conflict resolution, sync scheduling, field mapping — belongs to the adapter on `@magna-carta/integrations`. The contract an adapter author is held to is in `packages/tasks/CLAUDE.md`.
 
 Not built: any adapter, and that is the design rather than a gap. Also unbuilt: a plan's event and document steps, starting a timer from a task (which waits on the live-timer run store becoming plural — a replacing `start` silently destroys the first run's elapsed time), the board and its firm-defined statuses, recurrence, watchers and comments. The platform ships no curated plans of its own.
+
+**Lists, statuses, teams and a task's own parts (2026-11-09).** The owner approved the task screen redesign and it is built: a firm keeps several lists, each with named, coloured statuses and a flow between them; teams can be assigned; a task gains a start date, a location, several assignees, watchers, a checklist, links and sub-tasks up to five deep. Completion is its own act and leaves the status where it stood, and a task on no matter is now visible to every member, with Me Mode narrowing the list to the reader's own work. The list screen is a `DataTable.Grid` with the status pill, inline dates and priority, sub-task rows and Group By; the task window edits in place. Spec: `docs/specs/2026-11-09-task-lists-and-task-screen-design.md`.
