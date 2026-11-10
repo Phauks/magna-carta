@@ -6,6 +6,8 @@ import {
   MAX_TASK_ASSIGNEES,
   MAX_TASK_BODY_LENGTH,
   MAX_TASK_CHECKLIST_ITEM_LENGTH,
+  MAX_TASK_COMMENT_LENGTH,
+  MAX_TASK_COMMENT_MENTIONS,
   MAX_TASK_LINK_LABEL_LENGTH,
   MAX_TASK_LINK_URL_LENGTH,
   MAX_TASK_LIST_NAME_LENGTH,
@@ -332,6 +334,32 @@ export const UpdateTaskChecklistItemRequest = z
     done: z.boolean().optional(),
   })
   .meta({ id: "UpdateMatterTaskChecklistItemRequest" });
+
+// A comment in a task's thread. The colleagues it names are listed by id, because the words that
+// name them are the author's own and a name is not an identity.
+export const TaskCommentRequest = z
+  .object({
+    body: z.string().min(1).max(MAX_TASK_COMMENT_LENGTH),
+    mentionedUserIds: z.array(identifierField("user")).max(MAX_TASK_COMMENT_MENTIONS).optional(),
+  })
+  .meta({ id: "MatterTaskCommentRequest" });
+
+export const TaskComment = z
+  .object({
+    id: z.string(),
+    taskId: z.string(),
+    authorUserId: z.string(),
+    body: z.string(),
+    createdAt: z.string(),
+    // Null on a comment nobody has reworded since it was written.
+    editedAt: z.string().nullable(),
+    mentionedUserIds: z.array(z.string()),
+  })
+  .meta({ id: "MatterTaskComment" });
+
+export const TaskCommentThread = z
+  .object({ data: z.array(TaskComment) })
+  .meta({ id: "MatterTaskCommentThread" });
 
 export const AddTaskLinkRequest = z
   .object({

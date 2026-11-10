@@ -24,6 +24,7 @@ export function taskErrorResponse(
     case "task-parent-unknown":
     case "task-checklist-item-unknown":
     case "task-link-unknown":
+    case "task-comment-unknown":
       return problemJson(c, {
         type: "not-found",
         title: "Not found",

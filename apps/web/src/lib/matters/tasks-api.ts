@@ -669,6 +669,65 @@ export function removeTaskLink(fetchImpl: typeof fetch, linkId: string): Acknowl
 }
 
 /*
+ * A TASK'S COMMENT THREAD: flat, oldest first. Only the author may reword or remove a comment. The
+ * colleagues a comment names are sent by id; the "@Name" in its words is the author's own text.
+ */
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  authorUserId: string;
+  body: string;
+  createdAt: string;
+  /** Null on a comment nobody has reworded since it was written. */
+  editedAt: string | null;
+  mentionedUserIds: string[];
+}
+
+export interface TaskCommentInput {
+  body: string;
+  mentionedUserIds: readonly string[];
+}
+
+export function listTaskComments(
+  fetchImpl: typeof fetch,
+  taskId: string,
+): Promise<ApiOutcome<{ data: TaskComment[] }>> {
+  return requestJson(fetchImpl, taskPath(taskId, "comments"));
+}
+
+export function addTaskComment(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  comment: TaskCommentInput,
+): Created {
+  return requestJson(fetchImpl, taskPath(taskId, "comments"), {
+    method: "POST",
+    body: comment,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function editTaskComment(
+  fetchImpl: typeof fetch,
+  commentId: string,
+  comment: TaskCommentInput,
+): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-comments/${encodeURIComponent(commentId)}`, {
+    method: "PUT",
+    body: comment,
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+export function deleteTaskComment(fetchImpl: typeof fetch, commentId: string): Acknowledged {
+  return requestJson(fetchImpl, `/api/v1/task-comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+    idempotencyKey: newWriteKey(),
+  });
+}
+
+/*
  * HOW THE FIRM ORGANISES ITS TASK WORK: its lists, each list's statuses and flow, and its teams.
  */
 
