@@ -178,6 +178,12 @@ export type Bindings = {
   // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
   // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
   SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
+  // One object per connected calendar account, keyed `${firmId}:${connectionId}`. Every pass that
+  // writes a member's events to their own calendar runs inside that account's object, one at a time
+  // (calendar-sync/connection-sync.ts).
+  CONNECTION_SYNC: DurableObjectNamespace<
+    import("./calendar-sync/connection-sync.ts").ConnectionSync
+  >;
   // The split-compaction coordinator: keyed firmId:corpusId, and keyed that way because two concurrent
   // compactions of one corpus would each merge overlapping splits and leave every document in the
   // overlap live in two merged splits at once.

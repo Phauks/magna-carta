@@ -61,7 +61,8 @@ const SYNC_SCOPE = z
   .enum(["mine", "my_matters"])
   .describe(
     "Whose events of the type are sent: `mine` is the ones the member takes part in (for " +
-      "deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on.",
+      "deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a " +
+      "matter they are assigned to.",
   );
 
 const SYNC_SUBJECT_KEY = z

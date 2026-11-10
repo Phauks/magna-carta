@@ -8287,7 +8287,8 @@ export const calendarSyncFirmLimit = sqliteTable(
 // points when the provider cannot be reached, or when the member has since deleted that calendar.
 //
 // `scope` is whose events of that type: `mine` is the ones the member takes part in (for deadlines,
-// the ones assigned to them), `my_matters` is every one on a matter they work on.
+// the ones on a matter they are responsible for), `my_matters` is every one on a matter they are
+// assigned to.
 export const calendarSyncRule = sqliteTable(
   "calendar_sync_rule",
   {
@@ -8313,6 +8314,53 @@ export const calendarSyncRule = sqliteTable(
     ),
     check("calendar_sync_rule_scope_check", sql`${table.scope} IN ('mine', 'my_matters')`),
     check("calendar_sync_rule_calendar_check", sql`length(${table.calendarRemoteId}) > 0`),
+  ],
+);
+
+// One Magna Carta event as it sits in one member's calendar at their provider. The identifier the
+// provider gave the copy belongs to the pair of event and account, never to the event: one hearing
+// is in several members' calendars under several identifiers, which is why this is a table and not
+// a column on the event.
+//
+// The row is written BEFORE the provider is asked to create the copy, in the `pending` state and
+// already holding the `transaction_id` the request will carry. A pass that dies between the request
+// and the answer finds the row again and repeats the request under the same identifier, and the
+// provider answers with the copy it already made in place of a second one.
+//
+// `agreed_hash` is a digest of the fields as they were last sent. A pass compares it with a digest
+// of the event as it stands and sends only what differs. It is a digest and not the fields because
+// a title or a location is the firm's own record of a matter, and this table is not where that is
+// kept. `local_id` carries no foreign key because it names a row in one of three tables, chosen by
+// `local_kind`.
+export const calendarSyncLink = sqliteTable(
+  "calendar_sync_link",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    localKind: text("local_kind", { enum: ["matter_event", "firm_event", "deadline"] }).notNull(),
+    localId: text("local_id").notNull(),
+    calendarRemoteId: text("calendar_remote_id").notNull(),
+    transactionId: text("transaction_id").notNull(),
+    remoteEventId: text("remote_event_id"), // null until the provider has answered the create
+    remoteVersionTag: text("remote_version_tag"),
+    agreedHash: text("agreed_hash").notNull(),
+    state: text("state", { enum: ["pending", "synced", "failed"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.localKind, table.localId] }),
+    check(
+      "calendar_sync_link_local_kind_check",
+      sql`${table.localKind} IN ('matter_event', 'firm_event', 'deadline')`,
+    ),
+    check("calendar_sync_link_state_check", sql`${table.state} IN ('pending', 'synced', 'failed')`),
+    check(
+      "calendar_sync_link_synced_shape_check",
+      sql`${table.state} <> 'synced' OR ${table.remoteEventId} IS NOT NULL`,
+    ),
   ],
 );
 

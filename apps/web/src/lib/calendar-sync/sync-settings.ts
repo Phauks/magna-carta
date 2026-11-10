@@ -36,7 +36,7 @@ const SCOPE_LABELS: Readonly<Record<SyncScope, string>> = {
   my_matters: "All on My Matters",
 };
 const DEADLINE_SCOPE_LABELS: Readonly<Record<SyncScope, string>> = {
-  mine: "Assigned to Me",
+  mine: "On Matters I Am Responsible For",
   my_matters: "All on My Matters",
 };
 

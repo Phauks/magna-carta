@@ -126,6 +126,23 @@ refresh token when it issues a new one
 ([refresh tokens](https://learn.microsoft.com/en-us/entra/identity-platform/refresh-tokens)), so
 reading the calendar list from a request is safe before the per-account Durable Object exists.
 
+As built, the direction out is a reconciliation and not a relay of changes. A pass reads the
+member's rules, the firm's limits, every event in the window that could be theirs and the links
+already written, and sends the difference (`packages/calendar/src/sync-outbound.ts`,
+`apps/api-worker/src/calendar-sync/outbound-pass.ts`). The outbox was the planned trigger and is not
+used: the three calendar topics are raised only when a setting moves or is cancelled, so an edit to
+a title would never have reached Outlook. Instead a successful write on a calendar path asks every
+account with a rule for a pass, the per-account object folds requests into one pass a few seconds
+later, and it runs a safety pass every six hours for what no trigger covers (an event entering the
+window, a matter assignment changing). `calendar_sync_link` is keyed by connection, kind and local
+id; it is written in a `pending` state with the request's `transactionId` before Microsoft is asked,
+so a create whose answer was lost is repeated under the same identifier. `connection_sync_state`
+and `connection_sync_issue` wait for the direction back. A copy a member deleted in Outlook is left
+deleted, and a repeating series is not sent until section 7 is built.
+
+For deadlines the narrow scope means the matters the member is responsible for and the wide one
+every matter they are assigned to, because a deadline names no person.
+
 `integration_connection` is unique on category and principal, so a member holds one account per
 category. Letting one person connect both Outlook and Google needs the adapter added to that index.
 

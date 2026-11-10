@@ -3,6 +3,7 @@
 import {
   calendarEventLink,
   calendarSyncFirmLimit,
+  calendarSyncLink,
   calendarSyncRule,
   firmEvent,
   firmEventParticipant,
@@ -67,6 +68,15 @@ import {
   insertFirmResourceStatement,
   selectFirmResourcesStatement,
 } from "../src/resource-statements.ts";
+import {
+  CALENDAR_SYNC_LINK_TABLE,
+  deleteSyncLinkStatement,
+  deleteSyncLinksStatement,
+  insertPendingSyncLinkStatement,
+  markSyncLinkFailedStatement,
+  markSyncLinkSyncedStatement,
+  selectSyncLinksStatement,
+} from "../src/sync-link-statements.ts";
 import {
   CALENDAR_SYNC_FIRM_LIMIT_TABLE,
   CALENDAR_SYNC_RULE_TABLE,
@@ -520,6 +530,33 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
       ),
     ]) {
       expectOnlyKnownIdentifiers(sqlOf(statement), limitColumns, "sync firm limit");
+    }
+  });
+
+  it("every column the calendar sync link SQL names exists in the schema", () => {
+    expect(getTableConfig(calendarSyncLink).name).toBe(CALENDAR_SYNC_LINK_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const key = { connectionId, localKind: "matter_event", localId: "matterEvent_x" } as const;
+    const linkColumns = new Set([CALENDAR_SYNC_LINK_TABLE, ...columnsOf(calendarSyncLink)]);
+    for (const statement of [
+      selectSyncLinksStatement(stub, connectionId),
+      insertPendingSyncLinkStatement(
+        stub,
+        key,
+        { calendarRemoteId: "c", transactionId: "t", agreedHash: "h" },
+        "t",
+      ),
+      markSyncLinkSyncedStatement(
+        stub,
+        key,
+        { remoteEventId: "r", remoteVersionTag: null, agreedHash: "h" },
+        "t",
+      ),
+      markSyncLinkFailedStatement(stub, key, "h", "t"),
+      deleteSyncLinkStatement(stub, key),
+      deleteSyncLinksStatement(stub, connectionId),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), linkColumns, "sync link");
     }
   });
 });

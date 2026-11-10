@@ -31,6 +31,13 @@ ADR-0059, ADR-0068, ADR-0051.)
   limit on which event types may leave and with how much detail, and each member's own rules inside
   it. A member's rule never exceeds the firm's limit: a save refuses a closed subject, and closing a
   subject removes the rules that depended on it in the same batch. Settings only; nothing is sent
+- `src/sync-link-statements.ts` — the link table (one event in one member's provider calendar) and
+  the three reads of what could be sent to a member: their matter events, firm events and open
+  deadlines in a window. The matter-anchored reads compose the visible-matter predicate
+- `src/sync-outbound.ts` — the outbound decision, pure: from rules, limits, candidates and links to
+  the creates, updates and removals a pass should make. It is a reconciliation, so every trigger
+  asks the same question and a missed one is harmless. The pass that carries it out is in
+  `apps/api-worker/src/calendar-sync/`; this package still calls nothing and computes no date
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and

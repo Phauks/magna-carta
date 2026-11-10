@@ -80,6 +80,15 @@ routes requests through the chokepoint into those packages.
   failing the capture. Its target is deployment config (`DKIM_RESOLVER_URL`), never a user-supplied
   address, so the SSRF rule in `docs/conventions/invariants.md` does not bind — but the name it queries
   comes from the message, and is constrained to a plain domain before it can shape the request.
+- `src/calendar-sync/` — a member's own calendar account at a provider: the sign-in, the store that
+  opens that member's own sealed sign-in and no other, and the sync out. `connection-sync.ts` is the
+  `ConnectionSync` Durable Object, one per connected account (`firmId:connectionId`), which holds who
+  it is for and a retry count and runs that account's passes one at a time from its alarm.
+  `outbound-pass.ts` is a pass: it reconciles the member's provider calendar with their rules and
+  records each copy in `calendar_sync_link`. `request-sync.ts` asks every account with a rule for a
+  pass; the calendar domain's router calls it behind the response of any write that could change
+  what belongs in somebody's calendar. All of it returns early in a deployment with no Microsoft
+  application
 - `src/progress/` — push progress for job coordinators: the WebSocket frame contract
   (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)
   that `BundleBuildCoordinator` and `ConversionJob` both use. See the section below.
