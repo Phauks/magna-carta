@@ -76,6 +76,12 @@ export type MatterScopedObjectClass =
   // without knowing a key layout.
   | "review-extracted-text"
   | "review-document-metadata"
+  // The text one committed version of a matter's file extracted to, page by page, kept so a search
+  // result can quote the sentence it matched. A DERIVED copy, rebuildable by reading the version
+  // again, and it belongs to the version's matter. Stamped apart from the version itself because it
+  // is a reading of the document and not the document, and apart from `review-extracted-text`
+  // because that one is a reading of material an opposing party produced.
+  | "extracted-text"
   // A discovery load's manifest or its exception report, in either the machine-readable or the
   // printable form. Stamped apart from the two above because it is the OPPOSITE kind of object: those
   // are derived caches a review set releases when it closes, and these are RECORDS — what a party
@@ -138,6 +144,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "search-split",
   "review-extracted-text",
   "review-document-metadata",
+  "extracted-text",
   "review-load-record",
   "meeting-recording-track",
 ];

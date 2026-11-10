@@ -266,6 +266,75 @@ describe("the words inside a matter's files", () => {
     expect(answer.groups[0]?.hits.map((hit) => hit.id)).toEqual(["file_survey"]);
   });
 
+  it("quotes the sentence each file shown matched, from its best passage", async () => {
+    const { database } = seededDatabase();
+    const quoted: { matterId: string; readerText: string; files: FileContentsPassage[] }[] = [];
+    const { searcher } = searcherAnswering(
+      passages(["file_survey", 6], ["file_survey", 2], ["file_deleted", 4]),
+    );
+    const quoting: MatterFileContentsSearcher = {
+      ...searcher,
+      excerpts: async (input) => {
+        quoted.push({ ...input, files: [...input.files] });
+        return new Map([["file_survey", "…the grantor shall indemnify the grantee…"]]);
+      },
+    };
+
+    const group = await search(database, 'Indemnify "the grantee"', quoting);
+
+    expect(group.hits.map((hit) => [hit.id, hit.secondary, hit.snippet])).toEqual([
+      ["file_survey", "Pages 3 and 7", "…the grantor shall indemnify the grantee…"],
+    ]);
+    // Asked with the reader's own text, and only for the file the database returned: the deleted
+    // file the index also named is never quoted from.
+    expect(quoted).toEqual([
+      {
+        matterId: MATTER,
+        readerText: 'Indemnify "the grantee"',
+        files: [{ fileId: "file_survey", chunkId: "page-6" }],
+      },
+    ]);
+  });
+
+  it("does not fetch a quote for a file the limit cuts off", async () => {
+    const { database, raw } = seededDatabase();
+    for (const name of ["a", "b", "c"]) {
+      seedFile(raw, { id: `file_quote_${name}`, matterId: MATTER, name: `${name}.pdf` });
+    }
+    const asked: string[][] = [];
+    const quoting: MatterFileContentsSearcher = {
+      ...searcherAnswering(passages(["file_quote_b", 0], ["file_quote_a", 3], ["file_quote_c", 0]))
+        .searcher,
+      excerpts: async (input) => {
+        asked.push(input.files.map((file) => `${file.fileId}@${file.chunkId}`));
+        return new Map();
+      },
+    };
+
+    const group = await search(database, "easement", quoting, { limit: 2 });
+
+    expect(group.hasMore).toBe(true);
+    expect(asked).toEqual([["file_quote_b@page-0", "file_quote_a@page-3"]]);
+    // A file that cannot be quoted keeps its pages and says nothing more.
+    expect(group.hits.map((hit) => hit.snippet)).toEqual([null, null]);
+  });
+
+  it("is not asked for quotes when the index found nothing", async () => {
+    const { database } = seededDatabase();
+    let asked = 0;
+    const quoting: MatterFileContentsSearcher = {
+      ...searcherAnswering(passages()).searcher,
+      excerpts: async () => {
+        asked += 1;
+        return new Map();
+      },
+    };
+
+    await search(database, "easement", quoting);
+
+    expect(asked).toBe(0);
+  });
+
   it("answers in the Files section, after the names of files and folders", () => {
     const keys = matterSearchSources.all().map((source) => source.key);
     expect(keys.indexOf("file-contents")).toBe(keys.indexOf("files") + 1);
@@ -295,15 +364,16 @@ describe("what an answer from the index becomes", () => {
       ],
       2,
     );
+    // A file's best passage is its first: the one a result quotes from.
     expect(candidates).toEqual([
-      { fileId: "file_b", pages: [10, 2] },
-      { fileId: "file_a", pages: [1, 5] },
+      { fileId: "file_b", pages: [10, 2], bestChunkId: "page-9" },
+      { fileId: "file_a", pages: [1, 5], bestChunkId: "page-0" },
     ]);
   });
 
   it("keeps a file whose passage has no page a reader could turn to, without a page", () => {
     expect(candidatesFrom([passage("file_a", "whole"), passage("file_a", "page-x")], 5)).toEqual([
-      { fileId: "file_a", pages: [] },
+      { fileId: "file_a", pages: [], bestChunkId: "whole" },
     ]);
   });
 
@@ -328,10 +398,10 @@ describe("what an answer from the index becomes", () => {
     const arranged = arrangeByCandidates(
       [row("file_a", "Contracts"), row("file_b", null), row("file_c", "Deleted")],
       [
-        { fileId: "file_c", pages: [] },
-        { fileId: "file_missing", pages: [1] },
-        { fileId: "file_a", pages: [2] },
-        { fileId: "file_b", pages: [] },
+        { fileId: "file_c", pages: [], bestChunkId: "whole" },
+        { fileId: "file_missing", pages: [1], bestChunkId: "page-0" },
+        { fileId: "file_a", pages: [2], bestChunkId: "page-1" },
+        { fileId: "file_b", pages: [], bestChunkId: "whole" },
       ],
     );
     expect(arranged.map((entry) => [entry.row_id, entry.secondary])).toEqual([

@@ -435,6 +435,25 @@ by the discovery processing consumer once a document is `processed`. Local rules
   (`indexMessageCorpus`), so a message in flight across the deploy that introduced them still routes
   where it was going. The same shape is on the compaction message.
 
+## The kept text — what a file result quotes from
+
+`src/search/extracted-text-store.ts` is the two bucket operations over the format in
+`@magna-carta/search/extracted-text`: the index job writes one object per indexed version of a
+matter's file, and `src/search/matter-file-contents.ts` reads one passage of it by range.
+
+- **The write is inside the job's outcome and before the catalog commit.** The two best-effort steps
+  after the commit (the feed write, the compaction count) may fail quietly; this one may not,
+  because once the catalog names the split nothing about the document looks unindexed and no later
+  pass would repair a missing object.
+- **The read is after the search's own statement, and checks again.** `excerpts` is asked only for
+  rows the search is about to show. `listQuotableIndexedVersions` then answers which version the
+  index holds, and only for a file on that matter, not deleted, whose version is clean.
+- **A quote never fails a search and never reaches a log.** `excerpts` does not throw. A fault is
+  reported once, by its kind: not the question, not the passage, and not the key, which names a
+  client's file.
+- **Never the whole object.** One ranged read for most documents, two for a long one and three for
+  one of several thousand pages, with the passage itself capped. A request does not hold a deposition to quote a sentence from it.
+
 ## Gotchas
 
 - A declared queue **consumer** with no exported handler fails the deploy; a declared **producer** does

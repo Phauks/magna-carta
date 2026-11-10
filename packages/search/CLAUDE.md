@@ -34,6 +34,10 @@ ADR-0110, ADR-0111.)
 - `src/keyword-letter-folds.ts` — what the engine does to each letter beyond lowercasing it.
   Rendered by `scripts/render-keyword-letter-folds.mts` from the table the engine publishes about
   itself; never edited
+- `src/extracted-text.ts` — the kept text of one indexed version of a matter's file: its key, its
+  object class, its bytes, and `readExtractedPassage`, which reads one passage by range
+- `src/keyword-excerpt.ts` — `keywordExcerpt`: the stretch of a passage where a reader's words are,
+  found again by the engine's rules for cutting and folding a word
 
 **Natural-language search** (every module prefixed `natural-language-`)
 
@@ -142,6 +146,20 @@ are the ones the production modules adopted; keep the two in step.
   generation; nothing yet re-indexes an older one.
 - **A passage is a page.** Every word of a question has to be on the same page of a document. That
   is stated to the reader in the user guide.
+- **A result's words come from the kept text, never from the index.** The index job writes the
+  passages it built the split from to one object per version (`extracted-text.ts`), before the
+  catalog commit, and the application reads a passage only for a file its own statement has already
+  returned under the matter binding. Do not store passage text in a split to have the engine return
+  it: that hands text back for candidates the database has not decided on.
+- **The kept text is one extraction's third consumer, never a second extraction.** It is written
+  from the same passages as the split, so the page a result names and the sentence it quotes are one
+  reading of the document. A review document is not written; its text is the review pipeline's own.
+- **The kept text's key and bytes are compatibility contracts**, pinned in
+  `test/extracted-text.test.ts`. A change to the layout is a new `format` number that the reader
+  refuses as malformed until it is taught, never an edit to format 1.
+- **An excerpt finds words the way the engine does.** `keywordExcerpt` cuts and folds with
+  `engineWordsOf` and `asIndexed` from `keyword-query.ts`, the same word pattern and fold the query
+  is built with. Give it a rule of its own and a result will name a page and quote nothing.
 
 ## Local rules — the record index
 
