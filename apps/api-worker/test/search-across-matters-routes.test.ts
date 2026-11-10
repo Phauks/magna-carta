@@ -142,8 +142,14 @@ async function openMatter(
   return (await jsonOf<{ matterId: string }>(matter)).matterId;
 }
 
-async function writeNote(matterId: string, body: string, cookie = ownerCookie): Promise<void> {
-  const note = await post(`/api/v1/matters/${matterId}/notes`, { body }, cookie);
+// A note is ordered by the day it is about, so the tests that read an order say the day.
+async function writeNote(
+  matterId: string,
+  body: string,
+  occurredOn: string,
+  cookie = ownerCookie,
+): Promise<void> {
+  const note = await post(`/api/v1/matters/${matterId}/notes`, { body, occurredOn }, cookie);
   expect(note.status, await note.clone().text()).toBe(201);
 }
 
@@ -184,11 +190,13 @@ beforeAll(async () => {
   await writeNote(
     firstMatterId,
     "The easement runs along the eastern boundary and was never registered.",
+    "2026-06-04",
   );
-  await writeNote(firstMatterId, "Client prefers afternoon calls.");
+  await writeNote(firstMatterId, "Client prefers afternoon calls.", "2026-06-05");
   await writeNote(
     secondMatterId,
     "Seller disclosed a drainage easement across the rear of the lot.",
+    "2026-07-11",
   );
 
   // A second firm holding a matter with the same word in a note. Nothing this firm's session asks
@@ -218,7 +226,12 @@ beforeAll(async () => {
     otherOwner.userId,
     otherCookie,
   );
-  await writeNote(otherMatterId, "An easement belonging to another firm entirely.", otherCookie);
+  await writeNote(
+    otherMatterId,
+    "An easement belonging to another firm entirely.",
+    "2026-08-01",
+    otherCookie,
+  );
 });
 
 describe("one question, answered from every matter the member may see", () => {
