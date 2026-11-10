@@ -40,6 +40,9 @@ export interface FirmEventRow {
   readonly conference_url: string | null;
   /** The RFC 5545 rule a repeating event runs on, null on a one-off. One row carries the series. */
   readonly recurrence_rule: string | null;
+  /** The series and the day this row replaces, where it is one occurrence written as an exception. */
+  readonly recurrence_parent_id: FirmEventId | null;
+  readonly recurrence_occurrence_on: string | null;
   readonly recorded_at: string;
   readonly recorded_by: UserId | null;
   readonly created_at: string;
@@ -58,7 +61,8 @@ export interface FirmEventParticipantRow {
 
 const FIRM_EVENT_COLUMNS =
   "id, event_type_id, title, description, status, status_reason, starts_on, starts_at_time, ends_on, " +
-  "ends_at_time, time_zone, audience, location_id, location_text, conference_url, recurrence_rule, recorded_at, recorded_by, created_at, updated_at";
+  "ends_at_time, time_zone, audience, location_id, location_text, conference_url, recurrence_rule, recorded_at, recorded_by, created_at, updated_at, " +
+  "recurrence_parent_id, recurrence_occurrence_on";
 
 export interface InsertFirmEventInput {
   readonly id: FirmEventId;
@@ -77,6 +81,9 @@ export interface InsertFirmEventInput {
   readonly conferenceUrl: string | null;
   /** The RFC 5545 rule, or null for an event that happens once. */
   readonly recurrenceRule: string | null;
+  /** The series and the day this row replaces, where it is one occurrence written as an exception. */
+  readonly recurrenceParentId?: FirmEventId | null;
+  readonly recurrenceOccurrenceOn?: string | null;
   readonly recordedAt: string;
   readonly recordedBy: UserId | null;
   readonly now: string;
@@ -88,7 +95,7 @@ export function insertFirmEventStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FIRM_EVENT_TABLE} (${FIRM_EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19)`,
+      `INSERT INTO ${FIRM_EVENT_TABLE} (${FIRM_EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19, ?20, ?21)`,
     )
     .bind(
       input.id,
@@ -111,6 +118,8 @@ export function insertFirmEventStatement(
       input.recordedAt,
       input.recordedBy,
       input.now,
+      input.recurrenceParentId ?? null,
+      input.recurrenceOccurrenceOn ?? null,
     );
 }
 

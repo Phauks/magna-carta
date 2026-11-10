@@ -8,9 +8,14 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CheckWithHits, HitDetail, RunSummary } from "../src/lib/conflicts/conflicts-api.ts";
-import { statusCaption, statusPlaces } from "../src/lib/conflicts/check-status.ts";
+import {
+  placeSettingsText,
+  statusCaption,
+  statusPlaces,
+} from "../src/lib/conflicts/check-status.ts";
 import {
   NO_FILTER,
+  foundThroughText,
   filterResults,
   resultCountText,
   reviewText,
@@ -34,7 +39,11 @@ function run(overrides: Partial<RunSummary> = {}): RunSummary {
     finishedAt: null,
     failure: null,
     cancelledByUserId: null,
-    askedScope: { sources: ["party", "graph", "imputation"], strictness: "balanced" },
+    askedScope: {
+      sources: ["party", "graph", "imputation"],
+      strictness: "balanced",
+      places: { messaging: [], tasks: [], magnus: false },
+    },
     hitCount: null,
     subjectParties: [],
     ...overrides,
@@ -51,6 +60,7 @@ function hit(overrides: Partial<HitDetail> = {}): HitDetail {
     matchedFields: ["same normalized name"],
     graphPath: [],
     coParty: false,
+    foundIn: null,
     createdAt: "2026-11-09T10:00:05.000Z",
     disposition: null,
     previouslyAnswered: null,
@@ -93,6 +103,62 @@ describe("the status section", () => {
     expect(statusCaption(places)).toBe("1 of 1 location finished, 4 not searched");
   });
 
+  it("searches Messaging, Tasks and Magnus when asked, after the Directory, and files each sentence under its place", () => {
+    const asked = { messaging: ["calls", "email"], tasks: ["open"], magnus: true } as const;
+    const askedScope = {
+      sources: ["party"],
+      strictness: "balanced",
+      places: { messaging: [...asked.messaging], tasks: [...asked.tasks], magnus: true },
+    };
+    const waiting = statusPlaces(run({ askedScope }), null);
+    expect(waiting.map((place) => place.state)).toEqual([
+      "searching",
+      "not-searched",
+      "waiting",
+      "waiting",
+      "waiting",
+    ]);
+    const searching = statusPlaces(
+      run({ askedScope, stage: "places", progress: { placeResults: 2 } }),
+      null,
+    );
+    expect(searching[2]?.state).toBe("searching");
+    expect(searching[0]?.lines.some((line) => line.startsWith("Searching calls"))).toBe(false);
+
+    const statement = [
+      "Party — name and identifier similarity.",
+      "Messaging — calls and email, filed or not, searched.",
+      "Tasks — titles and descriptions of tasks on open matters, searched.",
+      "Magnus — every conversation, including those saved to General, searched.",
+      "2 results surfaced for review (tier 1: 1, tier 2: 1).",
+    ];
+    const call = hit({
+      id: "call",
+      sourceClass: "content",
+      foundIn: {
+        kind: "call",
+        id: "communication_1",
+        matterId: null,
+        matterNumber: null,
+        at: null,
+      },
+    });
+    const done = statusPlaces(
+      run({ askedScope, status: "completed", stage: null, hitCount: 2 }),
+      record([hit(), call], statement),
+    );
+    expect(done[0]?.lines).toEqual([statement[0], statement[4]]);
+    expect(done[0]?.summary).toBe("1 result");
+    expect(done[2]?.lines).toEqual([statement[1]]);
+    expect(done[2]?.summary).toBe("1 result");
+    expect(done[3]?.lines).toEqual([statement[2]]);
+    expect(done[4]?.summary).toBe("0 results");
+    expect(statusCaption(done)).toBe("4 of 4 locations finished, 1 not searched");
+    expect(placeSettingsText("messaging", askedScope.places)).toBe("Calls, Email");
+    expect(placeSettingsText("tasks", askedScope.places)).toBe("Open");
+    expect(placeSettingsText("files", askedScope.places)).toBeNull();
+  });
+
   it("marks a cancelled run's place as cancelled, never as failed", () => {
     const places = statusPlaces(run({ status: "cancelled", stage: null }), null);
     expect(places[0]?.state).toBe("stopped");
@@ -123,6 +189,39 @@ describe("the results section", () => {
     ).toContain("(a relationship had ended)");
   });
 
+  it("says which record a result was found in, and where it is filed, never its text", () => {
+    const email = hit({
+      sourceClass: "content",
+      matchedFields: ['"Dana Whitfield" is named in the subject'],
+      foundIn: {
+        kind: "email",
+        id: "emailMessage_1",
+        matterId: "matter_1",
+        matterNumber: "2026-0001",
+        at: "2026-03-01T10:00:00.000Z",
+      },
+    });
+    expect(foundThroughText(email)).toBe("Email");
+    expect(whereText(email)).toBe("Email on 2026-0001");
+    const conversation = hit({
+      sourceClass: "content",
+      foundIn: {
+        kind: "magnus_conversation",
+        id: "magnusConversation_1",
+        matterId: null,
+        matterNumber: null,
+        at: null,
+      },
+    });
+    expect(whereText(conversation)).toBe("Magnus conversation saved to General");
+    expect(foundThroughText(hit())).toBe("Names and identifiers");
+    const ids = filterResults([hit({ id: "directory" }), email], {
+      ...NO_FILTER,
+      sources: new Set(["Email"]),
+    }).map((entry) => entry.id);
+    expect(ids).toEqual([email.id]);
+  });
+
   it("names strength in words, strongest first, and never a tier number", () => {
     expect(Object.values(STRENGTH_LABELS)).toEqual(["Exact", "Same name", "Might be", "Weak"]);
     const sorted = filterResults(
@@ -146,7 +245,7 @@ describe("the results section", () => {
       filterResults(hits, filter).map((entry) => entry.id);
     expect(ids(NO_FILTER)).toEqual(["a", "b"]);
     expect(ids({ ...NO_FILTER, text: "harbor" })).toEqual(["b"]);
-    expect(ids({ ...NO_FILTER, sources: new Set(["party"]) })).toEqual(["a"]);
+    expect(ids({ ...NO_FILTER, sources: new Set(["Names and identifiers"]) })).toEqual(["a"]);
     expect(ids({ ...NO_FILTER, strengths: new Set([3]) })).toEqual(["b"]);
     expect(ids({ ...NO_FILTER, reviews: new Set(["cleared"]) })).toEqual([]);
   });

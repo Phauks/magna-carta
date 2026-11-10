@@ -32,8 +32,6 @@
     matterId={null}
     matterTitle={null}
     showMatter
-    emptyTitle="Nothing on your plate"
-    emptyDescription="No task is open for you. Tasks assigned to you across every matter you can see, and your own work on no matter, land here."
   >
     {#snippet screenHeader(controls)}
       <ScreenHeader title="Tasks">

@@ -849,9 +849,12 @@ export interface ExtractedPdfText {
  * extraction: it returns the characters the author wrote, exactly, for every page that has
  * them, and reports the pages that have none so a caller can send just those to recognition.
  *
- * Throws `DecompressionBombError` for a document the guard refuses, and a plain `Error` for one
- * with more pages than a single call will interpret — page count is declared in the file, so a
- * document claiming thousands of pages is refused rather than walked.
+ * A document of any ordinary length is read whole: the page ceiling is 50,000, far above a real
+ * filing or production, because a document refused here has its words left out of search.
+ *
+ * Throws `DecompressionBombError` for a document the guard refuses, and a plain `Error`
+ * (`"document has too many pages"`) for one declaring more pages than that ceiling — page count
+ * is declared in the file, so the walk has to end somewhere.
  */
 export async function extractPdfText(
   bytes: Uint8Array,

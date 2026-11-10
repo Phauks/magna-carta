@@ -12,6 +12,9 @@ import type {
   MatterId,
   MatterTaskDocumentId,
   MatterTaskId,
+  TaskListId,
+  TaskListStatusId,
+  TaskTeamId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
@@ -32,13 +35,27 @@ import {
   reassignMatterTaskStatement,
   unarchiveMatterTaskStatement,
   updateMatterTaskStatement,
+  isDescendantOf,
+  subtreeHeight,
+  taskDepth,
   type MatterTaskRow,
 } from "./task-statements.ts";
+import {
+  deleteTaskOrganisationRowsStatements,
+  readTaskListStatuses,
+  readTaskLists,
+  readTaskTeams,
+  replaceTaskAssigneesStatements,
+  replaceTaskWatchersStatements,
+} from "./organisation-statements.ts";
 import { assignmentTopicFor } from "./notifications.ts";
 import {
   DEFAULT_TASK_PRIORITY,
   MAX_BLOCKING_CHAIN_DEPTH,
+  MAX_SUBTASK_DEPTH,
+  MAX_TASK_ASSIGNEES,
   MAX_TASK_DOCUMENT_COUNT,
+  MAX_TASK_WATCHERS,
   NO_TASK_DUE,
   rungOf,
   type TaskPriority,
@@ -58,9 +75,12 @@ import {
   normalizeArchiveReason,
   normalizeTaskBody,
   normalizeTaskDue,
+  normalizeTaskLocation,
   normalizeTaskPriority,
+  normalizeTaskStart,
   normalizeTaskTitle,
 } from "./validation.ts";
+import { promoteSubtasksStatement } from "./subtask-statements.ts";
 import {
   deleteExternalLinksForTaskStatement,
   insertTaskDeletionStatement,
@@ -106,6 +126,74 @@ export interface CreateMatterTaskInput extends TaskDueInput {
   readonly blockedByTaskId?: MatterTaskId | null;
   readonly triggerEventId?: MatterEventId | null;
   readonly deadlineId?: MatterDeadlineId | null;
+  // Which list, and where on it. Omitted, the firm's default list at its first status. A sub-task
+  // takes its parent's list and matter whatever is passed here.
+  readonly listId?: TaskListId | null;
+  readonly statusId?: TaskListStatusId | null;
+  readonly parentTaskId?: MatterTaskId | null;
+  readonly startsOn?: string | null;
+  readonly location?: string | null;
+  // Every assignee, people and teams, in order. When present it replaces `assigneeUserId`; the first
+  // person in it becomes the task's `assignee_user_id`.
+  readonly assignees?: readonly (
+    | { readonly userId: UserId; readonly teamId?: undefined }
+    | { readonly teamId: TaskTeamId; readonly userId?: undefined }
+  )[];
+  readonly watcherUserIds?: readonly UserId[];
+}
+
+// Where a new task lands: its list, its status on that list, and — for a sub-task — the matter and
+// list it inherits from its parent. Refused by name when a list or status is not the firm's.
+async function placementFor(
+  database: SqlDatabase,
+  input: CreateMatterTaskInput,
+  options: TaskServiceOptions,
+): Promise<{
+  matterId: MatterId | null;
+  listId: TaskListId | null;
+  statusId: TaskListStatusId | null;
+  parentTaskId: MatterTaskId | null;
+}> {
+  if (input.parentTaskId !== undefined && input.parentTaskId !== null) {
+    const parent = await readMatterTask(
+      database,
+      input.parentTaskId,
+      options.visibility,
+      options.actorUserId,
+    );
+    if (parent === undefined) {
+      throw new TaskValidationError("task-parent-unknown", "that task is not a task in this firm");
+    }
+    if ((await taskDepth(database, parent.id, MAX_SUBTASK_DEPTH)) + 1 > MAX_SUBTASK_DEPTH) {
+      throw new TaskValidationError(
+        "task-parent-too-deep",
+        `sub-tasks nest at most ${String(MAX_SUBTASK_DEPTH)} deep`,
+      );
+    }
+    // A sub-task starts on its list's first status unless a status on that same list was named.
+    const statuses =
+      parent.list_id === null ? [] : await readTaskListStatuses(database, [parent.list_id]);
+    const named = statuses.find((status) => status.id === input.statusId);
+    return {
+      matterId: parent.matter_id,
+      listId: parent.list_id,
+      statusId: named?.id ?? statuses[0]?.id ?? null,
+      parentTaskId: parent.id,
+    };
+  }
+  const listId = input.listId ?? null;
+  if (listId !== null && !(await readTaskLists(database)).some((list) => list.id === listId)) {
+    throw new TaskValidationError("task-list-unknown", "that is not one of the firm's task lists");
+  }
+  const statusId = input.statusId ?? null;
+  if (statusId !== null) {
+    const status = (await readTaskListStatuses(database)).find((row) => row.id === statusId);
+    if (status === undefined || (listId !== null && status.list_id !== listId)) {
+      throw new TaskValidationError("task-status-unknown", "that status is not on this list");
+    }
+    return { matterId: input.matterId, listId: status.list_id, statusId, parentTaskId: null };
+  }
+  return { matterId: input.matterId, listId, statusId: null, parentTaskId: null };
 }
 
 // Assigning to somebody, checked before anything is written. Returns nothing and throws on refusal,
@@ -190,14 +278,48 @@ export async function createMatterTask(
   const body = normalizeTaskBody(input.body);
   const due = normalizeTaskDue(input);
   const priority: TaskPriority = normalizeTaskPriority(input.priority) ?? DEFAULT_TASK_PRIORITY;
-  const assigneeUserId = input.assigneeUserId ?? null;
+  const startsOn = normalizeTaskStart(input.startsOn, due.dueOn);
+  const location = normalizeTaskLocation(input.location);
   const blockedByTaskId = input.blockedByTaskId ?? null;
+  const placement = await placementFor(database, input, options);
+  const matterId = placement.matterId;
 
-  if (assigneeUserId !== null) {
-    await assertAssignable(database, assigneeUserId, input.matterId, options);
+  // The assignees: the list when given, otherwise the one person the older shape named.
+  const assigneeList =
+    input.assignees ??
+    (input.assigneeUserId === undefined || input.assigneeUserId === null
+      ? []
+      : [{ userId: input.assigneeUserId }]);
+  const people = [
+    ...new Set(assigneeList.flatMap((entry) => (entry.userId === undefined ? [] : [entry.userId]))),
+  ];
+  const teams = [
+    ...new Set(assigneeList.flatMap((entry) => (entry.teamId === undefined ? [] : [entry.teamId]))),
+  ];
+  if (people.length + teams.length > MAX_TASK_ASSIGNEES) {
+    throw new TaskValidationError(
+      "task-too-many-assignees",
+      `a task is assigned to at most ${String(MAX_TASK_ASSIGNEES)} people and teams`,
+    );
   }
+  for (const userId of people) await assertAssignable(database, userId, matterId, options);
+  if (teams.length > 0) {
+    const live = new Set((await readTaskTeams(database)).map((team) => team.id));
+    if (teams.some((team) => !live.has(team))) {
+      throw new TaskValidationError("task-team-unknown", "that is not one of the firm's teams");
+    }
+  }
+  const watchers = [...new Set(input.watcherUserIds ?? [])];
+  if (watchers.length > MAX_TASK_WATCHERS) {
+    throw new TaskValidationError(
+      "task-too-many-watchers",
+      `a task has at most ${String(MAX_TASK_WATCHERS)} watchers`,
+    );
+  }
+  for (const userId of watchers) await assertAssignable(database, userId, matterId, options);
+  const assigneeUserId = people[0] ?? null;
   if (blockedByTaskId !== null) {
-    await assertPredecessor(database, blockedByTaskId, input.matterId, null, options);
+    await assertPredecessor(database, blockedByTaskId, matterId, null, options);
   }
 
   const now = options.clock.now();
@@ -208,7 +330,7 @@ export async function createMatterTask(
       statements: [
         insertMatterTaskStatement(database, {
           id: taskId,
-          matterId: input.matterId,
+          matterId,
           title,
           body,
           assigneeUserId,
@@ -218,8 +340,38 @@ export async function createMatterTask(
           blockedByTaskId,
           triggerEventId: input.triggerEventId ?? null,
           deadlineId: input.deadlineId ?? null,
+          listId: placement.listId,
+          statusId: placement.statusId,
+          parentTaskId: placement.parentTaskId,
+          startsOn,
+          location,
           now,
         }),
+        ...(people.length + teams.length === 0
+          ? []
+          : replaceTaskAssigneesStatements(database, {
+              taskId,
+              assignees: [
+                ...people.map((userId) => ({
+                  userId,
+                  id: newIdentifier("matterTaskAssignee", options.randomSource),
+                })),
+                ...teams.map((teamId) => ({
+                  teamId,
+                  id: newIdentifier("matterTaskAssignee", options.randomSource),
+                })),
+              ],
+              actor: options.actorUserId,
+              now,
+            })),
+        ...(watchers.length === 0
+          ? []
+          : replaceTaskWatchersStatements(database, {
+              taskId,
+              userIds: watchers,
+              actor: options.actorUserId,
+              now,
+            })),
         domainAuditStatement(database, {
           event: "tasks.task.created",
           subjectId: taskId,
@@ -231,32 +383,31 @@ export async function createMatterTask(
           // audit log is a compliance record with its own retention and its own readers. A date and
           // a four-value enum disclose nothing on their own.
           metadata: {
-            matterId: input.matterId,
+            matterId,
             assigneeUserId,
             priority,
             dueOn: due.dueOn,
+            parentTaskId: placement.parentTaskId,
           },
         }),
       ],
       // The outbox row IS the emission. The notification registry's rule is that a type SUBSCRIBES
       // and never produces, so there is no notify() call in this path — the durable row committed in
       // the same atomic batch as the task is what a subscriber reads.
-      outboxMessages:
-        assigneeUserId === null || assigneeUserId === options.actorUserId
-          ? []
-          : [
-              {
-                topic: assignmentTopicFor(input.matterId, false),
-                payload: {
-                  taskId,
-                  matterId: input.matterId,
-                  assigneeUserId,
-                  assignedByUserId: options.actorUserId,
-                  priority,
-                  dueOn: due.dueOn,
-                },
-              },
-            ],
+      // Every person named, except the one doing the naming.
+      outboxMessages: people
+        .filter((userId) => userId !== options.actorUserId)
+        .map((userId) => ({
+          topic: assignmentTopicFor(matterId, false),
+          payload: {
+            taskId,
+            matterId,
+            assigneeUserId: userId,
+            assignedByUserId: options.actorUserId,
+            priority,
+            dueOn: due.dueOn,
+          },
+        })),
     },
   };
 }
@@ -268,6 +419,10 @@ export interface EditMatterTaskInput extends TaskDueInput {
   readonly blockedByTaskId?: MatterTaskId | null;
   readonly triggerEventId?: MatterEventId | null;
   readonly deadlineId?: MatterDeadlineId | null;
+  // Left out, each keeps what the task has; null clears it. A caller that predates these fields
+  // never clears them by accident.
+  readonly startsOn?: string | null;
+  readonly location?: string | null;
 }
 
 // Editing a task in place. A task's value is that it says what to do NOW, so a correction overwrites
@@ -285,8 +440,14 @@ export async function editMatterTask(
   const title = normalizeTaskTitle(input.title);
   const body = normalizeTaskBody(input.body);
   const due = normalizeTaskDue(input);
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   const priority: TaskPriority = normalizeTaskPriority(input.priority) ?? task.priority;
+  const startsOn = normalizeTaskStart(
+    input.startsOn === undefined ? task.starts_on : input.startsOn,
+    due.dueOn,
+  );
+  const location =
+    input.location === undefined ? task.location : normalizeTaskLocation(input.location);
   const blockedByTaskId = input.blockedByTaskId ?? null;
   if (blockedByTaskId !== null && blockedByTaskId !== task.blocked_by_task_id) {
     await assertPredecessor(database, blockedByTaskId, task.matter_id, taskId, options);
@@ -304,6 +465,8 @@ export async function editMatterTask(
           blockedByTaskId,
           triggerEventId: input.triggerEventId ?? null,
           deadlineId: input.deadlineId ?? null,
+          startsOn,
+          location,
           now,
           actor: options.actorUserId,
         }),
@@ -336,7 +499,7 @@ export async function reassignMatterTask(
   assigneeUserId: UserId | null,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   if (assigneeUserId !== null) {
     await assertAssignable(database, assigneeUserId, task.matter_id, options);
   }
@@ -344,11 +507,21 @@ export async function reassignMatterTask(
   return {
     effect: {
       statements: [
-        reassignMatterTaskStatement(database, {
-          id: taskId,
-          assigneeUserId,
-          now,
+        // The single-assignee path replaces the whole set with the one person (or nobody), so the
+        // assignee rows and the column never disagree.
+        ...replaceTaskAssigneesStatements(database, {
+          taskId,
+          assignees:
+            assigneeUserId === null
+              ? []
+              : [
+                  {
+                    userId: assigneeUserId,
+                    id: newIdentifier("matterTaskAssignee", options.randomSource),
+                  },
+                ],
           actor: options.actorUserId,
+          now,
         }),
         domainAuditStatement(database, {
           event: "tasks.task.reassigned",
@@ -405,7 +578,7 @@ export async function moveMatterTaskToRung(
   rung: TaskRung,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   if (task.archived_at !== null) {
     throw new TaskValidationError(
       "task-already-archived",
@@ -473,7 +646,7 @@ export async function archiveMatterTask(
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const normalizedReason = normalizeArchiveReason(reason);
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   if (task.archived_at !== null) {
     throw new TaskValidationError("task-already-archived", "that task is already archived");
   }
@@ -514,7 +687,7 @@ export async function unarchiveMatterTask(
   taskId: MatterTaskId,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   if (task.archived_at === null) {
     throw new TaskValidationError("task-not-archived", "that task is not archived");
   }
@@ -552,7 +725,7 @@ export async function deleteMatterTask(
   taskId: MatterTaskId,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   const now = options.clock.now();
   return {
     effect: {
@@ -564,7 +737,16 @@ export async function deleteMatterTask(
         // self-reference, so a pointer left behind would dangle and render as blocked by a task
         // nobody can open.
         deleteMatterTaskDocumentsStatement(database, taskId),
+        ...deleteTaskOrganisationRowsStatements(database, taskId),
         clearBlockedByStatement(database, { taskId, now, actor: options.actorUserId }),
+        // Its sub-tasks are not deleted with it: they move up to where it stood, so deleting a
+        // parent never quietly takes work somebody else is doing.
+        promoteSubtasksStatement(database, {
+          taskId,
+          newParentId: task.parent_task_id,
+          now,
+          actor: options.actorUserId,
+        }),
         // The tombstone, in the SAME BATCH as the delete and never after it. A row that is gone
         // cannot be enumerated afterwards, so anything mirroring this task learns of the deletion
         // here or never — and a mirror that never learns keeps the work alive somewhere the firm
@@ -620,7 +802,7 @@ export async function attachFileToMatterTask(
   fileId: FileId,
   options: TaskServiceOptions,
 ): Promise<{ linkId: MatterTaskDocumentId; effect: EffectWrite }> {
-  const task = await requireTask(database, taskId, options);
+  const task = await requireVisibleTask(database, taskId, options);
   if (task.matter_id === null) {
     throw new TaskValidationError(
       "task-without-matter-has-no-files",
@@ -708,7 +890,7 @@ export async function detachFileFromMatterTask(
 // Every write path's first read, and the one place "that task is not a task in this firm" is
 // phrased. The message never distinguishes a task that does not exist from one this member cannot
 // reach, because the difference is itself information about the firm's matters.
-async function requireTask(
+export async function requireVisibleTask(
   database: SqlDatabase,
   taskId: MatterTaskId,
   options: TaskServiceOptions,
@@ -718,6 +900,91 @@ async function requireTask(
     throw new TaskValidationError("task-unknown", "that task is not a task in this firm");
   }
   return task;
+}
+
+/*
+ * COMPLETING AND REOPENING, separate from status. Completing works from any status and leaves the
+ * status where it stood, so reopening puts the task back exactly there. The list's flow does not
+ * apply: finishing the work is not a move along it.
+ */
+export async function setMatterTaskCompleted(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+  completed: boolean,
+  options: TaskServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const task = await requireVisibleTask(database, taskId, options);
+  if (task.archived_at !== null) {
+    throw new TaskValidationError(
+      "task-already-archived",
+      "that task is archived; put it back on the list first",
+    );
+  }
+  if (completed === (task.state === "done")) {
+    throw new TaskValidationError(
+      completed ? "task-not-open" : "task-not-done",
+      completed ? "that task is already complete" : "that task is not complete",
+    );
+  }
+  const now = options.clock.now();
+  const statement = completed
+    ? database
+        .prepare(
+          `UPDATE matter_task SET state = 'done', completed_at = ?1, completed_by = ?2, ` +
+            `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
+        )
+        .bind(now, options.actorUserId, taskId)
+    : database
+        .prepare(
+          `UPDATE matter_task SET state = 'open', completed_at = NULL, completed_by = NULL, ` +
+            `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
+        )
+        .bind(now, options.actorUserId, taskId);
+  return {
+    effect: {
+      statements: [
+        statement,
+        domainAuditStatement(database, {
+          event: completed ? "tasks.task.completed" : "tasks.task.reopened",
+          subjectId: taskId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            matterId: task.matter_id,
+            assigneeUserId: task.assignee_user_id,
+            dueOn: task.due_on,
+            statusId: task.status_id,
+          },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Whether `parentId` may hold `taskId` as a sub-task without a loop or a tree deeper than allowed.
+export async function assertSubtaskPlacement(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+  parentId: MatterTaskId,
+): Promise<void> {
+  if (
+    taskId === parentId ||
+    (await isDescendantOf(database, parentId, taskId, MAX_SUBTASK_DEPTH))
+  ) {
+    throw new TaskValidationError("task-parent-cycle", "a task cannot sit under its own sub-task");
+  }
+  const depth =
+    (await taskDepth(database, parentId, MAX_SUBTASK_DEPTH)) +
+    1 +
+    (await subtreeHeight(database, taskId, MAX_SUBTASK_DEPTH));
+  if (depth > MAX_SUBTASK_DEPTH) {
+    throw new TaskValidationError(
+      "task-parent-too-deep",
+      `sub-tasks nest at most ${String(MAX_SUBTASK_DEPTH)} deep`,
+    );
+  }
 }
 
 export { NO_TASK_DUE };

@@ -20,6 +20,10 @@
       "home": "packages/design-system/src/lib/components/action-dialog"
     },
     {
+      "name": "PermissionRequest",
+      "home": "packages/design-system/src/lib/components/permission-request"
+    },
+    {
       "name": "SoonAffordance",
       "home": "packages/design-system/src/lib/components/maturity"
     },
