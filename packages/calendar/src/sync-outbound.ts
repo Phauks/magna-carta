@@ -11,8 +11,9 @@ import type { SyncDetailLevel, SyncRuleScope } from "./sync-rule-statements.ts";
 // closed, a pass that died halfway, a safety pass hours later all ask the same question) and makes
 // a missed trigger harmless, because the next pass finds the same difference.
 //
-// Only the direction out is decided here. Nothing read back from the provider is an input; what a
-// member did to a copy is noticed afterwards, by the pass, and never changes this decision.
+// Only the direction out is decided here. Nothing read back from the provider is an input. What a
+// member did to a copy is read afterwards, by the pass; an edit it carries back changes the event
+// itself, and so reaches this decision the way any other edit to the event does.
 //
 // A SERIES LEAVES AS ONE EVENT WITH ITS RULE, never as a copy per day. The days a row of its own
 // stands in for are named beside the rule so the provider's series can skip them; a changed day is
@@ -38,6 +39,9 @@ export interface OutboundDesired {
   readonly localKind: SyncLocalKind;
   readonly localId: string;
   readonly calendarRemoteId: string;
+  // How much of the event the firm let leave. A copy sent with `minimal` detail carries a title
+  // this module wrote, which is why nothing read back from it says anything about the event's own.
+  readonly detail: SyncDetailLevel;
   readonly event: ProviderEventWrite;
 }
 
@@ -164,6 +168,7 @@ export function desiredCopies(
       localKind: candidate.localKind,
       localId: candidate.row.id,
       calendarRemoteId: rule.calendarRemoteId,
+      detail: limit.detail,
       event: providerEventFor(candidate, limit.detail),
     });
   }

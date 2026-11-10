@@ -51,23 +51,38 @@ quietly missing from your calendar.
 
 ## If you change a copy in Outlook
 
-Magna Carta is the record, and an event there is shared by everyone on the matter. Moving, renaming
-or deleting your copy in Outlook changes nothing in Magna Carta. Instead the copy appears on this
-page under **Different in Outlook**, with what Magna Carta has beside what Outlook has, and two
-answers:
+Changing your copy in Outlook changes the event in Magna Carta, for everyone it is shared with. Move
+a hearing to another time or day in Outlook and the hearing moves in Magna Carta, usually within
+moments, and then in the calendar of every colleague who syncs it. A new title or place is carried
+the same way. The change is recorded under your name in the event's history, as if you had opened
+the event and edited it.
+
+This works the way editing the event in Magna Carta does, so it has the same limits:
+
+- You need permission to edit the calendar. If you do not have it, nothing changes in Magna Carta
+  and the copy appears on this page under **Different in Outlook** (see below).
+- Where your firm sends only the event type and matter number to Outlook, the title in Outlook is
+  not the event's real title. A change to it is put back, and a change to the time still counts.
+- A repeating event's time, title and place can be changed from Outlook for the whole series. Moving
+  the series to a different first day cannot; that appears under **Different in Outlook**. Changing
+  a single day of a series in Outlook is not picked up, so change one day in Magna Carta.
+- Notes are not carried back.
+
+Deleting your copy in Outlook never cancels the event. A deleted copy appears on this page under
+**Different in Outlook**, with two answers:
 
 - **Put Back** writes the event to Outlook again as Magna Carta has it. A deleted copy is made
   again.
 - **Leave It** keeps Outlook as you made it. The copy is replaced only when the event next changes
   in Magna Carta, and a deleted copy stays deleted.
 
-The section is absent when there is nothing to answer. Outlook tells Magna Carta when something in
-your calendar changes, so a change you made there usually appears here within moments. If that
-notice is lost, the change is found within a few hours instead.
+The same two answers are offered for a change that could not be carried to Magna Carta. The section
+is absent when there is nothing to answer. If Outlook's notice of a change is lost, the change is
+found within a few hours instead of moments.
 
 A deadline is different: if you change a deadline's copy in Outlook, Magna Carta puts it back
-without asking, so a deadline never reads a day off in your calendar. To change the event itself,
-change it in Magna Carta.
+without asking, so a deadline never reads a day off in your calendar. To change a deadline, change
+it in Magna Carta.
 
 If you disconnect your account, the copies already in Outlook stay there, and Magna Carta stops
 updating them.

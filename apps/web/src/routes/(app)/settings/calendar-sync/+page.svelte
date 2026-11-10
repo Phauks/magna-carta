@@ -15,9 +15,10 @@
    * A CHANGE IS ONE ROW AT A TIME, through its own window, committed at once: the catalog-page
    * pattern, where there is no staged page-wide draft to save or lose.
    *
-   * A COPY THE MEMBER CHANGED IN OUTLOOK IS A QUESTION, NOT A WRITE. Moving or deleting a copy
-   * in their own calendar changes nothing in the firm's calendar, which everybody on the matter
-   * shares. The copy appears in its own plate, above the rules, with what was sent beside what
+   * A COPY THAT DIFFERS IN OUTLOOK AND WAS NOT CARRIED BACK IS A QUESTION. An edit a member may
+   * make is applied to the event by the sync pass and never reaches this page. What does reach it
+   * is a copy they deleted, which never cancels anything, and an edit that could not be carried
+   * (they may not edit the calendar, or it moved a series' first day). The copy appears in its own plate, above the rules, with what was sent beside what
    * Outlook holds, and two answers: Put Back, or Leave It. An event Outlook would not take at all
    * sits in the same plate, because it is the same fact to the reader (Outlook does not have what
    * Magna Carta has), with Try Again and Dismiss. The plate is absent while there is nothing to
