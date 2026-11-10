@@ -30,12 +30,14 @@ class FakeSealPort implements SealPort {
       documentHashSha256: "a".repeat(64),
       sealedAt: request.signingTime,
       signers: request.signers,
+      ...(request.envelope !== undefined ? { envelope: request.envelope } : {}),
     };
     return Promise.resolve({
       sealedPdf: new TextEncoder().encode("%PDF-1.7 sealed-stub"),
       documentHashSha256: "a".repeat(64),
       certificate,
       certificateText: "CERTIFICATE OF COMPLETION\nstub",
+      certificatePdf: new TextEncoder().encode("%PDF-1.7 certificate-stub"),
     });
   }
 }
@@ -45,12 +47,19 @@ function sealBody(): string {
     documentBase64: DOCUMENT_BASE64,
     signers: [
       {
-        intent: { signerId: "usr_seal", adoption: "typed", affirmedAt: "2026-08-03T12:00:00Z" },
+        intent: {
+          signerId: "usr_seal",
+          name: "Seal Signer",
+          email: "seal-signer@example.com",
+          adoption: "typed",
+          affirmedAt: "2026-08-03T12:00:00Z",
+        },
         consent: { disclosureVersion: "v1", consentedAt: "2026-08-03T11:59:00Z" },
         // observedIp is deliberately omitted from the request schema — the server sets it.
         attribution: { level: "firm-authenticated" },
       },
     ],
+    documentTitle: "Engagement letter.pdf",
     seal: { reason: "Engagement letter", name: "Magna Carta Platform Seal" },
   });
 }
@@ -90,6 +99,7 @@ describe("POST /api/v1/documents/seal", () => {
           origin: "https://example.com",
           cookie,
           "CF-Connecting-IP": "203.0.113.7",
+          "User-Agent": "SealRouteTest/1.0",
         },
         body: sealBody(),
       },
@@ -102,6 +112,7 @@ describe("POST /api/v1/documents/seal", () => {
       documentHashSha256: string;
       certificate: CertificateOfCompletion;
       certificateText: string;
+      certificatePdfBase64: string;
     };
     expect(body.documentHashSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(body.certificate.signers).toHaveLength(1);
@@ -111,6 +122,13 @@ describe("POST /api/v1/documents/seal", () => {
     // client self-report (the request schema does not even accept it).
     expect(port.lastRequest?.signingTime).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(port.lastRequest?.signers[0]?.attribution.observedIp).toBe("203.0.113.7");
+    expect(port.lastRequest?.signers[0]?.attribution.userAgent).toBe("SealRouteTest/1.0");
+    expect(port.lastRequest?.signers[0]?.intent.name).toBe("Seal Signer");
+
+    // The certificate comes back as a PDF too, and names the document and a reference.
+    expect(atob(body.certificatePdfBase64)).toContain("%PDF-");
+    expect(port.lastRequest?.envelope?.title).toBe("Engagement letter.pdf");
+    expect(body.certificate.envelope?.id).toBe(port.lastRequest?.envelope?.id);
 
     // Exactly one redacted audit row, carrying the digest and signer count but no document content.
     const auditRow = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)

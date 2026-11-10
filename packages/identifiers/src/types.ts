@@ -169,6 +169,7 @@ export type TaskTeamId = Identifier<"taskTeam">;
 export type MatterTaskAssigneeId = Identifier<"matterTaskAssignee">;
 export type MatterTaskChecklistItemId = Identifier<"matterTaskChecklistItem">;
 export type MatterTaskLinkId = Identifier<"matterTaskLink">;
+export type MatterTaskCommentId = Identifier<"matterTaskComment">;
 export type MatterPlanTemplateId = Identifier<"matterPlanTemplate">;
 export type MatterPlanTaskTemplateId = Identifier<"matterPlanTaskTemplate">;
 export type IntakeProcedureId = Identifier<"intakeProcedure">;

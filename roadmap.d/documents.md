@@ -496,9 +496,11 @@
 
 - id: documents.conversion.av-transcode
   name: Audio/video transcodes
-  scope: Self-hosted FFmpeg transcode edges (shared with the preview transcoding path).
-  status: not-started
-  evidence: No FFmpeg engine or container in the tree.
+  scope: Pure-Rust transcode engine (no FFmpeg) for the video edges into an MP4 every browser plays, shared with the preview's playable copy.
+  status: partial
+  surface: awaiting-screen
+  evidence: containers/transcode reads MP4, QuickTime and Matroska carrying H.264 or HEVC with AAC, MP3, PCM or FLAC sound and writes a faststart H.264/AAC MP4 (tests/transcode.rs converts one fixture per path). apps/convert-worker deploys it as TranscodeEngineContainer; packages/conversion/src/registry.ts routes mp4, mov and mkv to playable-mp4 on the transcode engine.
+  notes: Partial because nothing reaches it yet. The app worker's conversion port buffers whole files, so it leaves transcode unrouted; the playable-copy adapter that streams a file from R2 through the engine and stores the derived rendition is the next step. WMV/WMA, MPEG-2 and MPEG-4 Part 2 stay download-only until each has a proven Rust decoder (owner's "Rust only" ruling, 2026-11-10).
 
 - id: documents.conversion.email-to-pdf
   name: Email MSG/EML to PDF

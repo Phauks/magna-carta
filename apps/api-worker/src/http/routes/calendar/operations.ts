@@ -49,6 +49,7 @@ export const OPERATIONS: readonly string[] = [
   "calendarSync.putBackMyCopy",
   "calendarSync.readFirmLimits",
   "calendarSync.readMine",
+  "calendarSync.receiveMicrosoftNotice",
   "calendarSync.replaceMyRules",
   "calendarSync.setFirmLimits",
   "connectedAccounts.disconnect",

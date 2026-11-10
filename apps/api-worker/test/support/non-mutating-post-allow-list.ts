@@ -36,6 +36,8 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
   "safeBrowse.stream":
     "The streaming twin of safeBrowse.post — the same pure read delivered as newline-delimited stage lines; nothing is written and the target URL is deliberately never logged (redaction).",
+  "calendarSync.receiveMicrosoftNotice":
+    "A calendar provider's notice that a member's calendar changed. It writes no firm data and no row: a notice carrying the account's secret only brings that account's ordinary sync pass forward, and what the pass then changes is audited where it is changed. Auditing each notice would write a row per calendar edit per member, most of them echoes of this platform's own writes.",
   "metadata.inspect":
     "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
   "metadata.scrub":

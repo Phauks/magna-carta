@@ -5,7 +5,8 @@ plain-data document (title, headings, paragraphs, pictures, tables, labelled fie
 footer) and returns a new PDF. The engine is
 [`crates/pdf-compose-core`](../../crates/pdf-compose-core/CLAUDE.md) compiled to WebAssembly into
 `src/pkg/` (git-ignored; `vp run bootstrap` builds it). Layout, fonts and picture handling are the
-crate's and are documented there. Nothing imports this package yet.
+crate's and are documented there. Its first caller is the sign Worker (`apps/sign-worker`), which
+composes the Certificate of Completion with it.
 
 ## Key files / entry points
 
@@ -29,6 +30,6 @@ crate's and are documented there. Nothing imports this package yet.
   (`docs/conventions/build-performance.md` and the root golden rule on the hot path).
 - **Memory in a Worker.** The engine refuses a picture that needs more than 64 MiB to decode in a
   WebAssembly build, because running out of memory there ends the request with nothing to catch.
-- **Not in any deploy build yet.** `rust-wasm-build-pdf-compose` exists in `vite.config.ts` but no
-  Worker's build script asks for it. The first Worker to import this package adds it to its own
-  `build` script, the way `apps/web-worker/package.json` names the crates it needs.
+- **A Worker that imports this package builds the engine itself.** `rust-wasm-build-pdf-compose`
+  in `vite.config.ts` is outside the composite `rust-wasm-build`; `apps/sign-worker/package.json`
+  names it in its own `build` script, and the next Worker to import the package does the same.

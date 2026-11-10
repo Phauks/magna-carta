@@ -8,6 +8,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
+import type { MatterNarrowing } from "./matter-narrowing.ts";
 import { MATTER_TABLE, type MatterStatus } from "./matter-statements.ts";
 import { MATTER_TYPE_TABLE } from "./matter-type-statements.ts";
 
@@ -29,6 +30,9 @@ export interface ListMattersFilters {
   readonly locationId?: LocationId;
   readonly responsibleMemberId?: UserId;
   readonly search?: string;
+  // Sets of matters the reader chose to look inside (a member's own, one client's), each composed
+  // as one more condition. See matter-narrowing.ts.
+  readonly narrowings?: readonly MatterNarrowing[];
 }
 
 export function listMattersStatement(
@@ -80,6 +84,10 @@ export function listMattersStatement(
     );
     const term = `%${filters.search}%`;
     bindings.push(term, term, term, term, term);
+  }
+  for (const narrowing of filters.narrowings ?? []) {
+    conditions.push(narrowing.fragmentFor(`${MATTER_TABLE}.id`));
+    bindings.push(...narrowing.bindings);
   }
   appendCursorPredicate(conditions, bindings, cursor);
   bindings.push(limit);

@@ -18,7 +18,8 @@ export type RateLimitBucket =
   | "expensive"
   | "incident-report"
   | "guest-arrival"
-  | "meeting-question-upvote";
+  | "meeting-question-upvote"
+  | "provider-notice";
 
 export interface RouteMeta {
   operationId: string; // 'subsystem.action' — ^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$

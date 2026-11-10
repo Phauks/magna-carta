@@ -210,6 +210,34 @@ describe("what a task carries", () => {
     expect((await tasks("?completed=false")).some((row) => row.id === taskId)).toBe(true);
   });
 
+  it("keeps a comment thread that only the author may reword or remove", async () => {
+    const taskId = await createdId(
+      await call("POST", "/api/v1/tasks", { matterId: null, title: "Renew the policy" }),
+    );
+    const commentId = await createdId(
+      await call("POST", `/api/v1/tasks/${taskId}/comments`, {
+        body: "Broker has the forms, @Task Lists Owner",
+        mentionedUserIds: [ownerUserId],
+      }),
+    );
+    expect(
+      (await call("PUT", `/api/v1/task-comments/${commentId}`, { body: "Forms signed." })).status,
+    ).toBe(200);
+    const read = await call("GET", `/api/v1/tasks/${taskId}/comments`);
+    expect(read.status).toBe(200);
+    const [comment, ...rest] = (
+      (await read.json()) as {
+        data: { id: string; body: string; editedAt: string | null; mentionedUserIds: string[] }[];
+      }
+    ).data;
+    expect(rest).toEqual([]);
+    expect(comment?.body).toBe("Forms signed.");
+    expect(comment?.editedAt).not.toBeNull();
+    expect(comment?.mentionedUserIds).toEqual([]);
+    expect((await call("DELETE", `/api/v1/task-comments/${commentId}`)).status).toBe(200);
+    expect((await call("DELETE", `/api/v1/task-comments/${commentId}`)).status).toBe(404);
+  });
+
   it("repeats a task, making the next copy when this one is completed", async () => {
     const taskId = await createdId(
       await call("POST", "/api/v1/tasks", {

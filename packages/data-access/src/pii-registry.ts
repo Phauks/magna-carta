@@ -1028,6 +1028,27 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "who added the watcher",
   },
+  // A task's comments and the members each one names. The body is free text a member typed about
+  // the work, reported rather than scrubbed as the task's own body is; the author and each named
+  // member are pseudonymize-keep on matter_task's reasoning.
+  {
+    table: "matter_task_comment",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "what a member wrote about the work, free text that may name the person it concerns",
+  },
+  {
+    table: "matter_task_comment",
+    subjectKey: "author_user_id",
+    action: "pseudonymize-keep",
+    note: "who wrote the comment",
+  },
+  {
+    table: "matter_task_comment_mention",
+    subjectKey: "user_id",
+    action: "pseudonymize-keep",
+    note: "a member the comment names",
+  },
   {
     table: "matter_task_checklist_item",
     subjectKey: "text",

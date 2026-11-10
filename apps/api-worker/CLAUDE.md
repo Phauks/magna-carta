@@ -88,7 +88,11 @@ routes requests through the chokepoint into those packages.
   records each copy in `calendar_sync_link`. `provider-changes.ts` runs at the end of a pass with
   nothing left to send: it reads back only the copies the platform wrote, raises a copy the member
   changed or deleted as a `connection_sync_issue` for them to answer, puts a deadline's copy back,
-  and never changes an event in the firm's calendar. `request-sync.ts` asks every account with a rule for a
+  and never changes an event in the firm's calendar. `change-watch.ts` keeps the provider's standing request to say
+  when the member's calendar changes: the object stores the watch and its secret, every pass that
+  reaches the provider renews it, and `http/routes/calendar/provider-notices.ts` (public, one route
+  per provider) hands a notice to the object, which believes it only by that secret and then only
+  brings its pass forward. `request-sync.ts` asks every account with a rule for a
   pass; the calendar domain's router calls it behind the response of any write that could change
   what belongs in somebody's calendar. All of it returns early in a deployment with no Microsoft
   application

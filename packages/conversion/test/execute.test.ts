@@ -47,8 +47,8 @@ describe("executePath", () => {
       },
     };
     const path: ConversionEdge[] = [
-      { from: "a", to: "b", engineId: "ffmpeg", recipeRef: "b", weight: 1 },
-      { from: "b", to: "c", engineId: "ffmpeg", recipeRef: "c", weight: 1 },
+      { from: "a", to: "b", engineId: "transcode", recipeRef: "b", weight: 1 },
+      { from: "b", to: "c", engineId: "transcode", recipeRef: "c", weight: 1 },
     ];
 
     const result = await executePath(path, new Uint8Array([0]), () => fail);

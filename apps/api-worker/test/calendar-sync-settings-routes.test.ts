@@ -437,13 +437,36 @@ describe("sending to the member's calendar", () => {
             sent.push(input);
             const body = input.url.startsWith("https://login.microsoftonline.com/")
               ? { access_token: "access-3", refresh_token: "refresh-3", expires_in: 3600 }
-              : { id: "evt-1", changeKey: "v1" };
+              : input.url === "https://graph.microsoft.com/v1.0/subscriptions"
+                ? { id: "sub-1", expirationDateTime: "2026-11-13T11:00:00.000Z" }
+                : { id: "evt-1", changeKey: "v1" };
             return Promise.resolve({ status: 200, json: () => Promise.resolve(body) });
           },
         },
+        newWatchSecret: () => "secret-watch",
       },
     );
     expect(outcome).toMatchObject({ kind: "settled", report: { created: 1 } });
+    // The same pass asks Microsoft to say when the member's calendar changes, at this
+    // deployment's own address for this one account.
+    const address = `${(PROVISIONED.APP_BASE_URL ?? "").replace(/\/+$/, "")}/api/v1/calendar-sync/provider-notices/microsoft/${firmId}/${connectionId}`;
+    expect(outcome).toMatchObject({
+      watch: {
+        watchId: "sub-1",
+        secret: "secret-watch",
+        expiresAt: "2026-11-13T11:00:00.000Z",
+        address,
+      },
+    });
+    const subscription = sent.find((request) => request.url.endsWith("/v1.0/subscriptions"));
+    expect(JSON.parse(subscription?.body ?? "{}")).toEqual({
+      changeType: "created,updated,deleted",
+      resource: "me/events",
+      notificationUrl: address,
+      lifecycleNotificationUrl: address,
+      clientState: "secret-watch",
+      expirationDateTime: "2026-11-13T12:00:00.000Z",
+    });
     const write = sent.find(
       (request) => request.method === "POST" && request.url.includes("/events"),
     );

@@ -425,8 +425,22 @@
     {
       "idx": 60,
       "version": "6",
+      "when": 1794299639296,
+      "tag": "20261110T083359_rejudge-download-only-recordings",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1794299502166,
+      "tag": "20261110T084953_task-comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
       "when": 1794300441180,
-      "tag": "20261110T084721_transfer-run-and-source-record-link",
+      "tag": "20261110T095640_transfer-run-and-source-record-link",
       "breakpoints": true
     }
   ]
