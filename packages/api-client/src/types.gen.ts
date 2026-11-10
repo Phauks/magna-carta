@@ -2956,6 +2956,8 @@ export type DocumentSealResponse = {
         signers: Array<{
             intent: {
                 signerId: string;
+                name?: string;
+                email?: string;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -2966,11 +2968,31 @@ export type DocumentSealResponse = {
             attribution: {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 observedIp?: string;
+                userAgent?: string;
                 proofReference?: string;
             };
         }>;
+        envelope?: {
+            id: string;
+            title?: string;
+            pageCount?: number;
+            sender?: {
+                name: string;
+                email?: string;
+            };
+            createdAt?: string;
+        };
+        events?: Array<{
+            kind: 'created' | 'sent' | 'delivered' | 'reminded' | 'viewed' | 'identity-verified' | 'consented' | 'signed' | 'declined' | 'reassigned' | 'voided' | 'completed' | 'sealed';
+            at: string;
+            actor?: string;
+            observedIp?: string;
+            userAgent?: string;
+            detail?: string;
+        }>;
     };
     certificateText: string;
+    certificatePdfBase64: string;
 };
 
 export type SessionLaunchResponse = {
@@ -20303,6 +20325,8 @@ export type EsignSealData = {
         signers: Array<{
             intent: {
                 signerId: string;
+                name?: string;
+                email?: string;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -20315,6 +20339,7 @@ export type EsignSealData = {
                 proofReference?: string;
             };
         }>;
+        documentTitle?: string;
         seal?: {
             name?: string;
             reason?: string;

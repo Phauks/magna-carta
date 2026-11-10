@@ -4381,7 +4381,7 @@ export const emailsRevokeCaptureAddressMutation = (options?: Partial<Options<Ema
 };
 
 /**
- * Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records. The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.
+ * Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records: the structured record, its plain text, and a sealed PDF sheet listing each signer and the audit log (consent, signature and seal, each with its server-observed time and address). The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.
  */
 export const esignSealMutation = (options?: Partial<Options<EsignSealData>>): MutationOptions<EsignSealResponse, EsignSealError, Options<EsignSealData>> => {
     const mutationOptions: MutationOptions<EsignSealResponse, EsignSealError, Options<EsignSealData>> = {
