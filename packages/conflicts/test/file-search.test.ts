@@ -55,7 +55,7 @@ function fakeIndex(filesByMatter: Record<string, string[]>) {
   const searcher: FileContentsSearcher = {
     query: ({ matterId, phrases }) => {
       asked.push({ matterId, phrases });
-      return Promise.resolve({ ok: true, fileIds: filesByMatter[matterId] ?? [] });
+      return Promise.resolve({ kind: "files", fileIds: filesByMatter[matterId] ?? [] });
     },
   };
   return { searcher, asked };
@@ -83,7 +83,12 @@ describe("searchFiles", () => {
   test("keeps a deleted file only when Archived is asked for", async () => {
     const { database } = corpus();
     const index = { matter_open: ["file_open", "file_deleted"] };
-    const withoutArchived = await searchFiles(database, [ACME], ["open"], fakeIndex(index).searcher);
+    const withoutArchived = await searchFiles(
+      database,
+      [ACME],
+      ["open"],
+      fakeIndex(index).searcher,
+    );
     expect(withoutArchived.hits.map((hit) => hit.foundIn.id)).toEqual(["file_open"]);
     const withArchived = await searchFiles(
       database,
@@ -122,10 +127,15 @@ describe("searchFiles", () => {
     const searcher: FileContentsSearcher = {
       query: ({ matterId }) => {
         asked.push(matterId);
-        return Promise.resolve<FileContentsAnswer>({ ok: false, reason: "unavailable" });
+        return Promise.resolve<FileContentsAnswer>({ kind: "unreachable" });
       },
     };
-    const outcome = await searchFiles(database, [ACME], ["consultations", "open", "closed"], searcher);
+    const outcome = await searchFiles(
+      database,
+      [ACME],
+      ["consultations", "open", "closed"],
+      searcher,
+    );
     expect(outcome.status).toBe("unavailable");
     expect(asked).toHaveLength(1);
     expect(await searchFiles(database, [ACME], ["open"], null)).toMatchObject({
@@ -139,11 +149,16 @@ describe("searchFiles", () => {
       query: ({ matterId }) =>
         Promise.resolve<FileContentsAnswer>(
           matterId === "matter_closed"
-            ? { ok: false, reason: "failed" }
-            : { ok: true, fileIds: matterId === "matter_open" ? ["file_open"] : [] },
+            ? { kind: "failed" }
+            : { kind: "files", fileIds: matterId === "matter_open" ? ["file_open"] : [] },
         ),
     };
-    const outcome = await searchFiles(database, [ACME], ["consultations", "open", "closed"], searcher);
+    const outcome = await searchFiles(
+      database,
+      [ACME],
+      ["consultations", "open", "closed"],
+      searcher,
+    );
     expect(outcome.mattersFailed).toBe(1);
     expect(outcome.mattersSearched).toBe(2);
     expect(outcome.hits.map((hit) => hit.foundIn.id)).toEqual(["file_open"]);
@@ -181,7 +196,12 @@ describe("searchFiles", () => {
       phoneDigits: [],
     }));
     const { searcher, asked } = fakeIndex({});
-    const outcome = await searchFiles(database, parties, ["consultations", "open", "closed"], searcher);
+    const outcome = await searchFiles(
+      database,
+      parties,
+      ["consultations", "open", "closed"],
+      searcher,
+    );
     expect(new Set(asked.map((question) => question.matterId))).toEqual(
       new Set(["matter_open", "matter_consult"]),
     );

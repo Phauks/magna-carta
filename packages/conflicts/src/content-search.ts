@@ -74,7 +74,10 @@ export function readPlacesRequest(value: unknown): PlacesRequest {
 
 export function asksForAnyPlace(places: PlacesRequest): boolean {
   return (
-    places.messaging.length > 0 || places.tasks.length > 0 || places.magnus || places.files.length > 0
+    places.messaging.length > 0 ||
+    places.tasks.length > 0 ||
+    places.magnus ||
+    places.files.length > 0
   );
 }
 
@@ -617,12 +620,11 @@ async function searchEmail(
 // The matter statuses each panel option stands for. Hold is an open matter paused.
 export const MATTER_STATUSES_BY_OPTION: Readonly<
   Record<Exclude<TaskMatterStatus, "archived">, readonly string[]>
-> =
-  {
-    consultations: ["intake", "consultation"],
-    open: ["open", "hold"],
-    closed: ["closed"],
-  };
+> = {
+  consultations: ["intake", "consultation"],
+  open: ["open", "hold"],
+  closed: ["closed"],
+};
 
 async function searchTasks(
   database: SqlDatabase,

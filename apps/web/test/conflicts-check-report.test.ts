@@ -187,14 +187,22 @@ describe("the status section", () => {
     expect(whereText(file)).toBe("File on 2026-0001");
     const searched = statusPlaces(
       run({ askedScope, status: "completed", stage: null, hitCount: 1 }),
-      { check: { scope: { files: "searched" } } as unknown as CheckWithHits["check"], statement, hits: [file] },
+      {
+        check: { scope: { files: "searched" } } as unknown as CheckWithHits["check"],
+        statement,
+        hits: [file],
+      },
     );
     expect(searched[1]?.state).toBe("done");
     expect(searched[1]?.summary).toBe("1 result");
     expect(searched[1]?.lines).toEqual(statement);
     const dormant = statusPlaces(
       run({ askedScope, status: "completed", stage: null, hitCount: 0 }),
-      { check: { scope: { files: "unavailable" } } as unknown as CheckWithHits["check"], statement: [], hits: [] },
+      {
+        check: { scope: { files: "unavailable" } } as unknown as CheckWithHits["check"],
+        statement: [],
+        hits: [],
+      },
     );
     expect(dormant[1]?.state).toBe("not-searched");
     expect(dormant[1]?.lines).toEqual([

@@ -36,13 +36,10 @@ export function fileContentsSearcherFor(
         port,
       );
       if (!result.ok) {
-        return {
-          ok: false,
-          reason: result.reason === "engine-not-implemented" ? "unavailable" : "failed",
-        };
+        return { kind: result.reason === "engine-not-implemented" ? "unreachable" : "failed" };
       }
       return {
-        ok: true,
+        kind: "files",
         fileIds: [...new Set(result.hits.map((hit) => hit.documentId))].slice(0, limit),
       };
     },

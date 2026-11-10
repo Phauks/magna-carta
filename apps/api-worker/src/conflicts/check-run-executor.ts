@@ -32,8 +32,7 @@ export async function executeConflictsRunInBackground(
   // The application's bindings, for reaching the file contents index when a check asks for Files.
   env?: Bindings,
 ): Promise<void> {
-  const fileContents =
-    env === undefined ? undefined : fileContentsSearcherFor(env, context.firmId);
+  const fileContents = env === undefined ? undefined : fileContentsSearcherFor(env, context.firmId);
   try {
     await executeCheckRun(
       context,

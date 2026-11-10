@@ -287,7 +287,10 @@ test("a check asked for Files asks the file index, records where it found the pa
 
   const searched = await runConflictsCheck(ctx, request, options, {
     query: ({ matterId }) =>
-      Promise.resolve({ ok: true, fileIds: matterId === "matter_lease" ? ["file_lease"] : [] }),
+      Promise.resolve({
+        kind: "files",
+        fileIds: matterId === "matter_lease" ? ["file_lease"] : [],
+      }),
   });
   const row = await readCheck(ctx.database, searched);
   expect((JSON.parse(row.scope_json) as Record<string, string>).files).toBe("searched");

@@ -38,7 +38,7 @@ import {
 // supplies it, because only the application holds the service binding and the firm's catalog of
 // index splits. A run without one records Files as not searched.
 export interface FileContentsSearcher {
-  // The files in one matter's index whose text contains any of the phrases. `unavailable` is the
+  // The files in one matter's index whose text contains any of the phrases. `unreachable` is the
   // index not being reachable at all; `failed` is this one matter's query failing.
   query(input: {
     readonly matterId: string;
@@ -55,8 +55,9 @@ export interface FileContentsSearcher {
 }
 
 export type FileContentsAnswer =
-  | { readonly ok: true; readonly fileIds: readonly string[] }
-  | { readonly ok: false; readonly reason: "unavailable" | "failed" };
+  | { readonly kind: "files"; readonly fileIds: readonly string[] }
+  | { readonly kind: "unreachable" }
+  | { readonly kind: "failed" };
 
 // The most questions one check asks the index: one per party per matter. Each is a range read of a
 // matter's index by the search service, a few tens of milliseconds, run a few at a time; this keeps
@@ -197,8 +198,8 @@ export async function searchFiles(
       phrases: question.party.phrases,
       limit: FILES_PER_QUERY,
     });
-    if (!answer.ok) {
-      if (answer.reason === "unavailable") unavailable = true;
+    if (answer.kind !== "files") {
+      if (answer.kind === "unreachable") unavailable = true;
       else failedMatters.add(question.matterId);
       return;
     }

@@ -617,7 +617,8 @@ describe("searching the firm's own records over the wire", () => {
     expect(read.record?.check.scope["files"]).toBe("unavailable");
     expect(
       read.record?.statement.some(
-        (line) => line.startsWith("Not searched:") && line.includes("files (the file contents index"),
+        (line) =>
+          line.startsWith("Not searched:") && line.includes("files (the file contents index"),
       ),
     ).toBe(true);
     expect(read.record?.statement.some((line) => line.startsWith("Files —"))).toBe(false);

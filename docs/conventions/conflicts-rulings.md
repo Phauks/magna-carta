@@ -211,15 +211,15 @@ beneath them. Rows here supersede R1 where they say so.
 
 ### The New Check panel
 
-| #   | Ruling                                                                                                                                                                                                         | Status                  |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                 | settled                 |
-| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                               | settled                 |
-| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations). | settled                 |
-| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                     | built                   |
-| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                           | settled                 |
-| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                | settled                 |
-| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                       | open (one place today)  |
+| #   | Ruling                                                                                                                                                                                                         | Status                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                 | settled                |
+| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                               | settled                |
+| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations). | settled                |
+| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                     | built                  |
+| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                           | settled                |
+| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                | settled                |
+| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                       | open (one place today) |
 
 ### The check page
 
