@@ -254,8 +254,9 @@
 - id: meetings.personal-room
   name: A member's standing room
   scope: A room a member always has, joined by a stable link, not tied to a calendar event.
-  status: not-started
-  evidence: No code.
+  status: designed
+  spec: docs/specs/2026-11-10-meetings-personal-rooms-design.md
+  evidence: No code; designed 2026-11-10 — the room is a standing link per member, and each session writes an ordinary firm or matter event and an ordinary meeting on it, so nothing downstream learns a new kind of meeting.
   notes: The owner's ruling of 2026-11-09 — personal rooms are allowed. The design still has to say how a meeting held in one reaches the record, since every other meeting hangs from a calendar event.
 
 - id: meetings.end-to-end-encryption
