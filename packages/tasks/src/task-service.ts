@@ -302,9 +302,7 @@ export async function createMatterTask(
       `a task is assigned to at most ${String(MAX_TASK_ASSIGNEES)} people and teams`,
     );
   }
-  await Promise.all(
-    people.map((userId) => assertAssignable(database, userId, matterId, options)),
-  );
+  await Promise.all(people.map((userId) => assertAssignable(database, userId, matterId, options)));
   if (teams.length > 0) {
     const live = new Set((await readTaskTeams(database)).map((team) => team.id));
     if (teams.some((team) => !live.has(team))) {
