@@ -26695,7 +26695,7 @@
               "mine",
               "my_matters"
             ],
-            "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on."
+            "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to."
           }
         },
         "required": [
@@ -26730,7 +26730,7 @@
                     "mine",
                     "my_matters"
                   ],
-                  "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones assigned to them); `my_matters` is every one on a matter they work on."
+                  "description": "Whose events of the type are sent: `mine` is the ones the member takes part in (for deadlines, the ones on a matter they are responsible for); `my_matters` is every one on a matter they are assigned to."
                 }
               },
               "required": [

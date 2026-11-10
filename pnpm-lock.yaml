@@ -2575,6 +2575,9 @@ importers:
       '@magna-carta/calendar':
         specifier: workspace:*
         version: link:../calendar
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
       '@magna-carta/integrations':
         specifier: workspace:*
         version: link:../integrations

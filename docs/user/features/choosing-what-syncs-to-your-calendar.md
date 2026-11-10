@@ -1,7 +1,8 @@
 # Choosing what syncs to your calendar
 
-_Status: built, and switched off until your firm's Microsoft connection is set up. These settings
-are saved now and take effect when calendar sync itself is switched on._
+_Status: built, and switched off until your firm's Microsoft connection is set up. Events go from
+Magna Carta to Outlook. A change you make in Outlook is not brought back yet, and repeating events
+are not sent yet._
 
 ## What it does
 
@@ -15,12 +16,33 @@ synced.
 1. Open **Settings**, then **Calendar Sync**.
 2. Every event type has its own row, and deadlines have one row. Press **Change** on a row.
 3. In **Send To**, pick one of your Outlook calendars, or **Not Synced**.
-4. In **Which Ones**, pick the events you take part in, or every one on a matter you work on. For
-   deadlines the first choice is the ones assigned to you.
+4. In **Which Ones**, pick the events you take part in, or every one on a matter you are assigned
+   to. For deadlines the first choice is the ones on matters you are responsible for.
 5. Press **Save Changes**. The change applies at once.
 
 Only calendars you can add events to are offered. A new event type your firm adds later appears as
 a row that is not synced.
+
+## What happens next
+
+Your Outlook calendar is brought into line a few seconds after you save, and again after any
+change to the calendar in Magna Carta.
+
+- An event of a kind you chose appears in the calendar you picked. Editing it in Magna Carta
+  updates the copy.
+- Cancelling the event, setting the row back to **Not Synced**, or your firm stopping that kind
+  from leaving removes the copy.
+- A deadline appears as a whole-day entry on the day it is due, and is removed once it is no
+  longer open.
+- Nobody is invited. The copy is a plain entry in your own calendar, and Outlook emails no one.
+- Events from a month back to two years ahead are kept in step.
+
+Magna Carta is the record. If you edit a copy in Outlook, your edit stays until the event next
+changes in Magna Carta, and is then replaced. If you delete a copy in Outlook, it is not put back;
+set the row to **Not Synced** and then back to a calendar to get it again.
+
+If you disconnect your account, the copies already in Outlook stay there, and Magna Carta stops
+updating them.
 
 ## What your firm decides
 

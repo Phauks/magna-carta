@@ -1,4 +1,4 @@
-import type { ProviderCalendar } from "@magna-carta/calendar/sync-port";
+import type { CalendarSyncPort, ProviderCalendar } from "@magna-carta/calendar/sync-port";
 import type { CredentialStore } from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
 import { createMicrosoftCalendarAdapter } from "@magna-carta/microsoft-graph/calendar-sync";
@@ -30,9 +30,17 @@ export interface MemberCalendarsInput {
   readonly credentialRef: string;
 }
 
-export async function listMemberCalendars(
+export type MemberCalendarPortOutcome =
+  | { readonly kind: "open"; readonly port: CalendarSyncPort }
+  | { readonly kind: "sign-in-again" }
+  | { readonly kind: "unavailable" };
+
+// The member's calendar account, opened for one piece of work. Everything that acts on a member's
+// calendar comes through here, so the trade of the stored token for a working one, and the storing
+// of a replacement, are written once.
+export async function openMemberCalendarPort(
   input: MemberCalendarsInput,
-): Promise<MemberCalendarsOutcome> {
+): Promise<MemberCalendarPortOutcome> {
   const stored = await input.credentials.get(input.credentialRef);
   // A connection whose token is gone cannot act for anybody; signing in again stores a new one.
   if (stored === null || stored.kind !== "oauth") return { kind: "sign-in-again" };
@@ -53,10 +61,20 @@ export async function listMemberCalendars(
       refreshToken: refreshed.credential.refreshToken,
     });
   }
+  return {
+    kind: "open",
+    port: createMicrosoftCalendarAdapter({ http: input.http }).create({
+      credential: refreshed.credential,
+    }),
+  };
+}
 
-  const listed = await createMicrosoftCalendarAdapter({ http: input.http })
-    .create({ credential: refreshed.credential })
-    .listCalendars();
+export async function listMemberCalendars(
+  input: MemberCalendarsInput,
+): Promise<MemberCalendarsOutcome> {
+  const opened = await openMemberCalendarPort(input);
+  if (opened.kind !== "open") return opened;
+  const listed = await opened.port.listCalendars();
   if (!listed.ok) {
     return { kind: listed.problem?.category === "auth" ? "sign-in-again" : "unavailable" };
   }

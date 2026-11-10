@@ -5,13 +5,15 @@
  * calendar the member's account really has and can write to; one member cannot read or change
  * another's rules; and only a seat that sets firm policy can set the limit.
  */
-import { env } from "cloudflare:test";
+import { env, runInDurableObject } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { HttpRequest } from "@magna-carta/integrations/http";
+import { runConnectionPass } from "../src/calendar-sync/connection-pass.ts";
 import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { settleBackgroundWork } from "./support/settle-background-work.ts";
 import {
   mirrorMemberWithRole,
   readJson,
@@ -370,8 +372,122 @@ describe("the firm's limit", () => {
   });
 });
 
+describe("sending to the member's calendar", () => {
+  // The tests above leave limits and a connection status of their own behind.
+  beforeAll(async () => {
+    await firmDatabase.prepare("DELETE FROM calendar_sync_firm_limit").run();
+    await firmDatabase.prepare("UPDATE integration_connection SET status = 'connected'").run();
+  });
+
+  it("asks the account to look again when its rules are saved, and a pass writes the event", async () => {
+    const settings = await readSettings(memberCookie);
+    const connectionId = settings.account?.id ?? "";
+    const member = await firmDatabase
+      .prepare("SELECT principal_ref FROM integration_connection WHERE id = ?1")
+      .bind(connectionId)
+      .first<{ principal_ref: string }>();
+    const memberUserId = member?.principal_ref ?? "";
+    const stamp = "2026-11-10T12:00:00.000Z";
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, matter_number, created_at, updated_at) VALUES ('matter_syncroutes000000001', 'Doe v. Roe', 'open', ?1, '2026-0100', ?2, ?2)",
+      )
+      .bind(memberUserId, stamp)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter_event (id, matter_id, event_type_id, title, status, starts_on, starts_at_time, time_zone, recorded_at, created_at, updated_at) VALUES ('matterEvent_syncroutes00001', 'matter_syncroutes000000001', ?1, 'Motion hearing', 'scheduled', '2026-12-01', '09:30', 'America/Chicago', ?2, ?2, ?2)",
+      )
+      .bind(hearingTypeId, stamp)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter_event_participant (id, event_id, participant_kind, member_user_id, created_at, updated_at) VALUES ('matterEventParticipant_sync1', 'matterEvent_syncroutes00001', 'member', ?1, ?2, ?2)",
+      )
+      .bind(memberUserId, stamp)
+      .run();
+
+    const saved = await saveRules(memberCookie, [
+      { subject: hearingTypeId, calendarRemoteId: "cal-court", scope: "mine" },
+    ]);
+    expect(saved.status).toBe(200);
+    await settleBackgroundWork();
+    const stub = env.CONNECTION_SYNC.get(
+      env.CONNECTION_SYNC.idFromName(`${firmId}:${connectionId}`),
+    );
+    const armed = await runInDurableObject(stub, async (_instance, state) => ({
+      alarm: await state.storage.getAlarm(),
+      identity: await state.storage.get("identity"),
+    }));
+    expect(armed.alarm).not.toBeNull();
+    expect(armed.identity).toEqual({ firmId, connectionId, memberUserId });
+    // The pass is run here and not by the alarm, so the provider can be played by a script.
+    await runInDurableObject(stub, async (_instance, state) => {
+      await state.storage.deleteAlarm();
+    });
+
+    const sent: HttpRequest[] = [];
+    const outcome = await runConnectionPass(
+      PROVISIONED,
+      { firmId, connectionId, memberUserId } as never,
+      {
+        now: () => new Date(stamp),
+        http: {
+          request: (input) => {
+            sent.push(input);
+            const body = input.url.startsWith("https://login.microsoftonline.com/")
+              ? { access_token: "access-3", refresh_token: "refresh-3", expires_in: 3600 }
+              : { id: "evt-1", changeKey: "v1" };
+            return Promise.resolve({ status: 200, json: () => Promise.resolve(body) });
+          },
+        },
+      },
+    );
+    expect(outcome).toMatchObject({ kind: "settled", report: { created: 1 } });
+    const write = sent.find(
+      (request) => request.method === "POST" && request.url.includes("/events"),
+    );
+    expect(write?.url).toBe("https://graph.microsoft.com/v1.0/me/calendars/cal-court/events");
+    expect(write?.headers.Authorization).toBe("Bearer access-3");
+    expect(JSON.parse(write?.body ?? "{}")).toMatchObject({ subject: "Motion hearing" });
+    const link = await firmDatabase
+      .prepare("SELECT remote_event_id, state FROM calendar_sync_link WHERE connection_id = ?1")
+      .bind(connectionId)
+      .first<{ remote_event_id: string; state: string }>();
+    expect(link).toEqual({ remote_event_id: "evt-1", state: "synced" });
+  });
+
+  it("marks the account for signing in again when the provider refuses the stored sign-in", async () => {
+    const settings = await readSettings(memberCookie);
+    const connectionId = settings.account?.id ?? "";
+    const member = await firmDatabase
+      .prepare("SELECT principal_ref FROM integration_connection WHERE id = ?1")
+      .bind(connectionId)
+      .first<{ principal_ref: string }>();
+    const identity = { firmId, connectionId, memberUserId: member?.principal_ref ?? "" };
+    const outcome = await runConnectionPass(PROVISIONED, identity as never, {
+      http: {
+        request: () =>
+          Promise.resolve({
+            status: 400,
+            json: () => Promise.resolve({ error: "invalid_grant" }),
+          }),
+      },
+    });
+    expect(outcome).toEqual({ kind: "sign-in-again" });
+    expect((await readSettings(memberCookie)).account?.status).toBe("needs_reauth");
+    expect(await runConnectionPass(PROVISIONED, identity as never)).toEqual({ kind: "dormant" });
+    // A deployment with no Microsoft application does nothing at all.
+    expect(await runConnectionPass(env, identity as never)).toEqual({ kind: "dormant" });
+    await firmDatabase
+      .prepare("UPDATE integration_connection SET status = 'connected' WHERE id = ?1")
+      .bind(connectionId)
+      .run();
+  });
+});
+
 describe("disconnecting", () => {
-  it("takes the member's rules with the account", async () => {
+  it("takes the member's rules and the record of their copies with the account", async () => {
     const settings = await readSettings(memberCookie);
     expect(settings.rules.length).toBeGreaterThan(0);
     const response = await app.request(
@@ -381,7 +497,9 @@ describe("disconnecting", () => {
     );
     expect(response.status).toBe(200);
     const left = await firmDatabase
-      .prepare("SELECT COUNT(*) AS count FROM calendar_sync_rule")
+      .prepare(
+        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) AS count",
+      )
       .first<{ count: number }>();
     expect(left?.count).toBe(0);
   });

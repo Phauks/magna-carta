@@ -219,6 +219,8 @@ describe("schema conformance (fitness functions)", () => {
       "matter_task_watcher",
       // A member's rule is the pair itself: one connected account sends one subject to one place.
       "calendar_sync_rule",
+      // A copy at a provider is the pair of one event and one connected account.
+      "calendar_sync_link",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

@@ -207,6 +207,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent integration_connection; a member's own preference, holding no event",
   },
+  // Where each synced event sits in a member's own provider calendar. It names a person only through
+  // its connection and holds provider identifiers and a digest, never the event's own fields.
+  {
+    table: "calendar_sync_link",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; identifiers and a digest, holding no event content",
+  },
   // What the firm lets leave for members' calendars. The rule is the firm's and outlives whoever
   // last saved it; the reference to that member is configuration provenance.
   {
