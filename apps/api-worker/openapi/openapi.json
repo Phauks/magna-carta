@@ -91393,6 +91393,92 @@
         }
       }
     },
+    "/api/v1/calendar-sync/provider-notices/microsoft/{firmId}/{connectionId}": {
+      "post": {
+        "description": "Receives Microsoft's notice that something in a member's connected calendar changed. Called by Microsoft and by nothing in this platform. A notice is acted on only when it carries the secret that account gave Microsoft, and every request is answered alike whether or not it was believed. With a `validationToken` query parameter the token is answered back as plain text, which is how Microsoft confirms the address before it begins sending.",
+        "operationId": "calendarSync.receiveMicrosoftNotice",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.receiveMicrosoftNotice",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "provider-notice",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "connectionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "required": false,
+            "name": "validationToken",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The validation token, answered back as it was sent",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The notice was received"
+          },
+          "422": {
+            "description": "The address or the validation token is not one this route could have issued",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/calendar/series": {
       "get": {
         "description": "The repeating settings that fall inside a window, each with the days inside it that it falls on. A series is one record carrying its rule; the days are worked out when the window is read and never stored. A day somebody changed or called off on its own is left out of its series here, because the event standing in for that day is an ordinary event the other calendar reads return. Read across the firm a matter's series carries no title, as the firm calendar carries none; read for one matter, it does. Narrow by side, by matter, and by member exactly as the firm calendar narrows.",

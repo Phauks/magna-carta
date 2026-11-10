@@ -3,6 +3,8 @@ import {
   CALENDAR_SYNC_CATEGORY,
   type CalendarSyncPort,
   type ProviderCalendar,
+  type ProviderChangeWatch,
+  type ProviderChangeWatchRequest,
   type ProviderEventPresence,
   type ProviderEventReceipt,
   type ProviderEventSnapshot,
@@ -42,6 +44,9 @@ const descriptor: CapabilityDescriptor = {
     deleteEvent: { supported: true },
     listWrittenEvents: { supported: true },
     readEvent: { supported: true },
+    watchChanges: { supported: true },
+    renewWatch: { supported: true },
+    stopWatch: { supported: true },
   },
   passthroughAvailable: false,
 };
@@ -61,6 +66,11 @@ const calendarPageSchema = z.object({
 const eventReceiptSchema = z.object({
   id: z.string().min(1),
   changeKey: z.string().optional(),
+});
+
+const subscriptionSchema = z.object({
+  id: z.string().min(1),
+  expirationDateTime: z.string().min(1),
 });
 
 // The mark every copy carries, so the copies can be asked for by themselves. It is a named property
@@ -515,6 +525,57 @@ export function createMicrosoftCalendarAdapter(
             url = next !== undefined && next.startsWith(`${GRAPH_ORIGIN}/`) ? next : undefined;
           }
           return ok({ events, complete: url === undefined });
+        },
+
+        async watchChanges(
+          request: ProviderChangeWatchRequest,
+        ): Promise<Dispatch<ProviderChangeWatch>> {
+          const sent = await send("POST", `${GRAPH_ORIGIN}/v1.0/subscriptions`, {
+            changeType: "created,updated,deleted",
+            resource: "me/events",
+            notificationUrl: request.address,
+            // The same address hears that a watch was removed or that notices were missed, which
+            // are told apart from a change by their own field.
+            lifecycleNotificationUrl: request.address,
+            clientState: request.secret,
+            // Graph keeps a subscription to a calendar's events for a little under seven days at
+            // most and refuses a longer one; the caller asks for less than that.
+            expirationDateTime: request.expiresAt,
+          });
+          if (!sent.ok) return sent;
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          const parsed = subscriptionSchema.safeParse(await readJson(sent.value));
+          if (!parsed.success) return unreadable("Microsoft's answer to a new subscription");
+          return ok({ watchId: parsed.data.id, expiresAt: parsed.data.expirationDateTime });
+        },
+
+        async renewWatch(
+          watchId: string,
+          expiresAt: string,
+        ): Promise<Dispatch<ProviderChangeWatch | null>> {
+          const sent = await send(
+            "PATCH",
+            `${GRAPH_ORIGIN}/v1.0/subscriptions/${encodeURIComponent(watchId)}`,
+            { expirationDateTime: expiresAt },
+          );
+          if (!sent.ok) return sent;
+          if (sent.value.status === 404) return ok(null);
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          const parsed = subscriptionSchema.safeParse(await readJson(sent.value));
+          if (!parsed.success) return unreadable("Microsoft's answer to a renewed subscription");
+          return ok({ watchId: parsed.data.id, expiresAt: parsed.data.expirationDateTime });
+        },
+
+        async stopWatch(watchId: string): Promise<Dispatch<null>> {
+          const sent = await send(
+            "DELETE",
+            `${GRAPH_ORIGIN}/v1.0/subscriptions/${encodeURIComponent(watchId)}`,
+            undefined,
+          );
+          if (!sent.ok) return sent;
+          if (sent.value.status === 404) return ok(null);
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          return ok(null);
         },
 
         async readEvent(remoteId: string): Promise<Dispatch<ProviderEventSnapshot | null>> {

@@ -499,3 +499,76 @@ describe("a series, as Microsoft Graph repeats it", () => {
     expect(JSON.parse(sent[0]?.body ?? "{}")).toMatchObject({ recurrence: null });
   });
 });
+
+describe("the watch on a member's calendar", () => {
+  const subscriptions = "https://graph.microsoft.com/v1.0/subscriptions";
+  const open = (pages: Record<string, { status: number; body: unknown }>) => {
+    const { http, sent } = serving(pages);
+    return { port: createMicrosoftCalendarAdapter({ http }).create({ credential }), sent };
+  };
+
+  it("subscribes to every change to the member's events, with the secret and one address for both kinds of notice", async () => {
+    const { port, sent } = open({
+      [subscriptions]: {
+        status: 201,
+        body: { id: "sub-1", expirationDateTime: "2026-11-13T11:59:00.000Z" },
+      },
+    });
+    const begun = await port.watchChanges({
+      address: "https://firm.example/notices",
+      secret: "secret-1",
+      expiresAt: "2026-11-13T12:00:00.000Z",
+    });
+    expect(begun).toEqual({
+      ok: true,
+      value: { watchId: "sub-1", expiresAt: "2026-11-13T11:59:00.000Z" },
+    });
+    expect(sent[0]?.method).toBe("POST");
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toEqual({
+      changeType: "created,updated,deleted",
+      resource: "me/events",
+      notificationUrl: "https://firm.example/notices",
+      lifecycleNotificationUrl: "https://firm.example/notices",
+      clientState: "secret-1",
+      expirationDateTime: "2026-11-13T12:00:00.000Z",
+    });
+  });
+
+  it("says so when Microsoft will not begin one", async () => {
+    const { port } = open({ [subscriptions]: { status: 400, body: {} } });
+    const begun = await port.watchChanges({
+      address: "https://firm.example/notices",
+      secret: "secret-1",
+      expiresAt: "2026-11-13T12:00:00.000Z",
+    });
+    expect(begun.ok).toBe(false);
+  });
+
+  it("renews one, and answers null for one Microsoft no longer has", async () => {
+    const { port, sent } = open({
+      [`${subscriptions}/sub-1`]: {
+        status: 200,
+        body: { id: "sub-1", expirationDateTime: "2026-11-16T12:00:00.000Z" },
+      },
+    });
+    expect(await port.renewWatch("sub-1", "2026-11-16T12:00:00.000Z")).toEqual({
+      ok: true,
+      value: { watchId: "sub-1", expiresAt: "2026-11-16T12:00:00.000Z" },
+    });
+    expect(sent[0]?.method).toBe("PATCH");
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toEqual({
+      expirationDateTime: "2026-11-16T12:00:00.000Z",
+    });
+    expect(await port.renewWatch("sub-gone", "2026-11-16T12:00:00.000Z")).toEqual({
+      ok: true,
+      value: null,
+    });
+  });
+
+  it("ends one, and counts one already gone as ended", async () => {
+    const { port, sent } = open({ [`${subscriptions}/sub-1`]: { status: 204, body: {} } });
+    expect(await port.stopWatch("sub-1")).toEqual({ ok: true, value: null });
+    expect(sent[0]?.method).toBe("DELETE");
+    expect(await port.stopWatch("sub-gone")).toEqual({ ok: true, value: null });
+  });
+});

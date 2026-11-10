@@ -15,6 +15,7 @@ import {
   integrationCredentialStoreForFirm,
   type CredentialStoreForFirm,
 } from "../plugins/credential-store.ts";
+import { keepWatch, newWatchSecret, watchAddressFor, type WatchState } from "./change-watch.ts";
 import { openMemberCalendarPort } from "./member-calendars.ts";
 import { memberCalendarCredentialStore } from "./member-credential-store.ts";
 import { resolveMicrosoftApplication } from "./microsoft-application.ts";
@@ -31,7 +32,12 @@ export interface ConnectionIdentity {
 }
 
 export type ConnectionPassOutcome =
-  | { readonly kind: "settled" | "more" | "unavailable"; readonly report: OutboundPassReport }
+  // `watch` is the provider's change watch as the account should remember it after this pass.
+  | {
+      readonly kind: "settled" | "more" | "unavailable";
+      readonly report: OutboundPassReport;
+      readonly watch: WatchState | null;
+    }
   // The provider refused the sign-in. The connection is marked, so the member is told on their
   // Connected Accounts page, and nothing runs until they sign in again.
   | { readonly kind: "sign-in-again" }
@@ -45,6 +51,7 @@ export interface ConnectionPassOverrides {
   readonly http?: HttpClient;
   readonly now?: () => Date;
   readonly credentialStoreForFirm?: CredentialStoreForFirm;
+  readonly newWatchSecret?: () => string;
 }
 
 interface ConnectionRow {
@@ -62,6 +69,8 @@ export async function runConnectionPass(
   env: Bindings,
   identity: ConnectionIdentity,
   overrides: ConnectionPassOverrides = {},
+  // The watch the account remembers from its last pass.
+  watch: WatchState | null = null,
 ): Promise<ConnectionPassOutcome> {
   const application = resolveMicrosoftApplication(env, NO_REQUEST_ORIGIN);
   if (application === undefined) return { kind: "dormant" };
@@ -124,6 +133,7 @@ export async function runConnectionPass(
     return {
       kind: "unavailable",
       report: { created: 0, updated: 0, removed: 0, refused: 0, flagged: 0, putBack: 0 },
+      watch,
     };
   }
 
@@ -136,5 +146,16 @@ export async function runConnectionPass(
     newTransactionId: () => crypto.randomUUID(),
   });
   if (outcome.kind === "sign-in-again") return markSignInAgain();
-  return outcome;
+  // A provider that could not be reached for the pass is not asked about the watch either.
+  if (outcome.kind === "unavailable") return { ...outcome, watch };
+  return {
+    ...outcome,
+    watch: await keepWatch({
+      port: opened.port,
+      current: watch,
+      address: watchAddressFor(env, identity),
+      now,
+      newSecret: overrides.newWatchSecret ?? newWatchSecret,
+    }),
+  };
 }

@@ -61,8 +61,9 @@ answers:
 - **Leave It** keeps Outlook as you made it. The copy is replaced only when the event next changes
   in Magna Carta, and a deleted copy stays deleted.
 
-The section is absent when there is nothing to answer. It can take a few hours for a change you
-made in Outlook to appear here.
+The section is absent when there is nothing to answer. Outlook tells Magna Carta when something in
+your calendar changes, so a change you made there usually appears here within moments. If that
+notice is lost, the change is found within a few hours instead.
 
 A deadline is different: if you change a deadline's copy in Outlook, Magna Carta puts it back
 without asking, so a deadline never reads a day off in your calendar. To change the event itself,
