@@ -73,17 +73,18 @@ The owner's ruling of 2026-11-10: most guests are somebody in the Directory, but
 
 ## 5. Routes
 
-| Route                                              | What it does                                                                                                             |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GET /api/v1/meetings/personal-room`               | The caller's room (created on first read): link code, medium, lobby, and the live session's meeting id when one is open. |
-| `PATCH /api/v1/meetings/personal-room`             | Medium and lobby defaults.                                                                                               |
-| `POST /api/v1/meetings/personal-room/link`         | Replace the link code. Audited.                                                                                          |
-| `POST /api/v1/meetings/personal-room/open`         | Open a session (body: optional `matterId`). Returns the meeting summary; idempotent while one is open.                   |
-| `GET /api/v1/meetings/rooms/{linkCode}`            | What the link shows: the owner's name, and the live meeting id or `closed`.                                              |
-| `POST /api/v1/meetings/rooms/{linkCode}/arrive`    | Add the caller to the live session's event, then answer with the meeting id to join.                                     |
-| `POST /api/v1/meetings/{meetingId}/move-to-matter` | Move a personal-room session onto a matter (body: `matterId`), during or after it.                                       |
+| Route                                              | What it does                                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/v1/meetings/personal-room`               | The caller's room, or null: a read never creates one. Link code, medium, lobby, and the open session's meeting id. |
+| `POST /api/v1/meetings/personal-room`              | Make the caller's room, or answer with it when it exists. The card's Set Up control.                               |
+| `PATCH /api/v1/meetings/personal-room`             | Medium and lobby defaults.                                                                                         |
+| `POST /api/v1/meetings/personal-room/link`         | Replace the link code. Audited.                                                                                    |
+| `POST /api/v1/meetings/personal-room/open`         | Open a session (body: `timeZone`, optional `matterId`). Returns the meeting id; idempotent while one is open.      |
+| `GET /api/v1/meetings/rooms/{linkCode}`            | What the link shows: the owner's name, and the live meeting id or `closed`.                                        |
+| `POST /api/v1/meetings/rooms/{linkCode}/arrive`    | Add the caller to the live session's event, then answer with the meeting id to join.                               |
+| `POST /api/v1/meetings/{meetingId}/move-to-matter` | Move a personal-room session onto a matter (body: `matterId`), during or after it.                                 |
 
-Every one is behind sign-in and firm-scoped. An unknown link code and a room whose owner has left the firm are one answer, `meeting-room-unknown`.
+Every one is behind sign-in and firm-scoped. An unknown link code and a room whose owner has left the firm are one answer, `personal-room-not-found`. A session that is not a personal room's, or is already on a matter, is `meeting-move-refused`; a race with another write is `personal-room-changed`.
 
 ## 6. The screen
 
