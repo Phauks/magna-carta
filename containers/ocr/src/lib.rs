@@ -126,16 +126,17 @@ fn recognize_image(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, Ocr
     }])
 }
 
-/// `Document::load` only ever fails to parse or gets refused by the bomb guard -- a
-/// malformed or oversize document is the caller's problem, not ours, and will fail the
-/// same way on every retry. `PageOutOfRange` and `Render` cannot occur from `load`
+/// `Document::load` only ever fails to parse, finds the document locked with a password,
+/// or gets refused by the bomb guard -- a malformed, locked or oversize document is the
+/// caller's problem, not ours, and will fail the same way on every retry. `PageOutOfRange` and `Render` cannot occur from `load`
 /// itself; they are listed to keep the match exhaustive and, if they ever did occur
 /// here, a document we could not read is still the more honest label than an engine
 /// fault we did not have.
 fn document_load_error(error: pdf_core::PdfError) -> OcrError {
     match error {
         pdf_core::PdfError::Rejected => OcrError::DocumentRejected,
-        pdf_core::PdfError::Parse
+        pdf_core::PdfError::Encrypted
+        | pdf_core::PdfError::Parse
         | pdf_core::PdfError::PageOutOfRange
         | pdf_core::PdfError::Render => OcrError::DocumentUnreadable,
     }
