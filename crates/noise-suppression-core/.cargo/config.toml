@@ -1,0 +1,6 @@
+# WebAssembly SIMD for this crate's wasm build only, on the segmentation engine's precedent: wasm-pack runs
+# cargo from the crate directory, so this applies to `wasm-pack build crates/noise-suppression-core` and to
+# nothing else in the workspace. The denoiser's FFT and network are the hot path of a 10 ms audio
+# frame, and every browser the product supports executes SIMD128.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+simd128"]

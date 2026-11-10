@@ -1,0 +1,21 @@
+{
+  "name": "@magna-carta/noise-suppression",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./text-decoder": "./src/text-decoder.ts",
+    "./src/pkg/noise_suppression_core_bg.wasm": "./src/pkg/noise_suppression_core_bg.wasm"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "build:wasm": "wasm-pack build ../../crates/noise-suppression-core --target web --out-dir ../../packages/noise-suppression/src/pkg --release --no-opt"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

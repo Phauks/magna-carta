@@ -203,6 +203,9 @@
       "path": "packages/money/tsconfig.build.json"
     },
     {
+      "path": "packages/noise-suppression/tsconfig.build.json"
+    },
+    {
       "path": "packages/notes/tsconfig.build.json"
     },
     {

@@ -60,7 +60,14 @@
       {@const shown = months[0]?.value}
       <CalendarPrimitive.Header role="presentation" class="mc-calendar-header">
         <Popover.Root bind:open={jumpOpen}>
-          <Popover.Trigger class="mc-calendar-heading" aria-label="Choose a month">
+          <!-- The name opens with the month it shows, because a name has to hold the words a
+               reader sees on the control, and then says what pressing it does. -->
+          <Popover.Trigger
+            class="mc-calendar-heading"
+            aria-label={shown === undefined
+              ? "Choose a month"
+              : `${monthHeading(shown)}, choose a month`}
+          >
             {shown === undefined ? "" : monthHeading(shown)}
             <ChevronDown class="mc-calendar-nav-icon" aria-hidden="true" />
           </Popover.Trigger>

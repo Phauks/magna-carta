@@ -1,0 +1,22 @@
+[package]
+name = "noise-suppression-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The denoiser: a pure-Rust port of Xiph's RNNoise (BSD-3-Clause), with its trained weights compiled in.
+# Default features off: they pull the command-line tool and its WAV and resampling crates, none of which
+# the meeting needs. `capi` stays off too, because it is the C interface and brings `libc`.
+nnnoiseless = { version = "0.5", default-features = false }
+thiserror = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+# The workspace lint floor (see crates/Cargo.toml).
+[lints]
+workspace = true

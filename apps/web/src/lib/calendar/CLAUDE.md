@@ -248,14 +248,22 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   `EVENT_FORM_TABS` and `eventFormTabOf` in `event-draft.ts` say which tab an answer is on, so the
   arrangement is asserted without a browser and the dialog renders it. The description's grab corner
   is off (`resizable={false}`): dragging it only pushed the tabs and the footer around.
-- **ALL DAY IS A SWITCH, AND THE RECORD STILL STORES AN EMPTY TIME FOR IT.** A date with no time has
-  always meant all day; what was missing was the way to say so, and a person recording a three-day
-  trial typed hours into both ends because the form offered nothing else (owner, 2026-09-18).
-  `readsAsAllDay` and `asAllDay` are the draft's reading; `record-timing-fields.svelte` reads it
-  once when it mounts — not as a derived, because a blank form whose date has just been chosen has
-  no hours yet either, and a switch that flipped itself on then would disable the time field the
-  reader was reaching for — and choosing it clears the times and holds the time fields disabled in
-  place rather than removing them.
+- **ALL DAY IS THE START'S "NO TIME" ROW, AND THE RECORD STILL STORES AN EMPTY TIME FOR IT.** A
+  date with no time has always meant all day; what was missing was the way to say so (owner,
+  2026-09-18). It was a checkbox until 2026-11-10; it is now the first row of the Starts field's list
+  of times (`allowNoTime` on the design system's `DateTimeField`), because that is where a person
+  choosing an hour is looking. `readsAsAllDay` and `asAllDay` are the draft's reading;
+  `record-timing-fields.svelte` reads it once when it mounts, not as a derived, because a blank form
+  whose date has just been chosen has no hours yet either, and a field that turned itself all day
+  then would hide the time the reader was reaching for. Choosing it clears both times, and the Ends
+  field asks for a day alone.
+- **ONE MOMENT IS ONE `DateTimeField`, AND THE END FOLLOWS THE START.** Starts and Ends are each one
+  field holding the day and the time (owner, 2026-11-10). `withStartsOn` carries the start date to an
+  end that was empty, matched the old start, or was passed by the new start; `withStartsAtTime` puts
+  an empty end time an hour after the start (`DEFAULT_EVENT_MINUTES`), never wrapping past midnight
+  (owner, 2026-11-09: "assume start and end date are the same"). Both are in `event-draft.ts` and
+  tested in `calendar-drafts.test.ts`. `draft.startsOn` keeps its name and civil-date shape because
+  the recurrence field reads it.
 - **A RUN OF DAYS IS DRAWN IN THE BAND ABOVE THE HOURS, NEVER ON THE AXIS.** The grid's own rule
   (`inAllDayBand` in the design system's `day-axis.ts`): a three-day trial spans the band the way it
   spans the month, with its hours on the chip as text. It used to be cut into a piece per day and

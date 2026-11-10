@@ -76,7 +76,7 @@
   name="Compact"
   play={async ({ canvas, step }) => {
     await step("Names the month in words, with no month or year select", async () => {
-      await expect(canvas.getByRole("button", { name: "Choose a month" })).toHaveTextContent(
+      await expect(canvas.getByRole("button", { name: /choose a month$/ })).toHaveTextContent(
         "June 2026",
       );
       await expect(canvas.queryByDisplayValue("June")).toBeNull();
@@ -84,7 +84,7 @@
 
     await step("The next-month button moves the named month", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Next" }));
-      await expect(canvas.getByRole("button", { name: "Choose a month" })).toHaveTextContent(
+      await expect(canvas.getByRole("button", { name: /choose a month$/ })).toHaveTextContent(
         "July 2026",
       );
     });
