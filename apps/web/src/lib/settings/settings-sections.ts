@@ -104,6 +104,7 @@ export interface SettingsSection {
     | "documents"
     | "integrations"
     | "calendar"
+    | "calendarSync"
     | "reports"
     | "meetings"
     | "ai"
@@ -296,6 +297,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: defaultCommitModeForScope("user"),
     shipped: false,
   },
+  {
+    // Which of the member's event types go to which of their own calendars at the provider. Its own
+    // page beside Connected Accounts by the owner's ruling: the account is held there, and what is
+    // done with it for the calendar is decided here, apart from anything mail will do. Out of the
+    // navigation for the reason Connected Accounts is: no account can be connected yet, and nothing
+    // is sent on the strength of a rule until the sync itself ships.
+    id: "calendar-sync",
+    label: "Calendar Sync",
+    href: "/settings/calendar-sync",
+    group: "connections",
+    scope: "user",
+    commitMode: defaultCommitModeForScope("user"),
+    shipped: false,
+  },
   // Firm
   {
     // The firm administering its members ("us"). A member's OWN identity and credentials live
@@ -363,6 +378,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: "draft",
     editPermissionArea: "calendar",
     shipped: true,
+  },
+  {
+    // The firm's limit on calendar sync: which event types may be copied to members' own calendars
+    // at a provider, and with how much detail. A catalog page, so "instant": each row is changed
+    // through its own window against PUT /api/v1/calendar-sync/firm-limits, on the Event Types
+    // precedent. Its edit right is `calendar:manageSyncPolicy`, Admin alone. Out of the navigation
+    // until members can connect an account, because a limit on nothing is noise.
+    id: "calendar-sync-policy",
+    label: "Calendar Sync",
+    href: "/settings/calendar-sync-policy",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendarSync",
+    shipped: false,
   },
   {
     // The firm's meeting settings: whether its meetings may be recorded, summarized and captioned,

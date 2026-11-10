@@ -27,6 +27,10 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/sync-port.ts` — `CalendarSyncPort`: what calendar sync needs from a member's own calendar
   account, in this package's vocabulary. An interface only; the adapters that implement it live in
   their provider's package (`packages/microsoft-graph`) and this package still calls no service
+- `src/sync-rule-statements.ts` / `src/sync-rule-service.ts` — calendar sync settings: the firm's
+  limit on which event types may leave and with how much detail, and each member's own rules inside
+  it. A member's rule never exceeds the firm's limit: a save refuses a closed subject, and closing a
+  subject removes the rules that depended on it in the same batch. Settings only; nothing is sent
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and

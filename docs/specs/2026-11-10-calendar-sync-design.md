@@ -111,6 +111,21 @@ The calendar design expected one nullable external-identifier column on the even
 replaces it because one hearing can sit in several members' calendars under several identifiers: the
 identifier belongs to the pair of event and account.
 
+As built, `calendar_sync_rule` and `calendar_sync_firm_limit` are keyed by a `subject`: an event
+type's id, or the literal `deadline`. A subject with no firm limit row may leave in full detail,
+because a member's own rule is still required and those start empty. The firm limit is set under its
+own permission, `calendar:manageSyncPolicy`, held by Owner/Admin. Stopping a subject from leaving
+deletes every member's rule for it in the same batch.
+
+A member's sealed sign-in sits in `integration_credential`, whose one decrypt gate
+(`integrations:useConnection`) the default roles give to administrators alone. The worker reads a
+member's own calendar sign-in on that member's behalf through a store that derives the reference
+from the session's user id and refuses any other
+(`apps/api-worker/src/calendar-sync/member-credential-store.ts`). Microsoft does not revoke the old
+refresh token when it issues a new one
+([refresh tokens](https://learn.microsoft.com/en-us/entra/identity-platform/refresh-tokens)), so
+reading the calendar list from a request is safe before the per-account Durable Object exists.
+
 `integration_connection` is unique on category and principal, so a member holds one account per
 category. Letting one person connect both Outlook and Google needs the adapter added to that index.
 
