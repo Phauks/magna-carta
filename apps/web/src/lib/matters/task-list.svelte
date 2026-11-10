@@ -33,6 +33,7 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import Repeat from "@lucide/svelte/icons/repeat";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Eye from "@lucide/svelte/icons/eye";
@@ -655,6 +656,11 @@
           {task.title}
         </span>
       </Button>
+      {#if task.recurrence !== null}
+        <span class="inline-flex shrink-0 text-text-muted" title="Repeats">
+          <Repeat aria-hidden="true" class="size-12" /><span class="sr-only">Repeats</span>
+        </span>
+      {/if}
       {#if task.body !== null || task.checklist.length > 0}
         {@render preview(task)}
       {/if}

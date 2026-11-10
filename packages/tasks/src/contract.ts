@@ -17,6 +17,7 @@ import {
   MAX_TASK_TITLE_LENGTH,
   MAX_TASK_WATCHERS,
   TASK_PRIORITIES,
+  TASK_RECURRENCE_MODES,
   TASK_RUNGS,
   TASK_STATUS_COLOURS,
 } from "./types.ts";
@@ -83,7 +84,23 @@ export const CreateTaskRequest = z
   })
   .meta({ id: "CreateMatterTaskRequest" });
 
-export const EditTaskRequest = z.object(taskContentFields).meta({ id: "EditMatterTaskRequest" });
+export const EditTaskRequest = z
+  .object({
+    ...taskContentFields,
+    // For a repeating task whose due date moves: `this` moves this copy only; `later` moves the
+    // series with it, so later copies follow the new date. Left out, it is `this`.
+    recurrenceScope: z.enum(["this", "later"]).optional(),
+  })
+  .meta({ id: "EditMatterTaskRequest" });
+
+// How a task repeats, set on its own: a rule line in RFC 5545's grammar as this product writes it,
+// or null to stop repeating, and when the next copy appears.
+export const TaskRecurrenceRequest = z
+  .object({
+    rule: z.string().min(1).max(200).nullable(),
+    mode: z.enum(TASK_RECURRENCE_MODES).optional(),
+  })
+  .meta({ id: "SetMatterTaskRecurrenceRequest" });
 
 export const TaskDocument = z
   .object({
@@ -136,6 +153,17 @@ export const TaskDetail = z
     startsOn: z.string().nullable(),
     // Where the work happens: a room, an address, or a meeting link.
     location: z.string().nullable(),
+    // How the task repeats, where it does: the rule from this copy onward, when the next copy
+    // appears, and the day of the series this copy stands for. `nextTaskId` is the copy made from
+    // this one, once there is one.
+    recurrence: z
+      .object({
+        rule: z.string(),
+        mode: z.enum(TASK_RECURRENCE_MODES),
+        occurrenceOn: z.string(),
+        nextTaskId: z.string().nullable(),
+      })
+      .nullable(),
     // Everyone the work is assigned to, people and teams, in the order they were named.
     assignees: z.array(
       z

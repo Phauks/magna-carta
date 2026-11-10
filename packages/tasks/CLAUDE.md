@@ -32,6 +32,9 @@ scoped against a wider brief in
 - `src/subtask-statements.ts` — the sub-task trees a list reads in one pass
 - `src/watcher-notices.ts` — who is told beyond the actor: a task's watchers, and each member of a
   team the task is assigned to
+- `src/recurrence-service.ts` — a repeating task: setting its rule, the next copy (pure), the guarded
+  batch that writes it on completion, and the read and effects the hourly pass in
+  `apps/api-worker/src/background/tasks/recurring-task-pass.ts` commits for `scheduled` repeats
 - `src/close-advisory.ts` — the count that rides a successful matter close and can never block one
 - `src/plan-statements.ts` — the plan's SQL: the offered-plans read, the matter anchor cut from
   `opened_at`, the role resolution, and the template chain walk
@@ -99,6 +102,15 @@ the accepted task comes back byte-identical.
 `test/no-arithmetic.test.ts` pins its uniqueness rather than the absence of arithmetic — an exception
 has to be visible to stay one. It adds whole calendar days to a civil date: no business days, no
 holiday calendar, no service-method offset, no jurisdiction, no clock.
+
+**A repeating task is one row at a time.** Only the current copy exists; the next is written when
+it is due to appear (on completion, or on its start date, chosen per task) and
+`recurrence_next_task_id` is unique, so the write is guarded and a completion racing the hourly pass
+makes one copy. The rule is read from EACH COPY onward, with a count running down, so nothing walks
+back to the start of a series. The next due date is the rule's next day as
+`@magna-carta/civil-time`'s `occurrencesOf` walks it, and the start keeps its distance through
+`movedLikeOccurrence`: counting days on a rule somebody chose, never a date derived from a rule of
+law, and still no day arithmetic written in this package.
 
 ## Invariants that apply here
 

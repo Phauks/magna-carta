@@ -60,7 +60,14 @@ interface TaskBody {
   parentTaskId: string | null;
   startsOn: string | null;
   location: string | null;
+  dueOn?: string | null;
   completedAt: string | null;
+  recurrence: {
+    rule: string;
+    mode: string;
+    occurrenceOn: string;
+    nextTaskId: string | null;
+  } | null;
   assignees: { userId: string | null; teamId: string | null }[];
   watcherUserIds: string[];
   checklist: { id: string; text: string; doneAt: string | null }[];
@@ -201,6 +208,39 @@ describe("what a task carries", () => {
       (await call("PUT", `/api/v1/tasks/${taskId}/completion`, { completed: false })).status,
     ).toBe(200);
     expect((await tasks("?completed=false")).some((row) => row.id === taskId)).toBe(true);
+  });
+
+  it("repeats a task, making the next copy when this one is completed", async () => {
+    const taskId = await createdId(
+      await call("POST", "/api/v1/tasks", {
+        matterId: null,
+        title: "Reconcile the trust account",
+        dueOn: "2026-11-10",
+        timeZone: "America/Los_Angeles",
+      }),
+    );
+    expect(
+      (await call("PUT", `/api/v1/tasks/${taskId}/recurrence`, { rule: "FREQ=BOGUS" })).status,
+    ).toBe(422);
+    expect(
+      (await call("PUT", `/api/v1/tasks/${taskId}/recurrence`, { rule: "FREQ=MONTHLY" })).status,
+    ).toBe(200);
+    const repeating = (await tasks()).find((row) => row.id === taskId);
+    expect(repeating?.recurrence).toEqual({
+      rule: "FREQ=MONTHLY",
+      mode: "completed",
+      occurrenceOn: "2026-11-10",
+      nextTaskId: null,
+    });
+    expect(
+      (await call("PUT", `/api/v1/tasks/${taskId}/completion`, { completed: true })).status,
+    ).toBe(200);
+    const done = (await tasks("?completed=true")).find((row) => row.id === taskId);
+    const next = (await tasks("?completed=false")).find(
+      (row) => row.id === done?.recurrence?.nextTaskId,
+    );
+    expect(next?.dueOn).toBe("2026-12-10");
+    expect(next?.recurrence?.occurrenceOn).toBe("2026-12-10");
   });
 
   it("reads sub-tasks separately from the top-level page", async () => {

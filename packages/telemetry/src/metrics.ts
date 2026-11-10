@@ -496,6 +496,10 @@ export const communicationsCallerLookup = defineMetric("communications.caller_lo
 ] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
+// Task copies the scheduled pass wrote for repeating tasks that fall due by date rather than on
+// completion. A firm with repeating tasks and a flat zero here means the cron pass stopped writing.
+export const tasksRecurringWrites = defineMetric("tasks.recurring_writes", [] as const);
+
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
   unloggableField,
@@ -568,6 +572,7 @@ const CATALOG: readonly MetricDefinition[] = [
   exportsCopyProduced,
   exportsCopyRequestFailed,
   exportsCopyMalformedPayload,
+  tasksRecurringWrites,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

@@ -233,7 +233,9 @@ export const outbox = sqliteTable(
     payload: text("payload").notNull(), // JSON: ids + non-privileged fields ONLY (never privileged content)
     aggregateKey: text("aggregate_key"), // ordering scope for ordered topics
     seq: integer("seq"), // monotonic within aggregate_key
-    status: text("status", { enum: ["pending", "dispatched", "failed"] }).notNull(),
+    status: text("status", {
+      enum: ["pending", "dispatched", "failed"],
+    }).notNull(),
     attempts: integer("attempts").notNull().default(0),
     createdAt: text("created_at").notNull(),
     dispatchedAt: text("dispatched_at"),
@@ -255,7 +257,9 @@ export const member = sqliteTable("member", {
     .default("active"),
   // Per-user opt-out of product-usage analytics (the per-user override; the firm-level enable lives
   // in the setting table). Default off (events flow) — a member sets this to opt themselves out.
-  optedOutOfUsageAnalytics: integer("opted_out_of_usage_analytics", { mode: "boolean" })
+  optedOutOfUsageAnalytics: integer("opted_out_of_usage_analytics", {
+    mode: "boolean",
+  })
     .notNull()
     .default(false),
   createdAt: text("created_at").notNull(), // ISO-8601 instant
@@ -1122,7 +1126,9 @@ export const file = sqliteTable(
     // The document's editing posture: idle, in a live co-editing session, or held under an offline
     // checkout / exclusive lock. Reading is never blocked in any state; this drives the launch-time
     // join-vs-new decision and the reap transitions back to idle.
-    editState: text("edit_state", { enum: ["idle", "coediting", "checked_out"] })
+    editState: text("edit_state", {
+      enum: ["idle", "coediting", "checked_out"],
+    })
       .notNull()
       .default("idle"),
     deletedAt: text("deleted_at"),
@@ -1162,10 +1168,14 @@ export const fileVersion = sqliteTable(
       .notNull()
       .default("original"),
     pinned: integer("pinned").notNull().default(0), // 0/1; promotes evidence past eviction
-    storageClass: text("storage_class", { enum: ["standard", "infrequent_access"] })
+    storageClass: text("storage_class", {
+      enum: ["standard", "infrequent_access"],
+    })
       .notNull()
       .default("standard"),
-    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "flagged"] }),
+    scanVerdict: text("scan_verdict", {
+      enum: ["unscanned", "clean", "flagged"],
+    }),
     scanEngineVersion: text("scan_engine_version"),
     // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
     // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
@@ -1178,7 +1188,9 @@ export const fileVersion = sqliteTable(
     inlinePlayable: text("inline_playable", {
       enum: ["playable", "download-only", "indeterminate"],
     }),
-    status: text("status", { enum: ["pending", "clean", "quarantined", "abandoned"] })
+    status: text("status", {
+      enum: ["pending", "clean", "quarantined", "abandoned"],
+    })
       .notNull()
       .default("pending"),
     uploadedBy: text("uploaded_by").$type<UserId>(), // not an FK — the upload fact outlives the member row
@@ -1213,7 +1225,9 @@ export const fileVersion = sqliteTable(
     // copy: the member's own Save (`explicit`), the editor's periodic autosave (`autosave`), the save
     // made as the last view leaves (`exit`), or the idle reap's cut (`reap`). Null for a version that
     // arrived by upload, check-in or restore. History folds the autosaves and names the rest.
-    saveKind: text("save_kind", { enum: ["explicit", "autosave", "exit", "reap"] }),
+    saveKind: text("save_kind", {
+      enum: ["explicit", "autosave", "exit", "reap"],
+    }),
     // The copy of this version that leaves the platform, for a word-processing version the editor
     // cut: the stored bytes keep every tracked change, and a download, a bundle or any other copy
     // produced for outside the firm is served from a copy with all changes accepted. `pending` from
@@ -1221,7 +1235,9 @@ export const fileVersion = sqliteTable(
     // when it recorded nothing), `unavailable` when the document is past what the accept pass can
     // hold. Null for a version that needs no copy: an upload, a check-in, a restore, or a document
     // in a format that records no changes.
-    exportCopyState: text("export_copy_state", { enum: ["pending", "ready", "unavailable"] }),
+    exportCopyState: text("export_copy_state", {
+      enum: ["pending", "ready", "unavailable"],
+    }),
     exportR2Key: text("export_r2_key"),
     exportSizeBytes: integer("export_size_bytes"),
   },
@@ -1306,7 +1322,9 @@ export const fileVersionChange = sqliteTable(
       .references(() => fileVersion.id),
     // Document order within the version, from zero.
     sequence: integer("sequence").notNull(),
-    kind: text("kind", { enum: ["insertion", "deletion", "formatting"] }).notNull(),
+    kind: text("kind", {
+      enum: ["insertion", "deletion", "formatting"],
+    }).notNull(),
     authorName: text("author_name").notNull(),
     authorUserId: text("author_user_id").$type<UserId>(),
     changedAt: text("changed_at"),
@@ -1337,14 +1355,18 @@ export const documentCheckout = sqliteTable(
       .notNull()
       .$type<UserId>()
       .references(() => member.userId),
-    lockType: text("lock_type", { enum: ["exclusive", "offline_working_copy"] }).notNull(),
+    lockType: text("lock_type", {
+      enum: ["exclusive", "offline_working_copy"],
+    }).notNull(),
     baseVersionId: text("base_version_id")
       .notNull()
       .$type<FileVersionId>()
       .references(() => fileVersion.id),
     acquiredAt: text("acquired_at").notNull(),
     lastActivityAt: text("last_activity_at").notNull(),
-    status: text("status", { enum: ["active", "stale", "released", "reconciling"] })
+    status: text("status", {
+      enum: ["active", "stale", "released", "reconciling"],
+    })
       .notNull()
       .default("active"),
     // When a generous idle window auto-releases the checkout (null until scheduled).
@@ -1386,7 +1408,9 @@ export const uploadSession = sqliteTable(
     r2UploadId: text("r2_upload_id"), // the S3 multipart upload id, when mode = multipart
     declaredSize: integer("declared_size"),
     declaredContentType: text("declared_content_type"),
-    status: text("status", { enum: ["open", "completed", "aborted", "expired"] }).notNull(),
+    status: text("status", {
+      enum: ["open", "completed", "aborted", "expired"],
+    }).notNull(),
     createdAt: text("created_at").notNull(),
     expiresAt: text("expires_at"),
   },
@@ -1412,7 +1436,11 @@ export const storageMeter = sqliteTable(
     bytes: integer("bytes").notNull(),
     objectCount: integer("object_count").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
+  (table) => [
+    primaryKey({
+      columns: [table.storageClass, table.artifactRole, table.prefix],
+    }),
+  ],
 );
 
 // Per-firm content-addressed scan cache — the "scan-once" dedup. Records the full serialized
@@ -2379,7 +2407,9 @@ export const customField = sqliteTable(
         "contact-reference",
       ],
     }).notNull(),
-    target: text("target", { enum: ["matter", "entity", "matterAsset"] }).notNull(),
+    target: text("target", {
+      enum: ["matter", "entity", "matterAsset"],
+    }).notNull(),
     attachmentId: text("attachment_id"),
     numberScale: integer("number_scale"),
     required: integer("required").notNull().default(0),
@@ -2464,7 +2494,9 @@ export const rate = sqliteTable(
       .notNull()
       .$type<RateCardId>()
       .references(() => rateCard.id),
-    tier: text("tier", { enum: ["matter", "client", "timekeeper", "role"] }).notNull(),
+    tier: text("tier", {
+      enum: ["matter", "client", "timekeeper", "role"],
+    }).notNull(),
     scopedId: text("scoped_id"), // null = the card-wide default for this tier
     rateE4: integer("rate_e4").notNull(), // rate per hour, scale 4 (integer-minor, no floats)
     currency: text("currency").notNull(), // ISO-4217, CHECK against the registered set
@@ -2493,7 +2525,9 @@ export const utbmsCode = sqliteTable(
   "utbms_code",
   {
     id: text("id").primaryKey().$type<UtbmsCodeId>(), // utbmsCode_ handle
-    codeSet: text("code_set", { enum: ["task", "activity", "expense"] }).notNull(),
+    codeSet: text("code_set", {
+      enum: ["task", "activity", "expense"],
+    }).notNull(),
     code: text("code").notNull(), // e.g. L120, A101, E101
     label: text("label").notNull(),
     practiceArea: text("practice_area"),
@@ -3346,7 +3380,9 @@ export const emailMessage = sqliteTable(
     contentSha256: text("content_sha256").notNull(),
     dedupKey: text("dedup_key").notNull(),
     originalR2Key: text("original_r2_key").notNull(), // the verbatim original, kept whole in R2
-    referencesRemoteContent: integer("references_remote_content", { mode: "boolean" })
+    referencesRemoteContent: integer("references_remote_content", {
+      mode: "boolean",
+    })
       .notNull()
       .default(false),
     integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — the evidence, recorded exactly as parsed
@@ -3358,8 +3394,12 @@ export const emailMessage = sqliteTable(
       .default("unverified"),
     dkimVerdictReason: text("dkim_verdict_reason"), // null until a verifier has looked at the message
     dkimVerifiedDomain: text("dkim_verified_domain"), // the signing domain, set only on a pass
-    sourceFormat: text("source_format", { enum: ["eml", "msg", "mboxMember"] }).notNull(),
-    capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
+    sourceFormat: text("source_format", {
+      enum: ["eml", "msg", "mboxMember"],
+    }).notNull(),
+    capturedVia: text("captured_via", {
+      enum: ["forward", "api", "addin", "sync"],
+    }).notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -3411,7 +3451,9 @@ export const emailMatterLink = sqliteTable(
       .default("staged"),
     linkedBy: text("linked_by").$type<UserId>(), // null when the forward path staged it with no acting user
     linkedAt: text("linked_at"),
-    capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
+    capturedVia: text("captured_via", {
+      enum: ["forward", "api", "addin", "sync"],
+    }).notNull(),
     tags: text("tags"), // JSON array of per-matter tag strings; null when none
     // Null means a person made this link; non-null means an auto-file rule did, and names which one.
     // The one fact every read of a link needs; everything richer is a join to the decision ledger.
@@ -3503,11 +3545,15 @@ export const emailAttachment = sqliteTable(
       .references(() => file.id), // null for a filtered inline image or an oversize part not extracted
     filename: text("filename"),
     mediaType: text("media_type"),
-    disposition: text("disposition", { enum: ["attachment", "inline"] }).notNull(),
+    disposition: text("disposition", {
+      enum: ["attachment", "inline"],
+    }).notNull(),
     promotedFromInline: integer("promoted_from_inline", { mode: "boolean" })
       .notNull()
       .default(false),
-    outcome: text("outcome", { enum: ["extracted", "filtered_inline", "oversize"] })
+    outcome: text("outcome", {
+      enum: ["extracted", "filtered_inline", "oversize"],
+    })
       .notNull()
       .default("extracted"),
     createdAt: text("created_at").notNull(),
@@ -3567,7 +3613,9 @@ export const emailAutoFileRule = sqliteTable(
   "email_auto_file_rule",
   {
     id: text("id").primaryKey().$type<EmailAutoFileRuleId>(), // emailAutoFileRule_ handle
-    kind: text("kind", { enum: ["threadContinuation", "correspondentMatter"] }).notNull(),
+    kind: text("kind", {
+      enum: ["threadContinuation", "correspondentMatter"],
+    }).notNull(),
     // A rule always names exactly one matter. A multi-matter rule would fire several filings from one
     // condition, multiplying a wrong rule's blast radius by the number of matters it named.
     matterId: text("matter_id")
@@ -3666,7 +3714,9 @@ export const emailAutoFileDecision = sqliteTable(
     matterId: text("matter_id")
       .$type<MatterId>()
       .references(() => matter.id),
-    outcome: text("outcome", { enum: ["filed", "staged", "suppressed"] }).notNull(),
+    outcome: text("outcome", {
+      enum: ["filed", "staged", "suppressed"],
+    }).notNull(),
     // Why nothing fired, from a closed set matching the guardrails. A decision that DID fire but
     // landed staged instead of filed records that demotion inside `evidence`, because the outcome
     // column already carries the fact that it staged.
@@ -4022,13 +4072,19 @@ export const documentTemplateVersion = sqliteTable(
     sizeBytes: integer("size_bytes"),
     contentSha256: text("content_sha256"),
     storageEncoding: text("storage_encoding").notNull().default("full"),
-    storageClass: text("storage_class", { enum: ["standard", "infrequent_access"] })
+    storageClass: text("storage_class", {
+      enum: ["standard", "infrequent_access"],
+    })
       .notNull()
       .default("standard"),
-    status: text("status", { enum: ["pending", "clean", "quarantined", "abandoned"] })
+    status: text("status", {
+      enum: ["pending", "clean", "quarantined", "abandoned"],
+    })
       .notNull()
       .default("pending"),
-    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "flagged"] }),
+    scanVerdict: text("scan_verdict", {
+      enum: ["unscanned", "clean", "flagged"],
+    }),
     scanEngineVersion: text("scan_engine_version"),
     scanDetail: text("scan_detail"),
     // The serialized field manifest and the normalization warnings the registration pass produced.
@@ -4181,7 +4237,9 @@ export const documentAssembly = sqliteTable(
     status: text("status", { enum: ["queued", "running", "done", "failed"] })
       .notNull()
       .default("queued"),
-    outcome: text("outcome", { enum: ["succeeded", "succeeded_with_absences", "failed"] }),
+    outcome: text("outcome", {
+      enum: ["succeeded", "succeeded_with_absences", "failed"],
+    }),
     // An error CODE from a closed set, never a failing value: a merge failure reports which key failed,
     // never what it held.
     failureReason: text("failure_reason"),
@@ -4300,7 +4358,9 @@ export const custodyItemType = sqliteTable(
     id: text("id").primaryKey().$type<CustodyItemTypeId>(), // custodyItemType_ handle
     name: text("name").notNull(),
     code: text("code"),
-    intrinsicValueDefault: integer("intrinsic_value_default", { mode: "boolean" })
+    intrinsicValueDefault: integer("intrinsic_value_default", {
+      mode: "boolean",
+    })
       .notNull()
       .default(false),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
@@ -4332,12 +4392,16 @@ export const custodyPacket = sqliteTable(
     custodyNumber: text("custody_number").notNull(),
     // 'drawn' consumed a counter value and holds an allocation row; 'manual' is a number a firm
     // carried in from a paper deeds register or a prior system and touches no counter.
-    numberSource: text("number_source", { enum: ["drawn", "manual"] }).notNull(),
+    numberSource: text("number_source", {
+      enum: ["drawn", "manual"],
+    }).notNull(),
     name: text("name").notNull(),
     currentLocationId: text("current_location_id")
       .$type<CustodyLocationId>()
       .references(() => custodyLocation.id),
-    status: text("status", { enum: ["held", "out", "released", "destroyed", "lost"] })
+    status: text("status", {
+      enum: ["held", "out", "released", "destroyed", "lost"],
+    })
       .notNull()
       .default("held"),
     matterId: text("matter_id")
@@ -4535,7 +4599,9 @@ export const custodyMovement = sqliteTable(
     // driver signs for it (external). Forcing an external borrower into the Directory would pollute
     // the conflicts corpus with people who are party to nothing; forcing a real Directory entity into
     // free text loses the link.
-    borrowerKind: text("borrower_kind", { enum: ["member", "entity", "external"] }),
+    borrowerKind: text("borrower_kind", {
+      enum: ["member", "entity", "external"],
+    }),
     borrowerUserId: text("borrower_user_id").$type<UserId>(),
     borrowerEntityId: text("borrower_entity_id"),
     borrowerName: text("borrower_name"),
@@ -4710,7 +4776,9 @@ export const custodyDestructionRequest = sqliteTable(
     // custody_movement.corrects_movement_id has none: the movement ledger carries no referential
     // dependency, and keeping it that way is what lets the table be rebuilt when its kinds widen.
     executedMovementId: text("executed_movement_id").$type<CustodyMovementId>(),
-    outcome: text("outcome", { enum: ["approved", "refused", "executed", "withdrawn"] }),
+    outcome: text("outcome", {
+      enum: ["approved", "refused", "executed", "withdrawn"],
+    }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -4841,7 +4909,9 @@ export const custodyStocktakeSighting = sqliteTable(
       .notNull()
       .$type<CustodyStocktakeId>()
       .references(() => custodyStocktake.id),
-    kind: text("kind", { enum: ["sighted", "not_found", "unregistered"] }).notNull(),
+    kind: text("kind", {
+      enum: ["sighted", "not_found", "unregistered"],
+    }).notNull(),
     packetId: text("packet_id")
       .$type<CustodyPacketId>()
       .references(() => custodyPacket.id),
@@ -5176,7 +5246,9 @@ export const trustMovement = sqliteTable(
     // movement between two DIFFERENT clients is not in this vocabulary and never will be — at the
     // entry level it is indistinguishable from misappropriation, and the composition guard refuses
     // it outright.
-    kind: text("kind", { enum: ["deposit", "disbursement", "matter_transfer"] }).notNull(),
+    kind: text("kind", {
+      enum: ["deposit", "disbursement", "matter_transfer"],
+    }).notNull(),
     // The matter leaf this movement is about: credited by a deposit, debited by a disbursement, the
     // source of a matter transfer.
     nodeId: text("node_id")
@@ -5388,7 +5460,9 @@ export const trustDisbursementDecision = sqliteTable(
       .notNull()
       .$type<TrustDisbursementRequestId>()
       .references(() => trustDisbursementRequest.id),
-    decision: text("decision", { enum: ["approved", "rejected", "withdrawn"] }).notNull(),
+    decision: text("decision", {
+      enum: ["approved", "rejected", "withdrawn"],
+    }).notNull(),
     decidedBy: text("decided_by").notNull().$type<UserId>(),
     decidedAt: text("decided_at").notNull(), // UTC instant
     // Why the request was refused, in the decider's words. Required on a rejection — a refusal
@@ -5719,7 +5793,9 @@ export const trustFirmFundsMovement = sqliteTable(
       .notNull()
       .$type<TrustAccountId>()
       .references(() => trustAccount.id),
-    kind: text("kind", { enum: ["firm_funds_deposit", "bank_charge"] }).notNull(),
+    kind: text("kind", {
+      enum: ["firm_funds_deposit", "bank_charge"],
+    }).notNull(),
     amountMinor: integer("amount_minor").notNull(),
     currency: text("currency").notNull(),
     entryId: text("entry_id")
@@ -5981,7 +6057,9 @@ export const invoice = sqliteTable(
     // flowing document. The firm's default lives in the setting table and a later change to it must
     // not silently re-shape a document the firm already gave somebody. Null on drafts and on
     // invoices finalized before the column existed, which the render derivation reads as `combined`.
-    renderShape: text("render_shape", { enum: ["combined", "per_matter_pages"] }),
+    renderShape: text("render_shape", {
+      enum: ["combined", "per_matter_pages"],
+    }),
     finalizedAt: text("finalized_at"),
     finalizedBy: text("finalized_by").$type<UserId>(),
     voidedAt: text("voided_at"),
@@ -6108,7 +6186,9 @@ export const invoiceWipClaim = sqliteTable(
       .notNull()
       .$type<InvoiceId>()
       .references(() => invoice.id),
-    sourceKind: text("source_kind", { enum: ["time_entry", "cost_entry", "fee_entry"] }).notNull(),
+    sourceKind: text("source_kind", {
+      enum: ["time_entry", "cost_entry", "fee_entry"],
+    }).notNull(),
     sourceId: text("source_id").notNull(),
     invoiceLineId: text("invoice_line_id")
       .$type<InvoiceLineId>()
@@ -6615,14 +6695,18 @@ export const matterBillingArrangement = sqliteTable(
     // Dense per matter, enforced by trigger: "the version in force" is MAX(version) among open rows
     // with no timestamp tie to break, and two members amending concurrently converge on one winner.
     version: integer("version").notNull(),
-    kind: text("kind", { enum: ["hourly", "flat_fee", "contingency", "retainer"] }).notNull(),
+    kind: text("kind", {
+      enum: ["hourly", "flat_fee", "contingency", "retainer"],
+    }).notNull(),
     flatFeeAmountMinor: integer("flat_fee_amount_minor"),
     // The share as a dimensionless decimal at the rate scale (3333 = 33.33%), never Money: a share
     // of an unknown future recovery has no currency until it multiplies one.
     contingencyShareE4: integer("contingency_share_e4"),
     // The costs-before-or-after election: `gross_recovery` computes the fee on the recovery before
     // advanced costs come off; `net_after_costs` deducts the matter's advanced (hard) costs first.
-    contingencyBasis: text("contingency_basis", { enum: ["gross_recovery", "net_after_costs"] }),
+    contingencyBasis: text("contingency_basis", {
+      enum: ["gross_recovery", "net_after_costs"],
+    }),
     retainerTargetMinor: integer("retainer_target_minor"),
     // The replenishment floor — a BUSINESS configuration, emphatically not the trust leaf's
     // min_balance_minor, which is the structural no-negative floor and is never repurposed.
@@ -6802,7 +6886,9 @@ export const matterEventType = sqliteTable(
     id: text("id").primaryKey().$type<MatterEventTypeId>(), // matterEventType_ handle
     name: text("name").notNull(),
     code: text("code"),
-    category: text("category", { enum: ["litigation", "transaction", "firm", "other"] })
+    category: text("category", {
+      enum: ["litigation", "transaction", "firm", "other"],
+    })
       .notNull()
       .default("litigation"),
     origin: text("origin", { enum: ["platform", "firm"] })
@@ -6974,7 +7060,9 @@ export const matterEventParticipant = sqliteTable(
       .notNull()
       .$type<MatterEventId>()
       .references(() => matterEvent.id),
-    participantKind: text("participant_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    participantKind: text("participant_kind", {
+      enum: ["member", "entity", "external"],
+    }).notNull(),
     memberUserId: text("member_user_id")
       .$type<UserId>()
       .references(() => member.userId),
@@ -7043,7 +7131,9 @@ export const matterDeadline = sqliteTable(
     dueAtTime: text("due_at_time"),
     // The COURT'S zone, not the office's. Required for the same reason it is required on an event.
     timeZone: text("time_zone").notNull(),
-    source: text("source", { enum: ["member", "court_order", "statutory_catalog"] })
+    source: text("source", {
+      enum: ["member", "court_order", "statutory_catalog"],
+    })
       .notNull()
       .default("member"),
     catalogEntryKey: text("catalog_entry_key"),
@@ -7058,7 +7148,9 @@ export const matterDeadline = sqliteTable(
     triggerEventId: text("trigger_event_id")
       .$type<MatterEventId>()
       .references(() => matterEvent.id),
-    state: text("state", { enum: ["open", "satisfied", "vacated", "superseded"] })
+    state: text("state", {
+      enum: ["open", "satisfied", "vacated", "superseded"],
+    })
       .notNull()
       .default("open"),
     satisfiedAt: text("satisfied_at"), // UTC instant
@@ -7442,8 +7534,46 @@ export const matterTask = sqliteTable(
     // Where the work happens: a room, an address, or a meeting link. Free text, because those three
     // have nothing in common but being somewhere to go.
     location: text("location"),
+    // A REPEATING TASK: the rule it repeats on, and when the next copy appears. Only the current
+    // copy is a row. The next one is written when it is due to appear, so a list never fills with a
+    // year of copies and editing the series means editing one row.
+    //
+    // The rule is an RFC 5545 line in @magna-carta/civil-time's grammar, read FROM THIS COPY ONWARD:
+    // its series starts at `recurrence_occurrence_on`, and a `COUNT` says how many copies remain,
+    // this one included. Each copy hands the next the same rule with the count one lower, so no copy
+    // ever has to walk back to where the series began.
+    recurrenceRule: text("recurrence_rule"),
+    // `completed`: the next copy is made when this one is marked complete. `scheduled`: it appears on
+    // its own start date (its due date when it has none) whether or not this one is done. The firm
+    // chooses per task, because both are real ways a firm works.
+    recurrenceMode: text("recurrence_mode", {
+      enum: ["completed", "scheduled"],
+    }),
+    // The day of the series this copy stands for. Usually its due date; moving the due date of THIS
+    // ONE ONLY leaves it where it was, so the next copy still falls where the rule says. Moving this
+    // one AND LATER ONES moves it with the due date, and the series runs on from there.
+    recurrenceOccurrenceOn: text("recurrence_occurrence_on"),
+    // The copy made from this one, once it exists. Unique, so a completion and the hourly pass
+    // racing each other cannot both make the next one.
+    recurrenceNextTaskId: text("recurrence_next_task_id").$type<MatterTaskId>(),
   },
   (table) => [
+    uniqueIndex("matter_task_recurrence_next_task_unique_index").on(table.recurrenceNextTaskId),
+    // The hourly pass's read: the repeating tasks whose next copy does not exist yet.
+    index("matter_task_recurrence_mode_index").on(table.recurrenceMode, table.recurrenceNextTaskId),
+    check(
+      "matter_task_recurrence_shape_check",
+      sql`(${table.recurrenceRule} IS NULL) = (${table.recurrenceMode} IS NULL)
+        AND (${table.recurrenceRule} IS NULL) = (${table.recurrenceOccurrenceOn} IS NULL)`,
+    ),
+    check(
+      "matter_task_recurrence_mode_check",
+      sql`${table.recurrenceMode} IS NULL OR ${table.recurrenceMode} IN ('completed', 'scheduled')`,
+    ),
+    check(
+      "matter_task_recurrence_occurrence_on_shape_check",
+      civilDateShape(table.recurrenceOccurrenceOn, true),
+    ),
     // The list's own read, and the band a Group By List draws.
     index("matter_task_list_state_index").on(table.listId, table.state),
     index("matter_task_status_index").on(table.statusId),
@@ -8127,7 +8257,9 @@ export const firmEventParticipant = sqliteTable(
       .notNull()
       .$type<FirmEventId>()
       .references(() => firmEvent.id),
-    participantKind: text("participant_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    participantKind: text("participant_kind", {
+      enum: ["member", "entity", "external"],
+    }).notNull(),
     memberUserId: text("member_user_id")
       .$type<UserId>()
       .references(() => member.userId),
@@ -8174,7 +8306,9 @@ export const firmResource = sqliteTable(
   {
     id: text("id").primaryKey().$type<FirmResourceId>(), // firmResource_ handle
     name: text("name").notNull(),
-    kind: text("kind", { enum: ["room", "vehicle", "equipment", "other"] }).notNull(),
+    kind: text("kind", {
+      enum: ["room", "vehicle", "equipment", "other"],
+    }).notNull(),
     // The home office; null for a resource assigned to none.
     locationId: text("location_id")
       .$type<LocationId>()
@@ -8670,7 +8804,9 @@ export const meetingGuestInvitation = sqliteTable(
       .notNull()
       .$type<MeetingId>()
       .references(() => meeting.id),
-    entityKind: text("entity_kind", { enum: ["person", "organization"] }).notNull(),
+    entityKind: text("entity_kind", {
+      enum: ["person", "organization"],
+    }).notNull(),
     // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key.
     entityId: text("entity_id").notNull(),
     invitedName: text("invited_name").notNull(),
@@ -9215,7 +9351,9 @@ export const matterAssetDigitalAsset = sqliteTable(
     platformName: text("platform_name"),
     // The public handle on the platform, not a login. A username is not a credential.
     accountHandle: text("account_handle"),
-    custodyModel: text("custody_model", { enum: ["custodial", "selfCustodied", "unknown"] }),
+    custodyModel: text("custody_model", {
+      enum: ["custodial", "selfCustodied", "unknown"],
+    }),
   },
   (table) => [
     check(
@@ -9609,7 +9747,9 @@ export const magnusTurn = sqliteTable(
     sequence: integer("sequence").notNull(),
     speaker: text("speaker", { enum: ["member", "magnus"] }).notNull(),
     content: text("content"),
-    status: text("status", { enum: ["pending", "complete", "failed", "refused"] }).notNull(),
+    status: text("status", {
+      enum: ["pending", "complete", "failed", "refused"],
+    }).notNull(),
     // A closed label, NEVER an upstream body. Null unless the turn failed or was refused.
     failureLabel: text("failure_label", {
       enum: ["model-unavailable", "not-eligible", "ceiling-reached", "too-large", "cancelled"],
@@ -9682,7 +9822,9 @@ export const magnusConversationAttachment = sqliteTable(
       .$type<FileId>()
       .references(() => file.id),
     attachedAt: text("attached_at").notNull(),
-    textStatus: text("text_status", { enum: ["pending", "sent", "cut", "unreadable"] })
+    textStatus: text("text_status", {
+      enum: ["pending", "sent", "cut", "unreadable"],
+    })
       .notNull()
       .default("pending"),
     textBytes: integer("text_bytes"),
@@ -9782,7 +9924,9 @@ export const recordCustodian = sqliteTable(
     // `unattributed` is a first-class kind rather than a null: a production that arrives with no
     // custodial attribution is a fact about the production, and recording it is a different statement
     // from leaving a column empty.
-    kind: text("kind", { enum: ["person", "organization", "unattributed"] }).notNull(),
+    kind: text("kind", {
+      enum: ["person", "organization", "unattributed"],
+    }).notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -9824,7 +9968,9 @@ export const discoveryLoad = sqliteTable(
     // product, and whether the firm's own reasoning about a matter belongs in a corpus is a decision
     // somebody makes visibly. It is recorded here rather than inferred from what arrived, so the
     // manifest can state what the corpus was DRAWN FROM and not only what landed in it.
-    transcriptScope: text("transcript_scope", { enum: ["exclude", "include"] }).notNull(),
+    transcriptScope: text("transcript_scope", {
+      enum: ["exclude", "include"],
+    }).notNull(),
     // The reconciliation. `loaded_document_count` must equal `processed_count + exception_count`
     // before a load may reach `complete`, and the CHECK below is what makes that structural rather
     // than a convention a second write path could miss.
@@ -10288,7 +10434,9 @@ export const reviewTagGroup = sqliteTable(
     // Whether a document with no answer in this group counts as uncoded. That arithmetic is the whole
     // of progress reporting, and later the staging refusal that keeps an uncoded document out of a
     // production.
-    requiredForCompletion: integer("required_for_completion", { mode: "boolean" })
+    requiredForCompletion: integer("required_for_completion", {
+      mode: "boolean",
+    })
       .notNull()
       .default(false),
     sortOrder: integer("sort_order").notNull(),
@@ -10382,7 +10530,9 @@ export const reviewTagEvent = sqliteTable(
       .notNull()
       .$type<ReviewTagId>()
       .references(() => reviewTag.id),
-    scope: text("scope", { enum: ["document", "family", "selection"] }).notNull(),
+    scope: text("scope", {
+      enum: ["document", "family", "selection"],
+    }).notNull(),
     documentCount: integer("document_count").notNull().default(0),
     // The filter that drove a bulk selection, as typed — recorded for HUMANS. It is never re-run: the
     // materialized selection below is what executed.
@@ -10562,7 +10712,9 @@ export const notificationEvent = sqliteTable(
         "system",
       ],
     }).notNull(),
-    severity: text("severity", { enum: ["informational", "attention", "critical"] }).notNull(),
+    severity: text("severity", {
+      enum: ["informational", "attention", "critical"],
+    }).notNull(),
     // The kind of record this points at. Seeded with every subject the inventoried emission points
     // name, not only the ones wired today: this is a SQLite CHECK, and widening one rebuilds a
     // growing table (the same reasoning the channel column below states at length).
@@ -10747,7 +10899,9 @@ export const notificationDelivery = sqliteTable(
     // value nothing writes costs a byte in a constraint; a rebuild costs a migration that copies
     // every row. `in_app` is present for the same reason and is deliberately never written — see
     // the header above.
-    channel: text("channel", { enum: ["in_app", "email", "push", "sms", "desktop"] }).notNull(),
+    channel: text("channel", {
+      enum: ["in_app", "email", "push", "sms", "desktop"],
+    }).notNull(),
     state: text("state", { enum: ["pending", "sent", "failed", "suppressed"] })
       .notNull()
       .default("pending"),
@@ -10903,7 +11057,9 @@ export const notificationInAppSuppression = sqliteTable(
     suppressedCount: integer("suppressed_count").notNull().default(0),
     // WHOSE choice did it. A member who silenced a category and a member whose firm defaulted it off
     // are in different positions, and only the label tells them apart.
-    reason: text("reason", { enum: ["member-preference", "firm-policy"] }).notNull(),
+    reason: text("reason", {
+      enum: ["member-preference", "firm-policy"],
+    }).notNull(),
     lastSuppressedAt: text("last_suppressed_at").notNull(),
   },
   (table) => [
@@ -11162,7 +11318,9 @@ export const downloadItem = sqliteTable(
     // to it. Modelling the file as an artifact would have put that one `if` away from being a
     // standing hole; modelling it as its own kind means the presigning branch cannot be reached with
     // a matter file at all.
-    kind: text("kind", { enum: ["artifact", "snapshot", "reference", "record"] }).notNull(),
+    kind: text("kind", {
+      enum: ["artifact", "snapshot", "reference", "record"],
+    }).notNull(),
     // WHICH PRODUCER made it — or, for `file`, handed it over. `bundle` and `conversion` were named
     // here from the start with no client able to create one, precisely so that naming them later
     // would not cost a rebuild; `file` was not foreseen and did cost one.
@@ -11208,7 +11366,9 @@ export const downloadItem = sqliteTable(
     // whether the request was taken. `failed` is terminal and keeps the row so the outcome is learned
     // instead of the row vanishing. `expired` is written by the sweep, but a read that finds the
     // object already gone reports it without waiting for the sweep to catch up.
-    state: text("state", { enum: ["building", "ready", "failed", "expired"] }).notNull(),
+    state: text("state", {
+      enum: ["building", "ready", "failed", "expired"],
+    }).notNull(),
   },
   (table) => [
     // The shelf read: one member's rows, newest first, walked by the (created_at, id) pair so the
@@ -11453,7 +11613,9 @@ export const meetingMessage = sqliteTable(
       .references(() => meeting.id),
     // Which kind of stay the handle beside it names: a firm member's `meeting_attendance` row, or
     // the `meeting_guest_stay` row an external guest will hold. Only `member` is written today.
-    participantKind: text("participant_kind", { enum: ["member", "guest"] }).notNull(),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest"],
+    }).notNull(),
     // The stay, which is both who said it and the proof they were in the room when they did. Carried
     // by value, with no foreign key, because the table it belongs to is decided by the column above.
     participantId: text("participant_id").notNull(),
@@ -11668,7 +11830,9 @@ export const meetingPollAnswer = sqliteTable(
       .$type<MeetingPollId>()
       .references(() => meetingPoll.id),
     optionId: text("option_id").notNull().$type<MeetingPollOptionId>(),
-    participantKind: text("participant_kind", { enum: ["member", "guest", "attendee"] }),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }),
     participantId: text("participant_id"),
   },
   (table) => [
@@ -12160,7 +12324,9 @@ export const meetingTranscriptSegment = sqliteTable(
     trackId: text("track_id")
       .$type<MeetingRecordingTrackId>()
       .references(() => meetingRecordingTrack.id),
-    participantKind: text("participant_kind", { enum: ["member", "guest", "attendee"] }),
+    participantKind: text("participant_kind", {
+      enum: ["member", "guest", "attendee"],
+    }),
     participantId: text("participant_id"),
     userId: text("user_id")
       .$type<UserId>()
@@ -12244,7 +12410,9 @@ export const meetingSummary = sqliteTable(
       .notNull()
       .$type<MeetingTranscriptId>()
       .references(() => meetingTranscript.id),
-    state: text("state", { enum: ["pending", "ready", "failed", "refused"] }).notNull(),
+    state: text("state", {
+      enum: ["pending", "ready", "failed", "refused"],
+    }).notNull(),
     modelId: text("model_id"),
     snapshotId: text("snapshot_id"),
     // What the model wrote, once ready. Derived content.
