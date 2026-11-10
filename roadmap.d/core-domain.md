@@ -446,8 +446,31 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
-  evidence: packages/matter-search/src/sources/all.ts registers eight sources (files, time, costs, billing, parties, calendar, notes, custody) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds
+  evidence: packages/matter-search/src/sources/all.ts registers nine sources (files, time, costs, billing, parties, calendar, notes, custody, communications) behind the shared builder in build.ts; test/source-fitness.test.ts asserts the matter binding, the visibility predicate, the LIMIT, the LIKE escape and the review-table refusal over the SQL each one builds. Since 2026-11-10 the prose sources (notes, time, costs, calendar, and the words of a call or text) match words through the firm's record index, held by test/word-matched-sources.test.ts; names and numbers still match by substring
   notes: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus.
+
+- id: search.record-index
+  name: Record index
+  scope: One full-text index, in each firm's own database, over the text held in rows — notes, time narratives, cost descriptions, calendar events, calls and texts, tasks and Magnus conversations — written only by triggers rendered from one list of declared sources.
+  status: shipped
+  surface: internal
+  spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
+  evidence: packages/search/src/record-index-sources.ts, packages/search/src/record-index-schema.ts, packages/search/src/record-index-query.ts and packages/search/src/record-index-statements.ts, with the per-firm migration named record-text-index; held by packages/search/test/record-index-behaviour.test.ts, packages/search/test/record-index-lineage.test.ts and packages/search/test/record-index-migration.test.ts and, inside real Durable Object storage, apps/api-worker/test/firm-database/firm-database-record-index.test.ts. Measured by packages/search/scripts/measure-record-index-shapes.mjs.
+  notes: The index and its one reader so far (the matter search's prose sources). The status screen, the search across matters and the conflicts check reading it are separate nodes of the same specification and are not built. Tasks and Magnus conversations are indexed and nothing reads them yet.
+
+- id: search.across-matters
+  name: Search across matters
+  scope: One search from the top bar over every matter the reader may see, answered from the record index and, once it is on, the file-contents index.
+  status: designed
+  spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
+  notes: Step 4 of the specification's build order. The record index it reads is built (search.record-index); the surface is not.
+
+- id: search.status-screen
+  name: Search and Indexing status
+  scope: A settings screen showing what is searchable, how much of each place is indexed, and a rebuild per place.
+  status: designed
+  spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
+  notes: Step 3 of the specification's build order. The count and rebuild statements it will call are built as part of search.record-index; no route or screen exists.
 
 - id: matters.search.file-contents
   name: File contents in a matter search

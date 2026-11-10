@@ -208,7 +208,7 @@ describe("the chain against the schema", () => {
     expect(schemaAgreementViolations(new Map([["matter", columns("id")]]), live)).toEqual([]);
   });
 
-  it("names the FTS5 virtual table and its shadows as the only ones drizzle cannot model", () => {
+  it("names the FTS5 virtual tables and their shadows as the only ones drizzle cannot model", () => {
     // Pinned so the allowance stays an enumeration somebody decided on rather than a prefix rule
     // that quietly swallows the next undeclared table.
     expect([...UNDECLARED_BY_DESIGN].toSorted()).toEqual([
@@ -217,6 +217,12 @@ describe("the chain against the schema", () => {
       "directory_name_fts_data",
       "directory_name_fts_docsize",
       "directory_name_fts_idx",
+      // The index over the text a firm holds in its own records.
+      "record_text_fts",
+      "record_text_fts_config",
+      "record_text_fts_data",
+      "record_text_fts_docsize",
+      "record_text_fts_idx",
     ]);
   });
 });

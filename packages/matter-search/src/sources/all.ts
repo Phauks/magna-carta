@@ -1,5 +1,11 @@
 import { assertPermission } from "@magna-carta/access-control/registry";
-import { boundedSearchSelect, likeContainsTerm, matterSectionLink } from "./build.ts";
+import {
+  boundedSearchSelect,
+  likeContainsTerm,
+  matterSectionLink,
+  recordIndexLeadingMatch,
+  recordIndexMatch,
+} from "./build.ts";
 import {
   MatterSearchSourceRegistry,
   type MatterSearchSource,
@@ -14,6 +20,16 @@ import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 //
 // Table names are tracked against @magna-carta/database's per-firm schema by the schema-name-sync
 // fitness test, the same way every other statements module tracks them.
+//
+// TWO KINDS OF MATCH, chosen by what the reader means. A source whose text is PROSE — a note, a
+// narrative, a cost description, an event, what was said on a call — matches words through the
+// firm's record index (`recordIndexLeadingMatch`), so the read follows the records that match and
+// is not a pass over every row of the matter.
+// A source whose text is a NAME or a NUMBER — a file, a folder, a party, a custody number, an
+// invoice number, a telephone number — matches characters with LIKE on its own column, because a
+// person typing part of a name or the last four digits of a number means exactly those characters.
+// The index is a source's to use only if @magna-carta/search declares that source
+// (record-index-sources.ts); the key handed to the match is that declaration's key.
 const MATTER_NOTE_TABLE = "matter_note";
 const FILE_TABLE = "file";
 const FOLDER_TABLE = "folder";
@@ -86,10 +102,12 @@ const notesSource: MatterSearchSource = {
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
+    const match = recordIndexLeadingMatch(request, "notes", MATTER_NOTE_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: MATTER_NOTE_TABLE,
+        from: match.from,
         idColumn: `${MATTER_NOTE_TABLE}.id`,
         matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
         sortExpression: NOTE_ORDERING_DATE,
@@ -99,8 +117,8 @@ const notesSource: MatterSearchSource = {
         snippetExpression: `${MATTER_NOTE_TABLE}.body`,
         secondaryExpression: "NULL",
         actorExpression: `${MATTER_NOTE_TABLE}.author_user_id`,
-        conditions: [`${MATTER_NOTE_TABLE}.body LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
@@ -256,14 +274,21 @@ const communicationsSource: MatterSearchSource = {
   sectionSlug: "messaging",
   permission: assertPermission("communications:read"),
   answerShape: "listing",
-  matchedFields: ["what was said", "the number"],
+  matchedFields: ["what was said", "the caller's name", "the number"],
   declaresSnippet: true,
   minimumQueryLength: 2,
   // A logged call is edited or left alone, never soft-deleted, so there is no deleted set.
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
-    const term = likeContainsTerm(request.query.trim());
+    // Two halves, and either can answer. The words go to the record index; the number is matched as
+    // characters on its own column, because somebody typing "0142" means those digits wherever they
+    // fall in the number and a word match would refuse them. Text with no letter or digit in it
+    // leaves only the number half. Because it is one OR the other, this table leads and the index
+    // is asked as a subquery: a matter's calls and texts are few enough to read.
+    const numberCondition = `${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\'`;
+    const numberTerm = likeContainsTerm(request.query.trim());
+    const match = recordIndexMatch(request, "communications", `${COMMUNICATION_TABLE}.id`);
     return [
       boundedSearchSelect(request.database, {
         request,
@@ -280,11 +305,9 @@ const communicationsSource: MatterSearchSource = {
         secondaryExpression: `${COMMUNICATION_TABLE}.channel || ' · ' || ${COMMUNICATION_TABLE}.direction`,
         actorExpression: `${COMMUNICATION_TABLE}.member_user_id`,
         conditions: [
-          `(${COMMUNICATION_TABLE}.body LIKE ? ESCAPE '\\' ` +
-            `OR ${COMMUNICATION_TABLE}.summary LIKE ? ESCAPE '\\' ` +
-            `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\')`,
+          match === null ? numberCondition : `(${match.condition} OR ${numberCondition})`,
         ],
-        bindings: [term, term, term],
+        bindings: match === null ? [numberTerm] : [match.binding, numberTerm],
       }),
     ];
   },
@@ -398,10 +421,12 @@ const timeSource: MatterSearchSource = {
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
+    const match = recordIndexLeadingMatch(request, "time", TIME_ENTRY_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: TIME_ENTRY_TABLE,
+        from: match.from,
         idColumn: `${TIME_ENTRY_TABLE}.id`,
         matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
         // The day the work was done, not the day it was typed — the order the Time tab reads in.
@@ -410,8 +435,8 @@ const timeSource: MatterSearchSource = {
         snippetExpression: `${TIME_ENTRY_TABLE}.narrative`,
         secondaryExpression: `${TIME_ENTRY_TABLE}.status`,
         actorExpression: `${TIME_ENTRY_TABLE}.timekeeper_user_id`,
-        conditions: [`${TIME_ENTRY_TABLE}.narrative LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
@@ -434,10 +459,12 @@ const costsSource: MatterSearchSource = {
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
+    const match = recordIndexLeadingMatch(request, "costs", COST_ENTRY_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: COST_ENTRY_TABLE,
+        from: match.from,
         idColumn: `${COST_ENTRY_TABLE}.id`,
         matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
         sortExpression: `${COST_ENTRY_TABLE}.incurred_date`,
@@ -446,8 +473,8 @@ const costsSource: MatterSearchSource = {
         snippetExpression: "NULL",
         secondaryExpression: `${COST_ENTRY_TABLE}.status`,
         actorExpression: "NULL",
-        conditions: [`${COST_ENTRY_TABLE}.description LIKE ? ESCAPE '\\'`],
-        bindings: [likeContainsTerm(request.query.trim())],
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },
@@ -476,11 +503,12 @@ const calendarSource: MatterSearchSource = {
   supportsDeleted: false,
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
-    const term = likeContainsTerm(request.query.trim());
+    const match = recordIndexLeadingMatch(request, "calendar", MATTER_EVENT_TABLE);
+    if (match === null) return [];
     return [
       boundedSearchSelect(request.database, {
         request,
-        from: MATTER_EVENT_TABLE,
+        from: match.from,
         idColumn: `${MATTER_EVENT_TABLE}.id`,
         matterExpression: `${MATTER_EVENT_TABLE}.matter_id`,
         sortExpression: `${MATTER_EVENT_TABLE}.starts_on`,
@@ -489,10 +517,8 @@ const calendarSource: MatterSearchSource = {
         // Whether it is still standing. A cancelled hearing is findable and must never look live.
         secondaryExpression: `${MATTER_EVENT_TABLE}.status`,
         actorExpression: `${MATTER_EVENT_TABLE}.recorded_by`,
-        conditions: [
-          `(${MATTER_EVENT_TABLE}.title LIKE ? ESCAPE '\\' OR ${MATTER_EVENT_TABLE}.description LIKE ? ESCAPE '\\')`,
-        ],
-        bindings: [term, term],
+        conditions: [match.condition],
+        bindings: [match.binding],
       }),
     ];
   },

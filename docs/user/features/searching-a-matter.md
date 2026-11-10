@@ -24,16 +24,17 @@ does not cover.
 
 ## What answers today
 
-| Section       | What is searched                         |
-| ------------- | ---------------------------------------- |
-| **Files**     | File names                               |
-| **Time**      | What the timekeeper wrote about the work |
-| **Costs**     | What the cost was for                    |
-| **Parties**   | Names, and the capacity a party acts in  |
-| **Notes**     | What each note says                      |
-| **Custodian** | Packet names and custody numbers         |
-| **Calendar**  | Event titles and descriptions            |
-| **Assets**    | Asset descriptions                       |
+| Section       | What is searched                                 |
+| ------------- | ------------------------------------------------ |
+| **Files**     | File names                                       |
+| **Time**      | What the timekeeper wrote about the work         |
+| **Costs**     | What the cost was for                            |
+| **Parties**   | Names, and the capacity a party acts in          |
+| **Notes**     | What each note says                              |
+| **Custodian** | Packet names and custody numbers                 |
+| **Calendar**  | Event titles and descriptions                    |
+| **Messaging** | What was said, the caller's name, and the number |
+| **Assets**    | Asset descriptions                               |
 
 **Assets are searched by description only.** An asset's account, policy and certificate numbers are
 sealed, and searching them would let somebody confirm a full number by typing it and seeing whether a
@@ -44,7 +45,7 @@ row came back. Its plain public-record identifiers — a parcel number, a vehicl
 on the search service being switched on; until it is, the results say so rather than leaving you to
 assume the search read your PDFs.
 
-Five sections do not answer yet — Fees, Trust, Messaging, Emails and Overview — and each says so in the
+Four sections do not answer yet — Fees, Trust, Emails and Overview — and each says so in the
 dropdown rather than being left out.
 
 Fees is the one worth explaining, because a fee you have already billed **is** findable — under
@@ -52,6 +53,22 @@ Fees is the one worth explaining, because a fee you have already billed **is** f
 the Fees tab is designed around a fee as its own dated record with a description, and the server does
 not keep one yet. The fee agreement itself holds only amounts and dates, with no words in it to
 match.
+
+## How your words are matched
+
+Sections that hold writing — **Notes**, **Time**, **Costs**, **Calendar** and what was said in
+**Messaging** — are searched by word:
+
+- **Type several words** and a record is found when it contains all of them, in any order and
+  anywhere in it. "fence neighbour" finds a note that mentions both.
+- **The last word can be unfinished.** "ease" finds "easement", so results appear as you type.
+- **Put quotation marks around a phrase** to find exactly those words together: "drainage easement".
+- **Capital letters and accents do not matter.** "pena" finds "Peña".
+- **Part of the middle of a word is not a match.** "sement" does not find "easement".
+
+Sections that hold names and numbers — **Files**, **Parties**, **Custodian** and **Billing** — are
+searched by any part of the name or number, so the last four digits of a custody number or a piece
+of a file name is enough. A telephone number in **Messaging** is found the same way.
 
 ## Reading the results
 
