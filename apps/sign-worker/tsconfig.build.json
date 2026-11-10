@@ -21,6 +21,9 @@
       "path": "../../packages/pdf/tsconfig.build.json"
     },
     {
+      "path": "../../packages/pdf-compose/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/signing/tsconfig.build.json"
     }
   ],

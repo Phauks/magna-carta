@@ -454,10 +454,15 @@ seconds, **,** and **.** step a frame, **M** mutes and **F** goes full screen.
 **Copy Link at** copies an address that opens the video at the moment shown, so you can send a
 colleague straight to the part of a deposition you mean.
 
-Not every video plays in a browser. Many phones record in a format (HEVC) that most browsers cannot
-decode, and some files carry sound in a format browsers lack. Magna Carta reads how each video is
-encoded the first time anyone opens it, and a video that will not play says so and offers the
-download instead, so you can watch it in a video application. The file is stored either way, and
+Videos in MP4, MOV, WebM and MKV files play when the browser you are using can decode them. Video
+recorded in HEVC, as many phones record it, plays in Safari, in Edge and in Chrome on most newer
+computers; Firefox and older computers may not play it. If your browser cannot play a video, the
+player says so and offers the download instead, so you can watch it in a video application or
+open it in another browser.
+
+A few formats no browser decodes, such as ProRes video, older Windows Media and MPEG-2 files, and
+Dolby Digital sound. Magna Carta reads how each video is encoded the first time anyone opens it, and
+one of these says so straight away and offers the download. The file is stored either way, and
 nothing about it is changed by trying.
 
 A video is read-only here. Nothing you do in the player changes it or adds a version.

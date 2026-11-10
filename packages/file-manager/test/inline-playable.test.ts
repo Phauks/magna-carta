@@ -100,8 +100,15 @@ describe("assessInlinePlayable, MP4 and QuickTime", () => {
     expect(Math.max(...reader.reads)).toBeLessThan(media.length);
   });
 
-  it("offers HEVC, which a phone records and most browsers cannot decode, as a download", async () => {
+  it("offers HEVC, which a phone records, to the browser to try", async () => {
     const file = concatenate(fileTypeBox, movie(track("vide", "hvc1"), track("soun", "mp4a")));
+    expect(await assessInlinePlayable("video/quicktime", memoryReader(file))).toBe("playable");
+    const tagged = concatenate(fileTypeBox, movie(track("vide", "hev1")));
+    expect(await assessInlinePlayable("video/mp4", memoryReader(tagged))).toBe("playable");
+  });
+
+  it("offers ProRes, which no browser decodes, as a download", async () => {
+    const file = concatenate(fileTypeBox, movie(track("vide", "apch"), track("soun", "mp4a")));
     expect(await assessInlinePlayable("video/quicktime", memoryReader(file))).toBe("download-only");
   });
 
@@ -199,16 +206,25 @@ describe("assessInlinePlayable, WebM", () => {
     expect(await assessInlinePlayable("video/webm", memoryReader(file))).toBe("playable");
   });
 
-  it("offers a general Matroska file as a download, whatever it holds", async () => {
-    const file = webm("matroska", webmTrack(1, "V_VP9"));
+  it("judges a Matroska file by the codecs it carries", async () => {
+    const file = webm("matroska", webmTrack(1, "V_MPEG4/ISO/AVC"), webmTrack(2, "A_AAC/MPEG4/LC"));
+    expect(await assessInlinePlayable("video/x-matroska", memoryReader(file))).toBe("playable");
+    const hevc = webm("matroska", webmTrack(1, "V_MPEGH/ISO/HEVC"), webmTrack(2, "A_OPUS"));
+    expect(await assessInlinePlayable("video/x-matroska", memoryReader(hevc))).toBe("playable");
+  });
+
+  it("offers a recording whose sound a browser would drop as a download", async () => {
+    const file = webm("matroska", webmTrack(1, "V_MPEG4/ISO/AVC"), webmTrack(2, "A_AC3"));
     expect(await assessInlinePlayable("video/x-matroska", memoryReader(file))).toBe(
       "download-only",
     );
   });
 
-  it("offers a WebM file naming a codec outside the WebM profile as a download", async () => {
-    const file = webm("webm", webmTrack(1, "V_MPEG4/ISO/AVC"));
-    expect(await assessInlinePlayable("video/webm", memoryReader(file))).toBe("download-only");
+  it("offers a codec no browser decodes as a download", async () => {
+    const file = webm("matroska", webmTrack(1, "V_MPEG2"));
+    expect(await assessInlinePlayable("video/x-matroska", memoryReader(file))).toBe(
+      "download-only",
+    );
   });
 
   it("cannot judge a file whose media begins before any track list", async () => {

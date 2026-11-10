@@ -70,6 +70,7 @@ import seedSearchSettingsPermissionSql from "@magna-carta/database/drizzle/per-f
 import calendarSyncLinkSql from "@magna-carta/database/drizzle/per-firm/20261110T053527_calendar-sync-link.sql";
 import connectionSyncIssueSql from "@magna-carta/database/drizzle/per-firm/20261110T055842_connection-sync-issue.sql";
 import syncIssueProviderRefusedSql from "@magna-carta/database/drizzle/per-firm/20261110T081035_sync-issue-provider-refused.sql";
+import rejudgeDownloadOnlyRecordingsSql from "@magna-carta/database/drizzle/per-firm/20261110T083359_rejudge-download-only-recordings.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -142,6 +143,7 @@ export function perFirmMigrations(): Migration[] {
     "20261110T053527_calendar-sync-link": calendarSyncLinkSql,
     "20261110T055842_connection-sync-issue": connectionSyncIssueSql,
     "20261110T081035_sync-issue-provider-refused": syncIssueProviderRefusedSql,
+    "20261110T083359_rejudge-download-only-recordings": rejudgeDownloadOnlyRecordingsSql,
   });
 }
 

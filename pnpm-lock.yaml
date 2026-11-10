@@ -853,6 +853,9 @@ importers:
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
+      '@magna-carta/pdf-compose':
+        specifier: workspace:*
+        version: link:../../packages/pdf-compose
       '@magna-carta/signing':
         specifier: workspace:*
         version: link:../../packages/signing
@@ -3007,6 +3010,9 @@ importers:
       pkijs:
         specifier: 'catalog:'
         version: 3.4.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

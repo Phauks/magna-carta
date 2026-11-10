@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "build": "node ../../packages/build-identity/scripts/generate-build-identity.mjs && vp run -w rust-wasm-build-pdf && wrangler deploy --dry-run --outdir dist",
+    "build": "node ../../packages/build-identity/scripts/generate-build-identity.mjs && vp run -w rust-wasm-build-pdf && vp run -w rust-wasm-build-pdf-compose && wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "vp test run"
@@ -13,6 +13,7 @@
   "dependencies": {
     "@magna-carta/build-identity": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
+    "@magna-carta/pdf-compose": "workspace:*",
     "@magna-carta/signing": "workspace:*"
   },
   "devDependencies": {

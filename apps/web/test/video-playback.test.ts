@@ -7,7 +7,7 @@ import {
 
 describe("cannotPlaySentence", () => {
   it("names the codec problem for a recording the server judged undecodable", () => {
-    expect(cannotPlaySentence({ verdict: "download-only", reason: "verdict" })).toContain("HEVC");
+    expect(cannotPlaySentence({ verdict: "download-only", reason: "verdict" })).toContain("ProRes");
   });
 
   it("says the encoding could not be read for an indeterminate verdict", () => {

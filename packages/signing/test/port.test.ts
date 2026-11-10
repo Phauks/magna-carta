@@ -42,11 +42,26 @@ describe("SealPort wire codec", () => {
       documentHashSha256: "a".repeat(64),
       certificate,
       certificateText: "CERTIFICATE OF COMPLETION\n",
+      certificatePdf: new Uint8Array([0x25, 0x50, 0x44, 0x46, 7, 0, 200]),
     };
     const decoded = decodeSealResponse(encodeSealResponse(response));
     expect(decoded.sealedPdf).toEqual(response.sealedPdf);
     expect(decoded.documentHashSha256).toBe(response.documentHashSha256);
     expect(decoded.certificate).toEqual(certificate);
     expect(decoded.certificateText).toBe(response.certificateText);
+    expect(decoded.certificatePdf).toEqual(response.certificatePdf);
+  });
+
+  it("carries the envelope and the observed steps to the sealing service", () => {
+    const request: SealRequest = {
+      document: new Uint8Array([1, 2, 3]),
+      signers: [signer],
+      signingTime: "2026-07-18T12:00:01Z",
+      envelope: { id: "env_0001", title: "Engagement letter.pdf" },
+      events: [{ kind: "sent", at: "2026-07-18T11:50:00Z", actor: "Bob Sender" }],
+    };
+    const decoded = decodeSealRequest(encodeSealRequest(request));
+    expect(decoded.envelope).toEqual(request.envelope);
+    expect(decoded.events).toEqual(request.events);
   });
 });

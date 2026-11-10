@@ -6,7 +6,9 @@
   "sideEffects": false,
   "exports": {
     "./certificate": "./src/certificate.ts",
+    "./certificate-sheet": "./src/certificate-sheet.ts",
     "./cms": "./src/cms.ts",
+    "./contract": "./src/contract.ts",
     "./engine": "./src/engine.ts",
     "./esign": "./src/esign.ts",
     "./platform-certificate": "./src/platform-certificate.ts",
@@ -19,7 +21,8 @@
   },
   "dependencies": {
     "asn1js": "catalog:",
-    "pkijs": "catalog:"
+    "pkijs": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
