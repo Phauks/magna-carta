@@ -1037,6 +1037,8 @@ impl From<crate::SignError> for JsError {
             crate::SignError::NoPages => "document has no pages",
             crate::SignError::MissingCatalog => "document has no catalog",
             crate::SignError::Malformed => "document structure is not signable",
+            crate::SignError::PageOutOfRange => "page index out of range",
+            crate::SignError::InvalidAppearance => "the signature box has no usable size",
             crate::SignError::CapacityExceeded => "signature exceeds the reserved capacity",
             crate::SignError::InvalidRange => "byte range lies outside the document",
         })
@@ -1055,6 +1057,16 @@ struct JsSignOpts {
     /// Read as f64 so a plain JavaScript number is accepted (see `JsBatesOpts::stop_number`).
     #[serde(rename = "contentsCapacity")]
     contents_capacity: Option<f64>,
+    appearance: Option<JsSignAppearance>,
+}
+
+#[derive(serde::Deserialize)]
+struct JsSignAppearance {
+    /// Read as f64 so a plain JavaScript number is accepted.
+    page: f64,
+    rect: [f32; 4],
+    #[serde(default)]
+    lines: Vec<String>,
 }
 
 /// Read a JS array of four non-negative numbers into a `/ByteRange`.
@@ -1084,7 +1096,8 @@ fn span_from_js(value: JsValue) -> Result<(usize, usize), JsError> {
 
 /// Prepare a PDF for signing: append the signature structure as an incremental update, reserving
 /// `/Contents` and writing an exact `/ByteRange`. `options`:
-/// `{ name?, reason?, location?, contactInfo?, signingTime?, contentsCapacity? }`. Returns
+/// `{ name?, reason?, location?, contactInfo?, signingTime?, contentsCapacity?,
+/// appearance?: { page, rect: [left, bottom, right, top], lines } }`. Returns
 /// `{ document: Uint8Array, byteRange: [number,number,number,number], contentsSpan: [number,number] }`.
 /// The input is preserved as the literal prefix of `document`. No cryptography happens here.
 #[wasm_bindgen(js_name = prepareSignature)]
@@ -1105,6 +1118,19 @@ pub fn prepare_signature_edge(bytes: Vec<u8>, options: JsValue) -> Result<JsValu
             .filter(|n| n.is_finite() && *n >= 0.0)
             .map(|n| n as usize)
             .unwrap_or(0),
+        appearance: match js.appearance {
+            None => None,
+            Some(appearance) => {
+                if !appearance.page.is_finite() || appearance.page < 0.0 {
+                    return Err(crate::SignError::PageOutOfRange.into());
+                }
+                Some(crate::SignatureAppearance {
+                    page: appearance.page as usize,
+                    rect: appearance.rect,
+                    lines: appearance.lines,
+                })
+            }
+        },
     };
     let prepared = crate::prepare_signature(&bytes, &opts)?;
 
