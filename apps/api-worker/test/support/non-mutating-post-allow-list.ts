@@ -85,4 +85,6 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "As notifications.dismiss, undone: the member putting their own feed row back, which records nothing about the firm's conduct.",
   "notifications.markAllRead":
     "As notifications.markRead, bounded by a cursor from a page the member actually read — one member clearing their own backlog.",
+  "connectedAccounts.startMicrosoftSignIn":
+    "Pure credential mint: returns the provider's sign-in address and sets a short-lived signed cookie — no write. The connection is recorded and audited by the return route.",
 };
