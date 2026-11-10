@@ -210,6 +210,23 @@ export const PERMISSIONS = [
   // whoever holds these keys.
   "meetings:join", // join a meeting on an event the member may see, and read who was in the room
   "meetings:host", // start a meeting on such an event, and end one
+  // RECORDING IS A THIRD KEY, not a power folded into hosting, because the two acts have different
+  // consequences: hosting runs a room and every one of its acts ends when the meeting does, while a
+  // recording is a durable, discoverable, privileged artifact that outlives the room and enters the
+  // matter file. A firm happy for any attorney to convene a call is not thereby happy for any attorney
+  // to record a client conversation. Seeded to exactly the roles that hold meetings:host, so nothing
+  // changes for any firm on the day it lands; a firm that wants it narrower now has a key to narrow.
+  // Stopping is this key too — and a member running the room may stop one without it, because ending
+  // the meeting already stops it. Binds resource: "firm" for the reason the other two do.
+  "meetings:record", // start and stop a recording of a meeting on an event the member may see
+  // WHETHER THE FIRM RECORDS, CAPTIONS AND SUMMARIZES AT ALL is a fourth key, and none of the three
+  // above. Each of the firm's meeting switches sends a privileged conversation somewhere it did not
+  // go before — into a stored recording on the matter, into a speech model, into a reasoning model —
+  // and a member who may record ONE meeting has not thereby been trusted to decide that every
+  // meeting in the firm may be recorded. It is for whoever decides the firm's posture on where its
+  // conversations go, which is the person the firm:manageAiSettings key is for. Binds resource:
+  // "firm" — a firm setting has no matter.
+  "meetings:manageSettings", // read and update the firm's meeting settings: recording, captions, summaries and the recorded-track ceiling
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
   // resource: "firm"; an assembly is matter-rooted like every other document operation, so

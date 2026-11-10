@@ -318,6 +318,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // so this seat carries both keys, where Billing joins and does not host.
         "meetings:host",
         "meetings:join",
+        // meetings:record is seeded to exactly the seats that hold meetings:host, so no firm's
+        // behaviour changes the day it lands (20261110T000001_meeting-recording-and-who-was-told).
+        "meetings:record",
         // A paralegal writes the note about the call they took, so this role carries both note keys.
         // Deleting rides notes:write rather than taking a key of its own: a member trusted to write
         // the firm's record of a case is trusted to remove what should not be in it. Billing and

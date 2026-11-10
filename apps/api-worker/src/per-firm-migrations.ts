@@ -49,6 +49,14 @@ import aMatterFileCarriesItsDestructionDateSql from "@magna-carta/database/drizz
 import attorneySubRolesSql from "@magna-carta/database/drizzle/per-firm/20261109T192537_attorney-sub-roles.sql";
 import aLookedUpCallerIdentityIsKeptSql from "@magna-carta/database/drizzle/per-firm/20261109T213357_a-looked-up-caller-identity-is-kept.sql";
 import aDirectoryRecordCarriesAPictureSql from "@magna-carta/database/drizzle/per-firm/20261109T231237_a-directory-record-carries-a-picture.sql";
+import meetingRecordingAndWhoWasToldSql from "@magna-carta/database/drizzle/per-firm/20261110T000001_meeting-recording-and-who-was-told.sql";
+import meetingRecordingComposeCursorSql from "@magna-carta/database/drizzle/per-firm/20261110T000002_meeting-recording-compose-cursor.sql";
+import meetingRecordingSegmentsAndComposeClaimSql from "@magna-carta/database/drizzle/per-firm/20261110T000003_meeting-recording-segments-and-compose-claim.sql";
+import meetingTranscriptSql from "@magna-carta/database/drizzle/per-firm/20261110T000004_meeting-transcript.sql";
+import meetingTranscriptModelFailuresAndMillisecondsSql from "@magna-carta/database/drizzle/per-firm/20261110T000005_meeting-transcript-model-failures-and-milliseconds.sql";
+import meetingSummarySql from "@magna-carta/database/drizzle/per-firm/20261110T000006_meeting-summary.sql";
+import meetingSummaryRetryAndFailedCallSql from "@magna-carta/database/drizzle/per-firm/20261110T000007_meeting-summary-retry-and-failed-call.sql";
+import seedMeetingSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20261110T000008_seed-meeting-settings-permission.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -96,6 +104,16 @@ export function perFirmMigrations(): Migration[] {
     "20261109T192537_attorney-sub-roles": attorneySubRolesSql,
     "20261109T213357_a-looked-up-caller-identity-is-kept": aLookedUpCallerIdentityIsKeptSql,
     "20261109T231237_a-directory-record-carries-a-picture": aDirectoryRecordCarriesAPictureSql,
+    "20261110T000001_meeting-recording-and-who-was-told": meetingRecordingAndWhoWasToldSql,
+    "20261110T000002_meeting-recording-compose-cursor": meetingRecordingComposeCursorSql,
+    "20261110T000003_meeting-recording-segments-and-compose-claim":
+      meetingRecordingSegmentsAndComposeClaimSql,
+    "20261110T000004_meeting-transcript": meetingTranscriptSql,
+    "20261110T000005_meeting-transcript-model-failures-and-milliseconds":
+      meetingTranscriptModelFailuresAndMillisecondsSql,
+    "20261110T000006_meeting-summary": meetingSummarySql,
+    "20261110T000007_meeting-summary-retry-and-failed-call": meetingSummaryRetryAndFailedCallSql,
+    "20261110T000008_seed-meeting-settings-permission": seedMeetingSettingsPermissionSql,
   });
 }
 

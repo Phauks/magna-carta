@@ -2442,6 +2442,9 @@ importers:
       '@magna-carta/calendar':
         specifier: workspace:*
         version: link:../calendar
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -2451,6 +2454,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
@@ -2919,6 +2925,9 @@ importers:
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters
+      '@magna-carta/meetings':
+        specifier: workspace:*
+        version: link:../meetings
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

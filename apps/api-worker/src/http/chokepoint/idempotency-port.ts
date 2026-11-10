@@ -11,6 +11,7 @@
 // by `platform:${clientKey}`. The two namespaces cannot collide — every firm scope starts with the
 // `firm_` handle prefix, never the literal `platform`.
 import type { Context, MiddlewareHandler } from "hono";
+import { fingerprintRequest } from "@magna-carta/data-access/canonical";
 import { idempotencyMiddleware } from "@magna-carta/data-access/hono-idempotency-middleware";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../../bindings.ts";
@@ -53,6 +54,36 @@ function composedIdempotencyGate(
   };
 }
 
+// The path's own identity, as the default pre-decision computes it: the query string is part of a
+// mutating request's identity, so it is kept, sorted so parameter order never changes it.
+function canonicalRequestPath(requestUrl: string): string {
+  const url = new URL(requestUrl);
+  url.searchParams.sort();
+  return url.pathname + url.search;
+}
+
+// The gate for a route declaring `idempotencyFingerprint: "path"`: the same key requirement, and a
+// fingerprint over the method and the path ALONE — the body is never read here, so nothing derived
+// from it reaches the stored record. There is deliberately no pre-decision: such a route stores a
+// pointer rather than its reply, which the pre-decision would hand a retry verbatim. The handler's
+// `runIdempotentEffect` makes the same replay / 409 / 422 decision from the same record before it
+// runs anything, and answers a replay by reading the record afresh.
+function pathFingerprintGate(deriveStoredKey: (clientKey: string) => string): MiddlewareHandler {
+  return async (c, next) => {
+    const requirementReply = await requireIdempotencyKey(c, async () => {
+      const clientKey = c.req.header("Idempotency-Key") ?? "";
+      const fingerprint = await fingerprintRequest({
+        method: c.req.method,
+        path: canonicalRequestPath(c.req.url),
+        body: undefined,
+      });
+      c.set("idempotency", { key: deriveStoredKey(clientKey), fingerprint });
+      await next();
+    });
+    if (requirementReply instanceof Response) c.res = requirementReply;
+  };
+}
+
 // The real idempotency port. middlewareFor returns null for an optional-idempotency route (no
 // gate), and the surface-scoped composed gate for a required one — app surface → firm scope (the
 // chokepoint stashed the session firm id), public surface → platform scope.
@@ -61,10 +92,18 @@ export function createChokepointIdempotency(): ChokepointIdempotency {
     middlewareFor(c: Context, meta: RouteMeta): MiddlewareHandler | null {
       if (meta.idempotency !== "required") return null;
       const env = (c as Context<{ Bindings: Bindings }>).env;
+      // The route's fingerprint mode decides which gate, wherever its record is kept.
+      const gateFor = (
+        database: Bindings["DB_CONTROL"],
+        deriveStoredKey: (clientKey: string) => string,
+      ): MiddlewareHandler =>
+        meta.idempotencyFingerprint === "path"
+          ? pathFingerprintGate(deriveStoredKey)
+          : composedIdempotencyGate(database, deriveStoredKey);
 
       if (meta.surface === "public") {
         // The platform-admin surface: no session, no firm — the platform principal is the scope.
-        return composedIdempotencyGate(env.DB_CONTROL, (clientKey) => `platform:${clientKey}`);
+        return gateFor(env.DB_CONTROL, (clientKey) => `platform:${clientKey}`);
       }
 
       // An app/portal surface. The record MUST land in the same database the handler writes its
@@ -88,7 +127,7 @@ export function createChokepointIdempotency(): ChokepointIdempotency {
               "session firm — the session/firm gates must precede the idempotency gate",
           );
         }
-        return composedIdempotencyGate(env.DB_CONTROL, (clientKey) => `${firmId}:${clientKey}`);
+        return gateFor(env.DB_CONTROL, (clientKey) => `${firmId}:${clientKey}`);
       }
 
       // store === "firm": the session firm's per-firm idempotency_key table. It is PHYSICALLY isolated
@@ -104,7 +143,7 @@ export function createChokepointIdempotency(): ChokepointIdempotency {
             "context — the session/firm gates must precede the idempotency gate",
         );
       }
-      return composedIdempotencyGate(firmContext.firmDatabase, (clientKey) => clientKey);
+      return gateFor(firmContext.firmDatabase, (clientKey) => clientKey);
     },
   };
 }

@@ -16,6 +16,7 @@ import {
   meetingsAnswerPoll,
   meetingsAskQuestion,
   meetingsClosePoll,
+  meetingsCreateSummaryActionItemTask,
   meetingsDenyFromLobby,
   meetingsEnd,
   meetingsGrantHosting,
@@ -28,17 +29,22 @@ import {
   meetingsListQuestions,
   meetingsLobby,
   meetingsOpenPoll,
+  meetingsRecordingNotices,
   meetingsRedactMessage,
   meetingsRedactQuestion,
   meetingsRemoveParticipant,
+  meetingsRerunSummary,
   meetingsRevokeHosting,
   meetingsSendMessage,
   meetingsSetLobby,
   meetingsSetLocked,
   meetingsSetQuestionAnswered,
   meetingsStart,
+  meetingsStartRecording,
+  meetingsStopRecording,
   meetingsUpvoteQuestion,
   meetingsWithdrawQuestionUpvote,
+  type CreatedMeetingActionItemTask,
   type JoinedMeeting,
   type MeetingAcknowledged,
   type MeetingHostGrant,
@@ -51,6 +57,19 @@ import {
   type MeetingPoll,
   type MeetingPollAnswer,
   type MeetingQuestion,
+  type MeetingRecordingListEntry,
+  type MeetingRecordingNoticeEntry,
+  type MeetingRecordingSummary,
+  type MeetingSummary,
+  type MeetingSummaryActionItem,
+  type MeetingSummaryHeader,
+  type MeetingSummaryMark,
+  type MeetingSummaryView,
+  type MeetingTranscriptMark,
+  type MeetingTranscriptPage,
+  type MeetingTranscriptSegment,
+  type MeetingTranscriptSpeaker,
+  type MeetingTranscriptSummary,
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
@@ -67,9 +86,11 @@ import type {
 } from "./client/polls.svelte.ts";
 import type {
   MeetingQuestionPageView,
+  MeetingQuestionPosition,
   MeetingQuestionSeams,
   MeetingQuestionView,
 } from "./client/questions.svelte.ts";
+import type { MeetingRecordingRoutes } from "./client/recording.svelte.ts";
 
 /** What a write answered: the value, or the record a failure surface renders from. */
 export type MeetingWrite<T> =
@@ -454,6 +475,7 @@ export function redactMeetingMessage(
 function pollView(poll: MeetingPoll): MeetingPollView {
   return {
     pollId: poll.id,
+    askedByUserId: poll.askedByUserId,
     question: poll.question,
     anonymous: poll.anonymous,
     maxChoices: poll.maxChoices,
@@ -611,16 +633,23 @@ export function askMeetingQuestion(
 
 /**
  * One page of the queue, oldest first on the record's own stable key. The panel sorts what it holds;
- * a cursor walking a count that changes while it pages would repeat rows and skip rows.
+ * a cursor walking a count that changes while it pages would repeat rows and skip rows. `after` is
+ * a place on that same key — what a panel following the queue holds — and narrows the walk to what
+ * was asked from there on.
  */
 export function readMeetingQuestions(
   meetingId: string,
   cursor: string | null = null,
+  after: MeetingQuestionPosition | null = null,
 ): Promise<MeetingWrite<MeetingQuestionPageView>> {
   return write(async () => {
+    const query = {
+      ...(cursor === null ? {} : { cursor }),
+      ...(after === null ? {} : { since: after.askedAt, sinceId: after.questionId }),
+    };
     const { data } = await meetingsListQuestions({
       path: { meetingId },
-      query: cursor === null ? undefined : { cursor },
+      query: Object.keys(query).length === 0 ? undefined : query,
       throwOnError: true,
     });
     return { data: { questions: data.data.map(questionView), nextCursor: data.nextCursor } };
@@ -696,6 +725,260 @@ export function redactMeetingQuestion(
   });
 }
 
+/*
+ * RECORDING THE MEETING: starting and stopping it, the list of what has been recorded, and the
+ * record of who was told.
+ *
+ * Both acts are routes for the reason every act with an author is: the permission check, the audit
+ * row and the recording's own row belong at the server's chokepoint, and the room is then told by
+ * the route. What the room broadcasts is what lights the mark on every screen — this browser's
+ * included — so nothing here answers with anything a screen draws the mark from.
+ *
+ * The calls are the generated operations and the view types are the contract's own, so a change to
+ * a recording's shape on the server is a type error here rather than a screen that quietly reads a
+ * field that is no longer sent. The list itself is read through the generated query options, into
+ * the one cache, by `screen/recording-list.svelte`, and one recording's transcript the same way by
+ * `screen/transcript-panel.svelte`.
+ */
+
+/** Somebody named on a recording: who started it, or who stopped it. */
+export type MeetingRecordingActorView = MeetingRecordingSummary["startedBy"];
+
+/** Where one recording is in its life, in the server's own vocabulary. */
+export type MeetingRecordingStateView = MeetingRecordingSummary["state"];
+
+/**
+ * One recording, as the list reads it: identifiers, instants, a count and a state. No audio.
+ *
+ * Two fields are stated here rather than taken as generated. `stoppedBy` is null on the wire while a
+ * recording runs and when nobody stopped it — the route's schema says so — but the generated type
+ * intersects the actor with its nullable arm and loses the null, so a screen reading it as never null
+ * would be wrong about every recording that stopped on its own. `failureErrorId` is the Error ID a
+ * failed recording was recorded under (the record's `failure_error_id`); it is optional because the
+ * list states it only where the summary carries one, and a summary that does not send it reads as a
+ * failure with no Error ID.
+ */
+export type MeetingRecordingView = MeetingRecordingSummary;
+
+/**
+ * One row of a meeting's recordings, as the list reads it: the recording, and the document it put on
+ * the matter. Only the list carries the document; the start and stop answers are the recording alone.
+ */
+export type MeetingRecordingListView = MeetingRecordingListEntry;
+
+/**
+ * The document a recording put on the matter: the version it added, and where that version stands —
+ * still being scanned, ready to open, held by the scan, replaced by a later version, in the trash, or
+ * out of reach. Null until the recording is on the matter.
+ */
+export type MeetingRecordingDocumentView = NonNullable<MeetingRecordingListEntry["document"]>;
+
+/**
+ * Where a recording's transcript stands, as the list reads it: its handle, `pending` while it is
+ * being made, `ready` once it is on the matter beside the audio (`fileId` is then that document),
+ * or `failed`. Null on a recording that has not reached the matter.
+ *
+ * `failureErrorId` is stated here rather than taken as generated, on the summary's precedent: the
+ * list's mark does not carry it today, so a failed transcript's Error ID is read from the transcript
+ * itself, and the column states it beside the state the day the mark does.
+ */
+export type MeetingTranscriptMarkView = MeetingTranscriptMark & {
+  readonly failureErrorId?: string | null;
+};
+
+/** Where a transcript stands, in the server's own vocabulary. */
+export type MeetingTranscriptStateView = MeetingTranscriptMark["state"];
+
+/**
+ * A transcript's header: where it stands, the language the model heard, how many lines and words it
+ * holds, the document it became on the matter, and the Error ID of a failure. The read answers it on
+ * every page, and with lines only once the transcript is ready.
+ */
+export type MeetingTranscriptHeaderView = MeetingTranscriptSummary;
+
+/**
+ * One line of a transcript: something somebody said (`speech`), or a span over which somebody could
+ * not be heard (`gap`), placed by milliseconds from the recording's start. The words are privileged
+ * content and are drawn on the screen and nowhere else.
+ */
+export type MeetingTranscriptLineView = MeetingTranscriptSegment;
+
+/**
+ * Why a ready transcript's lines are withheld: the WebVTT document it became was `removed` from the
+ * matter, is `held` by the scan, or is otherwise `unavailable`. Null while the lines are served. The
+ * lines are served only while that document can be read, because they are the same words.
+ */
+export type MeetingTranscriptWithheldView = MeetingTranscriptPage["linesWithheld"];
+
+/** Whose microphone a line came from, named as the stay was named at the moment of asking. */
+export type MeetingTranscriptSpeakerView = MeetingTranscriptSpeaker;
+
+/** Why somebody was told: the start, an arrival while it ran, or the stop. */
+export type MeetingRecordingNoticeReasonView = MeetingRecordingNoticeEntry["reason"];
+
+/** One occasion on which the room told somebody, which is the consent record. */
+export type MeetingRecordingNoticeView = MeetingRecordingNoticeEntry;
+
+/** One page of who was told, and where the next page starts. */
+export interface MeetingRecordingNoticePageView {
+  readonly notices: readonly MeetingRecordingNoticeView[];
+  readonly nextCursor: string | null;
+}
+
+/**
+ * Start recording this meeting. Answers with the recording; the mark lights on the room's frame.
+ *
+ * Refused `meeting-recording-not-configured` where the firm has not switched recording on, and with
+ * the recording problem types for a room already being recorded, a firm event, or a room too full.
+ */
+export function startMeetingRecording(
+  meetingId: string,
+): Promise<MeetingWrite<MeetingRecordingView>> {
+  return write(() =>
+    meetingsStartRecording({
+      path: { meetingId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Stop the recording running in this meeting. The key that starts one stops it, and so does a grant
+ * on this meeting: somebody running the room can already end it, and ending it stops the recording.
+ */
+export function stopMeetingRecording(
+  meetingId: string,
+): Promise<MeetingWrite<MeetingRecordingView>> {
+  return write(() =>
+    meetingsStopRecording({
+      path: { meetingId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Whether the firm can record this meeting at all, as the meeting's summary states it: the
+ * deployment can carry a recording AND the firm has switched recording on. The screen reads it to
+ * say so in place of the control, rather than offering an act the route would refuse.
+ */
+export function recordingIsConfigured(
+  summary: Pick<MeetingSummary, "recordingConfigured">,
+): boolean {
+  return summary.recordingConfigured;
+}
+
+/**
+ * Who was told about one recording, and when: the consent record. A host's read — the key to host
+ * meetings — because it is a list of everybody who was in the room, guests included.
+ */
+export function readMeetingRecordingNotices(
+  meetingId: string,
+  recordingId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingRecordingNoticePageView>> {
+  return write(async () => {
+    const { data } = await meetingsRecordingNotices({
+      path: { meetingId, recordingId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    });
+    return { data: { notices: data.data, nextCursor: data.nextCursor } };
+  });
+}
+
+/*
+ * THE SUMMARY OF A RECORDING: what the platform wrote from a ready transcript, and the action items
+ * it read out of it.
+ *
+ * Read through the generated query options into the one cache by `screen/summary-panel.svelte`;
+ * the two acts are here. The summary's words and every item's words are privileged content: they
+ * travel in a response body and are drawn on the screen, and nothing here puts them in an address,
+ * a log or a failure report. A failure is the response's problem record, which carries none of them.
+ */
+
+/** One summary as the read answers it: the header always, the words only where they may be shown. */
+export type MeetingSummaryReadView = MeetingSummaryView;
+
+/**
+ * Where a summary stands: its handle, its state, why it was refused, the Error ID of a failure and
+ * the model that wrote it. Answered on every read, with or without the words.
+ */
+export type MeetingSummaryHeaderView = MeetingSummaryHeader;
+
+/** Where a summary stands, in the server's own vocabulary. */
+export type MeetingSummaryStateView = MeetingSummaryHeader["state"];
+
+/**
+ * Why a summary was not written: the firm has summaries switched off (`disabled`), the model the
+ * firm chose may not receive its content (`not-eligible`), or nothing was said (`transcript-empty`).
+ */
+export type MeetingSummaryRefusalView = NonNullable<MeetingSummaryHeader["refusalReason"]>;
+
+/**
+ * Why a ready summary's words are withheld: the transcript's document it was written from was
+ * `removed` from the matter, is `held` by the scan, or is otherwise `unavailable`. The words are the
+ * same conversation, so they are served only while that document can be read.
+ */
+export type MeetingSummaryWithheldView = MeetingSummaryView["withheld"];
+
+/**
+ * One action item: the thing to do, its owner where the transcript named a member exactly, the day
+ * it is due where the transcript stated one, and the task it became once somebody made one.
+ */
+export type MeetingSummaryActionItemView = MeetingSummaryActionItem;
+
+/** Where a recording's summary stands, as the recordings list reads it. Null until there is one. */
+export type MeetingSummaryMarkView = MeetingSummaryMark;
+
+/** A task made of an action item: the task's handle, and the item now naming it. */
+export type MeetingActionItemTaskView = CreatedMeetingActionItemTask;
+
+/**
+ * Ask for a recording's summary to be written again. Answers with the summary, now being written;
+ * the text and the action items it replaces are gone, and a task already made of one is kept.
+ *
+ * Refused `meeting-transcript-not-ready` where the transcript it would be written from is not ready.
+ */
+export function rerunMeetingSummary(
+  meetingId: string,
+  recordingId: string,
+): Promise<MeetingWrite<MeetingSummaryReadView>> {
+  return write(() =>
+    meetingsRerunSummary({
+      path: { meetingId, recordingId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Make a task of one action item, through the task subsystem's own path, on the recording's matter.
+ * `assignToOwner` puts it in the owner's name where the item has one; putting it in ANOTHER member's
+ * name needs the key to assign, so a member without it makes the task with nobody's name on it.
+ *
+ * Refused `meeting-summary-action-item-tasked` where somebody already made one of this item, and
+ * `meeting-summary-not-ready` where the summary is being written again or its words are withheld.
+ */
+export function createMeetingActionItemTask(
+  meetingId: string,
+  recordingId: string,
+  actionItemId: string,
+  assignToOwner: boolean,
+): Promise<MeetingWrite<MeetingActionItemTaskView>> {
+  return write(() =>
+    meetingsCreateSummaryActionItemTask({
+      path: { meetingId, recordingId, actionItemId },
+      headers: { "idempotency-key": newWriteKey() },
+      body: { assignToOwner },
+      throwOnError: true,
+    }),
+  );
+}
+
 /** Start ticking, and answer with the way to stop. The one timer the two records share. */
 function every(milliseconds: number, tick: () => void): () => void {
   const ticking = setInterval(tick, milliseconds);
@@ -722,7 +1005,7 @@ export function meetingPollSeams(meetingId: () => string): MeetingPollSeams {
 /** The question queue's seams as the app supplies them, on the same terms. */
 export function meetingQuestionSeams(meetingId: () => string): MeetingQuestionSeams {
   return {
-    list: (cursor) => readMeetingQuestions(meetingId(), cursor),
+    list: (cursor, after) => readMeetingQuestions(meetingId(), cursor, after ?? null),
     ask: (body) => askMeetingQuestion(meetingId(), body),
     upvote: (questionId) => upvoteMeetingQuestion(meetingId(), questionId),
     withdrawUpvote: (questionId) => withdrawMeetingQuestionUpvote(meetingId(), questionId),
@@ -730,6 +1013,14 @@ export function meetingQuestionSeams(meetingId: () => string): MeetingQuestionSe
       markMeetingQuestionAnswered(meetingId(), questionId, answered),
     redact: (questionId) => redactMeetingQuestion(meetingId(), questionId),
     every,
+  };
+}
+
+/** The two recording acts as the room client takes them, on the same terms as the records'. */
+export function meetingRecordingRoutes(meetingId: () => string): MeetingRecordingRoutes {
+  return {
+    start: () => startMeetingRecording(meetingId()),
+    stop: () => stopMeetingRecording(meetingId()),
   };
 }
 
@@ -760,4 +1051,15 @@ export function eventAddress(
     return `/matters/${encodeURIComponent(matterId)}/calendar?${entry}`;
   }
   return `/calendar?${entry}`;
+}
+
+/**
+ * Where a task made of an action item is read: the matter's Tasks section with the task named, the
+ * address the task's own assignment notice links to, or the member's own task list where the matter
+ * is not known.
+ */
+export function taskAddress(matterId: string | null, taskId: string): string {
+  const entry = `entry=${encodeURIComponent(taskId)}`;
+  if (matterId !== null) return `/matters/${encodeURIComponent(matterId)}/tasks?${entry}`;
+  return `/tasks?${entry}`;
 }

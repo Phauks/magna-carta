@@ -127,8 +127,17 @@ format is a case in its two switches rather than a new path beside them.
   buffers. Under the cap the digest AND the scan port both need every byte; that body is read into
   memory once and both are fed from it, because a second tee couples nothing (the faster consumer runs
   ahead and the runtime holds the rest for the slower one anyway) while the cap does bound the buffer.
-  The read stops the moment the body exceeds the size R2 reported, so a lying object size cannot grow
-  it past the cap.
+  The buffer is allocated at the reported size and digested as it fills, so the peak is the object
+  plus one chunk; the read stops the moment the body exceeds the size R2 reported, so a lying object
+  size cannot grow it past the cap.
+- **The inspectable-size cap is a memory bound before it is a policy.** A Worker isolate has 128 MB,
+  so `IN_MEMORY_INSPECTION_CEILING_BYTES` (40 MiB, `upload-policy.ts`) is both the setting's default
+  and the most it can ever be: `readInspectableSizeCap` reads a larger stored value as the ceiling,
+  and `runIngest` clamps whatever it is handed again. A firm may tighten the cap, never loosen it.
+  The multi-gigabyte default this replaced sent every recording longer than a few minutes down the
+  in-memory lane and out of memory on each delivery, so the version stayed `pending` for good. The
+  inline routes that load a whole body on the strength of this number (OCR, repair, integrity,
+  decryption, seal, the email entrances) share the bound for the same reason.
 - **Uninspectable-file split (inspectable-size short-circuit).** Files that exceed the inspectable-size
   cap bypass the scan port and commit unconditionally as `unscanned` with `scan_detail: "oversize"` — no
   extension allow-list classification occurs at this boundary; large legitimate files are not suspicious

@@ -121,13 +121,37 @@ export const liveMaxTotalBytesDefinition: FirmSettingDefinition<number> = {
   defaultValue: 2 * GIBIBYTE,
 };
 
-// The maximum byte size of a document that the ingest pipeline will attempt to inspect for
-// schema extraction, type detection, and metadata enrichment. Documents larger than this cap
-// are marked as uninspectable and skip enrichment. Default 2 GiB.
+const MEBIBYTE = 1024 * 1024;
+
+// THE MOST A WORKER WILL HOLD IN MEMORY TO INSPECT ONE DOCUMENT: 40 MiB.
+//
+// Inspecting a document means reading the whole of it into the isolate — the ingest gate feeds the
+// digest and the scan engine from one in-memory copy, and the inline routes (OCR, repair, integrity,
+// decryption, seal) decode or load the whole body — and a Worker isolate has 128 MB in total. The
+// figure is sized against that budget, not against how large a document a firm would like scanned:
+//
+//   - the ingest gate holds the body ONCE (allocated at its reported size, the digest computed while
+//     it fills), so its peak is the document plus one chunk off the wire — under a third of the
+//     isolate, leaving the rest for the runtime's own heap, the loaded modules, and the other work of
+//     the queue batch;
+//   - it is at or above the largest message either email capture entrance accepts (40 MiB), so no
+//     filed email is passed over by the scan merely for its size.
+//
+// Anything larger is not refused: the ingest gate streams it through the digest without buffering and
+// commits it as `unscanned` with the detail `oversize`, which is what a long meeting recording or a
+// large evidence file is. A multi-gigabyte default here, which this replaced, sent a one-hour
+// recording down the in-memory lane and out of memory on every attempt, so it never committed at all.
+export const IN_MEMORY_INSPECTION_CEILING_BYTES = 40 * MEBIBYTE;
+
+// The maximum byte size of a document a firm wants inspected (scanned, sniffed, enriched). A firm may
+// set it LOWER than the platform ceiling above; it can never raise the effective value past it, because
+// the ceiling is a fact about Worker memory rather than a policy — readInspectableSizeCap applies it on
+// every read, and runIngest applies it again for a caller that builds its input by hand. Documents over
+// the effective cap commit as uninspectable and skip enrichment. Default: the ceiling.
 export const inspectableSizeCapDefinition: FirmSettingDefinition<number> = {
   key: "fileManager.inspectableSizeCapBytes",
   schema: z.number().int().positive(),
-  defaultValue: 2 * GIBIBYTE,
+  defaultValue: IN_MEMORY_INSPECTION_CEILING_BYTES,
 };
 
 // The signature-engine identity (engine + signature-database version) that scans run under, set by
@@ -175,8 +199,12 @@ export function readArchiveCaps(database: SqlDatabase): Promise<ArchiveCaps> {
   return readFirmSetting(database, archiveCapsDefinition);
 }
 
-export function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
-  return readFirmSetting(database, inspectableSizeCapDefinition);
+// The firm's cap, bounded by what a Worker can hold: a stored value above the ceiling (written before
+// the ceiling existed, or by hand) reads as the ceiling, so no caller that buffers a document on the
+// strength of this number can be talked into an out-of-memory.
+export async function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
+  const firmCap = await readFirmSetting(database, inspectableSizeCapDefinition);
+  return Math.min(firmCap, IN_MEMORY_INSPECTION_CEILING_BYTES);
 }
 
 export function readScanEngineVersion(database: SqlDatabase): Promise<string | null> {

@@ -6,7 +6,10 @@ import type {
 } from "@magna-carta/file-manager/scan-port";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import type { UploadPolicy } from "@magna-carta/file-manager/upload-policy";
-import { DEFAULT_UPLOAD_POLICY } from "@magna-carta/file-manager/upload-policy";
+import {
+  DEFAULT_UPLOAD_POLICY,
+  IN_MEMORY_INSPECTION_CEILING_BYTES,
+} from "@magna-carta/file-manager/upload-policy";
 import { DEFAULT_SCAN_POLICY, type ScanPolicy } from "@magna-carta/file-manager/verdict";
 import type { FlaggedTreatment } from "@magna-carta/file-manager/scan-policy-settings";
 import { describe, expect, it } from "vitest";
@@ -352,6 +355,139 @@ describe("runIngest sub-cap body handling", () => {
     // One chunk satisfies the head sniff and the claimed size; the next one blows the bound and ends
     // the read. Nothing near the eight chunks the stream would have handed over.
     expect(pulls()).toBeLessThanOrEqual(3);
+  });
+});
+
+function hexOf(buffer: ArrayBuffer): string {
+  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// The bytes chunkedBody hands over, assembled — the expected digest is computed over these.
+function chunkedBytes(chunkSize: number, chunkCount: number): Uint8Array<ArrayBuffer> {
+  const all = new Uint8Array(chunkSize * chunkCount);
+  all.set(PDF_BYTES, 0);
+  return all;
+}
+
+// The in-memory lane allocates the body at its reported size and digests it as it fills, so a body
+// spread over many chunks must come out with exactly the hash of the bytes in order, and a body that
+// stops short of its reported size must be refused rather than committed with a zero-filled tail.
+describe("runIngest in-memory lane over many chunks", () => {
+  it("records the digest of every chunk in order", async () => {
+    const chunkSize = 8192;
+    const { stream } = chunkedBody(chunkSize, 6);
+    const expected = hexOf(await crypto.subtle.digest("SHA-256", chunkedBytes(chunkSize, 6)));
+    const outcome = await runIngest(
+      input(PDF_BYTES, {
+        objectBody: stream,
+        objectSize: chunkSize * 6,
+        version: {
+          declaredSize: chunkSize * 6,
+          declaredContentType: "application/pdf",
+          r2Key: "files/a/v1",
+          fileName: "doc.pdf",
+        },
+        policy: { ...POLICY, maxSizeBytes: chunkSize * 6 },
+      }),
+    );
+    expect(outcome).toMatchObject({ kind: "commit", contentSha256: expected });
+  });
+
+  it("refuses a body shorter than the size R2 reported", async () => {
+    const chunkSize = 8192;
+    const { stream } = chunkedBody(chunkSize, 2);
+    const outcome = await runIngest(
+      input(PDF_BYTES, {
+        objectBody: stream,
+        objectSize: chunkSize * 3,
+        version: {
+          declaredSize: chunkSize * 3,
+          declaredContentType: "application/pdf",
+          r2Key: "files/a/v1",
+          fileName: "doc.pdf",
+        },
+      }),
+    );
+    expect(outcome).toEqual({ kind: "quarantine", reason: "size-mismatch", scanDetail: null });
+  });
+});
+
+// A Worker isolate has 128 MB, so the in-memory lane is bounded by a ceiling of tens of MiB whatever
+// cap the caller passes. An object past it — an hour of meeting audio is about 345 MB — must stream
+// through the digest and commit as unscanned/oversize, never reach the lane that holds it whole.
+describe("runIngest over the in-memory inspection ceiling", () => {
+  it("streams an object above the ceiling to an oversize commit even when the firm cap is higher", async () => {
+    const chunkSize = 1024 * 1024;
+    const chunkCount = IN_MEMORY_INSPECTION_CEILING_BYTES / chunkSize + 1;
+    const size = chunkSize * chunkCount;
+    const { stream, pulls } = chunkedBody(chunkSize, chunkCount);
+    const expected = hexOf(
+      await crypto.subtle.digest("SHA-256", chunkedBytes(chunkSize, chunkCount)),
+    );
+    let scanCalled = false;
+    const outcome = await runIngest(
+      input(PDF_BYTES, {
+        objectBody: stream,
+        objectSize: size,
+        version: {
+          declaredSize: size,
+          declaredContentType: "audio/wav",
+          r2Key: "files/a/v1",
+          fileName: "recording.wav",
+        },
+        // A firm cap far above the ceiling: the stored value from before the ceiling existed. The
+        // in-memory lane would have been taken on the strength of it.
+        inspectableSizeCap: 2 * 1024 * 1024 * 1024,
+        scanPort: {
+          scan: () => {
+            scanCalled = true;
+            return Promise.reject(new Error("an oversize object must never reach the scan port"));
+          },
+        },
+      }),
+    );
+    expect(scanCalled).toBe(false);
+    expect(outcome).toEqual({
+      kind: "commit",
+      sizeBytes: size,
+      sniffedContentType: "application/pdf",
+      contentSha256: expected,
+      scanVerdict: "unscanned",
+      scanEngineVersion: null,
+      scanDetail: "oversize",
+      rawScanResult: null,
+    });
+    // Every chunk was read, by the digest alone.
+    expect(pulls()).toBe(chunkCount);
+  });
+
+  it("still inspects an object exactly at the cap", async () => {
+    let scannedBytes = 0;
+    const outcome = await runIngest(
+      input(HELLO, {
+        inspectableSizeCap: HELLO.byteLength,
+        version: {
+          declaredSize: HELLO.byteLength,
+          declaredContentType: "text/plain",
+          r2Key: "files/a/v1",
+          fileName: "hello.txt",
+        },
+        scanPort: {
+          async scan(body) {
+            scannedBytes = (await drain(body)).byteLength;
+            return {
+              engineVersion: "e1",
+              clam: { state: "clean" },
+              heuristic: { kind: "none" },
+              matches: [],
+              timings: { clamdMs: 1, yaraMs: 1 },
+            };
+          },
+        },
+      }),
+    );
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "clean" });
+    expect(scannedBytes).toBe(HELLO.byteLength);
   });
 });
 

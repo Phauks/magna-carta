@@ -87,15 +87,104 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   instead, and the pure sort that puts a host's queue in the order the hands went up. The DWELL is a
   client constant because only the browser reads it, and it reaches the design system's motion
   recipe as `--mc-reaction-dwell` rather than being written down a second time in CSS.
+- `recording.svelte.ts` — a recording of the meeting: whether one runs, the announcement that is the
+  consent mechanism (a synthesized tone, the words spoken where the browser can, a dismissible banner,
+  and the same sentence in an assertive live region), and Record and Stop over the screen's routes
+  (`recordThrough`). THE ROOM'S FRAME LIGHTS THE MARK, NEVER THE MEMBER'S PRESS: the `recording` frame
+  and the welcome's `recording` field are the only things that light or clear it. EVERY WELCOME
+  CARRYING A RUNNING RECORDING IS TOLD, a rejoin into the same one included: the banner is drawn and
+  the live region written again, because the room records each welcome as an occasion the person was
+  told and the socket that came back may be at another device. The tone and the voice sound once per
+  recording on this page — which one was announced aloud survives a lost socket — so a flaky
+  connection does not chime every few seconds. WHETHER A START IS NEWS IS DECIDED BY THE TRANSITION,
+  NEVER BY THE HANDLE: a guest's copy carries `recordingId: null` (the handle names a firm record),
+  so a start after a stop, or a welcome naming a running recording after a socket that had none, is
+  news on its own; only a welcome after a socket that had one asks `sameRecording`, which compares
+  handles where both copies carry one and the start instant (`at`) where they do not. The live
+  region is EMPTIED AND REWRITTEN a moment later on every announcement, because an assertive region
+  does not re-read text identical to what it already holds and the accessibility tree updates only
+  when the browser renders.
+- `recording-sounds.ts` — the tone and the voice (`MeetingRecordingSounds`, reached through
+  `MeetingClientSeams.createRecordingSounds`, silent by default), with an audio context of their own
+  because the meter's does not exist for a member who published no microphone. ONE DEVICE PER PAGE,
+  `pageRecordingSounds`, BECAUSE THE PRESS THAT OPENS IT IS OFTEN ON ANOTHER SCREEN: Safari and iOS
+  leave a context made or resumed outside a press suspended, and a member who joins from a calendar
+  entry pressed Join there, while the room's arrival runs from an effect after the navigation. So
+  every press that leads into a room unlocks `pageRecordingSounds` before it awaits or navigates —
+  the entry action's Join and Start, the Meetings page's Join, the room's own Join and Rejoin
+  (through `unlockRecordingSounds()`) and any press in the room — and the browser seams hand the
+  room's client a HOLD on that same device (`pageRecordingSounds.hold()`), so its first chime lands
+  on the device the press woke. A ROOM GIVES BACK ITS HOLD, NEVER THE DEVICE: a room's teardown runs
+  after the press that leads out of it, so a client that closed the device on `clear()` closed the
+  one the press into the next room had just woken. The device closes when no hold is left and no
+  press is waiting for a room to take it over; only the page's own `release()` closes it outright,
+  and no room can reach that. A chime on a context that is not running schedules nothing rather than
+  a tone that plays late. A test that mounts a screen releases `pageRecordingSounds` after each
+  case, because the device outlives a screen by design.
 - `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
-  rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`), with a fifteen-second
-  backstop read. A poll's counts only ever grow, so the two doors are merged by keeping the larger; the
-  question queue is walked whole on the record's own key and sorted here, unanswered then upvotes, so
-  it moves on a tally frame without a read. Whether THIS member answered or upvoted comes from the
-  read and their own press, never from a frame.
+  rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`). NO READ ON A TIMER WHILE
+  THE SOCKET IS HEALTHY: a full read on arrival and on reconnect, a read when a panel opens (forward
+  from the last row a read reached, by `since`/`sinceId`, merged by id), and a one-minute backstop
+  only while the socket is down — three hundred browsers re-reading every few seconds is the read
+  storm the relay exists to avoid, and it spends the firm's rate-limit budget. A poll's counts only
+  ever grow, so the doors are merged by keeping the larger; the question queue is sorted here,
+  unanswered then upvotes, so it moves on a tally frame without a read. Whether THIS member answered
+  or upvoted comes from the read and their own press, never from a frame. A poll waits for an answer
+  from everyone but the member who opened it, hosts included.
 
 **`screen/` — what is drawn.** `meeting-reactions.svelte` (the control-bar menu of six),
-`meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+`recording-mark.svelte` (the static Recording badge drawn in the header of the room and guest pages
+while the room says a recording runs, and beside a recorded meeting's row and calendar entry from the
+summary's `recordingState`), `recording-notice.svelte` (the one dismissible banner both pages draw
+from the recording concern), `recording-list.svelte` with `recording-list.ts` (the one Recordings
+reading panel, opened from the room's header and from an ended meeting's row on the Meetings page: a
+recording on the matter is opened as THE DOCUMENT, through the file's own download route in a new
+tab, never through a player of ours, and ONLY when the row's `document.state` is `available` — the
+version the recording added is clean and still the file's current one, because that route serves the
+current version and there is no download address for one version; a version still being checked,
+held, replaced or gone says so in the Document column instead; every state and every stop reason has
+its own words there, an `abandoned` recording says it was interrupted and that nothing reached the
+matter, a failed recording states its Error ID, and the server's `filed` is never the word on
+screen), `transcript-panel.svelte` with `transcript-panel.ts` (a recording's transcript: a reading
+`ActionDialog` opened from the list's Transcript column over the list, on the precedent of who was
+told; the lines as a `Conversation`, one speaker kind because everybody in a meeting is a person,
+each line's place in the recording as `mm:ss` or `h:mm:ss` and never a time of day, a guest marked
+as a guest, and a GAP as a `failed` turn whose warning note says whose audio is missing and for how
+long, or that nothing was heard where it names nobody; paged by the read's ordinal cursor through
+`DataTable.LoadMore`; a transcript being made, one that could not be made, and a ready one whose
+lines the read withholds (`linesWithheld`: its WebVTT document was removed, is held by the scan, or is
+out of reach) are the design system's `EmptyState` because they are facts about the recording rather
+than an absence of lines, ONE pure function (`transcriptBody`) deciding which, the failure carrying
+its Error ID, while a ready transcript with no lines says "No Results" inside its own frame;
+a transcript being made is read again every fifteen seconds while the panel is open and tells the
+list to read again the moment it settles; and the WebVTT document it became opens beside the reader
+through the file's own route and `opensBeside("file")`. THE WORDS OF A LINE ARE PRIVILEGED: they are
+drawn and never logged, put in an address or carried in a failure report, and the transcript region
+is not a live region, so a page arriving is not read aloud), `summary-panel.svelte` with
+`summary-panel.ts` (a recording's summary: a reading `ActionDialog` opened from the list's Summary
+column over the list, on the transcript's terms; the text under ONE quiet line saying it is the
+platform's characterization of the conversation and not a record of it, then the action items as a
+numbered list, each with "Owner: <name>" or "No owner" and its due date through the design system's
+civil-date `formatDate`; a summary being written, one that could not be written (with its Error ID),
+one refused for each of its three reasons (summaries switched off, the firm's AI processing not
+switched on, naming "AI and the Assistant", and nothing said) and a ready one whose words are withheld
+(in `TRANSCRIPT_WITHHELD_WORDS`, the transcript's own) are the design system's `EmptyState`, ONE pure
+function (`summaryBody`) deciding which; a summary being written is read again on the transcript's
+interval and tells the list when it settles. CREATE TASK MAKES NOTHING ON THE ROW'S PRESS: a
+participant can dictate an action item for somebody else, so the press opens a `New Task` confirmation
+stating who the task will be assigned to (`taskAssigneeWords`) with a box to take the name off, refused
+with its reason where the reader holds neither the item nor `tasks:assign` (`mayAssignToOwner`); only
+its commit calls the task route, with a fresh idempotency key and `assignToOwner` from
+`assignsToOwner`, and a made task links through `taskAddress` in `meetings-api.ts` to
+`/matters/{matterId}/tasks?entry={taskId}`, the address the task's own assignment notice uses (the
+matter is read off the meeting under the room's own query key). A 409 saying the item is already a
+task is said on the row and the summary read again to link to it; any other refusal stands in the
+confirmation. RE-RUN IS A HOST'S AND ASKS FIRST: offered only where the session holds
+`meetings:host`, behind a destructive confirmation saying the text and items are replaced and tasks
+already made are kept. The list reads `meetings:host`, `tasks:assign` and the member's id off the
+shared `sessionPermissions` itself, because it is opened from two screens and the answer is the
+session's. THE SUMMARY'S TEXT AND EVERY ITEM'S TEXT ARE PRIVILEGED, on the transcript's rule: drawn,
+never logged, put in an address or carried in a failure report), `meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
 rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
 `meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who
@@ -139,6 +228,12 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
 
 ## Local rules
 
+- **The firm's meeting switches are set on Settings › Practice › Meetings, not from here.** The page
+  is `src/routes/(app)/settings/meetings/+page.svelte` over `$lib/settings/meeting-settings-draft.svelte.ts`
+  and `$lib/settings/meeting-settings-api.ts`, behind `meetings:manageSettings`. A screen here that has
+  to say why recording, a summary or captions are unavailable names that page by its title ("Meetings"
+  under Settings) rather than restating what the switches do; their words live on the settings rows,
+  once.
 - **A guest's page is structurally unable to reach the application.** It lives outside `(app)`, so
   it inherits no shell, no session bootstrap and no back-navigation registry; every guest call sends
   `credentials: "omit"`, so a member session the same browser holds never rides along; and nothing
@@ -175,8 +270,9 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   to write over a list a frame has already stated. The one thing the frames cannot cover is a grant
   written AFTER the last arrival — a member named co-host at the twentieth minute is told the roster
   changed and nothing about the people already outside — and that is the only gap the read fills.
-- **A refusal is not the end of a meeting unless it says so.** Five reasons end it
-  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`, `denied`); every other one leaves
+- **A refusal is not the end of a meeting unless it says so.** Six reasons end it
+  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`, `denied`, and `withdrawn`, which a
+  guest receives when the firm takes their link back); every other one leaves
   the socket open, the roster arriving and the member in the room, with a sentence on the screen.
   `not-host` and `not-admitted` are the two that are neither: nothing is wrong with this browser and
   nothing was refused about the meeting, so each is a notice rather than the band that reports a

@@ -4,7 +4,11 @@ import {
   CATALOG_VERSION,
   catalogEntrySchema,
   embeddingEntry,
+  isOnCloudflareModel,
   isZdrEligible,
+  onCloudflareReasoningEntry,
+  PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+  reasoningEntries,
   reasoningModelIds,
 } from "../src/catalog.ts";
 
@@ -37,6 +41,49 @@ describe("the curated model catalog", () => {
     expect(embeddings).toHaveLength(1);
     expect(embeddingEntry().slot).toBe("embedding");
     expect(embeddingEntry().zdrEligible).toBe(true);
+  });
+
+  it("every reasoning entry states its context window, and the platform's own is hosted on Cloudflare", () => {
+    for (const entry of CATALOG.filter(
+      (e) => e.slot === "reasoning" || e.slot === "platform-reasoning",
+    )) {
+      expect(entry.contextWindowTokens, entry.modelId).toBeGreaterThan(0);
+    }
+    const platform = CATALOG.filter((e) => e.slot === "platform-reasoning");
+    expect(platform).toEqual([onCloudflareReasoningEntry()]);
+    expect(onCloudflareReasoningEntry().modelId).toBe(PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID);
+    expect(isOnCloudflareModel(PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID)).toBe(true);
+    // Read off Cloudflare's model page for it: a 128,000-token context window.
+    expect(onCloudflareReasoningEntry().contextWindowTokens).toBe(128_000);
+    // It holds no tier, so an unconfigured firm's default is not moved by it.
+    expect(onCloudflareReasoningEntry().tier).toBeUndefined();
+    expect(isOnCloudflareModel("anthropic/claude-opus-4-8")).toBe(false);
+  });
+
+  it("keeps the platform's own reasoning model OFF the roster a firm chooses its assistant's model from", () => {
+    // A model hosted on Cloudflare answers 256 tokens unless asked for more, so a firm that picked it for
+    // the assistant would have every answer cut short; it is reachable only by its platform role.
+    expect(reasoningModelIds()).not.toContain(PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID);
+    expect(reasoningEntries().some((entry) => isOnCloudflareModel(entry.modelId))).toBe(false);
+    expect(isZdrEligible(PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID)).toBe(true);
+  });
+
+  it("the entry schema holds the platform's reasoning role to the reasoning bar and refuses it a tier", () => {
+    const base = {
+      slot: "platform-reasoning" as const,
+      modelId: "@cf/example/model",
+      snapshotId: "@cf/example/model",
+      snapshotForm: "provider-dateless" as const,
+      referenceId: "@cf/example/model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-10-03",
+      availabilityVerifiedOn: "2026-10-03",
+      contextWindowTokens: 1_000,
+    };
+    expect(catalogEntrySchema.safeParse(base).success).toBe(true);
+    expect(catalogEntrySchema.safeParse({ ...base, zdrEligible: false }).success).toBe(false);
+    expect(catalogEntrySchema.safeParse({ ...base, tier: "balanced" }).success).toBe(false);
   });
 
   it("isZdrEligible answers per model id", () => {

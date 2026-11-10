@@ -36,7 +36,10 @@
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
   import { startMeeting } from "./meetings-api.ts";
+  import { pageRecordingSounds } from "./client/recording-sounds.ts";
   import MeetingGuestsPanel from "./meeting-guests-panel.svelte";
+  import RecordingMark from "./screen/recording-mark.svelte";
+  import { meetingIsBeingRecorded } from "./meeting-list.ts";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
@@ -115,6 +118,9 @@
 
   async function start(medium: MeetingMedium): Promise<void> {
     if (starting !== null) return;
+    // Inside the press, before anything is awaited: the room this opens may be recorded, and the
+    // tone that says so plays on a device only a press can wake on Safari (see `enter` below).
+    pageRecordingSounds.unlock();
     starting = medium;
     lastAttempt = medium;
     startFailure = null;
@@ -125,6 +131,20 @@
       return;
     }
     startFailure = outcome.failure;
+  }
+
+  /*
+   * Go into the running room.
+   *
+   * THE RECORDING TONE'S DEVICE IS WOKEN HERE, ON THIS PRESS, rather than by the room. The room's
+   * arrival runs from an effect once the navigation has landed, after this press is over, and Safari
+   * keeps a device made or resumed outside a press suspended — so a member who walked in from the
+   * calendar would be told a recording was running by the banner alone. The page holds one device,
+   * and the room chimes on the same one.
+   */
+  function enter(meetingId: string): void {
+    pageRecordingSounds.unlock();
+    void goto(`/meetings/${meetingId}`);
   }
 
   /** What the running room is called, which is what its Join control has to say. */
@@ -174,6 +194,12 @@
 {/if}
 
 {#if canJoin && configured}
+  {#if running !== null && meetingIsBeingRecorded(running)}
+    <!-- The room's own mark, beside the way into it: whether the meeting is being recorded is
+         answered on the entry, before Join, rather than by the announcement after it. Shown on a
+         locked room too, because the people inside are being recorded whoever may come in. -->
+    <RecordingMark />
+  {/if}
   {#if locked}
     <Button variant="secondary" disabled title={lockedReason}>
       <Lock class="size-16" aria-hidden="true" />
@@ -185,7 +211,7 @@
       title={running.medium === "audio"
         ? "Go into the call running on this entry"
         : "Go into the meeting running on this entry"}
-      onclick={() => void goto(`/meetings/${running.id}`)}
+      onclick={() => enter(running.id)}
     >
       {#if running.medium === "audio"}
         <Phone class="size-16" aria-hidden="true" />

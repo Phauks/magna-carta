@@ -3,12 +3,14 @@ import {
   MEETING_CONNECTION_QUALITIES,
   MEETING_REACTIONS,
   PREFERRED_RIDS,
+  type MeetingCaption,
   type MeetingChatMessage,
   type MeetingPollOptionCount,
   type MeetingPollSnapshot,
   type MeetingQuestionSnapshot,
   type MeetingQuestionUpvoteCount,
   type MeetingReaction,
+  type MeetingRecordingAnnouncement,
   type MeetingRoomState,
   type PreferredRid,
   type RosterParticipant,
@@ -375,6 +377,22 @@ const lowerHandsFrame = z.object({
   participantId: participantHandle.nullable(),
 });
 
+/**
+ * LIVE CAPTIONS ON OR OFF, FOR THE WHOLE ROOM — a host's frame, on the spotlight's terms.
+ *
+ * A FRAME AND NOT A ROUTE, by the rule the frames above are: captions are about this moment and leave
+ * nothing behind — no caption is stored anywhere — so there is nothing anybody could later ask who did.
+ * What a firm decides is whether captions may run at all (`meetings.captionsEnabled`); what a host
+ * decides here is whether they run in this room now. The room answers with `room-state`, whose
+ * `captions` says what is true afterwards, or refuses `captions-unavailable` when the firm or the
+ * deployment does not allow them — and `not-host` to a socket holding no grant.
+ */
+const captionsFrame = z.object({
+  ...versioned,
+  type: z.literal("captions"),
+  enabled: z.boolean(),
+});
+
 /** One participant on every screen, or null to clear it. A room-level fact, not a per-browser one. */
 const spotlightFrame = z.object({
   ...versioned,
@@ -454,6 +472,7 @@ export const MeetingClientFrame = z.union([
   askToUnmuteFrame,
   lowerHandsFrame,
   spotlightFrame,
+  captionsFrame,
   diagnosticReportFrame,
   pingFrame,
 ]);
@@ -520,6 +539,16 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   "lobby",
   "admitted",
   "waiting",
+  // THE ANNOUNCEMENT THAT A RECORDING STARTED OR STOPPED, which the owner's ruling makes the consent
+  // mechanism. To every WELCOMED socket — a guest's as much as a member's, because everybody whose
+  // voice is being captured is told — and never to the lobby, where nobody is being recorded. Start
+  // and stop are ROUTES: the browser sends nothing new on the socket to cause either.
+  "recording",
+  // WORDS SOMEBODY IS SAYING, while captions run — interim and final, to every WELCOMED socket and
+  // never to the lobby, which is outside the conversation they are words of. Never stored by the room
+  // and never sent twice: a browser that misses one draws the next. Whether captions are on rides
+  // `room-state`, not a frame of its own.
+  "caption",
   "ended",
   "refused",
   "pong",
@@ -608,6 +637,11 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // Decided before the routing client is even resolved, so a waiter's frame never costs a session
   // at the routing service.
   "not-admitted",
+  // A HOST ASKED FOR CAPTIONS THE ROOM CANNOT RUN — the firm has not switched them on, or this
+  // deployment cannot route meeting audio to the caption model. NON-FATAL, socket open: nothing about
+  // the meeting changed, and the host's screen says why the control did nothing. Also why captions
+  // that were running are turned off by the room itself, which `room-state` then announces.
+  "captions-unavailable",
   // The meeting closed while this socket was open.
   "meeting-ended",
 ] as const);
@@ -687,8 +721,49 @@ export function welcomeFrame(
   roster: readonly RosterParticipant[],
   roomState: MeetingRoomState,
   waiting: readonly WaitingParticipant[],
+  // THE RECORDING RUNNING WHEN THIS SOCKET ARRIVED — the "and on arrival" half of the consent ruling.
+  // It is server-sent, so a browser that never paints it was still told; and it is the same
+  // announcement the room broadcast at the start, so a late arrival hears exactly what the room heard.
+  // Always `started` when present. ABSENT, not null, when nothing is being recorded: a welcome to a
+  // room that is not recording is then byte-for-byte the welcome it always was, and a browser reads
+  // the missing field as "not recording", which is what it means.
+  recording: MeetingRecordingAnnouncement | null = null,
 ): string {
-  return frame({ type: "welcome", participantId, roster, roomState, waiting });
+  return frame({
+    type: "welcome",
+    participantId,
+    roster,
+    roomState,
+    waiting,
+    ...(recording === null ? {} : { recording }),
+  });
+}
+
+/**
+ * A RECORDING STARTED OR STOPPED — the announcement, broadcast to every welcomed socket the instant
+ * the route committed the transition.
+ *
+ * The browser plays it three ways at once (a synthesized tone, spoken words where the browser offers
+ * them, and a banner with a live-region announcement), and draws the persistent mark for as long as
+ * the state is `started`. What the server records is not what was rendered but what it delivered: the
+ * room writes a notice for every stay it sent this frame to.
+ *
+ * A guest's copy carries `by.userId: null`, the rule every frame naming a firm user follows.
+ */
+export function recordingFrame(announcement: MeetingRecordingAnnouncement): string {
+  return frame({ type: "recording", ...announcement });
+}
+
+/**
+ * ONE CAPTION, to every welcomed socket — interim or final, see `MeetingCaption`.
+ *
+ * Built per kind of reader, like every frame that names a firm user: a guest's copy carries
+ * `userId: null` for everybody. Interim captions are COALESCED before they are sent, so a browser sees
+ * a bounded number a second however fast the model guesses; a final caption is never held back and
+ * never dropped, because nothing later restates it.
+ */
+export function captionFrame(caption: MeetingCaption): string {
+  return frame({ type: "caption", ...caption });
 }
 
 /** The answer to the browser's offer, and where each published track landed. */
@@ -1038,6 +1113,8 @@ export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): st
 }
 
 export type {
+  MeetingCaption,
+  MeetingCaptionsState,
   MeetingChatMessage,
   MeetingConnectionQuality,
   MeetingHostRole,
@@ -1049,6 +1126,8 @@ export type {
   MeetingQuestionSnapshot,
   MeetingQuestionUpvoteCount,
   MeetingReaction,
+  MeetingRecordingActor,
+  MeetingRecordingAnnouncement,
   MeetingRoomState,
   MeetingSpotlight,
   PreferredRid,

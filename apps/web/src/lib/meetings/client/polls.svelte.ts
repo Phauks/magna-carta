@@ -17,6 +17,16 @@
  * every socket and carry nothing about who answered; the page carries whether the caller did, and
  * this member's own answer, once the record has it, is the other door.
  *
+ * A HOST ANSWERS LIKE ANYBODY, EXCEPT THE POLL THEY ASKED. Running the meeting is not a reason to be
+ * kept from the options: a co-host is in the room as much as anybody, and a poll another host opened
+ * is a question to them too. Only the poll a member opened themselves goes straight to its tally —
+ * they are watching the answers to their own question arrive — and `awaitsAnswerFrom` is the one
+ * place that says so, for the card, the count on the control and the toast alike.
+ *
+ * THE RELAY IS THE PATH AND THE READ IS NOT A CLOCK. While the socket carries the room's frames,
+ * nothing here reads on a timer: the polls are read when the member arrives, when the panel opens,
+ * and when the socket comes back, and only while it is DOWN does a slow read stand in for the frames.
+ *
  * EVERY EDGE IS A SEAM, like every other module in this directory: the calls and the ticking. Nothing
  * here touches `window`, so what a panel does with a tally frame is a unit test.
  */
@@ -25,14 +35,14 @@ import type { MeetingWrite } from "../meetings-api.ts";
 import { isRecord, readString } from "./signaling.ts";
 
 /**
- * How often the polls are read again behind the relay.
+ * How often the polls are read while the socket is DOWN, and only then.
  *
- * THE RELAY IS THE PATH AND THIS IS THE BACKSTOP, on the chat transcript's reasoning: a frame reaches
- * a socket that is open and has missed nothing, and the read is what catches a browser up on the
- * frames it did not get. A poll changes far less often than a conversation, so the backstop runs at
- * the transcript's stretched pace from the start.
+ * A frame reaches a socket that is open, so while one is, the frames are the path and a timed read
+ * would be three hundred browsers asking the firm's record for what they were already told. Once
+ * the socket goes, the screen says the room stopped answering and offers Rejoin; this keeps an open
+ * panel honest meanwhile, slowly, because a room that goes away takes everybody's socket at once.
  */
-export const POLLS_BACKSTOP_INTERVAL_MILLISECONDS = 15_000;
+export const POLLS_BACKSTOP_INTERVAL_MILLISECONDS = 60_000;
 
 /** The most pages one read walks. Far past what a meeting's polls fill; a bound, not a budget. */
 const MAX_POLL_PAGES_READ = 20;
@@ -58,6 +68,8 @@ export interface MeetingPollOptionView {
 /** A poll as the panel draws it. */
 export interface MeetingPollView {
   readonly pollId: string;
+  /** The member who opened it. Null on a copy the room sends a guest, which names no member. */
+  readonly askedByUserId: string | null;
   readonly question: string;
   /** Whether answers are held without the name of who gave them. */
   readonly anonymous: boolean;
@@ -194,6 +206,7 @@ export function readPoll(value: unknown): MeetingPollView | null {
   const maxChoices = readCount(value.maxChoices);
   return {
     pollId,
+    askedByUserId: readString(value, "askedByUserId"),
     question,
     anonymous: value.anonymous === true,
     maxChoices: maxChoices === 0 ? 1 : maxChoices,
@@ -231,6 +244,46 @@ function tallyOf(poll: MeetingPollView): MeetingPollTally {
     counts: new Map(poll.options.map((option) => [option.optionId, option.count] as const)),
     respondents: poll.respondents,
   };
+}
+
+/**
+ * Whether a poll is waiting for THIS member's answer: it is open, they have not answered it, and it
+ * is not the poll they opened themselves.
+ *
+ * Everything that decides whether a poll asks something of somebody reads this — the card, which is
+ * the options until it is not and the tally after; the count on the Polls control; and the toast —
+ * so a host is never told a poll is open by a toast and then shown a card with nothing to answer.
+ */
+export function awaitsAnswerFrom(poll: MeetingPollView, userId: string | null): boolean {
+  if (poll.closedAt !== null || poll.answered) return false;
+  return userId === null || poll.askedByUserId !== userId;
+}
+
+/** Somebody in the room, as far as whether they can answer a poll depends on it. */
+export interface MeetingPollRespondent {
+  /** The firm member behind the stay. Empty for a guest, whom a member's roster names without one. */
+  readonly userId: string;
+  /** Whether the stay is a member's or a guest's, where the roster row says so. */
+  readonly kind?: "member" | "guest";
+}
+
+/**
+ * How many people in the room a poll can be answered by, which is what "12 of 30 answered" is out of.
+ *
+ * MEMBERS ONLY. Answering is a member route and there is no guest lane for it, so a guest in the room
+ * is somebody the poll can never hear from; counting them would leave every poll in a meeting with a
+ * client in it short of its total for ever. The roster row's `kind` says who is a guest where the row
+ * carries one; a row without it is read by the member identity a guest does not have, which on a
+ * member's screen — the only screen with polls on it — is the same answer.
+ */
+export function membersWhoCanAnswer(participants: readonly MeetingPollRespondent[]): number {
+  let members = 0;
+  for (const participant of participants) {
+    const isMember =
+      participant.kind === undefined ? participant.userId !== "" : participant.kind === "member";
+    if (isMember) members += 1;
+  }
+  return members;
 }
 
 /**
@@ -288,29 +341,36 @@ export class MeetingPolls implements MeetingPollRelay {
    */
   openedUnseen = $state(0);
 
-  /** The open polls this member has not answered: the number on the Polls control. */
+  /** The polls waiting for this member's answer: the number on the Polls control. */
   readonly waitingForAnswer = $derived(
-    this.polls.filter((poll) => poll.closedAt === null && !poll.answered).length,
+    this.polls.filter((poll) => awaitsAnswerFrom(poll, this.#viewer())).length,
   );
 
   readonly #seams: MeetingPollSeams;
+  /** Who is reading, which is what tells the poll they opened from one they are asked. */
+  readonly #viewer: () => string | null;
+  /** The slow read that stands in for the frames while the socket is down. Null while it is up. */
   #stopTicking: (() => void) | null = null;
   /** True while a read is in flight, so a slow answer cannot stack reads on itself. */
   #refreshing = false;
   /** True while the panel is showing. */
   #open = false;
+  /** True between `start` and `stop`: a meeting this module is following. */
+  #following = false;
 
-  constructor(seams: MeetingPollSeams) {
+  constructor(seams: MeetingPollSeams, viewer: () => string | null = () => null) {
     this.#seams = seams;
+    this.#viewer = viewer;
   }
 
-  /** Start following the polls: read what is there, then read again on the backstop tick. */
+  /**
+   * Start following the polls: read what is there, once. The room's frames carry them from there,
+   * so nothing ticks while the socket is up.
+   */
   start(): void {
     this.stop();
+    this.#following = true;
     this.reading = true;
-    this.#stopTicking = this.#seams.every(POLLS_BACKSTOP_INTERVAL_MILLISECONDS, () => {
-      void this.refresh();
-    });
     void this.refresh();
   }
 
@@ -318,6 +378,7 @@ export class MeetingPolls implements MeetingPollRelay {
   stop(): void {
     this.#stopTicking?.();
     this.#stopTicking = null;
+    this.#following = false;
     this.polls = [];
     this.#refreshing = false;
     this.reading = false;
@@ -332,7 +393,7 @@ export class MeetingPolls implements MeetingPollRelay {
   noteOpened(): void {
     this.#open = true;
     this.openedUnseen = 0;
-    if (this.#stopTicking !== null) void this.refresh();
+    if (this.#following) void this.refresh();
   }
 
   noteClosed(): void {
@@ -340,10 +401,29 @@ export class MeetingPolls implements MeetingPollRelay {
   }
 
   /**
+   * The socket went away under a member still on the room's screen. Nothing relayed reaches this
+   * browser now, so the slow read stands in for the frames until it comes back.
+   */
+  noteSocketLost(): void {
+    if (!this.#following || this.#stopTicking !== null) return;
+    this.#stopTicking = this.#seams.every(POLLS_BACKSTOP_INTERVAL_MILLISECONDS, () => {
+      void this.refresh();
+    });
+  }
+
+  /** The socket is carrying frames again: the slow read stops, and what it missed is read once. */
+  noteSocketRestored(): void {
+    if (!this.#following || this.#stopTicking === null) return;
+    this.#stopTicking();
+    this.#stopTicking = null;
+    void this.refresh();
+  }
+
+  /**
    * Read every poll the room has opened, newest first, page by page.
    *
    * A refusal leaves what is already on screen where it is: a card a member was about to answer,
-   * replaced by an error because one backstop read in twenty failed, loses their place for nothing.
+   * replaced by an error because one read failed, loses their place for nothing.
    */
   async refresh(): Promise<void> {
     if (this.#refreshing) return;
@@ -439,11 +519,14 @@ export class MeetingPolls implements MeetingPollRelay {
     return this.#seams.answers(pollId, cursor);
   }
 
-  /** A poll the room relayed as it opened. News, unless the panel is already showing it. */
+  /**
+   * A poll the room relayed as it opened. News, unless the panel is already showing it — or it is the
+   * poll this member opened, whose frame can land before their own write has answered.
+   */
   notePollOpened(poll: MeetingPollView): void {
     const known = this.polls.some((held) => held.pollId === poll.pollId);
     this.#adopt([poll]);
-    if (!known && !this.#open && poll.closedAt === null) this.openedUnseen += 1;
+    if (!known && !this.#open && awaitsAnswerFrom(poll, this.#viewer())) this.openedUnseen += 1;
   }
 
   /** A poll a host closed, with its final tally where the frame carried one. */
@@ -481,6 +564,7 @@ export class MeetingPolls implements MeetingPollRelay {
         withTally(
           {
             ...poll,
+            askedByUserId: poll.askedByUserId ?? before.askedByUserId,
             closedAt: poll.closedAt ?? before.closedAt,
             answered: poll.answered || before.answered,
           },

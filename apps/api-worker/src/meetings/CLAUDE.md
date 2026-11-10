@@ -53,7 +53,8 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   hosts receive, the two decisions the routes call back with, and the door's own share of the grace
   sweep.
 - `room/room-hosting.ts` — running the room from inside it: the four acts a host performs as a frame
-  (mute one, mute everybody else, ask to unmute, spotlight), and the three the hosting routes call
+  (mute one, mute everybody else, ask to unmute, spotlight — and lowering hands and switching captions,
+  each authorized here and carried out by its own module), and the three the hosting routes call
   back into the room after their own writes commit (`hostingChanged`, `participantRemoved`,
   `roomStateChanged`).
 - `room/room-diagnostics.ts` — the room's one emitter: the `meetings.room.*` event family through the
@@ -72,8 +73,151 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   zone, which is what a link's life is measured from.
 - `guest-refusals.ts` — the one table from a link's refusal code to the problem a guest is told,
   read by both the chokepoint's guest lane and the guest routes so one condition says one sentence.
-- `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit, and the test
-  seam a meeting-room test installs a fake through.
+- `room/room-recording.ts` — the recording's announcement and its record: the `recording` frame to
+  every welcomed socket, the running recording a welcome carries, the notice rows for every stay told
+  (one batch per fan-out), and the audio tracks the recorder asks the room for. A recording is announced
+  ONCE however many requests carry its start out (the room holding it is the proof), a start that
+  reaches the room after its own stop (or after the meeting ended) is ignored — the room keeps a
+  bounded list of the recordings it was told stopped, because the stop deletes the very key the
+  announce-once guard reads — and a guest's copy carries `recordingId: null` beside `by.userId: null`
+  — the handle names a firm record.
+- `meeting-recorder.ts` — `MeetingRecorder`, one per RECORDING (`firmId:recordingId`) and NOT
+  hibernating: the one object in this directory the media does cross. The routing service's WebSocket
+  adapter streams each audio track to it as PCM; it folds to mono, writes silence for missing frames,
+  stages each track in the firm's own bucket in 5 MiB parts (R2's minimum) through one preallocated
+  6 MiB buffer per open track, reconciles against the room AND reads its own record on every alarm
+  pass (so a stop that never reached it still ends capture within one pass), stops itself when the
+  room has been empty ten minutes or the recording reaches its maximum length, and holds no audio in
+  its storage. The track ceiling is derived from the isolate's memory in
+  `packages/meetings/src/settings.ts` (eleven), and one stay holds at most one recorded track — so the
+  start route's ceiling counts stays too.
+  A track's staged object is written down as STRETCHES (`MeetingRecordingTrackSegment`): a frame the
+  wall clock places behind the end of the object (a participant back before the silence that closed
+  their last stretch at a part boundary ran out) or more than five minutes past it begins a new
+  stretch carrying the instant it was heard, and a departure marks where its stretch's audio ends —
+  so the compose places a return at its own instant and never the padding. Gaps are never clamped.
+  The sweep asks it `heartbeat()` (each pass stamps when it last reconciled) and, for a recording the
+  sweep has abandoned, `abandon()` closes its adapters and COMPLETES its uploads (aborting only one
+  that staged nothing), so what was captured is kept for the sweep's seven-day retention; nothing is
+  composed. A test that drives the compose step installs a queue with `setRecordingComposeQueueForTests`,
+  because the recorder is constructed with the deployment's environment.
+- `recording-compose-consumer.ts` — the consumer on the `meeting-recording-compose` queue: one bounded
+  window per message (ten one-minute parts), mixed with `@magna-carta/meetings/pcm-mix`, the WAV header
+  at the head of the first part, the cursor on the recording's row, and the next window re-enqueued; then
+  filed through `initiateUpload` → the composite at the minted key → `completeUploadSession` → the ingest
+  queue, on the email attachment's precedent — and the transcript begun in the filing's own batch, its
+  first message sent on this same queue; the staged tracks are NOT deleted here, because the transcript
+  reads them. About 40 MB per invocation
+  whatever the length or track count — the arithmetic is in its header. Each window is CLAIMED on the
+  row first (a fifteen-minute lease, released with the window's progress), so two deliveries never
+  compose one window; the record is read again just before the upload is completed; a layout whose
+  length differs from the session's declared size is refused; a staged object missing at the begin is
+  composed without (an Error ID on the row, the captured length brought down at filing), one that
+  vanishes later fails the recording. `failRecordingCompose` — the consumer's refusals and the sweep's
+  — fails the row, aborts the upload session and abandons its version in ONE guarded batch, then
+  aborts the multipart upload and deletes anything at the key. The file name's title is stripped of
+  controls, bidirectional and invisible characters and path separators, and cut at 120 characters.
+- `transcript-consumer.ts` — the transcript of a filed recording, on the SAME queue as the compose as a
+  second kind of message (`MeetingTranscriptMessage`, routed by `kind` in `../event-dispatch.ts`), so a
+  deploy needs nothing new. One window per message — at most eight model calls and four five-minute
+  regions measured — claimed on the transcript's row with a fifteen-minute lease, every piece's lines
+  committed in one guarded batch with the cursor that moves past them. Each track's own staged audio is
+  measured a region at a time (`@magna-carta/meetings/speech-spans`: energy against the track's own noise
+  floor, a hangover, thirty-second pieces cut at a pause), placed on the timeline stretch by stretch,
+  downsampled behind an anti-alias filter (`resample`), wrapped as a 16 kHz WAV and sent through
+  `InferencePort.transcribe` (`deploymentInferencePort` in `../inference/call-site.ts`, the composition root; a test hands its own port in) with the tail of
+  the track's previous line as its prompt (and, once a piece of eight seconds or more has named it, the
+  transcript's language as its hint). A track whose staging vanishes once its cursor is in it is refused,
+  never read as finished. When every track is done: the gap lines (a missing track's from its FIRST
+  frame, lost or not), the renumbering into reading order and the filing's upload session in ONE guarded
+  batch; the WebVTT rendered from the rows and written at the minted key (and deleted again if the
+  pipeline then refuses to complete the session); `completeUploadSession` with `ready` in one guarded
+  batch — the transcript's SUMMARY begun, pending, in that same batch; the staged tracks RELEASED; then
+  ingest and the summary's first message, both best effort. **A model that refuses for now is
+  outlasted, not given up on:** the refusal is counted on the row (`model_failures`, reset by any
+  progress) in the same guarded write that lets go of the claim, and the window is sent again on a NEW
+  message after `transcriptModelRetryDelaySeconds` — thirty seconds doubling to fifteen minutes, held
+  under the sweep's stall — because the queue's own redelivery budget (three) would end the chain inside
+  an ordinary outage; the tenth in a row fails it. A redelivery refused by a LIVE lease at the cursor it
+  read (a consumer evicted by a deploy) answers `claimed-elsewhere` and is retried when the lease runs
+  out. `failMeetingTranscript` — the consumer's refusals, the model's tenth refusal, and the sweep's —
+  fails it guarded on `pending` and on the upload session it read (and, for the sweep, on the claim and
+  progress it judged stalled), aborts a filing that had begun, and releases the staging ONLY for a
+  refusal no retry can change: a model that stayed down, or a stall, keeps the per-speaker audio for the
+  seven-day retention a failed compose's has. No word, speaker name, document name or key reaches a log
+  line or an Error ID — `packages/meetings/test/no-transcript-text-escape.test.ts` reads every module
+  that reaches the words for it.
+- `summary-consumer.ts` — the summary of a ready transcript, on the SAME queue as a third kind of
+  message (`MeetingSummaryMessage`, routed by `kind` in `../event-dispatch.ts`). The transcript's settle
+  writes the pending summary in the batch that makes it ready and sends the first message after the
+  commit, best effort. One run per message, claimed on the summary's row with a fifteen-minute lease, and
+  never before its `retry_at`. The GATE is read when it runs (`resolveSummaryModel`) and again before
+  every call after the first: `meetings.summariesEnabled` off is `refused` `disabled`; the firm's
+  `inference.aiProcessingEligibility` off is `refused` `not-eligible` WHATEVER the model, because every
+  path sends a privileged conversation to a reasoning model; otherwise the firm's chosen third-party model
+  (`resolveChosenReasoningModel` in `../inference/call-site.ts` reads the stored row), or, where it chose
+  none, the catalog's `platform-reasoning` model hosted on Cloudflare — never on the firm's roster. A
+  mid-run change of model starts the run over; a transcript whose filed document is trashed, held or gone
+  (`transcriptWordsWithheld`, also used by the routes) fails with an Error ID before any model is asked;
+  no speech is `refused` `transcript-empty`. The lines go as one member message of `HH:MM:SS Name: text`
+  through `InferencePort.generateConversation` with the instruction from
+  `@magna-carta/meetings/summary-prompt` and `answerFormat: "json-object"` — NOT an assistant
+  conversation, and nothing is written to the assistant's history. A transcript past the chosen model's
+  context (reckoned by `estimatedTokens`, participant list included) is cut into at most five parts, each
+  summarized; only their prose is combined, and their action items are kept as given. THE WALL CLOCK IS
+  ENFORCED: a call starts only while `SUMMARY_CALL_ALLOWANCE_MILLISECONDS` is left of
+  `SUMMARY_RUN_BUDGET_MILLISECONDS`, else the run is let go as a refusal for now. EACH CALL IS METERED AS
+  IT COMPLETES, in a batch of its own (`SummaryRun.answered`), so a run that lost its claim, threw or was
+  cut off still counts what it spent; the settle batches carry no meter. A model refusing for now is
+  outlasted on the transcript's own delays and limit, with `retry_at` recorded so a host's re-run in
+  between sends nothing, and a run refused at the same call as the one before it — after every earlier
+  call answered — fails (`model_failure_call`). Nothing here logs a line, a sentence of the answer, a name
+  or the instruction; the scan in `packages/meetings/test/no-transcript-text-escape.test.ts` reads this
+  module too. Its routes are `../routes/meeting-summary.ts`: the read (audited, withheld exactly when the
+  transcript's lines are), a host's re-run (refused while the document is withheld), and an action item
+  made into a task through `createMatterTask`; both POSTs take a path fingerprint, so a retry with the same
+  key is answered by reading the record afresh. A test hands the consumer its own port (and, for the
+  budget, its own `elapsedClock`) — the stub's conversation answer cannot carry the summary's structure.
+- `recording-sweep.ts` — on the ten-minute cron beside the status snapshot: abandons a recording whose
+  recorder stopped reconciling (and clears the room's mark), hands on a compose nothing has claimed,
+  moved or handed on for thirty minutes and fails it (through `failRecordingCompose`) after three
+  hand-ons with no progress between them, does the same for a pending transcript (failing it through
+  `failMeetingTranscript`, guarded on the claim and progress it read, and KEEPING the staging — a stall
+  is something a later attempt could get past), and releases staged tracks nothing needs — a filed
+  recording's a day after its transcript became ready, or seven days after it failed. A firm with
+  nothing to tend costs one read (`hasRecordingsToTend`); the four duties fail independently, so a queue that refuses a hand-on never
+  skips the staging clean-up.
+- `sink-token.ts` — the signed per-track address the routing service dials, its own secret
+  (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
+  `routes/meeting-sink.ts`, outside the chokepoint.
+- `meeting-captioner.ts` — `MeetingCaptioner`, one per MEETING (`firmId:meetingId`), NOT hibernating
+  while a session is open: LIVE CAPTIONS. A sibling of the recorder rather than a part of it (the
+  recording spec's A81 has the arithmetic — captions are the meeting's and run with or without a
+  recording, the recorder's isolate is spent on its eleven buffers, and a caption must hear anybody in a
+  room of three hundred). The room tells it when somebody's `speaking` moves; a start opens a SESSION —
+  a routing-service adapter on their microphone dialling back through the sink route, and
+  `InferencePort.openCaptionStream` — and a stop closes it three seconds later on its alarm, the model
+  asked to finish so its last words still arrive. Interims are coalesced to one per speaker per half
+  second and every caption spends from a room-wide budget of ten a second; a final is never held. The
+  words go to the room (`captionHeard`) and are kept NOWHERE; its storage holds the meeting's identity,
+  the handles of adapters it holds open (closed again on a restart) and counts. At most eight sessions.
+  The firm's switch is read again at every open; off, it closes everything and tells the room
+  (`captionsWithdrawn`). A model that fails closes that speaker's session and nothing else. A test
+  installs the model port and the clock through `setCaptionInferencePortForTests` and
+  `setCaptionerClockForTests`; the arithmetic is `@magna-carta/meetings/caption-sessions`.
+- `caption-sink-token.ts` — a caption adapter's address: the recorder's path and secret, its own `typ`
+  (`meeting-caption-sink`), naming the firm, the meeting, the stay and the adapter's nonce. The sink route
+  asks the recorder's kind first, then this one, and forwards to the object the verified kind names.
+- `caption-binding.ts` — where the captioner is found (`captionerFor`), typed over the environment here
+  rather than on `Bindings`; optional, and its absence reads as captions not configured.
+- `room/room-captions.ts` — the room's half of captions: the host's `captions` frame (authorized in
+  `room-hosting.ts`, refused `captions-unavailable` where the firm or the deployment does not allow it),
+  the switch on the room state (absent while off, so an uncaptioned room's state is unchanged), the
+  captioner told about `speaking` in the background, and each caption relayed per kind of reader — a
+  guest's copy carries no firm identifier — and stored nowhere.
+- `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit (sessions,
+  tracks, and the WebSocket adapter's open and close), and the test seam a meeting-room test installs a
+  fake through.
 - `sfu/turn-credentials.ts` — minting relay credentials from Realtime's TURN service, shared with
   `routes/tools-turn-credentials.ts`.
 - `sfu/realtime-failure.ts` — one failure through the standard pipeline, answering with the Error ID
@@ -81,6 +225,15 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 
 ## Local rules
 
+- **The firm's four meeting switches have one writer, and it is not in this directory.**
+  `meetings.recordingEnabled`, `captionsEnabled`, `summariesEnabled` and `recordedTrackCeiling`
+  (`packages/meetings/src/settings.ts`) are read here and by the start route, and written only by
+  `../routes/meeting-settings.ts` (`GET`/`PATCH /api/v1/firm/meetings/settings`, behind
+  `meetings:manageSettings`, Owner/Admin by seed, audited as `firm.meeting_settings_updated`). That
+  route also reports `recordingServiceConfigured` from `recordingDeploymentConfigured` in
+  `../routes/meetings.ts` — the same bindings check the start route's 503 reads — so a new binding the
+  recorder needs goes into that one function and both answers move together. Nothing here writes a
+  setting, and a reader added here reads through `readFirmSetting`, never a cached copy.
 - **The frames come from the protocol package, never from here.** Every schema, builder, refusal
   reason and constant on the wire is `@magna-carta/meeting-protocol/frames`, which the browser
   imports too. A frame shape declared in this directory is a second declaration of a contract that
@@ -93,11 +246,19 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   module state keyed by the room's own state, a map from a stay to the routing-service call that is
   opening its session. It holds work in flight and nothing else: a room cannot hibernate mid-frame,
   a completed opening is written onto the participant record with the first publish or subscribe
-  and leaves the map, and a failed one leaves it so the next frame asks again. It exists so that
+  and leaves the map, and a failed call leaves it so the next frame asks again. It exists so that
   `blockConcurrencyWhile` is never held across a network call — three hundred arrivals used to open
   their sessions one at a time behind one lock, and one slow upstream answer stalled every frame in
-  the room. Two frames from one stay still open exactly one session, because the first claims the
-  map before its first await and nothing is delivered to the object while a storage read is out.
+  the room. Two frames from one stay still open exactly one session: the first claims the map after
+  its one storage read and before any other await, and that is safe because the input gate delivers
+  nothing to the object — no frame, no upstream answer — while a storage read is out. An opening
+  whose act was REFUSED, or wrote nothing (a layer change, a renegotiation, a close), STAYS in the
+  map until something resets it: a reconnect of the stay (`admitParticipant` gives up an opening
+  the service has answered, inside the gate that resets the record, and closes its session — one
+  still unanswered is inherited by the new socket, since nothing can have been offered into it), a
+  leave (`releaseParticipant`, which closes an unrecorded session whether or not a roster entry was
+  there to remove), or hibernation, after which the next frame reads no session on the record and
+  opens another.
 - **Nothing about a participant may live on the instance.** Class properties do not survive
   hibernation. Everything a frame needs rides on the per-socket attachment; everything the room needs
   is read back out of storage on each call, which is why `RoomContext` is built per call rather than
@@ -205,10 +366,21 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   who has no user to name. A new frame carrying a user identifier goes through the same projection;
   a broadcast of one shared payload would hand a guest the firm's identifiers. The hosts' `waiting`
   list carries `kind` and, for a guest, `invitedName` beside the name typed at the door.
-- **The media never crosses this directory.** Audio, video and screen share go directly between a
-  browser and Realtime. Nothing here has a redaction step because there is nothing here to redact —
-  and an upstream body is never carried into a refusal, because it can name the application the whole
-  fleet's meetings run on.
+- **The media crosses this directory in two places only: the recorder and the captioner.** Audio,
+  video and screen share go directly between a browser and Realtime, and the room never holds a frame
+  of any of them. The exceptions are `meeting-recorder.ts`, which receives each recorded participant's
+  audio from the routing service's WebSocket adapter while a recording runs and stages it to the firm's
+  own bucket, and `meeting-captioner.ts`, which receives a speaker's audio the same way while they speak
+  and streams it to the caption model. The recorder holds one fixed buffer per open track in memory and
+  writes no audio to its own storage; the captioner holds at most two seconds a session and writes
+  neither audio nor words anywhere. No telemetry field, refusal or log line either emits can carry a
+  track name, a display name, a sink token, an object key or a word heard. Nothing else here has a
+  redaction step because there is nothing else here to redact — and an upstream body is never carried
+  into a refusal, because it can name the application the whole fleet's meetings run on.
+- **A caption is a display, never a record.** The room relays each caption the instant it arrives and
+  writes none — not even in the per-second coalescing bucket, which is a storage key; interims are
+  coalesced in the captioner's memory instead. The room holds the switch (that captions are on, and
+  which host's stay turned them on) and nothing else about them.
 - **A direct reply to one socket goes through `trySend`, never `socket.send`.** `send` on a closed
   socket THROWS, and a throw out of `webSocketMessage` does not fail one frame — the runtime resets
   the object, which drops every socket in the meeting. So one member's browser closing between the

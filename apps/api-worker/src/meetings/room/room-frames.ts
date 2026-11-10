@@ -19,6 +19,7 @@ import {
   sessionFor,
   subscribeTracks,
 } from "./room-media.ts";
+import { noteSpeakingForCaptions } from "./room-captions.ts";
 import { handleHostFrame } from "./room-hosting.ts";
 import { giveUpWaiting } from "./room-lobby.ts";
 import { armAlarmFor } from "./room-lifecycle.ts";
@@ -134,6 +135,7 @@ type SignalingFrame = Exclude<
   | { type: "ask-to-unmute" }
   | { type: "spotlight" }
   | { type: "lower-hands" }
+  | { type: "captions" }
   | { type: "reaction" }
   | { type: "diagnostic-report" }
 >;
@@ -377,13 +379,14 @@ async function routeClientFrame(
         return "presence";
       }
     }
-    const dueAt = await relayPresence(
+    const presence = await relayPresence(
       room,
       socket,
       attachment.attendanceId,
       parsed.frame.speaking,
       parsed.frame.muted,
     );
+    const dueAt = presence.dueAt;
     // A transition the throttle held back is relayed by the alarm instead. Armed from here rather
     // than from inside the presence module because a room has ONE alarm and one place that
     // reconciles every deadline into it.
@@ -391,6 +394,13 @@ async function routeClientFrame(
     // reconciliation: this is the frame a room of three hundred sends most, and reconciling would
     // read every key the room holds, twice, for a window that is a second away.
     if (dueAt !== null) await armAlarmFor(room, dueAt);
+    // AND LIVE CAPTIONS, on the same stored fact: a session opens when somebody starts speaking and
+    // starts its close when they stop. Asked only when `speaking` actually moved, so the frame a room of
+    // three hundred sends most costs captions nothing unless it says something new — and then one read
+    // while captions are off.
+    if (presence.speakingMoved) {
+      await noteSpeakingForCaptions(room, attachment.attendanceId, parsed.frame.speaking);
+    }
     return "presence";
   }
 
@@ -428,7 +438,8 @@ async function routeClientFrame(
     parsed.frame.type === "mute-all" ||
     parsed.frame.type === "ask-to-unmute" ||
     parsed.frame.type === "spotlight" ||
-    parsed.frame.type === "lower-hands"
+    parsed.frame.type === "lower-hands" ||
+    parsed.frame.type === "captions"
   ) {
     await handleHostFrame(room, socket, attachment.attendanceId, parsed.frame);
     return parsed.frame.type;
