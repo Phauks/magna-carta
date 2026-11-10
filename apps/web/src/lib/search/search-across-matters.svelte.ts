@@ -17,8 +17,8 @@
  */
 import type { ApiOutcome, Page } from "$lib/api/request.ts";
 import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-import { searchDirectory, type DirectorySearchHit } from "$lib/directory/directory-api.ts";
-import type { DirectorySearchResult } from "$lib/directory/directory-api.ts";
+import type { DirectorySearchHit, DirectorySearchResult } from "$lib/directory/directory-api.ts";
+import { readDirectoryNameMatches } from "$lib/directory/directory-search-place.ts";
 import { listMatters, type MatterSummary } from "$lib/matters/matters-api.ts";
 import { presentationFor } from "$lib/matters/matter-search-presentation.ts";
 import { LatestOnly } from "../api/latest-only.ts";
@@ -242,7 +242,7 @@ export class SearchAcrossMatters {
       keptOverview === null
         ? Promise.all([
             listMatters(fetchImpl, { scope: "caseload", search: question }),
-            searchDirectory(fetchImpl, question),
+            readDirectoryNameMatches(fetchImpl, question),
             searchAcrossMatters(fetchImpl, question, {
               sources: [],
               limit: OVERVIEW_LIMIT,
