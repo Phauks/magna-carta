@@ -336,6 +336,25 @@ one rather than the careful one.
 No consent question arises here. The C version (`jitsi/rnnoise-wasm`) is recorded as **M2** for the
 record — the option we did not take and why — and is not proposed.
 
+**As built, 2026-11-10.** The crate is `crates/noise-suppression-core` and the package
+`packages/noise-suppression` (the names this section proposed were never used). Three things moved
+from the plan:
+
+- **The latency floor is one filter frame, not one render quantum.** RNNoise cannot clean a sample until
+  it holds the whole 480-sample frame, so the bridge (`apps/web/src/lib/meetings/effects/noise-frames.ts`)
+  primes its output with one frame of silence: a fixed 10 ms delay, and provably no underrun at a steady
+  128-sample quantum. A delay below one frame is not possible with this network.
+- **The filter is a second switch, off until a member turns it on** ("Stronger noise removal", beneath
+  "Reduce background noise"), rather than the meaning of the existing switch. It costs the member's
+  CPU for the whole meeting and loads about 200 KB, so it is a choice rather than a default; while it
+  runs, the browser's own noise suppression is asked off (two filters in a row eat the ends of words)
+  and echo cancellation and gain control stay on.
+- **The two worklet hazards were settled as planned:** the module is compiled on the main thread and
+  handed over in `processorOptions`, and the generated bindings' `TextDecoder` is stood in by
+  `packages/noise-suppression/src/text-decoder.ts` (ASCII only; the engine's only strings are its error
+  codes). The production bundle was run in headless Chromium against a recorded rumble with a voiced
+  burst: the rumble fell from about 0.10 RMS to about 0.001 and the burst passed at about 0.09.
+
 ---
 
 ## 8. Settings: per member, remembered

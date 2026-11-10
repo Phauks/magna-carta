@@ -31,11 +31,8 @@
   import { toast } from "@magna-carta/design-system/toast";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Copy from "@lucide/svelte/icons/copy";
-  import { createQuery } from "@tanstack/svelte-query";
-  import { meGetOptions } from "@magna-carta/api-client";
-  import { SESSION_STABLE } from "$lib/api/screen-data.ts";
-  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { conversationAuthor } from "./conversation-author.svelte.ts";
   import type { ConversationSession } from "./conversation-session.svelte.ts";
   import { turnFailureSentence, type MagnusTurn } from "./magnus-api.ts";
 
@@ -43,33 +40,9 @@
 
   const turns = $derived(session.turns);
 
-  /*
-   * Who asked. A conversation's questions are its creator's today (the record keeps one author per
-   * conversation, not per turn), so a member's turn is named by the conversation's `createdBy`. The
-   * signed-in member's own name comes from the session read the app layout already holds; anybody
-   * else's comes from the firm roster, which the surfaces share and read once. A name that has not
-   * arrived reads as "A Member" rather than as a guess.
-   */
-  const sessionRead = createQuery(() => ({ ...meGetOptions(), staleTime: SESSION_STABLE }));
-  const signedIn = $derived(sessionRead.data ?? null);
-  const authorId = $derived(session.conversation?.createdBy ?? null);
-  const authorIsReader = $derived(
-    authorId === null || (signedIn !== null && signedIn.user.id === authorId),
-  );
-
-  $effect(() => {
-    if (!authorIsReader) void firmRoster.load(fetch);
-  });
-
-  const memberName = $derived.by(() => {
-    if (authorIsReader) {
-      if (signedIn === null) return "A Member";
-      const name = signedIn.user.name.trim();
-      return name === "" ? signedIn.user.email : name;
-    }
-    const member = (firmRoster.members ?? []).find((candidate) => candidate.userId === authorId);
-    return member?.displayName ?? "A Member";
-  });
+  /* Who asked, named the same way the surface names a downloaded transcript. */
+  const author = conversationAuthor(() => session.conversation?.createdBy ?? null);
+  const memberName = $derived(author.name);
 
   /** The speaker's name as a reader meets it. */
   function speakerName(turn: MagnusTurn): string {

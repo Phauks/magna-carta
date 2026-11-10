@@ -79,8 +79,13 @@
   }
 </script>
 
+<!-- The trigger is a select-only combobox, the role the Select trigger takes: it holds a value and
+     shows it, so its name is the field it fills ("Merge field") and the chosen field is its value.
+     As a button the shown value would be its content, and a name has to contain the words a
+     reader can see on a control, which a field's label never does once a value is chosen. -->
 <Popover.Root bind:open>
   <Popover.Trigger
+    role="combobox"
     {disabled}
     aria-invalid={invalid ? "true" : undefined}
     data-invalid={invalid ? "" : undefined}

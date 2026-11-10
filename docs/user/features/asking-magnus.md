@@ -115,17 +115,30 @@ with the most recent part only, so if the dropped part mattered, say it again.
 
 ## Naming a Conversation
 
-A conversation you have not named shows the time it started. Click its name, or the pencil beside
-it, type the new name, and press Enter; Escape puts the old name back, and clicking away keeps what
+A conversation you have not named shows the time it started. Click its name, or choose Rename from
+the conversation's More menu, type the new name, and press Enter; Escape puts the old name back, and clicking away keeps what
 you typed. If the rename does not go through, the old name stays and the conversation says so.
 Magnus never names one for you — it would have to read the conversation to do that, and a title
 guessed from a client's confidence is not something to leave lying in a list.
 
+## The Conversation's More Menu
+
+The three dots beside an open conversation's name hold everything you can do to the conversation
+itself:
+
+- **Copy Link** and **Open in New Tab** give a link that opens this conversation directly. Anyone who
+  follows it still needs to be allowed to read the conversation.
+- **Rename** puts the name into a field where it stands.
+- **Save to a Different Matter** moves it, as described below.
+- **Download Transcript** saves the whole conversation as a Markdown file: who asked, when, and
+  every message, oldest first, including the earlier messages that are not on screen yet.
+- **Delete** removes it after you confirm.
+
 ## Keeping a Conversation on a Matter
 
 A conversation started in the sidebar can be kept on a matter afterwards, and one kept on a matter
-can be moved to another or taken off every matter: the folder control beside the conversation's
-name. The confirmation says the one thing to know before pressing it: **where a conversation is kept
+can be moved to another or taken off every matter: Save to a Different Matter in the conversation's
+More menu. The confirmation says the one thing to know before pressing it: **where a conversation is kept
 decides who can read it.** On a matter, the transcript is part of that matter's file; on none, it is
 yours and the firm's supervisors' alone. Keeping it on a matter still does not let Magnus read the
 matter. A closed matter cannot take a conversation; reopen it first or choose another.
