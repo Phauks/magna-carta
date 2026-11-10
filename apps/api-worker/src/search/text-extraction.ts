@@ -250,18 +250,17 @@ async function recognizedPages(
       pages.push({ pageIndex: page.pageIndex, provenance: "ocr" as const, lines: page.lines });
     }
     if (window.pageCount === undefined) return { pages };
-    const next = nextWindowStart(
-      firstPage + RECOGNITION_WINDOW_PAGES,
-      window.pageCount,
-      wanted,
-    );
+    const next = nextWindowStart(firstPage + RECOGNITION_WINDOW_PAGES, window.pageCount, wanted);
     if (next === undefined) return { pages };
     firstPage = next;
   }
   // Past the ceiling the document is refused whole rather than indexed as its first 50,000 pages: a
   // reading that stops partway with nothing to say so is the failure this loop exists to remove.
   return {
-    failure: unextractable("the document has more pages than recognition will read", "limitExceeded"),
+    failure: unextractable(
+      "the document has more pages than recognition will read",
+      "limitExceeded",
+    ),
   };
 }
 
