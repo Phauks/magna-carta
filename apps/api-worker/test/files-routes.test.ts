@@ -91,6 +91,37 @@ interface SeedVersionOptions {
 // Optional fields in SeedVersionOptions override verdict/storage columns on the file_version row;
 // defaults preserve existing caller behaviour (sniffedContentType='text/plain', storageClass='standard',
 // storageEncoding='full', artifactRole='original', inlinePlayable=null).
+/** The smallest MP4 the playability check reads: a file-type box and one video track naming `codec`. */
+function minimalMovie(codec: string): Uint8Array {
+  const join = (...parts: Uint8Array[]): Uint8Array => {
+    const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+    let offset = 0;
+    for (const part of parts) {
+      out.set(part, offset);
+      offset += part.length;
+    }
+    return out;
+  };
+  const text = (value: string): Uint8Array => new TextEncoder().encode(value);
+  const word = (value: number): Uint8Array => {
+    const bytes = new Uint8Array(4);
+    new DataView(bytes.buffer).setUint32(0, value);
+    return bytes;
+  };
+  const box = (type: string, ...content: Uint8Array[]): Uint8Array => {
+    const body = join(...content);
+    return join(word(body.length + 8), text(type), body);
+  };
+  const handler = box("hdlr", new Uint8Array(8), text("vide"), new Uint8Array(12));
+  const descriptions = box("stsd", new Uint8Array(4), word(1), box(codec, new Uint8Array(8)));
+  const track = box("trak", box("mdia", handler, box("minf", box("stbl", descriptions))));
+  return join(
+    box("ftyp", text("isom"), word(512)),
+    box("moov", track),
+    box("mdat", new Uint8Array(32)),
+  );
+}
+
 async function seedCleanFile(
   name: string,
   folderId: FolderId | null,
@@ -943,6 +974,46 @@ describe("GET /api/v1/files/{id}/preview", () => {
     const body = await res.json<{ mode: string; reason: string }>();
     expect(body.mode).toBe("download-only");
     expect(body.reason).toBe("unknown-verdict");
+  });
+
+  it("files.preview: a never-judged H.264 video is judged on first preview, served inline, and the verdict kept", async () => {
+    const { fileId, versionId, r2Key } = await seedCleanFile("deposition.mp4", null, "x", ISO, {
+      inlinePlayable: null,
+      sniffedContentType: "video/mp4",
+    });
+    const movie = minimalMovie("avc1");
+    await env.R2.put(r2Key, movie);
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file_version SET size_bytes = ?2 WHERE id = ?1")
+      .bind(versionId, movie.length)
+      .run();
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; verdict: string }>();
+    expect(body.mode).toBe("inline-media");
+    expect(body.verdict).toBe("playable");
+    const stored = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT inline_playable FROM file_version WHERE id = ?1 AND status = 'clean'")
+      .bind(versionId)
+      .first<{ inline_playable: string | null }>();
+    expect(stored?.inline_playable).toBe("playable");
+  });
+
+  it("files.preview: a never-judged HEVC video is judged download-only and offered as a download", async () => {
+    const { fileId, versionId, r2Key } = await seedCleanFile("phone.mov", null, "x", ISO, {
+      inlinePlayable: null,
+      sniffedContentType: "video/quicktime",
+    });
+    const movie = minimalMovie("hvc1");
+    await env.R2.put(r2Key, movie);
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file_version SET size_bytes = ?2 WHERE id = ?1")
+      .bind(versionId, movie.length)
+      .run();
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    const body = await res.json<{ mode: string; verdict: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.verdict).toBe("download-only");
   });
 
   it("files.preview: 404 for an unknown file id", async () => {
