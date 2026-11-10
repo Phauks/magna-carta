@@ -297,6 +297,18 @@ export const ENTITY_PREFIXES = {
   // that never learns of the deletion keeps the work alive somewhere the firm stopped looking.
   matterTaskExternalLink: "matterTaskExternalLink",
   matterTaskDeletion: "matterTaskDeletion",
+  // How a firm organises its task work. A `taskList` is one of the firm's lists (partners only,
+  // assignments, one per kind of case); every task sits on exactly one. A `taskListStatus` is one of
+  // that list's own statuses, with a colour and a place in its flow. A `taskTeam` is a named group of
+  // members assigned as one. A `matterTaskAssignee` is one assignee of a task, a member or a team; a
+  // `matterTaskChecklistItem` is one line of a task's checklist; a `matterTaskLink` is one address a
+  // task points at.
+  taskList: "taskList",
+  taskListStatus: "taskListStatus",
+  taskTeam: "taskTeam",
+  matterTaskAssignee: "matterTaskAssignee",
+  matterTaskChecklistItem: "matterTaskChecklistItem",
+  matterTaskLink: "matterTaskLink",
   // The matter plan: a firm's own statement of the work a kind of matter takes. A
   // `matterPlanTemplate` is the plan; a `matterPlanTaskTemplate` is one task it PROPOSES, carrying a
   // due-date anchor rather than a date and a role rather than a member, because both alternatives are

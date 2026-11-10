@@ -22,8 +22,7 @@ import {
 // per-task read would put a round-trip on every row of every page. What that leaves this test to
 // pin is the part the domain package cannot: the number means two different things depending on who
 // is asking — `time:viewFirm` sees what the task cost the firm, everybody else sees what THEY put
-// into it — so the scope rides with the totals, and a task the reader cannot see carries no time
-// because it is not on their page at all.
+// into it — so the scope rides with the totals.
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
@@ -33,7 +32,7 @@ let paralegalUserId: UserId;
 
 const MATTER_ID = "matter_taskTimeMatter0000000";
 const TASK_ID = "matterTask_taskTimeTask000000000";
-const PRIVATE_TASK_ID = "matterTask_taskTimePrivate000000";
+const FIRM_WORK_TASK_ID = "matterTask_taskTimePrivate000000";
 const UNTOUCHED_TASK_ID = "matterTask_taskTimeUntouched0000";
 
 async function seedMemberWithRole(
@@ -97,9 +96,9 @@ beforeAll(async () => {
     [TASK_ID, MATTER_ID],
     // On the matter and with nothing logged against it, which is what nearly every task looks like.
     [UNTOUCHED_TASK_ID, MATTER_ID],
-    // A task on NO matter, created by and assigned to the owner: private to the two of them, so the
-    // paralegal must not reach it.
-    [PRIVATE_TASK_ID, null],
+    // A task on NO matter, created by and assigned to the owner: the firm's own work, which every
+    // member sees, the paralegal included.
+    [FIRM_WORK_TASK_ID, null],
   ] as const) {
     await database
       .prepare(
@@ -185,13 +184,14 @@ describe("the time logged against a task", () => {
     });
   });
 
-  // A task on no matter is private to its assignee and whoever created it, so it never reaches this
-  // reader's page — and nothing about its time reaches them either.
-  it("never puts a task the reader cannot see on their page at all", async () => {
+  // A task on no matter is the firm's own work and every member sees it. Whose time it shows is
+  // still the reader's answer: a member without the firm-time permission sees their own.
+  it("shows a task on no matter to every member, with only their own time", async () => {
     const mine = await get("/api/v1/tasks", paralegalCookie);
     expect(mine.status).toBe(200);
     const rows = ((await mine.json()) as { data: TaskRow[] }).data;
-    expect(rows.some((row) => row.id === PRIVATE_TASK_ID)).toBe(false);
+    const firmTask = rows.find((row) => row.id === FIRM_WORK_TASK_ID);
+    expect(firmTask?.timeLogged.scope).toBe("own");
   });
 
   it("refuses an unauthenticated reader", async () => {

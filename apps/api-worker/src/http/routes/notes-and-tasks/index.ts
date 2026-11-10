@@ -2,6 +2,8 @@ import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerMyDayRoutes } from "./my-day.ts";
 import { registerNotesRoutes } from "./notes.ts";
+import { registerTaskListsAndTeamsRoutes } from "./task-lists-and-teams.ts";
+import { registerTaskPartsRoutes } from "./task-parts.ts";
 import { registerTasksRoutes } from "./tasks.ts";
 
 // Notes, tasks and the timekeeper's My Day headline.
@@ -21,6 +23,10 @@ export function mountNotesAndTasks(
   // because there is no delete path anywhere in the subsystem.
   registerNotesRoutes(domain, chokepoint);
   registerTasksRoutes(domain, chokepoint);
+  // The firm's task lists, their statuses and flow, and its teams.
+  registerTaskListsAndTeamsRoutes(domain, chokepoint);
+  // A task's own parts: status, list, completion, assignees, watchers, checklist, links, sub-tasks.
+  registerTaskPartsRoutes(domain, chokepoint);
   // My Day: daily headline totals (billable, non-billable, target, shortfall).
   registerMyDayRoutes(domain, chokepoint);
   app.route("/", domain);

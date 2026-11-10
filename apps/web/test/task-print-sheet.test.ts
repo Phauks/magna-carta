@@ -29,6 +29,15 @@ function task(over: Partial<MatterTask> = {}): MatterTask {
     triggerEventId: null,
     deadlineId: null,
     documents: [],
+    listId: null,
+    statusId: null,
+    parentTaskId: null,
+    startsOn: null,
+    location: null,
+    assignees: [],
+    watcherUserIds: [],
+    checklist: [],
+    links: [],
     timeLogged: { billableMinutes: 0, nonBillableMinutes: 0, entryCount: 0, scope: "firm" },
     externalLinks: [],
     createdAt: "2026-08-01T00:00:00.000Z",
@@ -96,8 +105,8 @@ describe("taskSheet", () => {
       ...CONTEXT,
       completedByName: "Dana Whitfield",
     });
-    expect(valueOf(sheet, "Done By")).toBe("Dana Whitfield");
-    expect(valueOf(sheet, "Done")).toBe("instant:2026-09-02T17:00:00.000Z");
+    expect(valueOf(sheet, "Completed By")).toBe("Dana Whitfield");
+    expect(valueOf(sheet, "Completed")).toBe("instant:2026-09-02T17:00:00.000Z");
     expect(standingLabels(sheet)).not.toContain("Archived By");
   });
 
@@ -111,7 +120,7 @@ describe("taskSheet", () => {
     );
     expect(valueOf(sheet, "Archived By")).toBe("Dana Whitfield");
     expect(valueOf(sheet, "Archived Because")).toBe("The client settled the claim this covered.");
-    expect(standingLabels(sheet)).not.toContain("Done By");
+    expect(standingLabels(sheet)).not.toContain("Completed By");
   });
 
   it("says nothing about why on an archiving that gave no reason", () => {
@@ -134,7 +143,7 @@ describe("taskSheet", () => {
       }),
       { ...CONTEXT, completedByName: "Dana Whitfield", archivedByName: "Trevor Goldsmith" },
     );
-    expect(valueOf(sheet, "Done By")).toBe("Dana Whitfield");
+    expect(valueOf(sheet, "Completed By")).toBe("Dana Whitfield");
     expect(valueOf(sheet, "Archived By")).toBe("Trevor Goldsmith");
   });
 

@@ -14,74 +14,117 @@ apart is deliberate: if the deadline list filled up with reminders, people would
 A task is also not a calendar entry. Nothing about it is scheduled with anybody else, and moving its
 due date is just you changing your mind rather than a hearing being reset.
 
+## The Tasks List
+
+Every task sits on a row. From left to right the row shows its **status**, its name, who it is
+assigned to, its **Start** and **Due** dates and its **Priority**. You change those last three
+straight from the row: press a date to pick a new one from a calendar (or **Clear** it), and press
+the priority to choose another.
+
+A due date that has passed on a task still owed is shown in red. Nothing else is said about it:
+the red date is the whole message.
+
+The eye button beside a task's name shows its detail and checklist without opening it.
+
+The list is grouped by **List** to begin with. **Group By** groups it by status, by when it is due,
+by who it is assigned to, by matter, or not at all. **View** chooses:
+
+- **Layout**: **One Line** per task, or **Two Lines**, where the second line shows the start of the
+  task's detail.
+- **Row Size**: Small, Medium or Large.
+- **Columns**: which columns to show. The status and the task's name always show.
+
+## Lists and Statuses
+
+A firm keeps its tasks on one or more **lists** (for example "Litigation", "Intake" and
+"Administration"). Every task is on exactly one list. One list is the firm's default, where a new
+task lands unless you choose another.
+
+Each list has its own **statuses**, each with a name and a colour, such as To Do, In Progress and
+On Hold. The status is the coloured pill at the left of the row. Press it to move the task to
+another status. A list can say which status may follow which (its flow), so the menu offers only
+the statuses this task can move to next.
+
+**Mark Complete** sits at the foot of the same menu. Finishing a task is not a status: completing
+it leaves its status where it was, and **Reopen** brings it back exactly as it stood. Completed
+tasks leave the list; **Show Completed** at the foot of the list brings them back.
+
+Anybody whose role manages task plans can open **Task Settings** (the gear beside **View**). The
+**Lists** tab adds and renames lists, makes one the default, and retires a list, moving its tasks
+to another list first. For each list it adds, renames, recolours and removes statuses, and sets
+which statuses each one can move to. A status that tasks are still on cannot be removed. The
+**Teams** tab is described below.
+
+## Me Mode
+
+Everyone in the firm sees every task, apart from tasks on matters they are walled off from. **Me
+Mode** narrows the list to your own work:
+
+- **Assigned To Me**: tasks assigned to you, or to a team you are on.
+- **Watching**: tasks you are watching.
+- **Both**: either of those.
+
+Turn it **Off** to see everyone's tasks again.
+
 ## Opening a Task
 
-Press a task's own words to open it. It opens in a window — the same window a note, a time entry and
-a cost open in — showing everything the task carries. Press **Edit** in that window's corner to turn
-what you are reading into fields, change what you need, and press **Save**. There is no separate
-screen for changing a task: you change it where you were already reading it, and what you are
-looking at is what you are editing.
+Press a task's name to open it in its window. There is no Edit button: every field in the window is
+changed where you read it, and each change is saved as you make it. Type a new title or detail and
+move on, pick a date, choose a priority, tick a checklist item.
 
-The list underneath stays exactly where it was. Closing the window with something unsaved asks
-first.
+The window's action bar holds the task's **status** and **Mark Complete** (or **Reopen**). The
+**...** menu beside **Print** holds **Duplicate**, **Archive** and **Delete**. Duplicate makes a
+copy with the same people, dates, checklist and links, named "(Copy)".
+
+The window has these sections:
+
+- **People**: who the task is **Assigned To** (people, teams, or both) and its **Watchers**.
+  Watchers are kept informed of the work without doing it, like being copied on a letter.
+- **Location**: a room, an address, or a meeting link. When it is a web address, a **Join** button
+  opens the meeting.
+- **Checklist**: the steps inside the task, each ticked off on its own.
+- **Sub-Tasks**: smaller tasks that belong to this one. See below.
+- **Links**: web addresses the work refers to, each with an optional name.
+- **Attachments**: documents from the matter's files.
 
 ## Creating a Task
 
-Press **New Task**. The same window opens with nothing in it yet and its fields already open — a
-task has nothing to read before it exists. Say what to do, and add detail underneath if the title is
-not enough on its own.
+Press **New Task**. The same window opens with nothing in it yet, and this time it has a **Save**
+button: nothing is created until you press it. Say what to do, and add detail if the name is not
+enough on its own.
 
-**Due** and **Time** are both optional, and plenty of tasks have neither. If you give a date, the
-task is due at the end of that day in your own time zone — so a task due Friday is not treated as
-late on Friday morning. Add a time only where a specific hour matters.
+Choose the **List** the task goes on and the **Status** it starts at; the default list and its first
+status are already chosen. **Start** and **Due** are both optional. If you give a due date, the task
+is due at the end of that day in your own time zone, so a task due Friday is not late on Friday
+morning. Add a **Time** only where a specific hour matters.
 
-**Priority** is one of four: Urgent, High, Normal, Low. Normal is the default and means nothing in
-particular, which is why there is no separate "none".
+**Priority** is one of four: Urgent, High, Normal, Low. Normal is the default.
 
-**Assigned to** puts the task in somebody's name. You can leave it as _Nobody yet_ and pick somebody
-later by opening the task and pressing Edit. If the field reads back a name instead of offering a
-list, your role does not include assigning work to other people; you can still create tasks and take
-them yourself.
+Assigning a task to somebody else, or to a team, and adding watchers needs a role that includes
+assigning work. Without it you can still create tasks. You cannot assign a task on a matter to
+somebody who cannot open that matter.
 
-You cannot assign a task on a matter to somebody who cannot open that matter. A task nobody can look
-at is a gap in their list that nothing explains, so it is refused when you try rather than appearing
-and then not working.
+The checklist, links and sub-tasks are added once the task has been saved.
 
-The window names the matter the task will land on, who it will be recorded as coming from, and the
-moment it will be stamped with, so nothing is stored that you were not shown. Closing it before you
-press **Save** asks first and then throws the draft away; nothing is created until you press it.
+## Sub-Tasks
+
+Open a task and press **Add Sub-Task** to break it into smaller tasks. A sub-task is on the same
+list and the same matter as its parent, has its own status, and can have sub-tasks of its own.
+
+On the list, sub-tasks sit under their parent, indented. The arrow to the left of a task's name
+folds its sub-tasks away and brings them back.
+
+## Teams
+
+A **team** is a named group of people, such as "Trial Team". Assigning a task to a team gives the
+work to whoever is on it, so somebody who joins the team picks up its tasks without anybody
+reassigning them. Teams are kept under **Task Settings**, on the **Teams** tab.
 
 ## Tasks That Belong to No Matter
 
 Not everything a firm does belongs to a client file. Renewing the malpractice policy, interviewing a
-candidate, getting the research contract reviewed — create those from **Tasks** in the sidebar and
-they will carry no matter.
-
-**A task with no matter is private to you and whoever you assign it to.** Nobody else in the firm
-sees it, including people who can see every matter. If work should be visible to the team, put it on
-the matter it belongs to.
-
-## Where a Task Stands
-
-Every task is on one of four rungs, and moving it along them is the row of controls at the bottom of
-its window:
-
-- **To Do** — nobody has started it. Every new task begins here.
-- **In Progress** — somebody is working on it.
-- **On Hold** — it is waiting on something. The task still belongs to whoever has it; it is just not
-  moving.
-- **Done** — finished. The task records who did it and when.
-
-The rung it is on is the one that looks pressed, so you can see where a task stands without reading
-anything. Press another to move it.
-
-Moving a task **off** Done puts it back where it was, not back to the start: a task you had On Hold
-and ticked by mistake returns to On Hold. That it was finished and reopened stays in the firm's audit
-record either way.
-
-**Done is also on the list itself**, beside each row, because ticking finished work off a list is
-what a list is for. The other three rungs are in the task's window with the rest of what you can do
-to it.
+candidate, getting the research contract reviewed: create those from **Tasks** in the sidebar and
+they will carry no matter. Like every other task, everyone in the firm can see them.
 
 ## Archiving and Deleting
 
@@ -89,7 +132,7 @@ Both take a task off the list, and they differ in one thing:
 
 - **Archive** keeps it. Everything the task carries stays — its detail, its documents, the time
   logged against it — and **Show Archived** at the foot of the list brings it back into view. **Put
-  Back** returns it to the rung it left from. You can say why you archived it, but you do not have
+  Back** returns it to the list exactly as it stood. You can say why you archived it, but you do not have
   to.
 - **Delete** removes it. The task is gone and cannot be recovered.
 
@@ -97,14 +140,8 @@ Archive anything you might want to look at again, which is almost everything. De
 that should not exist — a typo, a duplicate, a line you started and abandoned before it meant
 anything.
 
-Archiving is not a fifth rung: a task is archived from wherever it stood, so a finished task you
-archive stays finished, and one you had On Hold comes back On Hold.
-
-## Overdue
-
-A task shows **Overdue** when its due date has passed and the work is still owed. Nothing is stored
-to make that happen: it is worked out fresh whenever you look, in the task's own time zone, so it is
-never based on a stale calculation. Tasks that are done or archived are never marked overdue.
+Archiving is not a status: a task is archived from wherever it stood, so a completed task you
+archive stays completed, and one you had On Hold comes back On Hold.
 
 ## Waiting on Another Task
 
@@ -131,32 +168,28 @@ belongs to a matter.
 
 ## Finding Things
 
-The search box matches what a task says — its title and its detail — on the list you are looking at.
-It sits at the top of the screen with **New Task**, in the same place as the search on every other
-screen. Whenever the search is narrowing the list, a **Show Everything** control appears beside it;
-when it is not there, nothing is hidden.
+The search box matches what a task says (its name and its detail) on the list you are looking at.
+Whenever the search or Me Mode is narrowing the list, a **Show Everything** control appears beside
+them; when it is not there, nothing is hidden.
 
-By default a list shows what is still owed — everything on To Do, In Progress and On Hold. Below the
-list, past all of that, **Show Done** and **Show Archived** add the rest to it; each then reads
-**Hide Done** or **Hide Archived**, so what is showing is always the control that puts it away
-again.
+By default the list shows what is still owed. Below the list, **Show Completed** and **Show
+Archived** add the rest; each then reads **Hide Completed** or **Hide Archived**.
 
 ## Tasks in the Sidebar
 
-**Tasks** in the sidebar is every task you can reach, in one place: across every matter you can
-see, plus your own work on no matter. Filter it by yourself to get just your list. A matter's own
-**Tasks** section is the same list narrowed to that one matter.
+**Tasks** in the sidebar is every task in the firm in one place: across every matter you can see,
+plus the firm's own work on no matter. Turn on Me Mode for just your own. A matter's own **Tasks**
+section is the same list narrowed to that one matter.
 
-Tasks on closed matters are left out. Closing a matter changes nothing about its tasks — they are
-not archived or completed — they simply stop cluttering the day-to-day list. Reopen the matter and
-they come straight back.
+Tasks on closed matters are left out. Closing a matter changes nothing about its tasks; they simply
+stop cluttering the day-to-day list. Reopen the matter and they come straight back.
 
 ## Being Told About a Task
 
 When somebody puts a task in your name you get a notification. You will not be notified about tasks
 you assign to yourself, or about a change that leaves the task with whoever already had it.
 
-Reminders about tasks that are due or overdue are not built yet. They will arrive with the same
+Reminders about tasks that are coming due or past due are not built yet. They will arrive with the same
 change that brings deadline reminders, so that both use one idea of what "due" means.
 
 ## Matter Plans
@@ -251,9 +284,8 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no board view, no recurring task, and no comment thread on a task. Sub-checklists inside a
-task are not built either; use a second task and the waiting-on link. A timer cannot yet be started
-from a task.
+There is no board view, no recurring task, and no comment thread on a task. Watchers are not yet
+notified of changes. A timer cannot yet be started from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

@@ -210,6 +210,11 @@ describe("schema conformance (fitness functions)", () => {
       "magnus_conversation_attachment",
       // A community vote: one per person per post, so the pair IS the vote.
       "community_vote",
+      // A list's flow, a team's membership and a task's watchers are each the pair itself: a move is
+      // allowed once, a member is on a team once, a member watches a task once.
+      "task_list_status_transition",
+      "task_team_member",
+      "matter_task_watcher",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a
