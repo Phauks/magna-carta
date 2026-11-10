@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f3ff4ab7-844c-47da-b517-4441b1052806",
+  "id": "fcae23cd-b220-42ff-8649-1952c7b7ad97",
   "prevId": "50504af3-d18e-43d7-a201-58a9723a7b9d",
   "tables": {
     "account_balance": {
@@ -667,208 +667,6 @@
         "calendar_event_link_continuance_matter_check": {
           "name": "calendar_event_link_continuance_matter_check",
           "value": "\"calendar_event_link\".\"kind\" <> 'continuance_of' OR (\"calendar_event_link\".\"from_matter_event_id\" IS NOT NULL AND \"calendar_event_link\".\"to_matter_event_id\" IS NOT NULL)"
-        }
-      }
-    },
-    "calendar_sync_firm_limit": {
-      "name": "calendar_sync_firm_limit",
-      "columns": {
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "event_type_id": {
-          "name": "event_type_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "may_leave": {
-          "name": "may_leave",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "detail": {
-          "name": "detail",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "calendar_sync_firm_limit_event_type_id_matter_event_type_id_fk": {
-          "name": "calendar_sync_firm_limit_event_type_id_matter_event_type_id_fk",
-          "tableFrom": "calendar_sync_firm_limit",
-          "tableTo": "matter_event_type",
-          "columnsFrom": [
-            "event_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "calendar_sync_firm_limit_updated_by_member_user_id_fk": {
-          "name": "calendar_sync_firm_limit_updated_by_member_user_id_fk",
-          "tableFrom": "calendar_sync_firm_limit",
-          "tableTo": "member",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "calendar_sync_firm_limit_subject_check": {
-          "name": "calendar_sync_firm_limit_subject_check",
-          "value": "(\"calendar_sync_firm_limit\".\"subject\" = 'deadline' AND \"calendar_sync_firm_limit\".\"event_type_id\" IS NULL) OR (\"calendar_sync_firm_limit\".\"event_type_id\" IS NOT NULL AND \"calendar_sync_firm_limit\".\"subject\" = \"calendar_sync_firm_limit\".\"event_type_id\")"
-        },
-        "calendar_sync_firm_limit_detail_check": {
-          "name": "calendar_sync_firm_limit_detail_check",
-          "value": "\"calendar_sync_firm_limit\".\"detail\" IN ('full', 'minimal')"
-        }
-      }
-    },
-    "calendar_sync_rule": {
-      "name": "calendar_sync_rule",
-      "columns": {
-        "connection_id": {
-          "name": "connection_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "event_type_id": {
-          "name": "event_type_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "calendar_remote_id": {
-          "name": "calendar_remote_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "calendar_name": {
-          "name": "calendar_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "calendar_sync_rule_connection_id_integration_connection_id_fk": {
-          "name": "calendar_sync_rule_connection_id_integration_connection_id_fk",
-          "tableFrom": "calendar_sync_rule",
-          "tableTo": "integration_connection",
-          "columnsFrom": [
-            "connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "calendar_sync_rule_event_type_id_matter_event_type_id_fk": {
-          "name": "calendar_sync_rule_event_type_id_matter_event_type_id_fk",
-          "tableFrom": "calendar_sync_rule",
-          "tableTo": "matter_event_type",
-          "columnsFrom": [
-            "event_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "calendar_sync_rule_connection_id_subject_pk": {
-          "columns": [
-            "connection_id",
-            "subject"
-          ],
-          "name": "calendar_sync_rule_connection_id_subject_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "calendar_sync_rule_subject_check": {
-          "name": "calendar_sync_rule_subject_check",
-          "value": "(\"calendar_sync_rule\".\"subject\" = 'deadline' AND \"calendar_sync_rule\".\"event_type_id\" IS NULL) OR (\"calendar_sync_rule\".\"event_type_id\" IS NOT NULL AND \"calendar_sync_rule\".\"subject\" = \"calendar_sync_rule\".\"event_type_id\")"
-        },
-        "calendar_sync_rule_scope_check": {
-          "name": "calendar_sync_rule_scope_check",
-          "value": "\"calendar_sync_rule\".\"scope\" IN ('mine', 'my_matters')"
-        },
-        "calendar_sync_rule_calendar_check": {
-          "name": "calendar_sync_rule_calendar_check",
-          "value": "length(\"calendar_sync_rule\".\"calendar_remote_id\") > 0"
         }
       }
     },
@@ -18371,9 +18169,52 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "recurrence_rule": {
+          "name": "recurrence_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recurrence_mode": {
+          "name": "recurrence_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recurrence_occurrence_on": {
+          "name": "recurrence_occurrence_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recurrence_next_task_id": {
+          "name": "recurrence_next_task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
+        "matter_task_recurrence_next_task_unique_index": {
+          "name": "matter_task_recurrence_next_task_unique_index",
+          "columns": [
+            "recurrence_next_task_id"
+          ],
+          "isUnique": true
+        },
+        "matter_task_recurrence_mode_index": {
+          "name": "matter_task_recurrence_mode_index",
+          "columns": [
+            "recurrence_mode",
+            "recurrence_next_task_id"
+          ],
+          "isUnique": false
+        },
         "matter_task_list_state_index": {
           "name": "matter_task_list_state_index",
           "columns": [
@@ -18570,6 +18411,18 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "matter_task_recurrence_shape_check": {
+          "name": "matter_task_recurrence_shape_check",
+          "value": "(\"matter_task\".\"recurrence_rule\" IS NULL) = (\"matter_task\".\"recurrence_mode\" IS NULL)\n        AND (\"matter_task\".\"recurrence_rule\" IS NULL) = (\"matter_task\".\"recurrence_occurrence_on\" IS NULL)"
+        },
+        "matter_task_recurrence_mode_check": {
+          "name": "matter_task_recurrence_mode_check",
+          "value": "\"matter_task\".\"recurrence_mode\" IS NULL OR \"matter_task\".\"recurrence_mode\" IN ('completed', 'scheduled')"
+        },
+        "matter_task_recurrence_occurrence_on_shape_check": {
+          "name": "matter_task_recurrence_occurrence_on_shape_check",
+          "value": "\"matter_task\".\"recurrence_occurrence_on\" IS NULL OR \"matter_task\".\"recurrence_occurrence_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
         "matter_task_starts_on_shape_check": {
           "name": "matter_task_starts_on_shape_check",
           "value": "\"matter_task\".\"starts_on\" IS NULL OR \"matter_task\".\"starts_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"

@@ -383,6 +383,13 @@
     {
       "idx": 54,
       "version": "6",
+      "when": 1794281383037,
+      "tag": "20261110T034828_recurring-tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
       "when": 1794280785108,
       "tag": "20261110T040000_calendar-sync-rules-and-firm-limits",
       "breakpoints": true

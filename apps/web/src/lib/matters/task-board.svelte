@@ -22,6 +22,7 @@
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import CornerDownRight from "@lucide/svelte/icons/corner-down-right";
+  import Repeat from "@lucide/svelte/icons/repeat";
   import {
     PRIORITY_LABELS,
     STATUS_PALETTE,
@@ -145,7 +146,14 @@
                 {#if context.showMatter}
                   <span class="truncate text-xs text-text-muted">{context.matterTitle(task.matterId)}</span>
                 {/if}
-                <span class="text-sm font-semibold">{task.title}</span>
+                <span class="text-sm font-semibold">
+                  {task.title}
+                  {#if task.recurrence !== null}
+                    <span class="inline-flex align-middle text-text-muted" title="Repeats">
+                      <Repeat aria-hidden="true" class="size-12" /><span class="sr-only">Repeats</span>
+                    </span>
+                  {/if}
+                </span>
                 <span class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
                   {#if task.completedAt !== null}
                     <span class="inline-flex items-center gap-4"><CircleCheck aria-hidden="true" class="size-12" />Completed</span>

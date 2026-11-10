@@ -189,6 +189,17 @@ function taskDetail(
     parentTaskId: row.parent_task_id,
     startsOn: row.starts_on,
     location: row.location,
+    recurrence:
+      row.recurrence_rule === null ||
+      row.recurrence_mode === null ||
+      row.recurrence_occurrence_on === null
+        ? null
+        : {
+            rule: row.recurrence_rule,
+            mode: row.recurrence_mode,
+            occurrenceOn: row.recurrence_occurrence_on,
+            nextTaskId: row.recurrence_next_task_id,
+          },
     assignees: parts.assignees
       .filter((assignee) => assignee.task_id === row.id)
       .map((assignee) => ({ id: assignee.id, userId: assignee.user_id, teamId: assignee.team_id })),

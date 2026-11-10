@@ -64,6 +64,7 @@ import taskListsStatusesAndTeamsSql from "@magna-carta/database/drizzle/per-firm
 import aConflictsResultRecordsWhereItWasFoundSql from "@magna-carta/database/drizzle/per-firm/20261110T013610_a-conflicts-result-records-where-it-was-found.sql";
 import connectionAccountLabelSql from "@magna-carta/database/drizzle/per-firm/20261110T023832_connection-account-label.sql";
 import recordTextIndexSql from "@magna-carta/database/drizzle/per-firm/20261110T033313_record-text-index.sql";
+import recurringTasksSql from "@magna-carta/database/drizzle/per-firm/20261110T034828_recurring-tasks.sql";
 import calendarSyncRulesAndFirmLimitsSql from "@magna-carta/database/drizzle/per-firm/20261110T040000_calendar-sync-rules-and-firm-limits.sql";
 
 export function perFirmMigrations(): Migration[] {
@@ -131,6 +132,7 @@ export function perFirmMigrations(): Migration[] {
       aConflictsResultRecordsWhereItWasFoundSql,
     "20261110T023832_connection-account-label": connectionAccountLabelSql,
     "20261110T033313_record-text-index": recordTextIndexSql,
+    "20261110T034828_recurring-tasks": recurringTasksSql,
     "20261110T040000_calendar-sync-rules-and-firm-limits": calendarSyncRulesAndFirmLimitsSql,
   });
 }
