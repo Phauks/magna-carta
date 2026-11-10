@@ -9,6 +9,9 @@ import {
   type RunCheckInput,
 } from "../src/run-check.ts";
 import {
+  cancelRunStatement,
+  CANCELLED_RUN_FAILURE,
+  reportedRunStatus,
   fileCheckOnMatterStatement,
   openCheckRun,
   parseRunProgress,
@@ -378,4 +381,113 @@ test("progress is written onto the run in the engine's own order, and cleared wh
   const settled = await readRun(fixture.database, checkId);
   expect(settled?.stage).toBeNull();
   expect(parseRunProgress(settled?.progress_json ?? null)).toEqual({});
+});
+
+test("a queued run that is cancelled reads as cancelled, names who stopped it, and never runs", async () => {
+  const fixture = await recheckFixture("cancel-queued");
+  const opened = await openCheckRun(
+    fixture.database,
+    { request: storedRequest(), triggerSource: "manual", under: null },
+    fixture.writeOptions,
+  );
+  const stopped = await cancelRunStatement(
+    fixture.database,
+    opened.runId,
+    fixture.writeOptions.actorUserId,
+    fixture.clock.now(),
+  ).run();
+  expect(stopped.meta.changes).toBe(1);
+  const row = await readRun(fixture.database, opened.runId);
+  expect(row === null ? null : reportedRunStatus(row)).toBe("cancelled");
+  expect(row?.cancelled_by_user_id).toBe(fixture.writeOptions.actorUserId);
+  expect(row?.failure).toBe(CANCELLED_RUN_FAILURE);
+  // Nothing left to claim: the executor searches nothing and records nothing.
+  await expect(
+    executeCheckRun(
+      fixture.context,
+      { runId: opened.runId, input: request() },
+      fixture.writeOptions,
+    ),
+  ).resolves.toBeNull();
+});
+
+test("a run cancelled while it searches stops at its next report and records nothing", async () => {
+  const fixture = await recheckFixture("cancel-running");
+  const subject = await subjectOn(fixture, "Cancelled");
+  const opened = await openCheckRun(
+    fixture.database,
+    {
+      request: storedRequest({ subjectEntityIds: [subject] }),
+      triggerSource: "manual",
+      under: null,
+    },
+    fixture.writeOptions,
+  );
+  // A member presses Cancel the moment the search starts walking.
+  const cancelling = {
+    ...fixture.context,
+    database: {
+      prepare: (sql: string) => {
+        const statement = fixture.database.prepare(sql);
+        if (!sql.includes("SET stage = ?2")) return statement;
+        return {
+          ...statement,
+          bind: (...values: unknown[]) => {
+            const bound = statement.bind(...values);
+            return {
+              ...bound,
+              run: async () => {
+                if (values[1] === "walking") {
+                  await cancelRunStatement(
+                    fixture.database,
+                    opened.runId,
+                    fixture.writeOptions.actorUserId,
+                    fixture.clock.now(),
+                  ).run();
+                }
+                return bound.run();
+              },
+            };
+          },
+        };
+      },
+      batch: fixture.database.batch.bind(fixture.database),
+      enforcesGuardedWrites: fixture.database.enforcesGuardedWrites,
+    } as never,
+  };
+  await expect(
+    executeCheckRun(
+      cancelling,
+      {
+        runId: opened.runId,
+        input: request({
+          subjectEntityIds: [subject],
+          scope: { sources: ["party", "graph"], strictness: "balanced" },
+        }),
+      },
+      fixture.writeOptions,
+    ),
+  ).resolves.toBeNull();
+  const row = await readRun(fixture.database, opened.runId);
+  expect(row === null ? null : reportedRunStatus(row)).toBe("cancelled");
+  // No search record was written for it.
+  const { results } = await fixture.database
+    .prepare("SELECT id FROM conflicts_check WHERE id = ?1")
+    .bind(opened.runId)
+    .all();
+  expect(results).toEqual([]);
+});
+
+test("cancelling a run that already finished changes nothing", async () => {
+  const fixture = await recheckFixture("cancel-settled");
+  const checkId = await runConflictsCheck(fixture.context, request(), fixture.writeOptions);
+  const stopped = await cancelRunStatement(
+    fixture.database,
+    checkId,
+    fixture.writeOptions.actorUserId,
+    fixture.clock.now(),
+  ).run();
+  expect(stopped.meta.changes).toBe(0);
+  const row = await readRun(fixture.database, checkId);
+  expect(row === null ? null : reportedRunStatus(row)).toBe("completed");
 });

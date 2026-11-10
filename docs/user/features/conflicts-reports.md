@@ -23,29 +23,28 @@ column's own heading — by trigger, by who asked, by run state — and clear th
 control beside New Check.
 
 **New Check**, at the top right of that screen, opens the panel, which has two sides, and shows the
-number the check will get. The left side is what you are asking: the parties to search for, and the
-matter to file the check under if there is one — once you have chosen a party, the matter field
-offers the matters that party is on first, with the rest of the docket searchable beneath. Under
-them it tells you, in plain sentences, what pressing **Run Check** will actually do. The right side
-has two tabs. **Locations** is the places the check searches; **Advanced Settings** is how names are
-compared, and two things it cannot search yet. You can leave every one of them alone. Pressing Run
-Check opens the check and takes you to its screen, where the search runs in front of you.
+number the check will get. The left side asks for one thing: the **Parties** to search for. The panel
+does not ask for a matter; you file a check on a matter from its report once you know which one. The
+right side has two tabs: **Locations**, the places the check searches, and **Advanced Settings**, how
+names are compared. You can leave every one of them alone. Pressing **Run Check** opens the check and
+takes you to its screen, where the search runs in front of you.
 
-**A check does not need a matter.** The matter is where the check is _filed_, not what it is checked
-_against_ — the whole point of a check is to find the matters that might conflict. Naming one adds
-that matter's own parties to the search and lets the check reach your own people; leaving it empty is
-what you do when all you have is a name somebody gave you on the telephone. A check you ran before
-there was a matter can be filed on one later, from the check's own screen, which is the ordinary
-case.
+**The check's screen** is titled by its number, with two tabs: **Report** and **Runs**.
 
-**The check's screen** is titled by its number. What was asked for — the parties, the matter, the
-settings the run actually used — sits in one place, and what came back — the platform's own account
-of its search, then the candidates — in another, so the two are never read as one. While a run is
-under way the screen says which stage the search is at and what it has counted so far, and follows
-it until it finishes. **Runs** lists every run of the check with when it ran and what it came to;
-open any one of them. **Run Again** searches again with the same parties and settings, as a further
-run under the same number. **Print Report** and **Download Report**, at the top right, hand you the
-same sheet — the second as a PDF, kept in your Downloads.
+- **Report** has three sections, each of which you can fold away. **Details** is what was asked for:
+  the parties, one per line, then the settings (what each location searched, how names were
+  compared, who asked, and the matter it is filed on, or No Matter with a field to file it on one).
+  **Status** has a row for each location with what it is doing while the run is under way, and what
+  it did once it finishes; open a row to read its log. A location that cannot be searched yet reads
+  Not searched. **Results** is what the search turned up (see below).
+- **Runs** lists every run of the check with when it started, how long it took, who asked, how many
+  results it found and how it ended. Open any one to read its report. **Run Again** searches again
+  with the same parties and settings, as a further run under the same number.
+
+While a run is under way, the badge at the top reads **Running** with the time so far, and pressing
+its **Cancel** half stops the run. A cancelled run stays in the check's history as Cancelled, naming
+who stopped it, and records no results. The two buttons beside the badge print the report and
+download it as a PDF, kept in your Downloads; hover over either to see which is which.
 
 **The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
 checked and under what settings, anything nobody has answered yet, and whether your firm has since
@@ -62,18 +61,17 @@ A conflicts check also appears on the matter's activity history, and opens the c
 
 The right side of the New Check panel is the search itself, in two tabs.
 
-**Locations** is where the check looks, listed as places:
+**Locations** is where the check looks: five places, each opening onto what it searches.
 
-- **Directory** — every party your firm has ever recorded. Always searched: it is your firm's floor
-  and not a choice. Beneath it, behind a caret, is what the Directory search does: **Name or
-  identifier** (every party, matched on name and on the identifiers you hold for them — always on),
-  **Relationships** (walks outwards from each party you named, through every relationship your
-  directory holds, as far as each chain goes), and **The firm's own people** (joins your own members
-  against the matter's parties by identity, never by name — it needs a matter, and without one the
-  check records it as not searched rather than leaving it out).
-- **Files**, **Messaging** and **Magnus** — shown, but not searchable yet. Each says what it is
-  waiting on, and every check records them as not searched, so a report can never read as if your
-  documents, messages or conversations were searched and came up empty.
+- **Directory**: every party your firm has ever recorded. **Names and identifiers** is always on.
+  **Relationships** walks outwards from each party you named, through every relationship your
+  directory holds, as far as each chain goes. **Firm Employees** looks for your own people by
+  identity, never by name: on a check filed on a matter, among that matter's parties, and on any check,
+  among everyone the search reached.
+- **Files** (Consultations, Open, Closed, Archived), **Messaging** (Calls, Texts, Email), **Tasks**
+  (Consultations, Open, Closed, Archived) and **Magnus** (All Employee Conversations): shown, marked
+  Soon, and not searchable yet. Every check records them as not searched, so a report can never read
+  as if your documents, messages, tasks or conversations were searched and came up empty.
 
 **Advanced Settings** holds **name matching**, which decides how many ways a name may be written and
 still count. It is a dropdown, and each choice shows a name it would catch. **Both choices match
@@ -86,9 +84,6 @@ names that sound alike** — Stephen and Steven, Smith and Smyth.
   included, under every encoder. It is a strict superset of Standard: widening can only add
   candidates, never hide one.
 
-The same tab shows two things a check cannot search yet — prior-firm history and nickname
-equivalents — each saying what it waits on.
-
 **There is no limit to set.** A check follows every relationship your directory holds, as far as
 the chain goes, and there is no cap on how much it may look at or record. The platform keeps one
 ceiling of its own on a single search, far above any real corporate group; a run that reaches it
@@ -98,7 +93,7 @@ never shown as one that finished.
 **You are not asked whether the check is preliminary or comprehensive.** Those two words say _when_ a
 check ran, not how it searched: the screen before your firm takes a matter on, or the moment it
 accepts. A check filed against a matter your firm has already taken on is comprehensive, and every
-other check is preliminary. The panel tells you which one it is going into the log as.
+other check is preliminary. The check's screen says which one it went into the log as.
 
 ## What your firm decides, and what it cannot switch off
 
@@ -157,7 +152,7 @@ asked to justify how it screened a matter, a described procedure is what the que
 about. A one-word verdict is not, and a one-word verdict the software produced is worse than none,
 because it is a sentence a lawyer would then have to defend without having written it.
 
-When a check turns up nothing, the report ends with the sentence **"Nothing surfaced."** That sentence
+When a check turns up nothing, the report ends with the sentence **"0 results."** That sentence
 is about the search. It is not about the matter.
 
 ## Where a matter stands
@@ -224,14 +219,23 @@ compares names several ways at once, and every result tells you which comparison
 
 ## Deciding on a result
 
-A conflicts check never decides anything. It surfaces candidates and orders them by how strong the
+A conflicts check never decides anything. It surfaces results and orders them by how strong the
 evidence is — an exact match on a tax or social security number is stronger evidence than two people
 sharing a surname — and stops there. Nothing is hidden because it looked weak: a weak match you never
 see is a missed conflict you never get the chance to catch.
 
-A person decides. When you record a decision on a result you say what you concluded — that it is not
-in fact a conflict, that a waiver is on file, that a screen has been put in place, or that the firm is
-declining the work — and why, in your own words. Your name goes on it and stays on it.
+Each result in **Results** is a card. It shows the name, how strong the match is in a word (**Exact**,
+**Same name**, **Might be**, **Weak**), which search found it, what matched, and how it was reached:
+directly, as another party on the same check, as one of your own people, or through a chain of
+relationships. The arrow at the left opens the full account in place, and clicking the name opens the
+result's own window with its history of decisions. Above the cards you can narrow the list by text,
+by which search found it, by strength and by review state; each chip shows how many results it would
+keep.
+
+A person decides. Each card's review menu reads **Not reviewed** until somebody decides; choose
+**Cleared** (it is not in fact a conflict), **Waived** (a waiver is on file), **Walled off** (a screen
+has been put in place) or **Declined** (the firm is declining the work), and say why in your own
+words. Your name goes on it and stays on it.
 
 Decisions are recorded, never overwritten. If you conclude one way and later change your mind, the
 second decision is added and the first one stays visible underneath it. That is deliberate: what your

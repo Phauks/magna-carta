@@ -202,3 +202,52 @@ Decisions taken while building, so the next round does not re-derive them.
   `packages/fixtures/src/load-profile/conflicts-measurements.ts` that still pass budgets; and
   `apps/web/src/lib/matters/new-matter-dialog.svelte`, which still runs a check synchronously
   through the compatibility `runConflictsCheck` and would read better showing the run.
+
+## R2 — round two: the check redesign of 2026-11-09
+
+The owner's rulings of 2026-11-09, given over six rounds of mockups and built the same day. Rows
+marked `settled` are built in the commit that adds them; `open` rows wait on the indexes named
+beneath them. Rows here supersede R1 where they say so.
+
+### The New Check panel
+
+| #   | Ruling                                                                                                                                                                                                         | Status                   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| N1  | **The panel does not ask for a matter.** A check is a search for parties; the matter is chosen from the report. Supersedes P8.                                                                                 | settled                  |
+| N2  | **No "What This Check Will Do" read-back.** What the check searches is the right pane's options.                                                                                                               | settled                  |
+| N3  | **Five locations, each a dropdown of what it searches:** Directory (Names and identifiers, Relationships, Firm Employees), Files, Messaging (Calls, Texts, Email), Tasks, Magnus (All Employee Conversations). | settled                  |
+| N4  | **Files and Tasks each offer Consultations, Open, Closed and Archived, all on by default.** Filed email and attachments are part of a matter's files, so they need no option of their own.                     | open (waits on indexing) |
+| N5  | **An option says what it searches, never its relationship to policy.** No "always searched, the firm's floor", no waits-on sentence.                                                                           | settled                  |
+| N6  | **"Firm's own people" reads "Firm Employees", and it does not need a matter.** Without one it asks whether anybody the check reached is one of the firm's members, by identity.                                | settled                  |
+| N7  | **Locations search in parallel.** Each place runs on its own and reports on its own row.                                                                                                                       | open (one place today)   |
+
+### The check page
+
+| #   | Ruling                                                                                                                                                           | Status                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| C1  | **Report and Runs are tabs**, after Cloudflare's Workers pages. The run history is no longer a column beside the report. Supersedes the Runs card of R1.         | settled                  |
+| C2  | **The report is three collapsible sections: Details, Status, Results.** Details is the parties, one per line, then a Settings area.                              | settled                  |
+| C3  | **The per-location status log is part of the report**, live while the run is in flight and kept afterwards.                                                      | settled                  |
+| C4  | **A run can be cancelled, and Cancel is merged into the Running badge.** A cancelled run reads Cancelled, names who stopped it, and needs no explanatory banner. | settled                  |
+| C5  | **Print Report and Download Report are icon buttons without text.** Amends R2 of round one.                                                                      | settled                  |
+| C6  | **"Candidates" reads "Results"; "Nothing surfaced" reads "0 results".**                                                                                          | settled                  |
+| C7  | **Each result says why and where**: strength in a word, which search found it, what matched, how it was reached, with the full account one click away.           | settled                  |
+| C8  | **Results are filterable**, by text, by which search found them, by strength and by review state.                                                                | settled                  |
+| C9  | **The Answer button becomes a review dropdown**: Not reviewed, Cleared, Waived, Walled off, Declined.                                                            | settled                  |
+| C10 | **The report names the searcher, never a user handle.**                                                                                                          | settled                  |
+| C11 | **Results populate live and can be reviewed mid-run**, and a run waits for documents still awaiting text extraction.                                             | open (waits on indexing) |
+
+**Notes recorded this round.**
+
+- **A cancelled run is stored as `failed` with `cancelled_at` and `cancelled_by_user_id` set**, not a
+  fifth status: the status set is a CHECK constraint and widening it in SQLite rebuilds the table.
+  `reportedRunStatus` in `packages/conflicts/src/check-run.ts` is where a read turns it into
+  `cancelled`. The executor notices at its next progress report, whose guarded write finds no
+  running row, and stops without recording.
+- **The panel draws Files, Messaging, Tasks and Magnus with their options, disabled and marked Soon**,
+  until the indexes behind them exist; the Status section reads them Not searched. N4, N7 and C11
+  land with those indexes.
+- **The Results "Found In" chips name the Directory's three searches** (Names and identifiers,
+  Relationships, Firm Employees) while the Directory is the only place searched; they become places
+  when a second place reports. A Party chip waits on hits recording which subject party they came
+  from, which the record does not hold today.
