@@ -758,12 +758,12 @@ export interface SealAppearance {
    * The box in points, `[left, bottom, right, top]`, from the page's bottom-left corner as
    * the page is stored. It must be at least one point wide and one point tall.
    */
-  rect: [number, number, number, number];
+  rect: readonly [number, number, number, number];
   /**
    * The text, one entry per line, e.g. `["Signed by Jane Doe", "2026-11-10 14:02 UTC"]`. The
    * engine reads no clock and knows no signer: it draws what it is given, sized to fit.
    */
-  lines: string[];
+  lines: readonly string[];
 }
 
 export interface PreparedSeal {
