@@ -220,6 +220,40 @@ export function asAllDay(draft: EventTimingDraft): EventTimingDraft {
   return { ...draft, startsAtTime: "", endsAtTime: "" };
 }
 
+/** How long a new event runs when only its start time has been chosen. */
+export const DEFAULT_EVENT_MINUTES = 60;
+
+/**
+ * THE START DATE, CARRIED TO THE END. Most events begin and end on the same day, so the end date
+ * follows the start (owner, 2026-11-09: "when making an event, assume start and end date are the
+ * same"). It follows only while it has not been made to say something else: an end that was empty,
+ * that matched the start being replaced, or that the new start has passed. A three-day trial whose
+ * end was set to Wednesday keeps Wednesday when its start moves within the run.
+ */
+export function withStartsOn(draft: EventTimingDraft, startsOn: string | null): EventTimingDraft {
+  const endFollows =
+    draft.endsOn === null ||
+    draft.endsOn === draft.startsOn ||
+    (startsOn !== null && draft.endsOn < startsOn);
+  return { ...draft, startsOn, endsOn: endFollows ? startsOn : draft.endsOn };
+}
+
+/**
+ * THE START TIME, AND THE END A NEW EVENT DEFAULTS TO. Choosing a start hour on an event with no
+ * end hour yet puts the end an hour later on the same day, so a one-hour meeting is one answer
+ * rather than two. An end the reader already chose is left alone. Where an hour later would run
+ * past midnight, the end is left empty rather than wrapped onto a time before the start.
+ */
+export function withStartsAtTime(draft: EventTimingDraft, startsAtTime: string): EventTimingDraft {
+  const next = { ...draft, startsAtTime };
+  if (startsAtTime === "" || draft.endsAtTime !== "" || !isWallClockTime(startsAtTime)) return next;
+  const [hours, minutes] = startsAtTime.split(":").map(Number);
+  const endMinute = (hours ?? 0) * 60 + (minutes ?? 0) + DEFAULT_EVENT_MINUTES;
+  if (endMinute >= 24 * 60) return next;
+  const endsAtTime = `${String(Math.floor(endMinute / 60)).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
+  return { ...next, endsAtTime, endsOn: next.endsOn ?? next.startsOn };
+}
+
 /**
  * WHO AN EVENT BELONGS TO, which is the record it writes. A matter writes a matter event; the firm
  * and a staff member both write a firm event, because a person's own appointment is a firm event
