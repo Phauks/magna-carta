@@ -17,6 +17,7 @@ import type {
   TaskTeamId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { membersOfTeams, watcherNotice, watcherNoticeFor } from "./watcher-notices.ts";
 import {
   blockingChainReaches,
   archiveMatterTaskStatement,
@@ -32,7 +33,6 @@ import {
   memberCanBeAssigned,
   readMatterTask,
   readMatterTaskDocument,
-  reassignMatterTaskStatement,
   unarchiveMatterTaskStatement,
   updateMatterTaskStatement,
   isDescendantOf,
@@ -302,7 +302,7 @@ export async function createMatterTask(
       `a task is assigned to at most ${String(MAX_TASK_ASSIGNEES)} people and teams`,
     );
   }
-  for (const userId of people) await assertAssignable(database, userId, matterId, options);
+  await Promise.all(people.map((userId) => assertAssignable(database, userId, matterId, options)));
   if (teams.length > 0) {
     const live = new Set((await readTaskTeams(database)).map((team) => team.id));
     if (teams.some((team) => !live.has(team))) {
@@ -316,12 +316,17 @@ export async function createMatterTask(
       `a task has at most ${String(MAX_TASK_WATCHERS)} watchers`,
     );
   }
-  for (const userId of watchers) await assertAssignable(database, userId, matterId, options);
+  await Promise.all(
+    watchers.map((userId) => assertAssignable(database, userId, matterId, options)),
+  );
   const assigneeUserId = people[0] ?? null;
   if (blockedByTaskId !== null) {
     await assertPredecessor(database, blockedByTaskId, matterId, null, options);
   }
 
+  const told = [...new Set([...people, ...(await membersOfTeams(database, teams))])].filter(
+    (userId) => userId !== options.actorUserId,
+  );
   const now = options.clock.now();
   const taskId = newIdentifier("matterTask", options.randomSource);
   return {
@@ -394,10 +399,10 @@ export async function createMatterTask(
       // The outbox row IS the emission. The notification registry's rule is that a type SUBSCRIBES
       // and never produces, so there is no notify() call in this path — the durable row committed in
       // the same atomic batch as the task is what a subscriber reads.
-      // Every person named, except the one doing the naming.
-      outboxMessages: people
-        .filter((userId) => userId !== options.actorUserId)
-        .map((userId) => ({
+      // Every person named, in person or through a team, except the one doing the naming; then
+      // the watchers, told they are copied in.
+      outboxMessages: [
+        ...told.map((userId) => ({
           topic: assignmentTopicFor(matterId, false),
           payload: {
             taskId,
@@ -408,6 +413,13 @@ export async function createMatterTask(
             dueOn: due.dueOn,
           },
         })),
+        ...watcherNoticeFor(
+          { id: taskId, matter_id: matterId, priority },
+          "watching",
+          options.actorUserId,
+          watchers.filter((userId) => !told.includes(userId)),
+        ),
+      ],
     },
   };
 }
@@ -486,7 +498,11 @@ export async function editMatterTask(
           },
         }),
       ],
-      outboxMessages: [],
+      // A moved due date is the edit a watcher needs to hear about; a reworded title is not.
+      outboxMessages:
+        due.dueOn === task.due_on
+          ? []
+          : await watcherNotice(database, task, "dueDateChanged", options.actorUserId),
     },
   };
 }
@@ -958,7 +974,12 @@ export async function setMatterTaskCompleted(
           },
         }),
       ],
-      outboxMessages: [],
+      outboxMessages: await watcherNotice(
+        database,
+        task,
+        completed ? "completed" : "reopened",
+        options.actorUserId,
+      ),
     },
   };
 }

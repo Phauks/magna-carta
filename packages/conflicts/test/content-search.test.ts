@@ -25,6 +25,7 @@ const ALL: PlacesRequest = {
   messaging: ["calls", "texts", "email"],
   tasks: ["consultations", "open", "closed", "archived"],
   magnus: true,
+  files: [],
 };
 
 async function corpus() {
@@ -240,7 +241,7 @@ describe("the request and the record", () => {
     expect(readPlacesRequest(undefined)).toEqual(NO_PLACES);
     expect(
       readPlacesRequest({ messaging: ["texts", "fax"], tasks: ["open"], magnus: "yes" }),
-    ).toEqual({ messaging: ["texts"], tasks: ["open"], magnus: false });
+    ).toEqual({ messaging: ["texts"], tasks: ["open"], magnus: false, files: [] });
   });
 
   test("a stored place reads back with its matter's number, and a Directory result reads as none", async () => {

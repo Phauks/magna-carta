@@ -13,7 +13,9 @@ import type {
   TaskTeamId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import { assignmentTopicFor } from "./notifications.ts";
+import { membersOfTeams, watcherNotice, watcherNoticeFor } from "./watcher-notices.ts";
 import {
   MATTER_TASK_CHECKLIST_ITEM_TABLE,
   MATTER_TASK_LINK_TABLE,
@@ -37,6 +39,7 @@ import {
   readTaskListStatuses,
   readTaskLists,
   readTaskTeams,
+  readTaskWatchers,
   renameTaskListStatement,
   renameTaskTeamStatement,
   replaceStatusFlowStatements,
@@ -101,8 +104,11 @@ function audit(
   });
 }
 
-function effectOf(statements: readonly SqlStatement[]): { effect: EffectWrite } {
-  return { effect: { statements: [...statements], outboxMessages: [] } };
+function effectOf(
+  statements: readonly SqlStatement[],
+  outboxMessages: readonly OutboxMessage[] = [],
+): { effect: EffectWrite } {
+  return { effect: { statements: [...statements], outboxMessages: [...outboxMessages] } };
 }
 
 // ---- lists ----
@@ -506,10 +512,16 @@ export async function setTaskAssignees(
       throw new TaskValidationError("task-team-unknown", "that is not one of the firm's teams");
     }
   }
-  const before = new Set(
-    (await readTaskAssignees(database, [taskId])).flatMap((row) =>
-      row.user_id === null ? [] : [row.user_id],
-    ),
+  const beforeRows = await readTaskAssignees(database, [taskId]);
+  const before = new Set(beforeRows.flatMap((row) => (row.user_id === null ? [] : [row.user_id])));
+  const teamsBefore = new Set(
+    beforeRows.flatMap((row) => (row.team_id === null ? [] : [row.team_id])),
+  );
+  // Everybody who already had the work, in person or through a team, so nobody is told twice.
+  const hadIt = new Set([...before, ...(await membersOfTeams(database, [...teamsBefore]))]);
+  const addedTeamMembers = await membersOfTeams(
+    database,
+    teams.filter((teamId) => !teamsBefore.has(teamId)),
   );
   const now = options.clock.now();
   const ordered: (TaskAssigneeInput & { id: MatterTaskAssigneeId })[] = [
@@ -522,7 +534,10 @@ export async function setTaskAssignees(
       id: newIdentifier("matterTaskAssignee", options.randomSource),
     })),
   ];
-  const told = people.filter((userId) => !before.has(userId) && userId !== options.actorUserId);
+  const told = [...new Set([...people, ...addedTeamMembers])].filter(
+    (userId) => !hadIt.has(userId) && userId !== options.actorUserId,
+  );
+  const watchers = (await readTaskWatchers(database, [taskId])).map((row) => row.user_id);
   return {
     effect: {
       statements: [
@@ -538,17 +553,26 @@ export async function setTaskAssignees(
           teamCount: teams.length,
         }),
       ],
-      outboxMessages: told.map((assigneeUserId) => ({
-        topic: assignmentTopicFor(task.matter_id, before.size > 0),
-        payload: {
-          taskId,
-          matterId: task.matter_id,
-          assigneeUserId,
-          assignedByUserId: options.actorUserId,
-          priority: task.priority,
-          dueOn: task.due_on,
-        },
-      })),
+      outboxMessages: [
+        ...told.map((assigneeUserId) => ({
+          topic: assignmentTopicFor(task.matter_id, beforeRows.length > 0),
+          payload: {
+            taskId,
+            matterId: task.matter_id,
+            assigneeUserId,
+            assignedByUserId: options.actorUserId,
+            priority: task.priority,
+            dueOn: task.due_on,
+          },
+        })),
+        // A watcher just told the work is now theirs has been told what changed.
+        ...watcherNoticeFor(
+          task,
+          "assigneesChanged",
+          options.actorUserId,
+          watchers.filter((userId) => !told.includes(userId)),
+        ),
+      ],
     },
   };
 }
@@ -596,19 +620,29 @@ export async function setTaskWatchers(
     );
   }
   await assertAssignableAll(database, watchers, task.matter_id, options);
+  const already = new Set((await readTaskWatchers(database, [taskId])).map((row) => row.user_id));
   const now = options.clock.now();
-  return effectOf([
-    ...replaceTaskWatchersStatements(database, {
-      taskId,
-      userIds: watchers,
-      actor: options.actorUserId,
-      now,
-    }),
-    audit(database, options, "tasks.task.watchersChanged", taskId, {
-      matterId: task.matter_id,
-      watcherCount: watchers.length,
-    }),
-  ]);
+  return effectOf(
+    [
+      ...replaceTaskWatchersStatements(database, {
+        taskId,
+        userIds: watchers,
+        actor: options.actorUserId,
+        now,
+      }),
+      audit(database, options, "tasks.task.watchersChanged", taskId, {
+        matterId: task.matter_id,
+        watcherCount: watchers.length,
+      }),
+    ],
+    // Only the people newly copied in are told they are watching; the rest already knew.
+    watcherNoticeFor(
+      task,
+      "watching",
+      options.actorUserId,
+      watchers.filter((userId) => !already.has(userId)),
+    ),
+  );
 }
 
 // ---- where a task stands, and which list it is on ----
@@ -645,14 +679,17 @@ export async function moveTaskToStatus(
     );
   }
   const now = options.clock.now();
-  return effectOf([
-    setTaskStatusStatement(database, { taskId, statusId, now, actor: options.actorUserId }),
-    audit(database, options, "tasks.task.statusChanged", taskId, {
-      matterId: task.matter_id,
-      fromStatusId: task.status_id,
-      toStatusId: statusId,
-    }),
-  ]);
+  return effectOf(
+    [
+      setTaskStatusStatement(database, { taskId, statusId, now, actor: options.actorUserId }),
+      audit(database, options, "tasks.task.statusChanged", taskId, {
+        matterId: task.matter_id,
+        fromStatusId: task.status_id,
+        toStatusId: statusId,
+      }),
+    ],
+    await watcherNotice(database, task, "statusChanged", options.actorUserId),
+  );
 }
 
 // Moving a task to another list puts it, and every sub-task under it, on that list's first status.

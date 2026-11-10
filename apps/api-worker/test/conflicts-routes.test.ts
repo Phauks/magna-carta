@@ -155,7 +155,7 @@ interface RunSummary {
   readonly failure: string | null;
   readonly cancelledByUserId: string | null;
   readonly askedScope: {
-    readonly places: { messaging: string[]; tasks: string[]; magnus: boolean };
+    readonly places: { messaging: string[]; tasks: string[]; magnus: boolean; files?: string[] };
   } | null;
   readonly hitCount: number | null;
   readonly subjectParties: Array<{
@@ -181,6 +181,7 @@ interface CheckRead {
       readonly subjectEntityIds: string[];
       readonly actorUserId: string | null;
       readonly traversal: { followedToClosure: boolean; truncated: boolean } | null;
+      readonly scope: Record<string, string>;
     };
     readonly statement: string[];
     readonly hits: Array<{
@@ -585,7 +586,12 @@ describe("searching the firm's own records over the wire", () => {
       subjectEntityIds: [personId],
       scope: { ...PARTY_SCOPE, places: { messaging: ["texts"], tasks: [], magnus: true } },
     });
-    expect(read.run.askedScope?.places).toEqual({ messaging: ["texts"], tasks: [], magnus: true });
+    expect(read.run.askedScope?.places).toEqual({
+      messaging: ["texts"],
+      tasks: [],
+      magnus: true,
+      files: [],
+    });
     const found = read.record?.hits.filter((hit) => hit.foundIn !== null) ?? [];
     expect(found).toHaveLength(1);
     expect(found[0]?.foundIn).toMatchObject({
@@ -595,6 +601,27 @@ describe("searching the firm's own records over the wire", () => {
     });
     expect(read.record?.statement.some((line) => line.startsWith("Magnus —"))).toBe(true);
     expect(read.record?.statement.some((line) => line.startsWith("Messaging — texts"))).toBe(true);
+  });
+
+  it("records Files as not searched, and says why, while the file index is not connected", async () => {
+    const personId = await createPerson("Hollis", "Brande");
+    const { read } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [personId],
+      scope: {
+        ...PARTY_SCOPE,
+        places: { messaging: [], tasks: [], magnus: false, files: ["open", "archived"] },
+      },
+    });
+    expect(read.run.askedScope?.places.files).toEqual(["open", "archived"]);
+    expect(read.record?.check.scope["files"]).toBe("unavailable");
+    expect(
+      read.record?.statement.some(
+        (line) =>
+          line.startsWith("Not searched:") && line.includes("files (the file contents index"),
+      ),
+    ).toBe(true);
+    expect(read.record?.statement.some((line) => line.startsWith("Files —"))).toBe(false);
   });
 });
 

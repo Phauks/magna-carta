@@ -79,17 +79,21 @@ The right side of the New Check panel is the search itself, in two tabs.
   any matter. A task on no matter is searched whenever Tasks is on.
 - **Magnus** (All Employee Conversations): every conversation with Magnus that has not been deleted,
   including those saved to General, searched for the party's name.
-- **Files** (Consultations, Open, Closed, Archived): shown, marked Soon, and not searchable yet. Every
-  check records it as not searched, so a report can never read as if your documents were searched and
-  came up empty.
+- **Files** (Consultations, Open, Closed, Archived): the text of documents filed on a matter, searched
+  for each of the party's names as an exact phrase. The first three choose files by the status of
+  their matter; **Archived** adds files deleted from any matter, which your firm still keeps. The most
+  recently active matters are searched first, and if a check reaches its limit the report says how
+  many matters' files were left unsearched. Files are read through the file search index. Until your
+  firm's file search is switched on, Files reads **Not searched** on every check that asks for it, with
+  the reason, so a report never reads as if your documents were searched and came up empty.
 
 Every option is on when the panel opens. In messages, tasks and conversations a party's name is
 looked for **whole and without regard to case**: Acme Holdings LLC is looked for as "Acme Holdings
 LLC", never as "Acme" alone, and a name shorter than three characters is not looked for in text at
 all. The report says this in its Status section, under each place.
 
-A result found in a message, task or conversation says what kind of record it was found in (Call,
-Text, Email, Task, Magnus conversation), the matter it is filed on, and when it happened, with a link
+A result found in a message, task, conversation or file says what kind of record it was found in
+(Call, Text, Email, Task, Magnus conversation, File), the matter it is filed on, and when it happened, with a link
 to the matter. It never quotes the record's text: open the record from the matter to read it.
 
 **Advanced Settings** holds **name matching**, which decides how many ways a name may be written and
