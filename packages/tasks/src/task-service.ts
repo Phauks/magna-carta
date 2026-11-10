@@ -81,6 +81,7 @@ import {
   normalizeTaskTitle,
 } from "./validation.ts";
 import { promoteSubtasksStatement } from "./subtask-statements.ts";
+import { nextCopyEffect } from "./recurrence-service.ts";
 import {
   deleteExternalLinksForTaskStatement,
   insertTaskDeletionStatement,
@@ -435,6 +436,10 @@ export interface EditMatterTaskInput extends TaskDueInput {
   // never clears them by accident.
   readonly startsOn?: string | null;
   readonly location?: string | null;
+  // For a repeating task whose due date moves: `this` moves this copy only, and the next still falls
+  // where the rule says; `later` moves the series with it, so later copies follow the new date.
+  // Left out, it is `this`.
+  readonly recurrenceScope?: "this" | "later";
 }
 
 // Editing a task in place. A task's value is that it says what to do NOW, so a correction overwrites
@@ -464,10 +469,26 @@ export async function editMatterTask(
   if (blockedByTaskId !== null && blockedByTaskId !== task.blocked_by_task_id) {
     await assertPredecessor(database, blockedByTaskId, task.matter_id, taskId, options);
   }
+  const repeats = task.recurrence_rule !== null;
+  if (repeats && due.dueOn === null) {
+    throw new TaskValidationError(
+      "task-recurrence-needs-due-date",
+      "a repeating task needs a due date; stop it repeating before taking the date off",
+    );
+  }
+  const seriesMoves =
+    repeats && due.dueOn !== task.due_on && (input.recurrenceScope ?? "this") === "later";
   const now = options.clock.now();
   return {
     effect: {
       statements: [
+        ...(seriesMoves
+          ? [
+              database
+                .prepare(`UPDATE matter_task SET recurrence_occurrence_on = ?1 WHERE id = ?2`)
+                .bind(due.dueOn, taskId),
+            ]
+          : []),
         updateMatterTaskStatement(database, {
           id: taskId,
           title,
@@ -956,10 +977,18 @@ export async function setMatterTaskCompleted(
             `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
         )
         .bind(now, options.actorUserId, taskId);
+  // A task that repeats on completion makes its next copy in the same batch, so the next round is
+  // never missing because a completion landed and the copy did not. Reopening does not take the
+  // copy back: by then it is somebody's work in its own right.
+  const copy =
+    completed && task.recurrence_mode === "completed" && task.recurrence_next_task_id === null
+      ? await nextCopyEffect(database, task, options)
+      : null;
   return {
     effect: {
       statements: [
         statement,
+        ...(copy?.statements ?? []),
         domainAuditStatement(database, {
           event: completed ? "tasks.task.completed" : "tasks.task.reopened",
           subjectId: taskId,
@@ -974,12 +1003,15 @@ export async function setMatterTaskCompleted(
           },
         }),
       ],
-      outboxMessages: await watcherNotice(
-        database,
-        task,
-        completed ? "completed" : "reopened",
-        options.actorUserId,
-      ),
+      outboxMessages: [
+        ...(await watcherNotice(
+          database,
+          task,
+          completed ? "completed" : "reopened",
+          options.actorUserId,
+        )),
+        ...(copy?.outboxMessages ?? []),
+      ],
     },
   };
 }
