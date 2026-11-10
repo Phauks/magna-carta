@@ -152,6 +152,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "none",
       reduceNoise: true,
+      removeNoise: false,
     });
     expect(capture.stream).toBe(stream);
     expect(started).toHaveLength(0);
@@ -165,6 +166,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
     const treated = started[0];
     expect(treated).toBeDefined();
@@ -180,6 +182,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "image",
       reduceNoise: true,
+      removeNoise: false,
     });
     expect(started).toHaveLength(0);
     expect(capture.stream).toBe(stream);
@@ -194,6 +197,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
     expect(started).toHaveLength(0);
     expect(capture.applied.backgroundByProduct).toBe(false);
@@ -206,6 +210,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), made.seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
     expect(capture.stream).toBe(stream);
     expect(capture.applied.background).toBe("none");
@@ -218,15 +223,16 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "none",
       reduceNoise: true,
+      removeNoise: false,
     });
     const heard: Array<{ stream: MediaStream; applied: AppliedEffects }> = [];
     capture.onChange?.((next, applied) => heard.push({ stream: next, applied }));
 
-    await capture.update({ background: "blur", reduceNoise: true });
+    await capture.update({ background: "blur", reduceNoise: true, removeNoise: false });
     expect(heard.at(-1)?.stream.getVideoTracks()[0]).toBe(started[0]?.track);
     expect(heard.at(-1)?.applied.background).toBe("blur");
 
-    await capture.update({ background: "none", reduceNoise: true });
+    await capture.update({ background: "none", reduceNoise: true, removeNoise: false });
     expect(heard.at(-1)?.stream).toBe(stream);
     expect(started[0]?.closed).toBe(true);
   });
@@ -237,8 +243,9 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
-    await capture.update({ background: "image", reduceNoise: true });
+    await capture.update({ background: "image", reduceNoise: true, removeNoise: false });
     expect(started).toHaveLength(1);
     expect(started[0]?.asked).toEqual([{ mode: "image", image: "copy of beach" }]);
     expect(capture.applied.background).toBe("image");
@@ -251,6 +258,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), made.seams).applyEffects(stream, {
       background: "image",
       reduceNoise: true,
+      removeNoise: false,
     });
     expect(made.startedWith).toEqual([{ mode: "image", image: "copy of office" }]);
     expect(remembered.closed).toBe(false);
@@ -263,6 +271,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "image",
       reduceNoise: true,
+      removeNoise: false,
     });
     expect(started).toHaveLength(0);
     expect(capture.applied.refusal).toBe(BACKGROUND_IMAGE_MISSING);
@@ -276,6 +285,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "none",
       reduceNoise: true,
+      removeNoise: false,
     });
     const applied = await capture.chooseBackgroundImage?.(
       new FakeBitmap("new") as unknown as ImageBitmap,
@@ -291,6 +301,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
     const heard: AppliedEffects[] = [];
     capture.onChange?.((_stream, applied) => heard.push(applied));
@@ -306,6 +317,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
     capture.setSourceEnabled("video", false);
     expect(picture.enabled).toBe(false);
@@ -318,6 +330,7 @@ describe("the product's background treatment", () => {
     const capture = await backgroundEffects(passThroughEffects(), seams).applyEffects(stream, {
       background: "blur",
       reduceNoise: true,
+      removeNoise: false,
     });
     capture.close();
     expect(started[0]?.closed).toBe(true);

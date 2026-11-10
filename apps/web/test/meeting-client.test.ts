@@ -2574,7 +2574,7 @@ describe("capture, then effects, then publish", () => {
 
   it("captures with the member's own choice where they changed it before the capture", async () => {
     const { client, askedFor } = harness();
-    await client.changeEffects({ background: "none", reduceNoise: false });
+    await client.changeEffects({ background: "none", reduceNoise: false, removeNoise: false });
     await client.publish();
     expect(askedFor[0]?.audio).toHaveProperty("noiseSuppression", false);
   });
@@ -2597,6 +2597,7 @@ describe("capture, then effects, then publish", () => {
         background: "blur",
         backgroundByProduct: false,
         imageChosen: false,
+        noiseRemoval: "unavailable" as const,
         refusal: null,
       },
       update: () => Promise.reject(new Error("not asked")),
@@ -2645,12 +2646,14 @@ describe("capture, then effects, then publish", () => {
       background: "none" as const,
       backgroundByProduct: false,
       imageChosen: false,
+      noiseRemoval: "unavailable" as const,
       refusal: "Your browser did not change how it treats your microphone.",
     };
     const stage = stageThat(async (stream) => {
       const passing = await passThroughEffects().applyEffects(stream, {
         background: "none",
         reduceNoise: true,
+        removeNoise: false,
       });
       return {
         ...passing,
@@ -2665,10 +2668,14 @@ describe("capture, then effects, then publish", () => {
     const { client } = harness("attendance_1", "video", true, false, stage);
     await client.publish();
 
-    await client.changeEffects({ background: "none", reduceNoise: false });
+    await client.changeEffects({ background: "none", reduceNoise: false, removeNoise: false });
 
-    expect(asked).toEqual([{ background: "none", reduceNoise: false }]);
-    expect(client.effectSettings).toEqual({ background: "none", reduceNoise: false });
+    expect(asked).toEqual([{ background: "none", reduceNoise: false, removeNoise: false }]);
+    expect(client.effectSettings).toEqual({
+      background: "none",
+      reduceNoise: false,
+      removeNoise: false,
+    });
     // The track kept its noise suppression, and the panel is told so.
     expect(client.appliedEffects).toEqual(reported);
   });
