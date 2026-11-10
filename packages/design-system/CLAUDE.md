@@ -51,6 +51,11 @@ properties; off-token values are machine-rejected.
   exists) belongs to the consumer
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
+- `src/lib/components/permission-request/` — `PermissionRequest`, the one window any feature asks
+  a member for a permission in. It is an `ActionDialog` of kind `confirm` and takes three things:
+  the heading, who is asking, and the list of what is granted. It has no prop for what is NOT
+  granted, for a description, or for a warning, and gains none: the owner ruled that a permission
+  request states only what it grants
 - `src/lib/components/record-reference/` — what a modal's SUBTITLE is allowed to say. `types.ts` is
   the contract (`RecordSubject` = an optional `RecordReference` plus short facts; a reference is
   `kind`, `number` and a standing of `drawn | tentative | preview`), `record-reference-model.ts` is
