@@ -55,6 +55,10 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [File safety and scanning](file-safety-and-scanning.md) — how deep every upload is scanned (Core,
   Extended or Full, and what each means), the engine that scans it, the suspicion threshold, what
   the firm may do with a flagged file, and who can change any of it.
+- [Search and indexing](search-and-indexing.md) — whether the words inside the firm's files are
+  searched: what turning it on reads and where the index is kept, how long the files already held
+  take, what the page says while the platform's search service is not connected, and who can
+  change it.
 - [Editing](editing.md) — whether every document opened in the browser editor records its changes:
   what recording does and does not change for the member typing, where the marks are seen, what
   switching it off means, and who can.

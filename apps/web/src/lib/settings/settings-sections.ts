@@ -108,6 +108,7 @@ export interface SettingsSection {
     | "reports"
     | "meetings"
     | "ai"
+    | "search"
     | "retention";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
@@ -642,6 +643,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "draft",
     editPermissionArea: "ai",
+    shipped: true,
+  },
+  {
+    // What the firm's searches read. One switch today: whether the words inside the firm's files
+    // are indexed. Under Data & Platform beside AI, on the same reasoning: it is a statement about
+    // what the platform does with the firm's content (copies its text into an index), not about
+    // how the firm runs its work, and the page also reports a fact about the platform underneath —
+    // whether this deployment has a search service at all.
+    //
+    // Server-backed over GET/PATCH /api/v1/firm/search-settings, the setting the ingest path reads
+    // before it hands a file to the index and a matter's search reads before it asks the index
+    // anything. Draft mode: the switch starts the reading of every file the firm holds, which is
+    // not something to begin by brushing a control.
+    id: "search-and-indexing",
+    label: "Search and Indexing",
+    href: "/settings/search-and-indexing",
+    group: "data-platform",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "search",
     shipped: true,
   },
   {

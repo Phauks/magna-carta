@@ -6,12 +6,12 @@ research: n/a
 spec: done
 plan: n/a
 built: in-progress
-ui: todo
+ui: in-progress
 load-profile: in-progress
 tested: done
 branch: claude/project-thread-rixee1
 active-work: docs/active-work/claude/project-thread-rixee1.md
-next: the switch that turns file indexing on for a firm, then the Search and Indexing status screen and the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one
+next: accent folding in the file contents engine before the first production index is built, then the Search and Indexing status screen and the top-bar search across matters, which has to bound a search for a word most records contain before it ranks one
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
 adrs:
@@ -28,4 +28,6 @@ One structure for everything the platform searches, approved by the owner on 202
 
 **Built ahead of its place in the order, at the owner's request on 2026-11-10: matter search reading the file contents index.** A second source on the Files section asks the keyword engine for the matter's own corpus and answers with the files whose text matches and the pages they matched on. The engine names candidates and the firm's `file` table decides, under the same matter binding as every other source. It answers nothing in production until the search worker is deployed and bound and a firm turns indexing on, and it says which of those is missing.
 
-**Not built:** the firm's switch for file indexing, the status screen, the search across matters, the conflicts content search reading the index (its own stream), the kept text that would let a file result quote its sentence, the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).
+**Built: the firm's switch for file indexing.** Settings, Data & Platform, Search and Indexing reads and writes the firm's `search.indexing_enabled` setting through `GET`/`PATCH /api/v1/firm/search-settings`, behind a new `firm:manageSearchSettings` permission seeded to Owner and Admin. Turning it on starts a bounded walk of the files the firm already holds (the daily repair pass draws in the rest), and the page says so, and says when the platform's search service is not connected, instead of letting "on" read as "searchable". A matter's search that answers "turned off for this firm" now names the page.
+
+**Not built:** the status screen, the search across matters, the conflicts content search reading the index (its own stream), the kept text that would let a file result quote its sentence, the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).

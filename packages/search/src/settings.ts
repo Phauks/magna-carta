@@ -14,6 +14,10 @@ import { z } from "zod";
 // message. Turning it on later indexes documents committed from that point, and the daily
 // re-extraction sweep (apps/api-worker/src/background/search/reextraction-sweep.ts) then draws in the corpus that was
 // already there — it re-enqueues through this same gate, so a firm that never opted in stays untouched.
+//
+// ONE WRITER: the firm's search settings route (apps/api-worker/src/http/routes/firm/search-settings.ts),
+// behind firm:manageSearchSettings. Turning it on there also starts the first of the firm's existing
+// files without waiting for the daily pass.
 export const searchIndexingEnabledDefinition: FirmSettingDefinition<boolean> = {
   key: "search.indexing_enabled",
   schema: z.boolean(),
