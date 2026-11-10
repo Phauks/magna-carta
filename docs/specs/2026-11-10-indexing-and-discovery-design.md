@@ -5,8 +5,8 @@
 and 2 of the build order below are built by the change that adds this file. The owner moved file
 contents in a matter's search ahead of steps 3 and 4 the same day; its reading half is built (step
 6a below). The status screen's counts (section 4.1) and the search across matters (section 4.2)
-followed, then the queued rebuild of a place that reads Behind (section 4.1). The build order in
-section 5 says what is not built.
+followed, then the queued rebuild of a place that reads Behind (section 4.1), then the marking of
+a reader's words in a result (section 4.3). The build order in section 5 says what is not built.
 **Scope:** How the platform finds things: which indexes exist, what each one is for, who may ask
 each one what, and the order the missing parts are built in. It adds one index — the **record
 index**, over the text held in a firm's own database rows — and fixes the rules every index and
@@ -256,7 +256,7 @@ same passages the split was built from. Three things follow from where it sits.
 
 A quote is an addition to an answer. A missing object, a passage the words are not in, or storage
 that does not answer leaves the result naming its pages, and is never a failed search. The excerpt
-is plain text: the wire carries a string for every source, so the matched words are not marked yet.
+is plain text, and where the reader's words are in it is said beside it (section 4.3).
 
 Three things are recorded and not solved. Nothing destroys a derived copy of a version today, the
 split, the natural-language feed object or the kept text, because nothing destroys a committed
@@ -418,8 +418,54 @@ Its last row sends whatever was typed to the page at `/search`, where the questi
 place ride in the address.
 
 Not built in this step: the scope choices other than every matter the reader can see (one client,
-only my own matters), marking the matched words in an excerpt, and the places the table above
-answers "No" for.
+only my own matters), and the places the table above answers "No" for.
+
+### 4.3 Where the words are in a result
+
+A result marks the words that answered, in a matter's own search and in the search across matters
+alike. Both answers carry, on every hit, `titleMarks` and `snippetMarks`: where each run of the
+reader's words begins and ends in the text beside it. Four choices in it are deliberate.
+
+**The words are found again on the server, by the rules of the index that made the match.** An
+index says a record answers and not where in the record. So the text is cut into words and each
+word folded the way that index does it, and each term is matched the way the question asked for
+it: a whole word, the start of the last word typed, or a quoted run in order
+(`packages/search/src/matched-text.ts`). The record index and the file contents index cut and fold
+differently, so there are two sets of rules and one finder. A browser that looked for the words
+itself would be a third opinion about what a word is, written in the one place that cannot see
+either index.
+
+**A place declares how each text it shows was matched.** Every source of the matter search carries
+a `marking`: the rule for its title and the rule for its excerpt, or none
+(`packages/matter-search/src/sources/all.ts`). A note's words are found by the record index's
+rules and its title, a date, is left alone. A file's name is matched as the characters typed,
+wherever they fall, so "0142" is marked in the middle of a name. A file found by the words inside
+it marks the sentence and not the name. One rule for every place would mark a date, or mark a name
+for words that are not in it.
+
+**A long text is quoted at its match, and no longer sent whole.** A note's excerpt used to be the
+note. A result shows two lines of it, so a match on the fortieth line was below what the result
+showed, and a page of fifty results carried fifty notes to draw a hundred lines. A text matched
+through the record index is now cut to about two hundred characters around the stretch that holds
+the most of the question, by the same cutting a file's sentence already had. A text short enough
+to show is sent as it is. A record that matched on something its text does not hold (a call found
+by the caller's name) shows the opening of what was said, with nothing marked.
+
+**It is the last step and decides nothing.** The marks are made after the statement has bound the
+matter or composed the visible-matter predicate, after the limit, and after the source has
+projected its row. The step rewrites two texts of a hit and attaches offsets. It cannot add, drop
+or reorder a result, so nothing about access rests on it, and a word it fails to find costs a mark
+on a result that is still there. That is also why the record index's folding is allowed to be
+close and not exact here: it takes accents off and lowers capitals, which is what the index's
+tokenizer does to Latin letters, and a script the tokenizer treats differently loses a mark.
+
+A mark is two offsets in UTF-16 code units, the end not included. The screen draws each run with
+the `mark` element over a pale wash of the accent colour, with the text colour of the line around
+it, and treats the offsets as untrusted: marks that are absent, out of order or past the end of
+the text are dropped, and the text is shown whole.
+
+Not built: marking a matter's title or a person's name in the two groups the Search page reads
+from the matters listing and the directory, which carry no marks of their own.
 
 ## 5. Build order
 
@@ -428,7 +474,7 @@ answers "No" for.
 | 1    | This specification and its decision record                                                  | Built                                                                               |
 | 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                               |
 | 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index    |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, with matters and people by name (section 4.2)                |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, with matters and people by name; words marked (4.2, 4.3)     |
 | 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                               |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                      |
 | 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md) |

@@ -36,6 +36,11 @@ allowed to be unfinished, quotation marks for an exact phrase, capital letters a
 File names are matched on any part of the name. See
 [Searching a matter](searching-a-matter.md#how-your-words-are-matched).
 
+Your words are highlighted in each result, and a long note or narrative is shown at the lines
+where they are, the same as inside a matter. See
+[Reading the results](searching-a-matter.md#reading-the-results). The **Matters** and **People**
+groups are found by name through their own lists and are not highlighted.
+
 ## The list of places
 
 Beside the results is a list of places with the number of results showing for each. **All Places**

@@ -5595,7 +5595,7 @@ export const matterSearchSearchOptions = (options: Options<MatterSearchSearchDat
 export const searchAcrossMattersQueryKey = (options: Options<SearchAcrossMattersData>) => createQueryKey('searchAcrossMatters', options);
 
 /**
- * Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one.
+ * Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.
  */
 export const searchAcrossMattersOptions = (options: Options<SearchAcrossMattersData>) => queryOptions<SearchAcrossMattersResponse, SearchAcrossMattersError, SearchAcrossMattersResponse, ReturnType<typeof searchAcrossMattersQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -8590,7 +8590,7 @@ export const calendarSyncListMyIssuesOptions = (options?: Options<CalendarSyncLi
 });
 
 /**
- * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.
+ * Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.
  */
 export const calendarSyncPutBackMyCopyMutation = (options?: Partial<Options<CalendarSyncPutBackMyCopyData>>): MutationOptions<CalendarSyncPutBackMyCopyResponse, CalendarSyncPutBackMyCopyError, Options<CalendarSyncPutBackMyCopyData>> => {
     const mutationOptions: MutationOptions<CalendarSyncPutBackMyCopyResponse, CalendarSyncPutBackMyCopyError, Options<CalendarSyncPutBackMyCopyData>> = {

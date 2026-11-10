@@ -25,6 +25,7 @@
     "./extracted-text": "./src/extracted-text.ts",
     "./keyword-excerpt": "./src/keyword-excerpt.ts",
     "./keyword-query": "./src/keyword-query.ts",
+    "./matched-text": "./src/matched-text.ts",
     "./record-index-query": "./src/record-index-query.ts",
     "./record-index-schema": "./src/record-index-schema.ts",
     "./record-index-sources": "./src/record-index-sources.ts",

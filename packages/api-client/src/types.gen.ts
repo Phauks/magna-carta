@@ -3894,11 +3894,18 @@ export type MatterSearchGroup = {
 export type MatterSearchHit = {
     id: string;
     title: string;
+    titleMarks: Array<SearchTextMark>;
     snippet: string | null;
+    snippetMarks: Array<SearchTextMark>;
     secondary: string | null;
     actorUserId: string | null;
     sortKey: string;
     link: string;
+};
+
+export type SearchTextMark = {
+    start: number;
+    end: number;
 };
 
 export type SearchAcrossMattersAnswer = {
@@ -3920,7 +3927,9 @@ export type SearchAcrossMattersGroup = {
 export type SearchAcrossMattersHit = {
     id: string;
     title: string;
+    titleMarks: Array<SearchTextMark>;
     snippet: string | null;
+    snippetMarks: Array<SearchTextMark>;
     secondary: string | null;
     actorUserId: string | null;
     sortKey: string;
@@ -6416,9 +6425,9 @@ export type CalendarSyncIssue = {
     localKind: 'matter_event' | 'firm_event' | 'deadline';
     localId: string;
     /**
-     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar.
+     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar. `not_sent`: the provider would not take the event, so there is no copy.
      */
-    kind: 'changed' | 'removed';
+    kind: 'changed' | 'removed' | 'not_sent';
     /**
      * The event as it was sent to the member's calendar, at the detail the firm allows.
      */

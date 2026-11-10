@@ -16362,11 +16362,23 @@
           "title": {
             "type": "string"
           },
+          "titleMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
+          },
           "snippet": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "snippetMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
           },
           "secondary": {
             "type": [
@@ -16390,11 +16402,30 @@
         "required": [
           "id",
           "title",
+          "titleMarks",
           "snippet",
+          "snippetMarks",
           "secondary",
           "actorUserId",
           "sortKey",
           "link"
+        ]
+      },
+      "SearchTextMark": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "start",
+          "end"
         ]
       },
       "SearchAcrossMattersAnswer": {
@@ -16485,11 +16516,23 @@
           "title": {
             "type": "string"
           },
+          "titleMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
+          },
           "snippet": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "snippetMarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTextMark"
+            }
           },
           "secondary": {
             "type": [
@@ -16535,7 +16578,9 @@
         "required": [
           "id",
           "title",
+          "titleMarks",
           "snippet",
+          "snippetMarks",
           "secondary",
           "actorUserId",
           "sortKey",
@@ -27232,9 +27277,10 @@
             "type": "string",
             "enum": [
               "changed",
-              "removed"
+              "removed",
+              "not_sent"
             ],
-            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar."
+            "description": "`changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar. `not_sent`: the provider would not take the event, so there is no copy."
           },
           "sent": {
             "type": "object",
@@ -74030,7 +74076,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one.",
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.",
         "operationId": "search.acrossMatters",
         "tags": [
           "search"
@@ -91258,7 +91304,7 @@
     },
     "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back": {
       "post": {
-        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again. The firm's event is not changed.",
+        "description": "Has the copy written to the member's calendar again as the firm's calendar has the event: a changed copy is overwritten, a deleted one is made again, and an event the provider would not take is tried again. The firm's event is not changed.",
         "operationId": "calendarSync.putBackMyCopy",
         "tags": [
           "calendarSync"

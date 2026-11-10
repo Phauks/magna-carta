@@ -116,6 +116,16 @@ A file that was deleted is found inside only when **Include deleted** is on, and
 Top results appear under the field as you type, grouped by section, each group saying what it
 matched on. Click any result to open the record on the screen that owns it.
 
+**Your words are marked where they were found.** In a note, a time narrative, an event or what was
+said on a call, each word that matched is highlighted, and a word found by its beginning is
+highlighted whole: type "ease" and "easement" is marked. A long note is not shown from its first
+line. The result shows the two lines or so where your words are, with "…" at either end where the
+note goes on. In a file name, a party's name or an invoice line, what is marked is exactly what you
+typed, wherever it falls in the name.
+
+A result can be marked nowhere and still be right. A call found by the caller's name or by its
+number shows what was said, and neither the name nor the number is in that.
+
 Two things a group can tell you besides its results:
 
 - **A count with a plus** ("6+") means there are more matches than are shown. It is not a total: the
