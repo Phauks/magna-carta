@@ -407,6 +407,13 @@
       "when": 1794285097584,
       "tag": "20261110T053527_calendar-sync-link",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1794290322427,
+      "tag": "20261110T055842_connection-sync-issue",
+      "breakpoints": true
     }
   ]
 }

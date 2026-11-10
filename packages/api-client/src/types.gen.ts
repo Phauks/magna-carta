@@ -6318,6 +6318,68 @@ export type CalendarSyncFirmLimitsSet = {
     }>;
 };
 
+export type CalendarSyncIssueList = {
+    issues: Array<CalendarSyncIssue>;
+};
+
+export type CalendarSyncIssue = {
+    localKind: 'matter_event' | 'firm_event' | 'deadline';
+    localId: string;
+    /**
+     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar.
+     */
+    kind: 'changed' | 'removed';
+    /**
+     * The event as it was sent to the member's calendar, at the detail the firm allows.
+     */
+    sent: {
+        title: string;
+        location: string | null;
+        /**
+         * The first day, as YYYY-MM-DD.
+         */
+        startsOn: string;
+        /**
+         * The wall-clock start as HH:MM, or null when the copy takes the whole day.
+         */
+        startsAtTime: string | null;
+        /**
+         * The last day the copy covers, as YYYY-MM-DD.
+         */
+        endsOn: string;
+        endsAtTime: string | null;
+        /**
+         * The zone the event was recorded in. Both sides of a difference are read in it.
+         */
+        timeZone: string;
+    };
+    /**
+     * The copy as the member's calendar holds it now. Null when the copy is gone.
+     */
+    found: {
+        title: string;
+        location: string | null;
+        /**
+         * The first day, as YYYY-MM-DD.
+         */
+        startsOn: string;
+        /**
+         * The wall-clock start as HH:MM, or null when the copy takes the whole day.
+         */
+        startsAtTime: string | null;
+        /**
+         * The last day the copy covers, as YYYY-MM-DD.
+         */
+        endsOn: string;
+        endsAtTime: string | null;
+        /**
+         * The zone the event was recorded in. Both sides of a difference are read in it.
+         */
+        timeZone: string;
+    } | null;
+    detectedAt: string;
+};
+
 export type CalendarSeriesInWindow = {
     data: Array<CalendarSeriesOccurrences>;
     truncated: boolean;
@@ -30043,6 +30105,123 @@ export type CalendarSyncSetFirmLimitsResponses = {
 };
 
 export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsResponses[keyof CalendarSyncSetFirmLimitsResponses];
+
+export type CalendarSyncListMyIssuesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync/issues';
+};
+
+export type CalendarSyncListMyIssuesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The member has no such open question, or the firm is unreachable or the member deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncListMyIssuesError = CalendarSyncListMyIssuesErrors[keyof CalendarSyncListMyIssuesErrors];
+
+export type CalendarSyncListMyIssuesResponses = {
+    /**
+     * The member's open questions
+     */
+    200: CalendarSyncIssueList;
+};
+
+export type CalendarSyncListMyIssuesResponse = CalendarSyncListMyIssuesResponses[keyof CalendarSyncListMyIssuesResponses];
+
+export type CalendarSyncPutBackMyCopyData = {
+    body?: never;
+    path: {
+        localKind: 'matter_event' | 'firm_event' | 'deadline';
+        localId: string;
+    };
+    query?: never;
+    url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
+};
+
+export type CalendarSyncPutBackMyCopyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The member has no such open question, or the firm is unreachable or the member deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncPutBackMyCopyError = CalendarSyncPutBackMyCopyErrors[keyof CalendarSyncPutBackMyCopyErrors];
+
+export type CalendarSyncPutBackMyCopyResponses = {
+    /**
+     * The member's open questions after the answer
+     */
+    200: CalendarSyncIssueList;
+};
+
+export type CalendarSyncPutBackMyCopyResponse = CalendarSyncPutBackMyCopyResponses[keyof CalendarSyncPutBackMyCopyResponses];
+
+export type CalendarSyncLeaveMyCopyData = {
+    body?: never;
+    path: {
+        localKind: 'matter_event' | 'firm_event' | 'deadline';
+        localId: string;
+    };
+    query?: never;
+    url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
+};
+
+export type CalendarSyncLeaveMyCopyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The member has no such open question, or the firm is unreachable or the member deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncLeaveMyCopyError = CalendarSyncLeaveMyCopyErrors[keyof CalendarSyncLeaveMyCopyErrors];
+
+export type CalendarSyncLeaveMyCopyResponses = {
+    /**
+     * The member's open questions after the answer
+     */
+    200: CalendarSyncIssueList;
+};
+
+export type CalendarSyncLeaveMyCopyResponse = CalendarSyncLeaveMyCopyResponses[keyof CalendarSyncLeaveMyCopyResponses];
 
 export type CalendarListSeriesData = {
     body?: never;

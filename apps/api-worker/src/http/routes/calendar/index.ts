@@ -9,6 +9,7 @@ import { runInBackground } from "../../deferred-work.ts";
 import { registerCalendarRoutes } from "./calendar.ts";
 import { registerConnectedAccountsRoutes } from "./connected-accounts.ts";
 import { registerCalendarSeriesRoutes } from "./series.ts";
+import { registerCalendarSyncIssueRoutes } from "./sync-issues.ts";
 import { registerCalendarSyncSettingsRoutes } from "./sync-settings.ts";
 
 // The case calendar and the matter timeline it federates.
@@ -19,7 +20,8 @@ import { registerCalendarSyncSettingsRoutes } from "./sync-settings.ts";
 // matches in, so a literal path stays ahead of the pattern that would otherwise claim it.
 // The routes whose writes can change what belongs in a member's own calendar at their provider: an
 // event, a firm event or a deadline recorded, changed or cancelled; an event type changed or
-// switched off; a member's rules or the firm's limits saved.
+// switched off; a member's rules or the firm's limits saved; a member asking for a copy to be put
+// back.
 //
 // Each is named exactly as its route registers it, parameter names included. This router is
 // mounted at the root, where a wildcard would run on every request the Worker serves, and the
@@ -45,6 +47,7 @@ const SYNC_AFFECTING_PATHS = [
   "/api/v1/calendar/event-types/:eventTypeId/deactivate",
   "/api/v1/calendar-sync/firm-limits",
   "/api/v1/me/calendar-sync/rules",
+  "/api/v1/me/calendar-sync/issues/:localKind/:localId/put-back",
 ] as const;
 
 export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: DomainDeps = {}): void {
@@ -73,6 +76,8 @@ export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: Doma
   registerConnectedAccountsRoutes(domain, chokepoint, deps.connectedAccounts);
   // What the firm lets leave for those accounts, and which event types each member sends where.
   registerCalendarSyncSettingsRoutes(domain, chokepoint, deps.connectedAccounts);
+  // The copies a member changed in their own calendar, and their answer to each.
+  registerCalendarSyncIssueRoutes(domain, chokepoint, deps.connectedAccounts);
   // Repeating settings: the days a series falls on in a window, and one day of it changed.
   registerCalendarSeriesRoutes(domain, chokepoint);
   app.route("/", domain);

@@ -38,6 +38,8 @@ ADR-0059, ADR-0068, ADR-0051.)
   the creates, updates and removals a pass should make. It is a reconciliation, so every trigger
   asks the same question and a missed one is harmless. The pass that carries it out is in
   `apps/api-worker/src/calendar-sync/`; this package still calls nothing and computes no date
+- `src/sync-issue-statements.ts` — a copy a member changed or deleted in their own calendar, as a
+  question for them: one row per copy, keyed as its link is, holding the copy as sent and as found
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and
