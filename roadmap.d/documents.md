@@ -624,7 +624,7 @@
   surface: awaiting-screen
   adrs: ADR-0152
   spec: docs/specs/2026-06-25-pdf-forms-design.md
-  evidence: crates/pdf-core/src/forms.rs.
+  evidence: crates/pdf-core/src/forms/.
   notes: XFA not in scope of the built module.
 
 - id: documents.pdf.watermark
@@ -675,7 +675,7 @@
   scope: Page-level manipulation operations promised for the PDF service.
   status: shipped
   surface: awaiting-screen
-  evidence: All four operations are built and reachable. merge, split and rotate are public functions in crates/pdf-core/src/generate.rs and form flattening is in src/forms.rs, and each is exposed at the WASM edge in src/wasm.rs as mergeDocuments, splitDocument, rotatePages and flattenForm. The node read not-started because it looked for a module of its own — there is not one, and there did not need to be: generate.rs is the shared home, which is why documents.pdf.generate already claimed the same file.
+  evidence: All four operations are built and reachable. merge, split and rotate are public functions in crates/pdf-core/src/generate.rs and form flattening is in src/forms/flatten.rs, and each is exposed at the WASM edge in src/wasm.rs as mergeDocuments, splitDocument, rotatePages and flattenForm. The node read not-started because it looked for a module of its own — there is not one, and there did not need to be: generate.rs is the shared home, which is why documents.pdf.generate already claimed the same file.
   notes: Backend only, no screen — the tool surfaces are documents.pdf.tool-uis. The split path is deliberately safety-aware rather than a plain page copy: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page when that action points at an excluded one, behind a fail-closed gate.
 
 - id: documents.pdf.tool-uis
