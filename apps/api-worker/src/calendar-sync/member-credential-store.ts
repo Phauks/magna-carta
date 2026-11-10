@@ -45,6 +45,8 @@ export function memberCalendarCredentialStore(
     },
     put(credentialRef: string, credential: Credential): Promise<void> {
       refuseOthers(credentialRef);
+      // fitness:allow-no-dimensions — not a bucket write: this seals a credential into the per-firm
+      // integration_credential table, and nothing reaches object storage.
       return store.put(credentialRef, credential);
     },
   };

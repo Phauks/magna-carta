@@ -45,7 +45,13 @@ export class ConnectionSync extends DurableObject<Bindings> {
   override async alarm(): Promise<void> {
     const identity = await this.ctx.storage.get<ConnectionIdentity>("identity");
     if (identity === undefined) return;
-    const outcome = await runConnectionPass(this.env, identity);
+    // A pass that throws (the firm's database refusing, a key that will not unwrap) is treated as
+    // a provider that could not be reached: counted, and tried again later. Left to throw, the
+    // runtime would retry the alarm a handful of times and then stop, and the account would sit
+    // idle until something happened to ask for a pass.
+    const outcome = await runConnectionPass(this.env, identity).catch(
+      () => ({ kind: "unavailable" }) as const,
+    );
     switch (outcome.kind) {
       case "gone":
         // The member disconnected. Nothing of theirs is left here.

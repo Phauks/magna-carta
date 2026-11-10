@@ -17,20 +17,34 @@ import { registerCalendarSyncSettingsRoutes } from "./sync-settings.ts";
 // (src/http/routes/manifest.ts). Every route below registers exactly as it did on the root app — through
 // defineOpenAPIRoute and chokepointMiddleware — and the order inside this function is the order Hono
 // matches in, so a literal path stays ahead of the pattern that would otherwise claim it.
-// The paths whose writes can change what belongs in a member's own calendar at their provider: an
-// event, a firm event or a deadline recorded, changed or cancelled; an event type switched off; a
-// member's rules or the firm's limits saved. Named one by one because this router is mounted at the
-// root, where a wildcard would run on every request the Worker serves.
+// The routes whose writes can change what belongs in a member's own calendar at their provider: an
+// event, a firm event or a deadline recorded, changed or cancelled; an event type changed or
+// switched off; a member's rules or the firm's limits saved.
+//
+// Each is named exactly as its route registers it, parameter names included. This router is
+// mounted at the root, where a wildcard would run on every request the Worker serves, and the
+// contract's own fitness check reads every dispatched path and requires it to be a published
+// route, so a pattern that is not one fails there. A write route added to this domain and not to
+// this list is still caught, hours later, by each account's own safety pass.
 const SYNC_AFFECTING_PATHS = [
-  "/api/v1/events/*",
-  "/api/v1/firm-events",
-  "/api/v1/firm-events/*",
-  "/api/v1/deadlines/*",
   "/api/v1/matters/:matterId/events",
   "/api/v1/matters/:matterId/deadlines",
-  "/api/v1/calendar/event-types/*",
-  "/api/v1/calendar-sync/*",
-  "/api/v1/me/calendar-sync/*",
+  "/api/v1/events/:eventId",
+  "/api/v1/events/:eventId/cancel",
+  "/api/v1/events/:eventId/continue",
+  "/api/v1/events/:eventId/occurrences",
+  "/api/v1/deadlines/:deadlineId",
+  "/api/v1/deadlines/:deadlineId/satisfy",
+  "/api/v1/deadlines/:deadlineId/supersede",
+  "/api/v1/deadlines/:deadlineId/vacate",
+  "/api/v1/firm-events",
+  "/api/v1/firm-events/:firmEventId",
+  "/api/v1/firm-events/:firmEventId/cancel",
+  "/api/v1/firm-events/:firmEventId/occurrences",
+  "/api/v1/calendar/event-types/:eventTypeId",
+  "/api/v1/calendar/event-types/:eventTypeId/deactivate",
+  "/api/v1/calendar-sync/firm-limits",
+  "/api/v1/me/calendar-sync/rules",
 ] as const;
 
 export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: DomainDeps = {}): void {
