@@ -52,6 +52,20 @@ pub(crate) fn resolve_dict<'a>(
     }
 }
 
+/// Resolve an `Object` to the array it represents, whether it is stored inline
+/// or behind an indirect reference. Writers are free to store any array either
+/// way, so a caller that accepts only the inline form silently reads a
+/// referenced `/Fields` or `/Kids` as empty.
+pub(crate) fn resolve_array<'a>(
+    doc: &'a lopdf::Document,
+    obj: &'a Object,
+) -> Option<&'a Vec<Object>> {
+    match doc.dereference(obj).ok()?.1 {
+        Object::Array(items) => Some(items),
+        _ => None,
+    }
+}
+
 /// Resolve an object through indirection, following reference chains to the
 /// underlying direct object. A non-reference passes through unchanged; a
 /// dangling reference yields `None`. Values like `/Widths` and `/FirstChar` are
@@ -63,6 +77,10 @@ fn resolve_object<'a>(doc: &'a lopdf::Document, obj: &'a Object) -> Option<&'a O
 }
 
 // ── Width array parsers ───────────────────────────────────────────────────────
+
+/// The largest character identifier a width table may describe. Entries past it are
+/// ignored rather than stored.
+const MAX_CHARACTER_IDENTIFIER: u32 = 0xFFFF;
 
 /// Parse the `/W` array of a CIDFont descendant into a CID → width map.
 ///
@@ -93,8 +111,15 @@ fn parse_cid_widths(width_array: &[Object]) -> BTreeMap<u32, f32> {
             Object::Array(individual_widths) => {
                 // Form: c [w1 w2 …]
                 for (offset, width_obj) in individual_widths.iter().enumerate() {
+                    let Some(cid) = u32::try_from(offset)
+                        .ok()
+                        .and_then(|offset| first_cid.checked_add(offset))
+                        .filter(|cid| *cid <= MAX_CHARACTER_IDENTIFIER)
+                    else {
+                        break;
+                    };
                     if let Some(width) = number_value(width_obj) {
-                        widths.insert(first_cid + offset as u32, width);
+                        widths.insert(cid, width);
                     }
                 }
                 index += 1;
@@ -123,6 +148,11 @@ fn parse_cid_widths(width_array: &[Object]) -> BTreeMap<u32, f32> {
                 };
                 index += 1;
 
+                // Both bounds come from the file. A character identifier is at most two
+                // bytes in every encoding this module reads, so a range reaching past
+                // 65,535 describes no glyph that can be shown, and looping over it as
+                // declared lets one entry ask for billions of insertions.
+                let last_cid = last_cid.min(MAX_CHARACTER_IDENTIFIER);
                 for cid in first_cid..=last_cid {
                     widths.insert(cid, shared_width);
                 }
@@ -1535,6 +1565,26 @@ mod tests {
         let res = dictionary! { "Font" => fonts };
         let page = d.add_object(dictionary! { "Type" => "Page", "Resources" => res });
         (d, page)
+    }
+
+    #[test]
+    fn a_width_range_past_the_last_character_identifier_is_capped() {
+        // One entry declaring four billion identifiers must cost at most 65,536 insertions.
+        let widths = parse_cid_widths(&[
+            Object::Integer(0),
+            Object::Integer(i64::from(u32::MAX)),
+            Object::Integer(500),
+        ]);
+        assert_eq!(widths.len(), 0x1_0000);
+        assert_eq!(widths.get(&0xFFFF), Some(&500.0));
+
+        // The per-identifier form stops at the same ceiling instead of wrapping around.
+        let widths = parse_cid_widths(&[
+            Object::Integer(0xFFFF),
+            Object::Array(vec![Object::Integer(1), Object::Integer(2)]),
+        ]);
+        assert_eq!(widths.len(), 1);
+        assert_eq!(widths.get(&0xFFFF), Some(&1.0));
     }
 
     #[test]

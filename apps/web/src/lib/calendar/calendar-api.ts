@@ -626,6 +626,108 @@ export function cancelFirmEvent(
   });
 }
 
+// ---- a repeating setting, read as its days, and one day of it changed --------------------------
+
+/** Which side of the firm's calendar a series read covers. */
+export type SeriesSide = "matter" | "firm" | "all";
+
+/**
+ * One repeating setting and the days inside a window it falls on. The days come from the rule on the
+ * server, with the days somebody changed on their own left out: the event standing in for such a day
+ * is an ordinary event every other read already returns.
+ *
+ * A matter series read across the firm carries no title, as the federated read carries none; it
+ * paints by its platform type code. Read for one matter, and for the firm's own events, it carries
+ * the record's title.
+ */
+export interface SeriesOccurrences {
+  source: "matterEvent" | "firmEvent";
+  id: string;
+  matterId: string | null;
+  title: string | null;
+  typeCode: string | null;
+  typeName: string | null;
+  audience: FirmEventAudience | null;
+  status: EventStatus;
+  startsOn: string;
+  startsAtTime: string | null;
+  endsOn: string | null;
+  endsAtTime: string | null;
+  timeZone: string;
+  recurrenceRule: string;
+  occurrences: string[];
+}
+
+export interface SeriesInWindow {
+  data: SeriesOccurrences[];
+  /** True where more series could touch the window than one read returns. */
+  truncated: boolean;
+}
+
+export interface SeriesQuery {
+  from: string;
+  to: string;
+  side?: SeriesSide;
+  matterId?: string;
+  memberId?: string;
+}
+
+/** The repeating settings in a window, each with its days there. */
+export function listSeries(
+  fetchImpl: typeof fetch,
+  query: SeriesQuery,
+): Promise<ApiOutcome<SeriesInWindow>> {
+  const parameters = new URLSearchParams({ from: query.from, to: query.to });
+  if (query.side !== undefined) parameters.set("side", query.side);
+  if (query.matterId !== undefined) parameters.set("matterId", query.matterId);
+  if (query.memberId !== undefined) parameters.set("memberId", query.memberId);
+  return requestJson(fetchImpl, withQuery("/api/v1/calendar/series", parameters));
+}
+
+/**
+ * Which days of a series a change reaches: the one occurrence, or it and every later one. The whole
+ * series is the ordinary edit of the series record and goes through `updateMatterEvent`.
+ */
+export type OccurrenceScope = "this" | "following";
+
+export type OccurrenceChange<Fields> =
+  | { kind: "update"; fields: Fields }
+  | { kind: "cancel"; statusReason: string | null };
+
+export interface OccurrenceChangeRequest<Fields> {
+  occurrenceOn: string;
+  scope: OccurrenceScope;
+  change: OccurrenceChange<Fields>;
+}
+
+/** Change or cancel one day of a matter event's series, or that day and every later one. */
+export function changeMatterEventOccurrence(
+  fetchImpl: typeof fetch,
+  seriesId: string,
+  request: OccurrenceChangeRequest<Omit<UpdateEventRequest, "meeting">>,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CreatedRecord>> {
+  return requestJson(fetchImpl, `/api/v1/events/${encodeURIComponent(seriesId)}/occurrences`, {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/** Change or cancel one day of a firm event's series, or that day and every later one. */
+export function changeFirmEventOccurrence(
+  fetchImpl: typeof fetch,
+  seriesId: string,
+  request: OccurrenceChangeRequest<Omit<UpdateFirmEventRequest, "meeting">>,
+  idempotencyKey: string,
+): Promise<ApiOutcome<CreatedRecord>> {
+  return requestJson(fetchImpl, `/api/v1/firm-events/${encodeURIComponent(seriesId)}/occurrences`, {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
 // ---- presentation helpers shared by every calendar surface --------------------------------------
 
 const EVENT_STATUS_LABELS: Record<EventStatus, string> = {

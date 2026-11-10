@@ -159,10 +159,9 @@ interface NativePages {
 // "this document has no text": the caller falls through to recognition, which is the honest next thing
 // to try rather than a conclusion.
 //
-// The page ceiling is the engine's, and it deliberately matches the recognition container's, so a
-// document too long for one route is too long for the other and the outcome does not depend on which
-// one looked. Both are bounded because page count is declared in the file and wholly
-// attacker-controlled.
+// The page ceiling is the engine's, and it matches the discovery engine's (50,000 pages), so a long
+// born-digital document reads the same whichever native route looked. It is bounded at all only
+// because page count is declared in the file and wholly attacker-controlled.
 async function nativePages(bytes: Uint8Array): Promise<NativePages | undefined> {
   if (!looksLikePdf(bytes)) return undefined;
   try {

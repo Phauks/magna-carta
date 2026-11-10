@@ -28,6 +28,7 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
    - `node tooling/doc-fragments/build-changelog.mjs`
    - `node tooling/doc-fragments/build-status.mjs`
    - `node tooling/doc-fragments/build-register.mjs --ref=origin/main` (the build register renders on `main` and on this branch only, never on a feature branch; `pnpm run lint:roadmap --rendered` afterwards proves the render current)
+   - `node tooling/doc-fragments/build-pull-request-ledger.mjs --ref=origin/main` (the Changelog screen's ledger of every merged pull request; per-merge CI only rebuilds it when a merge carries a fragment, so a change here after fragment-less merges is expected, not a finding)
    - If this folds or renders anything, that means the workflow missed a merge — include that as a finding in the report.
    - The assemblers are dependency-free Node scripts. If `node_modules` is installed, run `pnpm exec vp check --no-lint --fix` afterwards to format the output (the assemblers can leave Markdown tables misaligned when they rewrite `ADR-<slug>` references to `ADR-NNNN`), then `pnpm run lint:status` to validate the status set; otherwise leave both to the CI gate.
 5. **Audit the window** (`git log --first-parent <window-start>..<window-end>` plus merge bodies):

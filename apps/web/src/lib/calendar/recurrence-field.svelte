@@ -27,6 +27,7 @@
   import Label from "@magna-carta/design-system/label";
   import Switch from "@magna-carta/design-system/switch";
   import FieldRow from "@magna-carta/design-system/field-row";
+  import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import * as Select from "@magna-carta/design-system/select";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import type { DateValue } from "@internationalized/date";
@@ -41,7 +42,7 @@
   } from "@magna-carta/civil-time/recurrence";
   import { civilDateValue } from "./draft-text.ts";
   import { civilDateText } from "$lib/dates";
-  import { WEEKDAY_CHOICES, writtenRecurrence } from "./recurrence-sentence.ts";
+  import { lastOccurrenceSentence, WEEKDAY_CHOICES, writtenRecurrence } from "./recurrence-sentence.ts";
 
   let {
     rule = $bindable(),
@@ -71,14 +72,9 @@
     { value: "yearly", label: "Year" },
   ];
 
-  const ENDINGS: { value: RecurrenceEnd["kind"]; label: string }[] = [
-    { value: "never", label: "Never" },
-    { value: "after", label: "After" },
-    { value: "on", label: "On" },
-  ];
-
   const repeats = $derived(rule !== null);
   const sentence = $derived(rule === null ? "" : writtenRecurrence(rule, startsOn));
+  const lastLine = $derived(rule === null ? "" : lastOccurrenceSentence(rule, startsOn));
   const endsOnValue = $derived(civilDateValue(rule?.end.kind === "on" ? rule.end.date : null));
 
   /** The monthly question, which only makes sense once a start day says which weekday it is. */
@@ -233,52 +229,55 @@
       </div>
     {/if}
 
-    <!-- Where it stops. The second track is the answer the first one asked for, or nothing. -->
-    <FieldRow columns={2}>
-      <div class="flex flex-col gap-8">
-        <Label id="{idPrefix}-repeat-ends-label">Ends</Label>
-        <Select.Root
-          type="single"
-          items={ENDINGS}
-          {disabled}
-          value={rule.end.kind}
-          onValueChange={(picked) => setEnding(picked as RecurrenceEnd["kind"])}
-        >
-          <Select.Trigger aria-labelledby="{idPrefix}-repeat-ends-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each ENDINGS as choice (choice.value)}
-              <Select.Item value={choice.value} label={choice.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-      {#if rule.end.kind === "after"}
-        <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-repeat-count">Times</Label>
-          <Input
-            id="{idPrefix}-repeat-count"
-            type="number"
-            min="1"
-            max={MAX_COUNT}
-            inputmode="numeric"
-            autocomplete="off"
-            {disabled}
-            value={String(rule.end.count)}
-            oninput={(event) => setCount(event.currentTarget.value)}
-          />
+    <!-- Where it stops: three rows, each carrying its own answer, so the choice and the value it
+         needs are read together rather than across two tracks. -->
+    <div class="flex flex-col gap-8">
+      <Label id="{idPrefix}-repeat-ends-label">Ends</Label>
+      <RadioGroup.Root
+        aria-labelledby="{idPrefix}-repeat-ends-label"
+        value={rule.end.kind}
+        onValueChange={(picked) => setEnding(picked as RecurrenceEnd["kind"])}
+        {disabled}
+      >
+        <div class="flex min-h-32 items-center gap-8">
+          <RadioGroup.Item value="never" id="{idPrefix}-repeat-ends-never" />
+          <Label for="{idPrefix}-repeat-ends-never">Never</Label>
         </div>
-      {:else if rule.end.kind === "on"}
-        <!-- Wrapped, because a labelled DatePicker is TWO siblings and this is a grid: unwrapped,
-             its label and its field take a track each. -->
-        <div class="flex flex-col gap-4">
-          <DatePicker label="Last day" value={endsOnValue} onValueChange={setEndDate} {disabled} />
+        <div class="flex min-h-32 items-center gap-8">
+          <RadioGroup.Item value="after" id="{idPrefix}-repeat-ends-after" />
+          <Label for="{idPrefix}-repeat-ends-after">After</Label>
+          <div class="w-96">
+            <Input
+              id="{idPrefix}-repeat-count"
+              type="number"
+              min="1"
+              max={MAX_COUNT}
+              inputmode="numeric"
+              autocomplete="off"
+              aria-label="Number of times"
+              disabled={disabled || rule.end.kind !== "after"}
+              value={rule.end.kind === "after" ? String(rule.end.count) : "12"}
+              oninput={(event) => setCount(event.currentTarget.value)}
+            />
+          </div>
+          <span class="text-sm text-text-muted">times</span>
         </div>
-      {/if}
-    </FieldRow>
+        <div class="flex min-h-32 items-center gap-8">
+          <RadioGroup.Item value="on" id="{idPrefix}-repeat-ends-on" />
+          <Label for="{idPrefix}-repeat-ends-on">On</Label>
+          <div class="min-w-0 flex-1">
+            <DatePicker
+              aria-label="Last day"
+              value={endsOnValue}
+              onValueChange={setEndDate}
+              disabled={disabled || rule.end.kind !== "on"}
+            />
+          </div>
+        </div>
+      </RadioGroup.Root>
+    </div>
 
     <!-- What the four controls above add up to, in the words the record pane will use. -->
-    <p class="text-xs text-text-muted">Repeats {sentence}.</p>
+    <p class="text-xs text-text-muted">Repeats {sentence}. {lastLine}</p>
   {/if}
 </div>
