@@ -1,5 +1,14 @@
 import {
   MAX_CALL_DURATION_SECONDS,
+  MAX_CALLER_ID_NAME_LENGTH,
+  INBOUND_CALL_OUTCOMES,
+  OUTBOUND_CALL_OUTCOMES,
+  SELF_DESCRIBING_OUTCOMES,
+  isCallOutcome,
+  isSpamKind,
+  type CallOutcome,
+  type CommunicationDirection,
+  type SpamKind,
   isCommunicationDisposition,
   MAX_COMMUNICATION_BODY_LENGTH,
   MAX_COMMUNICATION_SUMMARY_LENGTH,
@@ -48,7 +57,19 @@ export type CommunicationValidationCode =
   | "communication-not-set-aside"
   // A carrier's row is what the network reported. A member editing it would turn an observation into
   // a recollection wearing an observation's badge, which is the one thing `producer` exists against.
-  | "communication-not-editable";
+  | "communication-not-editable"
+  // What happened on the line. An outcome belongs to a call, and to the direction it went: nobody
+  // leaves a voicemail on a call they took. A spam kind belongs to a spam call, and a call passed to
+  // somebody else names who it went to.
+  | "communication-caller-id-too-long"
+  | "communication-invalid-outcome"
+  | "communication-outcome-on-message"
+  | "communication-outcome-direction"
+  | "communication-invalid-spam-kind"
+  | "communication-spam-kind-without-spam"
+  | "communication-spam-on-matter"
+  | "communication-transfer-without-member"
+  | "communication-message-without-outcome";
 
 export class CommunicationValidationError extends Error {
   constructor(
@@ -116,6 +137,9 @@ function normalizeText(
 
 export interface CommunicationContentInput {
   readonly channel: CommunicationChannel;
+  // An outcome that says everything there is to say (a robocall, a call that rang out) is content
+  // enough on its own; see SELF_DESCRIBING_OUTCOMES.
+  readonly outcome?: CallOutcome | null;
   readonly body?: string | null;
   readonly summary?: string | null;
   readonly durationSeconds?: number | null;
@@ -169,7 +193,11 @@ export function normalizeContent(input: CommunicationContentInput): Communicatio
   // from. The number and the instant alone are what a carrier row legitimately carries — a missed
   // call really is just "this number rang at this time" — but a MEMBER sat down to type this one,
   // and an empty one means they abandoned the form rather than finished it.
-  if (body === null && summary === null && duration === null) {
+  const describedByOutcome =
+    input.outcome !== null &&
+    input.outcome !== undefined &&
+    SELF_DESCRIBING_OUTCOMES.has(input.outcome);
+  if (body === null && summary === null && duration === null && !describedByOutcome) {
     refuse(
       "communication-empty-content",
       text
@@ -266,4 +294,79 @@ export function normalizeOccurredAt(value: string, now: string): string {
     refuse("communication-future-instant", "a call or a message cannot have happened yet");
   }
   return new Date(occurred).toISOString();
+}
+
+// The name the caller gave, trimmed, or null where nobody typed one.
+export function normalizeCallerIdName(value: string | null | undefined): string | null {
+  return normalizeText(
+    value,
+    MAX_CALLER_ID_NAME_LENGTH,
+    "communication-caller-id-too-long",
+    "a caller's name",
+  );
+}
+
+export interface CallOutcomeInput {
+  readonly channel: CommunicationChannel;
+  readonly direction: CommunicationDirection;
+  readonly outcome?: string | null;
+  readonly spamKind?: string | null;
+  readonly matterId: string | null;
+  readonly memberUserId?: string | null;
+}
+
+export interface CallOutcomeFacts {
+  readonly outcome: CallOutcome | null;
+  readonly spamKind: SpamKind | null;
+}
+
+// What happened on the line, checked against the call it is said of. No CHECK stands behind these
+// columns (they were added to a populated table), so this is the constraint.
+//
+// SPAM IS ALSO AN ANCHOR. A spam call belongs to no matter, which is exactly what the `spam`
+// disposition already says; so a spam outcome refuses a matter, and the service sets the
+// disposition from it rather than asking the person to say the same thing twice. A text can be
+// spam too, and that is the one outcome a message may carry.
+export function normalizeCallOutcome(input: CallOutcomeInput): CallOutcomeFacts {
+  const raw = input.outcome?.trim() ?? "";
+  const kindRaw = input.spamKind?.trim() ?? "";
+  if (raw === "") {
+    if (kindRaw !== "") {
+      refuse("communication-spam-kind-without-spam", "only a spam call has a kind of spam");
+    }
+    return { outcome: null, spamKind: null };
+  }
+  if (!isCallOutcome(raw)) {
+    refuse("communication-invalid-outcome", "that is not something that can happen on a call");
+  }
+  if (isTextChannel(input.channel) && raw !== "spam") {
+    refuse("communication-outcome-on-message", "a message was sent, not answered or transferred");
+  }
+  const allowed: readonly string[] =
+    input.direction === "inbound" ? INBOUND_CALL_OUTCOMES : OUTBOUND_CALL_OUTCOMES;
+  if (!isTextChannel(input.channel) && !allowed.includes(raw)) {
+    refuse(
+      "communication-outcome-direction",
+      input.direction === "inbound"
+        ? "that is what happens on a call the firm places, not one it takes"
+        : "that is what happens on a call the firm takes, not one it places",
+    );
+  }
+  if (raw === "spam" && input.matterId !== null) {
+    refuse("communication-spam-on-matter", "a spam call belongs to no matter");
+  }
+  if (raw === "transferred" && (input.memberUserId ?? null) === null) {
+    refuse("communication-transfer-without-member", "a transferred call names who it went to");
+  }
+  let spamKind: SpamKind | null = null;
+  if (kindRaw !== "") {
+    if (raw !== "spam") {
+      refuse("communication-spam-kind-without-spam", "only a spam call has a kind of spam");
+    }
+    if (!isSpamKind(kindRaw)) {
+      refuse("communication-invalid-spam-kind", "that is not a kind of spam call");
+    }
+    spamKind = kindRaw;
+  }
+  return { outcome: raw, spamKind };
 }

@@ -105,8 +105,38 @@ export interface Communication {
    */
   producer: CommunicationProducer;
   loggedByUserId: string | null;
+  /** The name the caller gave, as typed. Never a Directory record; counterpartyEntityId is that. */
+  callerIdName: string | null;
+  /** What happened on the line, and which kind of spam where it was spam. */
+  outcome: CallOutcome | null;
+  spamKind: SpamKind | null;
+  /** The task a message taken on this call became. The message is open while that task is. */
+  messageTaskId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * What can happen on a call, by direction (owner ruling, 2026-11-09: Activity, in formal words, with
+ * spam among them). The server holds the same two lists and refuses an outcome from the wrong one.
+ */
+export const INBOUND_CALL_OUTCOMES = ["answered", "transferred", "messageTaken", "spam"] as const;
+export const OUTBOUND_CALL_OUTCOMES = ["connected", "voicemailLeft", "noAnswer"] as const;
+export type CallOutcome =
+  | (typeof INBOUND_CALL_OUTCOMES)[number]
+  | (typeof OUTBOUND_CALL_OUTCOMES)[number];
+
+/** Which kind of unwanted call it was. */
+export const SPAM_KINDS = ["sales", "wrongNumber", "scam"] as const;
+export type SpamKind = (typeof SPAM_KINDS)[number];
+
+/** A message taken on a call, for one member. It becomes a task in their list. */
+export interface CallMessageInput {
+  forUserId: string;
+  title: string;
+  dueOn?: string | null;
+  timeZone?: string | null;
+  urgent?: boolean;
 }
 
 /**
@@ -207,6 +237,11 @@ export interface LogCommunicationInput {
   summary?: string | null;
   /** Set aside as it is recorded. Refused together with a matter — a row has one anchor, never two. */
   disposition?: CommunicationDisposition | null;
+  callerIdName?: string | null;
+  /** A spam outcome sets the spam disposition itself; a transfer names its member in memberUserId. */
+  outcome?: CallOutcome | null;
+  spamKind?: SpamKind | null;
+  message?: CallMessageInput | null;
 }
 
 export function logCommunication(

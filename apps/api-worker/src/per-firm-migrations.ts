@@ -51,6 +51,7 @@ import aLookedUpCallerIdentityIsKeptSql from "@magna-carta/database/drizzle/per-
 import aDirectoryRecordCarriesAPictureSql from "@magna-carta/database/drizzle/per-firm/20261109T231237_a-directory-record-carries-a-picture.sql";
 import aConflictsRunCanBeCancelledSql from "@magna-carta/database/drizzle/per-firm/20261109T234343_a-conflicts-run-can-be-cancelled.sql";
 import legalCitationsToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261109T235619_legal-citations-tool-permission.sql";
+import aCallRecordsWhatHappenedOnTheLineSql from "@magna-carta/database/drizzle/per-firm/20261110T000018_a-call-records-what-happened-on-the-line.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -100,6 +101,8 @@ export function perFirmMigrations(): Migration[] {
     "20261109T231237_a-directory-record-carries-a-picture": aDirectoryRecordCarriesAPictureSql,
     "20261109T234343_a-conflicts-run-can-be-cancelled": aConflictsRunCanBeCancelledSql,
     "20261109T235619_legal-citations-tool-permission": legalCitationsToolPermissionSql,
+    "20261110T000018_a-call-records-what-happened-on-the-line":
+      aCallRecordsWhatHappenedOnTheLineSql,
   });
 }
 
