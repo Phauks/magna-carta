@@ -3,6 +3,7 @@ import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import type { MatterFileContentsSearcher } from "./file-contents.ts";
+import { withMarks } from "./marks.ts";
 import type {
   MatterSearchSource,
   MatterSearchSourceRegistry,
@@ -143,7 +144,9 @@ export async function runMatterSearch(input: RunMatterSearchInput): Promise<Matt
         answerShape: source.answerShape,
         matchedFields: source.matchedFields,
         supportsDeleted: source.supportsDeleted,
-        hits: kept.map((row) => source.project(row)),
+        // Projected, then marked: each hit says where the reader's words are in it, by the rule the
+        // source declared. The last step, on the rows the limit kept and on nothing else.
+        hits: kept.map((row) => withMarks(source.marking, source.project(row), query)),
         hasMore,
         skipped: null,
       };

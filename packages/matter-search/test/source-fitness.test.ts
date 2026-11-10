@@ -144,6 +144,15 @@ describe("the registry itself", () => {
     }
   });
 
+  it("marks an excerpt only for a source that declares one, and marks something for every source", () => {
+    for (const source of matterSearchSources.all()) {
+      // A rule for a text the source never shows is a declaration nobody can check by looking.
+      if (!source.declaresSnippet) expect(source.marking.snippet).toBeNull();
+      // A source that marks nothing shows a reader a result with no sign of why it is one.
+      expect(source.marking.title !== null || source.marking.snippet !== null).toBe(true);
+    }
+  });
+
   it("projects no snippet from a source that declares it has none", () => {
     const projected = matterSearchSources.all().map((source) => ({
       key: source.key,

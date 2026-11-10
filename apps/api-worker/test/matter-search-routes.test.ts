@@ -35,7 +35,9 @@ let otherFirmMatterId: string;
 interface SearchHit {
   readonly id: string;
   readonly title: string;
+  readonly titleMarks: readonly { readonly start: number; readonly end: number }[];
   readonly snippet: string | null;
+  readonly snippetMarks: readonly { readonly start: number; readonly end: number }[];
   readonly secondary: string | null;
   readonly link: string;
 }
@@ -259,6 +261,15 @@ describe("one query, answered from every section the member may read", () => {
     expect(notes.hits).toHaveLength(1);
     expect(notes.hits[0]?.snippet).toContain("eastern boundary");
     expect(notes.hits[0]?.link).toBe(`/matters/${matterId}/notes?entry=${notes.hits[0]?.id}`);
+  });
+
+  it("says where the reader's words are in the note, and marks no title that is a date", async () => {
+    const [note] = group(await search("EASEMENT boundary"), "notes").hits;
+    const marked = (note?.snippetMarks ?? []).map((mark) =>
+      note?.snippet?.slice(mark.start, mark.end),
+    );
+    expect(marked).toEqual(["easement", "boundary"]);
+    expect(note?.titleMarks).toEqual([]);
   });
 
   it("says what each source matched on, so a hit never has to be guessed at", async () => {

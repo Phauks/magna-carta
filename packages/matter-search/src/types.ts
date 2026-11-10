@@ -1,4 +1,5 @@
 import type { MatterId } from "@magna-carta/identifiers/types";
+import type { TextMark } from "@magna-carta/search/matched-text";
 
 // What a matter search answers with. These are wire types: the route serializes them almost
 // unchanged, and the browser renders them through a presentation registry that knows a source's
@@ -62,12 +63,36 @@ export interface MatterSearchHit {
   // matters it is what tells a reader whose record they are looking at.
   readonly matterId: string;
   readonly title: string;
+  // Where the reader's words are in `title`, for a screen to mark. Empty where the title is not
+  // what matched: a date standing in for a name, or a file whose words matched and not its name.
+  readonly titleMarks: readonly TextMark[];
+  // The declared excerpt. A text too long to show whole is quoted at the stretch the reader's words
+  // are in (marks.ts), so this is what a result shows and not always the whole of the column.
   readonly snippet: string | null;
+  // Where the reader's words are in `snippet`.
+  readonly snippetMarks: readonly TextMark[];
   readonly secondary: string | null;
   readonly actorUserId: string | null;
   readonly sortKey: string;
   // Where a person follows this hit: the owning section, behind that section's own access gate.
   readonly link: string;
+}
+
+// HOW A SOURCE'S MATCH IS FOUND AGAIN in what a hit shows, so a reader sees the words that
+// answered. The same three kinds of match all.ts describes, named for the rule each is found by:
+//
+//   "record-words"  words through the firm's record index: a whole word, the start of the last
+//                   one typed, a quoted run, capitals and accents ignored.
+//   "file-words"    words through the file contents index, by that engine's cutting and folding.
+//   "characters"    what the reader typed, wherever it falls in a name or a number.
+export type MatchKind = "record-words" | "file-words" | "characters";
+
+// Which rule each shown text of a source is marked by, or null where that text is not what the
+// source matched. Declared, so marking a title that is a date, or a file name whose match was
+// inside the file, is a line somebody wrote and not a default.
+export interface SourceMarking {
+  readonly title: MatchKind | null;
+  readonly snippet: MatchKind | null;
 }
 
 // One source's contribution to an answer. Either it answered, or it says why it did not.

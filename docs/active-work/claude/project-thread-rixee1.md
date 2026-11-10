@@ -2,7 +2,7 @@
 worktree: cloud session (no local worktree)
 area: Indexing and discovery — the record index, then the search surfaces that read it
 status: building
-touches: packages/search, packages/matter-search, apps/api-worker/src/http/routes/matters/search-across-matters.ts, apps/web/src/routes/(app)/search, apps/web/src/lib/search, apps/web/src/lib/components/command-palette.svelte, crates/search-core/src/query.rs, apps/api-worker/src/search/matter-file-contents.ts, apps/api-worker/src/http/routes/matters/matter-search.ts, apps/web/src/lib/matters/matter-search-presentation.ts, apps/web/src/lib/matters/sections.ts, tooling/lint-matter-search-coverage, packages/fixtures/src/load-profile/matter-search-measurements.ts, apps/api-worker/src/http/routes/firm/search-settings.ts, apps/api-worker/src/search/index-backlog.ts, apps/api-worker/src/background/search/reextraction-sweep.ts, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/(app)/settings/search-and-indexing, packages/access-control/src/registry.ts, crates/search-core, crates/address-core/src/schema.rs, packages/object-dimensions/src/dimensions.ts, packages/file-manager/src/queries.ts, apps/api-worker/src/background/search/index-consumer.ts, apps/api-worker/src/search/extracted-text-store.ts, roadmap.d/core-domain.md, docs/specs/2026-11-10-indexing-and-discovery-design.md, apps/api-worker/src/http/routes/firm/search-status.ts, apps/web/src/lib/settings/components/settings-page.svelte, apps/web/src/lib/settings/components/search-status.svelte, packages/design-system/src/lib/status-register/status-register.ts, apps/api-worker/src/background/costs/recoverable-charge-consumer.ts, apps/api-worker/src/search/record-index-rebuild.ts
+touches: packages/search, packages/matter-search, apps/api-worker/src/http/routes/matters/search-across-matters.ts, apps/web/src/routes/(app)/search, apps/web/src/lib/search, apps/web/src/lib/components/command-palette.svelte, crates/search-core/src/query.rs, apps/api-worker/src/search/matter-file-contents.ts, apps/api-worker/src/http/routes/matters/matter-search.ts, apps/web/src/lib/matters/matter-search-presentation.ts, apps/web/src/lib/matters/sections.ts, tooling/lint-matter-search-coverage, packages/fixtures/src/load-profile/matter-search-measurements.ts, apps/api-worker/src/http/routes/firm/search-settings.ts, apps/api-worker/src/search/index-backlog.ts, apps/api-worker/src/background/search/reextraction-sweep.ts, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/(app)/settings/search-and-indexing, packages/access-control/src/registry.ts, crates/search-core, crates/address-core/src/schema.rs, packages/object-dimensions/src/dimensions.ts, packages/file-manager/src/queries.ts, apps/api-worker/src/background/search/index-consumer.ts, apps/api-worker/src/search/extracted-text-store.ts, roadmap.d/core-domain.md, docs/specs/2026-11-10-indexing-and-discovery-design.md, apps/api-worker/src/http/routes/firm/search-status.ts, apps/web/src/lib/settings/components/settings-page.svelte, apps/web/src/lib/settings/components/search-status.svelte, packages/design-system/src/lib/status-register/status-register.ts, apps/api-worker/src/background/costs/recoverable-charge-consumer.ts, apps/api-worker/src/search/record-index-rebuild.ts, apps/web/src/lib/matters/matter-search-results.svelte, apps/web/src/lib/matters/matter-search-api.ts
 ---
 
 Building the design in `docs/specs/2026-11-10-indexing-and-discovery-design.md` in its build order.
@@ -13,13 +13,18 @@ Files section) is on `main` too, and so is the firm's switch for file indexing (
 Indexing), accent folding in the file contents engine (schema generation 2), and the kept text
 that lets a file result quote the passage it matched, and the status half of the Search and
 Indexing page (`GET /api/v1/firm/search-status`), and the search across matters (`GET /api/v1/search`,
-the page at `apps/web/src/routes/(app)/search`, the last row in the top bar's palette). In flight
-now: the rebuild of a record index place that reads Behind, which adds a second route to
-`apps/api-worker/src/http/routes/firm/search-status.ts`, a row in the per-firm queue's dispatch
-table (`apps/api-worker/src/background/costs/recoverable-charge-consumer.ts`, one entry and one
-handler), `apps/api-worker/src/search/record-index-rebuild.ts`, and
-`packages/search/src/record-index-rebuild.ts` with its topic. Next: the `SEARCH_SERVICE` binding
-once the search worker exists on the account.
+the page at `apps/web/src/routes/(app)/search`, the last row in the top bar's palette), and the
+rebuild of a record index place that reads Behind. In flight now: marking a reader's words in a
+result, which adds `titleMarks` and `snippetMarks` to every hit of both searches
+(`packages/search/src/matched-text.ts`, `packages/matter-search/src/marks.ts`, a `marking`
+declaration on every source in `packages/matter-search/src/sources/all.ts`, and
+`apps/web/src/lib/search/marked-text.svelte`, drawn by
+`apps/web/src/lib/matters/matter-search-results.svelte` too). Next: the scope choices on the
+Search page, and the `SEARCH_SERVICE` binding once the search worker exists on the account.
+
+A stream that adds a source to the matter search declares its `marking` in the same change: which
+rule its title and its excerpt are marked by, or none.
+`packages/matter-search/test/source-fitness.test.ts` refuses a source that marks nothing.
 
 A stream that adds a source to the matter search decides, in the same change, whether it answers
 across matters: with no `acrossMatters` declaration it is reported as searched inside a matter only,

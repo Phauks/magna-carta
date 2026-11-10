@@ -50,6 +50,25 @@ function tokensOf(text: string): string[] {
   return text.normalize("NFC").match(TOKEN) ?? [];
 }
 
+// Every word of a text as the index cuts it, and where each starts, for finding a reader's words
+// again in a record a search is about to show (matched-text.ts). The text is taken as given: an
+// accent written as a character of its own stays inside its word here, as it does in the index.
+export function recordWordsOf(text: string): { readonly word: string; readonly start: number }[] {
+  return Array.from(text.matchAll(TOKEN), (match) => ({ word: match[0], start: match.index }));
+}
+
+const ACCENT_MARKS = /\p{M}+/gu;
+
+// A word as the index holds it, near enough to find it again: its accents taken off and its
+// capitals lowered, which is what the index's tokenizer does to a word of Latin letters.
+//
+// This is for MARKING a word in a result, never for deciding one. The index made the match; a
+// letter this folds differently from the tokenizer (a script the tokenizer leaves its accents on)
+// costs a mark on a result that is still there.
+export function asRecordIndexed(word: string): string {
+  return word.normalize("NFD").replace(ACCENT_MARKS, "").toLowerCase();
+}
+
 // Takes a reader's text apart into terms. Returns an empty list for text holding no letter or digit —
 // the caller issues no statement for that, rather than a match that cannot hit.
 export function parseRecordQuery(text: string): RecordQueryTerm[] {

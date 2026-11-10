@@ -71,7 +71,11 @@ function projectInto(sourceKey: string, section: string) {
     id: row.row_id,
     matterId: row.matter_id,
     title: row.title,
+    // Where the reader's words are is said afterwards, by the runner (marks.ts), from the source's
+    // own `marking`. A projection knows the row and not the question.
+    titleMarks: [],
     snippet: row.snippet,
+    snippetMarks: [],
     secondary: row.secondary,
     actorUserId: row.actor_user_id,
     sortKey: row.sort_key,
@@ -124,6 +128,8 @@ const notesSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["the note's text"],
   declaresSnippet: true,
+  // The title is a date. The words are in the body, matched through the record index.
+  marking: { title: null, snippet: "record-words" },
   minimumQueryLength: 2,
   // A deleted note is gone rather than hidden, so there is no deleted set to include.
   supportsDeleted: false,
@@ -196,6 +202,8 @@ const filesSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["file names", "folder names"],
   declaresSnippet: false,
+  // A name is matched as the characters typed, wherever they fall in it.
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: true,
   buildStatements: (request) => {
@@ -339,6 +347,9 @@ const fileContentsSource: MatterSearchSource = {
   // The sentence the words were found in. Any member of the firm may open the file it comes from,
   // on the screen the result links to.
   declaresSnippet: true,
+  // The words are inside the file and not in its name, so the sentence is marked and the name is
+  // not. The files group above is where a name that matched is marked.
+  marking: { title: null, snippet: "file-words" },
   minimumQueryLength: 2,
   supportsDeleted: true,
   // Nothing to build without the index's answer. The statement is `fileContentsStatement`, built in
@@ -399,6 +410,9 @@ const custodySource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["packet names", "custody numbers"],
   declaresSnippet: false,
+  // The packet's name as characters. The custody number matches too and is in the second line,
+  // which is a composed label and is left unmarked.
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -462,6 +476,9 @@ const communicationsSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["what was said", "the caller's name", "the number"],
   declaresSnippet: true,
+  // The title is an instant. What was said is marked by its words; a call found by its number or
+  // by the caller's name shows what was said with nothing marked, because neither is in it.
+  marking: { title: null, snippet: "record-words" },
   minimumQueryLength: 2,
   // A logged call is edited or left alone, never soft-deleted, so there is no deleted set.
   supportsDeleted: false,
@@ -560,6 +577,7 @@ const partiesSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["party names", "the capacity they act in"],
   declaresSnippet: false,
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -623,6 +641,8 @@ const timeSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["time narratives"],
   declaresSnippet: true,
+  // The title is the day the work was done. The narrative is marked by its words.
+  marking: { title: null, snippet: "record-words" },
   minimumQueryLength: 2,
   // A voided entry keeps its row and stays part of the matter's record, so there is no deleted set
   // distinct from what the search already returns.
@@ -684,6 +704,8 @@ const costsSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["cost descriptions"],
   declaresSnippet: true,
+  // The description is the title, and it is what the record index matched.
+  marking: { title: "record-words", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -742,6 +764,7 @@ const calendarSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["event titles", "event descriptions"],
   declaresSnippet: true,
+  marking: { title: "record-words", snippet: "record-words" },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
@@ -808,6 +831,9 @@ const billingSource: MatterSearchSource = {
   answerShape: "listing",
   matchedFields: ["invoice line descriptions", "invoice numbers"],
   declaresSnippet: false,
+  // The line's description as characters. An invoice number matches too and is in the second
+  // line, which is a composed label and is left unmarked.
+  marking: { title: "characters", snippet: null },
   minimumQueryLength: 2,
   supportsDeleted: false,
   buildStatements: (request) => {
