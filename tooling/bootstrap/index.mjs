@@ -77,6 +77,12 @@ const ARTEFACTS = [
     wasm: "segmentation_core_bg.wasm",
     bindings: "segmentation_core.js",
   },
+  {
+    crate: "noise-suppression-core",
+    pkg: "packages/noise-suppression",
+    wasm: "noise_suppression_core_bg.wasm",
+    bindings: "noise_suppression_core.js",
+  },
 ];
 
 // The stamp lives beside the generated output (inside the git-ignored pkg directory), so it is created

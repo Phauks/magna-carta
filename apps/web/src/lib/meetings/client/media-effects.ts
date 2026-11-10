@@ -46,6 +46,12 @@ export interface MediaEffectSettings {
    */
   readonly background: BackgroundChoice;
   readonly reduceNoise: boolean;
+  /**
+   * The product's own, stronger filter on the microphone, in place of the browser's noise reduction
+   * rather than on top of it. Off until a member turns it on, because it costs some of their
+   * computer's power for the whole meeting.
+   */
+  readonly removeNoise: boolean;
 }
 
 /**
@@ -56,10 +62,15 @@ export interface MediaEffectSettings {
 export const DEFAULT_EFFECT_SETTINGS: MediaEffectSettings = {
   background: "none",
   reduceNoise: true,
+  removeNoise: false,
 };
 
 /** Nothing asked for at all: no background treatment and no noise reduction. */
-export const NO_EFFECTS: MediaEffectSettings = { background: "none", reduceNoise: false };
+export const NO_EFFECTS: MediaEffectSettings = {
+  background: "none",
+  reduceNoise: false,
+  removeNoise: false,
+};
 
 /** What one treatment reads as: on, off, or null where the browser did not report it at all. */
 export type TreatmentReading = boolean | null;
@@ -106,6 +117,11 @@ export interface AppliedEffects {
   readonly backgroundByProduct: boolean;
   /** Whether a picture has been chosen in this browser, so "Image" can be offered without asking for one. */
   readonly imageChosen: boolean;
+  /**
+   * The product's own noise filter: running, not running, or not possible in this browser (no audio
+   * worklet, or no microphone). Under the pass-through it is always unavailable.
+   */
+  readonly noiseRemoval: "on" | "off" | "unavailable";
   /** Present only when an effect was asked for and could not be given, in the product's own words. */
   readonly refusal: string | null;
 }
@@ -335,6 +351,7 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
           background: blur === "on" ? "blur" : "none",
           backgroundByProduct: false,
           imageChosen: false,
+          noiseRemoval: "unavailable",
           refusal,
         };
       }
@@ -413,3 +430,11 @@ export function platformBlurStatement(platformBlur: boolean | null): string {
 
 /** The one line a background section is, where this browser offers no blur at all. */
 export const BLUR_UNAVAILABLE_STATEMENT = "Background blur is not available in this browser.";
+
+/** The line beneath the noise switch while the product's own filter is cleaning the microphone. */
+export const NOISE_REMOVAL_ON_STATEMENT =
+  "Background noise is being removed on this computer before anyone hears you.";
+
+/** What the stronger filter does and costs, said once beneath its switch. */
+export const NOISE_REMOVAL_DESCRIPTION =
+  "Removes fans, typing and street noise more thoroughly than your browser does. Uses a little more of your computer's power.";

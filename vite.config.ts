@@ -293,7 +293,7 @@ export default defineConfig({
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
-      // often) needs pdf-core and segmentation-core alone, and its build script asks for exactly those. The composite below is
+      // often) needs pdf-core, segmentation-core and noise-suppression-core alone, and its build script asks for exactly those. The composite below is
       // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
       // crate keeps its own cache entry rather than one
       // all-or-nothing entry.
@@ -304,6 +304,7 @@ export default defineConfig({
           "vp run rust-wasm-build-email",
           "vp run rust-wasm-build-seven-zip",
           "vp run rust-wasm-build-segmentation",
+          "vp run rust-wasm-build-noise-suppression",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -328,6 +329,12 @@ export default defineConfig({
       "rust-wasm-build-segmentation": {
         command:
           "docker build --network=host --output type=local,dest=packages/segmentation/src/pkg -f crates/segmentation-core/wasm.Dockerfile crates",
+      },
+      // The meeting's stronger noise removal: the SPA's meeting room loads it in an AudioWorklet, so,
+      // like segmentation, both the composite above and the interface Worker's own build ask for it.
+      "rust-wasm-build-noise-suppression": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/noise-suppression/src/pkg -f crates/noise-suppression-core/wasm.Dockerfile crates",
       },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
