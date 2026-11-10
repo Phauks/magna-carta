@@ -9,9 +9,9 @@ built: in-progress by="Claude"
 ui: in-progress by="Claude"
 load-profile: n/a
 tested: in-progress by="Claude"
-branch: claude/focused-edison-ylxfiy
-active-work: docs/active-work/claude/focused-edison-ylxfiy.md
-next: Recording's transcript (slice R3), then captions, once the owner has proved the sink address against the live routing service; then breakout rooms, webinars and booking pages from their designs
+branch: claude/project-thread-ezg0ip
+active-work:
+next: Recording, transcripts, summaries and captions are built and switched off until the owner steps in the operations runbook (Turning meeting recording on) are done; then noise suppression, personal rooms and end-to-end encryption
 link-spec: docs/specs/2026-09-18-meetings-design.md
 link-plan:
 adrs:

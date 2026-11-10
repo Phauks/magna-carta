@@ -551,7 +551,7 @@ describe("whether a summary is written, and by which model", () => {
     await setPosture({
       summaries: true,
       eligible: false,
-      chosenModel: "anthropic/claude-opus-4-8",
+      chosenModel: "anthropic/claude-opus-5-5",
     });
     const seeded = await readySummaryOf(await seedRecordedMeeting(firmId));
     const { port, calls } = scriptedModel([WELL_FORMED]);
@@ -560,7 +560,7 @@ describe("whether a summary is written, and by which model", () => {
     expect(await summaryRow(seeded.summaryId)).toMatchObject({
       state: "refused",
       refusal_reason: "not-eligible",
-      model_id: "anthropic/claude-opus-4-8",
+      model_id: "anthropic/claude-opus-5-5",
     });
   });
 
@@ -653,13 +653,13 @@ describe("whether a summary is written, and by which model", () => {
     await setPosture({
       summaries: true,
       eligible: true,
-      chosenModel: "anthropic/claude-sonnet-4-6",
+      chosenModel: "anthropic/claude-sonnet-5-5",
     });
     const seeded = await readySummaryOf(await seedRecordedMeeting(firmId));
     const { port, calls } = scriptedModel([WELL_FORMED]);
     expect(await summarizeMeeting(env, seeded.message, { port })).toBe("ready");
-    expect(calls.map((call) => call.modelId)).toEqual(["anthropic/claude-sonnet-4-6"]);
-    expect(await meteredRequests("anthropic/claude-sonnet-4-6")).toBeGreaterThanOrEqual(1);
+    expect(calls.map((call) => call.modelId)).toEqual(["anthropic/claude-sonnet-5-5"]);
+    expect(await meteredRequests("anthropic/claude-sonnet-5-5")).toBeGreaterThanOrEqual(1);
   });
 
   it("is refused `transcript-empty` for a transcript in which nobody was heard", async () => {
