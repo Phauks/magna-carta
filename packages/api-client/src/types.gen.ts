@@ -6333,6 +6333,10 @@ export type CalendarSyncSettings = {
     calendars: Array<CalendarSyncProviderCalendar> | null;
     subjects: Array<CalendarSyncSubject>;
     rules: Array<CalendarSyncRule>;
+    /**
+     * The account's calendars the member chose to be shown their own events from. Empty until they choose one.
+     */
+    shownCalendars: Array<CalendarSyncShownCalendar>;
 };
 
 export type CalendarSyncProviderCalendar = {
@@ -6379,6 +6383,14 @@ export type CalendarSyncRule = {
     scope: 'mine' | 'my_matters';
 };
 
+export type CalendarSyncShownCalendar = {
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when it was chosen, shown when the provider is unreachable.
+     */
+    calendarName: string;
+};
+
 export type CalendarSyncRulesReplace = {
     /**
      * The member's whole rule set. A subject absent from it is not synced.
@@ -6415,6 +6427,50 @@ export type CalendarSyncFirmLimitsSet = {
          */
         detail: 'full' | 'minimal';
     }>;
+};
+
+export type CalendarSyncShownCalendarsReplace = {
+    /**
+     * The member's whole choice of calendars to be shown. A calendar absent from it is no longer read, and what was read from it is removed.
+     */
+    calendarRemoteIds: Array<string>;
+};
+
+export type CalendarSyncAccountEventList = {
+    /**
+     * The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
+     */
+    shownCalendars: Array<CalendarSyncShownCalendar>;
+    events: Array<CalendarSyncAccountEvent>;
+    /**
+     * True when the window held more events than one answer carries.
+     */
+    truncated: boolean;
+};
+
+export type CalendarSyncAccountEvent = {
+    /**
+     * The provider's own identifier for the event.
+     */
+    id: string;
+    calendarRemoteId: string;
+    calendarName: string | null;
+    title: string;
+    location: string | null;
+    wholeDay: boolean;
+    /**
+     * The first day of a whole-day event, as YYYY-MM-DD. Null on a timed one.
+     */
+    startsOn: string | null;
+    /**
+     * The last day a whole-day event covers. Null on a timed one.
+     */
+    endsOn: string | null;
+    /**
+     * The instant a timed event starts. Null on a whole-day one. The reader's screen decides which day and hour that is.
+     */
+    startsAt: string | null;
+    endsAt: string | null;
 };
 
 export type CalendarSyncIssueList = {
@@ -30360,6 +30416,105 @@ export type CalendarSyncSetFirmLimitsResponses = {
 };
 
 export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsResponses[keyof CalendarSyncSetFirmLimitsResponses];
+
+export type CalendarSyncReplaceMyShownCalendarsData = {
+    body: CalendarSyncShownCalendarsReplace;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync/shown-calendars';
+};
+
+export type CalendarSyncReplaceMyShownCalendarsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The member has no connected account
+     */
+    409: Problem;
+    /**
+     * A calendar named is not one the account has; `errors` says which
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The member's provider could not be asked for their calendars, so nothing was saved
+     */
+    503: Problem;
+};
+
+export type CalendarSyncReplaceMyShownCalendarsError = CalendarSyncReplaceMyShownCalendarsErrors[keyof CalendarSyncReplaceMyShownCalendarsErrors];
+
+export type CalendarSyncReplaceMyShownCalendarsResponses = {
+    /**
+     * The member's calendar sync settings after the write
+     */
+    200: CalendarSyncSettings;
+};
+
+export type CalendarSyncReplaceMyShownCalendarsResponse = CalendarSyncReplaceMyShownCalendarsResponses[keyof CalendarSyncReplaceMyShownCalendarsResponses];
+
+export type CalendarSyncListMyAccountEventsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The window's first day, as YYYY-MM-DD.
+         */
+        from: string;
+        /**
+         * The window's last day, as YYYY-MM-DD.
+         */
+        to: string;
+    };
+    url: '/api/v1/me/calendar-sync/account-events';
+};
+
+export type CalendarSyncListMyAccountEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The window is not two days in order, or is longer than a year
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncListMyAccountEventsError = CalendarSyncListMyAccountEventsErrors[keyof CalendarSyncListMyAccountEventsErrors];
+
+export type CalendarSyncListMyAccountEventsResponses = {
+    /**
+     * The member's own events in the window
+     */
+    200: CalendarSyncAccountEventList;
+};
+
+export type CalendarSyncListMyAccountEventsResponse = CalendarSyncListMyAccountEventsResponses[keyof CalendarSyncListMyAccountEventsResponses];
 
 export type CalendarSyncListMyIssuesData = {
     body?: never;

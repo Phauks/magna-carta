@@ -47,6 +47,8 @@ export type CalendarSourceKind =
   | { readonly kind: "member"; readonly memberId: string }
   /** One bookable resource's schedule: a room, a vehicle, a piece of equipment. */
   | { readonly kind: "resource"; readonly resourceId: string }
+  /** The reader's own events from their connected account, shown to them and to nobody else. */
+  | { readonly kind: "ownAccount" }
   /** A date-bearing timeline source the federated read is widened to. */
   | { readonly kind: "layer"; readonly layerKey: string };
 
@@ -97,6 +99,8 @@ export const CASE_SETTINGS_SOURCE_KEY = "caseSettings";
 export const DEADLINES_SOURCE_KEY = "deadlines";
 /** The firm's own events. */
 export const FIRM_EVENTS_SOURCE_KEY = "firmEvents";
+/** The reader's own events from their connected calendar account. */
+export const OWN_ACCOUNT_SOURCE_KEY = "ownAccount";
 
 /**
  * The calendars that are on when nobody has said otherwise: the firm's case settings, its deadlines
@@ -110,10 +114,15 @@ export const DEFAULT_ON_SOURCE_KEYS: readonly string[] = [
   CASE_SETTINGS_SOURCE_KEY,
   DEADLINES_SOURCE_KEY,
   FIRM_EVENTS_SOURCE_KEY,
+  // On from the start because the reader already said so once, on their Calendar Sync page, when
+  // they chose which of their calendars to be shown. The row exists only for a reader who did.
+  OWN_ACCOUNT_SOURCE_KEY,
 ];
 
 /** The folder the firm's own three calendars sit in. */
 const FIRM_FOLDER_KEY = "firm";
+/** The folder the reader's own calendar sits in. */
+const OWN_FOLDER_KEY = "own";
 /** The folder a member with no role at all falls into. */
 const OTHER_MEMBERS_FOLDER_KEY = "role:";
 /** The folder the rooms sit in, and the one every other bookable thing sits in. */
@@ -145,6 +154,11 @@ export interface CalendarCatalogInput {
   readonly members: readonly FirmMemberSummary[];
   /** The firm's bookable resources. An inactive one is not offered. */
   readonly resources: readonly FirmResource[];
+  /**
+   * Whether the reader chose any of their own account's calendars to be shown. Absent or false,
+   * the row is not listed at all: it would have nothing behind it.
+   */
+  readonly ownAccount?: boolean;
   /** The date-bearing sources the read can be widened to. The vocabulary's own list by default. */
   readonly layers?: readonly CalendarLayer[];
   /** The date calendars listed but not yet served. The catalog's own list by default. */
@@ -165,6 +179,16 @@ export const FIRM_OWN_CALENDARS: readonly CalendarSource[] = [
 ];
 
 /**
+ * The reader's own calendar at their provider. Named for the provider because that is where the
+ * events live and where the reader goes to change one.
+ */
+export const OWN_ACCOUNT_CALENDAR: CalendarSource = {
+  key: OWN_ACCOUNT_SOURCE_KEY,
+  name: "My Outlook Calendar",
+  kind: { kind: "ownAccount" },
+};
+
+/**
  * The whole catalog, in the order the rail draws it: the firm's own calendars, then the members
  * folder by folder in the firm's own role names, then the rooms, then the other bookable things,
  * then the dates. An empty folder is not drawn at all — a firm with no vehicles meets no
@@ -176,6 +200,11 @@ export function calendarFolders(input: CalendarCatalogInput): readonly CalendarF
       key: FIRM_FOLDER_KEY,
       name: "The Firm",
       sources: FIRM_OWN_CALENDARS,
+    },
+    {
+      key: OWN_FOLDER_KEY,
+      name: "Mine",
+      sources: input.ownAccount === true ? [OWN_ACCOUNT_CALENDAR] : [],
     },
     ...memberFolders(input.members),
     ...resourceFolders(input.resources),

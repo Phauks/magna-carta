@@ -94,7 +94,11 @@ routes requests through the chokepoint into those packages.
   when the member's calendar changes: the object stores the watch and its secret, every pass that
   reaches the provider renews it, and `http/routes/calendar/provider-notices.ts` (public, one route
   per provider) hands a notice to the object, which believes it only by that secret and then only
-  brings its pass forward. `request-sync.ts` asks every account with a rule for a
+  brings its pass forward. `shown-calendars.ts` is the other direction, run at the end of
+  the same pass: it reads the calendars the member chose to be shown and makes the member's private
+  table agree, leaving out the copies the platform wrote; `http/routes/calendar/account-events.ts`
+  answers that table to its owner and to nobody else, and never asks the provider.
+  `request-sync.ts` asks every account with a rule or a shown calendar for a
   pass; the calendar domain's router calls it behind the response of any write that could change
   what belongs in somebody's calendar. All of it returns early in a deployment with no Microsoft
   application

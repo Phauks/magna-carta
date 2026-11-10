@@ -3,11 +3,14 @@ import {
   CALENDAR_SYNC_CATEGORY,
   type CalendarSyncPort,
   type ProviderCalendar,
+  type ProviderCalendarEvent,
+  type ProviderCalendarEvents,
   type ProviderChangeWatch,
   type ProviderChangeWatchRequest,
   type ProviderEventPresence,
   type ProviderEventReceipt,
   type ProviderEventSnapshot,
+  type ProviderEventWindow,
   type ProviderEventWrite,
   type ProviderWrittenEvents,
 } from "@magna-carta/calendar/sync-port";
@@ -44,6 +47,7 @@ const descriptor: CapabilityDescriptor = {
     deleteEvent: { supported: true },
     listWrittenEvents: { supported: true },
     readEvent: { supported: true },
+    listCalendarEvents: { supported: true },
     watchChanges: { supported: true },
     renewWatch: { supported: true },
     stopWatch: { supported: true },
@@ -100,6 +104,23 @@ const eventSnapshotSchema = z.object({
 
 const eventSnapshotPageSchema = z.object({
   value: z.array(eventSnapshotSchema),
+  "@odata.nextLink": z.string().optional(),
+});
+
+// A calendar's own view of a window: every event in it, a series already laid out as its days.
+// A member with more than this many pages inside the window is past what one pass reads; the list
+// says it stopped short.
+const CALENDAR_VIEW_PAGE_LIMIT = 20;
+const CALENDAR_VIEW_PAGE_SIZE = 250;
+const CALENDAR_VIEW_FIELDS = `${SNAPSHOT_FIELDS},seriesMasterId,isCancelled`;
+
+const calendarViewPageSchema = z.object({
+  value: z.array(
+    eventSnapshotSchema.extend({
+      seriesMasterId: z.string().nullable().optional(),
+      isCancelled: z.boolean().nullable().optional(),
+    }),
+  ),
   "@odata.nextLink": z.string().optional(),
 });
 
@@ -520,6 +541,42 @@ export function createMicrosoftCalendarAdapter(
               const snapshot = snapshotOfGraphEvent(event);
               if (snapshot === undefined) return unreadable("An event in Microsoft's list");
               events.push(snapshot);
+            }
+            const next = parsed.data["@odata.nextLink"];
+            url = next !== undefined && next.startsWith(`${GRAPH_ORIGIN}/`) ? next : undefined;
+          }
+          return ok({ events, complete: url === undefined });
+        },
+
+        async listCalendarEvents(
+          calendarRemoteId: string,
+          window: ProviderEventWindow,
+        ): Promise<Dispatch<ProviderCalendarEvents | null>> {
+          const events: ProviderCalendarEvent[] = [];
+          let url: string | undefined =
+            `${GRAPH_ORIGIN}/v1.0/me/calendars/${encodeURIComponent(calendarRemoteId)}/calendarView` +
+            `?startDateTime=${encodeURIComponent(window.fromInstant)}` +
+            `&endDateTime=${encodeURIComponent(window.toInstant)}` +
+            `&$select=${CALENDAR_VIEW_FIELDS}&$top=${CALENDAR_VIEW_PAGE_SIZE}`;
+          for (let page = 0; page < CALENDAR_VIEW_PAGE_LIMIT && url !== undefined; page += 1) {
+            let response;
+            try {
+              response = await dependencies.http.request({ method: "GET", url, headers });
+            } catch {
+              return unreachable();
+            }
+            // The member deleted the calendar, or it was one shared to them and is shared no more.
+            if (response.status === 404) return ok(null);
+            if (response.status >= 400) return adapterError(problemFor(response.status));
+            const parsed = calendarViewPageSchema.safeParse(await readJson(response));
+            if (!parsed.success) return unreadable("Microsoft's view of a calendar");
+            for (const event of parsed.data.value) {
+              if (event.isCancelled === true) continue;
+              // These are the member's own events and come in every shape a calendar has ever
+              // held. One this adapter cannot place is left out; it does not cost them the rest.
+              const snapshot = snapshotOfGraphEvent(event);
+              if (snapshot === undefined) continue;
+              events.push({ ...snapshot, seriesRemoteId: event.seriesMasterId ?? null });
             }
             const next = parsed.data["@odata.nextLink"];
             url = next !== undefined && next.startsWith(`${GRAPH_ORIGIN}/`) ? next : undefined;

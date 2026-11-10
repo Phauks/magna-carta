@@ -12,6 +12,7 @@
  */
 import { civilDayOf } from "@magna-carta/civil-time/civil-date";
 import { movedLikeOccurrence } from "@magna-carta/civil-time/recurrence";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import {
   wallClockMinutes,
   type CalendarGridColor,
@@ -30,6 +31,7 @@ import {
   type TimelineEntry,
 } from "./calendar-api.ts";
 import { isMatterScope, type CalendarScope } from "./calendar-scope.ts";
+import type { OwnAccountEvent } from "./own-account-events.ts";
 import {
   eventTypeNameForCode,
   eventTypeTone,
@@ -388,6 +390,63 @@ export function withoutSeriesRows(
     (entry) => entry.occurrenceOn !== undefined || !seriesIds.has(entry.recordId),
   );
 }
+
+/**
+ * One of the reader's own events from their connected account. It paints its TITLE, which nothing
+ * else on the firm side does, because it is the reader's own and is shown to nobody else.
+ *
+ * A TIMED ONE IS PLACED IN THE READER'S ZONE, the one conversion this projection makes. Every other
+ * row arrives as a civil day and a wall clock in a zone the record names, and is drawn there
+ * unconverted. This arrives as two instants with no zone at all, because the provider answers in
+ * its own; the only honest hour to draw it at is the reader's. A whole-day one is civil days and
+ * is drawn on them.
+ *
+ * It opens nowhere: the record is in the reader's own calendar, which is where it is changed.
+ */
+export function entryFromOwnAccountEvent(
+  event: OwnAccountEvent,
+  context: EntryContext,
+): CalendarEntry | null {
+  const base = {
+    id: entryId("other", `ownAccount:${event.id}`),
+    kind: "other" as const,
+    recordId: event.id,
+    matterId: null,
+    detailIsMatterNumber: false,
+    link: null,
+    settled: false,
+    sourceKeys: [],
+    label: event.title.trim() === "" ? UNTITLED_OWN_EVENT_LABEL : event.title,
+    detail: event.location ?? undefined,
+    tone: "neutral" as const,
+  };
+  if (event.wholeDay) {
+    if (event.startsOn === null) return null;
+    return {
+      ...base,
+      date: event.startsOn,
+      endDate: event.endsOn !== null && event.endsOn !== event.startsOn ? event.endsOn : undefined,
+    };
+  }
+  const startsAt = event.startsAt === null ? Number.NaN : Date.parse(event.startsAt);
+  const endsAt = event.endsAt === null ? Number.NaN : Date.parse(event.endsAt);
+  if (Number.isNaN(startsAt) || Number.isNaN(endsAt)) return null;
+  // A runtime that cannot name the reader's zone still has to place the event somewhere.
+  const zone = context.readerTimeZone === "" ? "UTC" : context.readerTimeZone;
+  const start = zonedReading(startsAt, zone);
+  const end = zonedReading(endsAt, zone);
+  return {
+    ...base,
+    date: start.civilDate,
+    endDate: end.civilDate !== start.civilDate ? end.civilDate : undefined,
+    time: formatWallClock(start.wallClockTime, zone, zone, start.civilDate) ?? undefined,
+    startMinute: minutesOf(start.wallClockTime),
+    endMinute: minutesOf(end.wallClockTime),
+  };
+}
+
+/** What an event with no title in the reader's own calendar paints as. */
+export const UNTITLED_OWN_EVENT_LABEL = "(No Title)";
 
 /** What a booking on a resource's schedule paints as when it double-books. */
 export const DOUBLE_BOOKED_LABEL = "Double-booked";

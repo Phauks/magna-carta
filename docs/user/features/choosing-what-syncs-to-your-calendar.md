@@ -87,6 +87,29 @@ it in Magna Carta.
 If you disconnect your account, the copies already in Outlook stay there, and Magna Carta stops
 updating them.
 
+## Seeing your Outlook events in Magna Carta
+
+You can also have Magna Carta show you what is in your Outlook calendars, beside the firm's
+calendar.
+
+1. Open **Settings**, then **Calendar Sync**.
+2. Under **From Outlook to Magna Carta**, switch on each Outlook calendar you want to see. A
+   calendar somebody shared with you can be switched on like your own.
+3. Open the **Calendar**. A calendar named **My Outlook Calendar** appears under **Mine** and is
+   switched on.
+
+What to know:
+
+- **Only you see these events.** No colleague and no administrator can read them, and they do not
+  show you as busy to anyone.
+- They are shown with their own titles and at the hour they fall in your time zone.
+- They are not part of any matter, and nothing is changed in Outlook. To change one, change it in
+  Outlook.
+- A new or changed Outlook event appears within moments. Magna Carta keeps a month back and a year
+  ahead.
+- An event Magna Carta itself sent to Outlook is not shown a second time.
+- Switch a calendar off and its events leave your Magna Carta calendar at once.
+
 ## What your firm decides
 
 Your firm sets the outer limit. A row that reads **Not Allowed by the Firm** cannot be synced, and

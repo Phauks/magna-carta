@@ -347,6 +347,87 @@ describe("reading back the copies this platform wrote", () => {
   });
 });
 
+describe("a calendar's own events inside a window", () => {
+  const window = { fromInstant: "2026-11-01T00:00:00Z", toInstant: "2026-12-01T00:00:00Z" };
+  const view =
+    "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView" +
+    "?startDateTime=2026-11-01T00%3A00%3A00Z&endDateTime=2026-12-01T00%3A00%3A00Z" +
+    "&$select=id,changeKey,subject,location,isAllDay,start,end,seriesMasterId,isCancelled&$top=250";
+  const lunch = {
+    id: "own-1",
+    changeKey: "v1",
+    subject: "Lunch",
+    isAllDay: false,
+    start: { dateTime: "2026-11-13T18:00:00.0000000", timeZone: "UTC" },
+    end: { dateTime: "2026-11-13T19:00:00.0000000", timeZone: "UTC" },
+  };
+
+  it("reads every page, names the series a day belongs to, and leaves out what was called off", async () => {
+    const second = "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView?$skip=250";
+    const { http, sent } = serving({
+      [view]: {
+        status: 200,
+        body: {
+          value: [
+            lunch,
+            { ...lunch, id: "own-2", subject: "Called off", isCancelled: true },
+            // One the adapter cannot place costs the member none of the others.
+            {
+              ...lunch,
+              id: "own-3",
+              start: { dateTime: "2026-11-13T12:00:00", timeZone: "Central" },
+            },
+          ],
+          "@odata.nextLink": second,
+        },
+      },
+      [second]: {
+        status: 200,
+        body: {
+          value: [{ ...lunch, id: "day-1", subject: "Standup", seriesMasterId: "series-1" }],
+        },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listCalendarEvents("cal-1", window)).toEqual({
+      ok: true,
+      value: {
+        complete: true,
+        events: [
+          {
+            remoteId: "own-1",
+            versionTag: "v1",
+            title: "Lunch",
+            location: null,
+            seriesRemoteId: null,
+            when: {
+              kind: "instants",
+              startsAtMilliseconds: Date.UTC(2026, 10, 13, 18, 0),
+              endsAtMilliseconds: Date.UTC(2026, 10, 13, 19, 0),
+            },
+          },
+          expect.objectContaining({ remoteId: "day-1", seriesRemoteId: "series-1" }),
+        ],
+      },
+    });
+    expect(sent.map((request) => request.method)).toEqual(["GET", "GET"]);
+  });
+
+  it("answers null for a calendar the account no longer has", async () => {
+    const port = createMicrosoftCalendarAdapter({ http: serving({}).http }).create({ credential });
+    expect(await port.listCalendarEvents("cal-gone", window)).toEqual({ ok: true, value: null });
+  });
+
+  it("says the sign-in was refused when Microsoft says so", async () => {
+    const { http } = serving({ [view]: { status: 401, body: {} } });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listCalendarEvents("cal-1", window)).toMatchObject({
+      ok: false,
+      problem: { category: "auth" },
+    });
+  });
+});
+
 describe("a series, as Microsoft Graph repeats it", () => {
   // 2026-12-01 is the first Tuesday of the month.
   function series(line: string, startsOn = "2026-12-01"): ProviderEventWrite {

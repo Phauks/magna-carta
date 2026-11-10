@@ -295,3 +295,19 @@ describe("what a browser remembers", () => {
     );
   });
 });
+
+describe("the reader's own calendar from their connected account", () => {
+  it("is not listed for a reader who chose none of their calendars to be shown", () => {
+    const folders = calendarFolders({ members: [], resources: [] });
+    expect(sourceByKey(folders, "ownAccount")).toBeUndefined();
+    expect(folders.map((folder) => folder.name)).not.toContain("Mine");
+  });
+
+  it("is listed in a folder of its own, and is on from the start, for a reader who did", () => {
+    const folders = calendarFolders({ members: [], resources: [], ownAccount: true });
+    expect(folders.find((folder) => folder.name === "Mine")?.sources).toEqual([
+      { key: "ownAccount", name: "My Outlook Calendar", kind: { kind: "ownAccount" } },
+    ]);
+    expect(DEFAULT_ON_SOURCE_KEYS).toContain("ownAccount");
+  });
+});
