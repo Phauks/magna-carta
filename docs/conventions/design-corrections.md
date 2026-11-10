@@ -1031,15 +1031,18 @@ is usually the fastest way to understand the rule.
   rides the one component every screen already builds its title from rather than being added screen
   by screen — a favourite control thirty screens have to opt into is a favourite control that covers
   twenty. _(favourites, 2026-09-16)_
-- **Every page has a menu beside its star, and the star stays out of it.** The `…` on the title's
-  row holds what is about the page rather than work on it: Copy Link and Open in New Tab on every
-  screen, then the screen's own secondary page-level items (`pageMenu` on `ScreenHeader`) — a
-  hand-off to the settings page behind it, a history it can forget. Moving the star into the menu
-  was considered and declined, because the gold star is the only thing that tells a member the page
-  is already a favourite, and a menu hides that answer. Search, create, filters and the screen's
-  main action never move in, and an unwired item stays on the row marked Soon rather than going
-  behind the glyph. A screen being redesigned passes its page-level extras here instead of growing
-  its own header overflow. _(page menu, 2026-11-09)_
+- **Every page has a menu beside its title, and the favourite lives in it.** The `…` on the
+  title's row holds what is about the page rather than work on it: Add to Favorites (Remove from
+  Favorites, with the star filled gold, once saved), Copy Link and Open in New Tab on every screen,
+  then the screen's own secondary page-level items (`pageMenu` on `ScreenHeader`) — a hand-off to
+  the settings page behind it, a history it can forget. The star first shipped beside the menu, on
+  the reasoning that a gold star at rest is how a member sees a page is already a favourite; the
+  owner moved it into the menu the same day ("move star to page ... menu"), trading that at-rest
+  signal for one control by every title — the Favorites group in the sidebar is where a member
+  sees what they have saved. Search, create, filters and the screen's main action never move in,
+  and an unwired item stays on the row marked Soon rather than going behind the glyph. A screen
+  being redesigned passes its page-level extras here instead of growing its own header overflow.
+  _(page menu, 2026-11-09)_
 - **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
   truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
   inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
