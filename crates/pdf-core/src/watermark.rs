@@ -3,7 +3,7 @@
 //! nothing. Use `redact`/`sanitize` to remove content. The overlay reuses the Bates font
 //! machinery (text) and the redaction image-XObject pattern (image).
 
-use crate::bates::{escape_pdf_literal, label_width_pt, BatesFont};
+use crate::bates::{label_width_pt, win_ansi_literal, BatesFont};
 use crate::generate::GenerateError;
 use crate::surgery::{resolve_dict, resolve_inherited_resources, resolve_mediabox, resolve_rotate};
 use image::GenericImageView;
@@ -67,6 +67,7 @@ pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, Gener
                 b"Type" => Object::Name(b"Font".to_vec()),
                 b"Subtype" => Object::Name(b"Type1".to_vec()),
                 b"BaseFont" => Object::Name(font.postscript_name().as_bytes().to_vec()),
+                b"Encoding" => Object::Name(b"WinAnsiEncoding".to_vec()),
             });
             for &page in &pages {
                 let content = text_overlay_content(
@@ -80,7 +81,7 @@ pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, Gener
                     opts.placement,
                 )?;
                 merge_overlay_resources(&mut doc, page, Some(font_id), None, gs_id)?;
-                append_content(&mut doc, page, content.into_bytes())?;
+                append_content(&mut doc, page, content)?;
             }
         }
         WatermarkContent::Image { bytes, scale } => {
@@ -156,7 +157,7 @@ fn text_overlay_content(
     color: [f32; 3],
     rotation_deg: f32,
     placement: WatermarkPlacement,
-) -> Result<String, GenerateError> {
+) -> Result<Vec<u8>, GenerateError> {
     let [llx, lly, urx, ury] = resolve_mediabox(doc, page).ok_or(GenerateError::Parse)?;
     let (page_width, page_height) = (urx - llx, ury - lly);
     let mark_width = label_width_pt(font, text, size);
@@ -167,10 +168,10 @@ fn text_overlay_content(
     let theta = (rotation_deg + page_rotate).to_radians();
     let (cos, sin) = (theta.cos(), theta.sin());
     let ascent = size * 0.35; // vertical centring offset for the baseline
-    let escaped = escape_pdf_literal(text);
+    let escaped = win_ansi_literal(text).map_err(|_| GenerateError::UnsupportedCharacter)?;
     let [r, g, b] = color;
 
-    let mut content = String::from("q /MagnaCartaWmGs gs ");
+    let mut content = b"q /MagnaCartaWmGs gs ".to_vec();
     for (cx, cy) in placement_centers(
         placement,
         llx,
@@ -184,12 +185,17 @@ fn text_overlay_content(
         let e = cx - (cos * mark_width / 2.0 - sin * ascent);
         let f = cy - (sin * mark_width / 2.0 + cos * ascent);
         let (c, d) = (-sin, cos);
-        content.push_str(&format!(
-            "BT /MagnaCartaWmFont {size:.2} Tf {r:.3} {g:.3} {b:.3} rg \
-             {cos:.5} {sin:.5} {c:.5} {d:.5} {e:.3} {f:.3} Tm ({escaped}) Tj ET "
-        ));
+        content.extend_from_slice(
+            format!(
+                "BT /MagnaCartaWmFont {size:.2} Tf {r:.3} {g:.3} {b:.3} rg \
+                 {cos:.5} {sin:.5} {c:.5} {d:.5} {e:.3} {f:.3} Tm ("
+            )
+            .as_bytes(),
+        );
+        content.extend_from_slice(&escaped);
+        content.extend_from_slice(b") Tj ET ");
     }
-    content.push('Q');
+    content.push(b'Q');
     Ok(content)
 }
 
