@@ -697,11 +697,13 @@ export interface WatermarkOptions {
   rotationDeg?: number;
   /** A single centred mark or a tiled repeat; default `"center"`. */
   placement?: "center" | "tiled";
+  /** The 0-based pages to mark; omit to mark every page. A page past the end is an error. */
+  pages?: number[];
 }
 
 /**
  * Stamp an additive watermark — diagonal text ("CONFIDENTIAL"/"DRAFT") or an image/logo —
- * onto every page. Additive: it draws on top and removes nothing (use redactDocument /
+ * onto every page, or onto `options.pages` alone. Additive: it draws on top and removes nothing (use redactDocument /
  * sanitizeDocument to remove content).
  */
 export async function watermarkDocument(

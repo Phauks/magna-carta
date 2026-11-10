@@ -613,7 +613,7 @@ fn serialize_name(name: &[u8], out: &mut Vec<u8>) {
 /// `text` as a PDF text string. ASCII is written as it stands. Anything else is UTF-16
 /// big-endian behind a byte-order mark, the one form every reader takes: raw UTF-8 bytes
 /// are read as PDFDocEncoding, which turns "José" into "JosÃ©" in the signature panel.
-fn pdf_text_string(text: &str) -> Vec<u8> {
+pub(crate) fn pdf_text_string(text: &str) -> Vec<u8> {
     if text.is_ascii() {
         return text.as_bytes().to_vec();
     }
