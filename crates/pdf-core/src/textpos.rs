@@ -25,6 +25,11 @@ pub(crate) struct GlyphMark {
     /// outline in `bbox` is narrower than this by the glyph's side bearings, which is what
     /// makes two narrow glyphs (the digits of "11") look further apart than a word break.
     pub advance_span: Option<(f64, f64)>,
+    /// The y of the glyph's origin, in the same frame as `bbox`: the baseline it was set
+    /// on. Every glyph of a line shares it, whatever its own shape; the bottom of `bbox`
+    /// does not, sitting above it for a hyphen or a quotation mark and below it for a
+    /// descender.
+    pub baseline: f64,
 }
 
 pub(crate) struct CoverMark {
@@ -125,6 +130,7 @@ impl<'a> Device<'a> for Observer {
         };
         self.glyphs.push(GlyphMark {
             text,
+            baseline: (matrix * kurbo::Point::new(0.0, 0.0)).y,
             bbox,
             order: self.order,
             invisible: matches!(mode, GlyphDrawMode::Invisible),
