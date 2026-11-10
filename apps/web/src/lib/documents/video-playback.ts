@@ -14,14 +14,17 @@ export const CANNOT_PLAY_TITLE = "This Video Cannot Play in the Browser";
 export function cannotPlaySentence(cause: CannotPlayCause): string {
   const remedy = "Download it to watch it in a video application.";
   if (cause === "browser-refused") {
-    return `This browser could not decode it. ${remedy}`;
+    return (
+      `This browser cannot decode its picture or sound. Video recorded in HEVC, as many phones ` +
+      `record it, plays in Safari, in Edge and in Chrome on most newer computers. ${remedy}`
+    );
   }
   switch (cause.reason) {
     case "verdict":
       return cause.verdict === "indeterminate"
         ? `How it is encoded could not be read from the file. ${remedy}`
-        : `Its picture or sound is in a format browsers do not decode, such as the HEVC video ` +
-            `many phones record. ${remedy}`;
+        : `Its picture or sound is in a format no browser decodes, such as ProRes video or ` +
+            `Dolby Digital sound. ${remedy}`;
     case "unknown-verdict":
       return `Its format could not be checked just now. Reopen it to try again, or download it.`;
     case "tiered":
