@@ -140,6 +140,7 @@ import type {
   MeetingRecordingTrackId,
   MeetingTranscriptId,
   MeetingTranscriptSegmentId,
+  MeetingPersonalRoomId,
   MeetingSummaryId,
   MeetingSummaryActionItemId,
   MemberLocationId,
@@ -8129,10 +8130,23 @@ export const meeting = sqliteTable(
     lockedByUserId: text("locked_by_user_id")
       .$type<UserId>()
       .references(() => member.userId),
+    // THE PERSONAL ROOM THIS MEETING IS A SESSION OF, or null for a meeting somebody started on an
+    // event. A session still hangs from an ordinary event like every other meeting; this column is
+    // only what lets the room find its open session, and what lets a session — and nothing else — be
+    // moved onto a matter after it was opened without one.
+    personalRoomId: text("personal_room_id")
+      .$type<MeetingPersonalRoomId>()
+      .references((): AnySQLiteColumn => meetingPersonalRoom.id),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
+    // ONE OPEN SESSION PER PERSONAL ROOM. Opening a room is find-or-open, and two tabs pressing Open
+    // in the same second must end in one session; a read-then-write cannot hold that, so the index
+    // does. Ended sessions are the room's history and are many.
+    uniqueIndex("meeting_personal_room_open_session_unique_index")
+      .on(table.personalRoomId)
+      .where(sql`${table.personalRoomId} IS NOT NULL AND ${table.status} <> 'ended'`),
     // ONE MEETING PER EVENT, held by the database rather than by the create path. Creating a meeting
     // is idempotent — two members pressing Start in the same second must end up in the same room,
     // not in two rooms neither of them can see the other in — and an idempotency that lives only in
@@ -8170,6 +8184,49 @@ export const meeting = sqliteTable(
     check(
       "meeting_locked_shape_check",
       sql`(${table.lockedAt} IS NULL) = (${table.lockedByUserId} IS NULL)`,
+    ),
+  ],
+);
+
+// A MEMBER'S PERSONAL ROOM: a room they always have, reached by a link that does not change, so a
+// colleague can be told "come to my room" without anybody first recording a calendar event. The room
+// is the standing link and its defaults and nothing more. Each time its owner opens it, an ordinary
+// event and an ordinary meeting are written (`meeting.personal_room_id` names the room), so every
+// part of meetings that reads an event reads a session exactly as it reads any other meeting.
+export const meetingPersonalRoom = sqliteTable(
+  "meeting_personal_room",
+  {
+    id: text("id").primaryKey().$type<MeetingPersonalRoomId>(), // meetingPersonalRoom_ handle
+    // One room per member, made the first time it is asked for.
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // The address inside the firm. Not a secret — every route that reads it is behind sign-in — but
+    // replaceable, because a code pasted into the wrong message is a nuisance worth one click to end.
+    linkCode: text("link_code").notNull(),
+    // What a session opens with. A session's own medium and lobby are the meeting's, and a host can
+    // still change the lobby inside one; these are the owner's standing choices.
+    medium: text("medium", { enum: ["video", "audio"] })
+      .notNull()
+      .default("video"),
+    // On by default, unlike an event's meeting: a standing link travels further than an invitation
+    // to one event, so the owner sees who is at the door before they come in.
+    lobby: text("lobby", { enum: ["off", "on"] })
+      .notNull()
+      .default("on"),
+    linkReplacedAt: text("link_replaced_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_personal_room_owner_unique_index").on(table.ownerUserId),
+    uniqueIndex("meeting_personal_room_link_code_unique_index").on(table.linkCode),
+    check("meeting_personal_room_medium_check", sql`${table.medium} IN ('video', 'audio')`),
+    check("meeting_personal_room_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
+    check(
+      "meeting_personal_room_link_code_shape_check",
+      sql`length(${table.linkCode}) = 10 AND ${table.linkCode} NOT GLOB '*[^a-z0-9]*'`,
     ),
   ],
 );

@@ -2,7 +2,7 @@ import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
-import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type {
@@ -10,6 +10,7 @@ import type {
   MatterEventId,
   MeetingAttendanceId,
   MeetingId,
+  MeetingPersonalRoomId,
   MeetingRecordingId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -43,6 +44,10 @@ import {
   readLiveHostGrant,
 } from "./hosting-statements.ts";
 import { requireHostGrant } from "./hosting-service.ts";
+import {
+  readSessionEventZone,
+  settleSessionEventStatement,
+} from "./personal-room-statements.ts";
 import { stopRecordingForMeetingEnd } from "./recording-service.ts";
 import {
   MAX_MEETING_PARTICIPANTS,
@@ -204,7 +209,11 @@ export async function createMeeting(
  */
 export function openMeetingOnEvent(
   database: SqlDatabase,
-  input: CreateMeetingInput & { readonly matterId: string | null },
+  input: CreateMeetingInput & {
+    readonly matterId: string | null;
+    // Set only by opening a personal room, which writes the event and the session together.
+    readonly personalRoomId?: MeetingPersonalRoomId;
+  },
   options: MeetingServiceOptions,
 ): { meetingId: MeetingId; effect: EffectWrite } {
   const now = options.clock.now();
@@ -223,6 +232,7 @@ export function openMeetingOnEvent(
           matterEventId: input.eventKind === "matter" ? (input.eventId as MatterEventId) : null,
           firmEventId: input.eventKind === "firm" ? (input.eventId as FirmEventId) : null,
           createdByUserId: options.actorUserId,
+          personalRoomId: input.personalRoomId ?? null,
           now,
         }),
         // THE STARTER IS THE HOST, written in the same batch as the room.
@@ -630,10 +640,38 @@ export async function endMeeting(
           // arrived, which is itself the fact worth keeping about a meeting that did not happen.
           metadata: { startedAt: meeting.started_at, endedAt: now },
         }),
+        // A PERSONAL-ROOM SESSION'S EVENT WAS WRITTEN WITH NO END, because nobody knew one; ending
+        // the session is what gives it one.
+        ...(await sessionEventSettlement(database, meeting, now)),
       ],
       outboxMessages: [],
     },
   };
+}
+
+/**
+ * The statement that gives a personal-room session's event its end, or nothing for a meeting on an
+ * event somebody scheduled — that event's end is what they wrote, and a meeting running long does not
+ * rewrite the diary.
+ */
+export async function sessionEventSettlement(
+  database: SqlDatabase,
+  meeting: Pick<MeetingRow, "id" | "personal_room_id" | "event_kind" | "matter_event_id" | "firm_event_id">,
+  endedAt: string,
+): Promise<SqlStatement[]> {
+  if (meeting.personal_room_id === null) return [];
+  const timeZone = await readSessionEventZone(database, meeting.id);
+  const eventId = meeting.event_kind === "matter" ? meeting.matter_event_id : meeting.firm_event_id;
+  if (timeZone === undefined || eventId === null) return [];
+  return [
+    settleSessionEventStatement(database, {
+      eventKind: meeting.event_kind,
+      eventId,
+      timeZone,
+      endedAt,
+      now: endedAt,
+    }),
+  ];
 }
 
 /**

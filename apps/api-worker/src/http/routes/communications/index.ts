@@ -4,6 +4,7 @@ import { registerCallerLookupRoutes } from "./caller-lookup.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
 import { registerMeetingsRoutes } from "./meetings.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
+import { registerMeetingPersonalRoomRoutes } from "./meeting-personal-rooms.ts";
 import { registerMeetingHostingRoutes } from "./meeting-hosting.ts";
 import { registerMeetingInspectRoutes } from "./meeting-inspect.ts";
 import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
@@ -35,6 +36,10 @@ export function mountCommunications(
   // different channel: what contact happened, recorded as identifiers and instants. The media is
   // routed between browsers and never reaches this platform; these routes are the record plus the
   // upgrade into the signaling room.
+  // A member's personal room — a standing link that opens an ordinary meeting on an ordinary event.
+  // Ahead of the meeting routes so its literal paths (`/meetings/personal-room`, `/meetings/rooms/…`)
+  // are matched before the meeting-id pattern beside them.
+  registerMeetingPersonalRoomRoutes(domain, chokepoint);
   registerMeetingsRoutes(domain, chokepoint);
   // The meeting's chat, which is the subsystem's one piece of stored content: kept on the record
   // like a filed message rather than discarded with the room, so what was said in a meeting on a

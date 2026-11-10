@@ -5,6 +5,7 @@ import type {
   MeetingAttendanceId,
   MeetingGuestStayId,
   MeetingId,
+  MeetingPersonalRoomId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import type { MeetingLobbyMode } from "./lobby-types.ts";
@@ -158,6 +159,8 @@ export interface MeetingRow {
   // Whether arrivals wait at a door. Chosen at Start and changeable by a host thereafter, which is
   // the one setting on this row that is — see the note on `MEETING_LOBBY_MODES`.
   readonly lobby: MeetingLobbyMode;
+  // The personal room this meeting is a session of, or null for a meeting started on an event.
+  readonly personal_room_id: MeetingPersonalRoomId | null;
   readonly created_at: string;
   readonly updated_at: string;
 }

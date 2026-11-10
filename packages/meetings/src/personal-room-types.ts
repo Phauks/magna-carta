@@ -1,0 +1,116 @@
+import type { RandomSource } from "@magna-carta/identifiers/random";
+import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import type {
+  FirmEventId,
+  MatterEventId,
+  MeetingId,
+  MeetingPersonalRoomId,
+  UserId,
+} from "@magna-carta/identifiers/types";
+import type { MeetingLobbyMode } from "./lobby-types.ts";
+import type { MeetingEventKind, MeetingMedium, MeetingStatus } from "./types.ts";
+
+// A MEMBER'S PERSONAL ROOM — a room they always have, reached by a link that does not change.
+//
+// The room is the standing link and the owner's defaults, and nothing else. Each time the owner opens
+// it, an ordinary event and an ordinary meeting are written, and `meeting.personal_room_id` names the
+// room. So a session is a meeting like any other: attendance, the door, hosting, chat, guests and
+// recording read it through its event exactly as they read every meeting, and none of them learned a
+// new kind of room.
+
+// THE LINK CODE: ten characters from an alphabet with no look-alikes (no 0/o, 1/l/i), so a code read
+// aloud or copied by hand arrives intact. Thirty-one symbols to the tenth power is about 8 × 10¹⁴ —
+// the code is an address inside the firm behind sign-in, not a secret, so this guards against
+// collision and casual guessing rather than against an attacker. The database CHECK holds the length
+// and the character class.
+export const PERSONAL_ROOM_LINK_CODE_LENGTH = 10;
+const LINK_CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+
+/** A fresh link code. Rejection-sampled, so every symbol is equally likely. */
+export function newPersonalRoomLinkCode(randomSource: RandomSource = cryptoRandomSource): string {
+  const limit = 256 - (256 % LINK_CODE_ALPHABET.length);
+  let code = "";
+  while (code.length < PERSONAL_ROOM_LINK_CODE_LENGTH) {
+    for (const byte of randomSource(PERSONAL_ROOM_LINK_CODE_LENGTH)) {
+      if (byte >= limit) continue;
+      code += LINK_CODE_ALPHABET[byte % LINK_CODE_ALPHABET.length];
+      if (code.length === PERSONAL_ROOM_LINK_CODE_LENGTH) break;
+    }
+  }
+  return code;
+}
+
+/** Whether a string could be a link code at all — refused before any read, so a probe costs nothing. */
+export function isPersonalRoomLinkCode(value: string): boolean {
+  return (
+    value.length === PERSONAL_ROOM_LINK_CODE_LENGTH &&
+    [...value].every((character) => LINK_CODE_ALPHABET.includes(character))
+  );
+}
+
+/** One room, in the database's own column names. */
+export interface MeetingPersonalRoomRow {
+  readonly id: MeetingPersonalRoomId;
+  readonly owner_user_id: UserId;
+  readonly link_code: string;
+  readonly medium: MeetingMedium;
+  readonly lobby: MeetingLobbyMode;
+  readonly link_replaced_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/** A room as a link reads it: the room, its owner's name, and whether the owner is still a member. */
+export interface PersonalRoomAtLink extends MeetingPersonalRoomRow {
+  readonly owner_display_name: string;
+  readonly owner_active: number;
+}
+
+/** The session a room has open, with what deciding whether it is still in use needs. */
+export interface PersonalRoomOpenSession {
+  readonly id: MeetingId;
+  readonly status: MeetingStatus;
+  readonly event_kind: MeetingEventKind;
+  readonly matter_event_id: MatterEventId | null;
+  readonly firm_event_id: FirmEventId | null;
+  readonly started_at: string | null;
+  readonly time_zone: string;
+  // Stays of either kind in the room or at its door right now.
+  readonly present_count: number;
+  // When the last stay closed, or null when none has.
+  readonly last_left_at: string | null;
+}
+
+// THE EVENT'S TITLE. A session is written before anybody has said what it is about, so the title says
+// whose room it was; a member renames the event like any other, and moving it onto a matter keeps
+// whatever it says by then.
+export function personalRoomEventTitle(ownerDisplayName: string): string {
+  return `${ownerDisplayName}'s room`;
+}
+
+// THE PERSONAL ROOM'S OWN REFUSALS, as a vocabulary of their own on the recording's precedent: only
+// these routes raise them, and the room's one switch over `MeetingValidationCode` stays as it is.
+export type MeetingPersonalRoomRefusalCode =
+  // A link code that names no room, or the room of somebody who has left the firm. One answer for
+  // both, because the second is not the caller's business and the remedy is the same: ask for a link.
+  | "personal-room-unknown"
+  // Opening, or changing, a room that is not the caller's. Only its owner opens it, so a room is never
+  // in use without the person whose room it is.
+  | "personal-room-not-owner"
+  // Moving a meeting onto a matter that cannot be moved: it is not a personal-room session, it is
+  // already on a matter, or the caller is neither the room's owner nor running the session.
+  | "meeting-move-refused";
+
+export class MeetingPersonalRoomRefusedError extends Error {
+  constructor(
+    readonly code: MeetingPersonalRoomRefusalCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "MeetingPersonalRoomRefusedError";
+  }
+}
+
+export function refusePersonalRoom(code: MeetingPersonalRoomRefusalCode, message: string): never {
+  throw new MeetingPersonalRoomRefusedError(code, message);
+}

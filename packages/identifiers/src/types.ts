@@ -188,6 +188,7 @@ export type MeetingTranscriptId = Identifier<"meetingTranscript">;
 export type MeetingTranscriptSegmentId = Identifier<"meetingTranscriptSegment">;
 export type MeetingSummaryId = Identifier<"meetingSummary">;
 export type MeetingSummaryActionItemId = Identifier<"meetingSummaryActionItem">;
+export type MeetingPersonalRoomId = Identifier<"meetingPersonalRoom">;
 export type MatterAssetId = Identifier<"matterAsset">;
 export type MatterAssetTypeId = Identifier<"matterAssetType">;
 export type MatterAssetInterestId = Identifier<"matterAssetInterest">;

@@ -351,6 +351,13 @@
       "when": 1794265965034,
       "tag": "20261110T000108_seed-meeting-settings-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1794275055847,
+      "tag": "20261110T014415_meeting-personal-room",
+      "breakpoints": true
     }
   ]
 }

@@ -6532,6 +6532,48 @@ export type UpdateCommunicationRequest = {
     summary?: string | null;
 };
 
+export type PersonalRoomResponse = {
+    room: PersonalRoom;
+};
+
+export type PersonalRoom = {
+    id: string;
+    linkCode: string;
+    medium: 'video' | 'audio';
+    lobby: 'off' | 'on';
+    openMeetingId: string | null;
+} | null;
+
+export type UpdatePersonalRoomRequest = {
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
+};
+
+export type OpenPersonalRoomResponse = {
+    meetingId: string;
+    created: boolean;
+};
+
+export type OpenPersonalRoomRequest = {
+    timeZone: string;
+    matterId?: string | null;
+};
+
+export type PersonalRoomAtLink = {
+    state: 'closed' | 'open';
+    ownerDisplayName: string;
+    isOwner: boolean;
+    meetingId: string | null;
+};
+
+export type MoveMeetingToMatterResponse = {
+    matterEventId: string;
+};
+
+export type MoveMeetingToMatterRequest = {
+    matterId: string;
+};
+
 export type StartedMeeting = {
     id: string;
     created: boolean;
@@ -31099,6 +31141,398 @@ export type CommunicationsSetDispositionResponses = {
 };
 
 export type CommunicationsSetDispositionResponse = CommunicationsSetDispositionResponses[keyof CommunicationsSetDispositionResponses];
+
+export type MeetingsReadPersonalRoomData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/personal-room';
+};
+
+export type MeetingsReadPersonalRoomErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsReadPersonalRoomError = MeetingsReadPersonalRoomErrors[keyof MeetingsReadPersonalRoomErrors];
+
+export type MeetingsReadPersonalRoomResponses = {
+    /**
+     * The caller's room, or null
+     */
+    200: PersonalRoomResponse;
+};
+
+export type MeetingsReadPersonalRoomResponse = MeetingsReadPersonalRoomResponses[keyof MeetingsReadPersonalRoomResponses];
+
+export type MeetingsUpdatePersonalRoomData = {
+    body: UpdatePersonalRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/personal-room';
+};
+
+export type MeetingsUpdatePersonalRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room or the meeting first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsUpdatePersonalRoomError = MeetingsUpdatePersonalRoomErrors[keyof MeetingsUpdatePersonalRoomErrors];
+
+export type MeetingsUpdatePersonalRoomResponses = {
+    /**
+     * The caller's room after the change
+     */
+    200: PersonalRoomResponse;
+};
+
+export type MeetingsUpdatePersonalRoomResponse = MeetingsUpdatePersonalRoomResponses[keyof MeetingsUpdatePersonalRoomResponses];
+
+export type MeetingsEnsurePersonalRoomData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/personal-room';
+};
+
+export type MeetingsEnsurePersonalRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room or the meeting first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsEnsurePersonalRoomError = MeetingsEnsurePersonalRoomErrors[keyof MeetingsEnsurePersonalRoomErrors];
+
+export type MeetingsEnsurePersonalRoomResponses = {
+    /**
+     * The caller's room
+     */
+    200: PersonalRoomResponse;
+};
+
+export type MeetingsEnsurePersonalRoomResponse = MeetingsEnsurePersonalRoomResponses[keyof MeetingsEnsurePersonalRoomResponses];
+
+export type MeetingsReplacePersonalRoomLinkData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/personal-room/link';
+};
+
+export type MeetingsReplacePersonalRoomLinkErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room or the meeting first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsReplacePersonalRoomLinkError = MeetingsReplacePersonalRoomLinkErrors[keyof MeetingsReplacePersonalRoomLinkErrors];
+
+export type MeetingsReplacePersonalRoomLinkResponses = {
+    /**
+     * The caller's room with its new link
+     */
+    200: PersonalRoomResponse;
+};
+
+export type MeetingsReplacePersonalRoomLinkResponse = MeetingsReplacePersonalRoomLinkResponses[keyof MeetingsReplacePersonalRoomLinkResponses];
+
+export type MeetingsOpenPersonalRoomData = {
+    body: OpenPersonalRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/personal-room/open';
+};
+
+export type MeetingsOpenPersonalRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room or the meeting first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsOpenPersonalRoomError = MeetingsOpenPersonalRoomErrors[keyof MeetingsOpenPersonalRoomErrors];
+
+export type MeetingsOpenPersonalRoomResponses = {
+    /**
+     * The session to join
+     */
+    200: OpenPersonalRoomResponse;
+};
+
+export type MeetingsOpenPersonalRoomResponse = MeetingsOpenPersonalRoomResponses[keyof MeetingsOpenPersonalRoomResponses];
+
+export type MeetingsReadRoomLinkData = {
+    body?: never;
+    path: {
+        linkCode: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/rooms/{linkCode}';
+};
+
+export type MeetingsReadRoomLinkErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsReadRoomLinkError = MeetingsReadRoomLinkErrors[keyof MeetingsReadRoomLinkErrors];
+
+export type MeetingsReadRoomLinkResponses = {
+    /**
+     * The room behind the link
+     */
+    200: PersonalRoomAtLink;
+};
+
+export type MeetingsReadRoomLinkResponse = MeetingsReadRoomLinkResponses[keyof MeetingsReadRoomLinkResponses];
+
+export type MeetingsArriveAtRoomData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkCode: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/rooms/{linkCode}/arrive';
+};
+
+export type MeetingsArriveAtRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room or the meeting first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsArriveAtRoomError = MeetingsArriveAtRoomErrors[keyof MeetingsArriveAtRoomErrors];
+
+export type MeetingsArriveAtRoomResponses = {
+    /**
+     * The room behind the link, and the meeting to join when it is open
+     */
+    200: PersonalRoomAtLink;
+};
+
+export type MeetingsArriveAtRoomResponse = MeetingsArriveAtRoomResponses[keyof MeetingsArriveAtRoomResponses];
+
+export type MeetingsMoveToMatterData = {
+    body: MoveMeetingToMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/move-to-matter';
+};
+
+export type MeetingsMoveToMatterErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room or the meeting first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsMoveToMatterError = MeetingsMoveToMatterErrors[keyof MeetingsMoveToMatterErrors];
+
+export type MeetingsMoveToMatterResponses = {
+    /**
+     * The matter event the session now hangs from
+     */
+    200: MoveMeetingToMatterResponse;
+};
+
+export type MeetingsMoveToMatterResponse = MeetingsMoveToMatterResponses[keyof MeetingsMoveToMatterResponses];
 
 export type MeetingsListData = {
     body?: never;
