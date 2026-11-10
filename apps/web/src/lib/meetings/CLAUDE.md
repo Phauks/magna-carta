@@ -18,7 +18,13 @@ half:** [`apps/api-worker/src/meetings`](../../../../api-worker/src/meetings/CLA
 `MediaStreamTrackProcessor`, as one `ImageBitmap` per frame elsewhere) and answers the treated track;
 the worker is the only place `@magna-carta/segmentation` loads. `background-compositing.ts` is the
 pure arithmetic and the two shaders, unit-tested. `background-image-store.ts` keeps the chosen
-picture in IndexedDB, cut down to 1920 by 1080, and never uploads it.
+picture in IndexedDB, cut down to 1920 by 1080, and never uploads it. The sound's half is
+`noise-processor.ts`: an `AudioContext` at 48 kHz running `noise-removal.worklet.ts`, the only place
+`@magna-carta/noise-suppression` loads. The engine module is compiled on the main thread and handed
+to the worklet in `processorOptions`, because a worklet scope has no `fetch`; the worklet imports the
+package's `text-decoder` polyfill first, because some browsers give it no `TextDecoder`.
+`noise-frames.ts` bridges the render quantum (128 samples) to the engine's 480-sample frame, primed
+with one frame of silence so it never underruns: a fixed 10 ms delay.
 
 **`client/` — the state machine.** Nothing in it touches `navigator` or `window`; every external
 edge is a constructor seam, so the whole machine runs under a test with fakes.
@@ -51,6 +57,11 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   published until an effect is chosen; the treated one is then swapped in with `replaceTrack` through
   `EffectedCapture.onChange`, never a new offer. A treatment that cannot start, or stops, leaves the
   member on camera with the reason in the panel.
+- `noise-removal.ts` — the stronger noise filter over the background stage, with the browser reached
+  through `NoiseSeams`. Off by default (`removeNoise`); while it runs it asks the browser's own noise
+  reduction off, so the two never fight over the same sound, and publishes the filtered track in the
+  microphone's place by the same `replaceTrack` swap. A filter that fails mid-meeting turns itself
+  off and hands the member back to the browser's reduction with the reason in the panel.
 - `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
   reader for what the room says about itself, and the two sentences a member reads when a host acts on
   them. A concern is a module, so none of it is a set of fields on the client.

@@ -192,9 +192,16 @@
   <span data-row-count="">{context.node.children?.length ?? 0}</span>
 {/snippet}
 
+<!-- The count the row's end shows is part of the row's name, so a reader hears what a sighted
+     reader sees and a speech user can say it. -->
 {#snippet drawnRows(args: TreeStoryArgs)}
   <div class="w-72">
-    <Tree {...args} icon={rowIcon} trailing={rowTrailing} />
+    <Tree
+      {...args}
+      icon={rowIcon}
+      trailing={rowTrailing}
+      itemLabel={(context) => `${context.node.label} ${context.node.children?.length ?? 0} items`}
+    />
   </div>
 {/snippet}
 
@@ -204,7 +211,7 @@
   template={drawnRows}
   tags={["!dev", "!autodocs"]}
   play={async ({ canvas, step }) => {
-    const acme = canvas.getByRole("treeitem", { name: "ACME v. Globex" });
+    const acme = canvas.getByRole("treeitem", { name: "ACME v. Globex 2 items" });
 
     await step("A caller's own glyph replaces the folder pair, on every row", async () => {
       await expect(acme.querySelector("[data-row-glyph]")).toHaveAttribute(
@@ -212,12 +219,15 @@
         "branch",
       );
       await expect(
-        canvas.getByRole("treeitem", { name: "Templates" }).querySelector("[data-row-glyph]"),
+        canvas
+          .getByRole("treeitem", { name: "Templates 0 items" })
+          .querySelector("[data-row-glyph]"),
       ).toHaveAttribute("data-row-glyph", "leaf");
     });
 
-    await step("A caller's own content sits at the row's end", async () => {
+    await step("A caller's own content sits at the row's end, and in its name", async () => {
       await expect(acme.querySelector("[data-row-count]")).toHaveTextContent("2");
+      await expect(acme).toHaveAccessibleName("ACME v. Globex 2 items");
     });
 
     await step("The caret opens the row and selects nothing", async () => {

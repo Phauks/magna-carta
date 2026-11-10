@@ -272,6 +272,16 @@ some browsers apply these without saying so, and then the line says your browser
 itself. The switch shows what the browser actually did, so if it could not do what you asked, the
 switch stays where it was and the panel says so.
 
+**Stronger noise removal** is a second switch beneath it, off unless you turn it on. It runs a noise
+filter on your own computer instead of asking the browser, and takes out fans, typing and street
+noise more thoroughly than the browser does. While it is on, the browser's own noise reduction steps
+aside so the two do not both work on your voice, and the panel says "Background noise is being
+removed on this computer before anyone hears you." It uses a little more of your computer's power
+and delays your sound by a few hundredths of a second. If it stops working partway through a
+meeting, the switch turns itself off, your browser's noise reduction takes over again, and the panel
+tells you; you are never left unheard because the filter failed. Where your browser cannot run it,
+the switch is not shown.
+
 **Your background** can be left as it is, blurred, or replaced with a picture. Open **Effects** and
 choose **None**, **Blur** or **Image**. The first time you choose **Image**, the panel asks you to pick
 a picture from your computer (PNG, JPEG or WebP); after that, **Image** uses the same picture until
