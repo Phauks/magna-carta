@@ -2,6 +2,11 @@
 # apps/api-worker/wrangler.jsonc, with single-page-application fallback). Rules match the request
 # path, so the fallback document served for a route under /join/ carries them too.
 #
+# No cache lifetime for /_app/ belongs here. A rule keyed on the path also applies to the fallback
+# document served for a file that is missing, so a long lifetime would let a browser keep HTML under
+# a script's address. The lifetime is set in apps/web-worker/src/answer-application-file.ts, which
+# answers a missing file with 404 first.
+#
 # A guest arrives at /join/<token>, where the token is a bearer credential. The page itself sets a
 # no-referrer meta tag and every guest fetch sends referrerPolicy: "no-referrer", but the document's
 # own script and stylesheet requests go out before either takes effect, and a Referer carrying the
