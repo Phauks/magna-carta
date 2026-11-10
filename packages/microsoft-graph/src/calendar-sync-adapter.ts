@@ -9,7 +9,13 @@ import {
   type ProviderEventWrite,
   type ProviderWrittenEvents,
 } from "@magna-carta/calendar/sync-port";
-import { addCalendarDays, type CivilDate } from "@magna-carta/civil-time/civil-date";
+import {
+  addCalendarDays,
+  civilDateParts,
+  type CivilDate,
+} from "@magna-carta/civil-time/civil-date";
+import { weekdayOf, weekdayPositionOf, type WeekdayCode } from "@magna-carta/civil-time/recurrence";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import type { HttpClient, HttpResponse } from "@magna-carta/integrations/http";
 import type { Adapter, AdapterContext, CapabilityDescriptor } from "@magna-carta/integrations/port";
@@ -129,6 +135,85 @@ export function snapshotOfGraphEvent(
   return { ...base, when: { kind: "instants", startsAtMilliseconds, endsAtMilliseconds } };
 }
 
+const GRAPH_WEEKDAYS: Record<WeekdayCode, string> = {
+  SU: "sunday",
+  MO: "monday",
+  TU: "tuesday",
+  WE: "wednesday",
+  TH: "thursday",
+  FR: "friday",
+  SA: "saturday",
+};
+const GRAPH_WEEK_INDEXES = ["first", "second", "third", "fourth"] as const;
+
+// The last day of the month every month has. A rule on a later day is one where two calendars
+// disagree about February.
+const LAST_DAY_EVERY_MONTH_HAS = 28;
+
+// A series as Microsoft Graph repeats it, or null where Graph cannot be relied on to put it on
+// exactly the days this platform does. Undefined for an event that happens once.
+//
+// THE CASES REFUSED ARE THE ONES WHERE THE TWO READINGS OF A RULE PART WAYS. This platform skips a
+// month that has no 31st and no fifth Tuesday, and counts the first day of a weekly series even
+// when it is not one of the rule's weekdays. Graph's documentation promises neither, so a series
+// like that is refused here and the member is told it was not sent. Everything else maps one to
+// one: the same interval, the same weekdays in a week that begins on Sunday (as the expansion in
+// @magna-carta/civil-time/recurrence counts it), the same end.
+export function graphRecurrenceOf(
+  event: ProviderEventWrite,
+): Record<string, unknown> | null | undefined {
+  const repeats = event.repeats;
+  if (repeats === null || repeats === undefined) return undefined;
+  const rule = repeats.rule;
+  if (rule === null) return null;
+  const start = civilDateParts(event.startsOn);
+  const startWeekday = weekdayOf(event.startsOn);
+
+  let pattern: Record<string, unknown>;
+  if (rule.frequency === "daily") {
+    pattern = { type: "daily", interval: rule.interval };
+  } else if (rule.frequency === "weekly") {
+    const weekdays = rule.weekdays.length > 0 ? rule.weekdays : [startWeekday];
+    if (!weekdays.includes(startWeekday)) return null;
+    pattern = {
+      type: "weekly",
+      interval: rule.interval,
+      daysOfWeek: weekdays.map((code) => GRAPH_WEEKDAYS[code]),
+      firstDayOfWeek: "sunday",
+    };
+  } else if (rule.frequency === "monthly" && rule.monthly === "byWeekday") {
+    const index = GRAPH_WEEK_INDEXES[weekdayPositionOf(event.startsOn) - 1];
+    if (index === undefined) return null;
+    pattern = {
+      type: "relativeMonthly",
+      interval: rule.interval,
+      daysOfWeek: [GRAPH_WEEKDAYS[startWeekday]],
+      index,
+    };
+  } else {
+    if (start.day > LAST_DAY_EVERY_MONTH_HAS) return null;
+    pattern =
+      rule.frequency === "monthly"
+        ? { type: "absoluteMonthly", interval: rule.interval, dayOfMonth: start.day }
+        : {
+            type: "absoluteYearly",
+            interval: rule.interval,
+            dayOfMonth: start.day,
+            month: start.month,
+          };
+  }
+
+  const range =
+    rule.end.kind === "after"
+      ? { type: "numbered", startDate: event.startsOn, numberOfOccurrences: rule.end.count }
+      : rule.end.kind === "on"
+        ? { type: "endDate", startDate: event.startsOn, endDate: rule.end.date }
+        : { type: "noEnd", startDate: event.startsOn };
+  return { pattern, range: { ...range, recurrenceTimeZone: event.timeZone } };
+}
+
+const UNREPEATABLE = "Outlook cannot repeat this event on exactly the same days";
+
 // The event as Microsoft Graph takes it.
 //
 // Graph requires an event that takes the whole day to start and end at midnight in one zone, with
@@ -137,7 +222,11 @@ export function snapshotOfGraphEvent(
 // recorded, and inventing an hour would put a duration in a calendar that nobody decided on.
 //
 // No attendees are ever sent. An event with attendees is a meeting request, which emails them.
+//
+// A series carries its rule; a caller checks `graphRecurrenceOf` first and never sends one whose
+// rule came back null.
 export function graphEventBody(event: ProviderEventWrite): Record<string, unknown> {
+  const recurrence = graphRecurrenceOf(event);
   const lastDay = event.endsOn ?? event.startsOn;
   const allDay = event.startsAtTime === null;
   const start = allDay
@@ -156,6 +245,7 @@ export function graphEventBody(event: ProviderEventWrite): Record<string, unknow
     singleValueExtendedProperties: [
       { id: WRITTEN_COPY_PROPERTY_ID, value: WRITTEN_COPY_PROPERTY_VALUE },
     ],
+    ...(recurrence === undefined || recurrence === null ? {} : { recurrence }),
   };
 }
 
@@ -223,6 +313,58 @@ export function createMicrosoftCalendarAdapter(
         }
       }
 
+      // Takes the days a series must not fall on out of the provider's series, one occurrence at a
+      // time. A provider's series has no list of skipped days to send; an occurrence is removed by
+      // deleting it. Asked for with a day either side, because the provider is not documented to
+      // read an unzoned range in any particular zone, and each occurrence found is placed on its
+      // own day in the event's zone before it is touched. Removing one already removed finds
+      // nothing and does nothing, so this is safe to repeat after every write.
+      async function removeSkippedDays(
+        remoteId: string,
+        event: ProviderEventWrite,
+      ): Promise<Dispatch<null>> {
+        for (const day of event.repeats?.skippedDays ?? []) {
+          const from = addCalendarDays(day as CivilDate, -1);
+          const to = addCalendarDays(day as CivilDate, 2);
+          let response;
+          try {
+            response = await dependencies.http.request({
+              method: "GET",
+              url:
+                `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(remoteId)}/instances` +
+                `?startDateTime=${from}T00:00:00&endDateTime=${to}T00:00:00` +
+                `&$select=${SNAPSHOT_FIELDS}&$top=50`,
+              headers,
+            });
+          } catch {
+            return unreachable();
+          }
+          if (response.status === 404) return ok(null);
+          if (response.status >= 400) return adapterError(problemFor(response.status));
+          const parsed = eventSnapshotPageSchema.safeParse(await readJson(response));
+          if (!parsed.success) return unreadable("Microsoft's list of a series' days");
+          for (const occurrence of parsed.data.value) {
+            const snapshot = snapshotOfGraphEvent(occurrence);
+            if (snapshot === undefined) return unreadable("A day of a series");
+            const fallsOn =
+              snapshot.when.kind === "days"
+                ? snapshot.when.startsOn
+                : zonedReading(snapshot.when.startsAtMilliseconds, event.timeZone).civilDate;
+            if (fallsOn !== day) continue;
+            const removed = await send(
+              "DELETE",
+              `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(snapshot.remoteId)}`,
+              undefined,
+            );
+            if (!removed.ok) return removed;
+            if (removed.value.status >= 400 && removed.value.status !== 404) {
+              return adapterError(problemFor(removed.value.status));
+            }
+          }
+        }
+        return ok(null);
+      }
+
       async function readReceipt(
         response: HttpResponse,
       ): Promise<z.infer<typeof eventReceiptSchema> | undefined> {
@@ -284,6 +426,9 @@ export function createMicrosoftCalendarAdapter(
           event: ProviderEventWrite,
           transactionId: string,
         ): Promise<Dispatch<ProviderEventReceipt>> {
+          if (graphRecurrenceOf(event) === null) {
+            return adapterError(integrationProblem("validation", 422, UNREPEATABLE));
+          }
           const sent = await send(
             "POST",
             `${GRAPH_ORIGIN}/v1.0/me/calendars/${encodeURIComponent(calendarRemoteId)}/events`,
@@ -301,6 +446,8 @@ export function createMicrosoftCalendarAdapter(
               ),
             );
           }
+          const skipped = await removeSkippedDays(receipt.id, event);
+          if (!skipped.ok) return skipped;
           return ok({ remoteId: receipt.id, versionTag: receipt.changeKey ?? null });
         },
 
@@ -308,15 +455,25 @@ export function createMicrosoftCalendarAdapter(
           remoteId: string,
           event: ProviderEventWrite,
         ): Promise<Dispatch<ProviderEventPresence>> {
+          const recurrence = graphRecurrenceOf(event);
+          if (recurrence === null) {
+            return adapterError(integrationProblem("validation", 422, UNREPEATABLE));
+          }
           const sent = await send(
             "PATCH",
             `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(remoteId)}`,
-            graphEventBody(event),
+            // An event that happens once says so, because the copy may have been a series when it
+            // was last written and a PATCH leaves alone whatever it does not name.
+            { ...graphEventBody(event), ...(recurrence === undefined ? { recurrence: null } : {}) },
           );
           if (!sent.ok) return sent;
           if (sent.value.status === 404) return ok({ found: false });
           if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
           const receipt = await readReceipt(sent.value);
+          // Changing a series' rule gives it back the days taken out of it, so they are taken out
+          // again after every write.
+          const skipped = await removeSkippedDays(remoteId, event);
+          if (!skipped.ok) return skipped;
           return ok({ found: true, versionTag: receipt?.changeKey ?? null });
         },
 

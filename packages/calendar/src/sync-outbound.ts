@@ -1,4 +1,5 @@
-import type { ProviderEventWrite } from "./sync-port.ts";
+import { parseRecurrence } from "@magna-carta/civil-time/recurrence";
+import type { ProviderEventRepeat, ProviderEventWrite } from "./sync-port.ts";
 import type { SyncCandidateRow, SyncLinkRow, SyncLocalKind } from "./sync-link-statements.ts";
 import type { SyncDetailLevel, SyncRuleScope } from "./sync-rule-statements.ts";
 
@@ -10,9 +11,12 @@ import type { SyncDetailLevel, SyncRuleScope } from "./sync-rule-statements.ts";
 // closed, a pass that died halfway, a safety pass hours later all ask the same question) and makes
 // a missed trigger harmless, because the next pass finds the same difference.
 //
-// Only the direction out is decided here. Nothing read back from the provider is an input, so a
-// copy a member edited in their own calendar is not noticed and is overwritten only when the event
-// itself next changes.
+// Only the direction out is decided here. Nothing read back from the provider is an input; what a
+// member did to a copy is noticed afterwards, by the pass, and never changes this decision.
+//
+// A SERIES LEAVES AS ONE EVENT WITH ITS RULE, never as a copy per day. The days a row of its own
+// stands in for are named beside the rule so the provider's series can skip them; a changed day is
+// that row, and leaves as an ordinary event.
 
 export interface OutboundRule {
   readonly subject: string;
@@ -56,6 +60,15 @@ function joinLines(lines: readonly (string | null)[]): string | null {
   return kept.length === 0 ? null : kept.join("\n\n");
 }
 
+function repeatOf(row: SyncCandidateRow): ProviderEventRepeat | null {
+  if (row.recurrence_rule === null) return null;
+  const skippedDays =
+    row.replaced_days === null || row.replaced_days === ""
+      ? []
+      : [...new Set(row.replaced_days.split(","))].toSorted();
+  return { line: row.recurrence_rule, rule: parseRecurrence(row.recurrence_rule), skippedDays };
+}
+
 // The event as it leaves, at the detail the firm allows.
 //
 // `minimal` carries the type's name and the matter number and nothing a client said or did: no
@@ -72,6 +85,7 @@ export function providerEventFor(
   const kindName = isDeadline ? "Deadline" : (row.type_name ?? "Event");
   const matterSuffix = row.matter_number === null ? "" : ` (${row.matter_number})`;
   const dueTime = isDeadline && row.starts_at_time !== null ? ` at ${row.starts_at_time}` : "";
+  const repeat = isDeadline ? null : repeatOf(row);
   const title =
     detail === "minimal"
       ? `${kindName}${matterSuffix}${dueTime}`
@@ -94,6 +108,9 @@ export function providerEventFor(
     endsOn: row.ends_on,
     endsAtTime: isDeadline ? null : row.ends_at_time,
     timeZone: row.time_zone,
+    // Left off altogether for an event that happens once, so the shape of what is sent for one is
+    // what it always was.
+    ...(repeat === null ? {} : { repeats: repeat }),
   };
 }
 
@@ -111,6 +128,11 @@ export function agreedText(desired: OutboundDesired): string {
     event.endsOn,
     event.endsAtTime,
     event.timeZone,
+    // Appended only for a series, so the text for an event that happens once is what it was
+    // before series were sent and no copy already out is written again for nothing.
+    ...(event.repeats === null || event.repeats === undefined
+      ? []
+      : [event.repeats.line, event.repeats.skippedDays.join(",")]),
   ]);
 }
 

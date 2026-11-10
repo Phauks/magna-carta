@@ -1,4 +1,5 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { raiseSyncIssueStatement } from "@magna-carta/calendar/sync-issue-statements";
 import {
   deleteSyncLinkStatement,
   insertPendingSyncLinkStatement,
@@ -17,6 +18,7 @@ import {
   desiredCopies,
   planOutbound,
   type OutboundCandidate,
+  type OutboundDesired,
   type OutboundStep,
 } from "@magna-carta/calendar/sync-outbound";
 import type { CalendarSyncPort } from "@magna-carta/calendar/sync-port";
@@ -27,9 +29,10 @@ import {
 } from "@magna-carta/calendar/sync-rule-service";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { addCalendarDays, civilDateOf } from "@magna-carta/civil-time/civil-date";
+import { lastOccurrenceOf, parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import type { IntegrationProblem } from "@magna-carta/integrations/problem";
-import { noticeProviderChanges } from "./provider-changes.ts";
+import { noticeProviderChanges, readingOfWrite } from "./provider-changes.ts";
 
 // ONE PASS OVER ONE MEMBER'S CONNECTED ACCOUNT: MAKE THEIR CALENDAR AGREE WITH THEIR RULES.
 //
@@ -94,6 +97,17 @@ export async function digestOf(text: string): Promise<string> {
   return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+// A series is read whenever it began, so one that has already run its course is dropped here: a
+// series whose last day is before the window has nothing left to show. A rule this platform cannot
+// read is kept, and is refused further on where the member is told about it.
+function reachesWindow(row: SyncCandidateRow, window: SyncWindow): boolean {
+  if (row.recurrence_rule === null) return true;
+  const rule = parseRecurrence(row.recurrence_rule);
+  if (rule === null) return true;
+  const lastDay = lastOccurrenceOf(rule, row.starts_on);
+  return lastDay === null || lastDay >= window.from;
+}
+
 async function readCandidates(
   database: SqlDatabase,
   memberUserId: UserId,
@@ -116,8 +130,12 @@ async function readCandidates(
     ).all<SyncCandidateRow>(),
   ]);
   return [
-    ...matterEvents.results.map((row): OutboundCandidate => ({ localKind: "matter_event", row })),
-    ...firmEvents.results.map((row): OutboundCandidate => ({ localKind: "firm_event", row })),
+    ...matterEvents.results
+      .filter((row) => reachesWindow(row, window))
+      .map((row): OutboundCandidate => ({ localKind: "matter_event", row })),
+    ...firmEvents.results
+      .filter((row) => reachesWindow(row, window))
+      .map((row): OutboundCandidate => ({ localKind: "firm_event", row })),
     ...deadlines.results.map((row): OutboundCandidate => ({ localKind: "deadline", row })),
   ];
 }
@@ -163,6 +181,29 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     localId,
   });
 
+  // The provider will not take this one event as it stands. The link remembers it was tried, and
+  // the member is told on their Calendar Sync page, because an event quietly missing from a
+  // calendar somebody trusts is the failure this whole feature exists to prevent.
+  async function recordRefusal(
+    key: SyncLinkKey,
+    digest: string,
+    copy: OutboundDesired,
+    stamp: string,
+  ): Promise<void> {
+    await markSyncLinkFailedStatement(database, key, digest, stamp).run();
+    await raiseSyncIssueStatement(
+      database,
+      key,
+      {
+        kind: "not_sent",
+        remoteVersionTag: null,
+        sentJson: JSON.stringify(readingOfWrite(copy.event)),
+        foundJson: null,
+      },
+      stamp,
+    ).run();
+  }
+
   async function apply(step: OutboundStep): Promise<"sign-in-again" | "unavailable" | null> {
     const stamp = input.now().toISOString();
     if (step.action === "remove") {
@@ -203,7 +244,7 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
       if (!created.ok) {
         const stop = stopFor(created.problem);
         if (stop !== null) return stop;
-        await markSyncLinkFailedStatement(database, key, digest, stamp).run();
+        await recordRefusal(key, digest, step.desired, stamp);
         report.refused += 1;
         return null;
       }
@@ -227,7 +268,7 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     if (!updated.ok) {
       const stop = stopFor(updated.problem);
       if (stop !== null) return stop;
-      await markSyncLinkFailedStatement(database, key, digest, stamp).run();
+      await recordRefusal(key, digest, step.desired, stamp);
       report.refused += 1;
       return null;
     }
