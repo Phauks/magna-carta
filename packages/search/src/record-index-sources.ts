@@ -24,6 +24,10 @@
 // capability to read it. And no source may read a review-set table, for the reason corpus.ts gives:
 // material an opposing party produced is searched only from inside its own review set.
 
+// Who asks the record index a question. Each has a reach of its own: a matter's search reads one
+// matter, and a conflicts check reads the firm.
+export type RecordIndexReader = "matter-search" | "conflicts-check";
+
 // One declared source of record text.
 //
 // Every SQL fragment below is a code-supplied literal over the source's own table (and its container,
@@ -38,6 +42,10 @@ export interface RecordIndexSource {
   readonly label: string;
   // What is matched, in the reader's words.
   readonly matchedFields: readonly string[];
+  // Which askers read this source through the index today. Empty for a source that is indexed and
+  // not read yet. A surface that starts reading a source adds itself here in the same change; a
+  // test beside this package compares the list with the source keys each reader's code names.
+  readonly readBy: readonly RecordIndexReader[];
   // The table whose rows are indexed, one index row per table row.
   readonly table: string;
   // The record a reader opens when that is not the row itself, and the table that decides the row's
@@ -87,6 +95,7 @@ const notesSource: RecordIndexSource = {
   key: "notes",
   label: "Notes",
   matchedFields: ["the note's text"],
+  readBy: ["matter-search"],
   table: MATTER_NOTE_TABLE,
   container: null,
   matterExpression: `${MATTER_NOTE_TABLE}.matter_id`,
@@ -104,6 +113,7 @@ const timeSource: RecordIndexSource = {
   key: "time",
   label: "Time",
   matchedFields: ["time narratives"],
+  readBy: ["matter-search"],
   table: TIME_ENTRY_TABLE,
   container: null,
   matterExpression: `${TIME_ENTRY_TABLE}.matter_id`,
@@ -118,6 +128,7 @@ const costsSource: RecordIndexSource = {
   key: "costs",
   label: "Costs",
   matchedFields: ["cost descriptions"],
+  readBy: ["matter-search"],
   table: COST_ENTRY_TABLE,
   container: null,
   matterExpression: `${COST_ENTRY_TABLE}.matter_id`,
@@ -134,6 +145,7 @@ const calendarSource: RecordIndexSource = {
   key: "calendar",
   label: "Calendar",
   matchedFields: ["event titles", "event descriptions"],
+  readBy: ["matter-search"],
   table: MATTER_EVENT_TABLE,
   container: null,
   matterExpression: `${MATTER_EVENT_TABLE}.matter_id`,
@@ -154,6 +166,7 @@ const communicationsSource: RecordIndexSource = {
   key: "communications",
   label: "Messaging",
   matchedFields: ["what was said", "the caller's name"],
+  readBy: ["matter-search", "conflicts-check"],
   table: COMMUNICATION_TABLE,
   container: null,
   matterExpression: `${COMMUNICATION_TABLE}.matter_id`,
@@ -173,6 +186,7 @@ const tasksSource: RecordIndexSource = {
   key: "tasks",
   label: "Tasks",
   matchedFields: ["task titles", "task descriptions"],
+  readBy: ["conflicts-check"],
   table: MATTER_TASK_TABLE,
   container: null,
   matterExpression: `${MATTER_TASK_TABLE}.matter_id`,
@@ -189,6 +203,7 @@ const magnusConversationsSource: RecordIndexSource = {
   key: "magnus-conversations",
   label: "Magnus",
   matchedFields: ["conversation titles"],
+  readBy: ["conflicts-check"],
   table: MAGNUS_CONVERSATION_TABLE,
   container: null,
   matterExpression: `${MAGNUS_CONVERSATION_TABLE}.matter_id`,
@@ -209,6 +224,7 @@ const magnusTurnsSource: RecordIndexSource = {
   key: "magnus-turns",
   label: "Magnus",
   matchedFields: ["what was asked", "what Magnus answered"],
+  readBy: ["conflicts-check"],
   table: MAGNUS_TURN_TABLE,
   container: {
     table: MAGNUS_CONVERSATION_TABLE,

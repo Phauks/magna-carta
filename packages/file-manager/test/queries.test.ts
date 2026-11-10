@@ -14,6 +14,8 @@ import {
   listCleanVersions,
   listQuotableIndexedVersions,
   listVersionScanEvents,
+  listVersionsMissingFromSearchIndex,
+  readSearchIndexCoverage,
 } from "../src/queries.ts";
 
 async function seedFileWithCleanVersion(
@@ -325,5 +327,108 @@ describe("which version of a file a search result may quote", () => {
     expect([...(await listQuotableIndexedVersions(database, matterId, all))]).toEqual([
       [elsewhere.fileId, 1],
     ]);
+  });
+});
+
+describe("how much of a firm's files the file contents index holds", () => {
+  // Five files that belong in the index: one held as its own split, one held inside a merged split,
+  // one never indexed, one whose only split a merge retired without carrying it, and one whose
+  // membership a re-index superseded.
+  async function seedCoverage() {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const own = await seedFileWithCleanVersion(database, matterId);
+    const merged = await seedFileWithCleanVersion(database, matterId);
+    const never = await seedFileWithCleanVersion(database, matterId);
+    const retired = await seedFileWithCleanVersion(database, matterId);
+    const stale = await seedFileWithCleanVersion(database, matterId);
+    await split(database, {
+      id: "split_own",
+      corpusId: matterId,
+      documentId: own.fileId,
+      version: 1,
+    });
+    await split(database, {
+      id: "split_merged",
+      corpusId: matterId,
+      documentId: null,
+      version: null,
+    });
+    await split(database, {
+      id: "split_retired",
+      corpusId: matterId,
+      documentId: retired.fileId,
+      version: 1,
+    });
+    await database
+      .prepare(
+        "UPDATE index_split SET superseded_at = '2026-02-01T00:00:00.000Z' WHERE id = 'split_retired'",
+      )
+      .run();
+    await insertIndexSplitMemberStatement(database, {
+      splitId: "split_merged" as IndexSplitId,
+      documentId: merged.fileId,
+      version: 1,
+    }).run();
+    await insertIndexSplitMemberStatement(database, {
+      splitId: "split_merged" as IndexSplitId,
+      documentId: stale.fileId,
+      version: 1,
+    }).run();
+    await database
+      .prepare(
+        "UPDATE index_split_member SET superseded_at = '2026-02-01T00:00:00.000Z' WHERE document_id = ?1",
+      )
+      .bind(stale.fileId)
+      .run();
+    return { database, matterId, own, merged, never, retired, stale };
+  }
+
+  it("counts a version held as its own split or inside a merged one, and no other", async () => {
+    const { database } = await seedCoverage();
+    expect(await readSearchIndexCoverage(database)).toEqual({
+      belonging: 5,
+      held: 2,
+      lastIndexedAt: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
+  it("leaves out what does not belong in the index at all", async () => {
+    const { database, matterId, own } = await seedCoverage();
+    await seedFileWithPendingVersionOnly(database, matterId);
+    const quarantined = await seedFileWithCleanVersion(database, matterId);
+    await database
+      .prepare("UPDATE file_version SET status = 'quarantined' WHERE file_id = ?1")
+      .bind(quarantined.fileId)
+      .run();
+    // A deleted file leaves both numbers, whatever the catalog still holds for it.
+    await database
+      .prepare("UPDATE file SET deleted_at = '2026-02-01T00:00:00.000Z' WHERE id = ?1")
+      .bind(own.fileId)
+      .run();
+    expect(await readSearchIndexCoverage(database)).toMatchObject({ belonging: 4, held: 1 });
+  });
+
+  it("answers an empty firm with nothing, and no time of a last file", async () => {
+    expect(await readSearchIndexCoverage(freshDatabase())).toEqual({
+      belonging: 0,
+      held: 0,
+      lastIndexedAt: null,
+    });
+  });
+
+  it("finds for indexing exactly the versions the count calls not held", async () => {
+    const { database, never, retired, stale, own, merged } = await seedCoverage();
+    const missing = (await listVersionsMissingFromSearchIndex(database, 50)).map(
+      (candidate) => candidate.versionId,
+    );
+    expect(missing.toSorted()).toEqual(
+      [never.versionId, retired.versionId, stale.versionId].toSorted(),
+    );
+    // A version a merged split holds is not sent to be indexed again.
+    expect(missing).not.toContain(merged.versionId);
+    expect(missing).not.toContain(own.versionId);
+    const coverage = await readSearchIndexCoverage(database);
+    expect(coverage.belonging - coverage.held).toBe(missing.length);
   });
 });

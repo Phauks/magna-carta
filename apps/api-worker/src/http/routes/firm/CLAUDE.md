@@ -27,3 +27,12 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
 
 - **Off to on starts a bounded walk of the firm's existing files**, off the response path through `runInBackground`, using `src/search/index-backlog.ts` (the same walk the daily re-extraction sweep runs with a larger budget). It is a latency improvement only: the sweep remains what draws in a back catalogue. Keep its budget small — it runs on the tail of one request.
 - **The idempotency record holds the whole answer.** The chokepoint replays the stored body itself, so a body composed after the effect would be missing from a replay.
+
+## Firm search status — what the indexes hold, counted when asked
+
+`src/http/routes/firm/search-status.ts` exposes `GET /api/v1/firm/search-status` behind the same `firm:manageSearchSettings`. It answers the plates beneath the switch on the settings page: for each record index source, the rows the index holds and the records that belong in it (`readRecordIndexPlaces`, `@magna-carta/search/record-index-statements`); the files the file contents index holds out of those that belong in it (`readSearchIndexCoverage`, `@magna-carta/file-manager/queries`); the two firm switches; and whether each service is bound.
+
+- **Nothing is stored and nothing is estimated.** Every figure is a count made during the request. Do not add a cached or remembered figure: a status that reports a stored number reports the last time something updated it.
+- **It reads every indexed record and every live file once**, so it is for a page a person opened. Do not call it from a poll, a sweep or another route.
+- **No review-set figure, on purpose.** Each review set's index is its own corpus behind that set's access list (`packages/discovery/test/review-set-visibility-fitness.test.ts`); a firm-wide total here would be a read across it by a settings permission.
+- **No write.** A rebuild is work in proportion to the place rebuilt and belongs on a queue; this route only shows when one is needed.

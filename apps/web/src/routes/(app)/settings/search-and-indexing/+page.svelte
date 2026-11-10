@@ -14,10 +14,15 @@
    * service, that nothing inside a file can be searched until it does, whatever the switch says;
    * and once indexing is on, that the files already here are read over days.
    *
+   * BENEATH THE SETTING, WHAT IT COMES TO (search-status.svelte): the standing of each index and
+   * the table of indexed places, counted by the server when the page opens. Shown to a member who
+   * holds the edit right, because the count is behind the same permission as the setting.
+   *
    * HISTORY IS WITHHELD, for the reason the calendar page withholds it: the record of a change is
    * the audit row the server writes, and a per-browser ledger would be one browser's recollection
    * of a firm-wide fact.
    */
+  import SearchStatus from "$lib/settings/components/search-status.svelte";
   import SettingsPage from "$lib/settings/components/settings-page.svelte";
   import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
@@ -62,6 +67,12 @@
   {/if}
 {/snippet}
 
+{#snippet after()}
+  {#if canEdit}
+    <SearchStatus />
+  {/if}
+{/snippet}
+
 <SettingsPage
   sectionId={SEARCH_AND_INDEXING_SECTION_ID}
   title="Search and Indexing"
@@ -75,4 +86,5 @@
   saveFailureFallback="The search settings are unchanged. What you chose is still staged."
   saveFailureWhenSilent="Nothing answered, so the search settings are unchanged. What you chose is still staged."
   {afterRow}
+  {after}
 />

@@ -456,7 +456,7 @@
   surface: internal
   spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
   evidence: packages/search/src/record-index-sources.ts, packages/search/src/record-index-schema.ts, packages/search/src/record-index-query.ts and packages/search/src/record-index-statements.ts, with the per-firm migration named record-text-index; held by packages/search/test/record-index-behaviour.test.ts, packages/search/test/record-index-lineage.test.ts and packages/search/test/record-index-migration.test.ts and, inside real Durable Object storage, apps/api-worker/test/firm-database/firm-database-record-index.test.ts. Measured by packages/search/scripts/measure-record-index-shapes.mjs.
-  notes: The index and its one reader so far (the matter search's prose sources). The status screen, the search across matters and the conflicts check reading it are separate nodes of the same specification and are not built. Tasks and Magnus conversations are indexed and nothing reads them yet.
+  notes: The index and its two readers: the matter search's prose sources, and the conflicts check, which reads calls and texts, tasks and Magnus conversations through it. Each source declares its readers (readBy), held to the readers' own statements by packages/search/test/record-index-readers.test.ts. The status screen (search.status-screen) and the search across matters are separate nodes of the same specification.
 
 - id: search.across-matters
   name: Search across matters
@@ -468,9 +468,11 @@
 - id: search.status-screen
   name: Search and Indexing status
   scope: A settings screen showing what is searchable, how much of each place is indexed, and a rebuild per place.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
-  notes: Step 3 of the specification's build order. The count and rebuild statements it will call are built as part of search.record-index; no route or screen exists.
+  evidence: apps/api-worker/src/http/routes/firm/search-status.ts serves GET /api/v1/firm/search-status behind firm:manageSearchSettings, counting each record place's indexed and expected rows through readRecordIndexPlaces in packages/search/src/record-index-statements.ts and the files the file contents index holds through readSearchIndexCoverage in packages/file-manager/src/queries.ts; apps/web/src/lib/settings/components/search-status.svelte renders it beneath the switch on Settings, Search and Indexing, with its standings decided in apps/web/src/lib/settings/search-status.ts from the status register's searchIndexStanding vocabulary. Held by apps/api-worker/test/firm-search-status.test.ts (real Durable Object storage), packages/search/test/record-index-behaviour.test.ts, packages/search/test/record-index-readers.test.ts (each source's declared readers against the source keys the matter search and the conflicts check name), packages/file-manager/test/queries.test.ts, apps/web/test/search-status.test.ts and apps/web/test/search-settings-page.test.ts.
+  notes: PARTIAL because the screen shows and does not act. A place that reads Behind has no rebuild on the screen yet (the rebuild statements exist; running one belongs on a queue, not a request), an older schema generation of the file contents index has no rebuild path, and discovery review sets are named and not counted, because a firm-wide count would read across each set's access list.
 
 - id: matters.search.file-contents
   name: File contents in a matter search

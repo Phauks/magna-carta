@@ -62,7 +62,10 @@ ADR-0110, ADR-0111.)
 - `record-index-query.ts` — a reader's text taken apart into tokens and rebuilt as a match, and the
   two forms a consumer composes the index into its own statement in
 - `record-index-statements.ts` — the reads the index offers directly (ranked pointers, counts per
-  source) and its maintenance statements (rebuild one source, optimize)
+  source, and `readRecordIndexPlaces`: each source's indexed rows beside the records that belong
+  in it) and its maintenance statements (rebuild one source, optimize)
+- `contract.ts` — the body of the firm's search status read, as plain zod; the route module in
+  `apps/api-worker/src/http/routes/firm/search-status.ts` declares its route over it
 - `scripts/render-record-index-migration.mts` — prints the migration text for one source or all
 - `scripts/measure-record-index-shapes.mjs` — the measurement the index's shape was chosen on
 
@@ -188,6 +191,20 @@ are the ones the production modules adopted; keep the two in step.
   `recordMatchExpression`, as a binding. Do not build a match string anywhere else.
 - **Prose only.** Names and numbers stay on substring matches over their own columns; a source may
   not read a protected column or a review-set table, and a fitness test refuses one that does.
+- **A source says who reads it, and a reader that starts or stops says so here.** `readBy` on each
+  declaration is what a firm is shown on the Search and Indexing page. `test/record-index-readers.test.ts`
+  scans `packages/matter-search/src` and `packages/conflicts/src` for the source keys their
+  statements name and fails when the declaration differs. A third reader is a new member of
+  `RecordIndexReader` and a new directory in that test.
+- **"Behind" is counted from the records, never remembered.** `readRecordIndexPlaces` counts what
+  belongs in the index through `recordIndexExpectedCountSelect`, the same row select the triggers
+  and the rebuild are rendered from, so the count cannot disagree with them about what a record
+  is. It reads every row of every source table: it is for a screen a person opened.
+- **No compound SELECT of more than five terms.** A firm's database refuses one, and plain SQLite
+  in a package test does not, so a statement that works here can fail in a firm. There are eight
+  sources: a read across all of them is a column per source or a `GROUP BY`, never a `UNION ALL`
+  with a term each. `apps/api-worker/test/firm-search-status.test.ts` runs the expected-count read
+  in real firm storage.
 - **The shape was measured; measure before changing it.** No prefix indexes, the source as a column
   and the matter as a token each came from `scripts/measure-record-index-shapes.mjs`.
 

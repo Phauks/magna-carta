@@ -1174,6 +1174,34 @@ export type PatchFirmSearchSettingsRequest = {
     fileContentsIndexed?: boolean;
 };
 
+export type FirmSearchStatusResponse = {
+    checkedAt: string;
+    records: {
+        places: Array<SearchStatusRecordPlace>;
+    };
+    fileContents: {
+        turnedOn: boolean;
+        serviceConnected: boolean;
+        filesBelonging: number;
+        filesIndexed: number;
+        lastIndexedAt: string | null;
+        dailyCatchUpLimit: number;
+    };
+    searchByMeaning: {
+        turnedOn: boolean;
+        serviceConnected: boolean;
+    };
+};
+
+export type SearchStatusRecordPlace = {
+    key: string;
+    label: string;
+    matchedFields: Array<string>;
+    readBy: Array<'matter-search' | 'conflicts-check'>;
+    indexed: number;
+    expected: number;
+};
+
 export type ExportRenderRequest = {
     format: 'docx' | 'pdf';
     document: {
@@ -13754,6 +13782,43 @@ export type FirmSearchSettingsUpdateResponses = {
 };
 
 export type FirmSearchSettingsUpdateResponse = FirmSearchSettingsUpdateResponses[keyof FirmSearchSettingsUpdateResponses];
+
+export type FirmSearchStatusGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/search-status';
+};
+
+export type FirmSearchStatusGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageSearchSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSearchStatusGetError = FirmSearchStatusGetErrors[keyof FirmSearchStatusGetErrors];
+
+export type FirmSearchStatusGetResponses = {
+    /**
+     * What the firm's search indexes hold now
+     */
+    200: FirmSearchStatusResponse;
+};
+
+export type FirmSearchStatusGetResponse = FirmSearchStatusGetResponses[keyof FirmSearchStatusGetResponses];
 
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;
