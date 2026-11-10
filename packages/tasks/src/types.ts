@@ -204,6 +204,14 @@ export const MAX_TASK_LINKS = 50;
 export const MAX_TASK_LINK_URL_LENGTH = 2_048;
 export const MAX_TASK_LINK_LABEL_LENGTH = 200;
 
+// A task's comment thread. A comment is a few lines between colleagues, and a thread that runs past
+// a few hundred of them is a conversation that has outgrown the task. The thread is read whole, so
+// these two bounds are also the bound on that read.
+export const MAX_TASK_COMMENT_LENGTH = 4_000;
+export const MAX_TASK_COMMENTS = 500;
+// The colleagues one comment may name with @.
+export const MAX_TASK_COMMENT_MENTIONS = 20;
+
 // Where the work happens: a room, an address, a meeting link.
 export const MAX_TASK_LOCATION_LENGTH = 500;
 

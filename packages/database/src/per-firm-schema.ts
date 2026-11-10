@@ -125,6 +125,7 @@ import type {
   MatterTaskChecklistItemId,
   MatterTaskId,
   MatterTaskLinkId,
+  MatterTaskCommentId,
   MatterTypeId,
   MeetingAttendanceId,
   MeetingGuestInvitationId,
@@ -7923,6 +7924,44 @@ export const matterTaskLink = sqliteTable(
     index("matter_task_link_task_index").on(table.taskId, table.position),
     check("matter_task_link_url_nonempty_check", sql`length(${table.url}) > 0`),
   ],
+);
+
+// A TASK'S COMMENT THREAD: colleagues talking about one piece of work. Discussion, not the matter's
+// record — what the file must keep is a note on the matter. Flat on purpose: no replies to replies
+// and no reactions, so the thread reads top to bottom in the order things were said. Only the author
+// may reword or remove a comment, and a reworded one says so through `edited_at`.
+export const matterTaskComment = sqliteTable(
+  "matter_task_comment",
+  {
+    id: text("id").primaryKey().$type<MatterTaskCommentId>(), // matterTaskComment_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    body: text("body").notNull(),
+    createdAt: text("created_at").notNull(),
+    editedAt: text("edited_at"),
+  },
+  (table) => [
+    index("matter_task_comment_task_index").on(table.taskId, table.createdAt),
+    check("matter_task_comment_body_nonempty_check", sql`length(${table.body}) > 0`),
+  ],
+);
+
+// A colleague a comment names with @, each once. They are told, and the thread shows the name in
+// bold. A row of its own rather than a list inside the body, so "who was named" is a fact the
+// platform holds rather than a pattern it would have to find in somebody's words.
+export const matterTaskCommentMention = sqliteTable(
+  "matter_task_comment_mention",
+  {
+    commentId: text("comment_id")
+      .notNull()
+      .$type<MatterTaskCommentId>()
+      .references(() => matterTaskComment.id),
+    userId: text("user_id").notNull().$type<UserId>(),
+  },
+  (table) => [primaryKey({ columns: [table.commentId, table.userId] })],
 );
 
 // A TASK'S IDENTITY SOMEWHERE ELSE, and the tombstone a deleted task leaves behind. Both exist for

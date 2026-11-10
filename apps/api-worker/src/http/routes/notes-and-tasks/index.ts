@@ -3,6 +3,7 @@ import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.
 import { registerMyDayRoutes } from "./my-day.ts";
 import { registerNotesRoutes } from "./notes.ts";
 import { registerTaskListsAndTeamsRoutes } from "./task-lists-and-teams.ts";
+import { registerTaskCommentRoutes } from "./task-comments.ts";
 import { registerTaskPartsRoutes } from "./task-parts.ts";
 import { registerTasksRoutes } from "./tasks.ts";
 
@@ -27,6 +28,8 @@ export function mountNotesAndTasks(
   registerTaskListsAndTeamsRoutes(domain, chokepoint);
   // A task's own parts: status, list, completion, assignees, watchers, checklist, links, sub-tasks.
   registerTaskPartsRoutes(domain, chokepoint);
+  // A task's comment thread.
+  registerTaskCommentRoutes(domain, chokepoint);
   // My Day: daily headline totals (billable, non-billable, target, shortfall).
   registerMyDayRoutes(domain, chokepoint);
   app.route("/", domain);

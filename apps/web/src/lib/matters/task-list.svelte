@@ -912,6 +912,7 @@
   {matterTitle}
   matterTitleOf={context.matterTitle}
   authorName={myName}
+  viewerUserId={session?.user.id ?? null}
   {nameOf}
   {assignableMembers}
   {attachableFolders}
