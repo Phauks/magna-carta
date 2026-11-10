@@ -37,6 +37,14 @@
    * record, it is what the queue exists to collect, and each of its moves is a concurrency-safe act
    * of its own so that two people filing the same message in the same instant cannot both succeed.
    *
+   * SEVERAL CALLS AT ONCE (owner, 2026-11-09: "it can handle multiple numbers coming in at the same
+   * time, for example, calls when already in a call"). A record being made is one of a LIST of
+   * calls being written down, down the left side of the pane ("calls should be on the leftside, not
+   * above it"); Another Call adds one, saving one takes it off the list and leaves the rest, and the
+   * window closes only when the last is saved. Starting an intake from one saves that one and leaves
+   * the others standing. The right side, while a record is being made, is the Identification panel
+   * and the number's own History, both read from the number as soon as it is a whole one.
+   *
    * A CARRIER-WRITTEN RECORD IS NOT EDITABLE, and it says so rather than hiding Edit. It is what the
    * network reported; a member changing it would turn an observation into a recollection wearing an
    * observation's badge, which is the one thing the `producer` column exists to prevent.
@@ -56,9 +64,12 @@
   } from "@magna-carta/design-system/record-reference";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
+  import Plus from "@lucide/svelte/icons/plus";
   import FolderInput from "@lucide/svelte/icons/folder-input";
   import Undo2 from "@lucide/svelte/icons/undo-2";
+  import { untrack } from "svelte";
   import { goto } from "$app/navigation";
+  import { viewerTimeZone } from "$lib/dates";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -67,11 +78,15 @@
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import CommunicationFields from "./communication-fields.svelte";
+  import CommunicationIdentification from "./communication-identification.svelte";
+  import CommunicationNumberHistory from "./communication-number-history.svelte";
   import FileToMatterDialog from "./file-to-matter-dialog.svelte";
   import SetAsideDialog from "./set-aside-dialog.svelte";
   import { communicationSheet } from "./communication-print-sheet.ts";
   import {
     anchorText,
+    CALL_OUTCOME_LABELS,
+    SPAM_KIND_LABELS,
     attachmentNote,
     channelEntry,
     counterpartyNumberText,
@@ -96,6 +111,7 @@
     draftFromCommunication,
     draftOccurredAt,
     emptyLogDraft,
+    activityRequest,
     logDraftReady,
     logDraftRequest,
     logDraftShortfalls,
@@ -177,6 +193,100 @@
   let draft = $state<LogDraft>(emptyLogDraft(new Date().toISOString()));
   let printOpen = $state(false);
 
+  /*
+   * THE CALLS BEING WRITTEN DOWN, while the window is making records. Each entry holds its own
+   * draft; `draft` above is the one on screen, and it IS that entry's draft rather than a copy of
+   * it, so typing into the form writes straight into the entry and switching loses nothing.
+   */
+  interface CallEntry {
+    readonly key: string;
+    draft: LogDraft;
+  }
+  let entries = $state<CallEntry[]>([]);
+  let activeKey = $state<string | null>(null);
+  let entrySequence = 0;
+
+  /** Matters chosen from the Identification panel that the anchor list did not already carry. */
+  let filedFromPanel = $state<SheetMatter[]>([]);
+  const anchorMatters = $derived.by((): readonly SheetMatter[] => {
+    const known = new Set(matters.map((matter) => matter.id));
+    return [...matters, ...filedFromPanel.filter((matter) => !known.has(matter.id))];
+  });
+
+  function freshDraft(): LogDraft {
+    return {
+      ...emptyLogDraft(now()),
+      matterId,
+      anchor: matterId === null ? "undecided" : "matter",
+    };
+  }
+
+  function showEntry(key: string): void {
+    const entry = entries.find((candidate) => candidate.key === key);
+    if (entry === undefined) return;
+    activeKey = key;
+    draft = entry.draft;
+    saveFailure = null;
+  }
+
+  function addCall(): void {
+    entrySequence += 1;
+    const key = `call-${entrySequence}`;
+    entries.push({ key, draft: freshDraft() });
+    showEntry(key);
+  }
+
+  /**
+   * Take the call on screen off the list, now that it is on the log. The window closes on the
+   * last one, because there is nothing left in it to do.
+   */
+  function retireActiveEntry(): void {
+    const remaining = entries.filter((entry) => entry.key !== activeKey);
+    entries = remaining;
+    const next = remaining.at(0);
+    if (next === undefined) {
+      activeKey = null;
+      open = false;
+      return;
+    }
+    showEntry(next.key);
+  }
+
+  /** Whether a draft has anything in it. A blank call has nothing to lose, so leaving never asks. */
+  function draftStarted(candidate: LogDraft): boolean {
+    return (
+      candidate.counterpartyNumber.trim() !== "" ||
+      candidate.description.trim() !== "" ||
+      candidate.durationText.trim() !== "" ||
+      candidate.counterpartyEntityId !== null ||
+      candidate.matterId !== null ||
+      candidate.disposition !== null ||
+      candidate.callerIdName.trim() !== "" ||
+      candidate.outcome !== null
+    );
+  }
+
+  /** How a call reads in the list on the left: who, else the number, else that it is new. */
+  function entryTitle(candidate: LogDraft): string {
+    if (candidate.counterpartyName !== null) return candidate.counterpartyName;
+    const typed = candidate.counterpartyNumber.trim();
+    return typed === "" ? "New call" : typed;
+  }
+
+  function entryDetail(candidate: LogDraft): string {
+    const kind = candidate.kind === "text" ? "Text" : "Call";
+    return `${directionEntry(candidate.direction).label} ${kind.toLowerCase()} · not saved`;
+  }
+
+  function fileFromPanel(matter: SheetMatter): void {
+    if (!matters.some((known) => known.id === matter.id)) {
+      filedFromPanel = [...filedFromPanel.filter((known) => known.id !== matter.id), matter];
+    }
+    draft.matterId = matter.id;
+    draft.disposition = null;
+    draft.anchor = "matter";
+  }
+
   /**
    * The number a record being entered WOULD draw, or null while nothing has answered.
    *
@@ -215,7 +325,15 @@
   }
 
   $effect(() => {
-    if (!open) return;
+    if (!open) {
+      // A closed window holds no calls: everything in it was either saved or knowingly abandoned.
+      untrack(() => {
+        entries = [];
+        activeKey = null;
+        filedFromPanel = [];
+      });
+      return;
+    }
     saveFailure = null;
     anchorProblem = null;
     void firmRoster.load(fetch);
@@ -224,11 +342,9 @@
       record = null;
       readFailure = null;
       editing = true;
-      draft = {
-        ...emptyLogDraft(now()),
-        matterId,
-        anchor: matterId === null ? "undecided" : "matter",
-      };
+      untrack(() => {
+        if (entries.length === 0) addCall();
+      });
       return;
     }
     editing = false;
@@ -363,14 +479,7 @@
   });
 
   /** Whether anything has been entered. A blank new record has nothing to lose, so leaving never asks. */
-  const started = $derived(
-    draft.counterpartyNumber.trim() !== "" ||
-      draft.description.trim() !== "" ||
-      draft.durationText.trim() !== "" ||
-      draft.counterpartyEntityId !== null ||
-      draft.matterId !== null ||
-      draft.disposition !== null,
-  );
+  const started = $derived(entries.some((entry) => draftStarted(entry.draft)));
 
   /**
    * Record what was entered, and answer with the new row.
@@ -381,7 +490,11 @@
   async function writeNewRecord(): Promise<string | null> {
     saving = true;
     saveFailure = null;
-    const written = await logCommunication(fetch, logDraftRequest(draft), newWriteKey());
+    const written = await logCommunication(
+      fetch,
+      { ...logDraftRequest(draft), ...activityRequest(draft, viewerTimeZone()) },
+      newWriteKey(),
+    );
     saving = false;
     if (written.kind !== "ok") {
       saveFailure = stated(
@@ -427,9 +540,9 @@
       await correct();
       return;
     }
-    // The window closes on a record it has just made: what it would otherwise show is a record the
-    // reader is already looking at on the log behind it, with nothing left to do to it.
-    if ((await writeNewRecord()) !== null) open = false;
+    // The call just made leaves the list, and the window closes only when it was the last: what it
+    // would otherwise show is a record the reader is already looking at on the log behind it.
+    if ((await writeNewRecord()) !== null) retireActiveEntry();
   }
 
   /**
@@ -444,7 +557,9 @@
     const contact = draft.counterpartyEntityId;
     const id = await writeNewRecord();
     if (id === null) return;
-    open = false;
+    // Only THIS call leaves. Any other call still being written down stays in the window, which is
+    // why the intake is handed up rather than replacing it.
+    retireActiveEntry();
     // The two facts an intake needs from the call: which row to file onto the matter it opens, and
     // who to seed as the client. Both are held here rather than read back, so an intake still opens
     // when the log is momentarily unreadable — the call is already recorded either way.
@@ -512,6 +627,9 @@
     saveFailure = null;
     anchorProblem = null;
     if (creating) {
+      // Abandoning an entry abandons every call listed in it: the close guard has already asked.
+      entries = [];
+      activeKey = null;
       open = false;
       return;
     }
@@ -577,6 +695,40 @@
 {/snippet}
 
 {#snippet recordPane({ editing: inEdit }: { editing: boolean })}
+  {#if creating}
+    <div class="flex gap-24">
+      <!-- The calls being written down, one per caller, down the left (owner, 2026-11-09). Each is
+           a press away, and the one on screen is marked as the current one. -->
+      <nav aria-label="Calls being recorded" class="flex w-3xs shrink-0 flex-col gap-4">
+        <FieldLabel as="h3">Calls · {entries.length}</FieldLabel>
+        {#each entries as entry (entry.key)}
+          {@const current = entry.key === activeKey}
+          <Button
+            variant={current ? "secondary" : "ghost"}
+            class="h-auto flex-col items-start gap-0 py-8 text-left"
+            aria-current={current ? "true" : undefined}
+            disabled={saving}
+            onclick={() => showEntry(entry.key)}
+          >
+            <span class="font-medium">{entryTitle(entry.draft)}</span>
+            <span class="text-xs font-normal text-text-muted">{entryDetail(entry.draft)}</span>
+          </Button>
+        {/each}
+        <Button variant="ghost" size="sm" class="self-start" disabled={saving} onclick={addCall}>
+          <Plus aria-hidden="true" />
+          Another Call
+        </Button>
+      </nav>
+      <div class="min-w-0 flex-1">
+        {@render paneBody(inEdit)}
+      </div>
+    </div>
+  {:else}
+    {@render paneBody(inEdit)}
+  {/if}
+{/snippet}
+
+{#snippet paneBody(inEdit: boolean)}
   <div class="flex flex-col gap-16">
     {#if readFailure !== null}
       <FailureNotice
@@ -608,11 +760,13 @@
       <CommunicationFields
         bind:draft
         busy={saving}
-        matters={creating ? matters : []}
+        matters={creating ? anchorMatters : []}
         {mattersCapped}
         {matterFixed}
         {matterName}
         showAnchor={creating}
+        showContact={!creating}
+        showActivity={creating}
       />
     {:else if record !== null}
       <div class="flex flex-wrap items-center gap-8">
@@ -627,6 +781,13 @@
             {dispositionEntry(record.disposition).label}
           </Badge>
         {/if}
+        {#if record.outcome !== null}
+          <Badge variant="neutral">
+            {record.outcome === "spam" && record.spamKind !== null
+              ? `Spam · ${SPAM_KIND_LABELS[record.spamKind]}`
+              : CALL_OUTCOME_LABELS[record.outcome]}
+          </Badge>
+        {/if}
         {#if carried !== null}
           <Badge variant="neutral">{carried}</Badge>
         {/if}
@@ -635,6 +796,12 @@
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact("When", formatInstant(record.occurredAt))}
         {@render fact("Number", counterpartyNumberText(record.counterpartyNumber))}
+        {#if record.callerIdName !== null}
+          {@render fact("Caller ID", record.callerIdName)}
+        {/if}
+        {#if record.outcome === "transferred"}
+          {@render fact("Transferred to", nameOf(record.memberUserId) ?? "A colleague")}
+        {/if}
         {#if span !== null && span !== length}
           <!-- Only where it DIFFERS from the length. A call whose span and length agree has one
                fact, said once; a call put on hold has two, and both of them are true. -->
@@ -662,6 +829,29 @@
      hold it renders first, and the words that explain the emptiness live inside its own empty
      state, short (owner ruling, 2026-09-14). The rail renders its empty line rather than an empty
      frame today; the frame is a design-system change. -->
+<!-- The number the call on screen will draw, and nothing else, in italics because it is a preview
+     rather than the record's own (owner, 2026-11-09: change the sentence "to the number but
+     italicized"). Nothing is reserved by showing it; the save draws the record's own. -->
+{#snippet previewSubtitle()}
+  {#if previewed.reference.number === null}
+    <span>The number is drawn when it is saved</span>
+  {:else}
+    <em class="tabular-nums" title="The number this call will get when it is saved, if nothing else is saved first">
+      {previewed.reference.number}
+    </em>
+  {/if}
+{/snippet}
+
+<!-- While a record is being made the right side works from the NUMBER: who it belongs to and their
+     open matters, then every earlier call and text with it. -->
+{#snippet identificationTab()}
+  <CommunicationIdentification bind:draft busy={saving} onFile={fileFromPanel} />
+{/snippet}
+
+{#snippet numberHistoryTab()}
+  <CommunicationNumberHistory {draft} />
+{/snippet}
+
 {#snippet historyTab()}
   <EventRail
     events={historyEvents}
@@ -671,21 +861,10 @@
 {/snippet}
 
 {#snippet actions({ editing: inEdit }: { editing: boolean })}
-  {#if creating}
-    <!-- The one act a record being ENTERED offers besides saving it. It saves first: an intake with
-         no account of the call that started it is exactly what this control exists to prevent. -->
-    {#if onStartIntake !== undefined}
-      <Button
-        variant="secondary"
-        disabled={saveRefusal !== undefined}
-        title={saveRefusal}
-        onclick={() => void recordThenIntake()}
-      >
-        <FilePlus2 aria-hidden="true" />
-        Save And Start An Intake
-      </Button>
-    {/if}
-  {:else if !inEdit && record !== null}
+  <!-- A record being ENTERED offers only its Save here; starting an intake from it lives in the
+       header's menu (owner, 2026-11-09: "move start an intake somewhere else on the page, maybe top
+       right area"), where it cannot be pressed in place of Save. -->
+  {#if !creating && !inEdit && record !== null}
     {@const held = record}
     {#if held.matterId !== null}
       <!-- The rest of this case's conversation, which is where a reader who opened a filed row from
@@ -708,7 +887,13 @@
            receptionist leave the record, find the intake desk and retype the caller is how a first
            contact stops being recorded at all. -->
       {#if onStartIntake !== undefined}
-        <Button variant="secondary" onclick={() => onStartIntake(held)}>
+        <Button
+          variant="secondary"
+          onclick={() => {
+            open = false;
+            onStartIntake(held);
+          }}
+        >
           <FilePlus2 aria-hidden="true" />
           Start An Intake
         </Button>
@@ -726,6 +911,15 @@
 {/snippet}
 
 {#snippet menu()}
+  {#if creating && onStartIntake !== undefined}
+    <!-- It saves first: an intake with no account of the call that started it is exactly what this
+         control exists to prevent. Only this call is saved and handed up; any other call being
+         written down stays in the window. -->
+    <DropdownMenu.Item disabled={saveRefusal !== undefined} onSelect={() => void recordThenIntake()}>
+      <FilePlus2 aria-hidden="true" />
+      Start An Intake
+    </DropdownMenu.Item>
+  {/if}
   {#if record !== null}
     {@const held = record}
     {#if held.matterId !== null}
@@ -747,11 +941,16 @@
   bind:open
   bind:editing
   {heading}
-  {subtitle}
+  subtitle={creating ? previewSubtitle : subtitle}
   record={recordPane}
   {actions}
-  {menu}
-  tabs={[{ key: "history", label: "History", content: historyTab }] satisfies RecordWindowTab[]}
+  menu={creating && onStartIntake === undefined ? undefined : menu}
+  tabs={creating
+    ? ([
+        { key: "identification", label: "Identification", content: identificationTab },
+        { key: "number-history", label: "History", content: numberHistoryTab },
+      ] satisfies RecordWindowTab[])
+    : ([{ key: "history", label: "History", content: historyTab }] satisfies RecordWindowTab[])}
   editDisabledReason={editRefusal}
   saveDisabledReason={saveRefusal}
   unsavedChanges={creating ? started : editing}

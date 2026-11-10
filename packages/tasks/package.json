@@ -30,6 +30,7 @@
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "@magna-carta/meetings": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

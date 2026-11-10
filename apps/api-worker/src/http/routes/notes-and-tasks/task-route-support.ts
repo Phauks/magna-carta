@@ -41,6 +41,7 @@ import { identifierPathParam } from "../../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import type { RouteMeta } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
+import { taskErrorResponse } from "../shared/task-error-response.ts";
 
 // What every task route module shares: the permissions, the route metas, the error mapping, the
 // idempotent write, and how a task row becomes the task the wire carries. One home, so the task
@@ -98,60 +99,7 @@ export const authErrors = {
 
 // ---- error mapping ----
 
-export function taskErrorResponse(
-  c: Context,
-  caught: TaskValidationError,
-): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  switch (caught.code) {
-    case "task-unknown":
-    case "task-unknown-file":
-    case "task-unknown-predecessor":
-    // 404 and not 403: which matter a task or a document belongs to is itself a fact about the
-    // firm's work, and a distinguishable refusal would let a caller probe for either.
-    case "task-matter-mismatch":
-    case "task-file-matter-mismatch":
-    case "task-predecessor-matter-mismatch":
-    case "task-list-unknown":
-    case "task-status-unknown":
-    case "task-team-unknown":
-    case "task-parent-unknown":
-    case "task-checklist-item-unknown":
-    case "task-link-unknown":
-      return problemJson(c, {
-        type: "not-found",
-        title: "Not found",
-        status: 404,
-        detail: caught.message,
-      });
-    // Where the task stands is not where this move applies. A conflict rather than a validation
-    // failure: the request was well-formed and the record moved under it, which is what a second
-    // person completing the same task looks like.
-    case "task-not-open":
-    case "task-not-done":
-    case "task-already-archived":
-    case "task-not-archived":
-    case "task-status-move-not-in-flow":
-    case "task-list-name-taken":
-    case "task-status-name-taken":
-    case "task-team-name-taken":
-    case "task-list-is-default":
-    case "task-status-in-use":
-    case "task-status-last":
-      return problemJson(c, {
-        type: "conflict",
-        title: "That task is not where this change applies",
-        status: 409,
-        detail: caught.message,
-      });
-    default:
-      return problemJson(c, {
-        type: "validation",
-        title: "Task request invalid",
-        status: 422,
-        detail: caught.message,
-      });
-  }
-}
+export { taskErrorResponse };
 
 // ---- route metas ----
 

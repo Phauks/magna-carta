@@ -59,6 +59,12 @@ export { DiscoveryLoadCoordinator } from "./discovery/discovery-load-coordinator
 // it. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
 export { MeetingRoom } from "./meetings/meeting-room.ts";
 
+// One recording's sink, keyed firmId:recordingId — the object the routing service's WebSocket adapters
+// dial, which stages each track's audio in the firm's own bucket and holds none of it in storage.
+// Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
+export { MeetingRecorder } from "./meetings/meeting-recorder.ts";
+export { MeetingCaptioner } from "./meetings/meeting-captioner.ts";
+
 // The per-document editing session coordinator. Re-exported so wrangler can register the Durable
 // Object class named in wrangler.jsonc (durable_objects + the SQLite migration).
 export { DocumentSession } from "./editing/document-session.ts";

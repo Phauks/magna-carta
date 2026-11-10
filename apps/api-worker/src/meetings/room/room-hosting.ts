@@ -5,6 +5,7 @@ import {
 } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
 import { sfuClientForEnv, SfuUnavailableError, type SfuClient } from "../sfu/sfu-client.ts";
+import { noteSpeakingForCaptions, setCaptions } from "./room-captions.ts";
 import { recordLocked, recordMuted, recordRemoved, refuseAndRecord } from "./room-diagnostics.ts";
 import { announceLobbyToNewHosts, waitingRemoved } from "./room-lobby.ts";
 import { lowerHands } from "./room-presence.ts";
@@ -66,13 +67,14 @@ export const MUTE_ALL_CONCURRENCY = 8;
  */
 export const ASK_TO_UNMUTE_INTERVAL_MILLISECONDS = 5_000;
 
-/** The five frames a host may send, as the dispatch hands them over. */
+/** The six frames a host may send, as the dispatch hands them over. */
 export type MeetingHostFrame =
   | { readonly type: "mute"; readonly participantId: string }
   | { readonly type: "mute-all" }
   | { readonly type: "ask-to-unmute"; readonly participantId: string }
   | { readonly type: "spotlight"; readonly participantId: string | null }
-  | { readonly type: "lower-hands"; readonly participantId: string | null };
+  | { readonly type: "lower-hands"; readonly participantId: string | null }
+  | { readonly type: "captions"; readonly enabled: boolean };
 
 /**
  * One host frame, from the authority question to the act.
@@ -103,6 +105,15 @@ export async function handleHostFrame(
 
   if (frame.type === "spotlight") {
     await setSpotlight(room, attendanceId, frame.participantId, stored);
+    return;
+  }
+
+  if (frame.type === "captions") {
+    // THE ACT IS room-captions.ts's, because the switch and what it starts are that module's; what is
+    // decided here is the one thing this module owns — whether the socket that asked is running the
+    // meeting. The roster this frame already paid for is handed over, so turning captions on in a room
+    // of three hundred costs one list of its keys to find who is already speaking.
+    await setCaptions(room, socket, attendanceId, frame.enabled, stored);
     return;
   }
 
@@ -201,6 +212,9 @@ async function closeAudio(
   // that browser is about to discover its track is gone, and the room already knows. Written before
   // the roster is announced so one broadcast carries both facts.
   await markMuted(room, attendanceId);
+  // A muted speaker has stopped speaking as far as captions are concerned, though no frame of theirs
+  // said so: their caption session starts its close now rather than waiting for its audio to vanish.
+  if (target.speaking) await noteSpeakingForCaptions(room, attendanceId, false);
 
   if (target.sfuSessionId !== null && mids.length > 0) {
     try {

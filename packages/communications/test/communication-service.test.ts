@@ -597,3 +597,124 @@ describe("how long the line was open, and how long the call took", () => {
     expect(held?.ended_at).toBe("2026-09-07T10:30:00.000Z");
   });
 });
+
+describe("what happened on the line", () => {
+  it("records the caller's name and an outcome beside the call", async () => {
+    const database = fresh();
+    const id = await log(
+      database,
+      callInput({ direction: "inbound", outcome: "answered", callerIdName: "  Maria Lopez " }),
+    );
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.outcome).toBe("answered");
+    expect(row?.caller_id_name).toBe("Maria Lopez");
+    expect(row?.spam_kind).toBeNull();
+  });
+
+  it("sets a spam call aside as spam without being asked twice, and needs no notes", async () => {
+    const database = fresh();
+    const id = await log(
+      database,
+      callInput({
+        direction: "inbound",
+        outcome: "spam",
+        spamKind: "scam",
+        summary: null,
+        durationSeconds: null,
+      }),
+    );
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.disposition).toBe("spam");
+    expect(row?.spam_kind).toBe("scam");
+  });
+
+  it("refuses a spam call on a matter", async () => {
+    const database = fresh();
+    await expect(
+      logCommunication(
+        database.database,
+        callInput({ direction: "inbound", outcome: "spam", matterId: MATTER }),
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "communication-spam-on-matter" });
+  });
+
+  it("refuses an outcome from the other direction", async () => {
+    const database = fresh();
+    await expect(
+      logCommunication(
+        database.database,
+        callInput({ direction: "outbound", outcome: "transferred" }),
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "communication-outcome-direction" });
+  });
+
+  it("refuses a transfer that names nobody", async () => {
+    const database = fresh();
+    await expect(
+      logCommunication(
+        database.database,
+        callInput({ direction: "inbound", outcome: "transferred", memberUserId: null }),
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "communication-transfer-without-member" });
+  });
+
+  it("refuses a kind of spam on a call that was not spam", async () => {
+    const database = fresh();
+    await expect(
+      logCommunication(
+        database.database,
+        callInput({ direction: "inbound", outcome: "answered", spamKind: "sales" }),
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "communication-spam-kind-without-spam" });
+  });
+
+  it("lets a text be spam and nothing else", async () => {
+    const database = fresh();
+    const id = await log(database, textInput({ outcome: "spam" }));
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.outcome).toBe("spam");
+    await expect(
+      logCommunication(database.database, textInput({ outcome: "answered" }), options),
+    ).rejects.toMatchObject({ code: "communication-outcome-on-message" });
+  });
+
+  it("writes a message's task in the same batch, and keeps its id", async () => {
+    const database = fresh();
+    const { communicationId, effect } = await logCommunication(
+      database.database,
+      callInput({ direction: "inbound", outcome: "messageTaken" }),
+      options,
+      async (call) => {
+        expect(call.communicationId).toBeDefined();
+        expect(call.referenceNumber).toMatch(/^2026-09-07-/u);
+        return {
+          taskId: "matterTask_messageTask000000000",
+          effect: {
+            statements: [],
+            outboxMessages: [{ topic: "tasks.firmTask.assigned", payload: {} }],
+          },
+        };
+      },
+    );
+    expect(effect.outboxMessages).toHaveLength(1);
+    await commit(database.database, effect);
+    const row = await readCommunication(database.database, communicationId, visibility, true);
+    expect(row?.message_task_id).toBe("matterTask_messageTask000000000");
+  });
+
+  it("refuses a message on a call whose outcome was not a message", async () => {
+    const database = fresh();
+    await expect(
+      logCommunication(
+        database.database,
+        callInput({ direction: "inbound", outcome: "answered" }),
+        options,
+        async () => ({ taskId: "matterTask_x", effect: { statements: [], outboxMessages: [] } }),
+      ),
+    ).rejects.toMatchObject({ code: "communication-message-without-outcome" });
+  });
+});

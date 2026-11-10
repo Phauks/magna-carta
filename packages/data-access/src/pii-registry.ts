@@ -277,7 +277,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "communication",
     subjectKey: "counterparty_number",
     action: "retain-under-matter",
-    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body and a call summary are content-level residue for the residue report",
+    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body, a call summary and the name a caller gave are content-level residue for the residue report",
   },
   {
     table: "communication",
@@ -506,6 +506,106 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "participant_id",
     action: "retain-under-matter",
     note: "the stay that upvoted a question is who did it and the proof they were in the room",
+  },
+  // Recording — who recorded, who was recorded and who was told. IDENTIFIERS ONLY: the audio itself is
+  // staged in the firm's bucket and filed as a document under the matter, where it takes the document's
+  // own retention, and nothing in these three tables is content. Every reference takes the attendance
+  // row's basis, because who recorded a conversation on a matter, whose voice is in it and who was told
+  // it was being recorded is part of what the record says happened — and the notice rows are the
+  // consent record the owner's ruling made of the announcement, which erasure must never thin out.
+  // A stay is carried by value, and a member resolves through meeting_attendance.user_id as well as
+  // through the user_id column each row carries beside it.
+  {
+    table: "meeting_recording",
+    subjectKey: "started_by_user_id",
+    action: "retain-under-matter",
+    note: "who pressed Record on a meeting on a matter is the act the recording's whole record hangs from",
+  },
+  {
+    table: "meeting_recording",
+    subjectKey: "stopped_by_user_id",
+    action: "retain-under-matter",
+    note: "who stopped a recording, and when, closes the span it claims to have captured; null when nobody did",
+  },
+  {
+    table: "meeting_recording_track",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay whose audio a track carries is whose voice the recording holds, and the attribution of every later transcript line",
+  },
+  {
+    table: "meeting_recording_track",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a recorded track, beside the stay; null for a guest or anybody else without a user",
+  },
+  {
+    table: "meeting_recording_notice",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay that was told a recording started, was running when they arrived, or stopped — the consent record itself",
+  },
+  {
+    table: "meeting_recording_notice",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a notice, beside the stay; null for a guest, who was told exactly as a member was",
+  },
+  // The transcript of a filed recording — and here the meeting subsystem holds the most sensitive
+  // content the platform stores: what was said in a privileged conversation, word for word, attributed.
+  // Every line hangs from the STAY whose track it came from, carried by value as the track's is, beside
+  // the member behind it; a member resolves through meeting_attendance.user_id as well. The text is
+  // content, on the line a filed email body and meeting_message.body sit on: never logged, never in an
+  // audit row, never in an error payload, redacted by default everywhere — and content-level residue for
+  // the residue report rather than anything an automated rewrite can safely touch. The transcript row
+  // itself carries handles, counts and a state, and no personal column.
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay whose track a transcript line came from is who said it — the attribution the whole transcript rests on; null on a gap that is nobody's",
+  },
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member behind a transcript line, beside the stay; null for a guest, whose words are attributed to their stay exactly as a member's are",
+  },
+  {
+    table: "meeting_transcript_segment",
+    subjectKey: "text",
+    action: "retain-under-matter",
+    note: "what was said in a meeting on a matter, word for word — content on the line meeting_message.body sits on, and content-level residue for the residue report",
+  },
+  // The summary of a ready transcript — DERIVED content, and WORK PRODUCT: a reasoning model's
+  // characterization of a privileged conversation, kept as rows beside the record it summarizes and
+  // never filed as a document. It takes the transcript's treatment (never logged, never in an audit row,
+  // never in an error payload) and the work-product class the assistant's turns carry. Its structured
+  // subjects are the member who asked for a re-run and the member an action item names as its owner; the
+  // free text of either may name anybody, which is the residue class the report surfaces.
+  {
+    table: "meeting_summary",
+    subjectKey: "requested_by_user_id",
+    action: "retain-under-matter",
+    note: "who asked for a meeting's summary to be written again; null for the run the platform began itself",
+  },
+  {
+    table: "meeting_summary",
+    subjectKey: "summary_text",
+    action: "retain-under-matter",
+    note: "work product: the platform's characterization of what was said in a meeting on a matter — derived content on the line the transcript's text sits on, and content-level residue for the residue report",
+  },
+  {
+    table: "meeting_summary_action_item",
+    subjectKey: "owner_user_id",
+    action: "retain-under-matter",
+    note: "the member a meeting's summary says undertook something, named only on an exact match to how the transcript knows them",
+  },
+  {
+    table: "meeting_summary_action_item",
+    subjectKey: "text",
+    action: "retain-under-matter",
+    note: "work product: what a meeting's summary says somebody undertook to do — derived content, and content-level residue for the residue report",
   },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
@@ -1252,6 +1352,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // manifest, and source media type. Operational bookkeeping keyed to file_version, no personal
   // data of its own (the underlying document's retention is the file entry's, as above).
   "file_repair_provenance",
+  // A recording's transcript header — handles, counts, a state, the cursor of the work that makes it,
+  // and the model and language the model reported. It names nobody: the words and who said each are
+  // its segments' (registered in PII_TABLES), and the filed document takes the document's retention.
+  "meeting_transcript",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",

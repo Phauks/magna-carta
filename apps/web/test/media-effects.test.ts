@@ -268,6 +268,49 @@ describe("the pass-through stage", () => {
     expect(effected.applied).toEqual(applied);
   });
 
+  it("leaves a blur the member never touched alone when only noise reduction changes", async () => {
+    // A camera the product may set, which the machine's own settings have blurred: the member asked
+    // for their own background and has never pressed a background row.
+    const camera = new FakeTrack(
+      "video",
+      { backgroundBlur: true },
+      { backgroundBlur: [false, true] },
+    );
+    const stream = new FakeStream([new FakeTrack("audio"), camera]);
+    const effected = await passThroughEffects().applyEffects(
+      asStream(stream),
+      DEFAULT_EFFECT_SETTINGS,
+    );
+    expect(effected.applied.blur).toBe("on");
+
+    // Said to be about the microphone, and not said at all: neither moves the camera.
+    await effected.update({ background: "none", reduceNoise: false }, "microphone");
+    const applied = await effected.update({ background: "none", reduceNoise: true });
+
+    expect(camera.asked).toEqual([]);
+    expect(applied.blur).toBe("on");
+    expect(applied.refusal).toBeNull();
+  });
+
+  it("turns that blur off when the member presses None for it", async () => {
+    const camera = new FakeTrack(
+      "video",
+      { backgroundBlur: true },
+      { backgroundBlur: [false, true] },
+    );
+    const stream = new FakeStream([new FakeTrack("audio"), camera]);
+    const effected = await passThroughEffects().applyEffects(
+      asStream(stream),
+      DEFAULT_EFFECT_SETTINGS,
+    );
+
+    // The same background the member had already asked for, pressed on the row that is not lit.
+    const applied = await effected.update(DEFAULT_EFFECT_SETTINGS, "background");
+
+    expect(camera.asked.at(-1)).toHaveProperty("backgroundBlur", false);
+    expect(applied.blur).toBe("off");
+  });
+
   it("turns a refused blur into a refusal and leaves the effect off", async () => {
     const camera = new FakeTrack(
       "video",

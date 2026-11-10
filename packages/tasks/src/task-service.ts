@@ -4,6 +4,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
+import { clearActionItemTaskStatement } from "@magna-carta/meetings/summary-statements";
 import type {
   FileId,
   MatterDeadlineId,
@@ -764,6 +765,12 @@ export async function deleteMatterTask(
         // remote object's uniqueness slot, which would stop the firm ever linking that object to a
         // real task again.
         deleteExternalLinksForTaskStatement(database, taskId),
+        // A meeting summary's action item made into this task names it, and that reference is
+        // ENFORCED — left in place it would refuse this delete outright. The item is the meeting's
+        // record and stays; it stops naming the task, and reads again as an undertaking nobody has made
+        // a task of. Composed from the meetings package so this package keeps no SQL over a table it
+        // does not own.
+        clearActionItemTaskStatement(database, { taskId, now }),
         deleteMatterTaskStatement(database, taskId),
         domainAuditStatement(database, {
           event: "tasks.task.deleted",

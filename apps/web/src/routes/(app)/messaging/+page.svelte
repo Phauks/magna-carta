@@ -238,10 +238,9 @@
       }
     }
     intakePrefill = { client };
-    // The record window has already closed itself by the time a saved entry hands one up; closing it
-    // here as well is what covers the other door, where an intake starts from a row already on the
-    // log.
-    recordOpen = false;
+    // The record window decides whether it closes: a row already on the log closes it, and a call
+    // just saved closes it only when no other call is still being written down beside it, so an
+    // intake never throws away somebody else's half-recorded call.
     intakeOpen = true;
   }
 

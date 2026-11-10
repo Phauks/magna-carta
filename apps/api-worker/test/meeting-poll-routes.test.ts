@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { fingerprintRequest } from "@magna-carta/data-access/canonical";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
 import { MAX_MEETING_POLL_QUESTION_LENGTH } from "@magna-carta/meetings/poll-types";
@@ -494,5 +495,100 @@ describe("answering, closing and reading who answered", () => {
     expect(closed.pollId).toBe(poll.id);
     expect(closed.counts.map((entry) => entry.count)).toEqual([0, 0, 1]);
     expect(closed.respondents).toBe(1);
+  });
+});
+
+describe("the idempotency record of an answer", () => {
+  async function storedRecord(key: string) {
+    return await firmDatabase
+      .prepare(
+        "SELECT fingerprint, response_body AS responseBody FROM idempotency_key WHERE key = ?1",
+      )
+      .bind(key)
+      .first<{ fingerprint: string; responseBody: string | null }>();
+  }
+
+  it("keeps nothing on an anonymous poll that the choice could be read back out of", async () => {
+    const meetingId = await hostedMeeting();
+    expect((await post(`/api/v1/meetings/${meetingId}/join`, attorneyCookie)).status).toBe(200);
+    const poll = await openPoll(meetingId, { anonymous: true });
+    const [monday, tuesday, wednesday] = poll.options.map((option) => option.optionId);
+    const path = `/api/v1/meetings/${meetingId}/polls/${poll.id}/answers`;
+
+    const attorneyKey = crypto.randomUUID();
+    const ownerKey = crypto.randomUUID();
+    expect((await post(path, attorneyCookie, { optionIds: [monday] }, attorneyKey)).status).toBe(
+      200,
+    );
+    expect((await post(path, ownerCookie, { optionIds: [tuesday] }, ownerKey)).status).toBe(200);
+    const attorneys = await storedRecord(attorneyKey);
+    const owners = await storedRecord(ownerKey);
+
+    // THE FINGERPRINT CANNOT BE ENUMERATED BACK TO A CHOICE. Two members who chose differently hold
+    // the same one, and hashing each candidate body the way a fingerprint over the body is made
+    // matches neither.
+    expect(attorneys?.fingerprint).toBe(owners?.fingerprint);
+    for (const optionId of [monday, tuesday, wednesday]) {
+      const candidate = await fingerprintRequest({
+        method: "POST",
+        path,
+        body: { optionIds: [optionId] },
+      });
+      expect(attorneys?.fingerprint).not.toBe(candidate);
+      expect(owners?.fingerprint).not.toBe(candidate);
+    }
+
+    // AND NO TALLY: two consecutive stored bodies would otherwise differ by exactly one choice.
+    for (const record of [attorneys, owners]) {
+      expect(JSON.parse(record?.responseBody ?? "null")).toEqual({ id: poll.id });
+    }
+  });
+
+  it("answers a retry from the record as it stands now, and records nothing a second time", async () => {
+    const meetingId = await hostedMeeting();
+    expect((await post(`/api/v1/meetings/${meetingId}/join`, attorneyCookie)).status).toBe(200);
+    const poll = await openPoll(meetingId, { anonymous: true });
+    const [monday, tuesday, wednesday] = poll.options.map((option) => option.optionId);
+    const path = `/api/v1/meetings/${meetingId}/polls/${poll.id}/answers`;
+    const key = crypto.randomUUID();
+
+    expect((await post(path, attorneyCookie, { optionIds: [monday] }, key)).status).toBe(200);
+    expect((await post(path, ownerCookie, { optionIds: [tuesday] })).status).toBe(200);
+
+    // The same key, the same body: the poll whole, as the record now holds it — both answers in it.
+    const retried = await post(path, attorneyCookie, { optionIds: [monday] }, key);
+    expect(retried.status).toBe(200);
+    expect(retried.headers.get("idempotency-replayed")).toBe("true");
+    const replayed = await readJson<Poll>(retried);
+    expect(replayed.id).toBe(poll.id);
+    expect(replayed.question).toBe("Which date suits?");
+    expect(replayed.answeredByCaller).toBe(true);
+    expect(replayed.respondents).toBe(2);
+    expect(replayed.options.map((option) => option.count)).toEqual([1, 1, 0]);
+
+    // THE TRADE, STATED: the record cannot tell a different body under the same key from the first,
+    // so it is answered as the first was. It can never be a second answer — an answer cannot be
+    // changed — and nothing is written.
+    const changedMind = await post(path, attorneyCookie, { optionIds: [wednesday] }, key);
+    expect(changedMind.status).toBe(200);
+    expect(changedMind.headers.get("idempotency-replayed")).toBe("true");
+    expect((await readJson<Poll>(changedMind)).options.map((option) => option.count)).toEqual([
+      1, 1, 0,
+    ]);
+    const respondents = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM meeting_poll_respondent WHERE poll_id = ?1")
+      .bind(poll.id)
+      .first<{ count: number }>();
+    expect(respondents?.count).toBe(2);
+
+    // A key reused on ANOTHER poll is still a different request, and still refused.
+    const elsewhere = await openPoll(meetingId, { anonymous: true });
+    const reused = await post(
+      `/api/v1/meetings/${meetingId}/polls/${elsewhere.id}/answers`,
+      attorneyCookie,
+      { optionIds: [elsewhere.options[0]?.optionId] },
+      key,
+    );
+    expect(reused.status).toBe(422);
   });
 });

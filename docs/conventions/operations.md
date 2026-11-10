@@ -921,3 +921,31 @@ The name is not in `secrets.required` (§3), deliberately, for the same reason a
 **What never appears anywhere.** The number is a client's: the routes are POSTs (the invocation log records full URLs), the audit row records only that a lookup was paid for, and no metric dimension can hold the number or the name.
 
 **Switching it off.** `wrangler secret delete TELNYX_API_KEY`. The button disappears on the next read; answers already kept stay visible, because the firm paid for them.
+
+## 22. Turning meeting recording on (recording, transcripts, summaries, live captions)
+
+The code is deployed switched off. Nothing records until every step below is done, and until then the
+start route answers `503 meeting-recording-not-configured` and no Record control is offered
+(`recordingDeploymentConfigured` in `apps/api-worker/src/http/routes/communications/meetings.ts`
+reads all of it). Do them in this order:
+
+1. **Create the queue and its dead-letter queue.** `wrangler queues create magna-carta-production-meeting-recording-compose`
+   and `wrangler queues create magna-carta-production-meeting-recording-compose-deadletter`. One queue
+   carries all three kinds of work: composing a stopped recording into one file, transcribing it, and
+   summarizing the transcript.
+2. **Bind the queue, in a change of its own.** Add `MEETING_RECORDING_COMPOSE` to `queues.producers` in
+   `apps/api-worker/wrangler.jsonc`, and a consumer for the same queue with `max_batch_size: 1`,
+   `max_concurrency: 10` and the dead-letter queue above. It is not bound today because a deploy that
+   binds a queue the account does not have fails, and a merge to `main` deploys; the comment where the
+   producer goes says so.
+3. **Prove the sink against the live Realtime application.** Confirm the routing service's WebSocket
+   adapter dials `/internal/meeting-audio/<token>` with the path intact (the token rides the path, never
+   a query string), and that the audio envelope's field numbers are 1, 2 and 5 as
+   `packages/meetings/src/pcm-frame.ts` reads them.
+4. **Route `/internal/*` to the app Worker.** `run_worker_first` already lists it; add the zone route if
+   the hostname's routes do not reach it (section 12, _Which address does a Worker answer on_).
+5. **Set the sink signing key.** `wrangler secret put MEETING_SINK_SIGNING_KEY` with a fresh random
+   value. It signs the token the routing service presents when it dials the recorder.
+6. **A firm switches it on.** Its Owner or Admin turns recording (and, separately, summaries and
+   captions) on under Settings › Practice › Meetings. Summaries also need the firm's AI processing
+   switched on.

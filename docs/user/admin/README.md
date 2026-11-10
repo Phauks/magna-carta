@@ -38,6 +38,10 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
   send it), why one does not follow from the other, the model your content reaches and the two facts
   stated about it, the daily question ceiling, who may change any of it, and what closing a switch
   does to questions already sent.
+- [Your firm's meeting settings](../features/meetings.md#your-firms-meeting-settings) — whether the
+  firm's meetings may be recorded, summarized and captioned, the most people one recording hears and
+  why that cannot pass eleven, why a summary also needs AI processing, what the page says when the
+  platform's recording service is not set up yet, and who can change any of it.
 - [Turning on question-and-answer document search](natural-language-document-search.md) — what the
   feature copies and where, the two things the disclosure declines to guarantee (data residency, and
   provable erasure from the managed store), leaving a matter out, what turning it off can and cannot

@@ -18,6 +18,7 @@ import {
   listMeetingQuestions,
   markQuestionAnsweredStatement,
   readMeetingQuestion,
+  readMemberUpvoteStay,
   readQuestionsUpvotedByMember,
   redactMeetingQuestionStatement,
   unmarkQuestionAnsweredStatement,
@@ -218,12 +219,17 @@ export async function upvoteMeetingQuestion(
   options: MeetingQuestionOptions,
 ): Promise<{ upvoted: boolean; effect: EffectWrite }> {
   const meeting = await reachMeeting(database, meetingId, options);
-  await reachQuestion(database, meetingId, questionId);
+  const question = await reachQuestion(database, meetingId, questionId);
   const stay = await requireOpenStay(database, meeting, options);
   const already = await readQuestionsUpvotedByMember(database, meetingId, options.actorUserId, [
     questionId,
   ]);
+  // Already true is answered as success first, so a member who upvoted before the question was
+  // taken back is told what holds rather than refused for a state they did not cause.
   if (already.has(questionId)) return { upvoted: false, effect: NOTHING };
+  if (question.redactedAt !== null) {
+    refuseQuestion("meeting-question-redacted", "that question has been taken back");
+  }
 
   const now = options.clock.now();
   return {
@@ -258,7 +264,13 @@ export async function upvoteMeetingQuestion(
 /**
  * Taking an upvote back. Removes exactly the member's one upvote, from whichever of their stays it
  * was cast; a member with none to take back produces no statements. Needs an open stay like the
- * upvote itself — somebody who has left the room is no longer voting in it.
+ * upvote itself — somebody who has left the room is no longer voting in it. Allowed on a question
+ * that has been taken back: clearing a signal one gave is never refused.
+ *
+ * THE AUDIT ROW NAMES THE STAY THE UPVOTE WAS CAST FROM, not the one withdrawing it. The two differ
+ * whenever the member left and rejoined in between, and the withdrawal is about the upvote row it
+ * removes — the `meetings.question.upvoted` row beside it names that same stay, so the pair reads as
+ * one signal given and taken back.
  */
 export async function withdrawMeetingQuestionUpvote(
   database: SqlDatabase,
@@ -268,11 +280,9 @@ export async function withdrawMeetingQuestionUpvote(
 ): Promise<{ withdrawn: boolean; effect: EffectWrite }> {
   const meeting = await reachMeeting(database, meetingId, options);
   await reachQuestion(database, meetingId, questionId);
-  const stay = await requireOpenStay(database, meeting, options);
-  const upvoted = await readQuestionsUpvotedByMember(database, meetingId, options.actorUserId, [
-    questionId,
-  ]);
-  if (!upvoted.has(questionId)) return { withdrawn: false, effect: NOTHING };
+  await requireOpenStay(database, meeting, options);
+  const castFrom = await readMemberUpvoteStay(database, meetingId, options.actorUserId, questionId);
+  if (castFrom === undefined) return { withdrawn: false, effect: NOTHING };
 
   const now = options.clock.now();
   return {
@@ -293,7 +303,7 @@ export async function withdrawMeetingQuestionUpvote(
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          metadata: { meetingId, participantId: stay.id, withdrawnAt: now },
+          metadata: { meetingId, participantId: castFrom, withdrawnAt: now },
         }),
       ],
       outboxMessages: [],

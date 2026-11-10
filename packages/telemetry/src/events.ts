@@ -562,6 +562,78 @@ export const meetingGuestRefused = defineEvent("meetings.guest.refused", [
   "invitationId",
 ] as const);
 
+// ── A meeting's recording ────────────────────────────────────────────────────
+//
+// WHAT A RECORDING'S STREAM IS FOR. The recording's RECORD is in the firm's own database — the
+// recording row, a row per track and a row per notice — and these events are the operator's view of
+// whether the machinery behind it worked: did the announcement reach the room, did each track's socket
+// open and stay open, did the recorder stop cleanly or give up. They are what is read when a firm says
+// "the recording is missing somebody".
+//
+// WHAT IS STRUCTURALLY ABSENT, and in this subsystem it is the whole point. There is no field for a
+// track name (a browser chose it), a display name, a session, an adapter handle, a sink token, an
+// object key or a byte of audio. Identifiers the platform minted, counts, closed enums and instants —
+// the meeting family's own posture, held here for the most sensitive thing a meeting can produce.
+
+/**
+ * The room told everybody a recording started or stopped, or told one arrival it was running.
+ *
+ * `reason` is the notice vocabulary (`start`, `arrival`, `stop`); `recipientCount` is how many
+ * welcomed sockets the frame was sent to and `noticeCount` how many notice rows were committed for
+ * them. The two differ only when the notice batch failed — which is the case this event exists to
+ * make visible, because an announcement with no record is the failure the consent ruling cannot have.
+ */
+export const meetingRecordingAnnounced = defineEvent("meetings.recording.announced", [
+  "firmId",
+  "meetingId",
+  "recordingId",
+  "reason",
+  "recipientCount",
+  "noticeCount",
+] as const);
+
+/**
+ * One track's passage through the recorder: `act` is `opened`, `refused` (past the ceiling, recorded
+ * lost with no frames), `failed` (the adapter could not be opened), `reattached` (its participant's
+ * connection came back on a new session), `detached` (its participant left), or `lost` (its socket
+ * went and did not come back). The counts are the track's own at that moment.
+ */
+export const meetingRecorderTrack = defineEvent("meetings.recorder.track", [
+  "firmId",
+  "meetingId",
+  "recordingId",
+  "trackId",
+  "act",
+  "framesReceived",
+  "framesDropped",
+] as const);
+
+/**
+ * The recorder let go of a recording: every adapter closed, every staged upload completed or
+ * abandoned. `outcome` is `composing` when something was captured and `failed` when nothing was;
+ * `capturedSeconds` is what the tracks actually span, never the wall-clock length.
+ */
+export const meetingRecorderStopped = defineEvent("meetings.recorder.stopped", [
+  "firmId",
+  "meetingId",
+  "recordingId",
+  "stopReason",
+  "trackCount",
+  "lostTrackCount",
+  "capturedSeconds",
+  "outcome",
+] as const);
+
+/**
+ * The socket the routing service dials was refused. `reason` is `origin` (a page tried to reach the
+ * path), `upgrade` (not a WebSocket request), `token` (not one this Worker signed, or expired), or
+ * `settled` (a recording or a track that is no longer running). Nothing about the token is recorded:
+ * a refused credential is still a credential.
+ */
+export const meetingRecordingSinkRefused = defineEvent("meetings.recording.sinkRefused", [
+  "reason",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -608,4 +680,8 @@ export const EVENT_NAMES = [
   meetingRoomStorageReadBudget,
   meetingRoomClientReport,
   meetingGuestRefused,
+  meetingRecordingAnnounced,
+  meetingRecorderTrack,
+  meetingRecorderStopped,
+  meetingRecordingSinkRefused,
 ].map((builder) => builder.eventName);
