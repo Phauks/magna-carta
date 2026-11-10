@@ -116,19 +116,19 @@
   audience: public
   public-name: Favorites
   public-summary: Star any page — a matter, a tool, a client record — and it sits at the top of your sidebar.
-  evidence: apps/web/src/lib/navigation/favorites.svelte.ts (the store, the pathname identity, the glyph resolved from the area), apps/web/src/lib/navigation/favorite-control.svelte (the star every screen's header carries), and the Favorites group in sidebar-preferences.svelte.ts. Held by apps/web/test/favorites.test.ts.
+  evidence: apps/web/src/lib/navigation/favorites.svelte.ts (the store, the pathname identity, the glyph resolved from the area), apps/web/src/lib/screen/page-actions-menu.svelte (Add to Favorites, in the page menu every screen's header carries), and the Favorites group in sidebar-preferences.svelte.ts. Held by apps/web/test/favorites.test.ts.
   notes: Per browser, like every other sidebar preference; carrying them across a member's devices waits on the member-preferences store. The star is the favourite's mark and the eye is Customize's show/hide, which is the owner's ruling of 2026-09-16 — one symbol had been answering two questions.
 
 - id: platform.web-spa.page-actions-menu
   name: The page menu
-  scope: A `…` menu beside the favourite star on every screen header, holding what is about the page rather than work on it — Copy Link, Open in New Tab, and a screen's own secondary page-level items.
+  scope: A `…` menu beside the title on every screen header, holding what is about the page rather than work on it — Add to Favorites, Copy Link, Open in New Tab, and a screen's own secondary page-level items.
   status: shipped
   surface: screen
   audience: public
   public-name: Page menu
-  public-summary: Every page has a menu beside its title to copy its link or open it in a new tab, plus anything that page adds.
+  public-summary: Every page has a menu beside its title to save it to Favorites, copy its link or open it in a new tab, plus anything that page adds.
   evidence: apps/web/src/lib/screen/page-actions-menu.svelte (the menu and its two universal items) and the `pageMenu` snippet on apps/web/src/lib/screen/screen-header.svelte; Notifications, Shipping & Postage and Uploads pass their own items.
-  notes: The owner's selection of 2026-11-09. The star was kept out of the menu because the gold star is how a member sees a page is already a favourite.
+  notes: The owner's selection of 2026-11-09. The star shipped beside the menu first and moved into it the same day, on the owner's direction.
 
 - id: platform.web-spa.multi-tab-sync
   name: Cross-tab state sync
