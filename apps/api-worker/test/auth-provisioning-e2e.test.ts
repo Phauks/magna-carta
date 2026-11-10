@@ -622,6 +622,13 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
  * Enumerated rather than allowed by shape, on the same terms as the two sets above: a future route
  * that named no permission and rode the public surface would otherwise hide behind this one.
  */
+// A CALENDAR PROVIDER'S NOTICE ADDRESS. The caller is the provider's own notification service,
+// which can hold no session. The route creates no account and no credential, reads nothing about
+// a firm, and acts only on a notice carrying the secret one connected account gave that provider
+// (asserted in calendar-sync-provider-notices.test.ts); every other request is answered alike and
+// changes nothing. Enumerated here so a second unauthenticated POST cannot arrive unnoticed.
+const PROVIDER_NOTICE_OPERATIONS = new Set(["calendarSync.receiveMicrosoftNotice"]);
+
 const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set(["meetings.inspect"]);
 
 /**
@@ -732,6 +739,13 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         expect(operation["x-mc-rateLimit"], label).toBe("auth");
         continue;
       }
+      // A provider's notice: no session, no permission to name, and a bucket of its own.
+      if (PROVIDER_NOTICE_OPERATIONS.has(operation["operationId"] as string)) {
+        expect(operation["x-mc-authenticated"], label).toBe(false);
+        expect(operation["x-mc-permission"], label).toBeNull();
+        expect(operation["x-mc-rateLimit"], label).toBe("provider-notice");
+        continue;
+      }
       // A meeting guest's write: admitted by the guest lane's verified credential, never a session.
       if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
         expectGuestLaneShape(operation, label);
@@ -778,6 +792,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     const platformAdminSurface = publicSurface.filter(
       (entry) =>
         !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string) &&
+        !PROVIDER_NOTICE_OPERATIONS.has(entry.operation["operationId"] as string) &&
         !PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string),
     );
     expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual([
@@ -857,6 +872,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     // contract without this literal being edited in the same change.
     for (const { operation, label } of emittedOperations(document, MUTATING_METHODS)) {
       if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) continue;
+      if (PROVIDER_NOTICE_OPERATIONS.has(operation["operationId"] as string)) continue;
       // A guest's write creates no account and no credential of any kind a session could become;
       // it is admitted by a signed link the firm sent, and the lane's shape is asserted.
       if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
