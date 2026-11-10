@@ -422,10 +422,11 @@
 
 - id: documents.preview.player
   name: Video player UI
-  scope: Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
-  status: designed
+  scope: Inline video player on the browser's own video element with the design system's own controls (seek with buffered fill, frame and ten-second steps, speed, sound, picture in picture, full screen, a link to the moment), as a page and in the details panel's Preview tab; HLS support dormant for future transcoding.
+  status: partial
+  surface: screen
   spec: docs/specs/2026-06-19-slice-2-3-inline-preview-safe-delivery-design.md
-  evidence: No vidstack dependency anywhere in the tree; slice 2-3 fragment: "Player UI → 0·7".
+  evidence: packages/design-system/src/lib/components/video-player + slider (stories as browser tests); apps/web/src/routes/(app)/documents/[id]/watch and file-video-preview.svelte; the inline-playable verdict is judged at first preview by apps/api-worker/src/files/inline-playable-assessment.ts over packages/file-manager/src/inline-playable.ts. Partial because the production files host (FILES_ORIGIN) is still a placeholder, so a deployed grant streams nowhere and the player offers the download.
 
 - id: documents.preview.transcoding
   name: Preview transcoding

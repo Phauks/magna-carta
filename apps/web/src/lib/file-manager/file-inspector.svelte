@@ -40,6 +40,8 @@
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
   import VersionChangesDialog from "./version-changes-dialog.svelte";
+  import FileVideoPreview from "./file-video-preview.svelte";
+  import { viewerKindOf } from "$lib/documents/editable-documents.ts";
   import Flag from "@lucide/svelte/icons/flag";
   import Eye from "@lucide/svelte/icons/eye";
   import Hash from "@lucide/svelte/icons/hash";
@@ -620,6 +622,15 @@
     }
     return "The document renders here once the preview surface is wired to this panel.";
   });
+
+  /** A clean recording nothing is holding back plays in the panel; anything else keeps the note. */
+  const playsInPanel = $derived(
+    file !== null &&
+      file.status === "clean" &&
+      file.currentVersionId !== null &&
+      file.scanVerdict !== "flagged" &&
+      viewerKindOf(file) === "video",
+  );
 </script>
 
 <!-- The version table's cells. Every control is present at rest in the trailing pinned column,
@@ -835,11 +846,15 @@
 
         <Tabs.Content value="preview">
           <div class="p-12">
+            {#if playsInPanel}
+              <FileVideoPreview fileId={file.id} name={file.name} />
+            {:else}
             <div
               class="flex min-h-96 items-center justify-center rounded-md bg-surface-sunken p-16 text-center text-sm text-text-muted"
             >
               {previewNote}
             </div>
+            {/if}
           </div>
         </Tabs.Content>
 
