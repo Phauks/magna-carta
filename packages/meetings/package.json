@@ -10,6 +10,8 @@
     "./chat-statements": "./src/chat-statements.ts",
     "./chat-types": "./src/chat-types.ts",
     "./chat-validation": "./src/chat-validation.ts",
+    "./guest-by-address": "./src/guest-by-address.ts",
+    "./guest-by-address-contract": "./src/guest-by-address-contract.ts",
     "./guest-service": "./src/guest-service.ts",
     "./guest-statements": "./src/guest-statements.ts",
     "./guest-types": "./src/guest-types.ts",
@@ -64,6 +66,7 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "zod": "catalog:"
   },

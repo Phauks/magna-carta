@@ -1063,7 +1063,7 @@ function guestLeftAudit(
 }
 
 // The meeting through the gate a host's read goes through, not ended, and the caller running it.
-async function readHostedMeeting(
+export async function readHostedMeeting(
   database: SqlDatabase,
   meetingId: MeetingId,
   options: MeetingHostingOptions,

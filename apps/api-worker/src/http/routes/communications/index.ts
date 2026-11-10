@@ -11,6 +11,7 @@ import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingGuestByAddressRoutes } from "./meeting-guest-by-address.ts";
 import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
 import { registerMeetingSummaryRoutes } from "./meeting-summary.ts";
 import { emailAdapterForEnv } from "../../../auth-instance.ts";
@@ -75,6 +76,11 @@ export function mountCommunications(
   // the guest's six ride the chokepoint's guest lane, which admits a signed credential rather than a
   // session and never stashes a user id, so nothing a guest calls can reach a member handler. The
   // mail goes through the same outbound port every other transactional message does.
+  registerMeetingGuestByAddressRoutes(
+    domain,
+    chokepoint,
+    deps.meetingGuestMail ?? emailAdapterForEnv,
+  );
   registerMeetingGuestRoutes(domain, chokepoint, deps.meetingGuestMail ?? emailAdapterForEnv);
   // The operator's read into one live room, behind the platform-operator guard rather than the
   // firm door every other meeting route goes through: a meeting holds no rows and deletes its own

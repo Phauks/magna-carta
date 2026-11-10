@@ -7063,6 +7063,11 @@ export type MeetingGuestInvitation = {
     lastArrivalAt: string | null;
 };
 
+export type InviteGuestByAddressRequest = {
+    name: string;
+    emailAddress: string;
+};
+
 export type InviteMeetingGuestRequest = {
     entityId: string;
     directoryEmailId?: string;
@@ -33945,6 +33950,72 @@ export type MeetingsDenyFromLobbyResponses = {
 };
 
 export type MeetingsDenyFromLobbyResponse = MeetingsDenyFromLobbyResponses[keyof MeetingsDenyFromLobbyResponses];
+
+export type MeetingsInviteGuestByAddressData = {
+    body: InviteGuestByAddressRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/guests/by-address';
+};
+
+export type MeetingsInviteGuestByAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting, or no invitation on it, this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, another act on this link landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The link was withdrawn; invite the entity again to send a new one
+     */
+    410: Problem;
+    /**
+     * The request body is not a shape this operation accepts, or the entity cannot be invited — not a Directory entity on this event, or one with no address the firm may use
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * The invitation was recorded but its e-mail could not be sent; nothing is stored under the Idempotency-Key, so retrying it sends a fresh link
+     */
+    503: Problem;
+};
+
+export type MeetingsInviteGuestByAddressError = MeetingsInviteGuestByAddressErrors[keyof MeetingsInviteGuestByAddressErrors];
+
+export type MeetingsInviteGuestByAddressResponses = {
+    /**
+     * The person already had an invitation, which was sent again with a fresh link
+     */
+    200: MeetingGuestInvitation;
+    /**
+     * The invitation was created and sent
+     */
+    201: MeetingGuestInvitation;
+};
+
+export type MeetingsInviteGuestByAddressResponse = MeetingsInviteGuestByAddressResponses[keyof MeetingsInviteGuestByAddressResponses];
 
 export type MeetingsListGuestsData = {
     body?: never;

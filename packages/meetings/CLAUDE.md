@@ -355,6 +355,14 @@ the roster read, the lobby list and ending a meeting all go through them, so a g
 `test/guests.test.ts` enumerates every table carrying the stay columns and fails when one is not in
 the list — a third kind of stay would otherwise be invisible to every count.
 
+**A guest typed by name and address still names a Directory entity.** `guest-by-address.ts`
+(`addGuestByAddress`) matches the address to the entity that holds it (`findEntitiesByEmailAddress`,
+first in handle order) or composes a Directory person marked `needs_review` with that address as its
+primary e-mail, and puts the entity on the meeting's event. It does NOT invite: the route commits that
+batch and then calls `inviteGuest` unchanged, because the invitation's reads must see those rows. A
+retry needs no key of its own, since the second call finds the person by the address the first wrote.
+The typed name and the address are never in a refusal or an audit row.
+
 **The link proves possession of a mailbox and nothing more.** A guest always waits at the door, the
 lobby setting notwithstanding; what the host reads there is the name typed at the door beside the
 Directory name the link was minted for, which is what catches a forwarded link. The secret, the token

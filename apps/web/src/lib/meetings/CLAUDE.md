@@ -221,7 +221,8 @@ contract, chat's three and the calls for polls and questions included, with the 
 records take), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
 page), `meeting-attendance.ts` / `meeting-attendance-panel.svelte` (who was in an ended meeting,
 members and guests in one record), `meeting-guests-panel.svelte` (the host's Guests panel: who on
-the event may be sent a link, and the send, replace and withdraw acts), and
+the event may be sent a link, the send, replace and withdraw acts, and Invite somebody by e-mail for a
+guest typed by name and address), and
 `meeting-entry-action.svelte` (Start or Join, and Guests, on a calendar entry).
 
 **A member's own room:** `personal-room-api.ts` (the room's calls: made, changed, a new link,

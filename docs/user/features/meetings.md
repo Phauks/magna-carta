@@ -501,9 +501,16 @@ A client call, a settlement conference, a hearing with an expert: most of the me
 include somebody who is not at your firm. You can send any of them a link to the meeting, and it brings
 them to the meeting's door rather than into the room.
 
-**A guest is somebody already on the event.** The link goes to a person or an organization in the
-Directory who is listed on the event, at the e-mail address the Directory holds for them. You do not
-type an address anywhere, which means the meeting's record always names somebody your firm knows.
+**A guest is usually somebody already on the event.** The link goes to a person or an organization in
+the Directory who is listed on the event, at the e-mail address the Directory holds for them.
+
+**Somebody who is not on the list** can be invited by name and e-mail address. At the bottom of the
+Guests panel, under **Invite somebody by e-mail**, type their name and address and press **Invite**.
+If somebody in the Directory already has that address, the invitation goes to them, under the name the
+Directory holds. If nobody does, a person is added to the Directory with that name and address and
+marked as needing review, so somebody at your firm can later keep, merge or discard the entry. Either
+way they are added to the event and sent the same e-mail as anybody else, and the meeting's record
+names somebody your firm can see in the Directory and in a conflicts check.
 
 1. Open the meeting's event, or the meeting itself, and press **Guests**. It is there for anybody who
    may start meetings, once a meeting has been opened on the event.
@@ -810,10 +817,10 @@ room.
 
 ## What is not built yet
 
-- **Inviting somebody who is not in the Directory.** A link is sent to a person or an organization
-  in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
-  shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
-  them in the Directory and put that record on the event in their place.
+- **Reviewing people added from a meeting.** A guest invited by an address nobody in the Directory
+  holds is added there marked as needing review, but the Directory does not yet list those entries
+  for review. Somebody recorded on the event by name only, such as a judge, still shows a disabled
+  **Invite**; invite them by name and address instead.
 - **Captions on screen, and translation.** A recording gets a transcript and a summary once it is on
   the matter, but captions are not yet shown while the meeting runs, and the transcript is in the
   language that was spoken and is not translated. Video is never recorded.
