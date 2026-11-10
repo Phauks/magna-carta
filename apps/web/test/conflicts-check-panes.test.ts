@@ -131,6 +131,23 @@ describe("the locations tab", () => {
     }
   });
 
+  it("searches Files, Messaging, Tasks and Magnus, every option on and none marked Soon", () => {
+    expect(
+      SEARCH_LOCATIONS.filter((place) => !place.searchable).map((place) => place.location),
+    ).toEqual([]);
+    const rendered = drawScope({ draft: new CheckDraft() });
+    for (const location of ["files", "messaging", "tasks", "magnus"]) {
+      const place = rendered.querySelector(`[data-location="${location}"]`) as HTMLElement;
+      expect(text(place), location).not.toContain("Soon");
+      const boxes = [...place.querySelectorAll('[role="checkbox"]')];
+      expect(boxes.length, location).toBeGreaterThan(0);
+      for (const box of boxes) {
+        expect(box.getAttribute("aria-checked"), location).toBe("true");
+        expect(box.hasAttribute("disabled"), location).toBe(false);
+      }
+    }
+  });
+
   it("lets Firm Employees be chosen without a matter", () => {
     const rendered = drawScope({ draft: new CheckDraft() });
     const box = rendered.querySelector('[id$="-source-imputation"]');

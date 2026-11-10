@@ -154,6 +154,9 @@ interface RunSummary {
   readonly requestedByUserId: string | null;
   readonly failure: string | null;
   readonly cancelledByUserId: string | null;
+  readonly askedScope: {
+    readonly places: { messaging: string[]; tasks: string[]; magnus: boolean; files?: string[] };
+  } | null;
   readonly hitCount: number | null;
   readonly subjectParties: Array<{
     readonly entityId: string;
@@ -178,6 +181,7 @@ interface CheckRead {
       readonly subjectEntityIds: string[];
       readonly actorUserId: string | null;
       readonly traversal: { followedToClosure: boolean; truncated: boolean } | null;
+      readonly scope: Record<string, string>;
     };
     readonly statement: string[];
     readonly hits: Array<{
@@ -190,6 +194,7 @@ interface CheckRead {
         shortfalls: string[];
       } | null;
       previouslyAnswered: { checkId: string; kind: string } | null;
+      foundIn: { kind: string; id: string; matterId: string | null } | null;
     }>;
   } | null;
 }
@@ -557,6 +562,69 @@ describe("conflicts check routes", () => {
   });
 });
 
+describe("searching the firm's own records over the wire", () => {
+  beforeAll(() => adoptFreshFirm("places"));
+
+  it("echoes the places asked for and says where a result was found", async () => {
+    const personId = await createPerson("Marlow", "Quince");
+    const now = new Date().toISOString();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO magnus_conversation (id, created_by, state, created_at, updated_at) VALUES ('magnusConversation_routes', ?1, 'active', ?2, ?2)",
+      )
+      .bind(ownerUserId, now)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO magnus_turn (id, conversation_id, sequence, speaker, content, status, created_at) VALUES ('magnusTurn_routes', 'magnusConversation_routes', 1, 'member', 'Is Marlow Quince a client?', 'complete', ?1)",
+      )
+      .bind(now)
+      .run();
+
+    const { read } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [personId],
+      scope: { ...PARTY_SCOPE, places: { messaging: ["texts"], tasks: [], magnus: true } },
+    });
+    expect(read.run.askedScope?.places).toEqual({
+      messaging: ["texts"],
+      tasks: [],
+      magnus: true,
+      files: [],
+    });
+    const found = read.record?.hits.filter((hit) => hit.foundIn !== null) ?? [];
+    expect(found).toHaveLength(1);
+    expect(found[0]?.foundIn).toMatchObject({
+      kind: "magnus_conversation",
+      id: "magnusConversation_routes",
+      matterId: null,
+    });
+    expect(read.record?.statement.some((line) => line.startsWith("Magnus —"))).toBe(true);
+    expect(read.record?.statement.some((line) => line.startsWith("Messaging — texts"))).toBe(true);
+  });
+
+  it("records Files as not searched, and says why, while the file index is not connected", async () => {
+    const personId = await createPerson("Hollis", "Brande");
+    const { read } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [personId],
+      scope: {
+        ...PARTY_SCOPE,
+        places: { messaging: [], tasks: [], magnus: false, files: ["open", "archived"] },
+      },
+    });
+    expect(read.run.askedScope?.places.files).toEqual(["open", "archived"]);
+    expect(read.record?.check.scope["files"]).toBe("unavailable");
+    expect(
+      read.record?.statement.some(
+        (line) =>
+          line.startsWith("Not searched:") && line.includes("files (the file contents index"),
+      ),
+    ).toBe(true);
+    expect(read.record?.statement.some((line) => line.startsWith("Files —"))).toBe(false);
+  });
+});
+
 describe("conflicts hit routes", () => {
   beforeAll(() => adoptFreshFirm("hits"));
 
@@ -916,10 +984,11 @@ describe("the reporting posture over the wire", () => {
     expect(body.latestCheck).not.toBeNull();
     expect(body.latestCheck?.hitCount).toBe(0);
     // The sources that could not run come back named, with why — never flattened into "searched".
-    // Every place the product lists is among them, Magnus included.
     const unavailable = body.unavailableSources.map((entry) => entry.source);
     expect(unavailable).toContain("content");
-    expect(unavailable).toContain("magnus_conversations");
+    // Magnus is searchable now; a check that did not ask for it records nothing about it, which is
+    // neither searched nor a source that could not run.
+    expect(unavailable).not.toContain("magnus_conversations");
     for (const entry of body.unavailableSources) expect(entry.reason.length).toBeGreaterThan(0);
   });
 

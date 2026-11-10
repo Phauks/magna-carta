@@ -22,7 +22,17 @@ import {
   type RunProgress,
   type RunStage,
 } from "./check-run.ts";
+import {
+  asksForAnyPlace,
+  asksForRecordPlaces,
+  NAME_FLOOR,
+  NUMBER_FLOOR,
+  readPartyNeedles,
+  searchContent,
+  type FoundIn,
+} from "./content-search.ts";
 import { assignTier, describeEvidence } from "./evidence.ts";
+import { FILE_QUERY_CEILING, searchFiles, type FileContentsSearcher } from "./file-search.ts";
 import { expandGraph, WALK_CEILING, type ExpansionTruncation } from "./expansion.ts";
 import { findImputationHits, findMemberEntities } from "./imputation.ts";
 import { matchPartyBatch } from "./matching.ts";
@@ -32,8 +42,11 @@ import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
 import {
   availabilityOf,
+  FILES_SOURCE,
   MAGNUS_CONVERSATIONS_SOURCE,
+  MESSAGING_SOURCE,
   NICKNAME_EQUIVALENCE_SOURCE,
+  TASKS_SOURCE,
   PRIOR_FIRM_HISTORY_SOURCE,
 } from "./sources.ts";
 import {
@@ -69,6 +82,9 @@ export interface RunCheckInput {
 export interface RunToExecute {
   readonly runId: ConflictsCheckId;
   readonly input: RunCheckInput;
+  // How the run reaches the file contents index, which only the application can supply. Without one,
+  // a run asked to search Files records it as not searched.
+  readonly fileContents?: FileContentsSearcher;
 }
 
 // The sentence a run failed with. Generic on purpose: the error itself goes to the telemetry
@@ -246,6 +262,8 @@ async function search(
     tier: number;
     matchedFields: string[];
     path: unknown;
+    // Where in the firm's own records the party was found; absent for a Directory result.
+    foundIn?: FoundIn;
   }
   const similarityHits: CandidateHit[] = [];
 
@@ -341,11 +359,59 @@ async function search(
       }
     }
   }
+  // THE FIRM'S OWN RECORDS: calls, texts, email, tasks and Magnus conversations, searched for the
+  // parties the check was asked about. Not the walked closure: a related entity reached through the
+  // graph is a Directory finding, and looking for every one of them in every message would bury the
+  // parties actually named. Results share the write ceiling with the Directory's, after them, so the
+  // batch can never exceed what one transaction carries; a refusal is recorded like any other.
+  const places = scope.places;
+  let placeResultsFound = 0;
+  let placeResultsRefused = 0;
+  let fileOutcome: Awaited<ReturnType<typeof searchFiles>> | null = null;
+  if (asksForAnyPlace(places)) {
+    await report("places", {
+      entitiesReached: expanded.length,
+      entitiesMatched: subjectFacts.size,
+      candidatesSurfaced: similarityHits.length,
+    });
+    const needles = await readPartyNeedles(context.database, [...seedIds], scope.nameRoles);
+    const recordHits = asksForRecordPlaces(places)
+      ? await searchContent(context.database, needles, places)
+      : [];
+    fileOutcome = await searchFiles(
+      context.database,
+      needles,
+      places.files,
+      run.fileContents ?? null,
+    );
+    const found = [...recordHits, ...fileOutcome.hits];
+    const room = Math.max(0, CANDIDATE_WRITE_CEILING - hits.length);
+    placeResultsFound = found.length;
+    placeResultsRefused = Math.max(0, found.length - room);
+    for (const contentHit of found.slice(0, room)) {
+      hits.push({
+        entityId: contentHit.entityId,
+        sourceClass: "content",
+        coParty: false,
+        tier: contentHit.tier,
+        matchedFields: [...contentHit.matchedFields],
+        path: [],
+        foundIn: contentHit.foundIn,
+      });
+    }
+    await report("places", {
+      entitiesReached: expanded.length,
+      entitiesMatched: subjectFacts.size,
+      candidatesSurfaced: similarityHits.length,
+      placeResults: found.length,
+    });
+  }
   await report("candidates", {
     entitiesReached: expanded.length,
     entitiesMatched: subjectFacts.size,
     candidatesSurfaced: similarityHits.length,
     candidatesRecorded: hits.length,
+    ...(asksForAnyPlace(places) ? { placeResults: placeResultsFound } : {}),
   });
 
   const scopeRecord: Record<string, SourceAvailability> = {};
@@ -358,10 +424,16 @@ async function search(
   scopeRecord[NICKNAME_EQUIVALENCE_SOURCE] = (await nicknameCatalogueIsPopulated(context.database))
     ? "searched"
     : "unavailable";
-  // The assistant's conversations: a place the product holds and nothing indexes. Recorded so the
-  // check screen can list it as a place that was not searched rather than a place that does not
-  // exist.
-  scopeRecord[MAGNUS_CONVERSATIONS_SOURCE] = "unavailable";
+  // The firm's own records, recorded searched exactly when they were asked for. A place nobody asked
+  // for is absent, like a Directory technique nobody asked for, and reads as not searched.
+  if (places.messaging.length > 0) scopeRecord[MESSAGING_SOURCE] = "searched";
+  if (places.tasks.length > 0) scopeRecord[TASKS_SOURCE] = "searched";
+  if (places.magnus) scopeRecord[MAGNUS_CONVERSATIONS_SOURCE] = "searched";
+  // Files is recorded searched only when the file contents index answered; a run that could not
+  // reach it records why rather than reading as searched and empty.
+  if (places.files.length > 0) {
+    scopeRecord[FILES_SOURCE] = fileOutcome?.status === "searched" ? "searched" : "unavailable";
+  }
 
   const triggerSource = input.triggerSource ?? null;
 
@@ -432,6 +504,36 @@ async function search(
     // tiers. `truncated: false` is the ordinary case and says the written hits are everything the
     // channels found; a row predating this record carries no `candidates` key at all, which reads as
     // the row not saying rather than as the search having been complete.
+    // WHAT WAS SEARCHED BEYOND THE DIRECTORY, and how, so a reader of the row knows what "searched"
+    // covered: which channels and task statuses, that names are compared whole and only from
+    // NAME_FLOOR characters, that numbers match on their last NUMBER_FLOOR-or-more digits, and that an
+    // email's body is not in reach. Absent on a run that asked for none of them.
+    ...(asksForAnyPlace(places)
+      ? {
+          places: {
+            messaging: places.messaging,
+            tasks: places.tasks,
+            magnus: places.magnus,
+            files: places.files,
+            ...(fileOutcome === null || places.files.length === 0
+              ? {}
+              : {
+                  filesSearched: fileOutcome.status === "searched",
+                  fileMattersInReach: fileOutcome.mattersInReach,
+                  fileMattersSearched: fileOutcome.mattersSearched,
+                  fileMattersNotSearched: fileOutcome.mattersNotSearched,
+                  fileMattersFailed: fileOutcome.mattersFailed,
+                  fileQueryCeiling: FILE_QUERY_CEILING,
+                }),
+            partiesSearched: [...seedIds].length,
+            nameFloor: NAME_FLOOR,
+            numberFloor: NUMBER_FLOOR,
+            emailBodiesSearched: false,
+            resultsFound: placeResultsFound,
+            resultsRefused: placeResultsRefused,
+          },
+        }
+      : {}),
     candidates: {
       candidateCap: CANDIDATE_WRITE_CEILING,
       truncated: candidateTruncation !== null,
@@ -483,6 +585,7 @@ async function search(
           matchedFieldsJson: JSON.stringify(hit.matchedFields),
           graphPathJson: JSON.stringify(hit.path),
           coParty: hit.coParty,
+          foundInJson: hit.foundIn === undefined ? null : JSON.stringify(hit.foundIn),
           createdAt: now,
         }),
       ),
@@ -536,6 +639,7 @@ export async function runConflictsCheck(
   context: DirectoryIdentifierContext,
   input: RunCheckInput,
   options: ConflictsWriteOptions,
+  fileContents?: FileContentsSearcher,
 ): Promise<ConflictsCheckId> {
   const opened: OpenedRun = await openCheckRun(
     context.database,
@@ -551,7 +655,11 @@ export async function runConflictsCheck(
     },
     options,
   );
-  const executed = await executeCheckRun(context, { runId: opened.runId, input }, options);
+  const executed = await executeCheckRun(
+    context,
+    { runId: opened.runId, input, ...(fileContents === undefined ? {} : { fileContents }) },
+    options,
+  );
   // A replayed idempotency key returns the run the first request opened, which has been executed
   // already (or is being executed now); its id is the record's id either way.
   return executed ?? opened.runId;

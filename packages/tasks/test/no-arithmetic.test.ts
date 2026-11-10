@@ -167,6 +167,8 @@ describe("the notification emission points", () => {
       "tasks.task.reassigned",
       "tasks.firmTask.assigned",
       "tasks.firmTask.reassigned",
+      "tasks.task.watchedChange",
+      "tasks.firmTask.watchedChange",
       // Declared, and wired to nothing. No write makes a task become due, so there is no batch to
       // ride; the comparison sub-slice that sweeps deadlines will sweep tasks through the same
       // mechanism against the same definition of overdue.

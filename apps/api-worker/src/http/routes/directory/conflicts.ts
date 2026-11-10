@@ -25,7 +25,8 @@ import {
   type StoredRunRequest,
 } from "@magna-carta/conflicts/check-run";
 import { type RunCheckInput } from "@magna-carta/conflicts/run-check";
-import { AskedScope } from "@magna-carta/conflicts/contract";
+import { AskedScope, FoundIn, PlacesRequest } from "@magna-carta/conflicts/contract";
+import { resolveFoundIns } from "@magna-carta/conflicts/content-search";
 import {
   recordDisposition,
   readDispositionTrail,
@@ -178,6 +179,7 @@ interface HitRow {
   readonly matched_fields_json: string;
   readonly graph_path_json: string;
   readonly co_party: number;
+  readonly found_in_json: string | null;
   readonly created_at: string;
 }
 
@@ -195,7 +197,7 @@ async function readHitById(database: SqlDatabase, hitId: string): Promise<{ id: 
 async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitRow[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, created_at FROM ${CONFLICTS_HIT_TABLE} WHERE check_id = ?1 ORDER BY created_at ASC, id ASC`,
+      `SELECT id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, found_in_json, created_at FROM ${CONFLICTS_HIT_TABLE} WHERE check_id = ?1 ORDER BY created_at ASC, id ASC`,
     )
     .bind(checkId)
     .all<HitRow>();
@@ -270,6 +272,7 @@ const ScopeRequest = z
   .object({
     sources: z.array(z.enum(SOURCE_CLASSES)).max(SOURCE_CLASSES.length),
     strictness: z.enum(STRICTNESS_LEVELS),
+    places: PlacesRequest.optional(),
   })
   .openapi("ConflictsScopeRequest");
 
@@ -354,6 +357,7 @@ const RunProgress = z
     entitiesMatched: z.number().int().optional(),
     candidatesSurfaced: z.number().int().optional(),
     candidatesRecorded: z.number().int().optional(),
+    placeResults: z.number().int().optional(),
   })
   .openapi("ConflictsRunProgress");
 
@@ -522,6 +526,7 @@ const HitDetail = z
     // True when the matched entity is itself a subject party of this check — a co-party surfacing (a
     // positional conflict or a co-party collision), triaged apart from a conflict with a prior client.
     coParty: z.boolean(),
+    foundIn: FoundIn,
     createdAt: z.string(),
     // The hit's current disposition (the latest reviewer adjudication), or null when no reviewer has
     // acted on it yet.
@@ -1313,6 +1318,7 @@ function executeAfterResponse(
         randomSource: context.randomSource,
       },
       createWorkersLogger(c.env.TELEMETRY),
+      c.env,
     ),
   );
 }
@@ -1393,6 +1399,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
   const dispositionByHit = new Map(
     dispositionStates.map((state) => [state.hitId, state.disposition]),
   );
+  const foundIns = await resolveFoundIns(database, hitRows);
 
   const hits = hitRows.map((hitRow) => {
     const disposition = dispositionByHit.get(hitRow.id) ?? null;
@@ -1419,6 +1426,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
       matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
       graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
       coParty: hitRow.co_party === 1,
+      foundIn: foundIns.get(hitRow.id) ?? null,
       createdAt: hitRow.created_at,
       disposition:
         disposition === null
@@ -1458,6 +1466,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
       skippedIdentifierTypes: inputs.skippedIdentifierTypes,
       traversal: inputs.traversal,
       candidates: inputs.candidates,
+      places: inputs.places,
     },
     hitRows.map((hitRow) => ({ evidenceTier: hitRow.evidence_tier as 1 | 2 | 3 | 4 })),
     sources,

@@ -1,5 +1,6 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { readPlacesRequest, type PlacesRequest } from "./content-search.ts";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { SOURCE_CLASSES, STRICTNESS_LEVELS, type SourceClass, type Strictness } from "./types.ts";
@@ -67,6 +68,12 @@ export interface ConflictsPolicy {
 export interface ScopeRequest {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
+  // The firm's own records to search beyond the Directory: calls, texts, email, tasks, Magnus and
+  // files. Absent means none, which is what every caller that predates them means; so does an absent
+  // `files` inside it.
+  readonly places?: Omit<PlacesRequest, "files"> & {
+    readonly files?: PlacesRequest["files"] | undefined;
+  };
 }
 
 export interface ResolvedScope {
@@ -77,6 +84,8 @@ export interface ResolvedScope {
   // and is a distinct statement from a list that happens to name them all, because a firm that later
   // adds a name role to its catalogue is covered by the first and not by the second.
   readonly nameRoles: readonly string[] | null;
+  // The places beyond the Directory, exactly as asked: the floor says nothing about them.
+  readonly places: PlacesRequest;
   // True when the request fell below the floor and was raised. Recorded on the check row so an
   // auditor sees that a narrower scope was asked for and refused.
   readonly floorRaised: boolean;
@@ -120,6 +129,7 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
     sources: orderSources(requested),
     strictness,
     nameRoles: strictness === "balanced" ? policy.balancedNameRoles : OVER_INCLUSIVE_NAME_ROLES,
+    places: readPlacesRequest(request.places),
     floorRaised,
   };
 }

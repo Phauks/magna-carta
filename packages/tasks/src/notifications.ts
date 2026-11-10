@@ -49,6 +49,42 @@ export interface TaskAssignmentTopicPayload {
   readonly dueOn: string | null;
 }
 
+// ---- the people watching a task ----
+
+// A watcher is copied in, the way a CC line is: they are told when the work moves without the work
+// being theirs. One topic per side of the matter split, for the reason the assignment topics split.
+// Raised only when somebody other than the actor is watching, and never to the actor.
+export const WATCHED_TASK_CHANGED_TOPIC = "tasks.task.watchedChange";
+export const FIRM_WATCHED_TASK_CHANGED_TOPIC = "tasks.firmTask.watchedChange";
+
+// What moved, as a closed vocabulary the card turns into words. `watching` is the copy itself: the
+// member was added to the watchers and is told so, which is what tells them to expect the rest.
+export const WATCHED_TASK_CHANGES = Object.freeze([
+  "watching",
+  "completed",
+  "reopened",
+  "statusChanged",
+  "assigneesChanged",
+  "dueDateChanged",
+] as const);
+export type WatchedTaskChange = (typeof WATCHED_TASK_CHANGES)[number];
+
+// Identifiers and enums only, on the assignment payload's reasoning. The watchers are named in the
+// payload, as a meeting's invitees are, so the people told are the people watching at the write
+// rather than whoever is watching when the queue drains.
+export interface WatchedTaskChangePayload {
+  readonly taskId: string;
+  readonly matterId: string | null;
+  readonly watcherUserIds: readonly string[];
+  readonly changedByUserId: string;
+  readonly change: WatchedTaskChange;
+  readonly priority: string;
+}
+
+export function watchedChangeTopicFor(matterId: string | null): TaskOutboxTopic {
+  return matterId === null ? FIRM_WATCHED_TASK_CHANGED_TOPIC : WATCHED_TASK_CHANGED_TOPIC;
+}
+
 // ---- comparison-shaped: no write to hang off, so declared and wired to nothing ----
 
 // A task is due today, in its own zone. Not a topic and never will be: no write in this package or
@@ -71,6 +107,8 @@ export const TASK_NOTIFICATION_EMISSION_POINTS = Object.freeze([
   TASK_REASSIGNED_TOPIC,
   FIRM_TASK_ASSIGNED_TOPIC,
   FIRM_TASK_REASSIGNED_TOPIC,
+  WATCHED_TASK_CHANGED_TOPIC,
+  FIRM_WATCHED_TASK_CHANGED_TOPIC,
   TASK_DUE_SOON_EMISSION_POINT,
   TASK_OVERDUE_EMISSION_POINT,
 ] as const);
@@ -82,6 +120,8 @@ export const TASK_OUTBOX_TOPICS = Object.freeze([
   TASK_REASSIGNED_TOPIC,
   FIRM_TASK_ASSIGNED_TOPIC,
   FIRM_TASK_REASSIGNED_TOPIC,
+  WATCHED_TASK_CHANGED_TOPIC,
+  FIRM_WATCHED_TASK_CHANGED_TOPIC,
 ] as const);
 
 // Which topic an assignment raises, decided by the one fact that decides it. Exported so the write

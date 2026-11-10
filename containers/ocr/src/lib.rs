@@ -27,10 +27,25 @@ pub struct AppState {
 /// layer. The caller needs this to re-OCR a document with a newer model: without it, the
 /// text layer a previous run wrote is itself the reason the page is skipped, and a result
 /// could never be replaced by a better one.
+///
+/// `?firstPage=N` asks for one window of a PDF: the pages from zero-based index `N` up to
+/// [`MAX_PAGES`] after it. It is how a document longer than one request will walk is read
+/// at all -- the caller asks for window after window, and the response's `pageCount` tells
+/// it when it has them all. A request that names no window is a caller that expects the
+/// whole document back, so for a long one it is still refused: answering it with the first
+/// window would hand that caller a truncated reading it has no way to notice.
 #[derive(serde::Deserialize, Default)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct OcrQuery {
     pub force: bool,
+    pub first_page: Option<usize>,
+}
+
+/// What one recognition request read: the pages it walked, and how many pages the document
+/// has in all (one, for an image).
+struct Recognition {
+    pages: Vec<PageFacts>,
+    page_count: usize,
 }
 
 /// Recognize an image or every scanned page of a PDF.
@@ -43,16 +58,21 @@ async fn ocr(
         return error(StatusCode::UNPROCESSABLE_ENTITY, "empty-body");
     }
     let result = if body.starts_with(b"%PDF") {
-        recognize_pdf(&state, &body, query.force)
+        recognize_pdf(&state, &body, query.force, query.first_page)
     } else {
-        // An image is one page: there is no text layer to already have, so nothing to force.
-        recognize_image(&state, &body)
+        // An image is one page: there is no text layer to already have, so nothing to force,
+        // and no second window to ask for.
+        recognize_image(&state, &body).map(|pages| Recognition {
+            pages,
+            page_count: 1,
+        })
     };
     match result {
-        Ok(pages) => (
+        Ok(recognition) => (
             StatusCode::OK,
             Json(OcrResultDto {
-                pages: pages.into_iter().map(PageDto::from).collect(),
+                pages: recognition.pages.into_iter().map(PageDto::from).collect(),
+                page_count: recognition.page_count,
                 provenance: state.recognizer.provenance().into(),
             }),
         )
@@ -125,9 +145,10 @@ fn document_load_error(error: pdf_core::PdfError) -> OcrError {
 /// recognized in sequence on a single-threaded engine, so page count is wall-clock: a
 /// document declaring thousands of pages would hold the container -- which every firm
 /// shares -- for as long as it took to walk them. The walk itself has to be bounded, not
-/// merely each page within it. A production longer than this belongs on the job path, not
-/// on a request someone is waiting on.
-const MAX_PAGES: usize = 100;
+/// merely each page within it. A document longer than this is read a window at a
+/// time (`?firstPage=`), so no single request holds the engine for longer than this many
+/// pages take.
+pub const MAX_PAGES: usize = 100;
 
 /// A render failure is not automatically ours. `Rejected` means the page's declared
 /// geometry exceeded the raster budget -- a property of the document, permanent across
@@ -139,15 +160,25 @@ fn render_error(error: pdf_core::PdfError) -> OcrError {
     }
 }
 
-fn recognize_pdf(state: &AppState, bytes: &[u8], force: bool) -> Result<Vec<PageFacts>, OcrError> {
+fn recognize_pdf(
+    state: &AppState,
+    bytes: &[u8],
+    force: bool,
+    first_page: Option<usize>,
+) -> Result<Recognition, OcrError> {
     // `Document::load` takes ownership of the buffer (it feeds the bomb guard before the
     // parser touches it), so the borrowed request body is copied once here.
     let document = pdf_core::Document::load(bytes.to_vec()).map_err(document_load_error)?;
-    if document.page_count() > MAX_PAGES {
-        return Err(OcrError::DocumentRejected);
-    }
+    let page_count = document.page_count();
+    let window = match first_page {
+        // A window past the end is an empty reading, not an error: the caller learns the
+        // page count from the same response and stops asking.
+        Some(first) => first.min(page_count)..first.saturating_add(MAX_PAGES).min(page_count),
+        None if page_count > MAX_PAGES => return Err(OcrError::DocumentRejected),
+        None => 0..page_count,
+    };
     let mut pages = Vec::new();
-    for page_index in 0..document.page_count() {
+    for page_index in window {
         // An unreadable page must never be assumed to have no text layer -- that would
         // silently re-OCR a page whose existing text we simply failed to observe, so a
         // lookup failure is a permanent document fault, not a green light to proceed.
@@ -208,7 +239,7 @@ fn recognize_pdf(state: &AppState, bytes: &[u8], force: bool) -> Result<Vec<Page
             orientation_degrees: state.recognizer.page_orientation(&image),
         });
     }
-    Ok(pages)
+    Ok(Recognition { pages, page_count })
 }
 
 /// A quad the writer can actually place text in: finite, with positive width and height.
@@ -273,8 +304,8 @@ async fn ocr_searchable(State(state): State<AppState>, body: Bytes) -> Response 
     if !body.starts_with(b"%PDF") {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "not-a-pdf");
     }
-    let pages = match recognize_pdf(&state, &body, false) {
-        Ok(pages) => pages,
+    let pages = match recognize_pdf(&state, &body, false, None) {
+        Ok(recognition) => recognition.pages,
         Err(OcrError::InferenceFailed) => {
             return error(StatusCode::SERVICE_UNAVAILABLE, "inference-failed")
         }
@@ -840,6 +871,51 @@ mod tests {
         let (status, json) = post(&base, pages_pdf("0 0 612 792", MAX_PAGES + 1)).await;
         assert_eq!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY, "{json}");
         assert_eq!(json["code"], "document-rejected");
+    }
+
+    async fn post_window(
+        base: &str,
+        first_page: usize,
+        body: Vec<u8>,
+    ) -> (reqwest::StatusCode, serde_json::Value) {
+        let response = reqwest::Client::new()
+            .post(format!("{base}/ocr?firstPage={first_page}"))
+            .body(body)
+            .send()
+            .await
+            .unwrap();
+        let status = response.status();
+        (status, response.json().await.unwrap())
+    }
+
+    #[tokio::test]
+    async fn a_long_document_is_read_a_window_at_a_time_and_every_page_is_reached() {
+        let base = spawn(false).await;
+        let page_count = MAX_PAGES * 2 + 30;
+        let document = pages_pdf("0 0 72 72", page_count);
+
+        let mut seen = Vec::new();
+        let mut first_page = 0;
+        while first_page < page_count {
+            let (status, json) = post_window(&base, first_page, document.clone()).await;
+            assert_eq!(status, reqwest::StatusCode::OK, "{json}");
+            assert_eq!(json["pageCount"], page_count);
+            let pages = json["pages"].as_array().unwrap();
+            assert!(pages.len() <= MAX_PAGES);
+            seen.extend(pages.iter().map(|page| page["pageIndex"].as_u64().unwrap()));
+            first_page += MAX_PAGES;
+        }
+        let expected: Vec<u64> = (0..page_count as u64).collect();
+        assert_eq!(seen, expected);
+    }
+
+    #[tokio::test]
+    async fn a_window_past_the_last_page_is_empty_and_still_reports_the_page_count() {
+        let base = spawn(false).await;
+        let (status, json) = post_window(&base, 500, pages_pdf("0 0 72 72", 3)).await;
+        assert_eq!(status, reqwest::StatusCode::OK, "{json}");
+        assert_eq!(json["pageCount"], 3);
+        assert!(json["pages"].as_array().unwrap().is_empty());
     }
 
     #[tokio::test]

@@ -14,7 +14,8 @@
    *
    * A PLACE THE ENGINE CANNOT SEARCH YET is drawn with its options, disabled and marked Soon, and the
    * check records it as not searched, so "never searched" is never read as "searched and found
-   * nothing". The places search in parallel once they exist; the Directory is the one today.
+   * nothing". Every place is searchable today, every option on. Files reads the file index, and a
+   * check run while that index is not connected records Files as not searched, saying why.
    *
    * NOTHING HERE LIMITS THE SEARCH. A check follows every recorded relationship to closure, and the
    * one bound on a run is the platform's, stated on the record when it is reached.
@@ -28,9 +29,13 @@
   import type { Strictness } from "./conflicts-api.ts";
   import type { CheckDraft } from "./check-draft.svelte.ts";
   import {
+    MAGNUS_OPTION,
+    MESSAGING_OPTIONS,
     NAME_MATCHING_LABEL,
     NAME_MATCHING_OPTIONS,
     SEARCH_LOCATIONS,
+    TASK_STATUS_OPTIONS,
+    FILE_STATUS_OPTIONS,
   } from "./conflicts-vocabulary.ts";
 
   let {
@@ -51,6 +56,18 @@
 
   const LOCKED = "Every check searches names and identifiers.";
   const SOON = "Not searchable yet. The check records it as not searched.";
+
+  /** The list with the key in or out, in the options' own order. */
+  function toggled<T extends string>(
+    options: readonly { readonly key: T }[],
+    current: readonly T[],
+    key: T,
+    on: boolean,
+  ): T[] {
+    return options
+      .map((option) => option.key)
+      .filter((entry) => (entry === key ? on : current.includes(entry)));
+  }
 </script>
 
 <Tabs.Root bind:value={tab} class="flex flex-col gap-16">
@@ -99,6 +116,53 @@
                   disabled={busy}
                 />
                 <Label for="{fieldPrefix}-source-imputation">{entry.options[2]}</Label>
+              </div>
+            {:else if entry.location === "messaging"}
+              {#each MESSAGING_OPTIONS as option (option.key)}
+                {@const id = `${fieldPrefix}-messaging-${option.key}`}
+                <div class="flex items-center gap-8">
+                  <Checkbox
+                    {id}
+                    checked={draft.messaging.includes(option.key)}
+                    onCheckedChange={(on: boolean) =>
+                      (draft.messaging = toggled(MESSAGING_OPTIONS, draft.messaging, option.key, on))}
+                    disabled={busy}
+                  />
+                  <Label for={id}>{option.label}</Label>
+                </div>
+              {/each}
+            {:else if entry.location === "tasks"}
+              {#each TASK_STATUS_OPTIONS as option (option.key)}
+                {@const id = `${fieldPrefix}-tasks-${option.key}`}
+                <div class="flex items-center gap-8">
+                  <Checkbox
+                    {id}
+                    checked={draft.tasks.includes(option.key)}
+                    onCheckedChange={(on: boolean) =>
+                      (draft.tasks = toggled(TASK_STATUS_OPTIONS, draft.tasks, option.key, on))}
+                    disabled={busy}
+                  />
+                  <Label for={id}>{option.label}</Label>
+                </div>
+              {/each}
+            {:else if entry.location === "files"}
+              {#each FILE_STATUS_OPTIONS as option (option.key)}
+                {@const id = `${fieldPrefix}-files-${option.key}`}
+                <div class="flex items-center gap-8">
+                  <Checkbox
+                    {id}
+                    checked={draft.files.includes(option.key)}
+                    onCheckedChange={(on: boolean) =>
+                      (draft.files = toggled(FILE_STATUS_OPTIONS, draft.files, option.key, on))}
+                    disabled={busy}
+                  />
+                  <Label for={id}>{option.label}</Label>
+                </div>
+              {/each}
+            {:else if entry.location === "magnus"}
+              <div class="flex items-center gap-8">
+                <Checkbox id="{fieldPrefix}-magnus" bind:checked={draft.magnus} disabled={busy} />
+                <Label for="{fieldPrefix}-magnus">{MAGNUS_OPTION}</Label>
               </div>
             {:else}
               {#each entry.options as option (option)}

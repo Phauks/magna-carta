@@ -5352,6 +5352,12 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
+    places?: {
+        messaging: Array<'calls' | 'texts' | 'email'>;
+        tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
+        magnus: boolean;
+        files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
+    };
 };
 
 export type NextConflictsCheckNumberResponse = {
@@ -5431,7 +5437,7 @@ export type ConflictsRunSummary = {
     id: string;
     ordinal: number;
     status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-    stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
+    stage: 'sources' | 'walking' | 'matching' | 'places' | 'candidates' | null;
     progress: ConflictsRunProgress;
     trigger: string;
     triggerSource: string | null;
@@ -5444,6 +5450,12 @@ export type ConflictsRunSummary = {
     askedScope: {
         sources: Array<string>;
         strictness: string;
+        places: {
+            messaging: Array<'calls' | 'texts' | 'email'>;
+            tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
+            magnus: boolean;
+            files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
+        };
     } | null;
     hitCount: number | null;
     subjectParties: Array<ConflictsSubjectParty>;
@@ -5456,6 +5468,7 @@ export type ConflictsRunProgress = {
     entitiesMatched?: number;
     candidatesSurfaced?: number;
     candidatesRecorded?: number;
+    placeResults?: number;
 };
 
 export type ConflictsCheckRecord = {
@@ -5522,6 +5535,13 @@ export type ConflictsHitDetail = {
     matchedFields: Array<string>;
     graphPath: Array<ConflictsGraphPathStep>;
     coParty: boolean;
+    foundIn: {
+        kind: 'call' | 'text' | 'email' | 'task' | 'magnus_conversation' | 'file';
+        id: string;
+        matterId: string | null;
+        matterNumber: string | null;
+        at: string | null;
+    } | null;
     createdAt: string;
     disposition: ConflictsDispositionDetail;
     previouslyAnswered: ConflictsPriorConclusion;

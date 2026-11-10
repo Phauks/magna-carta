@@ -104,6 +104,18 @@ Assigning a task to somebody else, or to a team, and adding watchers needs a rol
 assigning work. Without it you can still create tasks. You cannot assign a task on a matter to
 somebody who cannot open that matter.
 
+## Who Is Told
+
+- **When a task is assigned to you**, or to a team you are on, you get a notification. You are not
+  told about work you assign to yourself.
+- **When you are added as a watcher**, you are told, and from then on you hear when the task is
+  marked complete or reopened, moves to another status, is assigned to different people, or has its
+  due date moved. Changing a task's wording tells nobody.
+- **Nobody is told about their own change.**
+
+These arrive in your notifications under Tasks, and you can choose how they reach you in your
+notification settings.
+
 The checklist, links and sub-tasks are added once the task has been saved.
 
 ## Sub-Tasks
@@ -284,8 +296,7 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no board view, no recurring task, and no comment thread on a task. Watchers are not yet
-notified of changes. A timer cannot yet be started from a task.
+There is no board view, no recurring task, and no comment thread on a task. A timer cannot yet be started from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

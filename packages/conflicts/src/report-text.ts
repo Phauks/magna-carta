@@ -50,6 +50,24 @@ export interface ReportedCandidates {
   readonly refusedByTier: ReadonlyArray<{ readonly tier: EvidenceTier; readonly count: number }>;
 }
 
+// What a run searched beyond the Directory, as recorded on the check row (run-check.ts, `places`).
+export interface ReportedPlaces {
+  readonly messaging: readonly string[];
+  readonly tasks: readonly string[];
+  readonly magnus: boolean;
+  // Absent on rows written before Files could be searched.
+  readonly files?: readonly string[];
+  // Whether the file contents index answered; null when the row does not say.
+  readonly filesSearched?: boolean | null;
+  readonly fileMattersInReach?: number | null;
+  readonly fileMattersSearched?: number | null;
+  readonly fileMattersNotSearched?: number | null;
+  readonly fileMattersFailed?: number | null;
+  readonly nameFloor: number | null;
+  readonly resultsFound: number | null;
+  readonly resultsRefused: number | null;
+}
+
 export interface ReportedCheck {
   readonly createdAt: string;
   readonly trigger: string;
@@ -73,6 +91,8 @@ export interface ReportedCheck {
   readonly traversal?: ReportedTraversal | null;
   // Null on a check written before the candidate record existed, and treated the same way.
   readonly candidates?: ReportedCandidates | null;
+  // Null when the run searched none of the firm's own records.
+  readonly places?: ReportedPlaces | null;
 }
 
 export interface ReportedHit {
@@ -214,6 +234,96 @@ function describeCandidateBound(candidates: ReportedCandidates | null): string[]
   ];
 }
 
+function listed(words: readonly string[]): string {
+  if (words.length <= 1) return words.join("");
+  return `${words.slice(0, -1).join(", ")} and ${words.at(-1) ?? ""}`;
+}
+
+const MESSAGING_WORDS: Readonly<Record<string, string>> = {
+  calls: "calls",
+  texts: "texts",
+  email: "email",
+};
+
+const TASK_STATUS_WORDS: Readonly<Record<string, string>> = {
+  consultations: "consultations",
+  open: "open matters",
+  closed: "closed matters",
+};
+
+// One line per place beyond the Directory, each led by the place's name so a screen can file the line
+// under it. Every line says how the parties were looked for, because "searched" over prose means
+// something narrower than it does over the Directory, and the narrower reading is the true one.
+function describePlaces(places: ReportedPlaces | null, partyCount: number): string[] {
+  if (places === null) return [];
+  const statements: string[] = [];
+  const parties = `${partyCount} subject ${partyCount === 1 ? "party" : "parties"}`;
+  const floor =
+    places.nameFloor === null
+      ? "names compared whole"
+      : `names compared whole, from ${places.nameFloor} characters`;
+  if (places.messaging.length > 0) {
+    const channels = listed(places.messaging.map((channel) => MESSAGING_WORDS[channel] ?? channel));
+    const email = places.messaging.includes("email")
+      ? " Email is searched by its senders, recipients and subject; its body is not."
+      : "";
+    statements.push(
+      `Messaging — ${channels}, filed or not, searched for ${parties} by linked record, phone number, email address and ${floor}.${email}`,
+    );
+  }
+  if (places.tasks.length > 0) {
+    const statuses = places.tasks.filter((status) => status !== "archived");
+    const onMatters =
+      statuses.length === 0
+        ? "tasks on no matter"
+        : `tasks on ${listed(statuses.map((status) => TASK_STATUS_WORDS[status] ?? status))}, and tasks on no matter`;
+    const archived = places.tasks.includes("archived") ? ", plus archived tasks" : "";
+    statements.push(
+      `Tasks — titles and descriptions of ${onMatters}${archived}, searched for ${parties} by ${floor}.`,
+    );
+  }
+  if (places.magnus) {
+    statements.push(
+      `Magnus — every conversation, including those saved to General, searched for ${parties} by ${floor}.`,
+    );
+  }
+  const files = places.files ?? [];
+  if (files.length > 0 && places.filesSearched === true) {
+    const statuses = files.filter((status) => status !== "archived");
+    const onMatters =
+      statuses.length === 0
+        ? "deleted files on every matter"
+        : `files on ${listed(statuses.map((status) => TASK_STATUS_WORDS[status] ?? status))}${files.includes("archived") ? ", plus deleted files on every matter" : ""}`;
+    const searched = places.fileMattersSearched ?? null;
+    const reach = places.fileMattersInReach ?? null;
+    const across =
+      searched === null || reach === null
+        ? ""
+        : ` across ${searched} of ${reach} ${reach === 1 ? "matter" : "matters"}`;
+    statements.push(
+      `Files — the text of ${onMatters}${across}, searched for ${parties} by each name as an exact phrase.`,
+    );
+    const notSearched = places.fileMattersNotSearched ?? 0;
+    if (notSearched > 0) {
+      statements.push(
+        `${notSearched} ${notSearched === 1 ? "matter's files were" : "matters' files were"} not searched: the run reached the most questions one check asks the file index, and the most recently active matters were searched first.`,
+      );
+    }
+    const failed = places.fileMattersFailed ?? 0;
+    if (failed > 0) {
+      statements.push(
+        `${failed} ${failed === 1 ? "matter's files" : "matters' files"} could not be searched: the file index did not answer for ${failed === 1 ? "it" : "them"}.`,
+      );
+    }
+  }
+  if (places.resultsRefused !== null && places.resultsRefused > 0) {
+    statements.push(
+      `${places.resultsRefused} ${places.resultsRefused === 1 ? "result" : "results"} from these places ${places.resultsRefused === 1 ? "was" : "were"} not recorded: the run reached the most one record can hold.`,
+    );
+  }
+  return statements;
+}
+
 // The full statement list for one check, in reading order. Each entry is one sentence or clause a
 // caller renders as its own line; the module does not join them, because the caller owns the medium.
 export function describeCheck(
@@ -275,6 +385,8 @@ export function describeCheck(
       "Firm employees — identity join between the firm's own members and the matter's parties, or every entity reached where no matter is named. Never a name match.",
     );
   }
+
+  statements.push(...describePlaces(check.places ?? null, check.subjectEntityCount));
 
   if (check.skippedIdentifierTypes.length > 0) {
     statements.push(

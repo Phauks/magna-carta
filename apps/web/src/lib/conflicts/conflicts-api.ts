@@ -73,7 +73,7 @@ export type EvidenceTier = 1 | 2 | 3 | 4;
 export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 /** Where a running search is, in the order the engine actually works. */
-export type RunStage = "sources" | "walking" | "matching" | "candidates";
+export type RunStage = "sources" | "walking" | "matching" | "places" | "candidates";
 
 // ---- what a check is asked for ---------------------------------------------------------------
 
@@ -84,6 +84,38 @@ export type RunStage = "sources" | "walking" | "matching" | "candidates";
 export interface ScopeRequest {
   sources: SourceClass[];
   strictness: Strictness;
+  /** The firm's own records to search beyond the Directory. Absent means none. */
+  places?: PlacesRequest;
+}
+
+export type MessagingChannel = "calls" | "texts" | "email";
+/** The matter statuses a task is searched under; a task on no matter is searched whenever tasks are. */
+export type TaskMatterStatus = "consultations" | "open" | "closed" | "archived";
+
+/** The matter statuses a file is searched under; Archived is files deleted from a matter. */
+export type FileMatterStatus = TaskMatterStatus;
+
+/**
+ * Calls, texts, email, tasks, Magnus conversations and files. An empty list, or false, is not asked
+ * for; `files` is absent on a run asked for before Files could be searched.
+ */
+export interface PlacesRequest {
+  messaging: MessagingChannel[];
+  tasks: TaskMatterStatus[];
+  magnus: boolean;
+  files?: FileMatterStatus[];
+}
+
+export type FoundInKind = "call" | "text" | "email" | "task" | "magnus_conversation" | "file";
+
+/** Where in the firm's own records a result was found. Never the record's text. */
+export interface FoundIn {
+  kind: FoundInKind;
+  id: string;
+  matterId: string | null;
+  /** The matter's number, or its consultation or intake number. Null when it has none. */
+  matterNumber: string | null;
+  at: string | null;
 }
 
 export interface RunCheckRequest {
@@ -269,6 +301,8 @@ export interface HitDetail {
   graphPath: GraphPathStep[];
   /** True when the matched entity is itself a subject party of this check. */
   coParty: boolean;
+  /** Where in the firm's own records it was found; null for a Directory result. */
+  foundIn: FoundIn | null;
   createdAt: string;
   /** The reviewer's latest word on this hit, or null when nobody has answered it. */
   disposition: DispositionDetail | null;
@@ -357,6 +391,8 @@ export interface RunProgress {
   entitiesMatched?: number;
   candidatesSurfaced?: number;
   candidatesRecorded?: number;
+  /** Results found in calls, texts, email, tasks and Magnus conversations. */
+  placeResults?: number;
 }
 
 /** One run of a check: its place in the history, where it is, and what it came to. */
@@ -379,7 +415,7 @@ export interface RunSummary {
   /** Who stopped a cancelled run. Null on every other run. */
   cancelledByUserId: string | null;
   /** What the run was asked to search, readable from the moment it is queued. */
-  askedScope: { sources: string[]; strictness: string } | null;
+  askedScope: { sources: string[]; strictness: string; places: PlacesRequest } | null;
   /** How many candidates this run's record holds. Null while it has no record. */
   hitCount: number | null;
   /** Who this run searches, by name, from the moment it is queued. */

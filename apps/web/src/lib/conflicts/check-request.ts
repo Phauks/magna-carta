@@ -12,8 +12,8 @@
  * A CHECK IS ASKED FOR BY PLACE (owner's direction, 2026-09-11): the Directory, the firm's files, its
  * messaging, its tasks, its Magnus conversations. The record stores technique keys — party, graph,
  * imputation, content — and the crossing between the two is `sourcesFor` below, over the location
- * catalogue in conflicts-vocabulary.ts. Only the Directory can be searched today; the other places
- * stand on the panel disabled, marked Soon, and the check records them as not searched.
+ * catalogue in conflicts-vocabulary.ts. Messaging, Tasks and Magnus are asked for by `placesFor`, all
+ * on by default; Files stands on the panel disabled, marked Soon, and is recorded as not searched.
  *
  * NOTHING HERE LIMITS THE SEARCH. The panel used to carry a hop budget per kind of relationship and
  * two caps, and the owner removed them: a check follows every recorded relationship to closure, and
@@ -35,9 +35,13 @@ import { permissionRefusal } from "$lib/access/refusal.ts";
 import {
   RUN_CHECK_PERMISSION,
   type ConflictsTrigger,
+  type MessagingChannel,
+  type PlacesRequest,
   type RunCheckRequest,
   type SourceClass,
   type Strictness,
+  type TaskMatterStatus,
+  type FileMatterStatus,
 } from "./conflicts-api.ts";
 
 /** Everything the two panes hold between them. Plain values, so this module needs no browser. */
@@ -49,6 +53,14 @@ export interface CheckDraftValues {
   /** Whether it looks for the firm's own people, by identity. */
   readonly searchOwnPeople: boolean;
   readonly nameMatching: Strictness;
+  /** The calls, texts and email to search. Empty is Messaging not asked for. */
+  readonly messaging: readonly MessagingChannel[];
+  /** The matter statuses whose tasks are searched. Empty is Tasks not asked for. */
+  readonly tasks: readonly TaskMatterStatus[];
+  /** Whether Magnus conversations are searched. */
+  readonly magnus: boolean;
+  /** The matter statuses whose files are searched; Archived is deleted files. Empty is Files not asked for. */
+  readonly files: readonly FileMatterStatus[];
 }
 
 /**
@@ -94,6 +106,10 @@ export const OPENING_DRAFT: CheckDraftValues = {
   searchRelationships: true,
   searchOwnPeople: true,
   nameMatching: "balanced",
+  messaging: ["calls", "texts", "email"],
+  tasks: ["consultations", "open", "closed", "archived"],
+  magnus: true,
+  files: ["consultations", "open", "closed", "archived"],
 };
 
 /**
@@ -108,14 +124,24 @@ export function triggerFor(surface: CheckSurface): ConflictsTrigger {
 
 /**
  * The sources this check asks for — the technique keys the Directory's options stand over. Party
- * is the firm-wide floor and is never a choice. No other place can be searched yet, so no other
- * place's source is ever asked for; the engine records those places as not searched on its own.
+ * is the firm-wide floor and is never a choice. The firm's own records are asked for separately, by
+ * `placesFor`.
  */
 export function sourcesFor(values: CheckDraftValues): SourceClass[] {
   const sources: SourceClass[] = ["party"];
   if (values.searchRelationships) sources.push("graph");
   if (values.searchOwnPeople) sources.push("imputation");
   return sources;
+}
+
+/** The calls, texts, email, tasks, Magnus conversations and files this check asks for. */
+export function placesFor(values: CheckDraftValues): PlacesRequest {
+  return {
+    messaging: [...values.messaging],
+    tasks: [...values.tasks],
+    magnus: values.magnus,
+    files: [...values.files],
+  };
 }
 
 /** The refusal, the request and the close guard's answer, which always move together. */
@@ -134,6 +160,7 @@ export function composeCheck(values: CheckDraftValues, surface: CheckSurface): C
       scope: {
         sources: sourcesFor(values),
         strictness: values.nameMatching,
+        places: placesFor(values),
       },
     },
   };
@@ -163,6 +190,14 @@ function hasBeenTouched(values: CheckDraftValues): boolean {
     values.subjectEntityIds.length > 0 ||
     values.searchRelationships !== OPENING_DRAFT.searchRelationships ||
     values.searchOwnPeople !== OPENING_DRAFT.searchOwnPeople ||
-    values.nameMatching !== OPENING_DRAFT.nameMatching
+    values.nameMatching !== OPENING_DRAFT.nameMatching ||
+    !sameMembers(values.messaging, OPENING_DRAFT.messaging) ||
+    !sameMembers(values.tasks, OPENING_DRAFT.tasks) ||
+    !sameMembers(values.files, OPENING_DRAFT.files) ||
+    values.magnus !== OPENING_DRAFT.magnus
   );
+}
+
+function sameMembers(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((entry) => right.includes(entry));
 }

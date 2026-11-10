@@ -42,10 +42,13 @@ import type {
   ConflictsTrigger,
   DispositionKind,
   EvidenceTier,
+  FoundInKind,
+  MessagingChannel,
   RunStage,
   RunStatus,
   SourceClass,
   Strictness,
+  TaskMatterStatus,
   WaiverShortfall,
 } from "./conflicts-api.ts";
 
@@ -108,8 +111,11 @@ export const SOURCE_CLASSES: readonly SourceClass[] = ["party", "graph", "imputa
 export const PRIOR_FIRM_HISTORY_SOURCE = "prior_firm_history";
 export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
 export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
-/** A place the panel offers and nothing indexes yet; keyed so a record can say it was not searched. */
+/** The firm's calls, texts and email, and its tasks: recorded searched when a check asked for them. */
+export const MESSAGING_SOURCE = "messaging";
 export const TASKS_SOURCE = "tasks";
+/** The text of the firm's files: recorded searched when the file index answered. */
+export const FILES_SOURCE = "files";
 
 export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   party: {
@@ -141,13 +147,22 @@ export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
     meaning:
       "Bob and Robert are not a phonetic relationship. The catalogue exists and is shipped empty.",
   },
+  [MESSAGING_SOURCE]: {
+    label: "Messaging",
+    meaning:
+      "Calls, texts and email linked to a party, from a party's number or address, or naming them.",
+  },
+  [FILES_SOURCE]: {
+    label: "Files",
+    meaning: "A party named in the text of a document filed on a matter.",
+  },
   [TASKS_SOURCE]: {
     label: "Tasks",
-    meaning: "A party named in a task's title or description. Nothing indexes tasks yet.",
+    meaning: "A party named in a task's title or description.",
   },
   [MAGNUS_CONVERSATIONS_SOURCE]: {
     label: "Magnus conversations",
-    meaning: "A party named in a conversation with Magnus. Nothing indexes conversations yet.",
+    meaning: "A party named in a conversation with Magnus.",
   },
 };
 
@@ -164,9 +179,9 @@ export function sourceVocabulary(source: string): VocabularyEntry {
  * reads as a place; whether the engine can search it yet; and the options listed beneath it, which
  * say WHAT it searches and nothing about why.
  *
- * Files and Messaging both stand over the content class — the one corpus that would search document
- * text and message bodies — until the two grow corpora of their own. Tasks and Magnus have keys of
- * their own already so a record can say they were not searched.
+ * Files, Messaging, Tasks and Magnus have keys of their own and are searched when asked. Files and
+ * Messaging also stand over the content class, so a record written before either could be searched
+ * still reads as not searched.
  */
 export type SearchLocation = "directory" | "files" | "messaging" | "tasks" | "magnus";
 
@@ -184,6 +199,45 @@ export interface SearchLocationEntry {
 /** The four statuses a matter's files and tasks are offered under, all on by default. */
 export const MATTER_STATUS_OPTIONS = ["Consultations", "Open", "Closed", "Archived"] as const;
 
+/** Messaging's options, keyed as the request asks for them. */
+export const MESSAGING_OPTIONS: readonly {
+  readonly key: MessagingChannel;
+  readonly label: string;
+}[] = [
+  { key: "calls", label: "Calls" },
+  { key: "texts", label: "Texts" },
+  { key: "email", label: "Email" },
+];
+
+/** Tasks' options: the four matter statuses, keyed as the request asks for them. */
+export const TASK_STATUS_OPTIONS: readonly {
+  readonly key: TaskMatterStatus;
+  readonly label: string;
+}[] = [
+  { key: "consultations", label: "Consultations" },
+  { key: "open", label: "Open" },
+  { key: "closed", label: "Closed" },
+  { key: "archived", label: "Archived" },
+];
+
+/** Files' options: the same four statuses. Archived is the files deleted from a matter. */
+export const FILE_STATUS_OPTIONS = TASK_STATUS_OPTIONS;
+
+/** Magnus's one option. */
+export const MAGNUS_OPTION = "All Employee Conversations";
+
+/** What each kind of record a result can be found in is called, and the place it belongs to. */
+export const FOUND_IN_VOCABULARY: Readonly<
+  Record<FoundInKind, { readonly label: string; readonly location: SearchLocation }>
+> = {
+  call: { label: "Call", location: "messaging" },
+  text: { label: "Text", location: "messaging" },
+  email: { label: "Email", location: "messaging" },
+  task: { label: "Task", location: "tasks" },
+  magnus_conversation: { label: "Magnus conversation", location: "magnus" },
+  file: { label: "File", location: "files" },
+};
+
 export const SEARCH_LOCATIONS: readonly SearchLocationEntry[] = [
   {
     location: "directory",
@@ -195,30 +249,30 @@ export const SEARCH_LOCATIONS: readonly SearchLocationEntry[] = [
   {
     location: "files",
     label: "Files",
-    sources: ["content"],
-    searchable: false,
-    options: MATTER_STATUS_OPTIONS,
+    sources: [FILES_SOURCE, "content"],
+    searchable: true,
+    options: FILE_STATUS_OPTIONS.map((option) => option.label),
   },
   {
     location: "messaging",
     label: "Messaging",
-    sources: ["content"],
-    searchable: false,
-    options: ["Calls", "Texts", "Email"],
+    sources: [MESSAGING_SOURCE, "content"],
+    searchable: true,
+    options: MESSAGING_OPTIONS.map((option) => option.label),
   },
   {
     location: "tasks",
     label: "Tasks",
     sources: [TASKS_SOURCE],
-    searchable: false,
-    options: MATTER_STATUS_OPTIONS,
+    searchable: true,
+    options: TASK_STATUS_OPTIONS.map((option) => option.label),
   },
   {
     location: "magnus",
     label: "Magnus",
     sources: [MAGNUS_CONVERSATIONS_SOURCE],
-    searchable: false,
-    options: ["All Employee Conversations"],
+    searchable: true,
+    options: [MAGNUS_OPTION],
   },
 ];
 
@@ -429,12 +483,19 @@ export function runStatusVocabulary(status: string): ChipVocabularyEntry {
  * The stages a running search reports, in the engine's own order: it resolves what to search, walks
  * the graph, matches the closure, then bounds and writes what surfaced.
  */
-export const RUN_STAGES: readonly RunStage[] = ["sources", "walking", "matching", "candidates"];
+export const RUN_STAGES: readonly RunStage[] = [
+  "sources",
+  "walking",
+  "matching",
+  "places",
+  "candidates",
+];
 
 export const RUN_STAGE_VOCABULARY: Readonly<Record<RunStage, string>> = {
   sources: "Resolving what to search",
   walking: "Following relationships",
   matching: "Comparing names and identifiers",
+  places: "Searching calls, texts, email, tasks and Magnus",
   candidates: "Recording what surfaced",
 };
 
