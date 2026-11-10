@@ -31,6 +31,9 @@ ADR-0110, ADR-0111.)
 - `src/settings.ts` — `search.indexing_enabled` and the compaction thresholds
 - `src/keyword-query.ts` — `keywordQueryText`: a reader's text rebuilt as the engine's query from
   its words alone. The one place the application writes the engine's query language for a person
+- `src/keyword-letter-folds.ts` — what the engine does to each letter beyond lowercasing it.
+  Rendered by `scripts/render-keyword-letter-folds.mts` from the table the engine publishes about
+  itself; never edited
 
 **Natural-language search** (every module prefixed `natural-language-`)
 
@@ -124,9 +127,21 @@ are the ones the production modules adopted; keep the two in step.
 - **The query shapes are pinned on the engine's side.** `crates/search-core/src/lib.rs` carries a
   test of what each shape `keywordQueryText` writes actually matches. Change a shape here and change
   that test with it: the two sides are in different languages and nothing else compares them.
-- **The engine lowercases and does not fold accents; a passage is a page.** Both are stated to the
-  reader in the user guide. Folding accents is a tokenizer change, which is a schema generation
-  bump and a rebuild of every index.
+- **The engine folds; the application folds only a pattern, and from the engine's table.** The
+  engine composes a letter and its accent, folds Latin letters to their unaccented form and
+  lowercases, for a document's words and for a quoted word in a question alike, so a quoted word
+  goes to it as typed. It does nothing to a pattern, so the one unfinished word is folded here,
+  from `keyword-letter-folds.ts`. That table is rendered from
+  `crates/search-core/tests/fixtures/body-letter-folds.tsv`, which a test beside the engine's
+  analyzer holds to the analyzer; `test/keyword-query.test.ts` holds the table to the file. Never
+  add a letter by hand: re-render.
+- **How the engine cuts a word is a schema generation.** A change to its analyzer (a filter, their
+  order, a new engine version with a different folding table) changes what every index holds. It
+  comes with a `SCHEMA_GENERATION` bump in `crates/search-core/src/schema.rs`, and after a
+  production index exists it means rebuilding every one. The catalog records each split's
+  generation; nothing yet re-indexes an older one.
+- **A passage is a page.** Every word of a question has to be on the same page of a document. That
+  is stated to the reader in the user guide.
 
 ## Local rules — the record index
 

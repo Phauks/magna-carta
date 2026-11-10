@@ -234,10 +234,13 @@ match on file and folder names.
 
 Two limits are recorded. A result names the file and the pages and **quotes nothing**, because the
 index stores which words are on which page and not the sentences, and a matter file's extracted text
-is not kept after it is indexed. Keeping it is step 6c. And the engine lowercases a word and **leaves
-its accents**, so a file search is accent-sensitive where the record index is not; changing the
-engine's tokenizer means rebuilding every index, which costs nothing before the first production
-index exists and a great deal after.
+is not kept after it is indexed. Keeping it is step 6c. The second limit as first recorded, that
+the engine lowercased a word and left its accents, is closed: the engine composes a letter and its
+accent into one character, folds Latin letters to their unaccented form and lowercases, so a file
+search ignores accents as the record index does. That changed how every word is cut, so it is a new
+schema generation, taken before the first production index existed because afterwards it means
+rebuilding every index. What remains recorded is the mechanism for that rebuild: the catalog keeps
+each split's generation, and nothing yet re-indexes the splits of an older one.
 
 ## 5. Build order
 

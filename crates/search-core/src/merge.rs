@@ -28,7 +28,7 @@ use tantivy::{Index, TantivyDocument, Term};
 
 use crate::directory::{open_index, RangeReader};
 use crate::error::SearchError;
-use crate::schema::SearchSchema;
+use crate::schema::{register_tokenizers, SearchSchema};
 use crate::split::{bundle_directory, open_split};
 
 /// What a merge produced: the split's bytes, and the facts the caller records in its catalog without
@@ -93,7 +93,10 @@ fn merge_opened(
 ) -> Result<MergedSplit, SearchError> {
     let scratch = tempfile::tempdir()?;
     let output = MmapDirectory::open(scratch.path())?;
-    let merged = merge_indices(indices, output)?;
+    // The merged index names the body's analyzer like every other, so it is registered here too: the
+    // repack below opens a writer on it, and an index that names an analyzer it does not hold is one
+    // a later change could trip over.
+    let merged = register_tokenizers(merge_indices(indices, output)?);
 
     let excluded = if exclude_document_ids.is_empty() {
         Vec::new()

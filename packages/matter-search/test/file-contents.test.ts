@@ -117,7 +117,7 @@ describe("the words inside a matter's files", () => {
       {
         matterId: MATTER,
         // Every operator the reader typed has become a word or gone; the last word is unfinished.
-        queryText: '+"body" +"or" +"hold harmless" +body:/indemn.*/',
+        queryText: '+"body" +"OR" +"hold harmless" +body:/indemn.*/',
         // Eight passages for each of the eleven files wanted: the limit and the has-more probe.
         limit: 88,
       },

@@ -9,6 +9,9 @@ publish.workspace = true
 # CLAUDE.md) — the index it builds is the discovery keyword index, packaged here as a self-contained
 # `Split` (see `split.rs`) so it can live in per-firm R2 rather than on a Container's local disk.
 tantivy = "0.27"
+# Composes a letter and its accent into one character before the body is cut into words (see
+# `schema.rs`). Pure Rust, and already in the workspace through discovery-core.
+unicode-normalization = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Build scratch: an index is built in a temporary on-disk directory (the Container's local scratch in
