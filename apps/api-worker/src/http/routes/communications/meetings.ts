@@ -241,8 +241,7 @@ const MeetingSummaryResponse = z
     // host-only read: it is a list of people a host has not yet decided about, and a fifty-row list
     // must not carry it.
     lobby: z.enum(MEETING_LOBBY_MODES),
-    // Whether this deployment can route a meeting's media at all. A fact about the deployment, not
-    // about the meeting or the member — a surface reads it to decide whether to offer a way in.
+    // Whether this deployment can route meeting media at all, so a surface knows to offer a way in.
     configured: z.boolean(),
     // THE ROOM'S RECORDING, in one word: `none` when it has never been recorded, otherwise the state
     // of its most recent recording — so a list row can carry the mark and a room screen can tell a
@@ -253,9 +252,10 @@ const MeetingSummaryResponse = z
     // the precedent of `configured` beside it — a fact about configuration, read so the screen never
     // offers an act the route would answer 503.
     recordingConfigured: z.boolean(),
-    // Whether live captions can be shown. Always false until the captions slice lands; carried now so
-    // a screen built against this shape does not change when it does.
+    // Whether live captions can be shown; always false until the captions slice lands.
     captionsAvailable: z.boolean(),
+    // A personal-room session, which alone can be moved onto a matter while it runs or afterwards.
+    personalRoomSession: z.boolean(),
   })
   .openapi("MeetingSummary");
 

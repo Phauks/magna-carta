@@ -224,6 +224,15 @@ members and guests in one record), `meeting-guests-panel.svelte` (the host's Gue
 the event may be sent a link, and the send, replace and withdraw acts), and
 `meeting-entry-action.svelte` (Start or Join, and Guests, on a calendar entry).
 
+**A member's own room:** `personal-room-api.ts` (the room's calls: made, changed, a new link,
+opened, arrived at by link, and a session moved onto a matter), `my-room-card.svelte` (the card on
+the Meetings page, drawn only for `meetings:host`; nothing is made until Set Up is pressed, and Get a
+New Link asks first) and `move-to-matter-dialog.svelte` (offered in the room's header for a
+personal-room session still on a firm event, during the meeting or after it, over the calendar's own
+matter list). The link page is `src/routes/(app)/meetings/rooms/[linkCode]/+page.svelte`: a closed
+room is read again every ten seconds, and Join arrives, then goes to the ordinary room screen. Every
+press that leads into a room unlocks `pageRecordingSounds` first, as the entry action does.
+
 **The guest's side, outside the application:** `guest-api.ts` (the guest's own calls on the link's
 token or the arrival's grant, the host's four guest calls, the chat seams for a guest, and the one
 table of what a refused link says; every call sends `credentials: "omit"` and

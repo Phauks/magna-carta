@@ -99,6 +99,40 @@ meeting and would rather not go looking for the event it belongs to. It has thre
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
 matter, the row links back to it.
 
+## Your own room
+
+If you can host meetings, the Meetings page shows a **My Room** card. Your room is a link that stays
+the same, so a colleague can keep it and use it whenever you are in, without anybody putting a
+meeting on the calendar first.
+
+- **Set Up My Room** makes your room the first time. Nothing is made until you press it.
+- **Copy Link** copies your room's address to send to a colleague.
+- **Open My Room** starts a meeting in your room and takes you into it. The meeting is put on your
+  calendar as an event in your name, starting now. If your room is already open, the button reads
+  **Go to My Room** and takes you back in.
+- **Hold arrivals in a lobby** is on to begin with, so you let each person in yourself. Turn it off
+  to let colleagues straight in.
+- **Open as an audio call** starts your room's meetings without video.
+- **Get a New Link** gives your room a new address. The old one stops working at once, so anybody
+  you sent it to will need the new one.
+
+A colleague who follows your link before you have opened the room is told you are not in yet. The
+page checks again every few seconds, and **Join** appears as soon as you open it. Joining puts the
+meeting on their calendar too.
+
+When everybody has left, the meeting ends by itself the next time you open your room, and its
+calendar entry is closed at the time the last person left.
+
+### Moving a meeting onto a matter
+
+A meeting in your room starts on your own calendar because, when it opens, nobody has said what it
+is about. Once they have, press **Move to a Matter** in the meeting's header, during the meeting or
+after it, and choose the matter. The calendar entry moves onto the matter with everybody on it, the
+meeting keeps its address so nobody in the room is disturbed, and from then on it can be recorded
+like any other meeting on a matter. A meeting cannot be moved back, or moved a second time.
+
+The room's owner, or anybody hosting that meeting, can move it.
+
 ## While you are in the meeting
 
 Everybody in the room has a tile of their own, with your own picture pinned so you can see what you
@@ -784,8 +818,10 @@ room.
   the matter, but captions are not yet shown while the meeting runs, and the transcript is in the
   language that was spoken and is not translated. Video is never recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
-- **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
-  want an unscheduled meeting, record the event first and start the meeting on it.
+- **Meetings that belong to no event.** Every meeting starts from something on the calendar. For an
+  unscheduled meeting, open your own room: it puts the event on your calendar for you.
+- **A standing room link for people outside the firm.** Your room's link works for colleagues signed
+  in to the firm. A guest from outside is still invited to a particular meeting.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
 - **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own

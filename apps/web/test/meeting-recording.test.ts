@@ -935,6 +935,7 @@ const SUMMARY = {
   recordingState: "none",
   recordingConfigured: true,
   captionsAvailable: false,
+  personalRoomSession: false,
 };
 
 class ScreenSocket {

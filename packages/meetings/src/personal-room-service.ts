@@ -6,11 +6,15 @@ import {
   insertFirmEventParticipantStatement,
   insertFirmEventStatement,
 } from "@magna-carta/calendar/firm-event-statements";
-import { isFixedOffset, isResolvableTimeZone, zonedReading } from "@magna-carta/civil-time/time-zone";
+import {
+  isFixedOffset,
+  isResolvableTimeZone,
+  zonedReading,
+} from "@magna-carta/civil-time/time-zone";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectStatement, EffectWrite } from "@magna-carta/data-access/effect-batch";
-import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   FirmEventId,
@@ -273,15 +277,17 @@ export async function openPersonalRoom(
     refuse("meeting-unknown-event", "a session's event needs a named time zone");
   }
   const matterId = input.matterId ?? null;
-  if (matterId !== null && (await readVisibleMatter(database, matterId, options.visibility)) === undefined) {
+  if (
+    matterId !== null &&
+    (await readVisibleMatter(database, matterId, options.visibility)) === undefined
+  ) {
     refuse("meeting-unknown-event", "that is not a matter you can open a session on");
   }
 
   const ending = open === undefined ? [] : await endAbandonedSession(database, open, options);
   const now = options.clock.now();
   const startsAt = zonedReading(Date.parse(now), input.timeZone);
-  const ownerName =
-    (await readMemberDisplayName(database, options.actorUserId)) ?? "A colleague";
+  const ownerName = (await readMemberDisplayName(database, options.actorUserId)) ?? "A colleague";
   const title = personalRoomEventTitle(ownerName);
 
   const eventStatements: EffectStatement[] = [];
@@ -607,4 +613,3 @@ export async function moveSessionToMatter(
     },
   };
 }
-

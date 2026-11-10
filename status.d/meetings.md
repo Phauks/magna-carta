@@ -11,7 +11,7 @@ load-profile: n/a
 tested: in-progress by="Claude"
 branch: claude/project-thread-ezg0ip
 active-work:
-next: Recording, transcripts, summaries and captions are built and switched off until the owner steps in the operations runbook (Turning meeting recording on) are done; stronger noise removal is built; then personal rooms and end-to-end encryption
+next: Recording, transcripts, summaries and captions are built and switched off until the owner steps in the operations runbook (Turning meeting recording on) are done; stronger noise removal and personal rooms are built; then guests by name and email, and end-to-end encryption
 link-spec: docs/specs/2026-09-18-meetings-design.md
 link-plan:
 adrs:

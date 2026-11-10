@@ -28278,6 +28278,9 @@
           },
           "captionsAvailable": {
             "type": "boolean"
+          },
+          "personalRoomSession": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -28300,7 +28303,8 @@
           "configured",
           "recordingState",
           "recordingConfigured",
-          "captionsAvailable"
+          "captionsAvailable",
+          "personalRoomSession"
         ]
       },
       "JoinedMeeting": {

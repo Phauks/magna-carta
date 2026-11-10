@@ -254,10 +254,11 @@
 - id: meetings.personal-room
   name: A member's standing room
   scope: A room a member always has, joined by a stable link, not tied to a calendar event.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-11-10-meetings-personal-rooms-design.md
-  evidence: No code; designed 2026-11-10 — the room is a standing link per member, and each session writes an ordinary firm or matter event and an ordinary meeting on it, so nothing downstream learns a new kind of meeting.
-  notes: The owner's ruling of 2026-11-09 — personal rooms are allowed. The design still has to say how a meeting held in one reaches the record, since every other meeting hangs from a calendar event.
+  evidence: Built 2026-11-10 — `meeting_personal_room` and `meeting.personal_room_id` (one open session per room by a partial unique index); `packages/meetings/src/personal-room-service.ts` (made once, link replaced, opened onto a firm or matter event, arrival by link onto the session's event, abandoned sessions ended at the last departure, moved onto a matter during or after); eight routes in `apps/api-worker/src/http/routes/communications/meeting-personal-rooms.ts`; the My Room card, the link page at `/meetings/rooms/{linkCode}` and Move to a Matter in the room. Tests: `packages/meetings/test/personal-room.test.ts`, `apps/api-worker/test/meeting-personal-room-routes.test.ts`, `apps/web/test/my-room-card.test.ts`.
+  notes: The owner's rulings of 2026-11-09 (personal rooms allowed) and 2026-11-10 (a session moves onto a matter during or after it; guests are not forced into the Directory). Open — whether a room also has a standing link for people outside the firm; today a guest is invited per meeting.
 
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption

@@ -371,7 +371,9 @@ export async function readVisibleMatter(
   visibility: VisibleMatterPredicate,
 ): Promise<{ readonly id: MatterId } | undefined> {
   const { results } = await database
-    .prepare(`SELECT matter.id FROM matter WHERE matter.id = ? AND ${visibility.fragmentFor("matter.id")}`)
+    .prepare(
+      `SELECT matter.id FROM matter WHERE matter.id = ? AND ${visibility.fragmentFor("matter.id")}`,
+    )
     .bind(matterId, ...visibility.bindings)
     .all<{ id: MatterId }>();
   return results[0];

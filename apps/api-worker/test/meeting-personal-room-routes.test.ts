@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -72,7 +72,7 @@ beforeAll(async () => {
     firmId,
   });
   billingUserId = billing.userId;
-  await mirrorMemberWithRole(billing.userId as UserId, "Room Visitor", firmId, "Billing");
+  await mirrorMemberWithRole(billing.userId, "Room Visitor", firmId, "Billing");
   billingCookie = await signInForSessionCookie("personal-room-billing@example.com");
 
   const now = new Date().toISOString();
@@ -106,8 +106,9 @@ describe("a member's personal room", () => {
   });
 
   it("is closed to a colleague until opened, then puts them on the session's event", async () => {
-    const room = (await (await call("GET", "/api/v1/meetings/personal-room", ownerCookie)).json<RoomBody>())
-      .room;
+    const room = (
+      await (await call("GET", "/api/v1/meetings/personal-room", ownerCookie)).json<RoomBody>()
+    ).room;
     const linkPath = `/api/v1/meetings/rooms/${room?.linkCode ?? ""}`;
 
     const closed = await call("GET", linkPath, billingCookie);
@@ -143,7 +144,9 @@ describe("a member's personal room", () => {
       .bind(meetingId)
       .first<{ event_kind: string; matter_event_id: string }>();
     expect(meeting?.event_kind).toBe("matter");
-    expect(meeting?.matter_event_id).toBe((await moved.json<{ matterEventId: string }>()).matterEventId);
+    expect(meeting?.matter_event_id).toBe(
+      (await moved.json<{ matterEventId: string }>()).matterEventId,
+    );
 
     const twice = await call("POST", `/api/v1/meetings/${meetingId}/move-to-matter`, ownerCookie, {
       matterId: MATTER,

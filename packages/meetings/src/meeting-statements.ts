@@ -228,6 +228,8 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
     // write path also takes — a screen that read `lobby: true` would have to invent the word back
     // to change it.
     lobby: row.lobby,
+    // A session of somebody's personal room, which is what may be moved onto a matter afterwards.
+    personalRoomSession: row.personal_room_id !== null,
   };
 }
 

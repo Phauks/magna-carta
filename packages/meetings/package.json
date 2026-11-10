@@ -23,6 +23,7 @@
     "./meeting-statements": "./src/meeting-statements.ts",
     "./pcm-frame": "./src/pcm-frame.ts",
     "./pcm-mix": "./src/pcm-mix.ts",
+    "./personal-room-contract": "./src/personal-room-contract.ts",
     "./personal-room-service": "./src/personal-room-service.ts",
     "./personal-room-statements": "./src/personal-room-statements.ts",
     "./personal-room-types": "./src/personal-room-types.ts",

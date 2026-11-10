@@ -76,8 +76,10 @@
   import MeetingLobbyPanel from "$lib/meetings/meeting-lobby-panel.svelte";
   import MeetingLobbyWait from "$lib/meetings/meeting-lobby-wait.svelte";
   import MeetingGuestsPanel from "$lib/meetings/meeting-guests-panel.svelte";
+  import MoveToMatterDialog from "$lib/meetings/move-to-matter-dialog.svelte";
   import { readWaitingParticipants } from "$lib/meetings/client/lobby.ts";
   import UsersRound from "@lucide/svelte/icons/users-round";
+  import FolderInput from "@lucide/svelte/icons/folder-input";
   import Disc from "@lucide/svelte/icons/disc";
   import RecordingMark from "$lib/meetings/screen/recording-mark.svelte";
   import RecordingNotice from "$lib/meetings/screen/recording-notice.svelte";
@@ -902,7 +904,11 @@
    */
   const recordingUnavailable = $derived.by(() => {
     if (summary === null) return null;
-    if (summary.eventKind === "firm") return "A meeting on a firm event cannot be recorded.";
+    if (summary.eventKind === "firm") {
+      return summary.personalRoomSession
+        ? "Move this meeting to a matter to record it."
+        : "A meeting on a firm event cannot be recorded.";
+    }
     if (!recordingIsConfigured(summary)) return "Recording is not switched on for this firm yet.";
     return null;
   });
@@ -921,6 +927,16 @@
 
   /** Whether the panel listing what has been recorded is open. */
   let recordingsOpen = $state(false);
+
+  /*
+   * A personal-room meeting opens on its owner's own calendar, and is moved onto a matter once
+   * somebody says what it is about — during the meeting or after it, so it is offered whether or
+   * not the meeting is over. The server holds who may: the room's owner or a host of this meeting.
+   */
+  const mayMoveToMatter = $derived(
+    summary !== null && summary.personalRoomSession && summary.eventKind === "firm" && canHost,
+  );
+  let moveOpen = $state(false);
 
   /**
    * WHO WAS TOLD, AND WHEN: the consent record of one recording. A host's read, opened from a row of
@@ -1259,6 +1275,12 @@
      meeting's record rather than the room this second, and it is read after the meeting as often as
      during it. Only a meeting on a matter can be recorded, so only one offers the list. -->
 {#snippet headerActions()}
+  {#if mayMoveToMatter}
+    <Button variant="secondary" onclick={() => (moveOpen = true)}>
+      <FolderInput class="size-16" aria-hidden="true" />
+      Move to a Matter
+    </Button>
+  {/if}
   {#if summary?.eventKind === "matter"}
     <Button variant="secondary" onclick={() => (recordingsOpen = true)}>
       <Disc class="size-16" aria-hidden="true" />
@@ -1283,7 +1305,7 @@
   <ScreenHeader
     {title}
     back="meetings"
-    actions={summary !== null && (summary.eventKind === "matter" || (canHost && !over))
+    actions={summary !== null && (summary.eventKind === "matter" || mayMoveToMatter || (canHost && !over))
       ? headerActions
       : undefined}
   >
@@ -1903,3 +1925,12 @@
     {/if}
   {/if}
 </div>
+
+{#if mayMoveToMatter && summary !== null}
+  <MoveToMatterDialog
+    bind:open={moveOpen}
+    {meetingId}
+    subject={{ facts: [summary.title] }}
+    onMoved={() => void summaryRead.refetch()}
+  />
+{/if}

@@ -1,50 +1,39 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
-import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
-import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
-import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MatterId, MeetingId, UserId } from "@magna-carta/identifiers/types";
-import { MEETING_LOBBY_MODES } from "@magna-carta/meetings/lobby-types";
+import type { MatterId } from "@magna-carta/identifiers/types";
 import {
   arriveAtPersonalRoom,
   ensurePersonalRoom,
   moveSessionToMatter,
-  MOVE_DELETE_EVENT_GUARD,
-  MOVE_TO_MATTER_GUARD,
   openPersonalRoom,
   readPersonalRoomAtLink,
-  REPLACE_LINK_GUARD,
   replacePersonalRoomLink,
   updatePersonalRoomDefaults,
 } from "@magna-carta/meetings/personal-room-service";
+import { readPersonalRoomForOwner } from "@magna-carta/meetings/personal-room-statements";
+import { MeetingPersonalRoomRefusedError } from "@magna-carta/meetings/personal-room-types";
 import {
-  readPersonalRoomForOwner,
-  readPersonalRoomOpenSession,
-} from "@magna-carta/meetings/personal-room-statements";
-import {
-  MeetingPersonalRoomRefusedError,
-  type MeetingPersonalRoomRow,
-} from "@magna-carta/meetings/personal-room-types";
-import { MEETING_MEDIA } from "@magna-carta/meetings/types";
-import { MeetingValidationError } from "@magna-carta/meetings/validation";
-import type { Context } from "hono";
+  MoveMeetingToMatterRequest,
+  MoveMeetingToMatterResponse,
+  OpenPersonalRoomRequest,
+  OpenPersonalRoomResponse,
+  PersonalRoomAtLinkResponse,
+  PersonalRoomResponse,
+  UpdatePersonalRoomRequest,
+} from "@magna-carta/meetings/personal-room-contract";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
-  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
+import { commit, roomBody, serviceOptions } from "./meeting-personal-room-commit.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
-import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
+import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
-import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
-import { meetingErrorResponse, meetingRoomFor } from "./meetings.ts";
+import { meetingRoomFor } from "./meetings.ts";
 
 // A MEMBER'S PERSONAL ROOM — the standing link, its owner's defaults, opening a session, what the link
 // shows a colleague who follows it, and moving a session onto a matter.
@@ -67,62 +56,6 @@ const linkCodeParam = z.object({
     .openapi({ param: { name: "linkCode", in: "path" } }),
 });
 
-const PersonalRoom = z
-  .object({
-    id: z.string(),
-    // The room's address inside the firm: `/meetings/rooms/{linkCode}`.
-    linkCode: z.string(),
-    // What a session opens with.
-    medium: z.enum(MEETING_MEDIA),
-    lobby: z.enum(MEETING_LOBBY_MODES),
-    // The session open now, when there is one somebody is using; null when the room is closed.
-    openMeetingId: z.string().nullable(),
-  })
-  .openapi("PersonalRoom");
-
-const PersonalRoomResponse = z
-  .object({ room: PersonalRoom.nullable() })
-  .openapi("PersonalRoomResponse");
-
-const UpdatePersonalRoomRequest = z
-  .object({
-    medium: z.enum(MEETING_MEDIA).optional(),
-    lobby: z.enum(MEETING_LOBBY_MODES).optional(),
-  })
-  .openapi("UpdatePersonalRoomRequest");
-
-const OpenPersonalRoomRequest = z
-  .object({
-    // The opener's own zone, which the session's event is written in.
-    timeZone: z.string().min(1).max(64),
-    // The matter the session is about, when it is known. Without one the session can be moved onto a
-    // matter later.
-    matterId: z.string().nullable().optional(),
-  })
-  .openapi("OpenPersonalRoomRequest");
-
-const OpenPersonalRoomResponse = z
-  .object({ meetingId: z.string(), created: z.boolean() })
-  .openapi("OpenPersonalRoomResponse");
-
-const PersonalRoomAtLinkResponse = z
-  .object({
-    // `closed` until the owner opens the room; then `open`, with the meeting to join.
-    state: z.enum(["closed", "open"]),
-    ownerDisplayName: z.string(),
-    isOwner: z.boolean(),
-    meetingId: z.string().nullable(),
-  })
-  .openapi("PersonalRoomAtLink");
-
-const MoveMeetingToMatterRequest = z
-  .object({ matterId: z.string() })
-  .openapi("MoveMeetingToMatterRequest");
-
-const MoveMeetingToMatterResponse = z
-  .object({ matterEventId: z.string() })
-  .openapi("MoveMeetingToMatterResponse");
-
 const problem = (description: string) => ({
   description,
   content: { "application/problem+json": { schema: Problem } },
@@ -138,8 +71,12 @@ const commonErrors = {
 const writeErrors = {
   ...commonErrors,
   400: problem("The Idempotency-Key header is missing on a write"),
-  409: problem("Somebody else changed the room or the meeting first, or the request is in progress"),
-  422: problem("The request body is invalid, or the Idempotency-Key was reused with a different body"),
+  409: problem(
+    "Somebody else changed the room or the meeting first, or the request is in progress",
+  ),
+  422: problem(
+    "The request body is invalid, or the Idempotency-Key was reused with a different body",
+  ),
 };
 
 function meta(
@@ -199,7 +136,10 @@ const updateRoute = defineOpenAPIRoute(meta("meetings.updatePersonalRoom", HOST,
     "whether arrivals wait at the door. A session already open keeps what it opened with.",
   request: {
     headers: idempotencyKeyHeader,
-    body: { required: true, content: { "application/json": { schema: UpdatePersonalRoomRequest } } },
+    body: {
+      required: true,
+      content: { "application/json": { schema: UpdatePersonalRoomRequest } },
+    },
   },
   responses: {
     200: {
@@ -210,24 +150,21 @@ const updateRoute = defineOpenAPIRoute(meta("meetings.updatePersonalRoom", HOST,
   },
 });
 
-const replaceLinkRoute = defineOpenAPIRoute(
-  meta("meetings.replacePersonalRoomLink", HOST, true),
-  {
-    method: "post",
-    path: "/api/v1/meetings/personal-room/link",
-    description:
-      "Gives the caller's room a new link. The old link stops working at once; a session already " +
-      "open is not touched.",
-    request: { headers: idempotencyKeyHeader },
-    responses: {
-      200: {
-        description: "The caller's room with its new link",
-        content: { "application/json": { schema: PersonalRoomResponse } },
-      },
-      ...writeErrors,
+const replaceLinkRoute = defineOpenAPIRoute(meta("meetings.replacePersonalRoomLink", HOST, true), {
+  method: "post",
+  path: "/api/v1/meetings/personal-room/link",
+  description:
+    "Gives the caller's room a new link. The old link stops working at once; a session already " +
+    "open is not touched.",
+  request: { headers: idempotencyKeyHeader },
+  responses: {
+    200: {
+      description: "The caller's room with its new link",
+      content: { "application/json": { schema: PersonalRoomResponse } },
     },
+    ...writeErrors,
   },
-);
+});
 
 const openRoute = defineOpenAPIRoute(meta("meetings.openPersonalRoom", HOST, true), {
   method: "post",
@@ -310,125 +247,6 @@ const moveRoute = defineOpenAPIRoute(meta("meetings.moveToMatter", HOST, true), 
 
 type PersonalRoomApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
-function serviceOptions(userId: string) {
-  return {
-    clock: { now: () => new Date().toISOString() },
-    actorUserId: userId as UserId,
-    randomSource: cryptoRandomSource,
-    visibility: visibleMatterPredicate(),
-  };
-}
-
-function personalRoomErrorResponse(
-  c: Context,
-  caught: MeetingPersonalRoomRefusedError,
-): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<409> {
-  switch (caught.code) {
-    case "personal-room-unknown":
-      return problemJson(c, {
-        type: "personal-room-not-found",
-        title: "Not found",
-        status: 404,
-        detail: caught.message,
-      });
-    case "personal-room-not-owner":
-      return problemJson(c, {
-        type: "personal-room-not-owner",
-        title: "This is not your room",
-        status: 403,
-        detail: caught.message,
-      });
-    case "meeting-move-refused":
-      return problemJson(c, {
-        type: "meeting-move-refused",
-        title: "This meeting cannot be moved onto a matter",
-        status: 409,
-        detail: caught.message,
-      });
-  }
-}
-
-const RACE_GUARDS = new Set([REPLACE_LINK_GUARD, MOVE_TO_MATTER_GUARD, MOVE_DELETE_EVENT_GUARD]);
-
-type Outcome<T> =
-  | { ok: true; value: T; executed: boolean }
-  | {
-      ok: false;
-      problem:
-        | ProblemResponse<403>
-        | ProblemResponse<404>
-        | ProblemResponse<409>
-        | ProblemResponse<422>;
-    };
-
-async function commit<T>(
-  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
-  call: () => Promise<{ value: T; effect: EffectWrite }>,
-): Promise<Outcome<T>> {
-  const firm = requireChokepointFirmContext(c);
-  const idempotency = requireChokepointIdempotency(c);
-  let result;
-  try {
-    result = await runIdempotentEffect({
-      database: firm.firmDatabase,
-      key: idempotency.key,
-      fingerprint: idempotency.fingerprint,
-      now: () => new Date().toISOString(),
-      effect: async () => {
-        const { value, effect } = await call();
-        return { write: effect, responseCode: 200, responseBody: canonicalJsonStringify(value) };
-      },
-    });
-  } catch (caught) {
-    if (caught instanceof MeetingValidationError) {
-      return { ok: false, problem: meetingErrorResponse(c, caught) };
-    }
-    if (caught instanceof MeetingPersonalRoomRefusedError) {
-      return { ok: false, problem: personalRoomErrorResponse(c, caught) };
-    }
-    // Somebody else replaced the link or moved the session between the read and the write; what they
-    // did stands, and the caller is told so rather than handed an Error ID.
-    if (caught instanceof GuardedWriteRefusedError && RACE_GUARDS.has(caught.guard)) {
-      return {
-        ok: false,
-        problem: problemJson(c, {
-          type: "personal-room-changed",
-          title: "Somebody changed this first",
-          status: 409,
-          detail: "The room or the meeting changed while this was being done. Look again and retry.",
-        }),
-      };
-    }
-    throw caught;
-  }
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
-    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
-  }
-  return {
-    ok: true,
-    value: JSON.parse(result.responseBody ?? "{}") as T,
-    executed: result.kind === "executed",
-  };
-}
-
-async function roomBody(
-  database: Parameters<typeof readPersonalRoomForOwner>[0],
-  room: MeetingPersonalRoomRow | undefined,
-): Promise<z.infer<typeof PersonalRoomResponse>> {
-  if (room === undefined) return { room: null };
-  const open = await readPersonalRoomOpenSession(database, room.id);
-  const inUse = open !== undefined && (open.status === "scheduled" || open.present_count > 0);
-  return {
-    room: {
-      id: room.id,
-      linkCode: room.link_code,
-      medium: room.medium,
-      lobby: room.lobby,
-      openMeetingId: inUse ? open.id : null,
-    },
-  };
-}
-
 export function registerMeetingPersonalRoomRoutes(
   app: PersonalRoomApp,
   chokepoint: Chokepoint,
@@ -438,7 +256,7 @@ export function registerMeetingPersonalRoomRoutes(
     { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const room = await readPersonalRoomForOwner(firm.firmDatabase, userId);
       return c.json(await roomBody(firm.firmDatabase, room), 200);
     },
@@ -449,7 +267,7 @@ export function registerMeetingPersonalRoomRoutes(
     { ...ensureRoute, middleware: chokepointMiddleware(chokepoint, ensureRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const outcome = await commit(c, async () => {
         const { effect } = await ensurePersonalRoom(firm.firmDatabase, serviceOptions(userId));
         return { value: { made: true }, effect };
@@ -465,7 +283,7 @@ export function registerMeetingPersonalRoomRoutes(
     { ...updateRoute, middleware: chokepointMiddleware(chokepoint, updateRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const body = c.req.valid("json");
       const outcome = await commit(c, async () => {
         const { effect } = await updatePersonalRoomDefaults(
@@ -486,7 +304,7 @@ export function registerMeetingPersonalRoomRoutes(
     { ...replaceLinkRoute, middleware: chokepointMiddleware(chokepoint, replaceLinkRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const outcome = await commit(c, async () => {
         const { effect } = await replacePersonalRoomLink(firm.firmDatabase, serviceOptions(userId));
         return { value: { replaced: true }, effect };
@@ -503,7 +321,7 @@ export function registerMeetingPersonalRoomRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const body = c.req.valid("json");
       const outcome = await commit<{
         meetingId: string;
@@ -540,7 +358,7 @@ export function registerMeetingPersonalRoomRoutes(
     { ...atLinkRoute, middleware: chokepointMiddleware(chokepoint, atLinkRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const { linkCode } = c.req.valid("param");
       try {
         const arrival = await readPersonalRoomAtLink(
@@ -577,7 +395,7 @@ export function registerMeetingPersonalRoomRoutes(
     { ...arriveRoute, middleware: chokepointMiddleware(chokepoint, arriveRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const { linkCode } = c.req.valid("param");
       const outcome = await commit<z.infer<typeof PersonalRoomAtLinkResponse>>(c, async () => {
         const { arrival, effect } = await arriveAtPersonalRoom(
@@ -605,13 +423,13 @@ export function registerMeetingPersonalRoomRoutes(
     { ...moveRoute, middleware: chokepointMiddleware(chokepoint, moveRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c) as UserId;
+      const userId = requireChokepointUserId(c);
       const { meetingId } = c.req.valid("param");
       const { matterId } = c.req.valid("json");
       const outcome = await commit<{ matterEventId: string }>(c, async () => {
         const moved = await moveSessionToMatter(
           firm.firmDatabase,
-          meetingId as MeetingId,
+          meetingId,
           matterId as MatterId,
           serviceOptions(userId),
         );

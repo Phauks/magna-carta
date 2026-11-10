@@ -265,4 +265,7 @@ export interface MeetingSummary {
   // draw the switch; the people at the door are a separate read, because a fifty-row list must not
   // carry a subquery for a question only the room screen asks.
   readonly lobby: MeetingLobbyMode;
+  // Whether this meeting is a session of somebody's personal room, opened without a scheduled
+  // event — the one kind of meeting that can be moved onto a matter after it began.
+  readonly personalRoomSession: boolean;
 }

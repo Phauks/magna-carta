@@ -44,7 +44,8 @@ export function newPersonalRoomLinkCode(randomSource: RandomSource = cryptoRando
 export function isPersonalRoomLinkCode(value: string): boolean {
   return (
     value.length === PERSONAL_ROOM_LINK_CODE_LENGTH &&
-    [...value].every((character) => LINK_CODE_ALPHABET.includes(character))
+    /^[a-z0-9]+$/.test(value) &&
+    value.split("").every((character) => LINK_CODE_ALPHABET.includes(character))
   );
 }
 

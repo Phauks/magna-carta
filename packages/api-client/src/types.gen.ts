@@ -6612,6 +6612,7 @@ export type MeetingSummary = {
     recordingState: 'none' | 'recording' | 'composing' | 'filed' | 'failed' | 'abandoned';
     recordingConfigured: boolean;
     captionsAvailable: boolean;
+    personalRoomSession: boolean;
 };
 
 export type JoinedMeeting = {

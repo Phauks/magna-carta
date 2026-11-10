@@ -44,10 +44,7 @@ import {
   readLiveHostGrant,
 } from "./hosting-statements.ts";
 import { requireHostGrant } from "./hosting-service.ts";
-import {
-  readSessionEventZone,
-  settleSessionEventStatement,
-} from "./personal-room-statements.ts";
+import { readSessionEventZone, settleSessionEventStatement } from "./personal-room-statements.ts";
 import { stopRecordingForMeetingEnd } from "./recording-service.ts";
 import {
   MAX_MEETING_PARTICIPANTS,
@@ -656,7 +653,10 @@ export async function endMeeting(
  */
 export async function sessionEventSettlement(
   database: SqlDatabase,
-  meeting: Pick<MeetingRow, "id" | "personal_room_id" | "event_kind" | "matter_event_id" | "firm_event_id">,
+  meeting: Pick<
+    MeetingRow,
+    "id" | "personal_room_id" | "event_kind" | "matter_event_id" | "firm_event_id"
+  >,
   endedAt: string,
 ): Promise<SqlStatement[]> {
   if (meeting.personal_room_id === null) return [];

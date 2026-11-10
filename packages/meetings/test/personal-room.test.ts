@@ -141,7 +141,7 @@ describe("opening a session", () => {
     expect(event?.["ends_on"]).toBeNull();
     const participants = database.raw
       .prepare(`SELECT member_user_id FROM firm_event_participant WHERE firm_event_id = ?`)
-      .all(event?.["id"]) as { member_user_id: string }[];
+      .all(String(event?.["id"])) as { member_user_id: string }[];
     expect(participants.map((row) => row.member_user_id)).toEqual([HOST]);
   });
 
@@ -167,7 +167,11 @@ describe("opening a session", () => {
     });
     await commit(database.database, left.effect);
 
-    const next = await open(database, {}, { ...options, clock: { now: () => "2026-09-19T09:00:00.000Z" } });
+    const next = await open(
+      database,
+      {},
+      { ...options, clock: { now: () => "2026-09-19T09:00:00.000Z" } },
+    );
     expect(next.created).toBe(true);
     expect(next.meetingId).not.toBe(first.meetingId);
     const old = await readMeeting(database.database, first.meetingId, visibility);
@@ -207,7 +211,11 @@ describe("arriving by the link", () => {
   it("says the room is closed until its owner opens it", async () => {
     const database = fresh();
     const room = await makeRoom(database);
-    const arrival = await readPersonalRoomAtLink(database.database, room.link_code, optionsFor(GUEST));
+    const arrival = await readPersonalRoomAtLink(
+      database.database,
+      room.link_code,
+      optionsFor(GUEST),
+    );
     expect(arrival.state).toBe("closed");
     expect(arrival.isOwner).toBe(false);
   });
@@ -229,9 +237,13 @@ describe("arriving by the link", () => {
     await commit(database.database, again.effect);
     const event = firmEventOf(database, meetingId);
     const participants = database.raw
-      .prepare(`SELECT member_user_id FROM firm_event_participant WHERE firm_event_id = ? ORDER BY member_user_id`)
-      .all(event?.["id"]) as { member_user_id: string }[];
-    expect(participants.map((row) => row.member_user_id).toSorted()).toEqual([GUEST, HOST].toSorted());
+      .prepare(
+        `SELECT member_user_id FROM firm_event_participant WHERE firm_event_id = ? ORDER BY member_user_id`,
+      )
+      .all(String(event?.["id"])) as { member_user_id: string }[];
+    expect(participants.map((row) => row.member_user_id).toSorted()).toEqual(
+      [GUEST, HOST].toSorted(),
+    );
   });
 
   it("refuses a code that names nothing, with the same answer as a malformed one", async () => {
@@ -265,7 +277,9 @@ describe("moving a session onto a matter", () => {
     expect(event["matter_id"]).toBe(MATTER);
     expect(event["title"]).toMatch(/'s room$/);
     expect(event["time_zone"]).toBe(ZONE);
-    expect(database.raw.prepare(`SELECT id FROM firm_event WHERE id = ?`).get(firmEventId)).toBeUndefined();
+    expect(
+      database.raw.prepare(`SELECT id FROM firm_event WHERE id = ?`).get(String(firmEventId)),
+    ).toBeUndefined();
   });
 
   it("works after the session ended, and the event keeps the end it was given", async () => {

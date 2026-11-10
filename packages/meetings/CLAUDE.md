@@ -122,6 +122,39 @@ above all nothing anybody said — audio, video and screen share are routed betw
 reach this platform's storage at all. That is a property of the architecture rather than a rule this
 package enforces, which is why nothing here has a redaction step.
 
+## A personal room is a standing link, and every session is an ordinary meeting
+
+`personal-room-types.ts` / `personal-room-statements.ts` / `personal-room-service.ts` are the trio.
+`meeting_personal_room` holds one room per member (unique `owner_user_id`) with its link code and the
+medium and lobby its sessions open with. **A session is nothing new downstream**: opening the room
+writes an ordinary firm event (or a matter event, when a matter is named) with the owner on it, and
+an ordinary meeting on that event with `meeting.personal_room_id` set. Every rule above about a
+meeting hanging from its event still holds, so recording, attendance and the lists needed no change.
+
+Four rules travel with it.
+
+**One open session per room is a partial unique index**
+(`meeting_personal_room_open_session_unique_index`, on `personal_room_id` where the meeting is not
+ended), so two Opens racing produce one session and the loser's batch rolls back.
+
+**A session nobody is in ends on the NEXT Open, at the last departure.** There is no sweep: the
+service reads the open session, and when nobody is in the room or at its door it ends that meeting at
+the latest `left_at` across both stay tables (`readPersonalRoomOpenSession`), stops any recording on
+it, and opens a fresh one in the same batch. `sessionEventSettlement` gives the session's event its
+end in the event's own zone and marks it `occurred`; `endMeeting` composes the same statements, so a
+host's End settles the event too.
+
+**Arriving by link puts the member on the session's EVENT**, because the meeting's join asks whether
+the member is on the event. That is the whole of what the link grants; a closed room grants nothing
+and a replaced link names nothing.
+
+**Moving onto a matter is one guarded batch, one way.** A matter event is written copying the firm
+event and its participants, the meeting is re-pointed only while it still names the firm event
+(`MOVE_TO_MATTER_GUARD`), and the firm event is deleted only once no meeting references it
+(`MOVE_DELETE_EVENT_GUARD`). The meeting keeps its id, so nobody in the room is disturbed. Only the
+room's owner or a live host grant may move it, and the matter must be visible to the caller
+(`readVisibleMatter`); refusals are `MeetingPersonalRoomRefusedError`, a vocabulary of its own.
+
 ## Not built here, and where each one lands
 
 - **Signaling and the routing credentials.** The room Durable Object and the client that talks to the
