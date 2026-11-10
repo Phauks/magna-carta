@@ -80,13 +80,16 @@ export interface InsertHitRow {
   readonly graphPathJson: string;
   // True when the matched entity is itself a subject party of this check (a co-party surfacing).
   readonly coParty: boolean;
+  // Where in the firm's own records a content result was found (content-search.ts's FoundIn), or
+  // null for a Directory result.
+  readonly foundInJson?: string | null;
   readonly createdAt: string;
 }
 
 export function insertHitStatement(database: SqlDatabase, row: InsertHitRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${CONFLICTS_HIT_TABLE} (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+      `INSERT INTO ${CONFLICTS_HIT_TABLE} (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, found_in_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
     )
     .bind(
       row.id,
@@ -97,6 +100,7 @@ export function insertHitStatement(database: SqlDatabase, row: InsertHitRow): Sq
       row.matchedFieldsJson,
       row.graphPathJson,
       row.coParty ? 1 : 0,
+      row.foundInJson ?? null,
       row.createdAt,
     );
 }
