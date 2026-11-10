@@ -414,6 +414,13 @@
       "when": 1794290322427,
       "tag": "20261110T055842_connection-sync-issue",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1794294909471,
+      "tag": "20261110T071509_sync-issue-admits-not-sent",
+      "breakpoints": true
     }
   ]
 }

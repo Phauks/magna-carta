@@ -69,6 +69,7 @@ import calendarSyncRulesAndFirmLimitsSql from "@magna-carta/database/drizzle/per
 import seedSearchSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20261110T043629_seed-search-settings-permission.sql";
 import calendarSyncLinkSql from "@magna-carta/database/drizzle/per-firm/20261110T053527_calendar-sync-link.sql";
 import connectionSyncIssueSql from "@magna-carta/database/drizzle/per-firm/20261110T055842_connection-sync-issue.sql";
+import syncIssueAdmitsNotSentSql from "@magna-carta/database/drizzle/per-firm/20261110T071509_sync-issue-admits-not-sent.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -140,6 +141,7 @@ export function perFirmMigrations(): Migration[] {
     "20261110T043629_seed-search-settings-permission": seedSearchSettingsPermissionSql,
     "20261110T053527_calendar-sync-link": calendarSyncLinkSql,
     "20261110T055842_connection-sync-issue": connectionSyncIssueSql,
+    "20261110T071509_sync-issue-admits-not-sent": syncIssueAdmitsNotSentSql,
   });
 }
 

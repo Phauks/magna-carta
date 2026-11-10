@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@magna-carta/civil-time/recurrence";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 
 // What calendar sync needs from a member's own calendar account, in the calendar's vocabulary rather
@@ -31,6 +32,23 @@ export interface ProviderEventWrite {
   readonly endsOn: string | null;
   readonly endsAtTime: string | null;
   readonly timeZone: string;
+  // Present when the event is a series, absent or null when it happens once. `startsOn` is then
+  // the series' first day.
+  readonly repeats?: ProviderEventRepeat | null;
+}
+
+// How a series repeats, in the calendar's own terms. An adapter converts the rule to its
+// provider's shape and refuses, as a validation problem, a rule the provider cannot repeat on
+// exactly the same days: a series that falls on different days in two calendars is worse than one
+// that is plainly missing from the second.
+export interface ProviderEventRepeat {
+  // The rule as stored. Part of what a write is compared by.
+  readonly line: string;
+  // The rule as read, or null where the stored line is one this platform cannot itself read.
+  readonly rule: RecurrenceRule | null;
+  // Days the series does not fall on although its rule says so: each has an event of its own, or
+  // was called off. Sorted.
+  readonly skippedDays: readonly string[];
 }
 
 // What a provider answers a write with: its own identifier for the copy, and a tag that changes

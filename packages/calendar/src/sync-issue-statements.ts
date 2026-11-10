@@ -10,10 +10,11 @@ import {
 // fitness test.
 export const CONNECTION_SYNC_ISSUE_TABLE = "connection_sync_issue";
 
-// A copy in a member's own calendar that no longer matches what was sent (`changed`) or is no
-// longer there (`removed`). One row per copy, keyed as its link is.
+// A copy in a member's own calendar that no longer matches what was sent (`changed`), is no longer
+// there (`removed`), or was never taken by the provider (`not_sent`). One row per copy, keyed as
+// its link is.
 
-export type SyncIssueKind = "changed" | "removed";
+export type SyncIssueKind = "changed" | "removed" | "not_sent";
 
 // One side of the difference: the fields a member can see in their calendar and nothing else.
 // Notes are left out because a provider hands them back reformatted, so they never compare.

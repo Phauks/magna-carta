@@ -177,10 +177,11 @@ export const CalendarSyncIssue = z
     localKind: z.enum(["matter_event", "firm_event", "deadline"]),
     localId: z.string(),
     kind: z
-      .enum(["changed", "removed"])
+      .enum(["changed", "removed", "not_sent"])
       .describe(
         "`changed`: the copy in the member's calendar no longer reads as it was sent. " +
-          "`removed`: the copy is no longer in the member's calendar.",
+          "`removed`: the copy is no longer in the member's calendar. " +
+          "`not_sent`: the provider would not take the event, so there is no copy.",
       ),
     sent: CalendarSyncCopyReading.describe(
       "The event as it was sent to the member's calendar, at the detail the firm allows.",

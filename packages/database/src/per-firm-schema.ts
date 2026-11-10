@@ -8365,7 +8365,7 @@ export const calendarSyncLink = sqliteTable(
 );
 
 // One copy a member should look at: the copy in their own calendar no longer matches what was sent,
-// or is gone. One row per copy, keyed as its link is, so a copy never has two open questions. The
+// or is gone, or the provider refused to take it (`not_sent`). One row per copy, keyed as its link is, so a copy never has two open questions. The
 // row carries both sides as they stood when the difference was found (the event as sent, at the
 // detail the firm allows, and what the provider holds now), because the page that shows it must not
 // read the event again past the firm's limit. `left` is the member's answer "leave it as it is": the
@@ -8379,11 +8379,11 @@ export const connectionSyncIssue = sqliteTable(
       .references(() => integrationConnection.id),
     localKind: text("local_kind", { enum: ["matter_event", "firm_event", "deadline"] }).notNull(),
     localId: text("local_id").notNull(),
-    kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
+    kind: text("kind", { enum: ["changed", "removed", "not_sent"] }).notNull(),
     state: text("state", { enum: ["open", "left"] }).notNull(),
     remoteVersionTag: text("remote_version_tag"), // the version of the copy the row is about
     sentJson: text("sent_json").notNull(),
-    foundJson: text("found_json"), // null when the copy is gone
+    foundJson: text("found_json"), // held only for a changed copy: the other two have no copy to read
     detectedAt: text("detected_at").notNull(),
     settledAt: text("settled_at"),
   },
@@ -8393,11 +8393,14 @@ export const connectionSyncIssue = sqliteTable(
       "connection_sync_issue_local_kind_check",
       sql`${table.localKind} IN ('matter_event', 'firm_event', 'deadline')`,
     ),
-    check("connection_sync_issue_kind_check", sql`${table.kind} IN ('changed', 'removed')`),
+    check(
+      "connection_sync_issue_kind_check",
+      sql`${table.kind} IN ('changed', 'removed', 'not_sent')`,
+    ),
     check("connection_sync_issue_state_check", sql`${table.state} IN ('open', 'left')`),
     check(
       "connection_sync_issue_found_shape_check",
-      sql`(${table.kind} = 'removed') = (${table.foundJson} IS NULL)`,
+      sql`(${table.kind} = 'changed') = (${table.foundJson} IS NOT NULL)`,
     ),
   ],
 );
