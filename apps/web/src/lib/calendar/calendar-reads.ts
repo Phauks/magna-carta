@@ -35,9 +35,11 @@ import {
   listDeadlines,
   listFirmEvents,
   listMatterEvents,
+  listSeries,
   readFirmCalendar,
   readResourceAvailability,
   type CalendarEvent,
+  type SeriesQuery,
 } from "./calendar-api.ts";
 import {
   entryFromDeadline,
@@ -45,9 +47,11 @@ import {
   entryFromFirmEvent,
   entryFromMatterEvent,
   entryFromTimelineRow,
+  entriesFromSeries,
   mergeByRecord,
   orderEntries,
   taggedWith,
+  withoutSeriesRows,
   type CalendarEntry,
   type EntryContext,
 } from "./calendar-entries.ts";
@@ -112,6 +116,38 @@ export interface CalendarReadOptions {
    * is what every embedded host that never drew a rail asks for.
    */
   readonly sources?: readonly CalendarSource[];
+}
+
+/**
+ * The repeating settings a calendar holds, one entry per day of each inside the window, and the
+ * series whose own rows the other reads returned once on their first day and should not paint.
+ *
+ * Read beside every calendar that paints events, narrowed the way that calendar is narrowed, because
+ * the ordinary reads find a series only on the day it began: a weekly conference that started in
+ * March is not in November's rows at all. A failure is the calendar's events failing, in the same
+ * words, rather than a third kind of notice a reader has to learn.
+ */
+async function readSeriesFor(
+  fetchImpl: typeof fetch,
+  query: SeriesQuery,
+  context: EntryContext,
+  scope: CalendarScope,
+): Promise<{
+  entries: CalendarEntry[];
+  seriesIds: Set<string>;
+  failure: Failure | null;
+  truncated: boolean;
+}> {
+  const outcome = await listSeries(fetchImpl, query);
+  if (outcome.kind !== "ok") {
+    return { entries: [], seriesIds: new Set(), failure: outcome.failure, truncated: false };
+  }
+  return {
+    entries: outcome.value.data.flatMap((series) => entriesFromSeries(series, context, scope)),
+    seriesIds: new Set(outcome.value.data.map((series) => series.id)),
+    failure: null,
+    truncated: outcome.value.truncated,
+  };
 }
 
 /** Everything the window holds for the scope, projected and ordered. */
@@ -223,13 +259,13 @@ async function readOneCalendar(
 ): Promise<CalendarWindowResult> {
   switch (source.kind.kind) {
     case "caseSettings":
-      return readCaseSettingsCalendar(fetchImpl, source, window, context, options);
+      return readCaseSettingsCalendar(fetchImpl, source, window, context, scope, options);
     case "deadlines":
       return readDeadlinesCalendar(fetchImpl, source, window, context, scope);
     case "firmEvents":
-      return readFirmEventsCalendar(fetchImpl, source, window, context);
+      return readFirmEventsCalendar(fetchImpl, source, window, context, scope);
     case "member":
-      return readMemberCalendar(fetchImpl, source, source.kind.memberId, window, context);
+      return readMemberCalendar(fetchImpl, source, source.kind.memberId, window, context, scope);
     case "resource":
       return readRoomCalendar(fetchImpl, source, source.kind.resourceId, window, context);
     case "layer":
@@ -248,27 +284,37 @@ async function readCaseSettingsCalendar(
   source: CalendarSource,
   window: CalendarWindow,
   context: EntryContext,
+  scope: CalendarScope,
   options: FirmReadOptions,
 ): Promise<CalendarWindowResult> {
-  const events = await walk((cursor) =>
-    readFirmCalendar(fetchImpl, {
-      from: window.from,
-      to: window.to,
-      side: "matter",
-      kinds: FIRM_CALENDAR_KINDS,
-      memberId: options.memberId,
-      cursor,
-    }),
-  );
+  const [events, series] = await Promise.all([
+    walk((cursor) =>
+      readFirmCalendar(fetchImpl, {
+        from: window.from,
+        to: window.to,
+        side: "matter",
+        kinds: FIRM_CALENDAR_KINDS,
+        memberId: options.memberId,
+        cursor,
+      }),
+    ),
+    readSeriesFor(
+      fetchImpl,
+      { from: window.from, to: window.to, side: "matter", memberId: options.memberId },
+      context,
+      scope,
+    ),
+  ]);
   const entries: CalendarEntry[] = [];
   for (const row of events.rows) {
     const entry = entryFromTimelineRow(row, context);
     if (entry !== null) entries.push(taggedWith(entry, source.key));
   }
+  for (const entry of series.entries) entries.push(taggedWith(entry, source.key));
   return {
-    entries,
-    failures: collectFailures([["events", events.failure]]),
-    truncated: events.truncated,
+    entries: withoutSeriesRows(entries, series.seriesIds),
+    failures: collectFailures([["events", events.failure ?? series.failure]]),
+    truncated: events.truncated || series.truncated,
   };
 }
 
@@ -302,17 +348,20 @@ async function readFirmEventsCalendar(
   source: CalendarSource,
   window: CalendarWindow,
   context: EntryContext,
+  scope: CalendarScope,
 ): Promise<CalendarWindowResult> {
-  const firmEvents = await walk((cursor) =>
-    listFirmEvents(fetchImpl, { from: window.from, to: window.to, cursor }),
-  );
+  const [firmEvents, series] = await Promise.all([
+    walk((cursor) => listFirmEvents(fetchImpl, { from: window.from, to: window.to, cursor })),
+    readSeriesFor(fetchImpl, { from: window.from, to: window.to, side: "firm" }, context, scope),
+  ]);
   const entries = firmEvents.rows
     .filter((firmEvent) => windowOverlaps(window, firmEvent.startsOn, firmEvent.endsOn))
     .map((firmEvent) => taggedWith(entryFromFirmEvent(firmEvent, context), source.key));
+  for (const entry of series.entries) entries.push(taggedWith(entry, source.key));
   return {
-    entries,
-    failures: collectFailures([["firmEvents", firmEvents.failure]], source.name),
-    truncated: firmEvents.truncated,
+    entries: withoutSeriesRows(entries, series.seriesIds),
+    failures: collectFailures([["firmEvents", firmEvents.failure ?? series.failure]], source.name),
+    truncated: firmEvents.truncated || series.truncated,
   };
 }
 
@@ -330,25 +379,37 @@ async function readMemberCalendar(
   memberId: string,
   window: CalendarWindow,
   context: EntryContext,
+  scope: CalendarScope,
 ): Promise<CalendarWindowResult> {
-  const events = await walk((cursor) =>
-    readFirmCalendar(fetchImpl, {
-      from: window.from,
-      to: window.to,
-      side: "all",
-      memberId,
-      cursor,
-    }),
-  );
+  const [events, series] = await Promise.all([
+    walk((cursor) =>
+      readFirmCalendar(fetchImpl, {
+        from: window.from,
+        to: window.to,
+        side: "all",
+        memberId,
+        cursor,
+      }),
+    ),
+    // The matter side only, as the rows above paint: a firm event reaches a colleague's calendar
+    // through the firm's own listing, never through theirs.
+    readSeriesFor(
+      fetchImpl,
+      { from: window.from, to: window.to, side: "matter", memberId },
+      context,
+      scope,
+    ),
+  ]);
   const entries: CalendarEntry[] = [];
   for (const row of events.rows) {
     const entry = entryFromTimelineRow(row, context);
     if (entry !== null) entries.push(taggedWith(entry, source.key));
   }
+  for (const entry of series.entries) entries.push(taggedWith(entry, source.key));
   return {
-    entries,
-    failures: collectFailures([["events", events.failure]], source.name),
-    truncated: events.truncated,
+    entries: withoutSeriesRows(entries, series.seriesIds),
+    failures: collectFailures([["events", events.failure ?? series.failure]], source.name),
+    truncated: events.truncated || series.truncated,
   };
 }
 
@@ -418,14 +479,21 @@ async function readMatterWindow(
   context: EntryContext,
   scope: CalendarScope,
 ): Promise<CalendarWindowResult> {
-  const [events, deadlines] = await Promise.all([
-    // Newest first: once a whole page starts before the window, nothing older can be inside it.
+  const [events, deadlines, series] = await Promise.all([
+    // Newest first: once a whole page starts before the window, nothing older can be inside it —
+    // except a series, which the series read beside it finds wherever it began.
     walk<CalendarEvent>(
       (cursor) => listMatterEvents(fetchImpl, matterId, cursor),
       (page) => page.length > 0 && page.every((event) => event.startsOn < window.from),
     ),
     walk((cursor) =>
       listDeadlines(fetchImpl, { matterId, from: window.from, through: window.to, cursor }),
+    ),
+    readSeriesFor(
+      fetchImpl,
+      { from: window.from, to: window.to, side: "matter", matterId },
+      context,
+      scope,
     ),
   ]);
 
@@ -435,15 +503,16 @@ async function readMatterWindow(
       entries.push(entryFromMatterEvent(event, context, scope));
     }
   }
+  entries.push(...series.entries);
   for (const deadline of deadlines.rows) entries.push(entryFromDeadline(deadline, context, scope));
 
   return {
-    entries: orderEntries(entries),
+    entries: orderEntries(withoutSeriesRows(entries, series.seriesIds)),
     failures: collectFailures([
-      ["events", events.failure],
+      ["events", events.failure ?? series.failure],
       ["deadlines", deadlines.failure],
     ]),
-    truncated: events.truncated || deadlines.truncated,
+    truncated: events.truncated || deadlines.truncated || series.truncated,
   };
 }
 

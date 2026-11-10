@@ -213,6 +213,15 @@ they still need to look better, so their styling is expected to change.
 
 ### Notes recorded this round (2026-11-09)
 
+- **R2.11 is still open, with the conversation's menu built with its live acts.** Copy Link, Open in New
+  Tab, Rename, Save to a Different Matter (the existing move dialog, which warns that the matter
+  decides who can read it), Download Transcript (the whole conversation as Markdown, read across
+  every page) and Delete (`apps/web/src/lib/magnus/conversation-menu.svelte`). It is a menu on the
+  conversation's head row, not items in the screen header's page menu, because the page's address is
+  the whole workspace and only the head row knows which conversation is open; the address now names
+  it as `?conversation=<id>`, so the link opens it directly. Share, Pin and Move to a Folder wait for
+  their tables, and Download Transcript gains the artifacts `.zip` when artifacts exist.
+
 - **R2.1 changes the design-system component, not only the page.** The Conversation component was
   written as a record with no alignment carrying meaning, and the meetings chat still reads that way.
   So the change is a second arrangement (`arrangement="exchange"` on `Conversation.Transcript`, with

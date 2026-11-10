@@ -49,6 +49,9 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/link-statements.ts` / `src/link-service.ts` — typed event links; `related` only through the
   service, `continuance_of` only through the continuance operation
 - `src/continuance-service.ts` — the one-batch continue operation and the depth-capped chain read
+- `src/series-service.ts` — a repeating setting read and changed by the DAY: the window's series
+  with the days each falls on (`readSeriesInWindow`), and one day or every later day changed or
+  cancelled (`changeMatterEventOccurrence`, `changeFirmEventOccurrence`)
 - `src/visibility.ts` — **the visibility seam**: the one predicate every matter-anchored source
   composes
 - `src/sources/registry.ts` — the `TimelineSource` declaration shape, the `visibilityAnchor`
@@ -96,6 +99,17 @@ ADR-0059, ADR-0068, ADR-0051.)
   `calendar-invalid-recurrence` rather than stored. **A continuance does not inherit the series** —
   continuing a hearing moves ONE setting to a new date, and carrying the rule across would make the
   replacement repeat.
+- **A day of a series is changed by WRITING A ROW, never by rewriting the rule's past.** One day
+  changed or cancelled on its own is an ordinary event carrying `recurrence_parent_id` and
+  `recurrence_occurrence_on`, so it is read, opened and corrected like any other and the series read
+  leaves that day out; a second change to the same day is refused (`calendar-occurrence-already-changed`)
+  so a day never has two stand-ins. A change to that day and every later one SPLITS the series: the
+  old row's rule is cut to end the day before (`UNTIL`, or a `COUNT` of the days before the cut), a
+  new row starts on that day carrying the change and the rest of a count, and the exceptions after
+  the cut are re-parented to it (or cancelled with it). Past days are never rewritten. "Every later
+  day" from the first day is the whole series and is the ordinary update; the arithmetic of a split
+  is `splitSeriesAt` in `@magna-carta/civil-time/recurrence`, never here. Read across the firm, a
+  matter's series carries no title, as the firm calendar carries none.
 - **The correction/continuance line.** A CORRECTION is an edit: the row misdescribed reality, the
   edit-in-place rule stands, and the audit row carries the fix. A CONTINUANCE is a real-world
   reschedule: the court vacated one setting and made another, both of which happened — so the old

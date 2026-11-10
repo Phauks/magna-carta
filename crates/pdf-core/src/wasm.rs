@@ -1004,6 +1004,7 @@ impl From<crate::SignError> for JsError {
             crate::SignError::MissingCatalog => "document has no catalog",
             crate::SignError::Malformed => "document structure is not signable",
             crate::SignError::CapacityExceeded => "signature exceeds the reserved capacity",
+            crate::SignError::InvalidRange => "byte range lies outside the document",
         })
     }
 }
@@ -1105,7 +1106,7 @@ pub fn signed_bytes_edge(document: Vec<u8>, byte_range: JsValue) -> Result<Vec<u
         byte_range: range,
         contents_span: (0, 0),
     };
-    Ok(crate::signed_bytes(&prepared))
+    Ok(crate::signed_bytes(&prepared)?)
 }
 
 /// Splice a detached CMS (DER) into the reserved `/Contents` gap, returning the sealed PDF.
@@ -1127,12 +1128,6 @@ pub fn embed_signature_edge(
     Ok(crate::embed_signature(&prepared, &cms)?)
 }
 
-/// The most pages one extraction call will interpret. Page count is declared in the file and
-/// wholly attacker-controlled, and every page costs a full interpret; a document longer than
-/// this belongs on a path that can afford to walk it, not on one call. Matches the ceiling the
-/// recognition container applies to the same documents.
-const MAX_EXTRACTION_PAGES: usize = 100;
-
 /// Read a PDF's own text layer, page by page, and report which pages still need recognizing.
 ///
 /// Returns `{ pages: [{ pageIndex, lines: [{ text }], needsRecognition, textCoverage,
@@ -1142,7 +1137,12 @@ const MAX_EXTRACTION_PAGES: usize = 100;
 #[wasm_bindgen(js_name = extractPdfText)]
 pub fn extract_pdf_text_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
     let document = Document::load(bytes)?;
-    let facts = document.document_text_facts(MAX_EXTRACTION_PAGES)?;
+    // Named apart from the guard's refusal: a long document is not a decompression bomb, and a
+    // caller told it was one would report the wrong reason for a document it could not read.
+    if document.page_count() > crate::MAX_TEXT_EXTRACTION_PAGES {
+        return Err(JsError::new("document has too many pages"));
+    }
+    let facts = document.document_text_facts(crate::MAX_TEXT_EXTRACTION_PAGES)?;
     let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
         let _ = js_sys::Reflect::set(o, &k.into(), v);
     };

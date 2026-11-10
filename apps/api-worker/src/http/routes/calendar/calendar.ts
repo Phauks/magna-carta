@@ -336,7 +336,7 @@ const deadlineQuery = cursorQuery.extend({
 
 // ---- shared error responses ----
 
-const authErrors = {
+export const authErrors = {
   400: {
     description: "Missing Idempotency-Key (this operation requires one)",
     content: { "application/problem+json": { schema: Problem } },
@@ -478,7 +478,7 @@ function calendarErrorResponse(
 // A READ can only refuse two ways — the resource is unknown, or the request asks for more than one
 // read may return. It is typed narrowly so a read route never has to declare a conflict response it
 // cannot produce.
-function calendarReadErrorResponse(
+export function calendarReadErrorResponse(
   c: Context,
   caught: CalendarValidationError,
 ): ProblemResponse<404> | ProblemResponse<422> {
@@ -496,7 +496,7 @@ function calendarReadErrorResponse(
 
 // ---- route metas ----
 
-function readMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
+export function readMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
   return {
     operationId: `calendar.${action}`,
     surface: "app",
@@ -509,7 +509,7 @@ function readMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
   };
 }
 
-function mutationMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
+export function mutationMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
   return {
     operationId: `calendar.${action}`,
     surface: "app",
@@ -1542,9 +1542,9 @@ const continuanceChainRoute = defineOpenAPIRoute(readMeta("continuanceChain", "m
 
 // ---- handler helpers ----
 
-type CalendarApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
+export type CalendarApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
-function serviceOptions(userId: string) {
+export function serviceOptions(userId: string) {
   return {
     clock: { now: () => new Date().toISOString() },
     actorUserId: userId as never,
@@ -1722,7 +1722,7 @@ type CalendarEffectOutcome =
     };
 
 // The shared idempotent commit for a calendar mutation, mapping refusals to HTTP.
-async function commitCalendarEffect(
+export async function commitCalendarEffect(
   c: Context,
   database: BatchDatabase,
   idempotency: { key: string | undefined; fingerprint: string },

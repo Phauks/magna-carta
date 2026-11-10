@@ -78,6 +78,12 @@ export interface CreateMatterEventInput {
    * grammar the record form uses, so a rule that saves is a rule that can be edited again.
    */
   readonly recurrenceRule?: string | null;
+  /**
+   * Where this row is ONE occurrence of a series written as an exception: the series, and the day
+   * of it this row replaces. The series' expansion skips that day, so the occurrence is this row.
+   */
+  readonly recurrenceParentId?: MatterEventId | null;
+  readonly recurrenceOccurrenceOn?: string | null;
   readonly participants?: readonly MatterEventParticipantInput[];
 }
 
@@ -128,6 +134,8 @@ export function createMatterEvent(
       conferenceUrl: input.conferenceUrl ?? null,
       courtReference: input.courtReference ?? null,
       recurrenceRule: input.recurrenceRule ?? null,
+      recurrenceParentId: input.recurrenceParentId ?? null,
+      recurrenceOccurrenceOn: input.recurrenceOccurrenceOn ?? null,
       // When the person asserted it, as against when it happens. Both are recorded because they
       // diverge routinely.
       recordedAt: now,

@@ -1,6 +1,7 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerCalendarRoutes } from "./calendar.ts";
+import { registerCalendarSeriesRoutes } from "./series.ts";
 
 // The case calendar and the matter timeline it federates.
 //
@@ -17,5 +18,7 @@ export function mountCalendar(
   // The case calendar: litigation events and deadlines recorded here, plus the matter timeline that
   // federates them with what every other subsystem already recorded — read in place, never copied.
   registerCalendarRoutes(domain, chokepoint);
+  // Repeating settings: the days a series falls on in a window, and one day of it changed.
+  registerCalendarSeriesRoutes(domain, chokepoint);
   app.route("/", domain);
 }

@@ -87,6 +87,16 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # The Changelog screen's ledger of every merged pull request, rebuilt from the full history
+      # checked out above. Only when there is already an assembly to deliver: rebuilding it on every
+      # merge would turn every merge into an assembly pull request and a second hosted gate run. A
+      # pull request merged without a fragment joins the ledger with the next one that has one (or
+      # the weekly docs-sync run). The assembly's own rebase-merged commits carry no `(#N)`, so they
+      # never enter the ledger and never re-trigger this.
+      - name: Rebuild the pull-request ledger
+        if: steps.assembled.outputs.changed == 'true'
+        run: node tooling/doc-fragments/build-pull-request-ledger.mjs --ref=origin/main
+
       # Toolchain is needed only to format the assembled output (below), so it is installed only once
       # there is output to format.
       - name: Toolchain and workspace
