@@ -305,6 +305,7 @@ export default defineConfig({
           "vp run rust-wasm-build-seven-zip",
           "vp run rust-wasm-build-segmentation",
           "vp run rust-wasm-build-noise-suppression",
+          "vp run rust-wasm-build-mls",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -335,6 +336,12 @@ export default defineConfig({
       "rust-wasm-build-noise-suppression": {
         command:
           "docker build --network=host --output type=local,dest=packages/noise-suppression/src/pkg -f crates/noise-suppression-core/wasm.Dockerfile crates",
+      },
+      // The meeting's end-to-end encryption key agreement (MLS). Nothing imports it yet; when the
+      // meeting room does, the interface Worker's own build asks for it too, as it does for the two above.
+      "rust-wasm-build-mls": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
       },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that

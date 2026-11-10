@@ -83,6 +83,12 @@ const ARTEFACTS = [
     wasm: "noise_suppression_core_bg.wasm",
     bindings: "noise_suppression_core.js",
   },
+  {
+    crate: "mls-core",
+    pkg: "packages/mls",
+    wasm: "mls_core_bg.wasm",
+    bindings: "mls_core.js",
+  },
 ];
 
 // The stamp lives beside the generated output (inside the git-ignored pkg directory), so it is created

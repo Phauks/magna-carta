@@ -200,6 +200,9 @@
       "path": "packages/metadata/tsconfig.build.json"
     },
     {
+      "path": "packages/mls/tsconfig.build.json"
+    },
+    {
       "path": "packages/money/tsconfig.build.json"
     },
     {
