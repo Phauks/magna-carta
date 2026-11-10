@@ -1,6 +1,6 @@
 # Meetings — personal rooms, design
 
-**Status:** Draft, 2026-11-10. One owner question is open (section 9); the draft builds on the recommended answer.
+**Status:** Draft, 2026-11-10. Shaped with the owner on 2026-11-10 (section 9); one question remains open.
 **Over:** [`2026-09-18-meetings-design.md`](2026-09-18-meetings-design.md) covers the meeting record, the `MeetingRoom` Durable Object, the lobby, hosting and the screen. Nothing here rebuilds any of it.
 **Ledger:** the `meetings.personal-room` node in [`roadmap.d/meetings.md`](../../roadmap.d/meetings.md).
 
@@ -44,26 +44,44 @@ meeting_personal_room
 3. A live host grant for the owner, as every Start writes.
 4. `live_meeting_id` set, guarded on it being null, so two tabs pressing Open at once end in one session (the loser reads the winner's).
 
-**Optionally, about a matter.** The Open control offers "About a matter" with the matter picker. When a matter is chosen the event is a matter event on that matter instead of a firm event, which is the only difference, and it matters for one reason: a recording is filed into a matter, so a meeting on a firm event cannot be recorded (`recording-service.ts`). Without a matter, the Record control explains that and points at the picker for next time.
+**Optionally, about a matter.** The Open control offers "About a matter" with the matter picker. When a matter is chosen the event is a matter event on that matter instead of a firm event, which is the only difference, and it matters for one reason: a recording is filed into a matter, so a meeting on a firm event cannot be recorded (`recording-service.ts`). Without a matter, the Record control explains that and offers **Move to a matter** (below).
+
+**Moving a session onto a matter, during or after it** (owner ruling, 2026-11-10). A session opened without a matter can be moved onto one by its owner or a live host, while it runs or at any time after it ended. The move is one batch:
+
+1. A matter event on the chosen matter, carrying the firm event's title, times, time zone and participants.
+2. The meeting re-pointed: `event_kind = 'matter'`, `matter_event_id` set, `firm_event_id` cleared. The meeting's handle does not change, so its attendance, chat, polls, questions and guest stays move with it untouched.
+3. The firm event deleted, guarded on it still having this meeting and no other reference.
+4. An audit row `meetings.meeting.movedToMatter` with both event handles and the matter's.
+
+The move is refused (`meeting-move-refused`) when the caller may not see the matter, when the meeting is already on a matter, or when the firm event was anything but a personal-room session (an ordinary firm event is the calendar's to edit, not this route's). It is one-way: a session filed on the wrong matter is the calendar's ordinary correction, not an undo here. A live session moved onto a matter can be recorded from that moment.
 
 **Anybody else on the link while the room is closed** sees "{owner} is not in their room yet" and the page waits, refreshing when the room opens. Nobody but the owner can open it, so an owner's room is never in use without them.
 
 **Arriving while it is open.** A member who follows the link is added as a participant of the session's event (so the event appears on their calendar and the visibility rule admits them), then joins through the existing join path, which puts them at the door when the lobby is on. A member who cannot see the matter of a matter session gets the same refusal as on any walled meeting.
 
-**Guests.** A session is a meeting, so its host invites people from outside the firm from the Guests panel exactly as on any meeting: a Directory entity, a signed link per session. A standing outside link is not in this design (section 9).
+**Guests.** A session is a meeting, so its host invites people from outside the firm from the Guests panel exactly as on any meeting, with a signed link per session. Section 4a widens who that can be.
 
 **Ending.** Ending the meeting by any existing path (the host's End, the room emptying past the grace sweep) also, in the same batch: sets the event's end to the end instant in the event's own zone, sets its status to `occurred`, and clears `live_meeting_id`. A session that ended is history; the next Open writes a new event.
 
+## 4a. A guest who is not in the Directory yet
+
+The owner's ruling of 2026-11-10: most guests are somebody in the Directory, but the product must not force it. This changes the guest rule for every meeting, not only personal rooms.
+
+**What stays the same:** the record still names a Directory entity for every guest, because the conflicts check reads the Directory and a meeting with a stranger in it is exactly what that check exists for.
+
+**What changes:** the host no longer has to find or create the Directory entry first. In the Guests panel they can type a name and an email address instead of picking somebody. The invitation then matches the address to a Directory person, or creates one marked **needs review**. This is the booking pages' precedent (`2026-09-24-meetings-scheduling-and-booking-pages-design.md`): a person created that way is real enough to be on the record and the conflicts corpus, and a reviewer later keeps, merges or discards them. The guest experiences nothing different.
+
 ## 5. Routes
 
-| Route                                           | What it does                                                                                                             |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GET /api/v1/meetings/personal-room`            | The caller's room (created on first read): link code, medium, lobby, and the live session's meeting id when one is open. |
-| `PATCH /api/v1/meetings/personal-room`          | Medium and lobby defaults.                                                                                               |
-| `POST /api/v1/meetings/personal-room/link`      | Replace the link code. Audited.                                                                                          |
-| `POST /api/v1/meetings/personal-room/open`      | Open a session (body: optional `matterId`). Returns the meeting summary; idempotent while one is open.                   |
-| `GET /api/v1/meetings/rooms/{linkCode}`         | What the link shows: the owner's name, and the live meeting id or `closed`.                                              |
-| `POST /api/v1/meetings/rooms/{linkCode}/arrive` | Add the caller to the live session's event, then answer with the meeting id to join.                                     |
+| Route                                              | What it does                                                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/v1/meetings/personal-room`               | The caller's room (created on first read): link code, medium, lobby, and the live session's meeting id when one is open. |
+| `PATCH /api/v1/meetings/personal-room`             | Medium and lobby defaults.                                                                                               |
+| `POST /api/v1/meetings/personal-room/link`         | Replace the link code. Audited.                                                                                          |
+| `POST /api/v1/meetings/personal-room/open`         | Open a session (body: optional `matterId`). Returns the meeting summary; idempotent while one is open.                   |
+| `GET /api/v1/meetings/rooms/{linkCode}`            | What the link shows: the owner's name, and the live meeting id or `closed`.                                              |
+| `POST /api/v1/meetings/rooms/{linkCode}/arrive`    | Add the caller to the live session's event, then answer with the meeting id to join.                                     |
+| `POST /api/v1/meetings/{meetingId}/move-to-matter` | Move a personal-room session onto a matter (body: `matterId`), during or after it.                                       |
 
 Every one is behind sign-in and firm-scoped. An unknown link code and a room whose owner has left the firm are one answer, `meeting-room-unknown`.
 
@@ -79,11 +97,12 @@ Identifiers and instants, as the rest of meetings: `meetings.personalRoom.create
 
 ## 8. Not in this design
 
-- Moving a finished firm-event session onto a matter afterwards. Choosing the matter at Open covers the recording case; a general "move event to matter" belongs to the calendar.
+- Moving an ordinary firm event onto a matter. Only a personal-room session moves here; a general "move event to matter" belongs to the calendar.
 - A room shared by a team (a "conference room" link). Same shape, a different owner kind; not asked for.
 - End-to-end encryption needs nothing from this design: a session is an ordinary meeting.
 
 ## 9. Owner questions
 
-1. **Where a personal-room meeting is recorded.** Asked 2026-11-10; recommended: a calendar event written as the room opens (sections 1 and 4).
-2. **A standing link for people outside the firm.** Not yet asked. Today a guest is always a Directory entity invited to one meeting, so the record names somebody the firm knows and the conflicts check can see them. A standing outside link would let anybody holding it reach the door and type a name, which breaks that rule. Recommended answer: no standing outside link; invite guests per session from the Guests panel.
+1. **Where a personal-room meeting is recorded.** Settled 2026-11-10: a calendar event written as the room opens (sections 1 and 4), and a session can be moved onto a matter during or after it (section 4).
+2. **Guests outside the Directory.** Settled 2026-11-10: allowed, not forced. A guest typed by name and address is matched to the Directory or created there as needing review (section 4a).
+3. **A standing link for people outside the firm.** Open. With section 4a, a standing outside link is possible: anybody holding it reaches the door, types a name and address, and the host decides at the door; a Directory person is matched or created as on an invitation. The risk is that the link is forwarded and strangers queue at the door. Recommended: allow it, off by default per room, replaceable like the member link.
