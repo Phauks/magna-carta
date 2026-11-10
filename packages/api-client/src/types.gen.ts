@@ -21300,6 +21300,8 @@ export type MattersListData = {
         locationId?: string;
         responsibleMemberId?: string;
         search?: string;
+        mine?: 'true';
+        clientEntityId?: string;
         cursor?: string;
         pageSize?: number;
     };
@@ -23165,6 +23167,8 @@ export type SearchAcrossMattersData = {
         q: string;
         in?: string | Array<string>;
         limit?: number;
+        mine?: 'true';
+        clientEntityId?: string;
     };
     url: '/api/v1/search';
 };

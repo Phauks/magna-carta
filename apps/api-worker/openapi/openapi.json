@@ -69636,7 +69636,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
+        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client. `mine=true` narrows to the matters the session member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on.",
         "operationId": "matters.list",
         "tags": [
           "matters"
@@ -69703,6 +69703,27 @@
             },
             "required": false,
             "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "clientEntityId",
             "in": "query"
           },
           {
@@ -73968,7 +73989,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.",
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
         "operationId": "search.acrossMatters",
         "tags": [
           "search"
@@ -74023,6 +74044,27 @@
             },
             "required": false,
             "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "clientEntityId",
             "in": "query"
           }
         ],

@@ -8,9 +8,14 @@
    * matter than this page does: the words inside its files, its parties, its calendar. The list
    * under "Not Searched" says which places those are, read from the server's own answer.
    *
-   * THE QUESTION AND THE PLACE RIDE IN THE ADDRESS. `?q=` and `?in=` are the state, so a search
-   * survives a reload, the back button walks a reader's searches, and a place beside the results
-   * is an ordinary link. The trade taken with it: the words searched for land in browser history.
+   * THE QUESTION, THE PLACE AND THE MATTERS RIDE IN THE ADDRESS. `?q=`, `?in=` and the reader's
+   * choice of matters (`?scope=mine`, `?client=`) are the state, so a search survives a reload,
+   * the back button walks a reader's searches, and a place beside the results is an ordinary
+   * link. The trade taken with it: the words searched for land in browser history.
+   *
+   * THE READER MAY ASK FEWER MATTERS, NEVER MORE. The row under the field narrows the search to
+   * their own matters or to one client's. One matter is that matter's own search, which reaches
+   * more of it, so choosing a matter goes there with the question.
    *
    * WHAT IT REACHES IS DECIDED BY THE SERVER, per reader. A record is here only where the reader
    * may see its matter and holds the permission its own section asks for, and a matter the reader
@@ -27,14 +32,37 @@
     railPlaces,
     unsearchedPlaces,
   } from "$lib/search/search-across-matters.svelte.ts";
-  import { ALL_PLACES, placeFromAddress, searchAddress } from "$lib/search/search-address.ts";
+  import {
+    ALL_PLACES,
+    placeFromAddress,
+    reachFromAddress,
+    reachKey,
+    searchAddress,
+    type SearchReach,
+  } from "$lib/search/search-address.ts";
+  import SearchReachControl from "$lib/search/search-reach-control.svelte";
+  import { reachFieldLabel, reachSentence } from "$lib/search/search-reach.ts";
 
   const search = new SearchAcrossMatters();
 
-  // The address is the state. Reading the question and the place FROM it, and holding no second
-  // copy, is what makes a reload, a shared link and the back button all land on the same search.
+  // The address is the state. Reading the question, the place and the matters FROM it, and
+  // holding no second copy, is what makes a reload, a shared link and the back button all land on
+  // the same search.
   const addressQuery = $derived(page.url.searchParams.get("q") ?? "");
   const addressPlace = $derived(placeFromAddress(page.url.searchParams.get("in")));
+  // Held by its key, so a new address object naming the same matters does not ask again.
+  const addressReachKey = $derived(
+    reachKey(
+      reachFromAddress(page.url.searchParams.get("scope"), page.url.searchParams.get("client")),
+    ),
+  );
+  const addressReach = $derived.by((): SearchReach => {
+    void addressReachKey;
+    return reachFromAddress(
+      page.url.searchParams.get("scope"),
+      page.url.searchParams.get("client"),
+    );
+  });
 
   let field = $state("");
   $effect(() => {
@@ -42,19 +70,38 @@
   });
 
   $effect(() => {
-    void search.run(fetch, addressQuery, addressPlace);
+    void search.run(fetch, addressQuery, addressPlace, addressReach);
   });
 
   function retrySearch(): void {
-    void search.run(fetch, addressQuery, addressPlace);
+    void search.run(fetch, addressQuery, addressPlace, addressReach);
   }
 
   // Typing rewrites the address, which re-runs the search through the effect above. One path, so
   // the field and the address can never say different things. A new question starts over at every
-  // place: the place a reader had chosen was chosen for the last question's results.
+  // place: the place a reader had chosen was chosen for the last question's results. The matters
+  // chosen stay, because they were chosen for the reader and not for a question.
   function submit(next: string): void {
     if (next.trim() === addressQuery.trim()) return;
-    void goto(searchAddress(next, ALL_PLACES), { replaceState: true, keepFocus: true });
+    void goto(searchAddress(next, ALL_PLACES, addressReach), {
+      replaceState: true,
+      keepFocus: true,
+    });
+  }
+
+  // A different choice of matters is a different search of the same question, and starts over at
+  // every place for the reason a new question does. It is a step the back button returns from.
+  function chooseReach(next: SearchReach): void {
+    if (reachKey(next) === addressReachKey) return;
+    void goto(searchAddress(field, ALL_PLACES, next), { keepFocus: true });
+  }
+
+  // One matter is searched by that matter's own search, which carries the question in its address
+  // the same way.
+  function searchOneMatter(matterId: string): void {
+    const question = field.trim();
+    const suffix = question === "" ? "" : `?${new URLSearchParams({ q: question }).toString()}`;
+    void goto(`/matters/${matterId}/search${suffix}`);
   }
 
   const places = $derived(railPlaces(search.overview));
@@ -74,15 +121,13 @@
       bind:value={field}
       expanded
       busy={search.busy}
-      label="Search every matter you can see"
+      label={reachFieldLabel(addressReach)}
       searchOn="pause"
       fieldClass="w-xs sm:w-md"
       onsearch={submit}
     />
-    <p class="text-xs text-text-muted">
-      Searches every matter you can see: matters and people by name, and the notes, time, costs,
-      calls and file names on those matters.
-    </p>
+    <SearchReachControl reach={addressReach} onReach={chooseReach} onMatter={searchOneMatter} />
+    <p class="text-xs text-text-muted">{reachSentence(addressReach)}</p>
   </div>
 
   <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
@@ -100,7 +145,7 @@
                 {@const current = place.key === addressPlace}
                 <li>
                   <a
-                    href={searchAddress(addressQuery, place.key)}
+                    href={searchAddress(addressQuery, place.key, addressReach)}
                     aria-current={current ? "page" : undefined}
                     class={[
                       "flex items-center justify-between gap-8 rounded-sm px-12 py-8 text-sm",

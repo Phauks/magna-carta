@@ -19,6 +19,8 @@
 import { performance } from "node:perf_hooks";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
+import type { MatterNarrowing } from "../src/narrowing.ts";
 import { runSearchAcrossMatters } from "../src/run-across-matters.ts";
 import { matterSearchSources } from "../src/sources/all.ts";
 
@@ -130,14 +132,25 @@ const permissions = new Set(
     .filter((permission) => permission !== null),
 );
 
+// A reader's narrowing to the first `count` matters, in the shape a caller hands one in.
+function firstMatters(count: number): MatterNarrowing {
+  const named = matterIds.slice(0, count);
+  return {
+    fragmentFor: (matterIdExpression) =>
+      `${matterIdExpression} IN (${named.map(() => "?").join(", ")})`,
+    bindings: named,
+  };
+}
+
 async function time(
   label: string,
   query: string,
   sourceKeys: readonly string[],
   candidateCap: number,
+  narrowing?: MatterNarrowing,
 ): Promise<void> {
   const repetitions = 10;
-  let answer = await runSearchAcrossMatters({
+  const input = {
     database,
     registry: matterSearchSources,
     query,
@@ -146,19 +159,12 @@ async function time(
     permissions,
     limit: 5,
     candidateCap,
-  });
+    ...(narrowing === undefined ? {} : { narrowing }),
+  };
+  let answer = await runSearchAcrossMatters(input);
   const begun = performance.now();
   for (let repetition = 0; repetition < repetitions; repetition += 1) {
-    answer = await runSearchAcrossMatters({
-      database,
-      registry: matterSearchSources,
-      query,
-      visibility,
-      sourceKeys,
-      permissions,
-      limit: 5,
-      candidateCap,
-    });
+    answer = await runSearchAcrossMatters(input);
   }
   const each = (performance.now() - begun) / repetitions;
   const hits = answer.groups.reduce((sum, group) => sum + group.hits.length, 0);
@@ -188,3 +194,20 @@ console.log("\nfile and folder names (a read of the file table):");
 await time("a name no file has", "zzzzzz", ["files"], 2000);
 await time("a syllable in many names", "ba", ["files"], 2000);
 await time("a number in one name", "199999.pdf", ["files"], 2000);
+
+// A search its reader narrowed. Up to the number of matters one question names, the matters are
+// named to the index and the cap is over their records; past it the index is asked the firm-wide
+// way and the narrowing is applied to what the cap admitted.
+console.log(
+  `\na narrowed search, cap 2000 (matters named to the index up to ${String(RECORD_QUERY_MATTERS_LIMIT)}):`,
+);
+for (const [name, query] of [
+  ["a word in every record", "everywhere"],
+  ["a word in 1 record in 100", "percentile"],
+] as const) {
+  for (const count of [1, 5, RECORD_QUERY_MATTERS_LIMIT, 150]) {
+    await time(`${name}, ${String(count)} matters`, query, PROSE, 2000, firstMatters(count));
+  }
+}
+await time("a syllable in many file names, 5 matters", "ba", ["files"], 2000, firstMatters(5));
+await time("a syllable in many file names, 150 matters", "ba", ["files"], 2000, firstMatters(150));

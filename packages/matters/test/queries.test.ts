@@ -2,6 +2,7 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
+import { clientMattersNarrowing, ownMattersNarrowing } from "../src/matter-narrowing.ts";
 import {
   findMattersByNumbers,
   listConsultations,
@@ -62,6 +63,40 @@ async function seedType(database: BatchDatabase, id: string): Promise<void> {
     .run();
 }
 
+let seeded = 0;
+
+async function seedAssignment(
+  database: BatchDatabase,
+  assignment: { matterId: string; validTo: string | null },
+): Promise<void> {
+  seeded += 1;
+  await database
+    .prepare(
+      "INSERT INTO matter_assignment (id, matter_id, member_user_id, assignment_role, valid_from, valid_to, created_at, updated_at) VALUES (?1, ?2, ?3, 'assigned_paralegal', NULL, ?4, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+    )
+    .bind(`matterAssignment_${seeded}`, assignment.matterId, ATTORNEY, assignment.validTo)
+    .run();
+}
+
+async function seedParty(
+  database: BatchDatabase,
+  party: { matterId: string; entityId: string; role?: string; deleted?: boolean },
+): Promise<void> {
+  seeded += 1;
+  await database
+    .prepare(
+      "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', ?5)",
+    )
+    .bind(
+      `matterParty_${seeded}`,
+      party.matterId,
+      party.entityId,
+      party.role ?? "client",
+      party.deleted === true ? "2026-02-01T00:00:00.000Z" : null,
+    )
+    .run();
+}
+
 async function setup(): Promise<BatchDatabase> {
   const database = freshDatabase();
   await seedMember(database, ATTORNEY);
@@ -113,6 +148,58 @@ describe("listMatters", () => {
       responsibleMemberId: ATTORNEY,
     });
     expect(data.map((row) => row.id)).toEqual(["matter_a"]);
+  });
+
+  it("narrows to a member's own matters: responsible for, or currently assigned to", async () => {
+    const database = await setup();
+    await seedMatter(database, { id: "matter_led", status: "open", createdAt: day(1) });
+    for (const id of ["matter_assigned", "matter_ended", "matter_theirs"]) {
+      await seedMatter(database, {
+        id,
+        status: "open",
+        createdAt: day(2),
+        responsibleMemberId: OTHER,
+      });
+    }
+    await seedAssignment(database, { matterId: "matter_assigned", validTo: null });
+    await seedAssignment(database, { matterId: "matter_ended", validTo: day(3) });
+    const { data } = await listMatters(database, {
+      narrowings: [ownMattersNarrowing(ATTORNEY)],
+    });
+    expect(data.map((row) => row.id).sort()).toEqual(["matter_assigned", "matter_led"]);
+  });
+
+  it("narrows to one client's matters, a co-client's among them, and composes with a search", async () => {
+    const database = await setup();
+    await seedMatter(database, { id: "matter_one", status: "open", createdAt: day(1) });
+    await seedMatter(database, {
+      id: "matter_two",
+      status: "open",
+      createdAt: day(2),
+      title: "Hargrove easement",
+    });
+    await seedMatter(database, { id: "matter_other", status: "open", createdAt: day(3) });
+    await seedMatter(database, { id: "matter_removed", status: "open", createdAt: day(4) });
+    await seedParty(database, { matterId: "matter_one", entityId: "person_client" });
+    // A second client on a matter that already has one.
+    await seedParty(database, { matterId: "matter_two", entityId: "person_first" });
+    await seedParty(database, { matterId: "matter_two", entityId: "person_client" });
+    // The same person on a matter in another role, and as a client party since removed.
+    await seedParty(database, {
+      matterId: "matter_other",
+      entityId: "person_client",
+      role: "witness",
+    });
+    await seedParty(database, {
+      matterId: "matter_removed",
+      entityId: "person_client",
+      deleted: true,
+    });
+    const narrowings = [clientMattersNarrowing("person_client")];
+    const all = await listMatters(database, { narrowings });
+    expect(all.data.map((row) => row.id).sort()).toEqual(["matter_one", "matter_two"]);
+    const searched = await listMatters(database, { narrowings, search: "easement" });
+    expect(searched.data.map((row) => row.id)).toEqual(["matter_two"]);
   });
 
   it("matches the search term against title and number", async () => {
