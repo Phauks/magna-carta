@@ -13,18 +13,38 @@
 # run out again, this check stops reporting: remove it from the `main` ruleset's required checks
 # until the budget resets (docs/deploy-queue.md has the steps).
 #
+# THE SHAPE: one command, several machines. The test battery was 52 to 74 of the 60 to 86 minutes a
+# hosted run took on 2026-11-09, and it is the one dimension that divides cleanly, so it runs as four
+# slices side by side (the gate's MAGNA_CARTA_TEST_SHARD, which is the test runner's own `--shard`)
+# while a fifth job runs every other dimension. The wait for a verdict becomes the slowest slice
+# rather than the sum of them. Every job still runs `pnpm gate`; no check is re-implemented here.
+#
+#   prepare   reads the gate's own plan, and builds the WASM artefacts ONCE when no cached copy
+#             matches the Rust sources, so five jobs do not each compile them
+#   checks    `pnpm gate --skip tests`: every dimension except the battery
+#   tests     `pnpm gate --only wasm,tests`, four times, each with one slice of the suite; not
+#             started at all when the plan says the change reaches no code
+#   gate      the required check: green only when every job above is
+#
 # Spending minutes carefully, since they are paid:
-#   - ONE job. The gate already skips every dimension the change cannot reach (a docs-only change runs
-#     format and governance and nothing else), so the job pays for the toolchain install plus what the
-#     change actually touches.
+#   - The fan-out costs about ten billed minutes a run (one toolchain install per job instead of one
+#     per run, and each job's time rounded up to a minute) and returns the verdict roughly three times
+#     sooner; a stale run that a newer push cancels is also cancelled sooner. The gate already skips
+#     every dimension the change cannot reach (a docs-only change runs format and governance and
+#     nothing else, in one job).
 #   - A newer push to a pull request cancels its stale run. On `main` and `beta` a started run is never
 #     cancelled, so every landed push gets a verdict.
 #   - Every slow input is cached: the pnpm store and linked node_modules (the setup action), the WASM
 #     artefacts keyed on their Rust sources, the cargo registry, and the Playwright browser. The
 #     wasm-pack and browser installs are skipped outright when the gate's own plan says nothing needs
 #     them.
+#   - EVERY CACHE IS SAVED BY ITS OWN STEP, RIGHT AFTER THE THING IT HOLDS IS BUILT. The combined
+#     `actions/cache` step saves in a post-job hook that only runs when the job succeeded, and for the
+#     first day of this workflow no run succeeded (the battery was red on `main`), so the WASM cache
+#     was never written and every run recompiled the artefacts from cold: 251 to 320 seconds, each
+#     time. A cache that is only written by a green run is absent exactly when runs are slowest.
 #
-# The required check on the `main` ruleset is the job name, `gate`.
+# The required check on the `main` ruleset is the last job's name, `gate`.
 name: CI
 
 on:
@@ -51,17 +71,32 @@ env:
   # `tsc -b` over both root solutions outgrows node's default heap (about 2 GB) and dies with "heap out
   # of memory"; the 2-core runner has 16 GB.
   NODE_OPTIONS: --max-old-space-size=8192
+  # One checkout per runner, so the crates workspace's own target directory is the one worth caching
+  # (on a laptop the bootstrap shares one target directory across worktrees instead).
+  MAGNA_CARTA_SHARED_CARGO_TARGET: "0"
+  # The generated, git-ignored WASM outputs: every crate tooling/bootstrap builds writes to its
+  # package's src/pkg, and nothing tracked lives there. A glob rather than a list, because a list
+  # goes stale the day a crate is added (it held four of five outputs on 2026-11-09, and a sixth
+  # landed the same evening). The stamp the bootstrap writes beside each output holds the hash of the
+  # sources it was built from, so a restored entry is re-verified by the gate's `wasm` dimension,
+  # never trusted.
+  WASM_PATHS: packages/*/src/pkg
 
 jobs:
-  gate:
-    name: gate
+  prepare:
+    name: prepare
     # Pinned rather than ubuntu-latest, which moves to a new Ubuntu release before Playwright ships
     # browser builds for it (on 2026-11-09 ubuntu-latest was 26.04 and Playwright 1.60 refused it).
     # Move this deliberately, after checking the catalog's Playwright supports the newer image.
     runs-on: ubuntu-24.04
-    # The full test battery alone took about 52 minutes in a 4-core cloud session on 2026-11-09, and the first
-    # hosted run hit a 60-minute ceiling, so the job gets room past the slowest honest run.
-    timeout-minutes: 120
+    timeout-minutes: 45
+    outputs:
+      base: ${{ steps.base.outputs.base }}
+      wasm: ${{ steps.plan.outputs.wasm }}
+      rust: ${{ steps.plan.outputs.rust }}
+      containers: ${{ steps.plan.outputs.containers }}
+      tests: ${{ steps.plan.outputs.tests }}
+      wasm-key: ${{ steps.wasm-key.outputs.key }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -70,12 +105,13 @@ jobs:
           fetch-depth: 0
 
       - name: Resolve the diff base
+        id: base
         # A pull request checks out GitHub's merge of the branch into its base, so it is measured from
         # that merge's first parent: the base exactly as the merge saw it, even when the base moved
         # after the event fired. A push is measured from the commit it replaced. A new branch's push,
         # a dispatch, or a base the clone cannot see falls back to the merge-base with origin/main; on
         # `main` itself that is HEAD, which the gate reads as an empty change and runs as the full
-        # sweep.
+        # sweep. Resolved once, here, and handed to every other job, so they all judge one change.
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
@@ -84,73 +120,119 @@ jobs:
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             base="$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD)"
           fi
-          echo "DIFF_BASE=$base" >> "$GITHUB_ENV"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "diff base: $base"
-
-      - name: Restore the built WASM artefacts
-        id: wasm-cache
-        uses: actions/cache@v6
-        with:
-          # Generated and git-ignored. The stamp tooling/bootstrap writes beside each output holds the
-          # hash of the sources it was built from, so a restored entry is re-verified, never trusted.
-          path: |
-            packages/pdf/src/pkg
-            packages/decryption/src/pkg
-            packages/email/src/pkg
-            packages/seven-zip/src/pkg
-          key: wasm-${{ runner.os }}-${{ hashFiles('crates/**/*.rs', 'crates/**/Cargo.toml', 'crates/Cargo.lock', 'rust-toolchain.toml') }}
-
-      - name: Toolchain and workspace
-        uses: ./.github/actions/setup
 
       - name: Plan the gate
         id: plan
+        # The plan reads git and the workspace manifests and nothing else, so it runs on the runner's
+        # own Node before anything is installed.
+        env:
+          DIFF_BASE: ${{ steps.base.outputs.base }}
         run: |
-          pnpm --silent gate --plan --base "$DIFF_BASE" | tee plan.txt
+          node tooling/gate/index.mjs --plan --base "$DIFF_BASE" | tee plan.txt
           running="$(grep '^gate: running ' plan.txt || true)"
           for dimension in wasm rust containers tests; do
             if echo "$running" | grep -qw "$dimension"; then echo "$dimension=true" >> "$GITHUB_OUTPUT"; fi
           done
 
-      - name: Install wasm-pack (only when the WASM artefacts must be rebuilt)
+      - name: Name the WASM cache entry
+        id: wasm-key
+        run: echo "key=wasm-v2-${{ runner.os }}-${{ hashFiles('crates/**/*.rs', 'crates/**/Cargo.toml', 'crates/Cargo.lock', 'rust-toolchain.toml') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Is a built copy of the WASM artefacts already cached?
+        id: wasm-cache
+        if: steps.plan.outputs.wasm == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.WASM_PATHS }}
+          key: ${{ steps.wasm-key.outputs.key }}
+          lookup-only: true
+
+      # Everything below runs only when the artefacts are needed and no cached copy matches: build
+      # them once, here, and save them before any other job starts.
+      - name: Toolchain and workspace
+        if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup
+
+      - name: Install wasm-pack
         if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
         uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack
 
       - name: Rust toolchain (pinned by rust-toolchain.toml)
-        if: steps.plan.outputs.rust == 'true' || steps.plan.outputs.containers == 'true' || (steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
+        if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
         run: rustup show && rustc --version
 
       - name: Cache the cargo registry and the crates target
-        if: steps.plan.outputs.rust == 'true' || (steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
+        if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates
-          # The bootstrap shares one target directory across worktrees on a laptop; here there is one
-          # checkout, so the workspace's own target directory is the one worth caching.
-        env:
-          MAGNA_CARTA_SHARED_CARGO_TARGET: "0"
+          cache-on-failure: true
 
-      - name: Point Playwright's browser cache outside the checkout
-        if: steps.plan.outputs.tests == 'true'
-        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
+      - name: Build the WASM artefacts
+        if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
+        run: node tooling/bootstrap/index.mjs
 
-      - name: Cache the Playwright browser
-        if: steps.plan.outputs.tests == 'true'
-        uses: actions/cache@v6
+      - name: Save the WASM artefacts
+        if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
         with:
-          path: ${{ runner.temp }}/pw-browsers
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          path: ${{ env.WASM_PATHS }}
+          key: ${{ steps.wasm-key.outputs.key }}
 
-      - name: Install the Playwright browser the test runner needs
-        if: steps.plan.outputs.tests == 'true'
-        # Through the workspace's own Playwright (the catalog pin in pnpm-workspace.yaml), so the
-        # browser build always matches the version the test runner resolves, with no version named here.
-        run: pnpm exec playwright install --with-deps chromium chromium-headless-shell
+  checks:
+    name: checks
+    needs: prepare
+    runs-on: ubuntu-24.04
+    # Without the battery this is minutes; the room is for a change that reaches the container
+    # acceptance suites, which build full Docker images.
+    timeout-minutes: 120
+    env:
+      DIFF_BASE: ${{ needs.prepare.outputs.base }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Restore the built WASM artefacts
+        id: wasm-cache
+        if: needs.prepare.outputs.wasm == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.WASM_PATHS }}
+          key: ${{ needs.prepare.outputs.wasm-key }}
+
+      - name: Toolchain and workspace
+        uses: ./.github/actions/setup
+
+      # The fallback for a cache entry that could not be saved or read: the gate's own `wasm`
+      # dimension rebuilds what is missing, and needs wasm-pack to do it.
+      - name: Install wasm-pack (only when the WASM artefacts must be rebuilt here)
+        if: needs.prepare.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Rust toolchain (pinned by rust-toolchain.toml)
+        # Always, because governance always runs and two of its lints call cargo. Left to install
+        # itself on first use, the pinned toolchain is fetched by several concurrent lints at once
+        # and the downloads collide ("could not rename 'downloaded' file"). The single job this
+        # replaced only got away without this line because its WASM cache never hit, so it always
+        # installed the toolchain for the rebuild.
+        run: rustup show && rustc --version
+
+      - name: Cache the cargo registry and the crates target
+        if: needs.prepare.outputs.rust == 'true' || (needs.prepare.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+          cache-on-failure: true
 
       - name: Free runner disk for the container builds
-        if: steps.plan.outputs.containers == 'true'
+        if: needs.prepare.outputs.containers == 'true'
         # Container acceptance suites build full Docker images; the stock runner leaves too little
         # headroom for them, so drop the preinstalled bundles this repository never uses.
         run: |
@@ -158,17 +240,126 @@ jobs:
           docker system prune -af --volumes > /dev/null 2>&1 || true
           df -h / | tail -1
 
-      - name: pnpm gate
-        env:
-          MAGNA_CARTA_SHARED_CARGO_TARGET: "0"
+      - name: pnpm gate (every dimension except the test battery)
         run: |
           set -o pipefail
-          pnpm --silent gate --base "$DIFF_BASE" 2>&1 | tee gate.log
+          pnpm --silent gate --base "$DIFF_BASE" --skip tests 2>&1 | tee gate.log
 
       - name: Gate summary
         if: always()
         # The summary block the pull-request template asks for, on the run's own page.
         run: |
           if [ -f gate.log ]; then
-            { echo '```'; sed -n '/^gate: summary/,$p' gate.log | tail -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            { echo '### checks'; echo '```'; sed -n '/^gate: summary/,$p' gate.log | tail -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  tests:
+    name: tests (${{ matrix.slice }}/4)
+    needs: prepare
+    # Not started at all for a change the plan says reaches no code (a docs-only pull request).
+    if: needs.prepare.outputs.tests == 'true'
+    runs-on: ubuntu-24.04
+    # The whole battery took 52 to 74 minutes on one runner; a quarter of it gets room past the
+    # slowest honest slice.
+    timeout-minutes: 60
+    strategy:
+      # A red slice does not stop the others: the summary is more useful complete, which is the same
+      # reason a failed gate dimension does not stop the dimensions after it.
+      fail-fast: false
+      matrix:
+        slice: [1, 2, 3, 4]
+    env:
+      DIFF_BASE: ${{ needs.prepare.outputs.base }}
+      MAGNA_CARTA_TEST_SHARD: ${{ matrix.slice }}/4
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Restore the built WASM artefacts
+        id: wasm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.WASM_PATHS }}
+          key: ${{ needs.prepare.outputs.wasm-key }}
+
+      - name: Toolchain and workspace
+        uses: ./.github/actions/setup
+
+      - name: Install wasm-pack (only when the WASM artefacts must be rebuilt here)
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Rust toolchain (only when the WASM artefacts must be rebuilt here)
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
+        run: rustup show && rustc --version
+
+      - name: Point Playwright's browser cache outside the checkout
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
+
+      - name: Restore the Playwright browser
+        id: playwright-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/pw-browsers
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install the Playwright browser the test runner needs
+        # Through the workspace's own Playwright (the catalog pin in pnpm-workspace.yaml), so the
+        # browser build always matches the version the test runner resolves, with no version named
+        # here. Run on a cache hit too: the browser is then already present and this installs only
+        # the system libraries it links against, which no cache holds.
+        run: pnpm exec playwright install --with-deps chromium chromium-headless-shell
+
+      - name: Save the Playwright browser
+        # One slice writes it; four writing the same key would be three refused saves.
+        if: steps.playwright-cache.outputs.cache-hit != 'true' && matrix.slice == 1
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/pw-browsers
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: pnpm gate (one slice of the test battery)
+        run: |
+          set -o pipefail
+          pnpm --silent gate --base "$DIFF_BASE" --only wasm,tests 2>&1 | tee gate.log
+
+      - name: Gate summary
+        if: always()
+        env:
+          SLICE: ${{ matrix.slice }}
+        run: |
+          if [ -f gate.log ]; then
+            { echo "### tests, slice $SLICE of 4"; echo '```'; sed -n '/^gate: summary/,$p' gate.log | tail -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  gate:
+    # The required check on the `main` ruleset is this job's name. It runs no check of its own: it is
+    # green only when every job above is, so the ruleset keeps requiring one name however the work is
+    # divided.
+    name: gate
+    needs: [prepare, checks, tests]
+    # always(), never !cancelled(): a skipped job counts as a PASSED required check, so this job must
+    # run and fail when a run is cancelled or an earlier job is red, rather than be skipped with them.
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+          CHECKS: ${{ needs.checks.result }}
+          TESTS: ${{ needs.tests.result }}
+          TESTS_PLANNED: ${{ needs.prepare.outputs.tests }}
+        run: |
+          echo "prepare=$PREPARE checks=$CHECKS tests=$TESTS (planned: ${TESTS_PLANNED:-false})"
+          [ "$PREPARE" = "success" ] || { echo "::error::prepare did not pass"; exit 1; }
+          [ "$CHECKS" = "success" ] || { echo "::error::checks did not pass (see that job's summary)"; exit 1; }
+          if [ "$TESTS_PLANNED" = "true" ]; then
+            [ "$TESTS" = "success" ] || { echo "::error::the test battery did not pass (see each slice's summary)"; exit 1; }
+          else
+            # The plan said the change reaches no code, so the battery was rightly not started.
+            [ "$TESTS" = "skipped" ] || { echo "::error::tests ran or failed although the plan did not ask for them: $TESTS"; exit 1; }
           fi
