@@ -421,6 +421,20 @@
       "when": 1794298235757,
       "tag": "20261110T081035_sync-issue-provider-refused",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1794299639296,
+      "tag": "20261110T083359_rejudge-download-only-recordings",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1794299502166,
+      "tag": "20261110T084953_task-comments",
+      "breakpoints": true
     }
   ]
 }

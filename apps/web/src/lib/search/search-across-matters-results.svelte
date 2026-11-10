@@ -37,6 +37,7 @@
   import type { AcrossMattersGroup } from "$lib/search/search-across-matters-api.ts";
   import {
     OVERVIEW_LIMIT,
+    PEOPLE_NOT_SEARCHED_REASON,
     PLACE_LIMIT,
     type NameGroup,
     type SearchOverview,
@@ -85,8 +86,10 @@
   const showsPeople = $derived(everyPlace || chosen === PEOPLE_PLACE);
 
   function nameGroupVisible<Row>(group: NameGroup<Row>): boolean {
-    // In the overview a place with nothing to show is left to the list beside the results. A
+    // In the overview a place with nothing to show is left to the list beside the results, and so
+    // is one the reader's choice of matters set aside: the list beside the results names it. A
     // chosen place always renders, because the reader asked for it and the absence is the answer.
+    if (group.standing === "not-searched") return !everyPlace;
     return !everyPlace || group.rows.length > 0 || group.standing !== "answered";
   }
 
@@ -115,6 +118,7 @@
 
   function nameStandingLine(standing: NameGroup<unknown>["standing"], what: string): string {
     if (standing === "no-access") return `Your role does not include reading ${what}.`;
+    if (standing === "not-searched") return PEOPLE_NOT_SEARCHED_REASON;
     return `${what.charAt(0).toUpperCase()}${what.slice(1)} could not be searched just now.`;
   }
 
@@ -206,9 +210,8 @@
         <Alert.Root variant="info">
           <Alert.Title>Showing The Most Recent Matches</Alert.Title>
           <Alert.Description>
-            These words are in more of the firm's records than one search reads, so the results
-            below are the most recent records with them and not every one. Add a word to narrow
-            the search.
+            These words are in more records than one search reads, so the results below are the
+            most recent records with them and not every one. Add a word to narrow the search.
           </Alert.Description>
         </Alert.Root>
       {/if}
@@ -259,7 +262,7 @@
           "Matched on title, number and client",
           mattersBody,
           everyPlace && (matters.rows.length > OVERVIEW_LIMIT || matters.more)
-            ? searchAddress(overview.query, MATTERS_PLACE)
+            ? searchAddress(overview.query, MATTERS_PLACE, overview.reach)
             : null,
         )}
       {/if}
@@ -299,7 +302,7 @@
           "Matched on every name the directory holds, current and former",
           peopleBody,
           everyPlace && (people.rows.length > OVERVIEW_LIMIT || people.more)
-            ? searchAddress(overview.query, PEOPLE_PLACE)
+            ? searchAddress(overview.query, PEOPLE_PLACE, overview.reach)
             : null,
         )}
       {/if}
@@ -365,7 +368,9 @@
             ? `Matched on ${FIELD_LIST.format(group.matchedFields)}`
             : null,
           recordsBody,
-          everyPlace && group.hasMore ? searchAddress(overview.query, group.source) : null,
+          everyPlace && group.hasMore
+            ? searchAddress(overview.query, group.source, overview.reach)
+            : null,
         )}
       {/each}
 

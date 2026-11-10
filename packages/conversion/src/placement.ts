@@ -2,13 +2,13 @@ import type { EngineId, FormatId, Placement } from "./format.ts";
 import { findPath } from "./pathfinding.ts";
 
 // Where each engine can run. libvips runs in the browser (wasm-vips) and in a Container; the others
-// are native, server-only engines (the LibreOffice fork-pool, the email render, the FFmpeg sandbox,
-// and the raster Container's image-to-PDF path).
+// are native, server-only engines (the LibreOffice fork-pool, the email render, the video transcode
+// Container, and the raster Container's image-to-PDF path).
 const ENGINE_PLACEMENTS: Record<EngineId, readonly Placement[]> = {
   libvips: ["local", "server"],
   libreoffice: ["server"],
   email: ["server"],
-  ffmpeg: ["server"],
+  transcode: ["server"],
   "image-pdf": ["server"],
   ocr: ["server"],
 };

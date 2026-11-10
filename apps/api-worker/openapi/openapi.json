@@ -12600,6 +12600,12 @@
                         "signerId": {
                           "type": "string"
                         },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
                         "adoption": {
                           "type": "string",
                           "enum": [
@@ -12649,6 +12655,9 @@
                         "observedIp": {
                           "type": "string"
                         },
+                        "userAgent": {
+                          "type": "string"
+                        },
                         "proofReference": {
                           "type": "string"
                         }
@@ -12664,6 +12673,85 @@
                     "attribution"
                   ]
                 }
+              },
+              "envelope": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "pageCount": {
+                    "type": "integer"
+                  },
+                  "sender": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "created",
+                        "sent",
+                        "delivered",
+                        "reminded",
+                        "viewed",
+                        "identity-verified",
+                        "consented",
+                        "signed",
+                        "declined",
+                        "reassigned",
+                        "voided",
+                        "completed",
+                        "sealed"
+                      ]
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "actor": {
+                      "type": "string"
+                    },
+                    "observedIp": {
+                      "type": "string"
+                    },
+                    "userAgent": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "at"
+                  ]
+                }
               }
             },
             "required": [
@@ -12674,13 +12762,17 @@
           },
           "certificateText": {
             "type": "string"
+          },
+          "certificatePdfBase64": {
+            "type": "string"
           }
         },
         "required": [
           "sealedPdfBase64",
           "documentHashSha256",
           "certificate",
-          "certificateText"
+          "certificateText",
+          "certificatePdfBase64"
         ]
       },
       "SessionLaunchResponse": {
@@ -29337,6 +29429,82 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "MatterTaskCommentThread": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskComment"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MatterTaskComment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "authorUserId": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "editedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mentionedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "authorUserId",
+          "body",
+          "createdAt",
+          "editedAt",
+          "mentionedUserIds"
+        ]
+      },
+      "MatterTaskCommentRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "mentionedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "body"
         ]
       },
       "MyDayResponse": {
@@ -67165,7 +67333,7 @@
     },
     "/api/v1/documents/seal": {
       "post": {
-        "description": "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records. The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.",
+        "description": "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records: the structured record, its plain text, and a sealed PDF sheet listing each signer and the audit log (consent, signature and seal, each with its server-observed time and address). The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.",
         "operationId": "esign.seal",
         "tags": [
           "esign"
@@ -67205,6 +67373,16 @@
                             "signerId": {
                               "type": "string",
                               "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "email": {
+                              "type": "string",
+                              "maxLength": 320,
+                              "format": "email"
                             },
                             "adoption": {
                               "type": "string",
@@ -67271,6 +67449,11 @@
                       ]
                     },
                     "minItems": 1
+                  },
+                  "documentTitle": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
                   },
                   "seal": {
                     "type": "object",
@@ -69637,7 +69820,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
+        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client. `mine=true` narrows to the matters the session member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on.",
         "operationId": "matters.list",
         "tags": [
           "matters"
@@ -69704,6 +69887,27 @@
             },
             "required": false,
             "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "clientEntityId",
             "in": "query"
           },
           {
@@ -73969,7 +74173,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown.",
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
         "operationId": "search.acrossMatters",
         "tags": [
           "search"
@@ -74024,6 +74228,27 @@
             },
             "required": false,
             "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "clientEntityId",
             "in": "query"
           }
         ],
@@ -97997,6 +98222,487 @@
             },
             "required": true,
             "name": "linkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/comments": {
+      "get": {
+        "description": "The task's comment thread, oldest first: each comment, who wrote it, when, whether it has been reworded since, and the colleagues it names.",
+        "operationId": "tasks.readTaskComments",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.readTaskComments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The thread",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskCommentThread"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Adds a comment to the end of the task's thread. Each colleague named in `mentionedUserIds` is told, and must be able to see the task. The people the task is assigned to and the people watching it are told too; the author is never told of their own comment.",
+        "operationId": "tasks.addTaskComment",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.addTaskComment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterTaskCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new record's id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/task-comments/{commentId}": {
+      "put": {
+        "description": "Rewords one of the member's own comments, and replaces who it names. The comment keeps its place and is marked edited. A colleague newly named is told; nobody else is told again.",
+        "operationId": "tasks.editTaskComment",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.editTaskComment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.editTaskComment"
+        },
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskComment_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "commentId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterTaskCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes one of the member's own comments from the thread. The firm's audit log keeps that it was written and removed, and never what it said.",
+        "operationId": "tasks.deleteTaskComment",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.deleteTaskComment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.addTaskComment"
+        },
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskComment_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "commentId",
             "in": "path"
           },
           {

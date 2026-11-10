@@ -64,7 +64,7 @@ import {
 
 // The parts of a task that are rows or moves of their own: where it stands on its list, which list
 // it is on, whether it is finished, who it is assigned to and who watches it, its checklist, its
-// links, and the sub-tasks beneath it.
+// links, and the sub-tasks beneath it. Its comment thread is task-comments.ts.
 //
 // FINISHING IS NOT A STATUS. Completion works from any status and leaves the status where it stood,
 // so reopening a task puts it back exactly there; the list's flow governs moves between statuses

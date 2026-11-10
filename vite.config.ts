@@ -337,9 +337,9 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/noise-suppression/src/pkg -f crates/noise-suppression-core/wasm.Dockerfile crates",
       },
-      // The PDF composer. Deliberately NOT in the composite above and in no Worker's build script:
-      // nothing imports @magna-carta/pdf-compose yet, so no deploy should pay to compile it or be
-      // able to fail on it. The first Worker to import the package adds this task to its own build.
+      // The PDF composer. Deliberately NOT in the composite above: only a Worker that imports
+      // @magna-carta/pdf-compose should pay to compile it or be able to fail on it. The sign Worker
+      // does (it composes the Certificate of Completion) and names this task in its own build.
       "rust-wasm-build-pdf-compose": {
         command:
           "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",
