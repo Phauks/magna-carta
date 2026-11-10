@@ -180,10 +180,13 @@
             type="multiple"
             value={entriesOpen}
             onValueChange={(value) => (entriesOpen = value)}
-            class="flex flex-col divide-y divide-border-default ps-24"
+            class="flex flex-col gap-12 ps-24"
           >
             {#each onDate as record (record.number)}
-              <Accordion.Item value={String(record.number)} class="flex flex-col gap-8 border-none py-12">
+              <Accordion.Item
+                value={String(record.number)}
+                class="flex flex-col gap-8 rounded-lg border border-border-default bg-surface-raised px-16 py-12"
+              >
                 <Accordion.Trigger chevron="start" class="py-4 text-start text-base font-semibold">
                   {record.title}
                 </Accordion.Trigger>
