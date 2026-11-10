@@ -321,6 +321,63 @@ describe("the discovery engine is the native route when it is bound", () => {
     ]);
   });
 
+  it("reads a scan longer than one recognition window, window by window, to the last page", async () => {
+    // 250 scanned pages against an engine that walks 100 per request. Every page has to come back:
+    // an engine that refused the document whole, or a caller that stopped at the first window, would
+    // leave the back of a production out of the index with nothing to say so.
+    const pageCount = 250;
+    const everyPage = Array.from({ length: pageCount }, (_, pageIndex) => pageIndex);
+    const engine = fakeEngine(reading({ pagesNeedingRecognition: everyPage, pageCount }));
+    const windows: number[] = [];
+    const recognition: Pick<Fetcher, "fetch"> = {
+      fetch: async (input) => {
+        const firstPage = Number(new URL((input as Request).url).searchParams.get("firstPage"));
+        windows.push(firstPage);
+        const pages = everyPage
+          .slice(firstPage, firstPage + 100)
+          .map((pageIndex) => ({ pageIndex, lines: [{ text: `SCANNED PAGE ${pageIndex + 1}` }] }));
+        return Response.json({ pages, pageCount });
+      },
+    };
+    const result = await enginePort(engine.service, recognition).extract({
+      bytes,
+      contentType: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(windows).toEqual([0, 100, 200]);
+    expect(result.pages).toHaveLength(pageCount);
+    expect(result.pages.every((page) => page.provenance === "ocr" && page.hasText)).toBe(true);
+    expect(result.passages.at(-1)?.text).toBe("SCANNED PAGE 250");
+  });
+
+  it("asks only for the windows that hold a page needing recognition", async () => {
+    // A long born-digital filing with one scanned exhibit near the back is one request, placed at
+    // that page, not one request per hundred pages of text nobody needs read twice.
+    const engine = fakeEngine(reading({ pagesNeedingRecognition: [840], pageCount: 900 }));
+    const windows: number[] = [];
+    const recognition: Pick<Fetcher, "fetch"> = {
+      fetch: async (input) => {
+        const firstPage = Number(new URL((input as Request).url).searchParams.get("firstPage"));
+        windows.push(firstPage);
+        return Response.json({
+          pages: [{ pageIndex: 840, lines: [{ text: "EXHIBIT C" }] }],
+          pageCount: 900,
+        });
+      },
+    };
+    const result = await enginePort(engine.service, recognition).extract({
+      bytes,
+      contentType: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(windows).toEqual([840]);
+    expect(result.pages).toEqual([{ pageIndex: 840, provenance: "ocr", hasText: true }]);
+  });
+
   it("parks a scan when the recognizer is not deployed rather than calling it unreadable", async () => {
     const engine = fakeEngine(reading({ pagesNeedingRecognition: [0], pageCount: 1 }));
     const result = await enginePort(engine.service).extract({ bytes, contentType: null });
