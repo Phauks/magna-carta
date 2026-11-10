@@ -24,26 +24,28 @@ does not cover.
 
 ## What answers today
 
-| Section       | What is searched                                 |
-| ------------- | ------------------------------------------------ |
-| **Files**     | File names                                       |
-| **Time**      | What the timekeeper wrote about the work         |
-| **Costs**     | What the cost was for                            |
-| **Parties**   | Names, and the capacity a party acts in          |
-| **Notes**     | What each note says                              |
-| **Custodian** | Packet names and custody numbers                 |
-| **Calendar**  | Event titles and descriptions                    |
-| **Messaging** | What was said, the caller's name, and the number |
-| **Assets**    | Asset descriptions                               |
+| Section       | What is searched                                  |
+| ------------- | ------------------------------------------------- |
+| **Files**     | File and folder names, and the words inside files |
+| **Time**      | What the timekeeper wrote about the work          |
+| **Costs**     | What the cost was for                             |
+| **Parties**   | Names, and the capacity a party acts in           |
+| **Notes**     | What each note says                               |
+| **Custodian** | Packet names and custody numbers                  |
+| **Calendar**  | Event titles and descriptions                     |
+| **Messaging** | What was said, the caller's name, and the number  |
+| **Assets**    | Asset descriptions                                |
 
 **Assets are searched by description only.** An asset's account, policy and certificate numbers are
 sealed, and searching them would let somebody confirm a full number by typing it and seeing whether a
 row came back. Its plain public-record identifiers — a parcel number, a vehicle identification number
 — are not searched yet either.
 
-**Files are searched by name, not by content.** Searching inside your documents is built and waiting
-on the search service being switched on; until it is, the results say so rather than leaving you to
-assume the search read your PDFs.
+**Files are searched two ways, and the results keep them apart.** **Files** lists the files and
+folders whose _names_ match. **Inside Files** lists the documents whose _text_ matches, best match
+first, and says which pages the words were found on ("Pages 3 and 7"). Open the file and turn to the
+page; the result does not quote the sentence yet. See [Searching inside files](#searching-inside-files)
+below for what has to be switched on first.
 
 Four sections do not answer yet — Fees, Trust, Emails and Overview — and each says so in the
 dropdown rather than being left out.
@@ -69,6 +71,33 @@ Sections that hold writing — **Notes**, **Time**, **Costs**, **Calendar** and 
 Sections that hold names and numbers — **Files**, **Parties**, **Custodian** and **Billing** — are
 searched by any part of the name or number, so the last four digits of a custody number or a piece
 of a file name is enough. A telephone number in **Messaging** is found the same way.
+
+## Searching inside files
+
+**Inside Files** searches the text of the matter's documents, including text recognized on
+scanned pages. It follows the same rules as the sections that hold writing — every word you type, the last
+one allowed to be unfinished, quotation marks for an exact phrase — with two differences:
+
+- **All of your words have to be on the same page.** A search for "indemnify landlord" finds a
+  document where both words appear on one page, not one where they are forty pages apart.
+- **Accents matter here.** "pena" does not find "Peña" inside a document; type the name as it is
+  written.
+
+A result names the file, the folder it is in, and the pages that matched. When a long document
+matches on many pages, the three best are named and the rest are counted ("Pages 3, 7, 12 and 5
+more").
+
+Two things have to be true before **Inside Files** can answer, and the results tell you which one is
+missing instead of saying nothing matched:
+
+- **"Unavailable"** means the service that reads inside documents could not be reached. File and
+  folder names were still searched.
+- **"Off"** means your firm has not turned on indexing of its files. An administrator decides that
+  for the whole firm. Once it is on, new files are read as they are added, and the files already on
+  your matters are read over the following day.
+
+A file that was deleted is found inside only when **Include deleted** is on, and is marked
+**Deleted**, the same as a file found by name.
 
 ## Reading the results
 
@@ -106,7 +135,8 @@ into your browser history, on a page that already names the matter.
 **It will not find another matter's records.** Every part of the search is bound to the matter you
 are in.
 
-**It will not reach material another party produced to you in discovery.** Those documents live in
+**It will not reach material another party produced to you in discovery.** That holds for searching
+inside files too. Those documents live in
 their own separate index, under their own access rules, precisely so that an ordinary search of the
 matter cannot surface something that may be restricted under a protective order. Search a review set
 from the review screens, where those rules apply.

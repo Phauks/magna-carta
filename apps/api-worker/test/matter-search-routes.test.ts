@@ -225,6 +225,7 @@ describe("one query, answered from every section the member may read", () => {
     // entitled to have a change in them show up as a test edit rather than pass silently.
     expect(answer.groups.map((entry) => entry.source)).toEqual([
       "files",
+      "file-contents",
       "time",
       "costs",
       "billing",
@@ -239,6 +240,17 @@ describe("one query, answered from every section the member may read", () => {
     // The source key and the section slug differ here, which is the case this assertion exists to
     // catch: the source is named for what it holds and the section for what a reader calls the tab.
     expect(group(answer, "communications").section).toBe("messaging");
+    // Two sources answer in the Files section: the names, and the words inside the files.
+    expect(group(answer, "file-contents").section).toBe("files");
+  });
+
+  it("says the words inside files could not be searched while no search service is connected", async () => {
+    // The test pool binds no search service. That has to read as "could not be searched", never as
+    // "no file contains this word", and it must not take the rest of the answer down with it.
+    const answer = await search("easement");
+    expect(group(answer, "file-contents").skipped).toBe("engine-unavailable");
+    expect(group(answer, "file-contents").hits).toEqual([]);
+    expect(group(answer, "notes").hits).toHaveLength(1);
   });
 
   it("finds the note and carries its words and a link into the Notes tab", async () => {
@@ -261,7 +273,8 @@ describe("one query, answered from every section the member may read", () => {
     const answer = await search("zoning");
     for (const entry of answer.groups) {
       expect(entry.hits).toEqual([]);
-      expect(entry.skipped).toBeNull();
+      // The one source that reads an index outside the database says it could not; see above.
+      if (entry.source !== "file-contents") expect(entry.skipped).toBeNull();
     }
   });
 });

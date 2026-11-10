@@ -12,8 +12,10 @@ import { MATTER, seededDatabase, visibility } from "./support.ts";
 // the same reason: the guarantees are worth exactly as much as the proof that every source has them,
 // and review does not scale to re-checking four — soon fourteen — statement builders.
 
-// Captures the SQL each source hands to the database, without running any of it.
-function statementsFor(query: string): { key: string; sql: string }[] {
+// Captures the SQL each source hands to the database, without running any of it. A source that asks
+// an index outside the database first is given an index that names one file, so the statement it
+// builds from that answer is held to the same properties as every other.
+async function statementsFor(query: string): Promise<{ key: string; sql: string }[]> {
   const { database } = seededDatabase();
   const captured: { key: string; sql: string }[] = [];
   for (const source of matterSearchSources.all()) {
@@ -23,23 +25,38 @@ function statementsFor(query: string): { key: string; sql: string }[] {
         return database.prepare(sql);
       },
     };
-    source.buildStatements({
+    const request = {
       database: recorder,
       matterId: MATTER,
       query,
       visibility,
       limit: 10,
       includeDeleted: false,
-    });
+      fileContents: {
+        query: () =>
+          Promise.resolve({
+            kind: "passages" as const,
+            passages: [{ fileId: "file_anything", chunkId: "page-0" }],
+          }),
+      },
+    };
+    if (source.prepare === undefined) source.buildStatements(request);
+    else await source.prepare(request);
   }
   return captured;
 }
 
-const EVERY_STATEMENT = statementsFor("easement");
+const EVERY_STATEMENT = await statementsFor("easement");
 
 describe("every registered source is bound to one matter", () => {
   it("builds at least one statement", () => {
-    expect(EVERY_STATEMENT.length).toBeGreaterThanOrEqual(matterSearchSources.all().length);
+    const sourcesThatBuilt = new Set(EVERY_STATEMENT.map((statement) => statement.key));
+    expect([...sourcesThatBuilt].toSorted()).toEqual(
+      matterSearchSources
+        .all()
+        .map((source) => source.key)
+        .toSorted(),
+    );
   });
 
   it.each(EVERY_STATEMENT)("$key binds a matter id", ({ sql }) => {

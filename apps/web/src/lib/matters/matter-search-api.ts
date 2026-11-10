@@ -9,8 +9,16 @@
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 
-/** Why a source contributed nothing. Null means it answered — with hits or honestly with none. */
-export type SearchSkipReason = "permission" | "query-too-short" | "engine-unavailable";
+/**
+ * Why a source contributed nothing. Null means it answered — with hits or honestly with none.
+ * "engine-unavailable" is an index outside the firm's database that could not be asked;
+ * "not-indexed" is a firm that has not turned on the index the source reads.
+ */
+export type SearchSkipReason =
+  | "permission"
+  | "query-too-short"
+  | "engine-unavailable"
+  | "not-indexed";
 
 export interface MatterSearchHit {
   id: string;

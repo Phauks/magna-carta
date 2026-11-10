@@ -10,6 +10,7 @@
  */
 import type { Component } from "svelte";
 import FileText from "@lucide/svelte/icons/file-text";
+import FileSearch from "@lucide/svelte/icons/file-search";
 import Users from "@lucide/svelte/icons/users";
 import NotebookPen from "@lucide/svelte/icons/notebook-pen";
 import Vault from "@lucide/svelte/icons/vault";
@@ -19,6 +20,7 @@ import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
 import FileSpreadsheet from "@lucide/svelte/icons/file-spreadsheet";
 import Phone from "@lucide/svelte/icons/phone";
+import type { SearchSkipReason } from "$lib/matters/matter-search-api.ts";
 
 export interface SourcePresentation {
   /** The group heading, in the reader's vocabulary — matching the section tab's own label. */
@@ -33,6 +35,10 @@ export interface SourcePresentation {
 
 const PRESENTATION: Readonly<Record<string, SourcePresentation>> = {
   files: { heading: "Files", icon: FileText, titleKind: "text" },
+  // The same section, answered a second way: the names above, the words inside the documents here.
+  // Two groups and two headings because they are two kinds of answer. A name match is a listing,
+  // newest first; a match inside a document is ranked by how well the page answers the words.
+  "file-contents": { heading: "Inside Files", icon: FileSearch, titleKind: "text" },
   parties: { heading: "Parties", icon: Users, titleKind: "text" },
   // A note has no name — the reader recognizes it by when it was written, and the snippet carries
   // the words. That is why titleKind exists at all rather than every source rendering a string.
@@ -56,10 +62,12 @@ export function presentationFor(sourceKey: string): SourcePresentation {
   return PRESENTATION[sourceKey] ?? { heading: sourceKey, icon: Search, titleKind: "text" };
 }
 
-/** What a group with no hits should say, given why it has none. */
-export function emptyGroupLine(
-  skipped: "permission" | "query-too-short" | "engine-unavailable" | null,
-): string {
+/**
+ * What a group with no hits should say, given why it has none. The source is named because one
+ * source reads an index outside the firm's database, and "this section" would be wrong about it:
+ * the Files section's names were searched even when the words inside its files could not be.
+ */
+export function emptyGroupLine(skipped: SearchSkipReason | null, sourceKey?: string): string {
   switch (skipped) {
     case "permission":
       // Never "no matches". A reader who cannot see a section must be told that is why, or they
@@ -68,8 +76,27 @@ export function emptyGroupLine(
     case "query-too-short":
       return "Type a little more to search here";
     case "engine-unavailable":
-      return "This section could not be searched just now";
+      return sourceKey === "file-contents"
+        ? "The text inside files could not be searched just now. File and folder names were."
+        : "This section could not be searched just now";
+    case "not-indexed":
+      // The firm's own choice, so it is said as one and not as a fault.
+      return "Searching the text inside files is turned off for this firm";
     case null:
       return "No matches";
+  }
+}
+
+/** The one-word badge beside a group that could not answer. */
+export function skippedBadge(skipped: SearchSkipReason): string {
+  switch (skipped) {
+    case "permission":
+      return "No access";
+    case "not-indexed":
+      return "Off";
+    case "engine-unavailable":
+      return "Unavailable";
+    case "query-too-short":
+      return "Soon";
   }
 }

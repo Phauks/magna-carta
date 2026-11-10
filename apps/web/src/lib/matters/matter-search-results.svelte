@@ -26,6 +26,7 @@
   import {
     emptyGroupLine,
     presentationFor,
+    skippedBadge,
   } from "$lib/matters/matter-search-presentation.ts";
   import type { MatterSearchAnswer } from "$lib/matters/matter-search-api.ts";
 
@@ -149,14 +150,12 @@
                 </span>
               {/if}
               {#if group.skipped !== null}
-                <Badge variant="neutral" class="ms-auto">
-                  {group.skipped === "permission" ? "No access" : "Soon"}
-                </Badge>
+                <Badge variant="neutral" class="ms-auto">{skippedBadge(group.skipped)}</Badge>
               {/if}
             </div>
 
             {#if group.hits.length === 0}
-              <p class="px-8 pb-8 text-xs text-text-muted">{emptyGroupLine(group.skipped)}</p>
+              <p class="px-8 pb-8 text-xs text-text-muted">{emptyGroupLine(group.skipped, group.source)}</p>
             {:else}
               <ul>
                 {#each group.hits as hit (hit.id)}

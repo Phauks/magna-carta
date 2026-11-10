@@ -2,7 +2,9 @@
 
 **Date:** 2026-11-10
 **Status:** Approved by the owner on 2026-11-10 ("I approve, begin work to fulfill this"). Steps 1
-and 2 of the build order below are built by the change that adds this file; steps 3 to 7 are not.
+and 2 of the build order below are built by the change that adds this file. The owner moved file
+contents in a matter's search ahead of steps 3 and 4 the same day; its reading half is built (step
+6a below). The rest are not.
 **Scope:** How the platform finds things: which indexes exist, what each one is for, who may ask
 each one what, and the order the missing parts are built in. It adds one index — the **record
 index**, over the text held in a firm's own database rows — and fixes the rules every index and
@@ -205,7 +207,38 @@ beside the old terms, as a deleted row of any table lingers on its page. `optimi
 rewrites the index without them; a test reads the stored bytes to prove it. An erasure pass that
 needs the words gone, not merely unreachable, ends with it.
 
-## 4. Build order
+## 4. File contents in a matter's search
+
+The words inside a matter's files are in the keyword engine's index, one corpus per matter, outside
+the firm's database. A matter's search reads it as a second source on the Files section, beside the
+match on file and folder names.
+
+- **Two answers, not one fused list.** A name match is a listing, newest first. A match inside a
+  document is ranked by how well the page answers the words. The two cannot be ordered against each
+  other, so each is its own group with its own heading, as every other pair of sources is.
+- **The index proposes; the firm's own table decides.** The engine answers with file identifiers and
+  the page each match was on. The source then reads those files from `file` in an ordinary bounded
+  statement that binds the matter and composes the visibility predicate. A file the index names
+  that is filed elsewhere, or is gone, is not a result. This is the first rule of section 2 applied
+  to an index that is not in the database.
+- **A reader's text is never the engine's query syntax.** The text is taken apart by the record
+  index's parser and the engine's query is rebuilt from the words: every word required, quoted runs
+  as phrases, the last word as the start of a word. The engine accepts a pattern over its one field
+  for that last case, and only the application builds one, from letters and digits.
+- **A review set stays out of reach.** The application asks for the matter's corpus and no other,
+  and a review document is not a row of the table the source reads.
+- **Three answers that are not "no matches".** The search service not connected or not answering;
+  the firm not having turned indexing on; and the ordinary case of an index that was asked and
+  found nothing. A reader acts differently on each, so each is said.
+
+Two limits are recorded. A result names the file and the pages and **quotes nothing**, because the
+index stores which words are on which page and not the sentences, and a matter file's extracted text
+is not kept after it is indexed. Keeping it is step 6c. And the engine lowercases a word and **leaves
+its accents**, so a file search is accent-sensitive where the record index is not; changing the
+engine's tokenizer means rebuilding every index, which costs nothing before the first production
+index exists and a great deal after.
+
+## 5. Build order
 
 | Step | What                                                                                        | State                                                                            |
 | ---- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -214,10 +247,12 @@ needs the words gone, not merely unreachable, ends with it.
 | 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Not built                                                                        |
 | 4    | Search across matters from the top bar, snippets shown                                      | Not built                                                                        |
 | 5    | The conflicts check reads the record index instead of scanning                              | Not built                                                                        |
-| 6    | File contents turned on and joined in, with the per-split word summary                      | Needs the owner's Cloudflare steps in [`../deploy-queue.md`](../deploy-queue.md) |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                   |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Needs the owner's Cloudflare steps in [`../deploy-queue.md`](../deploy-queue.md) |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Not built                                                                        |
 | 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                        |
 
-## 5. Open with the owner
+## 6. Open with the owner
 
 - **Step 6** needs the search service bound in Cloudflare, and natural-language retrieval needs the
   two live experiments in

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EVERYTHING_SCOPE, defaultScope, scopeOptions } from "$lib/matters/matter-search.svelte.ts";
-import { presentationFor } from "$lib/matters/matter-search-presentation.ts";
+import {
+  emptyGroupLine,
+  presentationFor,
+  skippedBadge,
+} from "$lib/matters/matter-search-presentation.ts";
 import { matterSections, sectionForPathname } from "$lib/matters/sections.ts";
 
 const MATTER = "matter_scopeTest0000000000000000000";
@@ -107,7 +111,32 @@ describe("presentation is never the reason a source disappears", () => {
   it("has an entry for every section that declares a source", () => {
     for (const section of matterSections) {
       if (section.searchSource === null) continue;
-      expect(presentationFor(section.searchSource).heading).not.toBe(section.searchSource);
+      for (const source of [section.searchSource, ...(section.searchSourcesBeside ?? [])]) {
+        expect(presentationFor(source).heading).not.toBe(source);
+      }
     }
+  });
+});
+
+describe("the Files section is searched by name and by the words inside its files", () => {
+  it("asks both sources when the search is scoped to Files", () => {
+    const [current] = scopeOptions(sectionNamed("files"));
+    expect(current?.sources).toEqual(["files", "file-contents"]);
+  });
+
+  it("heads the two answers differently, so a match inside a file is not read as a name", () => {
+    expect(presentationFor("files").heading).toBe("Files");
+    expect(presentationFor("file-contents").heading).toBe("Inside Files");
+  });
+
+  it("says why the words inside files were not searched, never that nothing matched", () => {
+    expect(emptyGroupLine("not-indexed", "file-contents")).toContain("turned off for this firm");
+    expect(skippedBadge("not-indexed")).toBe("Off");
+    // The names of the files were still searched, and the line must not say otherwise.
+    expect(emptyGroupLine("engine-unavailable", "file-contents")).toContain(
+      "File and folder names were",
+    );
+    expect(skippedBadge("engine-unavailable")).toBe("Unavailable");
+    expect(emptyGroupLine(null, "file-contents")).toBe("No matches");
   });
 });
