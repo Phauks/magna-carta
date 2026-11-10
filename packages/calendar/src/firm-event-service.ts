@@ -57,6 +57,12 @@ export interface CreateFirmEventInput {
    * carries the series; the reads expand it across the window they were asked for.
    */
   readonly recurrenceRule?: string | null;
+  /**
+   * Where this row is ONE occurrence of a series written as an exception: the series, and the day
+   * of it this row replaces. The series' expansion skips that day, so the occurrence is this row.
+   */
+  readonly recurrenceParentId?: FirmEventId | null;
+  readonly recurrenceOccurrenceOn?: string | null;
   readonly participants?: readonly EventParticipantInput[];
 }
 
@@ -127,6 +133,8 @@ export async function createFirmEvent(
       locationText: input.locationText ?? null,
       conferenceUrl: input.conferenceUrl ?? null,
       recurrenceRule: input.recurrenceRule ?? null,
+      recurrenceParentId: input.recurrenceParentId ?? null,
+      recurrenceOccurrenceOn: input.recurrenceOccurrenceOn ?? null,
       recordedAt: now,
       recordedBy: options.actorUserId,
       now,

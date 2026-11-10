@@ -73,6 +73,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   snippet carries the host's masthead DOWN into the layout and never carries the row up
 - `matter-calendar-list.svelte` — the matter section's List view: the two tables (deadlines lead,
   then events), each walked to its end by its own read
+- `occurrence-change.ts` — one day of a repeating setting, opened and changed: which day was
+  pressed, the record as it stands on that day, the three scopes a change can reach and their
+  words, and the series-wide shift a change to every day carries
 - `entry-window.svelte` — the `RecordWindow` an event, a firm event or a deadline opens in: the
   record pane in both modes, the verbs, and the shell around the tabs; it renders what the modules
   below decide and decides nothing itself
@@ -206,6 +209,15 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the rule MEANS in English is `recurrence-sentence.ts` and is the same sentence the form shows
   under its controls, the record pane shows, and the print sheet carries — three copies of those
   words would drift, and a person checks a repeat against exactly those words before saving.
+- **A SERIES IS PAINTED BY THE DAY AND OPENED ON THE DAY PRESSED.** Each events read is paired with
+  `GET /api/v1/calendar/series` over the same window and side, which answers the days each series
+  falls on; `entriesFromSeries` paints one entry per day (`repeats`, and `occurrenceOn` on the
+  entry and its reference), and `withoutSeriesRows` drops the once-only row the ordinary read
+  returned for it. A failed series read folds into the name of the events read beside it. The window
+  shows the record AT the pressed day (`atOccurrence`), and a save or cancel on a series asks how far
+  it reaches — this event only, this and all later events, all events — every time, because guessing
+  is how a firm's calendar quietly moves. "All" moves the series by the days this one moved
+  (`seriesWideFields`); a change to the rule refuses "this" (`seriesChangeRefusal`).
 - **A rule this product cannot present is SAID, never half-shown.** `parseRecurrence` answers null
   for a line another calendar wrote with parts the form does not offer, which is the same null a
   one-off carries — so the surface that saw the stored line tells the control (`unreadable`), and it

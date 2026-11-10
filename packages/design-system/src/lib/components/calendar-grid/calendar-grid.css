@@ -231,6 +231,13 @@
     font-weight: var(--mc-weight-medium);
     white-space: nowrap;
   }
+  /* One day of a repeating series: the glyph leads, at the size of the time beside it. */
+  .mc-calendar-grid-entry-repeat {
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+    align-self: center;
+  }
   .mc-calendar-grid-entry-body {
     display: flex;
     flex: auto;
