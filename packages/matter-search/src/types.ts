@@ -58,6 +58,9 @@ export interface MatterSearchRawRow {
 export interface MatterSearchHit {
   readonly sourceKey: string;
   readonly id: string;
+  // The matter the row is on. Inside one matter's search it is that matter for every hit; across
+  // matters it is what tells a reader whose record they are looking at.
+  readonly matterId: string;
   readonly title: string;
   readonly snippet: string | null;
   readonly secondary: string | null;
@@ -91,4 +94,34 @@ export interface MatterSearchAnswer {
   readonly matterId: MatterId;
   readonly query: string;
   readonly groups: readonly MatterSearchGroup[];
+}
+
+// ---- across matters --------------------------------------------------------------------------
+
+// Why a source is absent from an answer across matters. Everything a source can say inside one
+// matter, and one reason more: the source answers inside a matter and has not declared that it can
+// answer across them. Reported, like every other absence, so a reader is told what a search across
+// matters did not look at instead of taking its silence for "nothing there".
+export type AcrossMattersSkipReason = SourceSkipReason | "one-matter-only";
+
+// One source's contribution to an answer across matters.
+export interface AcrossMattersGroup {
+  readonly source: string;
+  readonly section: string;
+  readonly answerShape: AnswerShape;
+  // What this source matched on ACROSS MATTERS, which for some sources is less than inside one.
+  readonly matchedFields: readonly string[];
+  readonly hits: readonly MatterSearchHit[];
+  readonly hasMore: boolean;
+  readonly skipped: AcrossMattersSkipReason | null;
+}
+
+export interface AcrossMattersSearchAnswer {
+  readonly query: string;
+  // True when the reader's words are in more of the firm's records than one search across matters
+  // reads. The groups that draw on the record index then hold the MOST RECENT records with those
+  // words and not every one, and a group with no hits has not shown that its place holds none. A
+  // reader has to be told, because the answer otherwise reads as complete.
+  readonly broad: boolean;
+  readonly groups: readonly AcrossMattersGroup[];
 }

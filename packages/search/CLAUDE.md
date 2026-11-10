@@ -60,12 +60,15 @@ ADR-0110, ADR-0111.)
 - `record-index-schema.ts` — everything the index is in a firm's database, rendered from the
   declarations: the full-text table, each source's triggers, the fill and the rebuild
 - `record-index-query.ts` — a reader's text taken apart into tokens and rebuilt as a match, and the
-  two forms a consumer composes the index into its own statement in
+  three forms a consumer composes the index into its own statement in: leading, beside another
+  condition, and the newest matches up to a cap, which is the form a read with no matter to narrow
+  by uses
 - `record-index-statements.ts` — the reads the index offers directly (ranked pointers, counts per
   source, and `readRecordIndexPlaces`: each source's indexed rows beside the records that belong
   in it) and its maintenance statements (rebuild one source, optimize)
-- `contract.ts` — the body of the firm's search status read, as plain zod; the route module in
-  `apps/api-worker/src/http/routes/firm/search-status.ts` declares its route over it
+- `contract.ts` — the bodies of the firm's search status read and of the search across matters, as
+  plain zod; the route modules in `apps/api-worker/src/http/routes/firm/search-status.ts` and
+  `apps/api-worker/src/http/routes/matters/search-across-matters.ts` declare their routes over them
 - `scripts/render-record-index-migration.mts` — prints the migration text for one source or all
 - `scripts/measure-record-index-shapes.mjs` — the measurement the index's shape was chosen on
 
@@ -187,6 +190,12 @@ are the ones the production modules adopted; keep the two in step.
 - **A read of the firm names its reason.** `RecordQueryScope.matter` left undefined reads every
   matter. A conflicts check may; a person's own search may not, and passes a matter or composes the
   visible-matter condition (`matterCondition`) so it is applied before the limit.
+- **A read with no matter is capped before it joins.** A matter's token keeps a common word to
+  what that matter holds. With no matter, `recordIndexNewestMatchesFrom` takes the newest matches
+  up to a cap first, and `countRecordIndexMatchesUpToStatement` tells the caller when there were
+  more, so the answer can say it is the most recent matches and not every one. The count is for
+  that one decision and is never shown to a reader.
+  `packages/matter-search/scripts/measure-across-matters.mts` is the reading the cap was chosen on.
 - **A reader's text is never match syntax.** It reaches the index only through
   `recordMatchExpression`, as a binding. Do not build a match string anywhere else.
 - **Prose only.** Names and numbers stay on substring matches over their own columns; a source may
