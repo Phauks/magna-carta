@@ -154,6 +154,8 @@
     matterLifecycle: "A Matter's Lifecycle",
     memberStanding: "A Member's Standing In The Firm",
     conflictHit: "How A Conflict Hit Stands",
+    communityRequest: "A Community Request's Standing",
+    communityQuestion: "A Community Question's Standing",
   };
 
   const VOCABULARY_KEYS = Object.keys(STATUS_VOCABULARIES) as StatusVocabulary[];

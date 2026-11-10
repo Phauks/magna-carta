@@ -20,6 +20,7 @@
     "@magna-carta/api-client": "workspace:*",
     "@magna-carta/citations": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/community": "workspace:*",
     "@magna-carta/conversion": "workspace:*",
     "@magna-carta/design-system": "workspace:*",
     "@magna-carta/design-tokens": "workspace:*",

@@ -62,6 +62,7 @@ export const SETTINGS_BANDS: ReadonlyArray<{
 export type SettingsSectionGroup =
   | "appearance"
   | "notifications"
+  | "connections"
   | "firm"
   | "practice"
   | "billing"
@@ -138,7 +139,10 @@ export const SETTINGS_SECTION_GROUPS: ReadonlyArray<{
 }> = [
   // Band "user" — My Settings
   { id: "appearance", label: "Appearance", band: "user" },
-  { id: "notifications", label: "Notifications", band: "user" },
+  // A member's own accounts at OUTSIDE services, and what each is used for. Not the "account"
+  // group this registry deliberately lacks: that one is the member's identity and credentials HERE.
+  // This is a work preference, like Notifications, about where a member's own work also appears.
+  { id: "connections", label: "Connections", band: "user" },
   // Band "firm" — Firm Settings
   { id: "firm", label: "Firm", band: "firm" },
   { id: "practice", label: "Practice", band: "firm" },
@@ -278,6 +282,19 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "user",
     commitMode: defaultCommitModeForScope("user"),
     shipped: true,
+  },
+  {
+    // The member's own account at a calendar provider. The page is built and reachable by its
+    // address, and NOT YET in the navigation: no provider can be connected until the deployment is
+    // registered with one, and a page every member can find that can only say "not yet" is noise.
+    // Flipped when the first provider is registered and what the account is used for has a page.
+    id: "connected-accounts",
+    label: "Connected Accounts",
+    href: "/settings/connected-accounts",
+    group: "connections",
+    scope: "user",
+    commitMode: defaultCommitModeForScope("user"),
+    shipped: false,
   },
   // Firm
   {

@@ -25,6 +25,7 @@
   import ChevronsDownUp from "@lucide/svelte/icons/chevrons-down-up";
   import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import X from "@lucide/svelte/icons/x";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import ChangelogInline from "./changelog-inline.svelte";
   import {
     PULL_REQUEST_KINDS,
@@ -244,16 +245,14 @@
                   <div class="flex flex-wrap items-center gap-4 ps-24">
                     <a
                       href={pullRequest.pullRequestUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                      {...opensBeside("external")}
                       aria-label={`Pull request ${pullRequest.number} on GitHub`}
                     >
                       <Badge variant="neutral" class="font-mono">#{pullRequest.number}</Badge>
                     </a>
                     <a
                       href={pullRequest.commitUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                      {...opensBeside("external")}
                       aria-label={`Commit ${pullRequest.shortSha} on GitHub`}
                       title={pullRequest.sha}
                     >

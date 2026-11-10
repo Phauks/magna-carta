@@ -62,7 +62,8 @@ import meetingSummaryRetryAndFailedCallSql from "@magna-carta/database/drizzle/p
 import seedMeetingSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20261110T000108_seed-meeting-settings-permission.sql";
 import taskListsStatusesAndTeamsSql from "@magna-carta/database/drizzle/per-firm/20261110T005324_task-lists-statuses-and-teams.sql";
 import aConflictsResultRecordsWhereItWasFoundSql from "@magna-carta/database/drizzle/per-firm/20261110T013610_a-conflicts-result-records-where-it-was-found.sql";
-import recordTextIndexSql from "@magna-carta/database/drizzle/per-firm/20261110T015638_record-text-index.sql";
+import connectionAccountLabelSql from "@magna-carta/database/drizzle/per-firm/20261110T023832_connection-account-label.sql";
+import recordTextIndexSql from "@magna-carta/database/drizzle/per-firm/20261110T033313_record-text-index.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -127,7 +128,8 @@ export function perFirmMigrations(): Migration[] {
     "20261110T005324_task-lists-statuses-and-teams": taskListsStatusesAndTeamsSql,
     "20261110T013610_a-conflicts-result-records-where-it-was-found":
       aConflictsResultRecordsWhereItWasFoundSql,
-    "20261110T015638_record-text-index": recordTextIndexSql,
+    "20261110T023832_connection-account-label": connectionAccountLabelSql,
+    "20261110T033313_record-text-index": recordTextIndexSql,
   });
 }
 

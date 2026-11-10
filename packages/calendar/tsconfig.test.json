@@ -28,6 +28,9 @@
       "path": "../identifiers/tsconfig.build.json"
     },
     {
+      "path": "../integrations/tsconfig.build.json"
+    },
+    {
       "path": "../money/tsconfig.build.json"
     }
   ],

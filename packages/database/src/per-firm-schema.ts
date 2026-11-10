@@ -1848,8 +1848,9 @@ export const directoryIdentifier = sqliteTable(
   ],
 );
 
-// One authorized external account per category (the grant). Firm-scoped today (shipping); the unique
-// index keys it on (category, principal) so a firm has exactly one connection per category.
+// One authorized external account per category (the grant). Firm-scoped (shipping) or member-scoped
+// (a member's own calendar account); the unique index keys it on (category, principal), so a firm or
+// a member has exactly one connection per category.
 // `credential_ref` points at the firm_secret entry; `capability_snapshot` is the adapter descriptor
 // captured at connect time.
 export const integrationConnection = sqliteTable(
@@ -1867,6 +1868,10 @@ export const integrationConnection = sqliteTable(
       .notNull()
       .default("connected"),
     capabilitySnapshot: text("capability_snapshot").notNull(), // JSON-serialized CapabilityDescriptor
+    // Which account at the provider this is, as the provider names it (a member's own sign-in
+    // address). A member with two accounts at one provider has to be able to see which one they
+    // connected. Null on a connection that has no such name, as a firm's API-key account does not.
+    accountLabel: text("account_label"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
