@@ -6169,6 +6169,42 @@ export type ContinuanceChainNode = {
     statusReason: string | null;
 };
 
+export type ConnectedAccountList = {
+    providers: Array<ConnectedAccountProvider>;
+    accounts: Array<ConnectedAccount>;
+};
+
+export type ConnectedAccountProvider = {
+    provider: 'microsoft';
+    /**
+     * Whether this deployment can connect an account at the provider. False means nobody has registered the deployment with the provider, and a screen offers no connection.
+     */
+    available: boolean;
+};
+
+export type ConnectedAccount = {
+    id: string;
+    provider: 'microsoft';
+    /**
+     * The account as the provider names it: the member's own sign-in address there.
+     */
+    accountLabel: string | null;
+    status: 'connected' | 'degraded' | 'needs_reauth' | 'disabled';
+    connectedAt: string;
+};
+
+export type ConnectedAccountSignInStart = {
+    /**
+     * The provider's own sign-in page. The browser is sent to it as a whole page.
+     */
+    authorizationUrl: string;
+};
+
+export type ConnectedAccountDisconnectAck = {
+    id: string;
+    status: 'disconnected';
+};
+
 export type CalendarSeriesInWindow = {
     data: Array<CalendarSeriesOccurrences>;
     truncated: boolean;
@@ -29484,6 +29520,151 @@ export type CalendarContinuanceChainResponses = {
 };
 
 export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
+
+export type ConnectedAccountsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts';
+};
+
+export type ConnectedAccountsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsListError = ConnectedAccountsListErrors[keyof ConnectedAccountsListErrors];
+
+export type ConnectedAccountsListResponses = {
+    /**
+     * The member's connected accounts
+     */
+    200: ConnectedAccountList;
+};
+
+export type ConnectedAccountsListResponse = ConnectedAccountsListResponses[keyof ConnectedAccountsListResponses];
+
+export type ConnectedAccountsStartMicrosoftSignInData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts/microsoft/sign-in';
+};
+
+export type ConnectedAccountsStartMicrosoftSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * This deployment is not registered with the provider, so no account can connect
+     */
+    501: Problem;
+};
+
+export type ConnectedAccountsStartMicrosoftSignInError = ConnectedAccountsStartMicrosoftSignInErrors[keyof ConnectedAccountsStartMicrosoftSignInErrors];
+
+export type ConnectedAccountsStartMicrosoftSignInResponses = {
+    /**
+     * Where to send the browser
+     */
+    200: ConnectedAccountSignInStart;
+};
+
+export type ConnectedAccountsStartMicrosoftSignInResponse = ConnectedAccountsStartMicrosoftSignInResponses[keyof ConnectedAccountsStartMicrosoftSignInResponses];
+
+export type ConnectedAccountsFinishMicrosoftSignInData = {
+    body?: never;
+    path?: never;
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+    };
+    url: '/api/v1/integrations/microsoft/callback';
+};
+
+export type ConnectedAccountsFinishMicrosoftSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsFinishMicrosoftSignInError = ConnectedAccountsFinishMicrosoftSignInErrors[keyof ConnectedAccountsFinishMicrosoftSignInErrors];
+
+export type ConnectedAccountsDisconnectData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/me/connected-accounts/{id}';
+};
+
+export type ConnectedAccountsDisconnectErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsDisconnectError = ConnectedAccountsDisconnectErrors[keyof ConnectedAccountsDisconnectErrors];
+
+export type ConnectedAccountsDisconnectResponses = {
+    /**
+     * Disconnected
+     */
+    200: ConnectedAccountDisconnectAck;
+};
+
+export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectResponses[keyof ConnectedAccountsDisconnectResponses];
 
 export type CalendarListSeriesData = {
     body?: never;

@@ -1,0 +1,1 @@
+ALTER TABLE `integration_connection` ADD `account_label` text;

@@ -28,6 +28,7 @@
   import { toast } from "@magna-carta/design-system/toast";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { page } from "$app/state";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import { conversationLink } from "./conversation-link.ts";
 
   let {
@@ -74,8 +75,7 @@
 
   function openInNewTab(): void {
     if (link === null) return;
-    // `noopener` so the new tab cannot reach back into this one through `window.opener`.
-    window.open(link, "_blank", "noopener");
+    openBeside(link, "requested");
   }
 </script>
 

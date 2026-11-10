@@ -55,6 +55,23 @@ to another list first. For each list it adds, renames, recolours and removes sta
 which statuses each one can move to. A status that tasks are still on cannot be removed. The
 **Teams** tab is described below.
 
+## The Board
+
+**Board**, beside **List** at the top of the Tasks list, shows the same tasks as cards in columns,
+one column for each status. The board shows one list at a time, because each list has its own
+statuses: choose which with the list button beside **Board**.
+
+- **Drag a card to another column** to move the task to that status. While you carry a card, the
+  columns the list does not allow it to move to next fade and say **Not a next step**.
+- **Drop a card on Mark Complete**, after the last column, to complete the task. It keeps its
+  status, so reopening it puts it back where it was.
+- **Click a card** to open the task.
+
+A card shows the task's matter (on the firm's Tasks page), its due date (red once it has passed),
+its priority when it is not Normal, how much of its checklist and its sub-tasks are done, and who it
+is assigned to. Sub-tasks are not cards of their own: open the task to see them. Me Mode, search,
+Show Completed and Show Archived work the same way on the board as on the list.
+
 ## Me Mode
 
 Everyone in the firm sees every task, apart from tasks on matters they are walled off from. **Me
@@ -296,7 +313,7 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no board view, no recurring task, and no comment thread on a task. A timer cannot yet be started from a task.
+There is no recurring task and no comment thread on a task. A timer cannot yet be started from a task.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

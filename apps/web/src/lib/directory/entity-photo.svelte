@@ -24,6 +24,7 @@
     setDirectoryEntityPhoto,
     type DirectoryEntityPhoto,
   } from "./directory-api.ts";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import PhotoCropDialog from "./photo-crop-dialog.svelte";
 
   let {
@@ -84,7 +85,7 @@
   }
 
   function viewFullSize(): void {
-    if (href !== null) window.open(href, "_blank", "noopener");
+    if (href !== null) openBeside(href, "file");
   }
 </script>
 

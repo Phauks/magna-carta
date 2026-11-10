@@ -28,8 +28,16 @@
  *   navigating in place would discard what the reader has begun.
  * - `live-meeting`: the destination is opened from inside a meeting room, where navigating in place
  *   would hang up the reader's call.
+ * - `requested`: the reader chose an explicit "Open in new tab" command. The new tab is what they
+ *   asked for, so opening in place would ignore the command they picked.
  */
-export type OpenBesideReason = "external" | "file" | "session" | "unsaved-work" | "live-meeting";
+export type OpenBesideReason =
+  | "external"
+  | "file"
+  | "session"
+  | "unsaved-work"
+  | "live-meeting"
+  | "requested";
 
 export const OPEN_BESIDE_REASONS: readonly OpenBesideReason[] = [
   "external",
@@ -37,6 +45,7 @@ export const OPEN_BESIDE_REASONS: readonly OpenBesideReason[] = [
   "session",
   "unsaved-work",
   "live-meeting",
+  "requested",
 ];
 
 /**

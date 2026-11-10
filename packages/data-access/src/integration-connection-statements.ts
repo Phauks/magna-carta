@@ -13,6 +13,9 @@ export interface InsertConnectionRow {
   readonly principalRef: string;
   readonly credentialRef: string;
   readonly capabilitySnapshot: string; // JSON
+  // The account as the provider names it, where it has such a name. A reconnect replaces it,
+  // because signing in again is how a member moves the connection to a different account.
+  readonly accountLabel?: string;
   readonly createdAt: string;
 }
 
@@ -29,7 +32,7 @@ export function upsertConnectionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8) ON CONFLICT (category, principal_ref) DO UPDATE SET adapter_id = excluded.adapter_id, scope = excluded.scope, credential_ref = excluded.credential_ref, status = 'connected', capability_snapshot = excluded.capability_snapshot, updated_at = excluded.updated_at`,
+      `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at, account_label) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8, ?9) ON CONFLICT (category, principal_ref) DO UPDATE SET adapter_id = excluded.adapter_id, scope = excluded.scope, credential_ref = excluded.credential_ref, status = 'connected', capability_snapshot = excluded.capability_snapshot, updated_at = excluded.updated_at, account_label = excluded.account_label`,
     )
     .bind(
       row.id,
@@ -40,6 +43,7 @@ export function upsertConnectionStatement(
       row.credentialRef,
       row.capabilitySnapshot,
       row.createdAt,
+      row.accountLabel ?? null,
     );
 }
 
@@ -50,7 +54,7 @@ export function selectConnectionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot FROM ${INTEGRATION_CONNECTION_TABLE} WHERE category = ?1 AND principal_ref = ?2`,
+      `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, account_label, created_at, updated_at FROM ${INTEGRATION_CONNECTION_TABLE} WHERE category = ?1 AND principal_ref = ?2`,
     )
     .bind(category, principalRef);
 }

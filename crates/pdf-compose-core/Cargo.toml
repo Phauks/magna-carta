@@ -1,0 +1,31 @@
+[package]
+name = "pdf-compose-core"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+
+[features]
+# The Liberation Sans faces in `fonts/`, compiled into the library so a caller with no fonts of its
+# own still gets a document. About 1.6 MB; a WebAssembly build that receives its fonts from the host
+# turns this off.
+default = ["bundled-fonts"]
+bundled-fonts = []
+
+[dependencies]
+# The PDF writer: font embedding and subsetting, image embedding, document metadata. Pure Rust, and
+# the same writer containers/raster already uses for image-to-PDF.
+krilla = "0.8.2"
+# Shaping, for measuring a line before it is drawn. The same crate and version krilla shapes with
+# when it draws, so a line measured here is the width it is drawn at.
+rustybuzz = "0.20.1"
+# Image decoding under explicit limits, EXIF orientation, and downscaling a photograph to print
+# resolution. The workspace's own entry, so the codecs are the ones pdf-core already builds.
+image = { workspace = true }
+
+[dev-dependencies]
+# Reads the composed document back: page count, extracted text, raster coverage.
+pdf-core = { path = "../pdf-core" }
+
+# The workspace lint floor (see crates/Cargo.toml). A member that omits this table is not covered.
+[lints]
+workspace = true

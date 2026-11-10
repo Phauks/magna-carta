@@ -1,0 +1,24 @@
+{
+  "name": "@magna-carta/microsoft-graph",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./sign-in": "./src/sign-in.ts",
+    "./calendar-sync": "./src/calendar-sync-adapter.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/integrations": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

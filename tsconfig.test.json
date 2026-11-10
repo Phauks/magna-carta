@@ -83,6 +83,9 @@
       "path": "packages/communications/tsconfig.test.json"
     },
     {
+      "path": "packages/community/tsconfig.test.json"
+    },
+    {
       "path": "packages/conflicts/tsconfig.test.json"
     },
     {
@@ -198,6 +201,9 @@
     },
     {
       "path": "packages/metadata/tsconfig.test.json"
+    },
+    {
+      "path": "packages/microsoft-graph/tsconfig.test.json"
     },
     {
       "path": "packages/money/tsconfig.test.json"
