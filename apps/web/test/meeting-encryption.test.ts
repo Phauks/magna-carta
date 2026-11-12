@@ -8,6 +8,11 @@ import {
   type GroupStanding,
 } from "../src/lib/meetings/client/encryption-group.ts";
 import { FrameCipher } from "../src/lib/meetings/client/frame-encryption.ts";
+import {
+  type FrameEncryptionSeams,
+  type FrameTransformTarget,
+  MeetingEncryption,
+} from "../src/lib/meetings/client/meeting-encryption.ts";
 
 // THE BROWSER'S HALF OF AN ENCRYPTED MEETING, with the real MLS engine and a room reduced to what the
 // meeting room's relay does (apps/api-worker/src/meetings/room/room-group.ts): found the group for the
@@ -241,5 +246,110 @@ describe("the frame cipher", () => {
     cipher.setEpoch(0, baseKey(), 0, true);
     expect(await cipher.seal("opus", "audio", keyframe)).toBe(keyframe);
     expect(await cipher.open("opus", keyframe)).toBe(keyframe);
+  });
+});
+
+describe("an encrypted meeting in the client's hands", () => {
+  interface Attached {
+    readonly target: unknown;
+    readonly options: FrameTransformTarget;
+  }
+
+  function fakeSeams(): {
+    seams: FrameEncryptionSeams;
+    attached: Attached[];
+    keys: GroupEpoch[];
+    cleared: number[];
+    preferred: unknown[];
+  } {
+    const attached: Attached[] = [];
+    const keys: GroupEpoch[] = [];
+    const cleared: number[] = [];
+    const preferred: unknown[] = [];
+    return {
+      attached,
+      keys,
+      cleared,
+      preferred,
+      seams: {
+        supported: () => true,
+        loadEngine: () => Promise.resolve((identity: string) => new MeetingGroupSession(identity)),
+        sendKey: (epoch) => keys.push(epoch),
+        clearKeys: () => cleared.push(1),
+        attach: (target, options) => attached.push({ target, options }),
+        preferVp8: (transceiver) => preferred.push(transceiver),
+        close: () => {},
+      },
+    };
+  }
+
+  function transceiver(kind: "audio" | "video", track: { kind: string } | null) {
+    return { sender: { track }, receiver: { track: { kind } } };
+  }
+
+  it("puts the transform on every sender and receiver once, naming the camera, the screen and the sound", () => {
+    const { seams, attached, preferred } = fakeSeams();
+    const encryption = new MeetingEncryption(seams, {
+      send: () => {},
+      onStanding: () => {},
+      onEpoch: () => {},
+    });
+    const microphone = { kind: "audio" };
+    const camera = { kind: "video" };
+    const screen = { kind: "video" };
+    const remote = transceiver("video", null);
+    const transceivers = [
+      transceiver("audio", microphone),
+      transceiver("video", camera),
+      transceiver("video", screen),
+      remote,
+    ];
+    const connection = { getTransceivers: () => transceivers } as unknown as RTCPeerConnection;
+    encryption.cover(connection, screen as unknown as MediaStreamTrack);
+    encryption.cover(connection, screen as unknown as MediaStreamTrack);
+
+    const sends = attached.filter((one) => one.options.direction === "send");
+    expect(sends.map((one) => [one.options.codec, one.options.stream])).toEqual([
+      ["opus", "audio"],
+      ["vp8", "camera"],
+      ["vp8", "screen"],
+    ]);
+    expect(attached.filter((one) => one.options.direction === "receive")).toHaveLength(4);
+    expect(attached.some((one) => one.target === remote.sender)).toBe(false);
+    expect(preferred).toEqual([transceivers[1], transceivers[2]]);
+  });
+
+  it("founds the group on the welcome and hands its key to the transform", async () => {
+    const { seams, keys } = fakeSeams();
+    const sent: Record<string, unknown>[] = [];
+    const standings: GroupStanding[] = [];
+    const encryption = new MeetingEncryption(seams, {
+      send: (frame) => sent.push(frame),
+      onStanding: (standing) => standings.push(standing),
+      onEpoch: () => {},
+    });
+    await encryption.load();
+    encryption.noteLiveStays(["stay_host"]);
+    encryption.start(MEETING, "stay_host");
+    expect(sent.map((frame) => frame.type)).toEqual(["mls-key-package"]);
+    encryption.receive({ type: "mls-welcome", epoch: 0, welcome: null });
+    expect(standings.at(-1)).toBe("member");
+    expect(keys).toHaveLength(1);
+    expect(keys[0]?.epoch).toBe(0);
+    expect(keys[0]?.baseKey.length).toBeGreaterThan(0);
+    encryption.close();
+  });
+
+  it("drops the transform's keys when it stops", async () => {
+    const { seams, cleared } = fakeSeams();
+    const encryption = new MeetingEncryption(seams, {
+      send: () => {},
+      onStanding: () => {},
+      onEpoch: () => {},
+    });
+    await encryption.load();
+    encryption.start(MEETING, "stay_host");
+    encryption.stop();
+    expect(cleared.length).toBeGreaterThan(0);
   });
 });

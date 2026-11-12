@@ -24,4 +24,5 @@ CREATE TABLE `meeting_personal_room` (
 CREATE UNIQUE INDEX `meeting_personal_room_owner_unique_index` ON `meeting_personal_room` (`owner_user_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `meeting_personal_room_link_code_unique_index` ON `meeting_personal_room` (`link_code`);--> statement-breakpoint
 ALTER TABLE `meeting` ADD `personal_room_id` text REFERENCES meeting_personal_room(id);--> statement-breakpoint
-CREATE UNIQUE INDEX `meeting_personal_room_open_session_unique_index` ON `meeting` (`personal_room_id`) WHERE "meeting"."personal_room_id" IS NOT NULL AND "meeting"."status" <> 'ended';
+CREATE UNIQUE INDEX `meeting_personal_room_open_session_unique_index` ON `meeting` (`personal_room_id`) WHERE "meeting"."personal_room_id" IS NOT NULL AND "meeting"."status" <> 'ended';--> statement-breakpoint
+ALTER TABLE `meeting` ADD `encrypted` integer DEFAULT false NOT NULL;

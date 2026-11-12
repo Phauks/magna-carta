@@ -69,6 +69,7 @@ const MEETING_COLUMNS = [
   "locked_by_user_id",
   "lobby",
   "personal_room_id",
+  "encrypted",
   "created_at",
   "updated_at",
 ]
@@ -230,6 +231,8 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
     lobby: row.lobby,
     // A session of somebody's personal room, which is what may be moved onto a matter afterwards.
     personalRoomSession: row.personal_room_id !== null,
+    // Stored as SQLite's integer, read as the boolean it is.
+    encrypted: row.encrypted === 1,
   };
 }
 
@@ -613,6 +616,8 @@ export interface InsertMeetingInput {
   readonly createdByUserId: UserId;
   // The personal room this meeting is a session of; null for a meeting started on an event.
   readonly personalRoomId?: MeetingPersonalRoomId | null;
+  // Whether the room's pictures and sound are sealed end to end. Fixed here, never changed.
+  readonly encrypted: boolean;
   readonly now: string;
 }
 
@@ -633,8 +638,8 @@ export function insertMeetingStatement(
     .prepare(
       `INSERT INTO ${MEETING_TABLE} (id, event_kind, medium, lobby, matter_event_id, ` +
         `firm_event_id, status, created_by_user_id, started_at, ended_at, ended_by_user_id, ` +
-        `personal_room_id, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'scheduled', ?7, NULL, NULL, NULL, ?9, ?8, ?8)`,
+        `personal_room_id, encrypted, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'scheduled', ?7, NULL, NULL, NULL, ?9, ?10, ?8, ?8)`,
     )
     .bind(
       input.id,
@@ -646,6 +651,7 @@ export function insertMeetingStatement(
       input.createdByUserId,
       input.now,
       input.personalRoomId ?? null,
+      input.encrypted ? 1 : 0,
     );
 }
 

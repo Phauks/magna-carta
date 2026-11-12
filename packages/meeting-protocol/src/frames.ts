@@ -742,6 +742,10 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // open: the browser has not been welcomed yet, or was removed, and sends its key package to be
   // added again.
   "not-in-group",
+  // A KEY-GROUP FRAME IN A MEETING THAT IS NOT ENCRYPTED. NON-FATAL, socket open: the room carries a
+  // group only for a meeting opened encrypted, and a browser that sent one anyway is out of step
+  // with the meeting it is in. Nothing about the meeting changed.
+  "not-encrypted",
   // The meeting closed while this socket was open.
   "meeting-ended",
 ] as const);

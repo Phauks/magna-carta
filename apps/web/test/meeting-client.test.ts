@@ -22,6 +22,7 @@ import {
   DENIED_STATEMENT,
   MeetingClient,
   PROTOCOL_MISMATCH_REASON,
+  ENCRYPTION_UNSUPPORTED_REASON,
   RECONCILE_DEBOUNCE_MILLISECONDS,
   refusalStatement,
   SUPERSEDED_REASON,
@@ -434,6 +435,36 @@ describe("joining", () => {
     socket.close();
     expect(client.state).toBe("failed");
     expect(client.failureReason).toBe("socket-closed");
+  });
+});
+
+describe("joining an encrypted meeting", () => {
+  it("says at the door that a browser with no frame transform cannot join, and opens nothing", () => {
+    const socket = new FakeSocket();
+    let socketsOpened = 0;
+    const seams = {
+      createPeerConnection: () => new FakePeerConnection(),
+      openSocket: () => {
+        socketsOpened += 1;
+        return socket;
+      },
+      getUserMedia: () => Promise.resolve(new FakeStream([])),
+      getDisplayMedia: () => Promise.resolve(new FakeStream([])),
+      createMediaStream: () => new FakeStream([]),
+      createAudioLevelMeter: () => new FakeAudioLevelMeter(),
+    } as unknown as MeetingClientSeams;
+    const client = new MeetingClient(seams);
+    opened.push(client);
+    client.join({
+      meetingId: "meeting_1",
+      participantId: "attendance_1",
+      iceServers: [],
+      socketUrl: "wss://example.test/socket",
+      encrypted: true,
+    });
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe(ENCRYPTION_UNSUPPORTED_REASON);
+    expect(socketsOpened).toBe(0);
   });
 });
 

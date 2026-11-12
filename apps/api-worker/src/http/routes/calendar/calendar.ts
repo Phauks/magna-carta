@@ -1,3 +1,5 @@
+import { endToEndEncryptionEnabled } from "../../../meetings/encryption-switch.ts";
+import { invitedMembers, meetingInvitations } from "./meeting-invitations.ts";
 import { CIVIL_DATE_PATTERN, civilDateOf, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
@@ -143,10 +145,6 @@ import {
   assertDeadlineHorizon,
 } from "@magna-carta/calendar/validation";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import {
-  CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
-  type CalendarEventMeetingScheduledPayload,
-} from "@magna-carta/calendar/notifications";
 import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import {
   CANCEL_CLOSING_GUARD,
@@ -1892,6 +1890,8 @@ function scheduleMeetingOnNewEvent(
   event: { readonly kind: MeetingEventKind; readonly id: string; readonly matterId: string | null },
   choice: MeetingChoice,
   participants: readonly z.infer<typeof ParticipantRequest>[] | undefined,
+  // Whether this deployment opens meetings end-to-end encrypted, as Start does.
+  encrypted: boolean,
 ): SchedulingOutcome {
   if (choice === null || choice === undefined) return NO_SCHEDULING;
   const opened = openMeetingOnEvent(
@@ -1902,6 +1902,7 @@ function scheduleMeetingOnNewEvent(
       matterId: event.matterId,
       medium: choice.medium,
       lobby: choice.lobby,
+      encrypted,
     },
     serviceOptions(userId),
   );
@@ -1937,6 +1938,7 @@ async function scheduleMeetingOnExistingEvent(
   userId: string,
   event: { readonly kind: MeetingEventKind; readonly id: string },
   choice: MeetingChoice,
+  encrypted: boolean,
 ): Promise<SchedulingOutcome> {
   const existing = await readMeetingForEvent(
     database,
@@ -1951,7 +1953,7 @@ async function scheduleMeetingOnExistingEvent(
 
   const opened = await createMeeting(
     database,
-    { eventKind: event.kind, eventId: event.id, medium: choice.medium },
+    { eventKind: event.kind, eventId: event.id, medium: choice.medium, encrypted },
     serviceOptions(userId),
   );
   const invited =
@@ -1974,63 +1976,6 @@ async function scheduleMeetingOnExistingEvent(
       ],
     },
   };
-}
-
-/**
- * The colleagues on an event, and nobody else.
- *
- * Directory entities get nothing: an external guest has no way in yet, and a notification pointing
- * at a room they cannot enter is worse than silence. The actor is left off — nobody needs inviting
- * to the meeting they just scheduled. Deduplicated because a participant list is edited by hand.
- */
-function invitedMembers(
-  participants: readonly {
-    readonly participantKind: string;
-    readonly memberUserId?: string | null;
-  }[],
-  actorUserId: string,
-): readonly string[] {
-  const invited = participants.flatMap((participant) => {
-    const memberUserId = participant.memberUserId ?? null;
-    if (participant.participantKind !== "member" || memberUserId === null) return [];
-    return memberUserId === actorUserId ? [] : [memberUserId];
-  });
-  return [...new Set(invited)];
-}
-
-/**
- * The invitation, as an outbox message or none at all.
- *
- * A FIRM EVENT RAISES NOTHING, and the reason is a table rebuild rather than a decision:
- * `notification_event.subject_kind` is a SQLite CHECK with no `firmEvent` value in it, and widening
- * one rebuilds a table `notification_recipient` points at, which cannot complete against a firm
- * database that holds data (packages/database/src/reviewed-rebuilds.ts). The firm meeting is
- * scheduled, created and joinable; it is the invitation alone that waits on that migration.
- */
-function meetingInvitations(
-  event: {
-    readonly kind: MeetingEventKind;
-    readonly id: string;
-    readonly matterId?: string | null;
-  },
-  meetingId: string,
-  medium: string,
-  invited: readonly string[],
-): { topic: string; payload: CalendarEventMeetingScheduledPayload }[] {
-  const matterId = event.matterId ?? null;
-  if (event.kind !== "matter" || matterId === null || invited.length === 0) return [];
-  return [
-    {
-      topic: CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
-      payload: {
-        matterEventId: event.id,
-        matterId,
-        meetingId,
-        medium,
-        invitedMemberUserIds: invited,
-      },
-    },
-  ];
 }
 
 /**
@@ -2546,6 +2491,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             { kind: "matter", id: created.eventId, matterId },
             request.meeting,
             request.participants,
+            endToEndEncryptionEnabled(c.env),
           );
           return Promise.resolve({
             body: { id: created.eventId, meetingId: scheduling.meetingId },
@@ -2589,6 +2535,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             userId,
             { kind: "matter", id: eventId },
             request.meeting,
+            endToEndEncryptionEnabled(c.env),
           );
           return {
             body: { ok: true, meetingId: scheduling.meetingId },
@@ -2987,6 +2934,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             { kind: "firm", id: created.firmEventId, matterId: null },
             request.meeting,
             request.participants,
+            endToEndEncryptionEnabled(c.env),
           );
           return {
             body: { id: created.firmEventId, meetingId: scheduling.meetingId },
@@ -3028,6 +2976,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             userId,
             { kind: "firm", id: firmEventId },
             request.meeting,
+            endToEndEncryptionEnabled(c.env),
           );
           return {
             body: { ok: true, meetingId: scheduling.meetingId },

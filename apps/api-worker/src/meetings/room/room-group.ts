@@ -238,6 +238,19 @@ export async function handleGroupFrame(
   attachment: MeetingSocketAttachment,
   frame: Extract<MeetingClientFrame, { type: "mls-key-package" | "mls-commit" | "mls-proposal" }>,
 ): Promise<void> {
+  // A MEETING OPENED IN THE CLEAR CARRIES NO GROUP. Refused before anything is stored, so a browser
+  // out of step with its meeting cannot make the room keep key packages nobody will act on.
+  if (attachment.encrypted !== true) {
+    await refuseAndRecord(
+      room,
+      socket,
+      attachment,
+      attachment.attendanceId,
+      "not-encrypted",
+      frame.type,
+    );
+    return;
+  }
   switch (frame.type) {
     case "mls-key-package":
       await receiveKeyPackage(room, socket, attachment.attendanceId, frame.keyPackage);

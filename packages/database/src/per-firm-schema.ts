@@ -8817,6 +8817,13 @@ export const meeting = sqliteTable(
     personalRoomId: text("personal_room_id")
       .$type<MeetingPersonalRoomId>()
       .references((): AnySQLiteColumn => meetingPersonalRoom.id),
+    // WHETHER THE PICTURES AND SOUND ARE SEALED END TO END, so the routing service carries frames it
+    // cannot read. Fixed when the room is opened and never changed, on the medium's reasoning: the
+    // people in the room agreed to one kind of meeting, and the browsers' key group is built on
+    // arrival. A recording, captions or dial-in pause the sealing for everybody with a visible
+    // warning; they do not clear this. False for every row that predates the column, which is what
+    // those meetings were.
+    encrypted: integer("encrypted", { mode: "boolean" }).notNull().default(false),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

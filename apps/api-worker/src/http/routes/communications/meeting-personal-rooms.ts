@@ -1,3 +1,4 @@
+import { endToEndEncryptionEnabled } from "../../../meetings/encryption-switch.ts";
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import {
@@ -330,7 +331,11 @@ export function registerMeetingPersonalRoomRoutes(
       }>(c, async () => {
         const opened = await openPersonalRoom(
           firm.firmDatabase,
-          { timeZone: body.timeZone, matterId: (body.matterId ?? null) as MatterId | null },
+          {
+            timeZone: body.timeZone,
+            matterId: (body.matterId ?? null) as MatterId | null,
+            encrypted: endToEndEncryptionEnabled(c.env),
+          },
           serviceOptions(userId),
         );
         return {

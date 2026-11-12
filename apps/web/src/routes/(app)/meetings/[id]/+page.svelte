@@ -56,6 +56,7 @@
     MeetingClient,
     browserMeetingSeams,
     PROTOCOL_MISMATCH_REASON,
+    ENCRYPTION_UNSUPPORTED_REASON,
     refusalStatement,
     REMOVED_REASON,
     SOCKET_CLOSED_REASON,
@@ -248,10 +249,10 @@
     if (!summary.configured || summary.status === "ended") return;
     joinedMeetingId = id;
     leaving = false;
-    void arrive(id, summary.medium);
+    void arrive(id, summary.medium, summary.encrypted);
   });
 
-  async function arrive(id: string, medium: MeetingMedium): Promise<void> {
+  async function arrive(id: string, medium: MeetingMedium, encrypted: boolean): Promise<void> {
     /*
      * The recording tone's audio is asked to run here too, before anything is awaited. The press
      * that matters happened on the screen before this one: the calendar entry's Join or Start, or
@@ -283,6 +284,9 @@
       // What this member chose for their own sound and picture on this machine, applied at the
       // capture below and at every rejoin, so a choice made once is not made again.
       effects: effectsPreference.current,
+      // The record's own answer again: whether this browser joins the meeting's key group and seals
+      // what it sends. Fixed when somebody opened the room.
+      encrypted,
     });
     /*
      * Asked for on every arrival, including one that is waiting: the client refuses it at the door
@@ -1129,6 +1133,11 @@
    */
   const outOfDate = $derived(client.failureReason === PROTOCOL_MISMATCH_REASON);
   /*
+   * The meeting is end-to-end encrypted and this browser cannot seal or open its frames. No Rejoin:
+   * the same browser would meet the same answer, so it says what would work instead.
+   */
+  const cannotEncrypt = $derived(client.failureReason === ENCRYPTION_UNSUPPORTED_REASON);
+  /*
    * What this room IS, named on the header's own line beside the day and the count — because a call
    * and a meeting look different the moment you are in one (no picture, no share) and a reader
    * arriving at the address should know which they are about to join before they are in it.
@@ -1452,6 +1461,17 @@
             <Alert.Description>
               This page was open while the meeting service was updated, so it no longer understands
               what the room is sending. Reload the page to join.
+            </Alert.Description>
+          </Alert.Root>
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        </div>
+      {:else if cannotEncrypt}
+        <div class="flex flex-col items-start gap-8">
+          <Alert.Root variant="warning">
+            <Alert.Title>This Browser Cannot Join an Encrypted Meeting</Alert.Title>
+            <Alert.Description>
+              This meeting's pictures and sound are sealed end to end, and this browser cannot seal
+              or open them. Join from a current version of Chrome, Edge, Firefox or Safari.
             </Alert.Description>
           </Alert.Root>
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>

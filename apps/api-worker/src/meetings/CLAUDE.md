@@ -68,7 +68,10 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   accepted commit to the group as it stood (the committer's own socket is its acknowledgement) and
   the welcome to the stays it adds, and relays proposals. It reads none of the bytes. It stores the
   epoch and the members the commits named under `mls-group`; a departure drops the stay's key
-  package, and the last member's departure hands the group to somebody still waiting.
+  package, and the last member's departure hands the group to somebody still waiting. A meeting
+  opened in the clear carries no group: its sockets' attachments say `encrypted: false` (off the
+  meeting row, fixed for its life) and every group frame is refused `not-encrypted`. Whether a new
+  meeting opens encrypted is `encryption-switch.ts`, the one reader of `MEETINGS_END_TO_END_ENCRYPTION`.
 - `room/room-inspect.ts` — what one room is holding, for a platform operator: the roster with each
   person's role, presence, counts and last connection report, the door, the sockets, the alarm and
   which of its deadlines are pending, the storage size, the routing sessions, the ended marker. One

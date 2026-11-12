@@ -68,6 +68,16 @@ unchanged — the first Start decides, and `created: false` is what says so. The
 other half (a picture published into a call is refused there, not here): this package holds no
 socket.
 
+## Encryption is chosen when the room opens, and never changed
+
+`meeting.encrypted` says whether the room's pictures and sound are sealed end to end. It is read
+like the lobby (only by the request that opens the room) and kept like the medium (no statement
+changes it), because the browsers build their key group on arrival and a meeting that changed its
+mind would have members on both sides. `CreateMeetingInput.encrypted` and
+`OpenPersonalRoomInput.encrypted` default to false: what the product's default is, and whether the
+deployment allows it at all, is the Worker's to decide. A recording, captions or dial-in pause the
+sealing in the key group; they never clear this column.
+
 ## Attendance is a row per stay, and the roster is derived from it
 
 Somebody whose connection drops and who dials back in was in the room twice; a flag per person would

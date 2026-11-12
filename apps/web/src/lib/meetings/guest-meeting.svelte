@@ -54,6 +54,7 @@
     DENIED_REASON,
     MeetingClient,
     PROTOCOL_MISMATCH_REASON,
+    ENCRYPTION_UNSUPPORTED_REASON,
     refusalStatement,
     REMOVED_REASON,
     WITHDRAWN_REASON,
@@ -226,14 +227,16 @@
     socketGrant = outcome.value.guestGrant;
     displayName = outcome.value.displayName;
     client.join({
-      // A guest holds no meeting identifier: the meeting is a fact of the grant, not of anything
-      // this page addresses. The client only records the field, so it is left empty.
-      meetingId: "",
+      // A guest addresses no meeting: the meeting is a fact of the grant, not of anything this page
+      // asks for. In an encrypted meeting the key group's name stands here, because the group is the
+      // one thing every browser in the room must name alike; otherwise the field is left empty.
+      meetingId: outcome.value.keyGroup ?? "",
       participantId: outcome.value.participantId,
       iceServers: outcome.value.iceServers,
       socketUrl: guestMeetingSocketUrl(),
       medium: outcome.value.medium,
       waiting: outcome.value.waiting,
+      encrypted: outcome.value.encrypted,
     });
     // Asked for on every arrival: the client refuses it at the door and asks again itself the
     // moment a host admits this guest, which is the one place the camera rule is written.
@@ -378,6 +381,8 @@
   const withdrawn = $derived(client.failureReason === WITHDRAWN_REASON);
   const superseded = $derived(client.failureReason === SUPERSEDED_REASON);
   const outOfDate = $derived(client.failureReason === PROTOCOL_MISMATCH_REASON);
+  // The meeting is sealed end to end and this browser cannot seal or open its frames.
+  const cannotEncrypt = $derived(client.failureReason === ENCRYPTION_UNSUPPORTED_REASON);
   const over = $derived(
     (client.state === "ended" && !closedByLeaving) || summary?.status === "ended",
   );
@@ -573,6 +578,14 @@
           <Alert.Description>
             This page was open while the meeting service was updated, so it no longer understands
             what the room is sending. Reload the page and join again.
+          </Alert.Description>
+        </Alert.Root>
+      {:else if cannotEncrypt}
+        <Alert.Root variant="warning">
+          <Alert.Title>This Browser Cannot Join an Encrypted Meeting</Alert.Title>
+          <Alert.Description>
+            This meeting's pictures and sound are sealed end to end, and this browser cannot seal or
+            open them. Open the link in a current version of Chrome, Edge, Firefox or Safari.
           </Alert.Description>
         </Alert.Root>
       {:else if client.state === "failed"}

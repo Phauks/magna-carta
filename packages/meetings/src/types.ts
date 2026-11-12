@@ -161,6 +161,8 @@ export interface MeetingRow {
   readonly lobby: MeetingLobbyMode;
   // The personal room this meeting is a session of, or null for a meeting started on an event.
   readonly personal_room_id: MeetingPersonalRoomId | null;
+  // Whether the pictures and sound are sealed end to end, as SQLite's integer. Fixed at opening.
+  readonly encrypted: 0 | 1;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -268,4 +270,7 @@ export interface MeetingSummary {
   // Whether this meeting is a session of somebody's personal room, opened without a scheduled
   // event — the one kind of meeting that can be moved onto a matter after it began.
   readonly personalRoomSession: boolean;
+  // WHETHER THE PICTURES AND SOUND ARE SEALED END TO END, so a screen can say so before Join and the
+  // room's browsers know to build their key group. Fixed when the room was opened.
+  readonly encrypted: boolean;
 }

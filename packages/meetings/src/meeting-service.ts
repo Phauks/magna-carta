@@ -136,6 +136,12 @@ export interface CreateMeetingInput {
   // A host changes it afterwards through `setMeetingLobby`, which is the difference between this
   // setting and the medium above.
   readonly lobby?: MeetingLobbyMode;
+  // Whether the pictures and sound are sealed end to end. Read ONLY when this request opens the room,
+  // like the lobby, and never changed afterwards, like the medium: the browsers build their key group
+  // on arrival, and a meeting that changed its mind mid-gathering would have members on both sides.
+  // Optional and defaulted to false, because a caller that has not heard of it must keep getting
+  // what it has always got; the route decides the product's default.
+  readonly encrypted?: boolean;
 }
 
 /**
@@ -230,6 +236,7 @@ export function openMeetingOnEvent(
           firmEventId: input.eventKind === "firm" ? (input.eventId as FirmEventId) : null,
           createdByUserId: options.actorUserId,
           personalRoomId: input.personalRoomId ?? null,
+          encrypted: input.encrypted ?? false,
           now,
         }),
         // THE STARTER IS THE HOST, written in the same batch as the room.

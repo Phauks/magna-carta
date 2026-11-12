@@ -243,6 +243,9 @@ export interface OpenPersonalRoomInput {
   // The matter the session is about, when the owner already knows. Without one the session is a firm
   // event and can be moved onto a matter later.
   readonly matterId?: MatterId | null;
+  // Whether the session's pictures and sound are sealed end to end, as the deployment decides. Read
+  // only when this call opens a session; a session already in use keeps what it was opened with.
+  readonly encrypted?: boolean;
 }
 
 /**
@@ -392,6 +395,7 @@ export async function openPersonalRoom(
       medium: room.medium,
       lobby: room.lobby,
       personalRoomId: room.id,
+      encrypted: input.encrypted ?? false,
     },
     options,
   );

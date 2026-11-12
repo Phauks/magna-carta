@@ -55,6 +55,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     recordingConfigured: true,
     captionsAvailable: false,
     personalRoomSession: false,
+    encrypted: false,
     ...overrides,
   };
 }

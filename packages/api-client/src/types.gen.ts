@@ -7218,6 +7218,7 @@ export type StartMeetingRequest = {
     eventId: string;
     medium?: 'video' | 'audio';
     lobby?: 'off' | 'on';
+    encrypted?: boolean;
 };
 
 export type MeetingSummaryPage = {
@@ -7247,6 +7248,7 @@ export type MeetingSummary = {
     recordingConfigured: boolean;
     captionsAvailable: boolean;
     personalRoomSession: boolean;
+    encrypted: boolean;
 };
 
 export type JoinedMeeting = {
@@ -7652,6 +7654,8 @@ export type GuestArrival = {
     displayName: string;
     iceServers: Array<MeetingIceServer>;
     medium: 'video' | 'audio';
+    encrypted: boolean;
+    keyGroup: string | null;
     guestGrant: string;
 };
 

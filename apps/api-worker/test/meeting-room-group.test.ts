@@ -45,6 +45,7 @@ async function connect(
   meetingId: string,
   attendanceId: string,
   waiting = false,
+  encrypted = true,
 ): Promise<Participant> {
   const response = await stub.fetch(
     new Request(
@@ -58,6 +59,7 @@ async function connect(
         hostRole: null,
         locked: false,
         lobby: waiting ? "on" : "off",
+        encrypted,
         waiting,
       }),
       { headers: { Upgrade: "websocket" } },
@@ -132,6 +134,15 @@ describe("founding the group", () => {
     first.send(keyPackage("first"));
     await waitFor(() => framesOf(first, "mls-welcome").length === 1);
     expect(framesOf(first, "mls-welcome")[0]).toMatchObject({ epoch: 0, welcome: null });
+  });
+
+  it("carries no group in a meeting opened in the clear, and says so", async () => {
+    const { stub, meetingId } = freshRoom();
+    const clear = await connect(stub, meetingId, "stay_clear", false, false);
+    clear.send(keyPackage("clear"));
+    await waitFor(() => framesOf(clear, "refused").length === 1);
+    expect(framesOf(clear, "refused")[0]).toMatchObject({ reason: "not-encrypted" });
+    expect(framesOf(clear, "mls-welcome")).toEqual([]);
   });
 
   it("relays a later key package to the group, naming its sender, and to nobody outside it", async () => {

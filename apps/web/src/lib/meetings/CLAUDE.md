@@ -68,8 +68,15 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   everybody waiting and removes everybody the roster no longer holds, applying other commits in the
   room's order and discarding its own when another won (`stale-epoch`), and a host's pause as a
   proposal. It hands each epoch's key to the frame cipher; membership and the pause are read from
-  the group state it verified, never from the room. Not yet built by the client: the meeting has no
-  `encrypted` flag until the next change, so the key-group frames have nowhere to go.
+  the group state it verified, never from the room.
+- `meeting-encryption.ts` — what the client composes for an encrypted meeting (`join` with
+  `encrypted: true`, from the meeting's record): the engine loaded BEFORE the socket opens, the group
+  started on the welcome, every epoch's key handed to the transform, and `cover`, which puts the
+  transform on every sender and receiver without one before each offer this browser makes and after
+  each offer it applies, with video held to VP8. The browser is reached through
+  `FrameEncryptionSeams` (`MeetingClientSeams.createFrameEncryption`, real edges in
+  `effects/frame-encryption-processor.ts`). A browser without `RTCRtpScriptTransform`, or a client
+  given no seam, fails the join `encryption-unsupported` before anything is captured.
 - `frame-encryption.ts` and `frame-encryption.worker.ts` — the frame cipher (SFrame, RFC 9605) as
   the `RTCRtpScriptTransform` runs it: a VP8 frame keeps its first bytes readable for the routing
   service (ten on a keyframe, one otherwise) and authenticated, Opus is sealed whole, a frame that

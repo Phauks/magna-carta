@@ -596,6 +596,8 @@ export async function arriveAsGuest(
   readonly confirmedName: string;
   readonly linkExpiresAt: string;
   readonly medium: MeetingRow["medium"];
+  /** Whether the meeting's pictures and sound are sealed end to end. */
+  readonly encrypted: boolean;
   readonly effect: EffectWrite;
 }> {
   const meeting = await readMeetingForGuest(database, credential.meetingId);
@@ -681,6 +683,7 @@ export async function arriveAsGuest(
       confirmedName,
       linkExpiresAt: invitation.expires_at,
       medium: meeting.medium,
+      encrypted: meeting.encrypted === 1,
       effect: {
         statements: [
           spend,
@@ -735,6 +738,7 @@ export async function arriveAsGuest(
     confirmedName,
     linkExpiresAt: invitation.expires_at,
     medium: meeting.medium,
+    encrypted: meeting.encrypted === 1,
     effect: {
       statements: [
         // The spend FIRST: a link withdrawn or rotated in the round trip since the credential was

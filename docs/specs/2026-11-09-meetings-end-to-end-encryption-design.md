@@ -52,6 +52,8 @@ What it gives up: nothing permanently. What it does is make plain, to everyone i
 - **Each epoch's exporter secret derives the SFrame base keys**, one per sender, as RFC 9605 describes for MLS. Someone leaving advances the epoch, so a departed browser holds only keys that no longer encrypt anything.
 - **A waiting socket receives no welcome.** It is not in the group until a host admits it.
 
+- **How a meeting becomes encrypted, as built (2026-11-12).** `meeting.encrypted` is chosen when the room opens and never changed, like the medium. Start asks for it by default and the host may ask otherwise; scheduled meetings and personal-room sessions follow the deployment. A meeting opens encrypted only where the deployment var `MEETINGS_END_TO_END_ENCRYPTION` is `on`, which waits for E1 to E3. The room refuses group frames in a meeting opened in the clear (`not-encrypted`). The browser loads the engine before it connects, starts its group on the welcome, and puts the transform on every sender and receiver before each offer it makes and after each one it applies, with video held to VP8 by codec preference. A browser with no `RTCRtpScriptTransform` is told it cannot join before anything is captured. A guest's arrival carries the flag and the group's name (the meeting's handle), since every browser in the group must give the same one.
+
 ## 5. The frame
 
 - SFrame, suite `AES_128_GCM_SHA256_128`, one frame at a time, in a `RTCRtpScriptTransform` worker on WebCrypto (research, section 5). The transform is one small file, reviewed as security code.
