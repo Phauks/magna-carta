@@ -1241,6 +1241,20 @@ export const fileVersion = sqliteTable(
     }),
     exportR2Key: text("export_r2_key"),
     exportSizeBytes: integer("export_size_bytes"),
+    // A copy of a video version that every browser plays: H.264 pictures and AAC sound in a
+    // faststart MP4, made on request by the Rust transcode engine when the browser in front of a
+    // member cannot play the original (HEVC on Firefox, Matroska on Safari, 10-bit or 4:2:2
+    // pictures, MP3 or PCM sound). Null until somebody asks. `pending` from the request until the
+    // copy is written, with `playable_copy_requested_at` saying when, so a request whose conversion
+    // died can be asked for again; `ready` with the copy's key and size; `unavailable` with the
+    // engine's reason when the original holds something the engine does not decode.
+    playableCopyState: text("playable_copy_state", {
+      enum: ["pending", "ready", "unavailable"],
+    }),
+    playableCopyR2Key: text("playable_copy_r2_key"),
+    playableCopySizeBytes: integer("playable_copy_size_bytes"),
+    playableCopyReason: text("playable_copy_reason"),
+    playableCopyRequestedAt: text("playable_copy_requested_at"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),

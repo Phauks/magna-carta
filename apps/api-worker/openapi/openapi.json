@@ -10833,6 +10833,62 @@
           "toText"
         ]
       },
+      "PlayableCopyStatus": {
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "none",
+              "pending",
+              "ready",
+              "unavailable"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "unsupported",
+              "malformed",
+              "too-large",
+              "source-missing",
+              null
+            ]
+          },
+          "streamUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "video/mp4"
+            ]
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "versionId",
+          "state",
+          "reason",
+          "streamUrl",
+          "contentType",
+          "sizeBytes"
+        ]
+      },
       "BundleReady": {
         "type": "object",
         "properties": {
@@ -63295,6 +63351,184 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/playable-copy": {
+      "get": {
+        "description": "Reports the playable copy of the file's current clean version: a copy converted to H.264 and AAC in an MP4 so every browser plays it. A ready copy carries a short-lived signed streamUrl on the cookieless files host (null when that host is not bound). 404 when the file has no clean current version.",
+        "operationId": "files.playableCopy",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.playableCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Where the copy stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayableCopyStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file is unknown, deleted, or has no clean current version",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Asks for a playable copy of the file's current clean version, converted in the background. Answers 202 with state pending while it is made, 200 when it already exists or cannot be made (state unavailable, with the reason). Asking again while a copy is being made does not start a second conversion. Accepted whatever the version's playability verdict, since the browser that refused the original is the one that matters. 422 when the version is not a video the converter reads (MP4, QuickTime or Matroska), or a scan flagged it.",
+        "operationId": "files.requestPlayableCopy",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.requestPlayableCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The copy exists, or cannot be made",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayableCopyStatus"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The copy is being made",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayableCopyStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file is unknown, deleted, or has no clean current version",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The version is not a video the converter reads, or a scan flagged it",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -2567,6 +2567,15 @@ export type FileHistoryItem = {
     toText: string | null;
 };
 
+export type PlayableCopyStatus = {
+    versionId: string;
+    state: 'none' | 'pending' | 'ready' | 'unavailable';
+    reason: 'unsupported' | 'malformed' | 'too-large' | 'source-missing' | null;
+    streamUrl: string | null;
+    contentType: 'video/mp4';
+    sizeBytes: number | null;
+};
+
 export type BundleReady = {
     url: string;
 };
@@ -18666,6 +18675,88 @@ export type FilesHistoryResponses = {
 };
 
 export type FilesHistoryResponse = FilesHistoryResponses[keyof FilesHistoryResponses];
+
+export type FilesPlayableCopyData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/playable-copy';
+};
+
+export type FilesPlayableCopyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The file is unknown, deleted, or has no clean current version
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesPlayableCopyError = FilesPlayableCopyErrors[keyof FilesPlayableCopyErrors];
+
+export type FilesPlayableCopyResponses = {
+    /**
+     * Where the copy stands
+     */
+    200: PlayableCopyStatus;
+};
+
+export type FilesPlayableCopyResponse = FilesPlayableCopyResponses[keyof FilesPlayableCopyResponses];
+
+export type FilesRequestPlayableCopyData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/playable-copy';
+};
+
+export type FilesRequestPlayableCopyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * The file is unknown, deleted, or has no clean current version
+     */
+    404: Problem;
+    /**
+     * The version is not a video the converter reads, or a scan flagged it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesRequestPlayableCopyError = FilesRequestPlayableCopyErrors[keyof FilesRequestPlayableCopyErrors];
+
+export type FilesRequestPlayableCopyResponses = {
+    /**
+     * The copy exists, or cannot be made
+     */
+    200: PlayableCopyStatus;
+    /**
+     * The copy is being made
+     */
+    202: PlayableCopyStatus;
+};
+
+export type FilesRequestPlayableCopyResponse = FilesRequestPlayableCopyResponses[keyof FilesRequestPlayableCopyResponses];
 
 export type DownloadsZipData = {
     body: ZipDownloadRequest;

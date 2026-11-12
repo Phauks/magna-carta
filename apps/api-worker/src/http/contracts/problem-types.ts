@@ -757,6 +757,10 @@ export const PROBLEM_TYPES = {
   // A host asked to invite somebody the record cannot resolve to a Directory entity on the event with
   // an address the firm may use (HTTP 422). The remedy is in the Directory, not in retrying.
   "guest-not-invitable": "guest-not-invitable",
+  // A playable copy was asked for of a version the converter cannot take at all (HTTP 422): not an
+  // MP4, QuickTime or Matroska video, stored in a form it cannot read directly, or flagged by a scan.
+  // DISTINCT from a copy the engine tried and could not make, which is a 200 with state unavailable.
+  "playable-copy-not-a-candidate": "playable-copy-not-a-candidate",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
