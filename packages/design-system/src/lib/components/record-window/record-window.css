@@ -9,7 +9,8 @@
    * record window was where that frame was designed and measured; it moved out the day the second
    * shell needed the same pane system, so that neither shell rebuilds it.
    *
-   * WHAT REMAINS HERE IS WHAT ONLY A RECORD WINDOW HAS: the tab strip in its context pane. The
+   * WHAT REMAINS HERE IS WHAT ONLY A RECORD WINDOW HAS: the tab strip in its context pane, and the
+   * side panel some kinds of record carry beyond it. The
    * `mc-record-window-*` class names stay on every element regardless — they are the hooks the
    * catalog's sizing assertions and the header-set rule in tooling/lint-one-ui read, and a hook
    * with no declarations is still a hook.
@@ -48,6 +49,28 @@
     overflow-y: auto;
     padding-block: var(--mc-space-16);
     padding-inline: var(--mc-space-16);
+  }
+
+  /*
+   * The side panel some kinds of record carry beyond their tabs. A fixed column rather than a share
+   * of the spare width: the window opens wider by exactly this much (size.record-window-wide), so
+   * the record and its tabs keep the geometry they have without it, and a thread reads at a
+   * column's width however wide the screen. It takes the record pane's surface rather than the
+   * tabs' sunken one, so the three columns read as record, context, conversation, with a hairline
+   * between each. It is a column that scrolls in itself, padded like a tab panel.
+   */
+  .mc-record-window-aside {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    inline-size: var(--mc-size-record-aside);
+    min-block-size: var(--mc-space-0);
+    overflow-y: auto;
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-16);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: var(--mc-border-default);
   }
 
   /* --- the action bar --------------------------------------------------------------------- */

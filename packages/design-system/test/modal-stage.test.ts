@@ -130,6 +130,7 @@ describe("the record window's windowed size", () => {
   it("names a width cap only, and leaves the height to the stage", () => {
     const window = read("components/record-window/record-window.svelte");
     expect(window).toContain('expansion.panelClasses("w-full max-w-record-window")');
+    expect(window).toContain('expansion.panelClasses("w-full max-w-record-window-wide")');
     expect(window).not.toContain("max-h-screen");
   });
 });
