@@ -1,4 +1,4 @@
-// Whether a stored video can be handed to a browser's own media decoder and play there: the verdict
+// Whether a stored recording (video or sound alone) can be handed to a browser's own media decoder and play there: the verdict
 // the preview gate (preview-policy.ts) keys off, decided from the file's container structure and the
 // codecs it names. The sniffed content type only names the CONTAINER, and a container says little:
 // an MP4 holding H.264 plays in every browser, while the same box structure holding ProRes (what an
@@ -45,12 +45,33 @@ const ISO_MEDIA_TYPES: ReadonlySet<string> = new Set([
   "video/mp4",
   "video/quicktime",
   "video/x-m4v",
+  "audio/mp4",
+  "audio/x-m4a",
 ]);
 const MATROSKA_TYPES: ReadonlySet<string> = new Set(["video/webm", "video/x-matroska"]);
 
+/*
+ * Sound files whose container admits only one codec, and that codec is one every current browser
+ * decodes: MP3, AAC in its ADTS frames, and FLAC. Naming the container names the codec, so there is
+ * nothing further to read.
+ */
+const SINGLE_CODEC_AUDIO_TYPES: ReadonlySet<string> = new Set([
+  "audio/mpeg",
+  "audio/aac",
+  "audio/flac",
+]);
+const WAVE_TYPE = "audio/wav";
+const OGG_TYPE = "audio/ogg";
+
 export function isPlayabilityCandidate(sniffedContentType: string | null): boolean {
   if (sniffedContentType === null) return false;
-  return ISO_MEDIA_TYPES.has(sniffedContentType) || MATROSKA_TYPES.has(sniffedContentType);
+  return (
+    ISO_MEDIA_TYPES.has(sniffedContentType) ||
+    MATROSKA_TYPES.has(sniffedContentType) ||
+    SINGLE_CODEC_AUDIO_TYPES.has(sniffedContentType) ||
+    sniffedContentType === WAVE_TYPE ||
+    sniffedContentType === OGG_TYPE
+  );
 }
 
 /**
@@ -105,6 +126,9 @@ export async function assessInlinePlayable(
   try {
     if (ISO_MEDIA_TYPES.has(sniffedContentType)) return await assessIsoMedia(reader);
     if (MATROSKA_TYPES.has(sniffedContentType)) return await assessMatroska(reader);
+    if (SINGLE_CODEC_AUDIO_TYPES.has(sniffedContentType)) return "playable";
+    if (sniffedContentType === WAVE_TYPE) return await assessWave(reader);
+    if (sniffedContentType === OGG_TYPE) return await assessOgg(reader);
   } catch (error) {
     // A structure that contradicts itself (a length running past the end, a size that cannot be
     // represented) is a file the gate cannot judge. Anything else is a real fault and is raised.
@@ -369,4 +393,72 @@ function judgeWebmTracks(bytes: Uint8Array, tracks: EbmlElement): InlinePlayable
     tracksJudged++;
   }
   return tracksJudged > 0 ? "playable" : "indeterminate";
+}
+
+// ---------------------------------------------------------------------------------------------------
+// WAVE. A RIFF file whose `fmt ` chunk names the sample encoding. Plain PCM and floating-point
+// samples play everywhere; the compressed encodings a WAVE file may also carry (ADPCM, GSM, the
+// telephone codecs) play nowhere. The extensible form keeps the real encoding in the first two bytes
+// of its sub-format identifier.
+
+const WAVE_HEADER_WINDOW = 4096;
+const WAVE_PCM = 0x0001;
+const WAVE_FLOAT = 0x0003;
+const WAVE_EXTENSIBLE = 0xfffe;
+
+function readUint16LittleEndian(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8);
+}
+
+function readUint32LittleEndian(bytes: Uint8Array, offset: number): number {
+  return (
+    readUint16LittleEndian(bytes, offset) + readUint16LittleEndian(bytes, offset + 2) * 0x10000
+  );
+}
+
+async function assessWave(reader: ByteRangeReader): Promise<InlinePlayableVerdict> {
+  const bytes = await reader.read(0, Math.min(reader.size, WAVE_HEADER_WINDOW));
+  if (fourCharacterCode(bytes, 0) !== "RIFF" || fourCharacterCode(bytes, 8) !== "WAVE") {
+    return "indeterminate";
+  }
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const id = fourCharacterCode(bytes, offset);
+    const size = readUint32LittleEndian(bytes, offset + 4);
+    if (id === "fmt ") {
+      if (offset + 8 + Math.min(size, 26) > bytes.length || size < 16) return "indeterminate";
+      let format = readUint16LittleEndian(bytes, offset + 8);
+      if (format === WAVE_EXTENSIBLE) {
+        if (size < 40 || offset + 8 + 26 > bytes.length) return "indeterminate";
+        format = readUint16LittleEndian(bytes, offset + 8 + 24);
+      }
+      return format === WAVE_PCM || format === WAVE_FLOAT ? "playable" : "download-only";
+    }
+    // Chunks are padded to an even length.
+    offset += 8 + size + (size % 2);
+  }
+  return "indeterminate";
+}
+
+// ---------------------------------------------------------------------------------------------------
+// OGG. The first page of the first stream carries that stream's identification packet, which names
+// the codec in its opening bytes. Opus, Vorbis and FLAC play in current browsers; Speex and the
+// rest do not.
+
+const OGG_FIRST_PAGE_WINDOW = 512;
+const OGG_PAGE_HEADER_BYTES = 27;
+
+async function assessOgg(reader: ByteRangeReader): Promise<InlinePlayableVerdict> {
+  const bytes = await reader.read(0, Math.min(reader.size, OGG_FIRST_PAGE_WINDOW));
+  if (fourCharacterCode(bytes, 0) !== "OggS" || bytes.length < OGG_PAGE_HEADER_BYTES) {
+    return "indeterminate";
+  }
+  const segmentCount = bytes[26] ?? 0;
+  const packetStart = OGG_PAGE_HEADER_BYTES + segmentCount;
+  if (packetStart + 8 > bytes.length) return "indeterminate";
+  const opening = String.fromCharCode(...bytes.subarray(packetStart, packetStart + 8));
+  if (opening === "OpusHead") return "playable";
+  if (opening.slice(1, 7) === "vorbis" && bytes[packetStart] === 0x01) return "playable";
+  if (opening.slice(1, 5) === "FLAC" && bytes[packetStart] === 0x7f) return "playable";
+  return "download-only";
 }

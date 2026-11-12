@@ -48,16 +48,23 @@
     onpointerleave,
     onOpenAutoFocus,
     onCloseAutoFocus,
+    portalTo,
     ...restProps
   }: WithoutChild<DropdownMenuPrimitive.ContentProps> & {
     /** Inline style, composed AFTER the panel's own width rule so a caller's declaration wins. */
     style?: string | null;
+    /**
+     * Where the panel is portalled. The body by default; a menu opened from inside an element
+     * that can go full screen (a player) names that element, or the panel is drawn outside the
+     * full-screen layer and never seen.
+     */
+    portalTo?: Element | string;
   } = $props();
 
   const hoverOpen = getHoverOpenContext();
 </script>
 
-<DropdownMenuPrimitive.Portal>
+<DropdownMenuPrimitive.Portal to={portalTo}>
   <DropdownMenuPrimitive.Content
     bind:ref
     {align}

@@ -72,8 +72,14 @@ function memoryReader(bytes: Uint8Array): ByteRangeReader & { readonly reads: nu
 }
 
 describe("isPlayabilityCandidate", () => {
-  it("reads only the video containers a browser could play", () => {
+  it("reads only the containers a browser could play", () => {
     expect(isPlayabilityCandidate("video/mp4")).toBe(true);
+    expect(isPlayabilityCandidate("audio/mpeg")).toBe(true);
+    expect(isPlayabilityCandidate("audio/x-m4a")).toBe(true);
+    expect(isPlayabilityCandidate("audio/wav")).toBe(true);
+    expect(isPlayabilityCandidate("audio/ogg")).toBe(true);
+    expect(isPlayabilityCandidate("audio/x-ms-asf")).toBe(false);
+    expect(isPlayabilityCandidate("audio/amr")).toBe(false);
     expect(isPlayabilityCandidate("video/webm")).toBe(true);
     expect(isPlayabilityCandidate("video/quicktime")).toBe(true);
     expect(isPlayabilityCandidate("video/x-msvideo")).toBe(false);
@@ -231,5 +237,101 @@ describe("assessInlinePlayable, WebM", () => {
     const header = element(0x1a45dfa3, element(0x4282, ascii("webm")));
     const file = concatenate(header, element(0x18538067, element(0x1f43b675, new Uint8Array(32))));
     expect(await assessInlinePlayable("video/webm", memoryReader(file))).toBe("indeterminate");
+  });
+});
+
+function littleEndian16(value: number): Uint8Array {
+  return new Uint8Array([value & 0xff, (value >> 8) & 0xff]);
+}
+
+function littleEndian32(value: number): Uint8Array {
+  const bytes = new Uint8Array(4);
+  new DataView(bytes.buffer).setUint32(0, value, true);
+  return bytes;
+}
+
+function riffChunk(id: string, body: Uint8Array): Uint8Array {
+  return concatenate(ascii(id), littleEndian32(body.length), body);
+}
+
+/** A WAVE file whose `fmt ` chunk names `format`, after a metadata chunk of odd length. */
+function wave(format: number, subFormat?: number): Uint8Array {
+  const basic = concatenate(
+    littleEndian16(format),
+    littleEndian16(1),
+    littleEndian32(44100),
+    littleEndian32(88200),
+    littleEndian16(2),
+    littleEndian16(16),
+  );
+  const fmt =
+    subFormat === undefined
+      ? basic
+      : concatenate(
+          basic,
+          littleEndian16(22),
+          new Uint8Array(6),
+          littleEndian16(subFormat),
+          new Uint8Array(14),
+        );
+  const list = riffChunk("LIST", ascii("INFOx"));
+  const body = concatenate(
+    ascii("WAVE"),
+    list,
+    new Uint8Array(1),
+    riffChunk("fmt ", fmt),
+    riffChunk("data", new Uint8Array(32)),
+  );
+  return concatenate(ascii("RIFF"), littleEndian32(body.length), body);
+}
+
+/** An Ogg file whose first page carries a packet opening with `packet`. */
+function ogg(packet: Uint8Array): Uint8Array {
+  const header = concatenate(ascii("OggS"), new Uint8Array(22), new Uint8Array([1, packet.length]));
+  return concatenate(header, packet, new Uint8Array(16));
+}
+
+describe("assessInlinePlayable, sound alone", () => {
+  it("plays MP3, AAC and FLAC without reading further, since the container names the codec", async () => {
+    for (const type of ["audio/mpeg", "audio/aac", "audio/flac"]) {
+      const reader = memoryReader(new Uint8Array(16));
+      expect(await assessInlinePlayable(type, reader)).toBe("playable");
+      expect(reader.reads).toEqual([]);
+    }
+  });
+
+  it("judges an M4A file by its sound track", async () => {
+    const aac = concatenate(fileTypeBox, movie(track("soun", "mp4a")));
+    const lossless = concatenate(fileTypeBox, movie(track("soun", "alac")));
+    expect(await assessInlinePlayable("audio/x-m4a", memoryReader(aac))).toBe("playable");
+    expect(await assessInlinePlayable("audio/x-m4a", memoryReader(lossless))).toBe("download-only");
+  });
+
+  it("plays plain and floating-point WAVE samples, past a metadata chunk", async () => {
+    expect(await assessInlinePlayable("audio/wav", memoryReader(wave(1)))).toBe("playable");
+    expect(await assessInlinePlayable("audio/wav", memoryReader(wave(3)))).toBe("playable");
+    expect(await assessInlinePlayable("audio/wav", memoryReader(wave(0xfffe, 1)))).toBe("playable");
+  });
+
+  it("offers a WAVE file of compressed telephone sound as a download", async () => {
+    expect(await assessInlinePlayable("audio/wav", memoryReader(wave(0x11)))).toBe("download-only");
+    expect(await assessInlinePlayable("audio/wav", memoryReader(wave(0xfffe, 0x31)))).toBe(
+      "download-only",
+    );
+  });
+
+  it("cannot judge a file that is not RIFF WAVE at all", async () => {
+    expect(await assessInlinePlayable("audio/wav", memoryReader(ascii("not a wave file")))).toBe(
+      "indeterminate",
+    );
+  });
+
+  it("judges an Ogg file by the codec its first packet names", async () => {
+    const opus = ogg(ascii("OpusHead\u0001"));
+    const vorbis = ogg(concatenate(new Uint8Array([1]), ascii("vorbis\u0000")));
+    const speex = ogg(ascii("Speex   x"));
+    expect(await assessInlinePlayable("audio/ogg", memoryReader(opus))).toBe("playable");
+    expect(await assessInlinePlayable("audio/ogg", memoryReader(vorbis))).toBe("playable");
+    expect(await assessInlinePlayable("audio/ogg", memoryReader(speex))).toBe("download-only");
   });
 });

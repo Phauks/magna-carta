@@ -83,6 +83,8 @@
     record,
     tabs,
     defaultTab,
+    aside,
+    asideLabel,
     actions,
     menu,
     editControl = true,
@@ -131,6 +133,17 @@
     tabs: readonly RecordWindowTab[];
     /** Which tab the window opens on. Defaults to the first. */
     defaultTab?: string;
+    /**
+     * A SIDE PANEL, standing to the right of the tabs and always in view: for context a reader
+     * keeps half an eye on while working on the record, such as a running conversation, which a tab
+     * would hide the moment another tab was chosen. Like the tabs it is context, reachable in both
+     * modes and not told which mode the window is in. The window opens wider to make room for it,
+     * so it is added beside the record and its tabs rather than taken out of them. Absent, the
+     * window is exactly the two-pane window.
+     */
+    aside?: Snippet;
+    /** What the side panel is, for a screen reader, since it is a landmark of its own. */
+    asideLabel?: string;
     /**
      * The bottom action bar's contents. Its geometry is the shell's, its verbs are the caller's —
      * except the two the shell reserves: while editing, the shell appends the abandon and the
@@ -316,7 +329,11 @@
       // default cap as a utility, and only another utility can replace it. Height needs no
       // utility: the stage the panel sits in caps it at the screen less its gutter. Expanded drops
       // the cap entirely, because filling the screen IS the gesture.
-      expansion.panelClasses("w-full max-w-record-window"),
+      // A side panel is added beside the record and its tabs, so the window carrying one opens wider
+      // by exactly the panel's width rather than taking it out of them.
+      aside === undefined
+        ? expansion.panelClasses("w-full max-w-record-window")
+        : expansion.panelClasses("w-full max-w-record-window-wide"),
       className,
     )}
     style={isExpanded ? undefined : style}
@@ -412,6 +429,13 @@
       <div class="mc-modal-frame-context mc-record-window-context">
         <RecordWindowContext {tabs} {defaultTab} />
       </div>
+      {#if aside !== undefined}
+        <!-- A labelled section, not <aside>: a complementary landmark may not sit inside a dialog,
+             for the same reason the header and the action bar are plain divs. -->
+        <section class="mc-record-window-aside mc-scrollbar" aria-label={asideLabel}>
+          {@render aside()}
+        </section>
+      {/if}
     </div>
 
     <div class="mc-modal-frame-actions mc-record-window-actions">

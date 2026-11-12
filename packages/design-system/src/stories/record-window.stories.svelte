@@ -92,6 +92,7 @@
     plain: false,
     editingInPlace: false,
     chosenTab: false,
+    sidePanel: false,
     editRefused: false,
     fitting: false,
     overflowing: false,
@@ -105,6 +106,7 @@
     showing.plain = false;
     showing.editingInPlace = false;
     showing.chosenTab = false;
+    showing.sidePanel = false;
     showing.editRefused = false;
     showing.fitting = false;
     showing.overflowing = false;
@@ -384,6 +386,63 @@
         "active",
       );
       await expect(panel.getByRole("tabpanel")).toHaveTextContent(/oldest first/);
+    });
+  }}
+/>
+
+{#snippet conversationPanel()}
+  <p>Three people have said something about this record. The thread stays in view whichever tab is open.</p>
+{/snippet}
+
+{#snippet sidePanelTemplate(args: RecordWindowStoryArgs)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.sidePanel = true)}
+  >
+    Open the record
+  </button>
+  <RecordWindow
+    {...args}
+    bind:open={showing.sidePanel}
+    tabs={[
+      { key: "attachments", label: "Attachments", count: 2, content: attachmentsTab },
+      { key: "history", label: "History", count: 6, content: historyTab },
+    ]}
+    aside={conversationPanel}
+    asideLabel="Conversation"
+    {subtitle}
+    {record}
+    {actions}
+    onSave={save}
+    onPrint={() => undefined}
+  />
+{/snippet}
+
+<Story
+  name="CarriesASidePanel"
+  template={sidePanelTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Open the record" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = within(await body.findByRole("dialog"));
+
+    await step("The side panel stands beside the tabs, named for a screen reader", async () => {
+      await expect(panel.getByRole("region", { name: "Conversation" })).toHaveTextContent(
+        /stays in view/,
+      );
+    });
+
+    await step("Choosing another tab leaves the side panel where it was", async () => {
+      await userEvent.click(panel.getByRole("tab", { name: /History/ }));
+      await expect(panel.getByRole("tabpanel")).toHaveTextContent(/oldest first/);
+      // Waited for, not read once: the panel fades in, and under a loaded run the fade can still be
+      // under way here, which reads as "not visible" for a reason that has nothing to do with the tabs.
+      await waitFor(() =>
+        expect(panel.getByRole("region", { name: "Conversation" })).toBeVisible(),
+      );
     });
   }}
 />
