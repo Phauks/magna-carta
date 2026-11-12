@@ -34,7 +34,7 @@ const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
       shadow: ["elevation-0", "elevation-1", "elevation-2", "elevation-3"],
       ease: ["standard", "decelerate", "accelerate", "settle", "travel"],
       "font-weight": ["regular"],
-      container: ["record-window"],
+      container: ["record-window", "record-window-wide"],
     },
     classGroups: {
       duration: [{ duration: ["instant", "fast", "normal", "slow", "signature"] }],

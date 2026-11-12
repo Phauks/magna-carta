@@ -11,7 +11,11 @@
    * in the same words and offers the same download, rather than leaving a black box with a spinner.
    *
    * A moment is an address. "Copy Link at 0:12:41" copies this page's address with `?t=761`, and
-   * opening that address starts the player at that second.
+   * opening that address starts the player at that second. A still of a frame is saved through the
+   * app's one save path, named for the recording and the moment.
+   *
+   * Sound alone opens here too: the player draws it as a panel of controls, set at a reading width
+   * rather than stretched over the whole canvas a picture would take.
    */
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
@@ -29,13 +33,16 @@
     formatDocumentSize,
     formatDocumentTimestamp,
   } from "$lib/documents/document-presentation.ts";
+  import { viewerKindOf } from "$lib/documents/editable-documents.ts";
   import {
     CANNOT_PLAY_TITLE,
     cannotPlaySentence,
     momentHref,
+    screenshotFileName,
     startSecondOf,
     type CannotPlayCause,
   } from "$lib/documents/video-playback.ts";
+  import { saveToTarget } from "$lib/export/save-target.ts";
   import {
     fileDownloadUrl,
     readPreviewGrant,
@@ -53,6 +60,7 @@
     file === null ? null : matterFilesBack(file.matterId, data.matter?.title ?? "Files", file.id),
   );
   const startAt = $derived(startSecondOf(page.url.searchParams));
+  const media = $derived(file !== null && viewerKindOf(file) === "audio" ? "audio" : "video");
 
   let asking = $state(true);
   let grant = $state<PreviewGrant | null>(null);
@@ -93,6 +101,16 @@
     } catch {
       toast.error("Could not copy the link. Copy the address from the address bar instead.");
     }
+  }
+
+  async function saveScreenshot(image: Blob | null, seconds: number): Promise<void> {
+    if (file === null) return;
+    if (image === null) {
+      toast.error("This browser would not hand back the frame. Try again once the video has loaded.");
+      return;
+    }
+    await saveToTarget(image, screenshotFileName(file.name, seconds), "image/png");
+    toast.success("Screenshot saved.");
   }
 
   onMount(() => {
@@ -168,16 +186,31 @@
             </Alert.Root>
           </div>
         {:else if grant?.streamUrl !== undefined}
-          <div class="flex min-h-0 flex-1 flex-col bg-surface-sunken p-16">
-            <VideoPlayer
-              class="min-h-0 flex-1"
-              src={grant.streamUrl}
-              title={file.name}
-              {startAt}
-              onCopyMoment={copyMoment}
-              onUnplayable={() => (browserRefused = true)}
-            />
-          </div>
+          {#if media === "audio"}
+            <div class="p-24">
+              <VideoPlayer
+                class="max-w-3xl"
+                media="audio"
+                src={grant.streamUrl}
+                title={file.name}
+                {startAt}
+                onCopyMoment={copyMoment}
+                onUnplayable={() => (browserRefused = true)}
+              />
+            </div>
+          {:else}
+            <div class="flex min-h-0 flex-1 flex-col bg-surface-sunken p-16">
+              <VideoPlayer
+                class="min-h-0 flex-1"
+                src={grant.streamUrl}
+                title={file.name}
+                {startAt}
+                onCopyMoment={copyMoment}
+                onScreenshot={(image, seconds) => void saveScreenshot(image, seconds)}
+                onUnplayable={() => (browserRefused = true)}
+              />
+            </div>
+          {/if}
         {/if}
       </LoadingRegion>
     </FullHeightSection>
