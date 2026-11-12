@@ -30,13 +30,17 @@
     onpointerenter,
     onpointerleave,
     onFocusOutside,
+    portalTo,
     ...restProps
-  }: WithoutChild<DropdownMenuPrimitive.SubContentProps> = $props();
+  }: WithoutChild<DropdownMenuPrimitive.SubContentProps> & {
+    /** Where the panel is portalled; the same element its parent menu's Content names. */
+    portalTo?: Element | string;
+  } = $props();
 
   const hoverOpen = getHoverOpenContext();
 </script>
 
-<DropdownMenuPrimitive.Portal>
+<DropdownMenuPrimitive.Portal to={portalTo}>
   <DropdownMenuPrimitive.SubContent
     bind:ref
     {sideOffset}

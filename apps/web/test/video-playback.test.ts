@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cannotPlaySentence,
+  screenshotFileName,
   momentHref,
   startSecondOf,
 } from "../src/lib/documents/video-playback.ts";
@@ -45,5 +46,15 @@ describe("startSecondOf and momentHref", () => {
     const href = momentHref("https://firm.example", "file 01", 761.8);
     expect(href).toBe("https://firm.example/documents/file%2001/watch?t=761");
     expect(startSecondOf(new URL(href).searchParams)).toBe(761);
+  });
+});
+
+describe("screenshotFileName", () => {
+  it("names the still after the recording and the moment, with no colon", () => {
+    expect(screenshotFileName("Deposition of Smith.mp4", 761)).toBe(
+      "Deposition of Smith at 0-12-41.png",
+    );
+    expect(screenshotFileName("hearing", 3725)).toBe("hearing at 1-02-05.png");
+    expect(screenshotFileName(".mp4", 0)).toBe("Recording at 0-00-00.png");
   });
 });

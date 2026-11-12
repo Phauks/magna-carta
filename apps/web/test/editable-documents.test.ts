@@ -88,6 +88,8 @@ describe("viewerKindOf", () => {
     expect(viewerKindOf({ name: "deposition.mp4", sniffedContentType: "video/mp4" })).toBe("video");
     expect(viewerKindOf({ name: "clip.mov", sniffedContentType: null })).toBe("video");
     expect(viewerKindOf({ name: "clip.webm", sniffedContentType: "video/webm" })).toBe("video");
+    expect(viewerKindOf({ name: "voicemail.mp3", sniffedContentType: "audio/mpeg" })).toBe("audio");
+    expect(viewerKindOf({ name: "interview.m4a", sniffedContentType: null })).toBe("audio");
   });
 
   it("names no reader for a format the editors already take, or for anything else", () => {
@@ -165,6 +167,7 @@ describe("editorHref and viewerHref", () => {
     expect(editorHref("a b")).toBe("/documents/a%20b/edit");
     expect(viewerHref("file_01")).toBe("/documents/file_01/view");
     expect(viewerHref("file_01", "video")).toBe("/documents/file_01/watch");
+    expect(viewerHref("file_01", "audio")).toBe("/documents/file_01/watch");
   });
 
   it("never send a document to the same address twice, so the promise each makes is distinct", () => {
