@@ -437,7 +437,12 @@
 
     await step("Choosing another tab leaves the side panel where it was", async () => {
       await userEvent.click(panel.getByRole("tab", { name: /History/ }));
-      await expect(panel.getByRole("region", { name: "Conversation" })).toBeVisible();
+      await expect(panel.getByRole("tabpanel")).toHaveTextContent(/oldest first/);
+      // Waited for, not read once: the panel fades in, and under a loaded run the fade can still be
+      // under way here, which reads as "not visible" for a reason that has nothing to do with the tabs.
+      await waitFor(() =>
+        expect(panel.getByRole("region", { name: "Conversation" })).toBeVisible(),
+      );
     });
   }}
 />
