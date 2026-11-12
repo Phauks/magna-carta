@@ -682,9 +682,10 @@
 
 - id: documents.pdf.tool-uis
   name: PDF tool UIs
-  scope: User-facing PDF tools (redact, Bates, forms, secure, etc.) in the Tools area.
-  status: not-started
-  evidence: pdf-render-engine fragment: tool UIs gated on wasm-opt and the design-system shell wave; no PDF pages in apps/web.
+  scope: User-facing PDF tools (redact, Bates, forms, secure, etc.) in a PDF Editor beside the reader and a PDF tab in the File Workbench.
+  status: partial
+  surface: screen
+  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Redact is built, filing a redacted copy and a redaction log beside the original); Pages, Bates, Watermark, Secure, Forms and the workbench PDF tab are next.
 
 - id: documents.esignature
   name: E-signature

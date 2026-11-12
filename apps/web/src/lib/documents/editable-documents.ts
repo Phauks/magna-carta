@@ -114,6 +114,14 @@ export function viewerHref(fileId: string, viewer: ViewerKind = "pdf"): string {
   return `/documents/${encodeURIComponent(fileId)}/${segment}`;
 }
 
+/**
+ * Where a PDF's editor lives: redaction and the other page tools. Its own address, apart from the
+ * reader's, because opening it is a decision to change the document (as a new file beside it).
+ */
+export function pdfEditorHref(fileId: string): string {
+  return `/documents/${encodeURIComponent(fileId)}/pdf`;
+}
+
 /** What the one Open gesture does for a file. */
 export type OpenDestination =
   /** Open the editor, beside the reader's work. */
