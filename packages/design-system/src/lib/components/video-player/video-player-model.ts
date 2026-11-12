@@ -61,3 +61,21 @@ export function loadedFraction(
   const furthest = ranges.reduce((most, range) => Math.max(most, range.end), 0);
   return Math.min(1, furthest / duration);
 }
+
+/**
+ * How long the controls over a playing picture stay after the pointer last moved. Long enough to
+ * reach for a control, short enough that the picture is clear again before the next sentence.
+ */
+export const CONTROLS_IDLE_MILLISECONDS = 2500;
+
+/** The position under a pointer at `clientX` over a timeline spanning `left` to `left + width`. */
+export function positionAtPointer(
+  clientX: number,
+  left: number,
+  width: number,
+  duration: number,
+): number {
+  if (width <= 0 || !Number.isFinite(duration) || duration <= 0) return 0;
+  const fraction = Math.min(1, Math.max(0, (clientX - left) / width));
+  return clampPosition(fraction * duration, duration);
+}

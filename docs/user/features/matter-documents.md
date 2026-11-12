@@ -439,20 +439,32 @@ search for a common or predictable one.
 A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document
 or adds a version.
 
-## Watching a video
+## Watching a video or listening to a recording
 
-Open a video and it plays in a new tab, with the controls in a bar beneath the picture so they never
-cover it. Select a video's row and its **Preview** tab in the details panel plays it there too, with
-a smaller set of controls.
+Open a video and it plays in a new tab, with the picture filling the page and the controls laid over
+its lower edge. While the video plays and you leave the pointer still, the controls fade away so
+nothing covers the picture; move the pointer, press a key or pause, and they come back. Select a
+video's row and its **Preview** tab in the details panel plays it there too, with a smaller set of
+controls.
 
-The bar holds the time and a seek bar across the top, and beneath them: play and pause, a step back
-and forward of one frame, a jump back and forward of ten seconds, sound, the playback speed (half
-speed up to double), picture in picture where the browser offers it, and full screen. With the
-player selected, the keyboard does the same: **K** plays and pauses, **J** and **L** jump ten
-seconds, **,** and **.** step a frame, **M** mutes and **F** goes full screen.
+The controls hold a seek bar across the top, and beneath it: play and pause, a step back and
+forward of one frame, a jump back and forward of ten seconds, sound and volume, and the time. Rest
+the pointer on the seek bar to see the time there, and for a video the picture at that moment. The
+cog opens the settings:
 
-**Copy Link at** copies an address that opens the video at the moment shown, so you can send a
-colleague straight to the part of a deposition you mean.
+- **Speed**, from half speed up to double.
+- **Copy Link at**, which copies an address that opens the recording at the moment shown, so you
+  can send a colleague straight to the part of a deposition you mean.
+- **Save Screenshot**, which saves the frame on screen as a picture, named for the video and the
+  moment.
+- **Download**, in the details panel's player.
+
+With the player selected, the keyboard does the same: **K** plays and pauses, **J** and **L** jump
+ten seconds, **,** and **.** step a frame, **M** mutes and **F** goes full screen.
+
+Sound recordings open in the same player: MP3, M4A, AAC, WAV, FLAC and Ogg files play in every
+current browser. There is no picture, so the controls stand on their own, without the frame steps,
+the screenshot or full screen.
 
 Videos in MP4, MOV, WebM and MKV files play when the browser you are using can decode them. Video
 recorded in HEVC, as many phones record it, plays in Safari, in Edge and in Chrome on most newer
@@ -465,7 +477,7 @@ Dolby Digital sound. Magna Carta reads how each video is encoded the first time 
 one of these says so straight away and offers the download. The file is stored either way, and
 nothing about it is changed by trying.
 
-A video is read-only here. Nothing you do in the player changes it or adds a version.
+A recording is read-only here. Nothing you do in the player changes it or adds a version.
 
 ## Editing in the browser
 

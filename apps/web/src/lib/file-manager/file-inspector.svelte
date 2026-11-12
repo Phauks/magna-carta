@@ -623,13 +623,16 @@
     return "The document renders here once the preview surface is wired to this panel.";
   });
 
-  /** A clean recording nothing is holding back plays in the panel; anything else keeps the note. */
+  /**
+   * A clean recording nothing is holding back, with a picture or sound alone, plays in the panel;
+   * anything else keeps the note.
+   */
   const playsInPanel = $derived(
     file !== null &&
       file.status === "clean" &&
       file.currentVersionId !== null &&
       file.scanVerdict !== "flagged" &&
-      viewerKindOf(file) === "video",
+      (viewerKindOf(file) === "video" || viewerKindOf(file) === "audio"),
   );
 </script>
 
@@ -847,7 +850,11 @@
         <Tabs.Content value="preview">
           <div class="p-12">
             {#if playsInPanel}
-              <FileVideoPreview fileId={file.id} name={file.name} />
+              <FileVideoPreview
+                fileId={file.id}
+                name={file.name}
+                media={viewerKindOf(file) === "audio" ? "audio" : "video"}
+              />
             {:else}
             <div
               class="flex min-h-96 items-center justify-center rounded-md bg-surface-sunken p-16 text-center text-sm text-text-muted"

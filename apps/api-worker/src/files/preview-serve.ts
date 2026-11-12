@@ -45,6 +45,25 @@ function frameAncestorsFor(filesOrigin: string): string {
   return `https://*.${filesOrigin.replace(/^[^.]+\./, "")}`;
 }
 
+/**
+ * The requesting page, when it is one of the app's own: an https origin on a subdomain of the same
+ * parent the files host sits under (frame-ancestors names the same set), and never the files host
+ * itself. Anything else, a missing Origin included, is granted nothing.
+ */
+export function readerOriginFor(origin: string | null, filesOrigin: string): string | null {
+  if (origin === null) return null;
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.origin !== origin) return null;
+  const parent = filesOrigin.replace(/^[^.]+\./, "");
+  if (url.hostname === filesOrigin || !url.hostname.endsWith(`.${parent}`)) return null;
+  return url.origin;
+}
+
 // A minimal, non-JSON edge response for tamper/expiry/missing-object. 404 is used UNIFORMLY for every
 // invalid-token and missing-object case (no 410 for verified-but-expired) so the edge never exposes an
 // expiry/existence oracle: an unauthenticated caller cannot distinguish "tampered", "expired", and
@@ -132,6 +151,7 @@ export function registerPreviewServeRoute(
       headers = buildSafeDeliveryHeaders({
         sniffedContentType: payload.sniffedContentType,
         frameAncestors,
+        readerOrigin: readerOriginFor(c.req.header("origin") ?? null, filesOrigin),
       });
       headers.set("ETag", head.httpEtag);
     } catch {
