@@ -15,11 +15,19 @@
    * A CHANGE IS ONE ROW AT A TIME, through its own window, committed at once: the catalog-page
    * pattern, where there is no staged page-wide draft to save or lose.
    *
-   * A COPY THE MEMBER CHANGED IN OUTLOOK IS A QUESTION, NOT A WRITE. Moving or deleting a copy
-   * in their own calendar changes nothing in the firm's calendar, which everybody on the matter
-   * shares. The copy appears in its own plate, above the rules, with what was sent beside what
-   * Outlook holds, and two answers: Put Back, or Leave It. The plate is absent while there is
-   * nothing to answer.
+   * A COPY THAT DIFFERS IN OUTLOOK AND WAS NOT CARRIED BACK IS A QUESTION. An edit a member may
+   * make is applied to the event by the sync pass and never reaches this page. What does reach it
+   * is a copy they deleted, which never cancels anything, and an edit that could not be carried
+   * (they may not edit the calendar, or it moved a series' first day). The copy appears in its own plate, above the rules, with what was sent beside what
+   * Outlook holds, and two answers: Put Back, or Leave It. An event Outlook would not take at all
+   * sits in the same plate, because it is the same fact to the reader (Outlook does not have what
+   * Magna Carta has), with Try Again and Dismiss. The plate is absent while there is nothing to
+   * answer.
+   *
+   * THE OTHER DIRECTION HAS ITS OWN PLATE. Which of the member's Outlook calendars Magna Carta shows
+   * back to them is a switch per calendar, applied at once. It is theirs alone to choose (the firm's
+   * limits are about what leaves, and nothing leaves here) and what is read is shown to them alone,
+   * which the plate says in so many words. A calendar they can only read is offered like any other.
    *
    * WHEN THE PROVIDER CANNOT BE ASKED the page still shows what is saved, with each rule's
    * calendar under the name it had when saved, and offers no change: a rule can only be saved
@@ -41,9 +49,14 @@
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Label from "@magna-carta/design-system/label";
+  import Switch from "@magna-carta/design-system/switch";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { issueKey, syncIssueColumns } from "$lib/calendar-sync/sync-issues.ts";
-  import { answerSyncIssue, saveMyRules } from "$lib/calendar-sync/sync-settings-api.ts";
+  import {
+    answerSyncIssue,
+    saveMyRules,
+    saveMyShownCalendars,
+  } from "$lib/calendar-sync/sync-settings-api.ts";
   import {
     destinationChoices,
     memberSyncColumns,
@@ -51,10 +64,16 @@
     NOT_SYNCED,
     rulesWithChange,
     scopeChoices,
+    SHOWN_COLUMN_ID,
+    shownCalendarChoices,
+    shownCalendarColumns,
+    shownIdsWithChange,
+    shownSummary,
     subjectName,
     SYNC_ACTIONS_COLUMN_ID,
     syncingSummary,
     type MemberSyncRow,
+    type ShownCalendarChoice,
     type SyncScope,
   } from "$lib/calendar-sync/sync-settings.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
@@ -81,6 +100,36 @@
       itemNoun: { singular: "event type", plural: "event types" },
     }),
   );
+
+  const shownChoices = $derived(
+    shownCalendarChoices(calendars, settings.data?.shownCalendars ?? []),
+  );
+  const shownGrid = $derived(
+    DataTable.createDataTableGrid<ShownCalendarChoice>({
+      columns: shownCalendarColumns,
+      rows: () => shownChoices,
+      rowKey: (choice) => choice.remoteId,
+      itemNoun: { singular: "calendar", plural: "calendars" },
+    }),
+  );
+  // The calendar whose switch was pressed, so no second press lands before the first is answered.
+  let showing = $state<string | null>(null);
+  let shownRefusal = $state<string | null>(null);
+
+  async function setShown(choice: ShownCalendarChoice, shown: boolean): Promise<void> {
+    if (calendars === null) return;
+    showing = choice.remoteId;
+    shownRefusal = null;
+    const outcome = await saveMyShownCalendars(
+      shownIdsWithChange(shownChoices, calendars, choice.remoteId, shown),
+    );
+    showing = null;
+    if (outcome.kind === "refused") {
+      shownRefusal = outcome.detail ?? "The change was not saved. Nothing changed.";
+      return;
+    }
+    queryClient.setQueryData<CalendarSyncSettings>(calendarSyncReadMineQueryKey(), outcome.value);
+  }
 
   const issues = createQuery(() => calendarSyncListMyIssuesOptions());
   const openIssues = $derived(issues.data?.issues ?? []);
@@ -172,6 +221,20 @@
   {/if}
 {/snippet}
 
+{#snippet shownCell({ row, column, text }: DataTable.GridCellContext<ShownCalendarChoice>)}
+  {#if column.id === SHOWN_COLUMN_ID && canChange}
+    <Switch
+      bind:checked={() => row.shown, (next) => void setShown(row, next)}
+      disabled={showing !== null}
+      aria-label="Show {row.name} in Magna Carta"
+    />
+  {:else if column.id === SHOWN_COLUMN_ID && !row.shown}
+    <span class="text-text-muted">{text}</span>
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
 {#snippet issueCell({ row, column, text }: DataTable.GridCellContext<CalendarSyncIssue>)}
   {#if column.id === SYNC_ACTIONS_COLUMN_ID}
     <div class="flex items-center gap-4">
@@ -181,7 +244,7 @@
         disabled={answering !== null}
         onclick={() => void answer(row, "putBack")}
       >
-        Put Back
+        {row.kind === "not_sent" ? "Try Again" : "Put Back"}
       </Button>
       <Button
         variant="ghost"
@@ -189,7 +252,7 @@
         disabled={answering !== null}
         onclick={() => void answer(row, "leave")}
       >
-        Leave It
+        {row.kind === "not_sent" ? "Dismiss" : "Leave It"}
       </Button>
     </div>
   {:else}
@@ -206,18 +269,18 @@
 
 <SettingsScrollRegion>
   {#if openIssues.length > 0}
-    <SettingsPlate heading="Changed in Outlook">
+    <SettingsPlate heading="Different in Outlook">
       <SettingsDescription>
-        You changed or deleted these in Outlook. Magna Carta's calendar was not changed. Put Back
-        writes the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as you made
-        it.
+        These are not the same in Outlook as in Magna Carta: you changed or deleted the copy there,
+        or Outlook would not take the event. Magna Carta's calendar was not changed. Put Back writes
+        the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as it is.
       </SettingsDescription>
       {#if answerRefusal !== null}
         <Alert.Root variant="danger">
           <Alert.Description>{answerRefusal}</Alert.Description>
         </Alert.Root>
       {/if}
-      <DataTable.Grid grid={issueGrid} caption="Events you changed in Outlook" cell={issueCell} />
+      <DataTable.Grid grid={issueGrid} caption="Events that are different in Outlook" cell={issueCell} />
     </SettingsPlate>
   {/if}
 
@@ -283,6 +346,23 @@
       </SettingsPlateNote>
     {/if}
   </SettingsPlate>
+
+  {#if account !== null && shownChoices.length > 0}
+    <SettingsPlate heading="From Outlook to Magna Carta">
+      <SettingsDescription>
+        Events you make in an Outlook calendar switched on below appear on your Magna Carta
+        calendar, under My Outlook Calendar. Only you see them. Nothing is changed in Outlook, and
+        they are not added to any matter.
+      </SettingsDescription>
+      {#if shownRefusal !== null}
+        <Alert.Root variant="danger">
+          <Alert.Description>{shownRefusal}</Alert.Description>
+        </Alert.Root>
+      {/if}
+      <DataTable.Grid grid={shownGrid} caption="Your Outlook calendars" cell={shownCell} />
+      <SettingsPlateNote>{shownSummary(settings.data?.shownCalendars ?? [])}</SettingsPlateNote>
+    </SettingsPlate>
+  {/if}
 </SettingsScrollRegion>
 
 <ActionDialog

@@ -35,6 +35,7 @@ import {
 } from "@magna-carta/matters/open-preconditions";
 import { matterIntakeGraduationPrecondition } from "@magna-carta/intake/graduation-precondition";
 import { INTAKE_STEP_READERS } from "./intake.ts";
+import { listMattersQueryOver, matterNarrowingsOf } from "./matter-narrowing-query.ts";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
 import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
 import { NumberingRenderError } from "@magna-carta/sequence-numbering/render";
@@ -746,18 +747,10 @@ const listMattersRoute = defineOpenAPIRoute(listMattersMeta, {
   description:
     "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless " +
     "status=consultation is named), cursor-paginated, filterable by status/type/location/responsible " +
-    "member and a free-text search over title, number, and client.",
-  request: {
-    query: z.object({
-      status: matterStatus.optional(),
-      matterTypeId: identifierField("matterType").optional(),
-      locationId: identifierField("location").optional(),
-      responsibleMemberId: identifierField("user").optional(),
-      search: z.string().optional(),
-      cursor: z.string().optional(),
-      pageSize: z.coerce.number().int().positive().max(200).optional(),
-    }),
-  },
+    "member and a free-text search over title, number, and client. `mine=true` narrows to the " +
+    "matters the session member is responsible for or currently assigned to, and `clientEntityId` " +
+    "to the matters one person or organization is a client on.",
+  request: { query: listMattersQueryOver(matterStatus) },
   responses: {
     200: {
       description: "A page of matters",
@@ -1229,6 +1222,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         locationId: query.locationId,
         responsibleMemberId: query.responsibleMemberId,
         search: query.search,
+        narrowings: matterNarrowingsOf(requireChokepointUserId(c), query),
         cursor: query.cursor,
         pageSize: query.pageSize,
       });

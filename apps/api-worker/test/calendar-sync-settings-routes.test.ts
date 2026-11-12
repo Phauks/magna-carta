@@ -9,7 +9,10 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { HttpRequest } from "@magna-carta/integrations/http";
+import type { CalendarSyncPort, ProviderCalendarEvent } from "@magna-carta/calendar/sync-port";
+import { ok } from "@magna-carta/integrations/dispatch";
 import { runConnectionPass } from "../src/calendar-sync/connection-pass.ts";
+import { readShownCalendars } from "../src/calendar-sync/shown-calendars.ts";
 import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -79,6 +82,7 @@ interface Settings {
   calendars: { remoteId: string; name: string; canWrite: boolean }[] | null;
   subjects: Subject[];
   rules: { subject: string; calendarRemoteId: string; calendarName: string; scope: string }[];
+  shownCalendars: { calendarRemoteId: string; calendarName: string }[];
 }
 
 function headers(cookie: string, attempt?: string): Record<string, string> {
@@ -437,13 +441,36 @@ describe("sending to the member's calendar", () => {
             sent.push(input);
             const body = input.url.startsWith("https://login.microsoftonline.com/")
               ? { access_token: "access-3", refresh_token: "refresh-3", expires_in: 3600 }
-              : { id: "evt-1", changeKey: "v1" };
+              : input.url === "https://graph.microsoft.com/v1.0/subscriptions"
+                ? { id: "sub-1", expirationDateTime: "2026-11-13T11:00:00.000Z" }
+                : { id: "evt-1", changeKey: "v1" };
             return Promise.resolve({ status: 200, json: () => Promise.resolve(body) });
           },
         },
+        newWatchSecret: () => "secret-watch",
       },
     );
     expect(outcome).toMatchObject({ kind: "settled", report: { created: 1 } });
+    // The same pass asks Microsoft to say when the member's calendar changes, at this
+    // deployment's own address for this one account.
+    const address = `${(PROVISIONED.APP_BASE_URL ?? "").replace(/\/+$/, "")}/api/v1/calendar-sync/provider-notices/microsoft/${firmId}/${connectionId}`;
+    expect(outcome).toMatchObject({
+      watch: {
+        watchId: "sub-1",
+        secret: "secret-watch",
+        expiresAt: "2026-11-13T11:00:00.000Z",
+        address,
+      },
+    });
+    const subscription = sent.find((request) => request.url.endsWith("/v1.0/subscriptions"));
+    expect(JSON.parse(subscription?.body ?? "{}")).toEqual({
+      changeType: "created,updated,deleted",
+      resource: "me/events",
+      notificationUrl: address,
+      lifecycleNotificationUrl: address,
+      clientState: "secret-watch",
+      expirationDateTime: "2026-11-13T12:00:00.000Z",
+    });
     const write = sent.find(
       (request) => request.method === "POST" && request.url.includes("/events"),
     );
@@ -591,6 +618,25 @@ describe("a copy the member changed in their own calendar", () => {
     await settleBackgroundWork();
   });
 
+  it("reads an event the provider would not take as not sent, and tries it again when asked", async () => {
+    await raise("matterEvent_issue0000000004", "removed");
+    await firmDatabase
+      .prepare(
+        "UPDATE connection_sync_issue SET provider_refused = 1 WHERE local_id = 'matterEvent_issue0000000004'",
+      )
+      .run();
+    const listed = await app.request(ISSUES_URL, { headers: headers(memberCookie) }, PROVISIONED);
+    expect(await readJson(listed)).toMatchObject({
+      issues: [{ localId: "matterEvent_issue0000000004", kind: "not_sent", found: null }],
+    });
+    // Trying again keeps the link and clears what was agreed, so the next pass sends it.
+    expect((await answer(memberCookie, "matterEvent_issue0000000004", "put-back")).status).toBe(
+      200,
+    );
+    expect(await linkOf("matterEvent_issue0000000004")).toEqual({ agreed_hash: "" });
+    await settleBackgroundWork();
+  });
+
   it("leaves a copy as the member made it, and keeps the answer", async () => {
     await raise("matterEvent_issue0000000003", "changed");
     const response = await answer(memberCookie, "matterEvent_issue0000000003", "leave");
@@ -607,7 +653,268 @@ describe("a copy the member changed in their own calendar", () => {
         "SELECT COUNT(*) AS count FROM audit_log WHERE event IN ('calendar_sync.copy_put_back', 'calendar_sync.copy_left')",
       )
       .first<{ count: number }>();
-    expect(audit?.count).toBe(3);
+    expect(audit?.count).toBe(4);
+  });
+});
+
+describe("the member's own events, shown back to them", () => {
+  const SHOWN_URL = `${ORIGIN}/api/v1/me/calendar-sync/shown-calendars`;
+  const EVENTS_URL = `${ORIGIN}/api/v1/me/calendar-sync/account-events?from=2026-11-01&to=2026-11-30`;
+  const STAMP = "2026-11-10T12:00:00.000Z";
+  let connectionId: string;
+
+  async function saveShown(cookie: string, calendarRemoteIds: string[]): Promise<Response> {
+    return await app.request(
+      SHOWN_URL,
+      { method: "PUT", headers: headers(cookie), body: JSON.stringify({ calendarRemoteIds }) },
+      PROVISIONED,
+    );
+  }
+
+  async function events(cookie: string, url = EVENTS_URL) {
+    const response = await app.request(url, { headers: headers(cookie) }, PROVISIONED);
+    expect(response.status).toBe(200);
+    return readJson<{
+      events: { id: string; title: string; wholeDay: boolean; startsAt: string | null }[];
+      truncated: boolean;
+    }>(response);
+  }
+
+  // Only the one method the read uses; anything else called would be a finding.
+  function portListing(
+    byCalendar: Record<string, { events: ProviderCalendarEvent[]; complete?: boolean } | null>,
+  ): CalendarSyncPort {
+    return {
+      listCalendarEvents: (calendarRemoteId: string) => {
+        const listed = byCalendar[calendarRemoteId];
+        return Promise.resolve(
+          ok(
+            listed === null || listed === undefined
+              ? null
+              : { events: listed.events, complete: listed.complete ?? true },
+          ),
+        );
+      },
+    } as unknown as CalendarSyncPort;
+  }
+
+  const timed = (remoteId: string, title: string, versionTag = "v1"): ProviderCalendarEvent => ({
+    remoteId,
+    versionTag,
+    title,
+    location: null,
+    seriesRemoteId: null,
+    when: {
+      kind: "instants",
+      startsAtMilliseconds: Date.parse("2026-11-12T15:00:00.000Z"),
+      endsAtMilliseconds: Date.parse("2026-11-12T16:00:00.000Z"),
+    },
+  });
+
+  const read = (port: CalendarSyncPort) =>
+    readShownCalendars({
+      database: firmDatabase,
+      connectionId: connectionId as never,
+      port,
+      now: () => new Date(STAMP),
+    });
+
+  beforeAll(async () => {
+    await firmDatabase.prepare("UPDATE integration_connection SET status = 'connected'").run();
+    connectionId = (await readSettings(memberCookie)).account?.id ?? "";
+  });
+
+  it("shows nothing until the member chooses a calendar, and asks the provider nothing", async () => {
+    expect((await readSettings(memberCookie)).shownCalendars).toEqual([]);
+    expect(await read(portListing({}))).toEqual({ kind: "read", written: 0, removed: 0 });
+    expect((await events(memberCookie)).events).toEqual([]);
+  });
+
+  it("saves the choice with each calendar's name, a read-only calendar included", async () => {
+    const saved = await saveShown(memberCookie, ["cal-main", "cal-holidays", "cal-main"]);
+    expect(saved.status).toBe(200);
+    expect((await readJson<Settings>(saved)).shownCalendars).toEqual([
+      { calendarRemoteId: "cal-main", calendarName: "Calendar" },
+      { calendarRemoteId: "cal-holidays", calendarName: "Holidays" },
+    ]);
+    await settleBackgroundWork();
+  });
+
+  it("refuses a calendar the account does not have, and saves nothing", async () => {
+    const refused = await saveShown(memberCookie, ["cal-nowhere"]);
+    expect(refused.status).toBe(422);
+    expect((await readSettings(memberCookie)).shownCalendars).toHaveLength(2);
+  });
+
+  it("refuses a member with no account", async () => {
+    expect((await saveShown(colleagueCookie, ["cal-main"])).status).toBe(409);
+  });
+
+  it("reads the chosen calendars and leaves out the copies this platform wrote", async () => {
+    await firmDatabase
+      .prepare(
+        "INSERT INTO calendar_sync_link (connection_id, local_kind, local_id, calendar_remote_id, transaction_id, remote_event_id, remote_version_tag, agreed_hash, state, created_at, updated_at) VALUES (?1, 'firm_event', 'firmEvent_shown00000000001', 'cal-main', 'txn-shown', 'copy-1', 'v1', 'hash', 'synced', ?2, ?2)",
+      )
+      .bind(connectionId, STAMP)
+      .run();
+    const outcome = await read(
+      portListing({
+        "cal-main": {
+          events: [
+            timed("own-1", "Dentist"),
+            timed("copy-1", "Motion hearing"),
+            { ...timed("copy-day-1", "Weekly conference"), seriesRemoteId: "copy-1" },
+          ],
+        },
+        "cal-holidays": {
+          events: [
+            {
+              remoteId: "holiday-1",
+              versionTag: "v1",
+              title: "Thanksgiving",
+              location: null,
+              seriesRemoteId: null,
+              when: { kind: "days", startsOn: "2026-11-26", endsOn: "2026-11-26" },
+            },
+          ],
+        },
+      }),
+    );
+    await firmDatabase
+      .prepare("DELETE FROM calendar_sync_link WHERE transaction_id = 'txn-shown'")
+      .run();
+    expect(outcome).toEqual({ kind: "read", written: 2, removed: 0 });
+    const listed = await events(memberCookie);
+    expect(listed.truncated).toBe(false);
+    expect(listed.events).toMatchObject([
+      { id: "own-1", title: "Dentist", wholeDay: false, startsAt: "2026-11-12T15:00:00.000Z" },
+      { id: "holiday-1", title: "Thanksgiving", wholeDay: true, startsAt: null },
+    ]);
+  });
+
+  it("answers only the member whose events they are", async () => {
+    expect((await events(colleagueCookie)).events).toEqual([]);
+    expect((await events(adminCookie)).events).toEqual([]);
+  });
+
+  it("answers only what touches the window, and refuses a window out of order", async () => {
+    const december = `${ORIGIN}/api/v1/me/calendar-sync/account-events?from=2026-12-05&to=2026-12-31`;
+    expect((await events(memberCookie, december)).events).toEqual([]);
+    const backwards = await app.request(
+      `${ORIGIN}/api/v1/me/calendar-sync/account-events?from=2026-12-05&to=2026-12-01`,
+      { headers: headers(memberCookie) },
+      PROVISIONED,
+    );
+    expect(backwards.status).toBe(422);
+  });
+
+  it("writes a changed event again, leaves an unchanged one, and removes one that is gone", async () => {
+    const holiday: ProviderCalendarEvent = {
+      remoteId: "holiday-1",
+      versionTag: "v1",
+      title: "Thanksgiving",
+      location: null,
+      seriesRemoteId: null,
+      when: { kind: "days", startsOn: "2026-11-26", endsOn: "2026-11-26" },
+    };
+    expect(
+      await read(
+        portListing({
+          "cal-main": { events: [timed("own-1", "Dentist, moved", "v2")] },
+          "cal-holidays": { events: [holiday] },
+        }),
+      ),
+    ).toEqual({ kind: "read", written: 1, removed: 0 });
+    expect((await events(memberCookie)).events.map((event) => event.title)).toEqual([
+      "Dentist, moved",
+      "Thanksgiving",
+    ]);
+    // A list the provider cut short proves nothing about what is missing from it.
+    expect(
+      await read(
+        portListing({
+          "cal-main": { events: [], complete: false },
+          "cal-holidays": { events: [holiday] },
+        }),
+      ),
+    ).toEqual({ kind: "read", written: 0, removed: 0 });
+    expect(
+      await read(
+        portListing({ "cal-main": { events: [] }, "cal-holidays": { events: [holiday] } }),
+      ),
+    ).toEqual({ kind: "read", written: 0, removed: 1 });
+    expect((await events(memberCookie)).events.map((event) => event.title)).toEqual([
+      "Thanksgiving",
+    ]);
+  });
+
+  it("asks Microsoft for each chosen calendar's own view during a pass", async () => {
+    const member = await firmDatabase
+      .prepare("SELECT principal_ref FROM integration_connection WHERE id = ?1")
+      .bind(connectionId)
+      .first<{ principal_ref: string }>();
+    const sent: HttpRequest[] = [];
+    await runConnectionPass(
+      PROVISIONED,
+      { firmId, connectionId, memberUserId: member?.principal_ref ?? "" } as never,
+      {
+        now: () => new Date(STAMP),
+        http: {
+          request: (input) => {
+            sent.push(input);
+            const body = input.url.startsWith("https://login.microsoftonline.com/")
+              ? { access_token: "access-4", refresh_token: "refresh-4", expires_in: 3600 }
+              : input.url.includes("/calendarView")
+                ? {
+                    value: [
+                      {
+                        id: "own-2",
+                        changeKey: "v1",
+                        subject: "Lunch",
+                        isAllDay: false,
+                        start: { dateTime: "2026-11-13T18:00:00.0000000", timeZone: "UTC" },
+                        end: { dateTime: "2026-11-13T19:00:00.0000000", timeZone: "UTC" },
+                      },
+                      {
+                        id: "own-3",
+                        subject: "Called off",
+                        isCancelled: true,
+                        start: { dateTime: "2026-11-14T18:00:00.0000000", timeZone: "UTC" },
+                        end: { dateTime: "2026-11-14T19:00:00.0000000", timeZone: "UTC" },
+                      },
+                    ],
+                  }
+                : input.url.includes("/v1.0/subscriptions")
+                  ? { id: "sub-2", expirationDateTime: "2026-11-13T11:00:00.000Z" }
+                  : { value: [], id: "evt-9", changeKey: "v1" };
+            return Promise.resolve({ status: 200, json: () => Promise.resolve(body) });
+          },
+        },
+        newWatchSecret: () => "secret-watch-2",
+      },
+    );
+    const views = sent.filter((request) => request.url.includes("/calendarView"));
+    expect(views.map((request) => request.url.split("?")[0])).toEqual([
+      "https://graph.microsoft.com/v1.0/me/calendars/cal-main/calendarView",
+      "https://graph.microsoft.com/v1.0/me/calendars/cal-holidays/calendarView",
+    ]);
+    expect(views[0]?.url).toContain("startDateTime=2026-10-10T00%3A00%3A00Z");
+    expect(views[0]?.method).toBe("GET");
+    // The same event listed under both calendars by this script lands once, and the one called
+    // off not at all.
+    expect((await events(memberCookie)).events.map((event) => event.title)).toEqual(["Lunch"]);
+  });
+
+  it("takes a calendar's events off the screen the moment it is no longer chosen", async () => {
+    expect((await saveShown(memberCookie, [])).status).toBe(200);
+    await settleBackgroundWork();
+    expect((await events(memberCookie)).events).toEqual([]);
+    expect((await readSettings(memberCookie)).shownCalendars).toEqual([]);
+    // Chosen again for the disconnect below to have something to take.
+    expect((await saveShown(memberCookie, ["cal-main"])).status).toBe(200);
+    await settleBackgroundWork();
+    await read(portListing({ "cal-main": { events: [timed("own-1", "Dentist")] } }));
+    expect((await events(memberCookie)).events).toHaveLength(1);
   });
 });
 
@@ -623,7 +930,7 @@ describe("disconnecting", () => {
     expect(response.status).toBe(200);
     const left = await firmDatabase
       .prepare(
-        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) + (SELECT COUNT(*) FROM connection_sync_issue) AS count",
+        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) + (SELECT COUNT(*) FROM connection_sync_issue) + (SELECT COUNT(*) FROM calendar_sync_shown_calendar) + (SELECT COUNT(*) FROM external_calendar_event) AS count",
       )
       .first<{ count: number }>();
     expect(left?.count).toBe(0);

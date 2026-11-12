@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { ProviderEventWrite } from "@magna-carta/calendar/sync-port";
+import { parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import {
   createMicrosoftCalendarAdapter,
   graphEventBody,
+  graphRecurrenceOf,
   WRITTEN_COPY_PROPERTY_ID,
 } from "../src/calendar-sync-adapter.ts";
 
@@ -341,5 +344,312 @@ describe("reading back the copies this platform wrote", () => {
       value: { remoteId: "evt-1", versionTag: "v7" },
     });
     expect(await port.readEvent("evt-gone")).toEqual({ ok: true, value: null });
+  });
+});
+
+describe("a calendar's own events inside a window", () => {
+  const window = { fromInstant: "2026-11-01T00:00:00Z", toInstant: "2026-12-01T00:00:00Z" };
+  const view =
+    "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView" +
+    "?startDateTime=2026-11-01T00%3A00%3A00Z&endDateTime=2026-12-01T00%3A00%3A00Z" +
+    "&$select=id,changeKey,subject,location,isAllDay,start,end,seriesMasterId,isCancelled&$top=250";
+  const lunch = {
+    id: "own-1",
+    changeKey: "v1",
+    subject: "Lunch",
+    isAllDay: false,
+    start: { dateTime: "2026-11-13T18:00:00.0000000", timeZone: "UTC" },
+    end: { dateTime: "2026-11-13T19:00:00.0000000", timeZone: "UTC" },
+  };
+
+  it("reads every page, names the series a day belongs to, and leaves out what was called off", async () => {
+    const second = "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView?$skip=250";
+    const { http, sent } = serving({
+      [view]: {
+        status: 200,
+        body: {
+          value: [
+            lunch,
+            { ...lunch, id: "own-2", subject: "Called off", isCancelled: true },
+            // One the adapter cannot place costs the member none of the others.
+            {
+              ...lunch,
+              id: "own-3",
+              start: { dateTime: "2026-11-13T12:00:00", timeZone: "Central" },
+            },
+          ],
+          "@odata.nextLink": second,
+        },
+      },
+      [second]: {
+        status: 200,
+        body: {
+          value: [{ ...lunch, id: "day-1", subject: "Standup", seriesMasterId: "series-1" }],
+        },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listCalendarEvents("cal-1", window)).toEqual({
+      ok: true,
+      value: {
+        complete: true,
+        events: [
+          {
+            remoteId: "own-1",
+            versionTag: "v1",
+            title: "Lunch",
+            location: null,
+            seriesRemoteId: null,
+            when: {
+              kind: "instants",
+              startsAtMilliseconds: Date.UTC(2026, 10, 13, 18, 0),
+              endsAtMilliseconds: Date.UTC(2026, 10, 13, 19, 0),
+            },
+          },
+          expect.objectContaining({ remoteId: "day-1", seriesRemoteId: "series-1" }),
+        ],
+      },
+    });
+    expect(sent.map((request) => request.method)).toEqual(["GET", "GET"]);
+  });
+
+  it("answers null for a calendar the account no longer has", async () => {
+    const port = createMicrosoftCalendarAdapter({ http: serving({}).http }).create({ credential });
+    expect(await port.listCalendarEvents("cal-gone", window)).toEqual({ ok: true, value: null });
+  });
+
+  it("says the sign-in was refused when Microsoft says so", async () => {
+    const { http } = serving({ [view]: { status: 401, body: {} } });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listCalendarEvents("cal-1", window)).toMatchObject({
+      ok: false,
+      problem: { category: "auth" },
+    });
+  });
+});
+
+describe("a series, as Microsoft Graph repeats it", () => {
+  // 2026-12-01 is the first Tuesday of the month.
+  function series(line: string, startsOn = "2026-12-01"): ProviderEventWrite {
+    return {
+      title: "Status conference",
+      notes: null,
+      location: null,
+      startsOn,
+      startsAtTime: "09:30",
+      endsOn: null,
+      endsAtTime: "10:00",
+      timeZone: "America/Chicago",
+      repeats: { line, rule: parseRecurrence(line), skippedDays: [] },
+    };
+  }
+  const noEnd = { type: "noEnd", startDate: "2026-12-01", recurrenceTimeZone: "America/Chicago" };
+
+  it("is nothing at all for an event that happens once", () => {
+    const once = { ...series("FREQ=DAILY"), repeats: null };
+    expect(graphRecurrenceOf(once)).toBeUndefined();
+    expect(graphEventBody(once)).not.toHaveProperty("recurrence");
+  });
+
+  // Every shape the repeat editor writes, beside the pattern Graph is sent.
+  it.each([
+    ["FREQ=DAILY", { type: "daily", interval: 1 }],
+    ["FREQ=DAILY;INTERVAL=3", { type: "daily", interval: 3 }],
+    [
+      "FREQ=WEEKLY",
+      { type: "weekly", interval: 1, daysOfWeek: ["tuesday"], firstDayOfWeek: "sunday" },
+    ],
+    [
+      "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH",
+      {
+        type: "weekly",
+        interval: 2,
+        daysOfWeek: ["tuesday", "thursday"],
+        firstDayOfWeek: "sunday",
+      },
+    ],
+    ["FREQ=MONTHLY", { type: "absoluteMonthly", interval: 1, dayOfMonth: 1 }],
+    [
+      "FREQ=MONTHLY;INTERVAL=3;BYSETPOS=BYDAY",
+      { type: "relativeMonthly", interval: 3, daysOfWeek: ["tuesday"], index: "first" },
+    ],
+    ["FREQ=YEARLY", { type: "absoluteYearly", interval: 1, dayOfMonth: 1, month: 12 }],
+  ])("%s", (line, pattern) => {
+    expect(graphRecurrenceOf(series(line))).toEqual({ pattern, range: noEnd });
+  });
+
+  it("ends a series after a count, on a date, or never", () => {
+    expect(graphRecurrenceOf(series("FREQ=WEEKLY;COUNT=12"))).toMatchObject({
+      range: { type: "numbered", startDate: "2026-12-01", numberOfOccurrences: 12 },
+    });
+    expect(graphRecurrenceOf(series("FREQ=WEEKLY;UNTIL=20270301"))).toMatchObject({
+      range: { type: "endDate", startDate: "2026-12-01", endDate: "2027-03-01" },
+    });
+    expect(graphRecurrenceOf(series("FREQ=WEEKLY"))).toMatchObject({ range: { type: "noEnd" } });
+  });
+
+  it("puts the rule on the event it sends", () => {
+    expect(graphEventBody(series("FREQ=DAILY"))).toMatchObject({
+      subject: "Status conference",
+      recurrence: { pattern: { type: "daily", interval: 1 } },
+    });
+  });
+
+  // Where the two calendars could put the series on different days, it is not sent at all.
+  it.each([
+    [
+      "a weekly rule that leaves out the day the series starts on",
+      "FREQ=WEEKLY;BYDAY=WE",
+      "2026-12-01",
+    ],
+    ["a monthly rule on a day February does not have", "FREQ=MONTHLY", "2026-12-31"],
+    ["a yearly rule on the 29th of February", "FREQ=YEARLY", "2028-02-29"],
+    ["a monthly rule on a fifth weekday", "FREQ=MONTHLY;BYSETPOS=BYDAY", "2026-12-29"],
+    ["a rule this platform cannot read", "FREQ=HOURLY", "2026-12-01"],
+  ])("refuses %s, and asks Microsoft nothing", async (_name, line, startsOn) => {
+    const event = series(line, startsOn);
+    expect(graphRecurrenceOf(event)).toBeNull();
+    const { http, sent } = serving({});
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.createEvent("cal-1", event, "txn-1")).toMatchObject({
+      ok: false,
+      problem: { category: "validation" },
+    });
+    expect(await port.updateEvent("evt-1", event)).toMatchObject({
+      ok: false,
+      problem: { category: "validation" },
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it("takes a skipped day out of the series after writing it, and only that day", async () => {
+    const event = {
+      ...series("FREQ=WEEKLY"),
+      repeats: { ...series("FREQ=WEEKLY").repeats!, skippedDays: ["2026-12-08"] },
+    };
+    const instances =
+      "https://graph.microsoft.com/v1.0/me/events/evt-1/instances?startDateTime=2026-12-07T00:00:00" +
+      "&endDateTime=2026-12-10T00:00:00&$select=id,changeKey,subject,location,isAllDay,start,end&$top=50";
+    const sent: HttpRequest[] = [];
+    const http: HttpClient = {
+      request: (input) => {
+        sent.push(input);
+        const body =
+          input.url === instances
+            ? {
+                value: [
+                  // 09:30 in Chicago on the 8th, which is 15:30 UTC.
+                  {
+                    id: "occurrence-8th",
+                    start: { dateTime: "2026-12-08T15:30:00.0000000", timeZone: "UTC" },
+                    end: { dateTime: "2026-12-08T16:00:00.0000000", timeZone: "UTC" },
+                  },
+                  // A day the member moved to late evening: the 9th in UTC, still the 8th's
+                  // neighbour and not the skipped day in Chicago.
+                  {
+                    id: "occurrence-9th",
+                    start: { dateTime: "2026-12-09T15:30:00.0000000", timeZone: "UTC" },
+                    end: { dateTime: "2026-12-09T16:00:00.0000000", timeZone: "UTC" },
+                  },
+                ],
+              }
+            : { id: "evt-1", changeKey: "v1" };
+        return Promise.resolve({ status: 200, json: () => Promise.resolve(body) });
+      },
+    };
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.createEvent("cal-1", event, "txn-1")).toEqual({
+      ok: true,
+      value: { remoteId: "evt-1", versionTag: "v1" },
+    });
+    expect(sent.map((request) => `${request.method} ${request.url}`)).toEqual([
+      "POST https://graph.microsoft.com/v1.0/me/calendars/cal-1/events",
+      `GET ${instances}`,
+      "DELETE https://graph.microsoft.com/v1.0/me/events/occurrence-8th",
+    ]);
+
+    sent.length = 0;
+    expect(await port.updateEvent("evt-1", event)).toMatchObject({ ok: true });
+    expect(sent.map((request) => request.method)).toEqual(["PATCH", "GET", "DELETE"]);
+  });
+
+  it("tells a copy that was a series it now happens once", async () => {
+    const { http, sent } = serving({});
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    await port.updateEvent("evt-1", { ...series("FREQ=DAILY"), repeats: null });
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toMatchObject({ recurrence: null });
+  });
+});
+
+describe("the watch on a member's calendar", () => {
+  const subscriptions = "https://graph.microsoft.com/v1.0/subscriptions";
+  const open = (pages: Record<string, { status: number; body: unknown }>) => {
+    const { http, sent } = serving(pages);
+    return { port: createMicrosoftCalendarAdapter({ http }).create({ credential }), sent };
+  };
+
+  it("subscribes to every change to the member's events, with the secret and one address for both kinds of notice", async () => {
+    const { port, sent } = open({
+      [subscriptions]: {
+        status: 201,
+        body: { id: "sub-1", expirationDateTime: "2026-11-13T11:59:00.000Z" },
+      },
+    });
+    const begun = await port.watchChanges({
+      address: "https://firm.example/notices",
+      secret: "secret-1",
+      expiresAt: "2026-11-13T12:00:00.000Z",
+    });
+    expect(begun).toEqual({
+      ok: true,
+      value: { watchId: "sub-1", expiresAt: "2026-11-13T11:59:00.000Z" },
+    });
+    expect(sent[0]?.method).toBe("POST");
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toEqual({
+      changeType: "created,updated,deleted",
+      resource: "me/events",
+      notificationUrl: "https://firm.example/notices",
+      lifecycleNotificationUrl: "https://firm.example/notices",
+      clientState: "secret-1",
+      expirationDateTime: "2026-11-13T12:00:00.000Z",
+    });
+  });
+
+  it("says so when Microsoft will not begin one", async () => {
+    const { port } = open({ [subscriptions]: { status: 400, body: {} } });
+    const begun = await port.watchChanges({
+      address: "https://firm.example/notices",
+      secret: "secret-1",
+      expiresAt: "2026-11-13T12:00:00.000Z",
+    });
+    expect(begun.ok).toBe(false);
+  });
+
+  it("renews one, and answers null for one Microsoft no longer has", async () => {
+    const { port, sent } = open({
+      [`${subscriptions}/sub-1`]: {
+        status: 200,
+        body: { id: "sub-1", expirationDateTime: "2026-11-16T12:00:00.000Z" },
+      },
+    });
+    expect(await port.renewWatch("sub-1", "2026-11-16T12:00:00.000Z")).toEqual({
+      ok: true,
+      value: { watchId: "sub-1", expiresAt: "2026-11-16T12:00:00.000Z" },
+    });
+    expect(sent[0]?.method).toBe("PATCH");
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toEqual({
+      expirationDateTime: "2026-11-16T12:00:00.000Z",
+    });
+    expect(await port.renewWatch("sub-gone", "2026-11-16T12:00:00.000Z")).toEqual({
+      ok: true,
+      value: null,
+    });
+  });
+
+  it("ends one, and counts one already gone as ended", async () => {
+    const { port, sent } = open({ [`${subscriptions}/sub-1`]: { status: 204, body: {} } });
+    expect(await port.stopWatch("sub-1")).toEqual({ ok: true, value: null });
+    expect(sent[0]?.method).toBe("DELETE");
+    expect(await port.stopWatch("sub-gone")).toEqual({ ok: true, value: null });
   });
 });

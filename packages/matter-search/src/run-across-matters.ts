@@ -1,8 +1,15 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import type { MatterId } from "@magna-carta/identifiers/types";
+import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import { countRecordIndexMatchesUpToStatement } from "@magna-carta/search/record-index-statements";
 import { withMarks } from "./marks.ts";
+import {
+  narrowedMatterIdsStatement,
+  narrowedVisibility,
+  type MatterNarrowing,
+} from "./narrowing.ts";
 import type {
   AcrossMattersDeclaration,
   AcrossMattersSearchRequest,
@@ -41,11 +48,26 @@ import type {
 // same handful of milliseconds as a rare one.
 export const ACROSS_MATTERS_CANDIDATE_CAP = 2000;
 
+// A READER MAY NARROW THE REACH, AND NEVER WIDEN IT. A narrowing (the reader's own matters, one
+// client's) is composed inside the predicate with AND (narrowing.ts), so every statement refuses a
+// row outside it exactly as it refuses a row on a matter the reader may not see.
+//
+// A NARROWED SEARCH NAMES ITS MATTERS TO THE INDEX WHERE THEY ARE FEW. The cap above is over the
+// firm's newest matches, and a narrowed search of a common word would otherwise be answered from
+// two thousand records that are mostly on other matters. So the matters the narrowing reaches are
+// read first, one statement, and where there are no more of them than the index takes in one
+// question they are named to it: the cap and the `broad` count are then over those matters'
+// records, and a search of one client's matters is answered in full where the same words across
+// the firm are not. A narrowing that reaches more matters than that is asked the firm-wide way and
+// says `broad` when the cap decided it. The list is for the index alone and decides nothing.
+
 export interface RunSearchAcrossMattersInput {
   readonly database: SqlDatabase;
   readonly registry: MatterSearchSourceRegistry;
   readonly query: string;
   readonly visibility: VisibleMatterPredicate;
+  // The reader's own narrowing of the reach, or absent for every matter they may see.
+  readonly narrowing?: MatterNarrowing;
   // The places to search. Absent or empty means every source the reader may read.
   readonly sourceKeys: readonly string[] | undefined;
   // The capability set the chokepoint already resolved for this request.
@@ -81,11 +103,32 @@ interface Runnable {
   readonly declaration: AcrossMattersDeclaration;
 }
 
-async function isBroad(database: SqlDatabase, query: string, cap: number): Promise<boolean> {
-  const statement = countRecordIndexMatchesUpToStatement(database, query, cap);
+async function isBroad(
+  database: SqlDatabase,
+  query: string,
+  cap: number,
+  indexMatterIds: readonly MatterId[] | undefined,
+): Promise<boolean> {
+  const statement = countRecordIndexMatchesUpToStatement(database, query, cap, indexMatterIds);
   if (statement === null) return false;
   const { results } = await statement.all<{ matched: number }>();
   return (results[0]?.matched ?? 0) > cap;
+}
+
+// The matters a narrowed search names to the index, or undefined where it names none: the search
+// is not narrowed, or it reaches more matters than one question may name.
+async function indexMatterIdsFor(
+  database: SqlDatabase,
+  narrowed: VisibleMatterPredicate,
+): Promise<readonly MatterId[] | undefined> {
+  // One past the limit is the measure of "too many to name".
+  const { results } = await narrowedMatterIdsStatement(
+    database,
+    narrowed,
+    RECORD_QUERY_MATTERS_LIMIT + 1,
+  ).all<{ id: MatterId }>();
+  if (results.length > RECORD_QUERY_MATTERS_LIMIT) return undefined;
+  return results.map((row) => row.id);
 }
 
 export async function runSearchAcrossMatters(
@@ -112,17 +155,30 @@ export async function runSearchAcrossMatters(
     }
   }
 
+  const readsRecordIndex = runnable.some(({ declaration }) => declaration.reads === "record-index");
+  const visibility =
+    input.narrowing === undefined
+      ? input.visibility
+      : narrowedVisibility(input.visibility, input.narrowing);
+  // Read only where it has a use: a narrowed search with a source that reads the index.
+  const indexMatterIds =
+    input.narrowing !== undefined && readsRecordIndex
+      ? await indexMatterIdsFor(input.database, visibility)
+      : undefined;
+
   const request: AcrossMattersSearchRequest = {
     database: input.database,
     query,
-    visibility: input.visibility,
+    visibility,
     limit: input.limit,
     candidateCap,
+    ...(indexMatterIds === undefined ? {} : { indexMatterIds }),
   };
 
-  const readsRecordIndex = runnable.some(({ declaration }) => declaration.reads === "record-index");
   const [broad, answered] = await Promise.all([
-    readsRecordIndex ? isBroad(input.database, query, candidateCap) : Promise.resolve(false),
+    readsRecordIndex
+      ? isBroad(input.database, query, candidateCap, indexMatterIds)
+      : Promise.resolve(false),
     Promise.all(
       runnable.map(async ({ source, declaration }): Promise<AcrossMattersGroup> => {
         const statements = declaration.buildStatements(request);

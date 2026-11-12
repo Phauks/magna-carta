@@ -59,6 +59,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-menu.svelte` — the rail's folders and rows as a dropdown of checkboxes, for a calendar
   with no room for a rail that still has to answer "who is busy". It reads and writes the SAME
   selection the rail does through the same controller
+- `own-account-events.ts` — the reader's own events from their connected calendar account: the
+  read, and whether they chose any calendar to be shown (which is what lists the rail's row)
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently; how each read's failure is titled and described
@@ -424,6 +426,16 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   **The CALENDAR'S COLOUR is a different fact and never shares a property with it**: the tone paints
   the chip, the colour paints a rule down its leading edge, and putting both in one fill would lose
   whichever was written second.
+
+- **THE READER'S OWN OUTLOOK EVENTS ARE ONE CALENDAR IN THE RAIL, AND THE ONE PLACE A TITLE AND A
+  CONVERSION ARE RIGHT.** `My Outlook Calendar`, under Mine, is listed only for a reader who chose
+  a calendar to be shown on their Calendar Sync page (`context.hasOwnAccountCalendars`), and is on
+  from the start because that choice was already the decision. Its entries paint their own TITLE,
+  which the firm-wide grid otherwise never does, because they are the reader's own and the server
+  answers them to nobody else. A timed one arrives as two instants with no zone, so
+  `entryFromOwnAccountEvent` places it at the reader's hour: the one conversion in the projection,
+  and it does not weaken the rule below for records, which name their own zone. They open nowhere;
+  the record is in Outlook.
 
 ## Invariants that apply here
 

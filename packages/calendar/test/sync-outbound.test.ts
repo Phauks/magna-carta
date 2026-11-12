@@ -24,6 +24,8 @@ const row: SyncCandidateRow = {
   type_name: "Hearing",
   takes_part: 1,
   on_own_matter: 0,
+  recurrence_rule: null,
+  replaced_days: null,
 };
 const candidate: OutboundCandidate = { localKind: "matter_event", row };
 const rule = { subject: "type-hearing", calendarRemoteId: "cal-1", scope: "mine" } as const;
@@ -143,5 +145,59 @@ describe("the difference a pass sends", () => {
     const stale = link({ local_id: "matterEvent_gone" });
     const { steps } = await planOutbound(desired, [stale], digestOf);
     expect(steps.map((step) => step.action)).toEqual(["remove", "create"]);
+  });
+});
+
+describe("a series", () => {
+  const series: OutboundCandidate = {
+    localKind: "matter_event",
+    row: {
+      ...row,
+      recurrence_rule: "FREQ=WEEKLY;COUNT=12",
+      replaced_days: "2026-12-15,2026-12-08,2026-12-15",
+    },
+  };
+
+  it("leaves as one event with its rule and the days it skips, sorted and once each", () => {
+    expect(providerEventFor(series, "full").repeats).toEqual({
+      line: "FREQ=WEEKLY;COUNT=12",
+      rule: {
+        frequency: "weekly",
+        interval: 1,
+        weekdays: [],
+        monthly: "byDate",
+        end: { kind: "after", count: 12 },
+      },
+      skippedDays: ["2026-12-08", "2026-12-15"],
+    });
+  });
+
+  it("carries a rule this platform cannot read as unread, for the adapter to refuse", () => {
+    const foreign = { ...series, row: { ...series.row, recurrence_rule: "FREQ=HOURLY" } };
+    expect(providerEventFor(foreign, "full").repeats).toMatchObject({
+      line: "FREQ=HOURLY",
+      rule: null,
+    });
+  });
+
+  it("is written again when its rule or a skipped day changes, and an event that happens once is not", () => {
+    const text = (candidateRow: OutboundCandidate) =>
+      agreedText({
+        localKind: "matter_event",
+        localId: "matterEvent_1",
+        calendarRemoteId: "cal-1",
+        detail: "full",
+        event: providerEventFor(candidateRow, "full"),
+      });
+    expect(text(series)).not.toBe(text(candidate));
+    expect(text({ ...series, row: { ...series.row, replaced_days: null } })).not.toBe(text(series));
+    // The text for an event that happens once has no trace of the series fields.
+    expect(text(candidate)).not.toContain("FREQ");
+    expect(JSON.parse(text(candidate))).toHaveLength(9);
+  });
+
+  it("never gives a deadline a rule", () => {
+    const deadline: OutboundCandidate = { localKind: "deadline", row: series.row };
+    expect(providerEventFor(deadline, "full").repeats).toBeUndefined();
   });
 });

@@ -139,6 +139,34 @@ id; it is written in a `pending` state with the request's `transactionId` before
 so a create whose answer was lost is repeated under the same identifier. A repeating series is not
 sent until section 7 is built.
 
+As built, a change at the provider is picked up by a watch and not by waiting. A pass that reaches
+Microsoft keeps one Graph subscription per account on `me/events` for created, updated and deleted
+([create subscription](https://learn.microsoft.com/en-us/graph/api/subscription-post-subscriptions?view=graph-rest-1.0)),
+asked for three days where Graph allows a little under seven, and renewed once less than two days
+are left (`apps/api-worker/src/calendar-sync/change-watch.ts`). The notice address is
+`/api/v1/calendar-sync/provider-notices/microsoft/{firmId}/{connectionId}` on the deployment's
+stated public address, and the same address is the subscription's lifecycle address. It differs
+from the plan above in one way: the path names the account in the clear and proves nothing, and the
+account's object believes a notice only when its `clientState` is the secret that object generated
+for the subscription, compared in constant time. A request without it is answered `202` like any
+other and changes nothing, so no signing key exists to manage. The route answers Graph's validation
+token as plain text
+([webhook delivery](https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks)),
+reads only the secret and the lifecycle word from a notice, and never which event changed: a
+believed notice brings the account's ordinary pass forward to one second away, and the pass reads
+the account. `reauthorizationRequired` renews at the next pass, `subscriptionRemoved` begins a new
+subscription, and `missed` runs a pass
+([lifecycle notifications](https://learn.microsoft.com/en-us/graph/change-notifications-lifecycle-events)).
+A delta query is not used yet: the pass still lists the copies it wrote, which is what it needs
+until events made at the provider are read. The watch is three methods on `CalendarSyncPort`
+(`watchChanges`, `renewWatch`, `stopWatch`) and the notice reader is the provider package's own
+(`packages/microsoft-graph/src/change-notices.ts`), so a second provider adds a reader and a route
+and changes nothing in the object or the pass. Our own writes come back as notices too, and each
+costs one pass that finds nothing to send. The six-hour safety pass stays, because Graph says a
+notice can be delayed or dropped. A watch is not ended when a member disconnects: the token that
+could end it is deleted in that same step, the notices are no longer believed, and Graph drops the
+subscription within three days.
+
 As built, the first step of the direction back notices and does not apply. Every copy is written
 with a named extended property of the platform's own, and a pass that has nothing left to send asks
 Graph for the events carrying it
@@ -155,6 +183,25 @@ may move an event everyone on the matter shares is an open owner question. Readi
 event on each pass replaces the delta cursor for now, so `connection_sync_state` is still unbuilt
 (`apps/api-worker/src/calendar-sync/provider-changes.ts`,
 `packages/calendar/src/sync-issue-statements.ts`).
+
+As built, an edit to a copy is now applied, by the owner's ruling of 2026-11-10 that an edit made
+in Outlook changes the Magna Carta event without asking. It supersedes the open question in the
+paragraph above for edits; a deleted copy is still only a question and never cancels anything, and
+a deadline's copy is still put back. The edit goes through the calendar's own service as an
+ordinary edit by that member (`apps/api-worker/src/calendar-sync/apply-provider-edit.ts`), so the
+event's shape is validated, the audit row names the member, a moved matter event raises the same
+`rescheduled` topic it would from its own window, and a second audit row,
+`calendar_sync.provider_edit_applied`, says the change came from the member's calendar. It is an
+edit in place and not a continuance. Three limits keep it to what the member could have done and
+what a copy can faithfully say. The member must hold `calendar:manage`; without it the edit stays
+a question. Only the days and times are carried, plus the title and place where the firm's limit
+is full detail; a copy sent with minimal detail has a title the platform wrote, so an edit to that
+alone is put back. A series' first day is never moved from a copy, because Graph's documentation
+does not settle where a dragged series begins, and a changed single day of a series is still not
+read. After an edit is applied every account with a rule is asked for a pass, so colleagues'
+copies follow, and this member's own copy is written once more in full, which also sets right any
+part of the edit that was not carried. When the event and the copy both changed between two
+passes, the event wins: a pass sends before it looks.
 
 For deadlines the narrow scope means the matters the member is responsible for and the wide one
 every matter they are assigned to, because a deadline names no person.
@@ -192,6 +239,43 @@ client-chosen `transactionId` so a retry cannot make a second copy
 Magna Carta stores an RFC 5545 rule. Google uses the same text; Graph uses a structured pattern, so
 the Microsoft adapter converts both ways, with a test for every shape the repeat editor can produce.
 A rule Graph cannot hold is not sent and raises an issue.
+
+As built, events a member made in Outlook are read into `external_calendar_event`, private to that
+member. The member chooses which of their account's calendars are shown
+(`calendar_sync_shown_calendar`, replaced whole through
+`PUT /api/v1/me/calendar-sync/shown-calendars`); a calendar shared to them read-only is as good a
+choice as their own. At the end of each pass `apps/api-worker/src/calendar-sync/shown-calendars.ts`
+asks the provider for each chosen calendar's view of a window (a month back, a year ahead) and
+makes the table agree: a new event is written, one whose version tag changed is written again, and
+one the provider no longer lists is removed, unless the provider's list was cut short. A copy this
+platform wrote is left out, a single one by its identifier in `calendar_sync_link` and a day of a
+series by the series it belongs to. The window is asked through Graph's `calendarView`, which lays
+a series out as its days, so the table holds one row per day and no repeat rule; that is the one
+departure from the table as designed above, which carried a rule. A whole-day event is stored as
+civil days and a timed one as two instants, because the provider answers in its own zone and the
+reader's screen decides the day and hour. The read route
+(`GET /api/v1/me/calendar-sync/account-events`) finds the account through the session member and
+nothing a request names, and answers from the table without asking the provider. On the web the events are one calendar in the rail, `My Outlook Calendar`, listed only
+for a member who chose a calendar and painted with their own titles at the reader's hour
+(`apps/web/src/lib/calendar/own-account-events.ts`). Colleagues see
+nothing, not even busy time, which leaves that open question as it was. Attaching one of these
+events to a matter is not built. The whole window is read again on each pass; a delta cursor is the
+next step if that proves slow.
+
+As built for Graph, a series leaves as one event carrying a `recurrence` pattern and range
+([recurrencePattern](https://learn.microsoft.com/en-us/graph/api/resources/recurrencepattern?view=graph-rest-1.0),
+[recurrenceRange](https://learn.microsoft.com/en-us/graph/api/resources/recurrencerange?view=graph-rest-1.0)).
+The conversion is one way so far (`graphRecurrenceOf` in
+`packages/microsoft-graph/src/calendar-sync-adapter.ts`). It refuses the rules where the two
+readings could part ways, because Graph's documentation does not say what it does with them: a
+monthly or yearly date past the 28th and a fifth weekday (this platform skips a month without one),
+and a weekly rule that leaves out the series' own first day (this platform counts that day). A
+refused series is not sent and raises a `not_sent` issue. A changed day is sent as an ordinary event
+of its own, and every day a row stands in for, changed or called off, is removed from the Graph
+series by deleting that occurrence
+([list instances](https://learn.microsoft.com/en-us/graph/api/event-list-instances?view=graph-rest-1.0)),
+again after every write, since changing a series' rule restores them. A day a member changes inside
+a series in Outlook is not noticed yet.
 
 One changed or cancelled occurrence is an exception row (`recurrence_parent_id` plus
 `recurrence_occurrence_on`) and an exception instance at the provider. "This and all later events" is

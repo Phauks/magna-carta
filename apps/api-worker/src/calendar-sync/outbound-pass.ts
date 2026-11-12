@@ -1,4 +1,5 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { raiseSyncIssueStatement } from "@magna-carta/calendar/sync-issue-statements";
 import {
   deleteSyncLinkStatement,
   insertPendingSyncLinkStatement,
@@ -17,6 +18,7 @@ import {
   desiredCopies,
   planOutbound,
   type OutboundCandidate,
+  type OutboundDesired,
   type OutboundStep,
 } from "@magna-carta/calendar/sync-outbound";
 import type { CalendarSyncPort } from "@magna-carta/calendar/sync-port";
@@ -27,15 +29,21 @@ import {
 } from "@magna-carta/calendar/sync-rule-service";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { addCalendarDays, civilDateOf } from "@magna-carta/civil-time/civil-date";
+import { lastOccurrenceOf, parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import type { IntegrationProblem } from "@magna-carta/integrations/problem";
-import { noticeProviderChanges } from "./provider-changes.ts";
+import {
+  noticeProviderChanges,
+  readingOfWrite,
+  type ProviderChangesInput,
+} from "./provider-changes.ts";
 
 // ONE PASS OVER ONE MEMBER'S CONNECTED ACCOUNT: MAKE THEIR CALENDAR AGREE WITH THEIR RULES.
 //
 // The decision of what to send is made in @magna-carta/calendar/sync-outbound, from what is in the
 // firm's database and nothing else. Once everything is sent, ./provider-changes.ts looks at what
-// the member did to the copies and raises each difference as a question for them. This module is the part that touches things: it reads the inputs, asks the
+// the member did to the copies, and an edit is carried to the event or raised as a question for
+// them. This module is the part that touches things: it reads the inputs, asks the
 // provider for each difference in turn, and records what the provider answered. Every write to the
 // link table happens beside the provider call it describes, so a pass that stops anywhere leaves a
 // table the next pass can continue from.
@@ -65,6 +73,8 @@ export interface OutboundPassReport {
   updated: number;
   removed: number;
   refused: number;
+  // Edits a member made to a copy in their own calendar, carried to the event.
+  applied: number;
   // Copies a member changed or deleted in their own calendar, raised as questions for them.
   flagged: number;
   // Deadline copies a member changed, written again as they were sent.
@@ -78,6 +88,11 @@ export interface OutboundPassInput {
   readonly port: CalendarSyncPort;
   readonly now: () => Date;
   readonly newTransactionId: () => string;
+  // What to do with a copy the member edited. Absent, every edit is a question for them.
+  readonly applyProviderEdit?: ProviderChangesInput["applyEdit"];
+  // Called once when this pass changed an event in the firm's calendar, so every other account
+  // the event is in, and this one, sends it again.
+  readonly onEventsChanged?: () => Promise<void>;
 }
 
 // The window is cut on the UTC date. Being a day out at either edge of a two-year window changes
@@ -92,6 +107,17 @@ export function syncWindowAt(instant: Date): SyncWindow {
 export async function digestOf(text: string): Promise<string> {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// A series is read whenever it began, so one that has already run its course is dropped here: a
+// series whose last day is before the window has nothing left to show. A rule this platform cannot
+// read is kept, and is refused further on where the member is told about it.
+function reachesWindow(row: SyncCandidateRow, window: SyncWindow): boolean {
+  if (row.recurrence_rule === null) return true;
+  const rule = parseRecurrence(row.recurrence_rule);
+  if (rule === null) return true;
+  const lastDay = lastOccurrenceOf(rule, row.starts_on);
+  return lastDay === null || lastDay >= window.from;
 }
 
 async function readCandidates(
@@ -116,8 +142,12 @@ async function readCandidates(
     ).all<SyncCandidateRow>(),
   ]);
   return [
-    ...matterEvents.results.map((row): OutboundCandidate => ({ localKind: "matter_event", row })),
-    ...firmEvents.results.map((row): OutboundCandidate => ({ localKind: "firm_event", row })),
+    ...matterEvents.results
+      .filter((row) => reachesWindow(row, window))
+      .map((row): OutboundCandidate => ({ localKind: "matter_event", row })),
+    ...firmEvents.results
+      .filter((row) => reachesWindow(row, window))
+      .map((row): OutboundCandidate => ({ localKind: "firm_event", row })),
     ...deadlines.results.map((row): OutboundCandidate => ({ localKind: "deadline", row })),
   ];
 }
@@ -139,6 +169,7 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     updated: 0,
     removed: 0,
     refused: 0,
+    applied: 0,
     flagged: 0,
     putBack: 0,
   };
@@ -162,6 +193,29 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     localKind,
     localId,
   });
+
+  // The provider will not take this one event as it stands. The link remembers it was tried, and
+  // the member is told on their Calendar Sync page, because an event quietly missing from a
+  // calendar somebody trusts is the failure this whole feature exists to prevent.
+  async function recordRefusal(
+    key: SyncLinkKey,
+    digest: string,
+    copy: OutboundDesired,
+    stamp: string,
+  ): Promise<void> {
+    await markSyncLinkFailedStatement(database, key, digest, stamp).run();
+    await raiseSyncIssueStatement(
+      database,
+      key,
+      {
+        kind: "not_sent",
+        remoteVersionTag: null,
+        sentJson: JSON.stringify(readingOfWrite(copy.event)),
+        foundJson: null,
+      },
+      stamp,
+    ).run();
+  }
 
   async function apply(step: OutboundStep): Promise<"sign-in-again" | "unavailable" | null> {
     const stamp = input.now().toISOString();
@@ -203,7 +257,7 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
       if (!created.ok) {
         const stop = stopFor(created.problem);
         if (stop !== null) return stop;
-        await markSyncLinkFailedStatement(database, key, digest, stamp).run();
+        await recordRefusal(key, digest, step.desired, stamp);
         report.refused += 1;
         return null;
       }
@@ -227,7 +281,7 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     if (!updated.ok) {
       const stop = stopFor(updated.problem);
       if (stop !== null) return stop;
-      await markSyncLinkFailedStatement(database, key, digest, stamp).run();
+      await recordRefusal(key, digest, step.desired, stamp);
       report.refused += 1;
       return null;
     }
@@ -263,7 +317,10 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     desired,
     digestFor: (copy) => digests.get(copy) ?? "",
     stamp: input.now().toISOString(),
+    ...(input.applyProviderEdit === undefined ? {} : { applyEdit: input.applyProviderEdit }),
   });
+  report.applied = noticed.report.applied;
+  if (noticed.report.applied > 0) await input.onEventsChanged?.();
   report.flagged = noticed.report.flagged;
   report.putBack = noticed.report.putBack;
   if (noticed.kind === "stopped") {

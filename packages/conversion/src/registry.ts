@@ -79,7 +79,18 @@ export const FORMATS: readonly Format[] = [
   },
   { id: "mp4", label: "MP4", mediaType: "video/mp4", extensions: ["mp4"] },
   { id: "mov", label: "QuickTime", mediaType: "video/quicktime", extensions: ["mov"] },
+  { id: "mkv", label: "Matroska", mediaType: "video/x-matroska", extensions: ["mkv"] },
   { id: "webm", label: "WebM", mediaType: "video/webm", extensions: ["webm"] },
+  // A playable MP4 is an MP4 (same media type and extension) that every browser plays: H.264 video,
+  // AAC sound, the movie header first. It is a distinct node rather than an mp4->mp4 edge because an
+  // HEVC phone video is already an MP4, pathfinding treats from===to as "no path", and "make this
+  // play here" is a real request. Ordered after mp4 so detection still names an .mp4 file mp4.
+  {
+    id: "playable-mp4",
+    label: "Playable MP4",
+    mediaType: "video/mp4",
+    extensions: ["mp4"],
+  },
 ];
 
 // libvips raster interconversions: every ordered pair of raster formats is a direct edge. The
@@ -124,12 +135,30 @@ const officeEdges: readonly ConversionEdge[] = [
   { from: "pptx", to: "pdf", engineId: "libreoffice", recipeRef: "pdf", weight: 1 },
 ];
 
-// email->PDF (deferred) and A/V transcode (deferred).
+// email->PDF (deferred).
 const otherEdges: readonly ConversionEdge[] = [
   { from: "eml", to: "pdf", engineId: "email", recipeRef: "pdf", weight: 1 },
   { from: "msg", to: "pdf", engineId: "email", recipeRef: "pdf", weight: 1 },
-  { from: "mov", to: "mp4", engineId: "ffmpeg", recipeRef: "mp4-h264-aac-faststart", weight: 1 },
-  { from: "webm", to: "mp4", engineId: "ffmpeg", recipeRef: "mp4-h264-aac-faststart", weight: 1 },
+];
+
+// Video into an MP4 every browser plays, through the pure-Rust transcode engine. The sources are the
+// containers it reads (MP4, QuickTime, Matroska) carrying H.264 or HEVC; the engine refuses any other
+// codec inside them. WebM has no edge: its VP8, VP9 and AV1 video has no Rust decoder in the engine.
+const transcodeEdges: readonly ConversionEdge[] = [
+  ...(["mp4", "mov", "mkv"] as const).map((from) => ({
+    from,
+    to: "playable-mp4",
+    engineId: "transcode" as const,
+    recipeRef: "mp4-h264-aac-faststart",
+    weight: 1,
+  })),
+  ...(["mov", "mkv"] as const).map((from) => ({
+    from,
+    to: "mp4",
+    engineId: "transcode" as const,
+    recipeRef: "mp4-h264-aac-faststart",
+    weight: 1,
+  })),
 ];
 
 // pdf -> searchable-pdf via the OCR engine: recognize the scanned pages and write an invisible text
@@ -150,6 +179,7 @@ export const EDGES: readonly ConversionEdge[] = [
   ...imagePdfEdges,
   ...officeEdges,
   ...otherEdges,
+  ...transcodeEdges,
   ...ocrEdges,
 ];
 

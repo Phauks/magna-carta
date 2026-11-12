@@ -37,6 +37,11 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "The firm's live teams with their members. createTaskTeam in " +
     "packages/tasks/src/organisation-service.ts refuses a team past MAX_TASK_TEAMS (100) and a " +
     "team past MAX_TASK_TEAM_MEMBERS (200), both in packages/tasks/src/types.ts.",
+  "tasks.readTaskComments":
+    "One task's comment thread, read whole so it reads in order. addTaskComment in " +
+    "packages/tasks/src/comment-service.ts refuses a comment past MAX_TASK_COMMENTS (500) per task, " +
+    "each at most MAX_TASK_COMMENT_LENGTH (4,000) characters naming at most " +
+    "MAX_TASK_COMMENT_MENTIONS (20) colleagues, all in packages/tasks/src/types.ts.",
   "tasks.readSubtaskTrees":
     "The sub-tasks under at most MAX_TASK_PAGE_SIZE root tasks (the handler in " +
     "apps/api-worker/src/http/routes/notes-and-tasks/task-organisation.ts slices the roots), each " +

@@ -11,7 +11,7 @@ load-profile: in-progress
 tested: done
 branch: claude/project-thread-rixee1
 active-work: docs/active-work/claude/project-thread-rixee1.md
-next: the SEARCH_SERVICE binding once the search worker exists on the account, the owner's answer on whether calendar events are searched across matters, then the scope choices on the Search page
+next: the SEARCH_SERVICE binding once the search worker exists on the account, the owner's answer on whether calendar events are searched across matters, then the places a search across matters does not reach yet
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
 adrs:
@@ -42,4 +42,6 @@ One structure for everything the platform searches, approved by the owner on 202
 
 **Built: a result marks the words that answered.** Both searches say, on every hit, where the reader's words are in its title and its excerpt, found again on the server by the rules of the index that made the match (`packages/search/src/matched-text.ts`), and each source declares which rule each of its texts is marked by. A long note or narrative is cut to the stretch holding the most of the question where it used to be sent whole, so the words that answered are on screen and a page of results no longer carries every note in full. The step runs after the matter binding, the visibility predicate and the limit, and cannot add or drop a result.
 
-**Not built:** a rebuild of the file contents index (the daily repair pass is its equivalent) or of an older schema generation, a rebuild in steps for a very large firm, calendar events and the other four places a search across matters does not reach yet, the scope choices on the Search page, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).
+**Built: a reader chooses which matters a search across matters asks.** The Search page's Search In row offers every matter the reader can see, their own matters (responsible for, or currently assigned to), one client's matters, or one matter, which opens that matter's own search with the question. The two narrowings are declared once (`packages/matters/src/matter-narrowing.ts`) and composed inside the visible-matter predicate, so a choice only takes matters away. A narrowed search reads which matters it reaches and, up to 25 of them, names them to the record index, so the cap is taken over those matters' records and an old record on one of them is not lost behind the firm's newer ones; the limit was measured, and at 100 a rare word cost four times its firm-wide read. The matters listing takes the same two narrowings. No migration and no new permission.
+
+**Not built:** a rebuild of the file contents index (the daily repair pass is its equivalent) or of an older schema generation, a rebuild in steps for a very large firm, calendar events and the other four places a search across matters does not reach yet, people searched under a narrowed choice of matters, anything that destroys a version's derived copies (they go with the version when the retention engine exists), the per-split word summary, and the discovery review screens (the coding panel waits on owner flags P1 and P3).

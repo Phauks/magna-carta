@@ -1,13 +1,20 @@
 // Whether a stored video can be handed to a browser's own media decoder and play there: the verdict
 // the preview gate (preview-policy.ts) keys off, decided from the file's container structure and the
 // codecs it names. The sniffed content type only names the CONTAINER, and a container says little:
-// an MP4 holding H.264 plays in every browser, while the same box structure holding HEVC (what a
-// phone records) or ProRes (what an editor exports) plays in almost none. So this reads past the
-// magic bytes to the track descriptions, and answers one of three things:
+// an MP4 holding H.264 plays in every browser, while the same box structure holding ProRes (what an
+// editor exports) plays in none. So this reads past the magic bytes to the track descriptions, and
+// answers one of three things:
 //
-//   "playable"      every audio and video track is a codec the browsers all decode
-//   "download-only" a track names a codec they do not, so the player is never offered
+//   "playable"      every audio and video track is a codec a current browser can decode
+//   "download-only" a track names a codec no browser decodes, so the player is never offered
 //   "indeterminate" the structure could not be read within the bounds below
+//
+// "playable" is a promise about browsers in general, not about the one reading: HEVC plays in Safari,
+// Edge and Chrome where the device decodes it, and a Matroska file plays in Chrome and Edge but not in
+// Firefox. The player is the last word for the browser in front of it: one that cannot decode the
+// address raises a media error, and the player offers the download in its place. What this refuses
+// is what NO browser plays, and sound a browser would silently drop (AC-3, DTS), because a recording
+// that plays with no sound reads as a recording with nothing said.
 //
 // Only "playable" ever unlocks inline playback, so every doubt resolves away from it. The bytes still
 // reach only the browser's media decoder when it does, never a document parser; the cookieless
@@ -57,15 +64,38 @@ const MAXIMUM_TOP_LEVEL_ENTRIES = 64;
 const TRACK_LIST_CEILING_BYTES = 1024 * 1024;
 
 /**
- * The codecs every current browser decodes inside an MP4 or QuickTime container, by the four-letter
- * sample-entry code the track table names them with. H.264 (avc1/avc3), AV1 (av01) and VP9 (vp09)
- * for pictures; AAC (mp4a), Opus and FLAC for sound. HEVC (hvc1/hev1) is deliberately absent:
- * decoding it depends on the reader's hardware and operating system, so it is offered as a download.
+ * The codecs a current browser decodes inside an MP4 or QuickTime container, by the four-letter
+ * sample-entry code the track table names them with. H.264 (avc1/avc3), HEVC (hvc1/hev1, what a
+ * phone records), AV1 (av01) and VP9 (vp09) for pictures; AAC (mp4a), Opus and FLAC for sound.
  */
-const ISO_VIDEO_CODECS: ReadonlySet<string> = new Set(["avc1", "avc3", "av01", "vp09"]);
+const ISO_VIDEO_CODECS: ReadonlySet<string> = new Set([
+  "avc1",
+  "avc3",
+  "hvc1",
+  "hev1",
+  "av01",
+  "vp09",
+]);
 const ISO_AUDIO_CODECS: ReadonlySet<string> = new Set(["mp4a", "Opus", "fLaC"]);
-/** The same promise for WebM, by its codec identifiers. */
-const WEBM_CODECS: ReadonlySet<string> = new Set(["V_VP8", "V_VP9", "V_AV1", "A_OPUS", "A_VORBIS"]);
+/**
+ * The same promise for WebM and Matroska, by codec identifier. AAC is matched as a family because
+ * Matroska spells its profiles into the identifier (`A_AAC/MPEG4/LC`).
+ */
+const MATROSKA_CODECS: ReadonlySet<string> = new Set([
+  "V_VP8",
+  "V_VP9",
+  "V_AV1",
+  "V_MPEG4/ISO/AVC",
+  "V_MPEGH/ISO/HEVC",
+  "A_OPUS",
+  "A_VORBIS",
+  "A_FLAC",
+  "A_AAC",
+]);
+
+function matroskaCodecPlays(codec: string): boolean {
+  return MATROSKA_CODECS.has(codec) || codec.startsWith("A_AAC/");
+}
 
 export async function assessInlinePlayable(
   sniffedContentType: string | null,
@@ -297,10 +327,11 @@ async function assessMatroska(reader: ByteRangeReader): Promise<InlinePlayableVe
   const documentType = ebmlChildren(leading, header.contentStart, header.end).find(
     (element) => element.id === EBML_DOCUMENT_TYPE,
   );
-  // Only the WebM profile is a browser promise. General Matroska may carry any codec at all.
-  if (documentType === undefined || ebmlText(leading, documentType) !== "webm") {
-    return "download-only";
-  }
+  // WebM is Matroska's browser profile; a general Matroska file is judged by the same track list,
+  // since what decides whether it plays is the codecs it carries, not which profile it declares.
+  if (documentType === undefined) return "indeterminate";
+  const profile = ebmlText(leading, documentType);
+  if (profile !== "webm" && profile !== "matroska") return "download-only";
   const segmentHeader = await reader.read(header.end, EBML_HEADER_WINDOW);
   const segment = ebmlElementAt(segmentHeader, 0);
   if (segment.id !== SEGMENT) return "indeterminate";
@@ -334,7 +365,7 @@ function judgeWebmTracks(bytes: Uint8Array, tracks: EbmlElement): InlinePlayable
     if (typeField === undefined || codecField === undefined) return "indeterminate";
     const trackType = ebmlUnsigned(bytes, typeField);
     if (trackType !== VIDEO_TRACK && trackType !== AUDIO_TRACK) continue;
-    if (!WEBM_CODECS.has(ebmlText(bytes, codecField))) return "download-only";
+    if (!matroskaCodecPlays(ebmlText(bytes, codecField))) return "download-only";
     tracksJudged++;
   }
   return tracksJudged > 0 ? "playable" : "indeterminate";

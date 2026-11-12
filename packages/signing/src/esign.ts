@@ -39,6 +39,10 @@ export type SignatureAdoption = "typed" | "drawn" | "uploaded";
 /** The signer's affirmative intent to sign — the ESIGN/UETA "intent" element. */
 export interface SigningIntent {
   readonly signerId: string;
+  /** The signer's name as it was entered on the request, shown on the certificate. */
+  readonly name?: string;
+  /** The address the request was sent to. */
+  readonly email?: string;
   readonly adoption: SignatureAdoption;
   /** When intent was affirmed, ISO 8601 (server-observed). */
   readonly affirmedAt: string;
@@ -57,6 +61,8 @@ export interface SignerAttribution {
   readonly level: AttributionLevel;
   /** The IP the signing act was observed from (server-observed, never client-self-reported). */
   readonly observedIp?: string;
+  /** The browser or device the signing act was observed from (the request's own header). */
+  readonly userAgent?: string;
   /** The identity channel proof reference (portal session id, access-code delivery id, etc.). */
   readonly proofReference?: string;
 }
@@ -66,6 +72,74 @@ export interface SignerCompletion {
   readonly intent: SigningIntent;
   readonly consent: ConsentRecord;
   readonly attribution: SignerAttribution;
+}
+
+/** A person named on the certificate who is not a signer: the member who sent the request. */
+export interface SigningParty {
+  readonly name: string;
+  readonly email?: string;
+}
+
+/**
+ * What was sent for signature: the identifying facts printed at the top of the certificate, the way
+ * a signing platform prints its envelope summary.
+ */
+export interface SigningEnvelope {
+  /** The request's own identifier, which the signed document and the audit trail also carry. */
+  readonly id: string;
+  /** The document's title or file name. */
+  readonly title?: string;
+  /** The page count of the document that was signed. */
+  readonly pageCount?: number;
+  readonly sender?: SigningParty;
+  /** When the request was created, ISO 8601 (server-observed). */
+  readonly createdAt?: string;
+}
+
+/** A step in the life of a signing request. */
+export type SigningEventKind =
+  | "created"
+  | "sent"
+  | "delivered"
+  | "viewed"
+  | "identity-verified"
+  | "consented"
+  | "signed"
+  | "declined"
+  | "reassigned"
+  | "reminded"
+  | "voided"
+  | "completed"
+  | "sealed";
+
+/** Every step a certificate can list, in the order they are told apart when two share an instant. */
+export const SIGNING_EVENT_KINDS: readonly SigningEventKind[] = [
+  "created",
+  "sent",
+  "delivered",
+  "reminded",
+  "viewed",
+  "identity-verified",
+  "consented",
+  "signed",
+  "declined",
+  "reassigned",
+  "voided",
+  "completed",
+  "sealed",
+];
+
+/** One line of the audit log: what happened, when, and what the server saw of who did it. */
+export interface SigningEvent {
+  readonly kind: SigningEventKind;
+  /** When it happened, ISO 8601 (server-observed). */
+  readonly at: string;
+  /** Who did it, as a name or an address. Absent for a step the system took itself. */
+  readonly actor?: string;
+  readonly observedIp?: string;
+  readonly userAgent?: string;
+  /** A short qualifier, such as the address a request was sent to. Never document content. */
+  readonly detail?: string;
 }
 
 /**
@@ -78,4 +152,11 @@ export interface CertificateOfCompletion {
   /** When the seal was applied, ISO 8601. */
   readonly sealedAt: string;
   readonly signers: readonly SignerCompletion[];
+  /** What was sent for signature. Absent for a document sealed outside a signing request. */
+  readonly envelope?: SigningEnvelope;
+  /**
+   * The audit log, oldest first. It always holds each signer's consent and signature and the seal;
+   * a signing request adds the steps only it observes (sent, viewed, declined, and so on).
+   */
+  readonly events?: readonly SigningEvent[];
 }

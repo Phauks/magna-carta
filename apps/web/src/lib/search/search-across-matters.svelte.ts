@@ -7,6 +7,11 @@
  * so a name is matched here exactly as it is matched there. The page presents the three as one
  * list of places; this module is the only part that knows they arrive separately.
  *
+ * THE READER MAY ASK IT OF FEWER MATTERS: their own, or one client's. The choice goes to the
+ * search and to the matters list alike, and the server resolves it to the same matters for both.
+ * People are not asked under a narrowed choice, because the directory is not divided by matter,
+ * and the page says so instead of showing nobody.
+ *
  * AN OVERVIEW AND A PLACE. With no place chosen the page shows a few results from every place.
  * Choosing a place asks that one place again for a full page, and keeps the overview so the list
  * of places beside it still says where else the words were found. The overview is asked once per
@@ -27,7 +32,16 @@ import {
   type AcrossMattersAnswer,
   type AcrossMattersGroup,
 } from "./search-across-matters-api.ts";
-import { ALL_PLACES, MATTERS_PLACE, PEOPLE_PLACE, isRecordPlace } from "./search-address.ts";
+import {
+  ALL_PLACES,
+  EVERYTHING,
+  MATTERS_PLACE,
+  PEOPLE_PLACE,
+  isNarrowed,
+  isRecordPlace,
+  reachKey,
+  type SearchReach,
+} from "./search-address.ts";
 
 /** How many results each place shows in the overview. */
 export const OVERVIEW_LIMIT = 5;
@@ -39,7 +53,12 @@ export const PLACE_LIMIT = 50;
  * sentences to a reader: one is theirs to raise with an administrator, the other is worth trying
  * again.
  */
-export type NameReadStanding = "answered" | "no-access" | "unavailable";
+export type NameReadStanding =
+  | "answered"
+  | "no-access"
+  | "unavailable"
+  /** Not asked, because the reader's choice of matters leaves this place outside the search. */
+  | "not-searched";
 
 export interface NameGroup<Row> {
   readonly rows: readonly Row[];
@@ -51,6 +70,8 @@ export interface NameGroup<Row> {
 /** One question's answer from every place, a few results each. */
 export interface SearchOverview {
   readonly query: string;
+  /** The matters the question was asked of. */
+  readonly reach: SearchReach;
   readonly matters: NameGroup<MatterSummary>;
   readonly people: NameGroup<DirectorySearchHit>;
   /** Null where the search across matters failed; `failure` on the model says how. */
@@ -96,6 +117,17 @@ function peopleGroup(outcome: ApiOutcome<DirectorySearchResult>): NameGroup<Dire
   return { rows: outcome.value.data, more: outcome.value.capped, standing: "answered" };
 }
 
+/** Why a search of some matters does not look for people. */
+export const PEOPLE_NOT_SEARCHED_REASON =
+  "People and organizations are the firm's directory and are not kept by matter. Search " +
+  "everything you can see to find one by name.";
+
+const PEOPLE_NOT_SEARCHED: NameGroup<DirectorySearchHit> = {
+  rows: [],
+  more: false,
+  standing: "not-searched",
+};
+
 /** Whether a group is a place this search reads at all, as opposed to one it names and skips. */
 function answersAcrossMatters(group: AcrossMattersGroup): boolean {
   return group.skipped !== "one-matter-only" && group.skipped !== "permission";
@@ -123,12 +155,17 @@ export function railPlaces(overview: SearchOverview | null): readonly RailPlace[
       shown: shownOf(overview.matters),
       more: overview.matters.more,
     },
-    {
-      key: PEOPLE_PLACE,
-      label: "People",
-      shown: shownOf(overview.people),
-      more: overview.people.more,
-    },
+    // People are left to `unsearchedPlaces` where the reader's choice of matters set them aside.
+    ...(overview.people.standing === "not-searched"
+      ? []
+      : [
+          {
+            key: PEOPLE_PLACE,
+            label: "People",
+            shown: shownOf(overview.people),
+            more: overview.people.more,
+          },
+        ]),
     ...records.map((group) => ({
       key: group.source,
       label: presentationFor(group.source).heading,
@@ -181,7 +218,21 @@ export function unsearchedPlaces(overview: SearchOverview | null): readonly Unse
     }
     return [];
   });
+  // The directory is the firm's and is not divided by matter, so a search of some matters has no
+  // part of it to read. Named, so a reader does not take its absence for nobody by that name.
+  const people: UnsearchedPlace[] =
+    overview?.people.standing === "not-searched"
+      ? [
+          {
+            key: PEOPLE_PLACE,
+            label: "People",
+            mark: "Firm-Wide",
+            reason: PEOPLE_NOT_SEARCHED_REASON,
+          },
+        ]
+      : [];
   return [
+    ...people,
     ...skipped,
     {
       key: "discovery-sets",
@@ -216,7 +267,12 @@ export class SearchAcrossMatters {
     this.busy = false;
   }
 
-  async run(fetchImpl: typeof fetch, query: string, place: string): Promise<void> {
+  async run(
+    fetchImpl: typeof fetch,
+    query: string,
+    place: string,
+    reach: SearchReach = EVERYTHING,
+  ): Promise<void> {
     const question = query.trim();
     if (question === "") {
       this.clear();
@@ -228,9 +284,13 @@ export class SearchAcrossMatters {
     const attempt = this.#latest.begin();
     this.busy = true;
 
-    // The overview is one question's, so a second place on the same question does not ask again.
+    // The overview is one question's over one choice of matters, so a second place on the same
+    // question does not ask again and a different choice of matters does.
     const keptOverview =
-      this.overview !== null && this.overview.query === question && this.overview.records !== null
+      this.overview !== null &&
+      this.overview.query === question &&
+      reachKey(this.overview.reach) === reachKey(reach) &&
+      this.overview.records !== null
         ? this.overview
         : null;
     if (keptOverview === null) {
@@ -241,11 +301,19 @@ export class SearchAcrossMatters {
     const overviewRead =
       keptOverview === null
         ? Promise.all([
-            listMatters(fetchImpl, { scope: "caseload", search: question }),
-            readDirectoryNameMatches(fetchImpl, question),
+            // The matters list narrows by the same two choices the search does, resolved to the
+            // same matters on the server, so the matters named here are the ones searched.
+            listMatters(fetchImpl, {
+              scope: "caseload",
+              search: question,
+              ...(reach.kind === "mine" ? { mine: true } : {}),
+              ...(reach.kind === "client" ? { clientEntityId: reach.entityId } : {}),
+            }),
+            isNarrowed(reach) ? null : readDirectoryNameMatches(fetchImpl, question),
             searchAcrossMatters(fetchImpl, question, {
               sources: [],
               limit: OVERVIEW_LIMIT,
+              reach,
               signal: controller.signal,
             }),
           ])
@@ -254,6 +322,7 @@ export class SearchAcrossMatters {
       ? searchAcrossMatters(fetchImpl, question, {
           sources: [place],
           limit: PLACE_LIMIT,
+          reach,
           signal: controller.signal,
         })
       : null;
@@ -269,8 +338,9 @@ export class SearchAcrossMatters {
       const [matters, people, records] = overviewOutcome;
       this.overview = {
         query: question,
+        reach,
         matters: mattersGroup(matters),
-        people: peopleGroup(people),
+        people: people === null ? PEOPLE_NOT_SEARCHED : peopleGroup(people),
         records: records.kind === "ok" ? records.value : null,
       };
       if (records.kind !== "ok") this.failure = this.#stated(records.failure);

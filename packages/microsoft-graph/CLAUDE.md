@@ -15,7 +15,13 @@ random bytes, so every branch runs in a test with no network.
 - `src/calendar-sync-adapter.ts` — `CalendarSyncPort` (defined in `packages/calendar/src/sync-port.ts`)
   over Microsoft Graph. Every event it writes carries `WRITTEN_COPY_PROPERTY_ID`, and the read back
   asks for events carrying it and nothing else, so no event the member made is ever read. Changing
-  that identifier orphans every copy already written
+  that identifier orphans every copy already written. `graphRecurrenceOf` converts a series' rule and
+  returns null for a rule Graph is not documented to put on the same days; a null is refused before
+  any request, never approximated
+
+- `src/change-notices.ts` — reads what Graph posts to a subscription's address into the calendar's
+  `ProviderNotice`: the secret and whether the notice is about the subscription itself. Which event
+  changed is deliberately not read
 
 ## Local rules
 

@@ -81,6 +81,37 @@ export interface WatchedTaskChangePayload {
   readonly priority: string;
 }
 
+// ---- the comment thread ----
+
+// Somebody commented on a task the member is assigned to or watches. Informational: a comment asks
+// nobody for anything unless it names them, which is the next pair.
+export const TASK_COMMENTED_TOPIC = "tasks.task.commented";
+export const FIRM_TASK_COMMENTED_TOPIC = "tasks.firmTask.commented";
+
+// Somebody named the member with @ in a comment. Asks for attention: being named is being asked.
+// A member who is named is told once, by this pair, and not again by the one above.
+export const TASK_COMMENT_MENTIONED_TOPIC = "tasks.task.commentMentioned";
+export const FIRM_TASK_COMMENT_MENTIONED_TOPIC = "tasks.firmTask.commentMentioned";
+
+// Identifiers and enums only, on the assignment payload's reasoning, and never the comment's words:
+// a comment is the firm's discussion of a client's work. The people told are named in the payload,
+// as the watchers are, so they are the people on the task when the comment was written.
+export interface TaskCommentPayload {
+  readonly taskId: string;
+  readonly matterId: string | null;
+  readonly commentId: string;
+  readonly recipientUserIds: readonly string[];
+  readonly commentedByUserId: string;
+  readonly priority: string;
+}
+
+export function commentTopicFor(matterId: string | null, mentioned: boolean): TaskOutboxTopic {
+  if (matterId === null) {
+    return mentioned ? FIRM_TASK_COMMENT_MENTIONED_TOPIC : FIRM_TASK_COMMENTED_TOPIC;
+  }
+  return mentioned ? TASK_COMMENT_MENTIONED_TOPIC : TASK_COMMENTED_TOPIC;
+}
+
 export function watchedChangeTopicFor(matterId: string | null): TaskOutboxTopic {
   return matterId === null ? FIRM_WATCHED_TASK_CHANGED_TOPIC : WATCHED_TASK_CHANGED_TOPIC;
 }
@@ -109,6 +140,10 @@ export const TASK_NOTIFICATION_EMISSION_POINTS = Object.freeze([
   FIRM_TASK_REASSIGNED_TOPIC,
   WATCHED_TASK_CHANGED_TOPIC,
   FIRM_WATCHED_TASK_CHANGED_TOPIC,
+  TASK_COMMENTED_TOPIC,
+  FIRM_TASK_COMMENTED_TOPIC,
+  TASK_COMMENT_MENTIONED_TOPIC,
+  FIRM_TASK_COMMENT_MENTIONED_TOPIC,
   TASK_DUE_SOON_EMISSION_POINT,
   TASK_OVERDUE_EMISSION_POINT,
 ] as const);
@@ -122,6 +157,10 @@ export const TASK_OUTBOX_TOPICS = Object.freeze([
   FIRM_TASK_REASSIGNED_TOPIC,
   WATCHED_TASK_CHANGED_TOPIC,
   FIRM_WATCHED_TASK_CHANGED_TOPIC,
+  TASK_COMMENTED_TOPIC,
+  FIRM_TASK_COMMENTED_TOPIC,
+  TASK_COMMENT_MENTIONED_TOPIC,
+  FIRM_TASK_COMMENT_MENTIONED_TOPIC,
 ] as const);
 
 // Which topic an assignment raises, decided by the one fact that decides it. Exported so the write

@@ -3,13 +3,24 @@ import {
   CALENDAR_SYNC_CATEGORY,
   type CalendarSyncPort,
   type ProviderCalendar,
+  type ProviderCalendarEvent,
+  type ProviderCalendarEvents,
+  type ProviderChangeWatch,
+  type ProviderChangeWatchRequest,
   type ProviderEventPresence,
   type ProviderEventReceipt,
   type ProviderEventSnapshot,
+  type ProviderEventWindow,
   type ProviderEventWrite,
   type ProviderWrittenEvents,
 } from "@magna-carta/calendar/sync-port";
-import { addCalendarDays, type CivilDate } from "@magna-carta/civil-time/civil-date";
+import {
+  addCalendarDays,
+  civilDateParts,
+  type CivilDate,
+} from "@magna-carta/civil-time/civil-date";
+import { weekdayOf, weekdayPositionOf, type WeekdayCode } from "@magna-carta/civil-time/recurrence";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import type { HttpClient, HttpResponse } from "@magna-carta/integrations/http";
 import type { Adapter, AdapterContext, CapabilityDescriptor } from "@magna-carta/integrations/port";
@@ -36,6 +47,10 @@ const descriptor: CapabilityDescriptor = {
     deleteEvent: { supported: true },
     listWrittenEvents: { supported: true },
     readEvent: { supported: true },
+    listCalendarEvents: { supported: true },
+    watchChanges: { supported: true },
+    renewWatch: { supported: true },
+    stopWatch: { supported: true },
   },
   passthroughAvailable: false,
 };
@@ -55,6 +70,11 @@ const calendarPageSchema = z.object({
 const eventReceiptSchema = z.object({
   id: z.string().min(1),
   changeKey: z.string().optional(),
+});
+
+const subscriptionSchema = z.object({
+  id: z.string().min(1),
+  expirationDateTime: z.string().min(1),
 });
 
 // The mark every copy carries, so the copies can be asked for by themselves. It is a named property
@@ -84,6 +104,23 @@ const eventSnapshotSchema = z.object({
 
 const eventSnapshotPageSchema = z.object({
   value: z.array(eventSnapshotSchema),
+  "@odata.nextLink": z.string().optional(),
+});
+
+// A calendar's own view of a window: every event in it, a series already laid out as its days.
+// A member with more than this many pages inside the window is past what one pass reads; the list
+// says it stopped short.
+const CALENDAR_VIEW_PAGE_LIMIT = 20;
+const CALENDAR_VIEW_PAGE_SIZE = 250;
+const CALENDAR_VIEW_FIELDS = `${SNAPSHOT_FIELDS},seriesMasterId,isCancelled`;
+
+const calendarViewPageSchema = z.object({
+  value: z.array(
+    eventSnapshotSchema.extend({
+      seriesMasterId: z.string().nullable().optional(),
+      isCancelled: z.boolean().nullable().optional(),
+    }),
+  ),
   "@odata.nextLink": z.string().optional(),
 });
 
@@ -129,6 +166,85 @@ export function snapshotOfGraphEvent(
   return { ...base, when: { kind: "instants", startsAtMilliseconds, endsAtMilliseconds } };
 }
 
+const GRAPH_WEEKDAYS: Record<WeekdayCode, string> = {
+  SU: "sunday",
+  MO: "monday",
+  TU: "tuesday",
+  WE: "wednesday",
+  TH: "thursday",
+  FR: "friday",
+  SA: "saturday",
+};
+const GRAPH_WEEK_INDEXES = ["first", "second", "third", "fourth"] as const;
+
+// The last day of the month every month has. A rule on a later day is one where two calendars
+// disagree about February.
+const LAST_DAY_EVERY_MONTH_HAS = 28;
+
+// A series as Microsoft Graph repeats it, or null where Graph cannot be relied on to put it on
+// exactly the days this platform does. Undefined for an event that happens once.
+//
+// THE CASES REFUSED ARE THE ONES WHERE THE TWO READINGS OF A RULE PART WAYS. This platform skips a
+// month that has no 31st and no fifth Tuesday, and counts the first day of a weekly series even
+// when it is not one of the rule's weekdays. Graph's documentation promises neither, so a series
+// like that is refused here and the member is told it was not sent. Everything else maps one to
+// one: the same interval, the same weekdays in a week that begins on Sunday (as the expansion in
+// @magna-carta/civil-time/recurrence counts it), the same end.
+export function graphRecurrenceOf(
+  event: ProviderEventWrite,
+): Record<string, unknown> | null | undefined {
+  const repeats = event.repeats;
+  if (repeats === null || repeats === undefined) return undefined;
+  const rule = repeats.rule;
+  if (rule === null) return null;
+  const start = civilDateParts(event.startsOn);
+  const startWeekday = weekdayOf(event.startsOn);
+
+  let pattern: Record<string, unknown>;
+  if (rule.frequency === "daily") {
+    pattern = { type: "daily", interval: rule.interval };
+  } else if (rule.frequency === "weekly") {
+    const weekdays = rule.weekdays.length > 0 ? rule.weekdays : [startWeekday];
+    if (!weekdays.includes(startWeekday)) return null;
+    pattern = {
+      type: "weekly",
+      interval: rule.interval,
+      daysOfWeek: weekdays.map((code) => GRAPH_WEEKDAYS[code]),
+      firstDayOfWeek: "sunday",
+    };
+  } else if (rule.frequency === "monthly" && rule.monthly === "byWeekday") {
+    const index = GRAPH_WEEK_INDEXES[weekdayPositionOf(event.startsOn) - 1];
+    if (index === undefined) return null;
+    pattern = {
+      type: "relativeMonthly",
+      interval: rule.interval,
+      daysOfWeek: [GRAPH_WEEKDAYS[startWeekday]],
+      index,
+    };
+  } else {
+    if (start.day > LAST_DAY_EVERY_MONTH_HAS) return null;
+    pattern =
+      rule.frequency === "monthly"
+        ? { type: "absoluteMonthly", interval: rule.interval, dayOfMonth: start.day }
+        : {
+            type: "absoluteYearly",
+            interval: rule.interval,
+            dayOfMonth: start.day,
+            month: start.month,
+          };
+  }
+
+  const range =
+    rule.end.kind === "after"
+      ? { type: "numbered", startDate: event.startsOn, numberOfOccurrences: rule.end.count }
+      : rule.end.kind === "on"
+        ? { type: "endDate", startDate: event.startsOn, endDate: rule.end.date }
+        : { type: "noEnd", startDate: event.startsOn };
+  return { pattern, range: { ...range, recurrenceTimeZone: event.timeZone } };
+}
+
+const UNREPEATABLE = "Outlook cannot repeat this event on exactly the same days";
+
 // The event as Microsoft Graph takes it.
 //
 // Graph requires an event that takes the whole day to start and end at midnight in one zone, with
@@ -137,7 +253,11 @@ export function snapshotOfGraphEvent(
 // recorded, and inventing an hour would put a duration in a calendar that nobody decided on.
 //
 // No attendees are ever sent. An event with attendees is a meeting request, which emails them.
+//
+// A series carries its rule; a caller checks `graphRecurrenceOf` first and never sends one whose
+// rule came back null.
 export function graphEventBody(event: ProviderEventWrite): Record<string, unknown> {
+  const recurrence = graphRecurrenceOf(event);
   const lastDay = event.endsOn ?? event.startsOn;
   const allDay = event.startsAtTime === null;
   const start = allDay
@@ -156,6 +276,7 @@ export function graphEventBody(event: ProviderEventWrite): Record<string, unknow
     singleValueExtendedProperties: [
       { id: WRITTEN_COPY_PROPERTY_ID, value: WRITTEN_COPY_PROPERTY_VALUE },
     ],
+    ...(recurrence === undefined || recurrence === null ? {} : { recurrence }),
   };
 }
 
@@ -223,6 +344,58 @@ export function createMicrosoftCalendarAdapter(
         }
       }
 
+      // Takes the days a series must not fall on out of the provider's series, one occurrence at a
+      // time. A provider's series has no list of skipped days to send; an occurrence is removed by
+      // deleting it. Asked for with a day either side, because the provider is not documented to
+      // read an unzoned range in any particular zone, and each occurrence found is placed on its
+      // own day in the event's zone before it is touched. Removing one already removed finds
+      // nothing and does nothing, so this is safe to repeat after every write.
+      async function removeSkippedDays(
+        remoteId: string,
+        event: ProviderEventWrite,
+      ): Promise<Dispatch<null>> {
+        for (const day of event.repeats?.skippedDays ?? []) {
+          const from = addCalendarDays(day as CivilDate, -1);
+          const to = addCalendarDays(day as CivilDate, 2);
+          let response;
+          try {
+            response = await dependencies.http.request({
+              method: "GET",
+              url:
+                `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(remoteId)}/instances` +
+                `?startDateTime=${from}T00:00:00&endDateTime=${to}T00:00:00` +
+                `&$select=${SNAPSHOT_FIELDS}&$top=50`,
+              headers,
+            });
+          } catch {
+            return unreachable();
+          }
+          if (response.status === 404) return ok(null);
+          if (response.status >= 400) return adapterError(problemFor(response.status));
+          const parsed = eventSnapshotPageSchema.safeParse(await readJson(response));
+          if (!parsed.success) return unreadable("Microsoft's list of a series' days");
+          for (const occurrence of parsed.data.value) {
+            const snapshot = snapshotOfGraphEvent(occurrence);
+            if (snapshot === undefined) return unreadable("A day of a series");
+            const fallsOn =
+              snapshot.when.kind === "days"
+                ? snapshot.when.startsOn
+                : zonedReading(snapshot.when.startsAtMilliseconds, event.timeZone).civilDate;
+            if (fallsOn !== day) continue;
+            const removed = await send(
+              "DELETE",
+              `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(snapshot.remoteId)}`,
+              undefined,
+            );
+            if (!removed.ok) return removed;
+            if (removed.value.status >= 400 && removed.value.status !== 404) {
+              return adapterError(problemFor(removed.value.status));
+            }
+          }
+        }
+        return ok(null);
+      }
+
       async function readReceipt(
         response: HttpResponse,
       ): Promise<z.infer<typeof eventReceiptSchema> | undefined> {
@@ -284,6 +457,9 @@ export function createMicrosoftCalendarAdapter(
           event: ProviderEventWrite,
           transactionId: string,
         ): Promise<Dispatch<ProviderEventReceipt>> {
+          if (graphRecurrenceOf(event) === null) {
+            return adapterError(integrationProblem("validation", 422, UNREPEATABLE));
+          }
           const sent = await send(
             "POST",
             `${GRAPH_ORIGIN}/v1.0/me/calendars/${encodeURIComponent(calendarRemoteId)}/events`,
@@ -301,6 +477,8 @@ export function createMicrosoftCalendarAdapter(
               ),
             );
           }
+          const skipped = await removeSkippedDays(receipt.id, event);
+          if (!skipped.ok) return skipped;
           return ok({ remoteId: receipt.id, versionTag: receipt.changeKey ?? null });
         },
 
@@ -308,15 +486,25 @@ export function createMicrosoftCalendarAdapter(
           remoteId: string,
           event: ProviderEventWrite,
         ): Promise<Dispatch<ProviderEventPresence>> {
+          const recurrence = graphRecurrenceOf(event);
+          if (recurrence === null) {
+            return adapterError(integrationProblem("validation", 422, UNREPEATABLE));
+          }
           const sent = await send(
             "PATCH",
             `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(remoteId)}`,
-            graphEventBody(event),
+            // An event that happens once says so, because the copy may have been a series when it
+            // was last written and a PATCH leaves alone whatever it does not name.
+            { ...graphEventBody(event), ...(recurrence === undefined ? { recurrence: null } : {}) },
           );
           if (!sent.ok) return sent;
           if (sent.value.status === 404) return ok({ found: false });
           if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
           const receipt = await readReceipt(sent.value);
+          // Changing a series' rule gives it back the days taken out of it, so they are taken out
+          // again after every write.
+          const skipped = await removeSkippedDays(remoteId, event);
+          if (!skipped.ok) return skipped;
           return ok({ found: true, versionTag: receipt?.changeKey ?? null });
         },
 
@@ -358,6 +546,93 @@ export function createMicrosoftCalendarAdapter(
             url = next !== undefined && next.startsWith(`${GRAPH_ORIGIN}/`) ? next : undefined;
           }
           return ok({ events, complete: url === undefined });
+        },
+
+        async listCalendarEvents(
+          calendarRemoteId: string,
+          window: ProviderEventWindow,
+        ): Promise<Dispatch<ProviderCalendarEvents | null>> {
+          const events: ProviderCalendarEvent[] = [];
+          let url: string | undefined =
+            `${GRAPH_ORIGIN}/v1.0/me/calendars/${encodeURIComponent(calendarRemoteId)}/calendarView` +
+            `?startDateTime=${encodeURIComponent(window.fromInstant)}` +
+            `&endDateTime=${encodeURIComponent(window.toInstant)}` +
+            `&$select=${CALENDAR_VIEW_FIELDS}&$top=${CALENDAR_VIEW_PAGE_SIZE}`;
+          for (let page = 0; page < CALENDAR_VIEW_PAGE_LIMIT && url !== undefined; page += 1) {
+            let response;
+            try {
+              response = await dependencies.http.request({ method: "GET", url, headers });
+            } catch {
+              return unreachable();
+            }
+            // The member deleted the calendar, or it was one shared to them and is shared no more.
+            if (response.status === 404) return ok(null);
+            if (response.status >= 400) return adapterError(problemFor(response.status));
+            const parsed = calendarViewPageSchema.safeParse(await readJson(response));
+            if (!parsed.success) return unreadable("Microsoft's view of a calendar");
+            for (const event of parsed.data.value) {
+              if (event.isCancelled === true) continue;
+              // These are the member's own events and come in every shape a calendar has ever
+              // held. One this adapter cannot place is left out; it does not cost them the rest.
+              const snapshot = snapshotOfGraphEvent(event);
+              if (snapshot === undefined) continue;
+              events.push({ ...snapshot, seriesRemoteId: event.seriesMasterId ?? null });
+            }
+            const next = parsed.data["@odata.nextLink"];
+            url = next !== undefined && next.startsWith(`${GRAPH_ORIGIN}/`) ? next : undefined;
+          }
+          return ok({ events, complete: url === undefined });
+        },
+
+        async watchChanges(
+          request: ProviderChangeWatchRequest,
+        ): Promise<Dispatch<ProviderChangeWatch>> {
+          const sent = await send("POST", `${GRAPH_ORIGIN}/v1.0/subscriptions`, {
+            changeType: "created,updated,deleted",
+            resource: "me/events",
+            notificationUrl: request.address,
+            // The same address hears that a watch was removed or that notices were missed, which
+            // are told apart from a change by their own field.
+            lifecycleNotificationUrl: request.address,
+            clientState: request.secret,
+            // Graph keeps a subscription to a calendar's events for a little under seven days at
+            // most and refuses a longer one; the caller asks for less than that.
+            expirationDateTime: request.expiresAt,
+          });
+          if (!sent.ok) return sent;
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          const parsed = subscriptionSchema.safeParse(await readJson(sent.value));
+          if (!parsed.success) return unreadable("Microsoft's answer to a new subscription");
+          return ok({ watchId: parsed.data.id, expiresAt: parsed.data.expirationDateTime });
+        },
+
+        async renewWatch(
+          watchId: string,
+          expiresAt: string,
+        ): Promise<Dispatch<ProviderChangeWatch | null>> {
+          const sent = await send(
+            "PATCH",
+            `${GRAPH_ORIGIN}/v1.0/subscriptions/${encodeURIComponent(watchId)}`,
+            { expirationDateTime: expiresAt },
+          );
+          if (!sent.ok) return sent;
+          if (sent.value.status === 404) return ok(null);
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          const parsed = subscriptionSchema.safeParse(await readJson(sent.value));
+          if (!parsed.success) return unreadable("Microsoft's answer to a renewed subscription");
+          return ok({ watchId: parsed.data.id, expiresAt: parsed.data.expirationDateTime });
+        },
+
+        async stopWatch(watchId: string): Promise<Dispatch<null>> {
+          const sent = await send(
+            "DELETE",
+            `${GRAPH_ORIGIN}/v1.0/subscriptions/${encodeURIComponent(watchId)}`,
+            undefined,
+          );
+          if (!sent.ok) return sent;
+          if (sent.value.status === 404) return ok(null);
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          return ok(null);
         },
 
         async readEvent(remoteId: string): Promise<Dispatch<ProviderEventSnapshot | null>> {

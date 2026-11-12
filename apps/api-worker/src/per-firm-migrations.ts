@@ -69,7 +69,11 @@ import calendarSyncRulesAndFirmLimitsSql from "@magna-carta/database/drizzle/per
 import seedSearchSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20261110T043629_seed-search-settings-permission.sql";
 import calendarSyncLinkSql from "@magna-carta/database/drizzle/per-firm/20261110T053527_calendar-sync-link.sql";
 import connectionSyncIssueSql from "@magna-carta/database/drizzle/per-firm/20261110T055842_connection-sync-issue.sql";
-import magnusFoldersAndPinsSql from "@magna-carta/database/drizzle/per-firm/20261110T081928_magnus-folders-and-pins.sql";
+import syncIssueProviderRefusedSql from "@magna-carta/database/drizzle/per-firm/20261110T081035_sync-issue-provider-refused.sql";
+import rejudgeDownloadOnlyRecordingsSql from "@magna-carta/database/drizzle/per-firm/20261110T083359_rejudge-download-only-recordings.sql";
+import taskCommentsSql from "@magna-carta/database/drizzle/per-firm/20261110T084953_task-comments.sql";
+import shownCalendarsAndExternalEventsSql from "@magna-carta/database/drizzle/per-firm/20261110T095653_shown-calendars-and-external-events.sql";
+import magnusFoldersAndPinsSql from "@magna-carta/database/drizzle/per-firm/20261112T195040_magnus-folders-and-pins.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -141,7 +145,11 @@ export function perFirmMigrations(): Migration[] {
     "20261110T043629_seed-search-settings-permission": seedSearchSettingsPermissionSql,
     "20261110T053527_calendar-sync-link": calendarSyncLinkSql,
     "20261110T055842_connection-sync-issue": connectionSyncIssueSql,
-    "20261110T081928_magnus-folders-and-pins": magnusFoldersAndPinsSql,
+    "20261110T081035_sync-issue-provider-refused": syncIssueProviderRefusedSql,
+    "20261110T083359_rejudge-download-only-recordings": rejudgeDownloadOnlyRecordingsSql,
+    "20261110T084953_task-comments": taskCommentsSql,
+    "20261110T095653_shown-calendars-and-external-events": shownCalendarsAndExternalEventsSql,
+    "20261112T195040_magnus-folders-and-pins": magnusFoldersAndPinsSql,
   });
 }
 

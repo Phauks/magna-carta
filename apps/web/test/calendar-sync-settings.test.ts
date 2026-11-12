@@ -8,6 +8,9 @@ import {
   NOT_SYNCED,
   rulesWithChange,
   scopeLabel,
+  shownCalendarChoices,
+  shownIdsWithChange,
+  shownSummary,
   subjectCategory,
   subjectName,
   syncingSummary,
@@ -158,6 +161,7 @@ describe("a copy the member changed in Outlook", () => {
       foundText({ ...issue, found: { ...sent, title: "Hearing (moved)", location: null } }),
     ).toBe('Titled "Hearing (moved)" · No location');
     expect(foundText({ ...issue, kind: "removed", found: null })).toBe("Deleted in Outlook");
+    expect(foundText({ ...issue, kind: "not_sent", found: null })).toContain("Not sent");
   });
 
   it("keys a row by its copy and offers its answers in a trailing column", () => {
@@ -168,5 +172,51 @@ describe("a copy the member changed in Outlook", () => {
       "In Outlook",
       "Actions",
     ]);
+  });
+});
+
+describe("which of the member's own calendars are shown", () => {
+  const main = { remoteId: "cal-main", name: "Calendar", isDefault: true, canWrite: true };
+  const holidays = {
+    remoteId: "cal-holidays",
+    name: "Holidays",
+    isDefault: false,
+    canWrite: false,
+  };
+  const shownMain = { calendarRemoteId: "cal-main", calendarName: "Calendar" };
+  const shownGone = { calendarRemoteId: "cal-gone", calendarName: "Old Team" };
+
+  it("lists every calendar of the account, a read-only one included, with the member's choice", () => {
+    expect(shownCalendarChoices([main, holidays], [shownMain])).toEqual([
+      { remoteId: "cal-main", name: "Calendar (My Main One)", shown: true },
+      { remoteId: "cal-holidays", name: "Holidays", shown: false },
+    ]);
+  });
+
+  it("still names what is chosen when the provider cannot be asked", () => {
+    expect(shownCalendarChoices(null, [shownMain])).toEqual([
+      { remoteId: "cal-main", name: "Calendar", shown: true },
+    ]);
+  });
+
+  it("lists a chosen calendar the account no longer has, and leaves it out of the next save", () => {
+    const choices = shownCalendarChoices([main, holidays], [shownMain, shownGone]);
+    expect(choices.at(-1)).toEqual({ remoteId: "cal-gone", name: "Old Team", shown: true });
+    expect(shownIdsWithChange(choices, [main, holidays], "cal-holidays", true)).toEqual([
+      "cal-main",
+      "cal-holidays",
+    ]);
+  });
+
+  it("sends the whole choice with one calendar turned off", () => {
+    const choices = shownCalendarChoices([main, holidays], [shownMain]);
+    expect(shownIdsWithChange(choices, [main, holidays], "cal-main", false)).toEqual([]);
+  });
+
+  it("says how many are shown, and to whom", () => {
+    expect(shownSummary([])).toBe("None of your Outlook calendars is shown in Magna Carta.");
+    expect(shownSummary([shownMain])).toBe(
+      "1 Outlook calendar is shown in Magna Carta, to you only.",
+    );
   });
 });

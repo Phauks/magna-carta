@@ -125,6 +125,11 @@ export interface AcrossMattersSearchRequest {
   // The most index entries one statement may draw its candidates from. See
   // `recordIndexNewestMatchesFrom` in @magna-carta/search/record-index-query.
   readonly candidateCap: number;
+  // The matters the record index is asked about, where the reader narrowed the search to few
+  // enough to name. Absent for a search of every visible matter, and for a narrowing too wide to
+  // list. It bounds the index's work and is never the reach: `visibility` above already carries
+  // the narrowing, and is what every statement composes.
+  readonly indexMatterIds?: readonly MatterId[];
 }
 
 // HOW A SOURCE ANSWERS ACROSS MATTERS, declared separately from how it answers inside one.

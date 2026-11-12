@@ -126,7 +126,8 @@ const putBackRoute = defineOpenAPIRoute(putBackMeta, {
   path: "/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back",
   description:
     "Has the copy written to the member's calendar again as the firm's calendar has the event: a " +
-    "changed copy is overwritten, a deleted one is made again. The firm's event is not changed.",
+    "changed copy is overwritten, a deleted one is made again, and an event the provider would " +
+    "not take is tried again. The firm's event is not changed.",
   request: { params: issueParams },
   responses: answerResponses,
 });

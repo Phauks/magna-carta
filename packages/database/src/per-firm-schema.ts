@@ -126,6 +126,7 @@ import type {
   MatterTaskChecklistItemId,
   MatterTaskId,
   MatterTaskLinkId,
+  MatterTaskCommentId,
   MatterTypeId,
   MeetingAttendanceId,
   MeetingGuestInvitationId,
@@ -7926,6 +7927,44 @@ export const matterTaskLink = sqliteTable(
   ],
 );
 
+// A TASK'S COMMENT THREAD: colleagues talking about one piece of work. Discussion, not the matter's
+// record — what the file must keep is a note on the matter. Flat on purpose: no replies to replies
+// and no reactions, so the thread reads top to bottom in the order things were said. Only the author
+// may reword or remove a comment, and a reworded one says so through `edited_at`.
+export const matterTaskComment = sqliteTable(
+  "matter_task_comment",
+  {
+    id: text("id").primaryKey().$type<MatterTaskCommentId>(), // matterTaskComment_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    authorUserId: text("author_user_id").notNull().$type<UserId>(),
+    body: text("body").notNull(),
+    createdAt: text("created_at").notNull(),
+    editedAt: text("edited_at"),
+  },
+  (table) => [
+    index("matter_task_comment_task_index").on(table.taskId, table.createdAt),
+    check("matter_task_comment_body_nonempty_check", sql`length(${table.body}) > 0`),
+  ],
+);
+
+// A colleague a comment names with @, each once. They are told, and the thread shows the name in
+// bold. A row of its own rather than a list inside the body, so "who was named" is a fact the
+// platform holds rather than a pattern it would have to find in somebody's words.
+export const matterTaskCommentMention = sqliteTable(
+  "matter_task_comment_mention",
+  {
+    commentId: text("comment_id")
+      .notNull()
+      .$type<MatterTaskCommentId>()
+      .references(() => matterTaskComment.id),
+    userId: text("user_id").notNull().$type<UserId>(),
+  },
+  (table) => [primaryKey({ columns: [table.commentId, table.userId] })],
+);
+
 // A TASK'S IDENTITY SOMEWHERE ELSE, and the tombstone a deleted task leaves behind. Both exist for
 // one reason: this platform is not the only place a firm's work is written down, and an ADDON that
 // mirrors tasks to an outside system needs two things the task row alone cannot give it.
@@ -8366,7 +8405,7 @@ export const calendarSyncLink = sqliteTable(
 );
 
 // One copy a member should look at: the copy in their own calendar no longer matches what was sent,
-// or is gone. One row per copy, keyed as its link is, so a copy never has two open questions. The
+// or is gone, or the provider refused to take it (`not_sent`). One row per copy, keyed as its link is, so a copy never has two open questions. The
 // row carries both sides as they stood when the difference was found (the event as sent, at the
 // detail the firm allows, and what the provider holds now), because the page that shows it must not
 // read the event again past the firm's limit. `left` is the member's answer "leave it as it is": the
@@ -8380,11 +8419,16 @@ export const connectionSyncIssue = sqliteTable(
       .references(() => integrationConnection.id),
     localKind: text("local_kind", { enum: ["matter_event", "firm_event", "deadline"] }).notNull(),
     localId: text("local_id").notNull(),
+    // `removed` means the provider holds no copy: the member deleted it or, where
+    // `provider_refused` is set, the provider never took it.
     kind: text("kind", { enum: ["changed", "removed"] }).notNull(),
     state: text("state", { enum: ["open", "left"] }).notNull(),
     remoteVersionTag: text("remote_version_tag"), // the version of the copy the row is about
     sentJson: text("sent_json").notNull(),
-    foundJson: text("found_json"), // null when the copy is gone
+    foundJson: text("found_json"), // null when there is no copy to read
+    // The provider would not take the event at all, so there never was a copy. A column of its own
+    // and not a third `kind`: SQLite cannot widen a CHECK without rebuilding the table.
+    providerRefused: integer("provider_refused", { mode: "boolean" }).notNull().default(false),
     detectedAt: text("detected_at").notNull(),
     settledAt: text("settled_at"),
   },
@@ -8399,6 +8443,63 @@ export const connectionSyncIssue = sqliteTable(
     check(
       "connection_sync_issue_found_shape_check",
       sql`(${table.kind} = 'removed') = (${table.foundJson} IS NULL)`,
+    ),
+  ],
+);
+
+// Which of a member's own calendars at their provider the firm's calendar shows back to them. The
+// member's choice, one row per calendar chosen; no row means nothing of theirs is read. The name
+// is the calendar's as it stood when chosen, shown where the provider cannot be asked.
+export const calendarSyncShownCalendar = sqliteTable(
+  "calendar_sync_shown_calendar",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    calendarRemoteId: text("calendar_remote_id").notNull(),
+    calendarName: text("calendar_name").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.calendarRemoteId] }),
+    check("calendar_sync_shown_calendar_id_check", sql`length(${table.calendarRemoteId}) > 0`),
+  ],
+);
+
+// One event in a member's own calendar at their provider, as a pass last read it from a calendar
+// that member chose to be shown. PRIVATE TO THAT MEMBER: the row belongs to their connection, every
+// read is by connection, and a connection is found from the session member's own principal. It is
+// not the firm's record of anything, is not on any matter, and is replaced by whatever the provider
+// says next. A series is one row per day it falls on, so there is no repeat rule to interpret.
+//
+// A whole-day event is two civil days with an inclusive last day. A timed one is two instants,
+// because the provider answers in its own zone and the screen decides which day and hour that is
+// for the person looking. The check keeps a row to exactly one of the two shapes.
+export const externalCalendarEvent = sqliteTable(
+  "external_calendar_event",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    remoteEventId: text("remote_event_id").notNull(),
+    calendarRemoteId: text("calendar_remote_id").notNull(),
+    remoteVersionTag: text("remote_version_tag"),
+    title: text("title").notNull(),
+    locationText: text("location_text"),
+    wholeDay: integer("whole_day", { mode: "boolean" }).notNull(),
+    startsOn: text("starts_on"), // YYYY-MM-DD, whole-day rows only
+    endsOn: text("ends_on"),
+    startsAt: text("starts_at"), // an instant, timed rows only
+    endsAt: text("ends_at"),
+    readAt: text("read_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.remoteEventId] }),
+    check(
+      "external_calendar_event_shape_check",
+      sql`(${table.wholeDay} = 1 AND ${table.startsOn} IS NOT NULL AND ${table.endsOn} IS NOT NULL AND ${table.startsAt} IS NULL AND ${table.endsAt} IS NULL) OR (${table.wholeDay} = 0 AND ${table.startsOn} IS NULL AND ${table.endsOn} IS NULL AND ${table.startsAt} IS NOT NULL AND ${table.endsAt} IS NOT NULL)`,
     ),
   ],
 );

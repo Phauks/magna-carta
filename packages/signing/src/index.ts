@@ -15,8 +15,14 @@ export {
   assembleCertificateOfCompletion,
   certificateDefects,
   renderCertificateOfCompletion,
+  signerDisplayName,
   type CertificateDefect,
 } from "./certificate.ts";
+export {
+  certificateSheet,
+  type CertificateSheet,
+  type CertificateSheetBlock,
+} from "./certificate-sheet.ts";
 export type { ByteRange, PrepareSealOptions, PreparedSeal, SealEngine } from "./engine.ts";
 export {
   decodeSealRequest,
@@ -30,6 +36,7 @@ export {
 } from "./port.ts";
 export {
   ATTRIBUTION_ORDER,
+  SIGNING_EVENT_KINDS,
   attributionMeets,
   type AttributionLevel,
   type CertificateOfCompletion,
@@ -37,7 +44,11 @@ export {
   type SignatureAdoption,
   type SignerAttribution,
   type SignerCompletion,
+  type SigningEnvelope,
+  type SigningEvent,
+  type SigningEventKind,
   type SigningIntent,
+  type SigningParty,
 } from "./esign.ts";
 export {
   generatePlatformSealIdentity,

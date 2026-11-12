@@ -17,10 +17,15 @@ export type Bindings = {
   LIBREOFFICE_ENGINE: DurableObjectNamespace<
     import("./libreoffice-engine-container.ts").LibreOfficeEngineContainer
   >;
+  // The pure-Rust audio/video transcode engine Container, registered the same way.
+  TRANSCODE_ENGINE: DurableObjectNamespace<
+    import("./transcode-engine-container.ts").TranscodeEngineContainer
+  >;
 };
 
 export { RasterEngineContainer } from "./raster-engine-container.ts";
 export { LibreOfficeEngineContainer } from "./libreoffice-engine-container.ts";
+export { TranscodeEngineContainer } from "./transcode-engine-container.ts";
 
 // Which binding runs each target. A target with no binding yet is a 503 rather than a crash: the
 // convert worker can be deployed before every Container it knows about has been created, and a
@@ -34,6 +39,7 @@ function namespaceFor(
   const namespaces: Record<EngineTarget, DurableObjectNamespace<never> | undefined> = {
     raster: environment.RASTER_ENGINE as unknown as DurableObjectNamespace<never>,
     libreoffice: environment.LIBREOFFICE_ENGINE as unknown as DurableObjectNamespace<never>,
+    transcode: environment.TRANSCODE_ENGINE as unknown as DurableObjectNamespace<never>,
   };
   return namespaces[target];
 }

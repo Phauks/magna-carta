@@ -223,6 +223,12 @@ describe("schema conformance (fitness functions)", () => {
       "calendar_sync_link",
       // A question about a copy is keyed as the copy is, so a copy never has two.
       "connection_sync_issue",
+      // A member's choice is the pair of their account and one of its calendars.
+      "calendar_sync_shown_calendar",
+      // A member's own event is the pair of their account and the provider's identifier for it.
+      "external_calendar_event",
+      // A comment names a colleague once.
+      "matter_task_comment_mention",
       // Where one member keeps one conversation: a member keeps a conversation in one place, so the
       // pair IS the shelf and a surrogate key would let it sit in two folders at once.
       "magnus_conversation_shelf",

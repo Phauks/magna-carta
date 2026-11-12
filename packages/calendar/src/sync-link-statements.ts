@@ -170,12 +170,12 @@ export interface SyncingConnectionRow {
 }
 
 // The accounts a change to the calendar could matter to: every connected calendar account that has
-// a rule, or still has a copy out from a rule since removed. An account with neither has nothing to
-// send and nothing to take back.
+// a rule, still has a copy out from a rule since removed, or has chosen a calendar of its own to be
+// shown. An account with none of those has nothing to send, take back or read.
 export function selectSyncingConnectionsStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
-      `SELECT connection.id AS id, connection.principal_ref AS principal_ref FROM integration_connection AS connection WHERE connection.category = ?1 AND connection.status = 'connected' AND (EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_RULE_TABLE} AS rule WHERE rule.connection_id = connection.id) OR EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_LINK_TABLE} AS link WHERE link.connection_id = connection.id))`,
+      `SELECT connection.id AS id, connection.principal_ref AS principal_ref FROM integration_connection AS connection WHERE connection.category = ?1 AND connection.status = 'connected' AND (EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_RULE_TABLE} AS rule WHERE rule.connection_id = connection.id) OR EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_LINK_TABLE} AS link WHERE link.connection_id = connection.id) OR EXISTS (SELECT 1 FROM calendar_sync_shown_calendar AS shown WHERE shown.connection_id = connection.id))`,
     )
     .bind(CALENDAR_SYNC_CATEGORY);
 }
@@ -199,6 +199,11 @@ export interface SyncCandidateRow {
   readonly type_name: string | null;
   readonly takes_part: number;
   readonly on_own_matter: number;
+  // The stored repeat rule of a series, or null for something that happens once.
+  readonly recurrence_rule: string | null;
+  // The days of a series that a row of their own stands in for (changed or called off), joined by
+  // commas. Those days are not the series' to show.
+  readonly replaced_days: string | null;
 }
 
 export interface SyncWindow {
@@ -210,9 +215,10 @@ const OWN_MATTER = (matterIdExpression: string): string =>
   `EXISTS (SELECT 1 FROM matter_assignment AS assignment WHERE assignment.matter_id = ${matterIdExpression} AND assignment.member_user_id = ?1 AND assignment.valid_to IS NULL)`;
 
 // A member's matter events inside the window: the ones they are named on, and the ones on a matter
-// they are currently assigned to. A repeating series and its changed days are left out until
-// repeating events are sent as what they are; sending the first day alone would put one hearing in
-// a calendar where the record holds twelve.
+// they are currently assigned to. A repeating series is one row, read whenever it started, because
+// a series begun years ago may fall inside the window today; the caller drops one that has ended.
+// It carries the days a row of its own replaces. A changed day is such a row and is read like any
+// other event; a day called off is a cancelled row and is not read at all.
 export function selectMatterEventSyncCandidatesStatement(
   database: SqlDatabase,
   visibility: VisibleMatterPredicate,
@@ -223,7 +229,7 @@ export function selectMatterEventSyncCandidatesStatement(
   const onOwnMatter = OWN_MATTER("event.matter_id");
   return database
     .prepare(
-      `SELECT event.id AS id, event.event_type_id AS subject, event.title AS title, event.description AS description, event.starts_on AS starts_on, event.starts_at_time AS starts_at_time, event.ends_on AS ends_on, event.ends_at_time AS ends_at_time, event.time_zone AS time_zone, event.location_text AS location_text, event.conference_url AS conference_url, (SELECT origin.matter_number FROM matter AS origin WHERE origin.id = event.matter_id) AS matter_number, (SELECT type.name FROM matter_event_type AS type WHERE type.id = event.event_type_id) AS type_name, ${takesPart} AS takes_part, ${onOwnMatter} AS on_own_matter FROM ${MATTER_EVENT_TABLE} AS event WHERE event.status <> 'cancelled' AND event.event_type_id IS NOT NULL AND event.recurrence_rule IS NULL AND event.recurrence_parent_id IS NULL AND event.starts_on >= ?2 AND event.starts_on <= ?3 AND ${visibility.fragmentFor("event.matter_id")} AND (${takesPart} OR ${onOwnMatter})`,
+      `SELECT event.id AS id, event.event_type_id AS subject, event.title AS title, event.description AS description, event.starts_on AS starts_on, event.starts_at_time AS starts_at_time, event.ends_on AS ends_on, event.ends_at_time AS ends_at_time, event.time_zone AS time_zone, event.location_text AS location_text, event.conference_url AS conference_url, (SELECT origin.matter_number FROM matter AS origin WHERE origin.id = event.matter_id) AS matter_number, (SELECT type.name FROM matter_event_type AS type WHERE type.id = event.event_type_id) AS type_name, ${takesPart} AS takes_part, ${onOwnMatter} AS on_own_matter, event.recurrence_rule AS recurrence_rule, (SELECT group_concat(replacement.recurrence_occurrence_on) FROM ${MATTER_EVENT_TABLE} AS replacement WHERE replacement.recurrence_parent_id = event.id) AS replaced_days FROM ${MATTER_EVENT_TABLE} AS event WHERE event.status <> 'cancelled' AND event.event_type_id IS NOT NULL AND event.starts_on <= ?3 AND (event.recurrence_rule IS NOT NULL OR event.starts_on >= ?2) AND ${visibility.fragmentFor("event.matter_id")} AND (${takesPart} OR ${onOwnMatter})`,
     )
     .bind(memberUserId, window.from, window.to, ...visibility.bindings);
 }
@@ -238,7 +244,7 @@ export function selectFirmEventSyncCandidatesStatement(
   const takesPart = `(event.audience = 'all_members' OR EXISTS (SELECT 1 FROM firm_event_participant AS participant WHERE participant.firm_event_id = event.id AND participant.member_user_id = ?1))`;
   return database
     .prepare(
-      `SELECT event.id AS id, event.event_type_id AS subject, event.title AS title, event.description AS description, event.starts_on AS starts_on, event.starts_at_time AS starts_at_time, event.ends_on AS ends_on, event.ends_at_time AS ends_at_time, event.time_zone AS time_zone, event.location_text AS location_text, event.conference_url AS conference_url, NULL AS matter_number, (SELECT type.name FROM matter_event_type AS type WHERE type.id = event.event_type_id) AS type_name, 1 AS takes_part, 0 AS on_own_matter FROM ${FIRM_EVENT_TABLE} AS event WHERE event.status <> 'cancelled' AND event.event_type_id IS NOT NULL AND event.recurrence_rule IS NULL AND event.recurrence_parent_id IS NULL AND event.starts_on >= ?2 AND event.starts_on <= ?3 AND ${takesPart}`,
+      `SELECT event.id AS id, event.event_type_id AS subject, event.title AS title, event.description AS description, event.starts_on AS starts_on, event.starts_at_time AS starts_at_time, event.ends_on AS ends_on, event.ends_at_time AS ends_at_time, event.time_zone AS time_zone, event.location_text AS location_text, event.conference_url AS conference_url, NULL AS matter_number, (SELECT type.name FROM matter_event_type AS type WHERE type.id = event.event_type_id) AS type_name, 1 AS takes_part, 0 AS on_own_matter, event.recurrence_rule AS recurrence_rule, (SELECT group_concat(replacement.recurrence_occurrence_on) FROM ${FIRM_EVENT_TABLE} AS replacement WHERE replacement.recurrence_parent_id = event.id) AS replaced_days FROM ${FIRM_EVENT_TABLE} AS event WHERE event.status <> 'cancelled' AND event.event_type_id IS NOT NULL AND event.starts_on <= ?3 AND (event.recurrence_rule IS NOT NULL OR event.starts_on >= ?2) AND ${takesPart}`,
     )
     .bind(memberUserId, window.from, window.to);
 }
@@ -256,7 +262,7 @@ export function selectDeadlineSyncCandidatesStatement(
   const assigned = OWN_MATTER("deadline.matter_id");
   return database
     .prepare(
-      `SELECT deadline.id AS id, 'deadline' AS subject, deadline.title AS title, NULL AS description, deadline.due_on AS starts_on, deadline.due_at_time AS starts_at_time, NULL AS ends_on, NULL AS ends_at_time, deadline.time_zone AS time_zone, NULL AS location_text, NULL AS conference_url, (SELECT origin.matter_number FROM matter AS origin WHERE origin.id = deadline.matter_id) AS matter_number, NULL AS type_name, ${responsible} AS takes_part, ${assigned} AS on_own_matter FROM ${MATTER_DEADLINE_TABLE} AS deadline WHERE deadline.state = 'open' AND deadline.due_on >= ?2 AND deadline.due_on <= ?3 AND ${visibility.fragmentFor("deadline.matter_id")} AND (${responsible} OR ${assigned})`,
+      `SELECT deadline.id AS id, 'deadline' AS subject, deadline.title AS title, NULL AS description, deadline.due_on AS starts_on, deadline.due_at_time AS starts_at_time, NULL AS ends_on, NULL AS ends_at_time, deadline.time_zone AS time_zone, NULL AS location_text, NULL AS conference_url, (SELECT origin.matter_number FROM matter AS origin WHERE origin.id = deadline.matter_id) AS matter_number, NULL AS type_name, ${responsible} AS takes_part, ${assigned} AS on_own_matter, NULL AS recurrence_rule, NULL AS replaced_days FROM ${MATTER_DEADLINE_TABLE} AS deadline WHERE deadline.state = 'open' AND deadline.due_on >= ?2 AND deadline.due_on <= ?3 AND ${visibility.fragmentFor("deadline.matter_id")} AND (${responsible} OR ${assigned})`,
     )
     .bind(memberUserId, window.from, window.to, ...visibility.bindings);
 }

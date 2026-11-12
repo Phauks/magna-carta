@@ -2,6 +2,8 @@
 // proves the pure-Rust PDF WASM loads and runs in the real Worker runtime, sealing a document end to
 // end (prepare/embed in WASM, CMS via pkijs, all in workerd).
 
+import { extractPdfText } from "@magna-carta/pdf";
+import composeWasmModule from "@magna-carta/pdf-compose/src/pkg/pdf_compose_core_bg.wasm";
 import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
 import {
   encodeSealRequest,
@@ -20,7 +22,10 @@ import worker from "../src/index.ts";
 import { performSeal } from "../src/seal-service.ts";
 import { HELLO_PDF_BASE64 } from "./fixtures.ts";
 
-const pdfWasm = pdfWasmModule as unknown as WebAssembly.Module;
+const engines = {
+  pdf: pdfWasmModule,
+  compose: composeWasmModule,
+};
 const helloPdf = fromBase64(HELLO_PDF_BASE64);
 
 const signer: SignerCompletion = {
@@ -123,7 +128,7 @@ describe("sign worker — platform seal on workerd", () => {
     const response = await performSeal(
       sealRequest(),
       { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
-      pdfWasm,
+      engines,
     );
 
     expect(response.sealedPdf.subarray(0, helloPdf.length)).toEqual(helloPdf);
@@ -131,6 +136,55 @@ describe("sign worker — platform seal on workerd", () => {
     expect(response.certificateText).toContain("CERTIFICATE OF COMPLETION");
     expect(response.certificate.signers).toHaveLength(1);
     expect(await verifySealedCms(response.sealedPdf, material.certificate)).toBe(true);
+  });
+
+  it("issues the certificate as a sealed PDF that prints the request and its audit log", async () => {
+    const response = await performSeal(
+      {
+        ...sealRequest(),
+        signers: [
+          {
+            intent: { ...signer.intent, name: "Alice Example", email: "alice@example.test" },
+            consent: signer.consent,
+            attribution: { level: "access-code", observedIp: "198.51.100.7" },
+          },
+        ],
+        envelope: { id: "env_0001", title: "Engagement letter.pdf" },
+        events: [
+          { kind: "sent", at: "2026-07-18T11:50:00Z", actor: "Bob Sender" },
+          { kind: "viewed", at: "2026-07-18T11:58:00Z", actor: "Alice Example" },
+        ],
+      },
+      { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+      engines,
+    );
+
+    // The page count comes from the document that was sealed, not from the caller.
+    expect(response.certificate.envelope).toEqual({
+      id: "env_0001",
+      title: "Engagement letter.pdf",
+      pageCount: 1,
+    });
+    expect(response.certificate.events?.map((event) => event.kind)).toEqual([
+      "sent",
+      "viewed",
+      "consented",
+      "signed",
+      "sealed",
+    ]);
+
+    // The sheet is a PDF, it carries the platform seal, and a reader finds the record on it.
+    expect(new TextDecoder().decode(response.certificatePdf.subarray(0, 5))).toBe("%PDF-");
+    expect(await verifySealedCms(response.certificatePdf, material.certificate)).toBe(true);
+    const printed = (await extractPdfText(response.certificatePdf)).pages
+      .flatMap((page) => page.lines.map((line) => line.text))
+      .join("\n");
+    expect(printed).toContain("Certificate of Completion");
+    expect(printed).toContain("env_0001");
+    expect(printed).toContain("Alice Example");
+    expect(printed).toContain("198.51.100.7");
+    expect(printed).toContain("Sent for signature");
+    expect(printed).toContain(response.documentHashSha256.slice(0, 32));
   });
 
   it("POST /seal returns a sealed, verifiable document when configured", async () => {
@@ -147,6 +201,7 @@ describe("sign worker — platform seal on workerd", () => {
     const response = decodeSealResponse(await res.text());
     expect(response.sealedPdf.subarray(0, helloPdf.length)).toEqual(helloPdf);
     expect(await verifySealedCms(response.sealedPdf, material.certificate)).toBe(true);
+    expect(await verifySealedCms(response.certificatePdf, material.certificate)).toBe(true);
   });
 
   it("returns 503 seal-not-configured when the platform secrets are absent", async () => {

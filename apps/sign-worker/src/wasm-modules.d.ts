@@ -6,3 +6,7 @@ declare module "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm" {
   const wasm: WebAssembly.Module;
   export default wasm;
 }
+declare module "@magna-carta/pdf-compose/src/pkg/pdf_compose_core_bg.wasm" {
+  const wasm: WebAssembly.Module;
+  export default wasm;
+}

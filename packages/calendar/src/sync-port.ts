@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@magna-carta/civil-time/recurrence";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 
 // What calendar sync needs from a member's own calendar account, in the calendar's vocabulary rather
@@ -31,6 +32,23 @@ export interface ProviderEventWrite {
   readonly endsOn: string | null;
   readonly endsAtTime: string | null;
   readonly timeZone: string;
+  // Present when the event is a series, absent or null when it happens once. `startsOn` is then
+  // the series' first day.
+  readonly repeats?: ProviderEventRepeat | null;
+}
+
+// How a series repeats, in the calendar's own terms. An adapter converts the rule to its
+// provider's shape and refuses, as a validation problem, a rule the provider cannot repeat on
+// exactly the same days: a series that falls on different days in two calendars is worse than one
+// that is plainly missing from the second.
+export interface ProviderEventRepeat {
+  // The rule as stored. Part of what a write is compared by.
+  readonly line: string;
+  // The rule as read, or null where the stored line is one this platform cannot itself read.
+  readonly rule: RecurrenceRule | null;
+  // Days the series does not fall on although its rule says so: each has an event of its own, or
+  // was called off. Sorted.
+  readonly skippedDays: readonly string[];
 }
 
 // What a provider answers a write with: its own identifier for the copy, and a tag that changes
@@ -71,6 +89,55 @@ export interface ProviderWrittenEvents {
   readonly complete: boolean;
 }
 
+// One event in one of the member's calendars, whoever made it. A day of a series names the series
+// it belongs to, which is how a caller tells a day of a series this platform wrote from one the
+// member made themselves.
+export interface ProviderCalendarEvent extends ProviderEventSnapshot {
+  readonly seriesRemoteId: string | null;
+}
+
+// A calendar's events inside a window. `complete` is false when the provider had more than the
+// adapter was willing to page through, in which case an event missing from the list proves nothing.
+export interface ProviderCalendarEvents {
+  readonly events: readonly ProviderCalendarEvent[];
+  readonly complete: boolean;
+}
+
+// Two instants. An event that touches the time between them is inside.
+export interface ProviderEventWindow {
+  readonly fromInstant: string;
+  readonly toInstant: string;
+}
+
+// A standing request that the provider say when anything in the member's calendar changes, so a
+// change is picked up when it happens instead of at the next pass that happened to run. The notice
+// carries nothing about the change: it only says "look again", and the look is the ordinary pass.
+// A provider keeps a watch for a limited time; `expiresAt` is the instant it stops unless renewed.
+export interface ProviderChangeWatch {
+  readonly watchId: string;
+  readonly expiresAt: string;
+}
+
+export interface ProviderChangeWatchRequest {
+  // Where the provider sends its notices. A public https address of this deployment.
+  readonly address: string;
+  // Sent back with every notice. The receiver compares it and ignores a notice without it, which
+  // is what tells the provider's notice from anybody else's request to the same address.
+  readonly secret: string;
+  // When the caller would like the watch to last until. The provider answers the instant it
+  // gave, which may be sooner.
+  readonly expiresAt: string;
+}
+
+// One notice as a provider sent it, read into the calendar's terms by that provider's own reader.
+// `lifecycle` is present on a notice about the watch itself: `renew` when the provider wants the
+// watch renewed before its time, `replace` when the watch is gone and a new one must be begun,
+// `missed` when the provider admits it dropped notices. Absent on a notice that something changed.
+export interface ProviderNotice {
+  readonly secret: string;
+  readonly lifecycle?: "renew" | "replace" | "missed";
+}
+
 export interface CalendarSyncPort {
   listCalendars(): Promise<Dispatch<readonly ProviderCalendar[]>>;
   // `transactionId` is chosen by the caller and repeated on a retry, so a create whose answer was
@@ -92,6 +159,20 @@ export interface CalendarSyncPort {
   // One copy by its identifier, or null when the provider no longer has it. The answer that
   // settles whether a copy missing from the list is really gone.
   readEvent(remoteId: string): Promise<Dispatch<ProviderEventSnapshot | null>>;
+  // Everything in one calendar inside a window: the member's own events and this platform's copies
+  // alike, a series as one entry per day it falls on, an event called off left out. Null when the
+  // account no longer has the calendar. Nothing is changed at the provider.
+  listCalendarEvents(
+    calendarRemoteId: string,
+    window: ProviderEventWindow,
+  ): Promise<Dispatch<ProviderCalendarEvents | null>>;
+  // Begins a watch on the member's whole calendar account.
+  watchChanges(request: ProviderChangeWatchRequest): Promise<Dispatch<ProviderChangeWatch>>;
+  // Keeps a watch going until a later instant. Null when the provider no longer has the watch, in
+  // which case the caller begins a new one.
+  renewWatch(watchId: string, expiresAt: string): Promise<Dispatch<ProviderChangeWatch | null>>;
+  // Ending a watch that is already gone succeeds.
+  stopWatch(watchId: string): Promise<Dispatch<null>>;
 }
 
 // The operation names an adapter's capability descriptor declares, so a caller can ask what an
@@ -104,5 +185,9 @@ export const CALENDAR_SYNC_OPERATIONS = [
   "deleteEvent",
   "listWrittenEvents",
   "readEvent",
+  "listCalendarEvents",
+  "watchChanges",
+  "renewWatch",
+  "stopWatch",
 ] as const;
 export type CalendarSyncOperation = (typeof CALENDAR_SYNC_OPERATIONS)[number];

@@ -2956,6 +2956,8 @@ export type DocumentSealResponse = {
         signers: Array<{
             intent: {
                 signerId: string;
+                name?: string;
+                email?: string;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -2966,11 +2968,31 @@ export type DocumentSealResponse = {
             attribution: {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 observedIp?: string;
+                userAgent?: string;
                 proofReference?: string;
             };
         }>;
+        envelope?: {
+            id: string;
+            title?: string;
+            pageCount?: number;
+            sender?: {
+                name: string;
+                email?: string;
+            };
+            createdAt?: string;
+        };
+        events?: Array<{
+            kind: 'created' | 'sent' | 'delivered' | 'reminded' | 'viewed' | 'identity-verified' | 'consented' | 'signed' | 'declined' | 'reassigned' | 'voided' | 'completed' | 'sealed';
+            at: string;
+            actor?: string;
+            observedIp?: string;
+            userAgent?: string;
+            detail?: string;
+        }>;
     };
     certificateText: string;
+    certificatePdfBase64: string;
 };
 
 export type SessionLaunchResponse = {
@@ -6311,6 +6333,10 @@ export type CalendarSyncSettings = {
     calendars: Array<CalendarSyncProviderCalendar> | null;
     subjects: Array<CalendarSyncSubject>;
     rules: Array<CalendarSyncRule>;
+    /**
+     * The account's calendars the member chose to be shown their own events from. Empty until they choose one.
+     */
+    shownCalendars: Array<CalendarSyncShownCalendar>;
 };
 
 export type CalendarSyncProviderCalendar = {
@@ -6357,6 +6383,14 @@ export type CalendarSyncRule = {
     scope: 'mine' | 'my_matters';
 };
 
+export type CalendarSyncShownCalendar = {
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when it was chosen, shown when the provider is unreachable.
+     */
+    calendarName: string;
+};
+
 export type CalendarSyncRulesReplace = {
     /**
      * The member's whole rule set. A subject absent from it is not synced.
@@ -6395,6 +6429,50 @@ export type CalendarSyncFirmLimitsSet = {
     }>;
 };
 
+export type CalendarSyncShownCalendarsReplace = {
+    /**
+     * The member's whole choice of calendars to be shown. A calendar absent from it is no longer read, and what was read from it is removed.
+     */
+    calendarRemoteIds: Array<string>;
+};
+
+export type CalendarSyncAccountEventList = {
+    /**
+     * The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
+     */
+    shownCalendars: Array<CalendarSyncShownCalendar>;
+    events: Array<CalendarSyncAccountEvent>;
+    /**
+     * True when the window held more events than one answer carries.
+     */
+    truncated: boolean;
+};
+
+export type CalendarSyncAccountEvent = {
+    /**
+     * The provider's own identifier for the event.
+     */
+    id: string;
+    calendarRemoteId: string;
+    calendarName: string | null;
+    title: string;
+    location: string | null;
+    wholeDay: boolean;
+    /**
+     * The first day of a whole-day event, as YYYY-MM-DD. Null on a timed one.
+     */
+    startsOn: string | null;
+    /**
+     * The last day a whole-day event covers. Null on a timed one.
+     */
+    endsOn: string | null;
+    /**
+     * The instant a timed event starts. Null on a whole-day one. The reader's screen decides which day and hour that is.
+     */
+    startsAt: string | null;
+    endsAt: string | null;
+};
+
 export type CalendarSyncIssueList = {
     issues: Array<CalendarSyncIssue>;
 };
@@ -6403,9 +6481,9 @@ export type CalendarSyncIssue = {
     localKind: 'matter_event' | 'firm_event' | 'deadline';
     localId: string;
     /**
-     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar.
+     * `changed`: the copy in the member's calendar no longer reads as it was sent. `removed`: the copy is no longer in the member's calendar. `not_sent`: the provider would not take the event, so there is no copy.
      */
-    kind: 'changed' | 'removed';
+    kind: 'changed' | 'removed' | 'not_sent';
     /**
      * The event as it was sent to the member's calendar, at the detail the firm allows.
      */
@@ -6890,6 +6968,25 @@ export type UpdateMatterTaskChecklistItemRequest = {
 export type AddMatterTaskLinkRequest = {
     url: string;
     label?: string | null;
+};
+
+export type MatterTaskCommentThread = {
+    data: Array<MatterTaskComment>;
+};
+
+export type MatterTaskComment = {
+    id: string;
+    taskId: string;
+    authorUserId: string;
+    body: string;
+    createdAt: string;
+    editedAt: string | null;
+    mentionedUserIds: Array<string>;
+};
+
+export type MatterTaskCommentRequest = {
+    body: string;
+    mentionedUserIds?: Array<string>;
 };
 
 export type MyDayResponse = {
@@ -20331,6 +20428,8 @@ export type EsignSealData = {
         signers: Array<{
             intent: {
                 signerId: string;
+                name?: string;
+                email?: string;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -20343,6 +20442,7 @@ export type EsignSealData = {
                 proofReference?: string;
             };
         }>;
+        documentTitle?: string;
         seal?: {
             name?: string;
             reason?: string;
@@ -21328,6 +21428,8 @@ export type MattersListData = {
         locationId?: string;
         responsibleMemberId?: string;
         search?: string;
+        mine?: 'true';
+        clientEntityId?: string;
         cursor?: string;
         pageSize?: number;
     };
@@ -23193,6 +23295,8 @@ export type SearchAcrossMattersData = {
         q: string;
         in?: string | Array<string>;
         limit?: number;
+        mine?: 'true';
+        clientEntityId?: string;
     };
     url: '/api/v1/search';
 };
@@ -30341,6 +30445,105 @@ export type CalendarSyncSetFirmLimitsResponses = {
 
 export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsResponses[keyof CalendarSyncSetFirmLimitsResponses];
 
+export type CalendarSyncReplaceMyShownCalendarsData = {
+    body: CalendarSyncShownCalendarsReplace;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-sync/shown-calendars';
+};
+
+export type CalendarSyncReplaceMyShownCalendarsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The member has no connected account
+     */
+    409: Problem;
+    /**
+     * A calendar named is not one the account has; `errors` says which
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The member's provider could not be asked for their calendars, so nothing was saved
+     */
+    503: Problem;
+};
+
+export type CalendarSyncReplaceMyShownCalendarsError = CalendarSyncReplaceMyShownCalendarsErrors[keyof CalendarSyncReplaceMyShownCalendarsErrors];
+
+export type CalendarSyncReplaceMyShownCalendarsResponses = {
+    /**
+     * The member's calendar sync settings after the write
+     */
+    200: CalendarSyncSettings;
+};
+
+export type CalendarSyncReplaceMyShownCalendarsResponse = CalendarSyncReplaceMyShownCalendarsResponses[keyof CalendarSyncReplaceMyShownCalendarsResponses];
+
+export type CalendarSyncListMyAccountEventsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The window's first day, as YYYY-MM-DD.
+         */
+        from: string;
+        /**
+         * The window's last day, as YYYY-MM-DD.
+         */
+        to: string;
+    };
+    url: '/api/v1/me/calendar-sync/account-events';
+};
+
+export type CalendarSyncListMyAccountEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The window is not two days in order, or is longer than a year
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncListMyAccountEventsError = CalendarSyncListMyAccountEventsErrors[keyof CalendarSyncListMyAccountEventsErrors];
+
+export type CalendarSyncListMyAccountEventsResponses = {
+    /**
+     * The member's own events in the window
+     */
+    200: CalendarSyncAccountEventList;
+};
+
+export type CalendarSyncListMyAccountEventsResponse = CalendarSyncListMyAccountEventsResponses[keyof CalendarSyncListMyAccountEventsResponses];
+
 export type CalendarSyncListMyIssuesData = {
     body?: never;
     path?: never;
@@ -30457,6 +30660,44 @@ export type CalendarSyncLeaveMyCopyResponses = {
 };
 
 export type CalendarSyncLeaveMyCopyResponse = CalendarSyncLeaveMyCopyResponses[keyof CalendarSyncLeaveMyCopyResponses];
+
+export type CalendarSyncReceiveMicrosoftNoticeData = {
+    body?: never;
+    path: {
+        firmId: string;
+        connectionId: string;
+    };
+    query?: {
+        validationToken?: string;
+    };
+    url: '/api/v1/calendar-sync/provider-notices/microsoft/{firmId}/{connectionId}';
+};
+
+export type CalendarSyncReceiveMicrosoftNoticeErrors = {
+    /**
+     * The address or the validation token is not one this route could have issued
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReceiveMicrosoftNoticeError = CalendarSyncReceiveMicrosoftNoticeErrors[keyof CalendarSyncReceiveMicrosoftNoticeErrors];
+
+export type CalendarSyncReceiveMicrosoftNoticeResponses = {
+    /**
+     * The validation token, answered back as it was sent
+     */
+    200: string;
+    /**
+     * The notice was received
+     */
+    202: unknown;
+};
+
+export type CalendarSyncReceiveMicrosoftNoticeResponse = CalendarSyncReceiveMicrosoftNoticeResponses[keyof CalendarSyncReceiveMicrosoftNoticeResponses];
 
 export type CalendarListSeriesData = {
     body?: never;
@@ -33138,6 +33379,207 @@ export type TasksRemoveTaskLinkResponses = {
 };
 
 export type TasksRemoveTaskLinkResponse = TasksRemoveTaskLinkResponses[keyof TasksRemoveTaskLinkResponses];
+
+export type TasksReadTaskCommentsData = {
+    body?: never;
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/comments';
+};
+
+export type TasksReadTaskCommentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReadTaskCommentsError = TasksReadTaskCommentsErrors[keyof TasksReadTaskCommentsErrors];
+
+export type TasksReadTaskCommentsResponses = {
+    /**
+     * The thread
+     */
+    200: MatterTaskCommentThread;
+};
+
+export type TasksReadTaskCommentsResponse = TasksReadTaskCommentsResponses[keyof TasksReadTaskCommentsResponses];
+
+export type TasksAddTaskCommentData = {
+    body: MatterTaskCommentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/comments';
+};
+
+export type TasksAddTaskCommentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAddTaskCommentError = TasksAddTaskCommentErrors[keyof TasksAddTaskCommentErrors];
+
+export type TasksAddTaskCommentResponses = {
+    /**
+     * The new record's id
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAddTaskCommentResponse = TasksAddTaskCommentResponses[keyof TasksAddTaskCommentResponses];
+
+export type TasksDeleteTaskCommentData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        commentId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-comments/{commentId}';
+};
+
+export type TasksDeleteTaskCommentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksDeleteTaskCommentError = TasksDeleteTaskCommentErrors[keyof TasksDeleteTaskCommentErrors];
+
+export type TasksDeleteTaskCommentResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksDeleteTaskCommentResponse = TasksDeleteTaskCommentResponses[keyof TasksDeleteTaskCommentResponses];
+
+export type TasksEditTaskCommentData = {
+    body: MatterTaskCommentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        commentId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-comments/{commentId}';
+};
+
+export type TasksEditTaskCommentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksEditTaskCommentError = TasksEditTaskCommentErrors[keyof TasksEditTaskCommentErrors];
+
+export type TasksEditTaskCommentResponses = {
+    /**
+     * Done
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksEditTaskCommentResponse = TasksEditTaskCommentResponses[keyof TasksEditTaskCommentResponses];
 
 export type MyDayGetData = {
     body?: never;
