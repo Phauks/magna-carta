@@ -77,6 +77,7 @@
     type ConversationSort,
     type MagnusAvailability,
     type MagnusConversation,
+    type MagnusModelChoice,
   } from "./magnus-api.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -164,6 +165,8 @@
   let accepting = $state(false);
   let starting = $state(false);
   let draft = $state("");
+  /** The model and effort the member chose for their next question; null is the firm's model. */
+  let modelChoice = $state<MagnusModelChoice | null>(null);
   let sort = $state<ConversationSort>("date");
   /*
    * What the rail is being asked. `searchText` is the field's; `appliedSearch` is what the server was
@@ -519,7 +522,7 @@
       selectedId = outcome.value.id;
       composingNew = false;
     }
-    const sent = await session.send(message);
+    const sent = await session.send(message, modelChoice);
     if (!sent) return;
     draft = "";
     void loadConversations();
@@ -621,6 +624,8 @@
     onMatter={openMatterId !== null}
     attachments={session.attachments}
     model={availability?.model}
+    models={availability?.models ?? []}
+    bind:choice={modelChoice}
     sending={session.sending || starting}
     {sendRefused}
     {allowanceSpent}

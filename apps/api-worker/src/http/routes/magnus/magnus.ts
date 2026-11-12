@@ -16,7 +16,6 @@ import type {
   MagnusTurnId,
   MatterId,
 } from "@magna-carta/identifiers/types";
-import { catalogEntryFor } from "@magna-carta/inference/catalog";
 import { primaryReasoningModelDefinition } from "@magna-carta/inference/settings";
 import {
   memberAcknowledgedAudit,
@@ -31,7 +30,13 @@ import {
   renameConversation,
   startConversation,
 } from "@magna-carta/magnus/conversation";
-import { ConversationSummary, TurnDetail, TurnProgress } from "@magna-carta/magnus/contract";
+import {
+  Availability,
+  ConversationSummary,
+  SubmitTurnRequest,
+  TurnDetail,
+  TurnProgress,
+} from "@magna-carta/magnus/contract";
 import { MAGNUS_DISCLOSURE_VERSION } from "@magna-carta/magnus/disclosure";
 import {
   CONVERSATION_ATTACHMENTS_MAX,
@@ -78,6 +83,12 @@ import { defineOpenAPIRoute } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
 import { resolveMagnusConsent } from "../../../magnus/consent.ts";
 import { magnusSubscribeRequest } from "../../../magnus/magnus-sockets.ts";
+import {
+  answeringModelBody,
+  chooseableModelIds,
+  modelChoiceRefusal,
+  resolveModelChoice,
+} from "../../../magnus/model-choice.ts";
 import { resolveTurnProgress } from "../../../magnus/turn-progress.ts";
 import { isWebSocketUpgrade } from "../../../progress/job-progress-sockets.ts";
 import {
@@ -109,27 +120,6 @@ import {
 
 // ---------------------------------------------------------------------------------------------
 // Wire shapes
-
-// Which model answers. Reported with the availability so the surface can say it beside the composer:
-// a firm chooses the model on its AI settings screen, and a member typing should be able to see the
-// choice without leaving the conversation.
-const AnsweringModel = z
-  .object({
-    modelId: z.string(),
-    snapshotId: z.string(),
-    zeroDataRetention: z.boolean(),
-  })
-  .openapi("MagnusAnsweringModel");
-
-const Availability = z
-  .object({
-    state: z.enum(["open", "firm-ineligible", "feature-disabled", "acknowledgement-required"]),
-    disclosureVersion: z.number().optional(),
-    remainingDailyTurns: z.number().optional(),
-    // Present when open. Null when the firm's stored model is one the platform no longer carries.
-    model: AnsweringModel.nullable().optional(),
-  })
-  .openapi("MagnusAvailability");
 
 // A file attached to a conversation by reference, as a reader meets it: the file's own name, and what
 // became of its text on the most recent question. `name` is null where the file has been deleted
@@ -469,7 +459,7 @@ const submitTurnRoute = defineOpenAPIRoute(mutationMeta("submitTurn", true), {
     body: {
       content: {
         "application/json": {
-          schema: z.object({ content: z.string().min(1) }).openapi("MagnusSubmitTurnRequest"),
+          schema: SubmitTurnRequest,
         },
       },
       required: true,
@@ -493,7 +483,8 @@ const submitTurnRoute = defineOpenAPIRoute(mutationMeta("submitTurn", true), {
     },
     ...commonErrors,
     422: {
-      description: "The message exceeds the per-turn size limit",
+      description:
+        "The message exceeds the per-turn size limit, or names a model or effort it cannot",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -573,22 +564,15 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         countMemberTurnsSince(firm.firmDatabase, utcDayStart(new Date().toISOString())),
         readFirmSetting(firm.firmDatabase, primaryReasoningModelDefinition),
       ]);
-      // The model that will answer, read through the same setting the consumer reads, so what the
-      // composer says and what the queue sends can never name two models.
-      const entry = catalogEntryFor(modelId);
+      // The firm's model, read through the same setting the consumer reads, so what the composer
+      // offers first and what the queue sends when the member chooses nothing are the same model.
       return c.json(
         {
           state: "open" as const,
           disclosureVersion: consent.disclosureVersion,
           remainingDailyTurns: Math.max(ceiling - spent, 0),
-          model:
-            entry === undefined
-              ? null
-              : {
-                  modelId: entry.modelId,
-                  snapshotId: entry.snapshotId,
-                  zeroDataRetention: entry.zdrEligible,
-                },
+          model: answeringModelBody(modelId),
+          models: chooseableModelIds().flatMap((id) => answeringModelBody(id) ?? []),
         },
         200,
       );
@@ -833,6 +817,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
               modelId: turn.modelId,
               snapshotId: turn.snapshotId,
               contextTruncated: turn.contextTruncated,
+              effort: turn.effort,
               createdAt: turn.createdAt,
               completedAt: turn.completedAt,
             })),
@@ -1136,9 +1121,21 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       if (refusal !== null) return refusal;
 
       const { conversationId } = c.req.valid("param");
-      const { content } = c.req.valid("json");
+      const { content, modelId, effort } = c.req.valid("json");
       const owned = await requireOwnConversation(c, conversationId, userId);
       if (owned === null) return notFound(c);
+
+      // The member's choice of model and effort is checked against the same roster the firm chooses
+      // from, and refused by name when it is not on it (apps/api-worker/src/magnus/model-choice.ts).
+      const chosen =
+        modelId === undefined && effort === undefined
+          ? null
+          : resolveModelChoice(
+              await readFirmSetting(firm.firmDatabase, primaryReasoningModelDefinition),
+              { modelId, effort },
+            );
+      if (chosen !== null && chosen.kind !== "ok")
+        return problemJson(c, modelChoiceRefusal(chosen));
 
       // The cap is checked here as well as at the write path: a member gets a refusal naming the
       // limit rather than a request that succeeds and quietly ships a deposition to a provider.
@@ -1185,6 +1182,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
               content,
               nextSequence,
               disclosureVersion: MAGNUS_DISCLOSURE_VERSION,
+              ...(chosen !== null && { choice: chosen.choice }),
             },
           );
           if (!submission.ok) {

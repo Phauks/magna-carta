@@ -74,6 +74,7 @@ import rejudgeDownloadOnlyRecordingsSql from "@magna-carta/database/drizzle/per-
 import taskCommentsSql from "@magna-carta/database/drizzle/per-firm/20261110T084953_task-comments.sql";
 import shownCalendarsAndExternalEventsSql from "@magna-carta/database/drizzle/per-firm/20261110T095653_shown-calendars-and-external-events.sql";
 import magnusFoldersAndPinsSql from "@magna-carta/database/drizzle/per-firm/20261112T195040_magnus-folders-and-pins.sql";
+import magnusTurnEffortSql from "@magna-carta/database/drizzle/per-firm/20261112T200116_magnus-turn-effort.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -150,6 +151,7 @@ export function perFirmMigrations(): Migration[] {
     "20261110T084953_task-comments": taskCommentsSql,
     "20261110T095653_shown-calendars-and-external-events": shownCalendarsAndExternalEventsSql,
     "20261112T195040_magnus-folders-and-pins": magnusFoldersAndPinsSql,
+    "20261112T200116_magnus-turn-effort": magnusTurnEffortSql,
   });
 }
 

@@ -89,13 +89,45 @@ export function composerDisclosureLine(options: {
 
 /** Which model answers, as the composer states it beside the disclosure line. */
 export function answeringModelLine(
-  model: { readonly modelId: string; readonly zeroDataRetention: boolean } | null | undefined,
+  model:
+    | {
+        readonly modelId: string;
+        readonly displayName?: string;
+        readonly zeroDataRetention: boolean;
+      }
+    | null
+    | undefined,
 ): string {
   if (model === undefined) return "";
   if (model === null) {
     return "The model the firm chose is no longer carried by the platform; an administrator chooses another in the firm's AI settings.";
   }
+  const name = model.displayName ?? model.modelId;
   return model.zeroDataRetention
-    ? `Answered by ${model.modelId}, which keeps nothing that is sent to it.`
-    : `Answered by ${model.modelId}.`;
+    ? `Answered by ${name}, which keeps nothing that is sent to it.`
+    : `Answered by ${name}.`;
+}
+
+/**
+ * The provider's effort levels as the composer names them. "Extra High" is spelled out rather than
+ * the provider's "xhigh", because a menu item is read, not parsed.
+ */
+export const EFFORT_LABELS: Readonly<Record<string, string>> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra High",
+  max: "Max",
+};
+
+export function effortLabel(effort: string): string {
+  return EFFORT_LABELS[effort] ?? effort;
+}
+
+/** What the model control reads: the model's name, and the effort where the model takes one. */
+export function modelControlLabel(
+  model: { readonly displayName: string },
+  effort: string | null,
+): string {
+  return effort === null ? model.displayName : `${model.displayName}, ${effortLabel(effort)}`;
 }

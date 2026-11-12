@@ -165,8 +165,20 @@ matter. A closed matter cannot take a conversation; reopen it first or choose an
 
 ## Which Model Answers
 
-The line above the message box names the model that answers your questions, which is the model your
-firm chose in its AI settings. Every model the firm can choose keeps nothing that is sent to it.
+The line above the message box names the model that answers your questions. It starts as the model
+your firm chose in its AI settings, marked **Firm's Model** in the list.
+
+To use a different model for your next question, press the model control beside **Attach a File**,
+which shows the model and effort in use, such as "Claude Opus 5.5, Medium". Choose a model, and then
+an effort:
+
+- **Low** and **Medium** answer sooner and cost the firm less.
+- **High**, **Extra High** and **Max** let the model think longer before it answers, which helps with
+  harder questions and takes longer.
+
+The level marked **Default** is the one the model uses when you do not choose. Your choice stays in
+place for the questions that follow until you change it or leave the page. You can choose only from
+the models your firm could choose, and every one of them keeps nothing that is sent to it.
 
 ## If Magnus Is Not There
 

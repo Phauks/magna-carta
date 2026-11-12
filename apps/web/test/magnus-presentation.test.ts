@@ -61,6 +61,7 @@ function turn(overrides: Partial<MagnusTurn> = {}): MagnusTurn {
     modelId: null,
     snapshotId: null,
     contextTruncated: false,
+    effort: null,
     createdAt: STARTED_AT,
     completedAt: STARTED_AT,
     ...overrides,

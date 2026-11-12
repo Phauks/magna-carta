@@ -8219,12 +8219,16 @@ export type MagnusAvailability = {
     disclosureVersion?: number;
     remainingDailyTurns?: number;
     model?: MagnusAnsweringModel;
+    models?: Array<MagnusAnsweringModel>;
 };
 
 export type MagnusAnsweringModel = {
     modelId: string;
+    displayName: string;
     snapshotId: string;
     zeroDataRetention: boolean;
+    effortLevels: Array<string>;
+    defaultEffort: string | null;
 } | null;
 
 export type MagnusAcknowledgement = {
@@ -8273,6 +8277,7 @@ export type MagnusTurn = {
     modelId: string | null;
     snapshotId: string | null;
     contextTruncated: boolean;
+    effort: string | null;
     createdAt: string;
     completedAt: string | null;
 };
@@ -8307,6 +8312,8 @@ export type MagnusSubmitTurnResponse = {
 
 export type MagnusSubmitTurnRequest = {
     content: string;
+    modelId?: string;
+    effort?: string;
 };
 
 export type MagnusTurnProgress = {
@@ -39340,7 +39347,7 @@ export type MagnusSubmitTurnErrors = {
      */
     409: Problem;
     /**
-     * The message exceeds the per-turn size limit
+     * The message exceeds the per-turn size limit, or names a model or effort it cannot
      */
     422: Problem;
     /**

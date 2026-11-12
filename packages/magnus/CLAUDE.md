@@ -28,7 +28,10 @@ registered there; this file states what they mean for the code, not where they w
 - `src/settings.ts` — `magnus.enabled` (boolean, default **false**) and `magnus.dailyTurnCeiling`
   (integer, default 500). There is **no model setting here**: the firm's shipped
   `inference.primaryReasoningModel` is what the assistant reads, and the firm chooses it on its AI
-  settings screen
+  settings screen. A member may choose another model from the same roster, and an effort, for one
+  question at a time in the composer; the choice rides the outbox payload as two labels and is
+  checked again by the consumer (`apps/api-worker/src/magnus/model-choice.ts`), and the effort sent
+  is recorded on the answer (`magnus_turn.effort`)
 - `src/limits.ts` also carries the attachment caps: ten files per conversation, 64 KiB of attachment
   text per request, a 25 MiB source file; `cutToByteLength` cuts on a character boundary
 - `src/statements.ts` — the fourth table is `magnus_conversation_attachment`; `listConversations`

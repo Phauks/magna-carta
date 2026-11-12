@@ -35227,6 +35227,12 @@
           },
           "model": {
             "$ref": "#/components/schemas/MagnusAnsweringModel"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusAnsweringModel"
+            }
           }
         },
         "required": [
@@ -35242,17 +35248,35 @@
           "modelId": {
             "type": "string"
           },
+          "displayName": {
+            "type": "string"
+          },
           "snapshotId": {
             "type": "string"
           },
           "zeroDataRetention": {
             "type": "boolean"
+          },
+          "effortLevels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultEffort": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "modelId",
+          "displayName",
           "snapshotId",
-          "zeroDataRetention"
+          "zeroDataRetention",
+          "effortLevels",
+          "defaultEffort"
         ]
       },
       "MagnusAcknowledgement": {
@@ -35470,6 +35494,12 @@
           "contextTruncated": {
             "type": "boolean"
           },
+          "effort": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -35490,6 +35520,7 @@
           "modelId",
           "snapshotId",
           "contextTruncated",
+          "effort",
           "createdAt",
           "completedAt"
         ]
@@ -35614,6 +35645,12 @@
           "content": {
             "type": "string",
             "minLength": 1
+          },
+          "modelId": {
+            "type": "string"
+          },
+          "effort": {
+            "type": "string"
           }
         },
         "required": [
@@ -113171,7 +113208,7 @@
             }
           },
           "422": {
-            "description": "The message exceeds the per-turn size limit",
+            "description": "The message exceeds the per-turn size limit, or names a model or effort it cannot",
             "content": {
               "application/problem+json": {
                 "schema": {

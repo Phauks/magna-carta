@@ -10027,6 +10027,11 @@ export const magnusTurn = sqliteTable(
     // of the conversation. Recorded and surfaced rather than hidden: silent truncation is what
     // produces a confidently wrong answer built on a premise the member believes was in scope.
     contextTruncated: integer("context_truncated", { mode: "boolean" }).notNull().default(false),
+    // The effort the answer was asked for (the provider's effort control: low, medium, high, xhigh or
+    // max), recorded beside the model because it changes what an answer costs and how long the model
+    // thought. Null on a member turn, on a failed turn, and where no effort was sent (a model that
+    // takes none answers at its own default).
+    effort: text("effort"),
     createdAt: text("created_at").notNull(),
     completedAt: text("completed_at"),
   },

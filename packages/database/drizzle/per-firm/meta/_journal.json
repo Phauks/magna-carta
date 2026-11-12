@@ -449,6 +449,13 @@
       "when": 1794298767966,
       "tag": "20261112T195040_magnus-folders-and-pins",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1794513676302,
+      "tag": "20261112T200116_magnus-turn-effort",
+      "breakpoints": true
     }
   ]
 }

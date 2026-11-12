@@ -108,7 +108,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "firm/firm-usage.ts": { lines: 261, shapes: 16 },
   "firm/numbering.ts": { lines: 617, shapes: 20 },
   "firm/scan-policy.ts": { lines: 350, shapes: 6 },
-  "magnus/magnus.ts": { lines: 1314, shapes: 14 },
+  "magnus/magnus.ts": { lines: 1312, shapes: 11 },
   "matters/intake.ts": { lines: 1171, shapes: 22 },
   "matters/locations.ts": { lines: 1307, shapes: 15 },
   "matters/matter-assets.ts": { lines: 2330, shapes: 52 },

@@ -29,11 +29,23 @@ export const MAGNUS_AVAILABILITY_STATES = [
 ] as const;
 export type MagnusAvailabilityState = (typeof MAGNUS_AVAILABILITY_STATES)[number];
 
-/** The model that answers, as the firm chose it on its AI settings screen. */
+/** A model that can answer: the firm's own, or another a member may choose in the composer. */
 export interface MagnusAnsweringModel {
   modelId: string;
+  /** The name the composer shows, such as "Claude Opus 5.5". */
+  displayName: string;
   snapshotId: string;
   zeroDataRetention: boolean;
+  /** The effort levels the model takes, lowest first; empty where it takes none. */
+  effortLevels: string[];
+  /** The effort it answers at when none is chosen; null where it takes none. */
+  defaultEffort: string | null;
+}
+
+/** The model and effort a member chose in the composer for their next question. */
+export interface MagnusModelChoice {
+  modelId: string;
+  effort: string | null;
 }
 
 export interface MagnusAvailability {
@@ -47,6 +59,8 @@ export interface MagnusAvailability {
    * no longer carries, which the composer states rather than naming a model that will not answer.
    */
   model?: MagnusAnsweringModel | null;
+  /** Present when open: every model a member may choose, the firm's own among them. */
+  models?: MagnusAnsweringModel[];
 }
 
 /**
@@ -162,6 +176,8 @@ export interface MagnusTurn {
   snapshotId: string | null;
   /** True when earlier messages did not fit, so this answer was built on part of the conversation. */
   contextTruncated: boolean;
+  /** The effort the answer was asked for, or null where none was sent. */
+  effort: string | null;
   createdAt: string;
   completedAt: string | null;
 }
@@ -345,11 +361,21 @@ export function submitTurn(
   conversationId: string,
   content: string,
   idempotencyKey: string,
+  choice: MagnusModelChoice | null = null,
 ): Promise<ApiOutcome<MagnusSubmittedTurn>> {
+  // No choice sends no model, and the firm's model answers at its own default effort.
+  const body =
+    choice === null
+      ? { content }
+      : {
+          content,
+          modelId: choice.modelId,
+          ...(choice.effort !== null && { effort: choice.effort }),
+        };
   return requestJson(
     fetchImpl,
     `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns`,
-    { method: "POST", body: { content }, idempotencyKey },
+    { method: "POST", body, idempotencyKey },
   );
 }
 

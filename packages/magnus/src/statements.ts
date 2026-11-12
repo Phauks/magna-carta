@@ -77,6 +77,7 @@ interface TurnDatabaseRow {
   input_tokens: number | null;
   output_tokens: number | null;
   context_truncated: number;
+  effort: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -108,6 +109,7 @@ function toTurnRow(row: TurnDatabaseRow): TurnRow {
     inputTokens: row.input_tokens,
     outputTokens: row.output_tokens,
     contextTruncated: row.context_truncated === 1,
+    effort: row.effort,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
@@ -632,6 +634,7 @@ export interface CompleteTurnOptions {
   // True when earlier turns did not fit the request window. Recorded on the turn so the member is
   // told, on every later read of the transcript and not only in the moment.
   readonly contextTruncated: boolean;
+  readonly effort: string | null;
   readonly now: string;
 }
 
@@ -646,7 +649,7 @@ export function completeTurnStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MAGNUS_TURN_TABLE} SET status = 'complete', content = ?2, model_id = ?3, snapshot_id = ?4, input_tokens = ?5, output_tokens = ?6, context_truncated = ?7, completed_at = ?8 WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${MAGNUS_TURN_TABLE} SET status = 'complete', content = ?2, model_id = ?3, snapshot_id = ?4, input_tokens = ?5, output_tokens = ?6, context_truncated = ?7, completed_at = ?8, effort = ?9 WHERE id = ?1 AND status = 'pending'`,
     )
     .bind(
       options.id,
@@ -657,6 +660,7 @@ export function completeTurnStatement(
       options.outputTokens,
       options.contextTruncated ? 1 : 0,
       options.now,
+      options.effort,
     );
 }
 
@@ -686,7 +690,7 @@ export async function readTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
     )
     .bind(id)
     .all<TurnDatabaseRow>();
@@ -702,7 +706,7 @@ export async function readNewestTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
     )
     .bind(conversationId)
     .all<TurnDatabaseRow>();
@@ -723,7 +727,7 @@ export async function readRecentTurns(
   // could disagree.
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
     )
     .bind(conversationId, limit)
     .all<TurnDatabaseRow>();
@@ -743,7 +747,7 @@ export async function listTurns(
   bindings.push(options.limit ?? DEFAULT_PAGE_SIZE);
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings)
     .all<TurnDatabaseRow>();

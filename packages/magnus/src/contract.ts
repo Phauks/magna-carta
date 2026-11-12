@@ -42,6 +42,8 @@ export const TurnDetail = z
     // True when earlier messages did not fit the request window, so this answer was built on part of
     // the conversation.
     contextTruncated: z.boolean(),
+    // The effort the answer was asked for (low, medium, high, xhigh or max), or null where none was.
+    effort: z.string().nullable(),
     createdAt: z.string(),
     completedAt: z.string().nullable(),
   })
@@ -91,3 +93,42 @@ export const ShelfResponse = z
     pinnedAt: z.string().nullable(),
   })
   .meta({ id: "MagnusShelf" });
+
+// A model a member can be answered by, with what the composer needs to offer it: its name, its pinned
+// snapshot, whether it keeps nothing sent to it, and the effort levels it takes (empty where the model
+// takes none), with the one it uses when the member names none.
+export const AnsweringModel = z
+  .object({
+    modelId: z.string(),
+    displayName: z.string(),
+    snapshotId: z.string(),
+    zeroDataRetention: z.boolean(),
+    effortLevels: z.array(z.string()),
+    defaultEffort: z.string().nullable(),
+  })
+  .meta({ id: "MagnusAnsweringModel" });
+
+// What a client reads before showing an input box. The firm chooses its model on its AI settings
+// screen and that model is the default; a member may choose another from the same roster in the
+// composer, one question at a time.
+export const Availability = z
+  .object({
+    state: z.enum(["open", "firm-ineligible", "feature-disabled", "acknowledgement-required"]),
+    disclosureVersion: z.number().optional(),
+    remainingDailyTurns: z.number().optional(),
+    // Present when open. Null when the firm's stored model is one the platform no longer carries.
+    model: AnsweringModel.nullable().optional(),
+    // Present when open: every model a member may choose, the firm's own among them.
+    models: z.array(AnsweringModel).optional(),
+  })
+  .meta({ id: "MagnusAvailability" });
+
+// A message, and optionally the model and effort to answer it with. Absent, the firm's model answers
+// at its own default effort.
+export const SubmitTurnRequest = z
+  .object({
+    content: z.string().min(1),
+    modelId: z.string().optional(),
+    effort: z.string().optional(),
+  })
+  .meta({ id: "MagnusSubmitTurnRequest" });

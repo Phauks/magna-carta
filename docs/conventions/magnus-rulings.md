@@ -236,6 +236,13 @@ they still need to look better, so their styling is expected to change.
 - **R2.13 holds by construction, and is still open for choosing a folder at the start.** A
   conversation in no folder is in General, so a new one is in General without a row. Choosing a
   folder or matter in the New control comes with the split New control.
+- **R2.14 is still open, with the model and effort picker built.** The composer's model control
+  (`apps/web/src/lib/magnus/model-picker.svelte`) offers the roster the firm chooses from on its AI
+  settings screen, the firm's own model marked and used by default, and every effort level the
+  chosen model takes, read from the catalog through the availability read. A choice is checked on
+  submission (refused by name when off the roster) and again when the answer runs (falling back to
+  the firm's model), and the effort is recorded on the answer beside the model
+  (`magnus_turn.effort`). Still open in R2.14: templates, and the context and allowance popup.
 
 - **R2.1 changes the design-system component, not only the page.** The Conversation component was
   written as a record with no alignment carrying meaning, and the meetings chat still reads that way.
