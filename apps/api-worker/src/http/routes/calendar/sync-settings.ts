@@ -5,7 +5,6 @@ import {
   CalendarSyncRulesReplace,
   CalendarSyncSettings,
 } from "@magna-carta/calendar/sync-contract";
-import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import {
   readSyncRules,
   readSyncSubjects,
@@ -14,23 +13,11 @@ import {
   SyncRuleRefusal,
 } from "@magna-carta/calendar/sync-rule-service";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import {
-  selectConnectionStatement,
-  updateConnectionStatusStatement,
-} from "@magna-carta/data-access/integration-connection-statements";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
-import { MICROSOFT_CALENDAR_ADAPTER_ID } from "@magna-carta/microsoft-graph/calendar-sync";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
-import {
-  listMemberCalendars,
-  type MemberCalendarsOutcome,
-} from "../../../calendar-sync/member-calendars.ts";
-import { memberCalendarCredentialStore } from "../../../calendar-sync/member-credential-store.ts";
-import { resolveMicrosoftApplication } from "../../../calendar-sync/microsoft-application.ts";
 import { integrationCredentialStoreForFirm } from "../../../plugins/credential-store.ts";
-import { protectedReadContext } from "../../../protected-read-context.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -41,6 +28,12 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import type { ConnectedAccountsRouteDeps } from "./connected-accounts.ts";
+import {
+  memberAccount,
+  memberAccountCalendars,
+  memberSyncSettings,
+  type MemberAccountRow,
+} from "./member-account.ts";
 
 // CALENDAR SYNC SETTINGS: what the firm lets leave, and what each member chose to send.
 //
@@ -219,14 +212,7 @@ const setFirmRoute = defineOpenAPIRoute(setFirmMeta, {
   },
 });
 
-interface ConnectionRow {
-  readonly id: string;
-  readonly adapter_id: string;
-  readonly credential_ref: string;
-  readonly status: "connected" | "degraded" | "needs_reauth" | "disabled";
-  readonly account_label: string | null;
-  readonly created_at: string;
-}
+type ConnectionRow = MemberAccountRow;
 
 function refusalProblem(c: SyncSettingsContext, refusal: SyncRuleRefusal) {
   return problemJson(c, {
@@ -247,75 +233,12 @@ export function registerCalendarSyncSettingsRoutes(
   const credentialStoreForFirm = deps.credentialStoreForFirm ?? integrationCredentialStoreForFirm;
   const now = deps.now ?? (() => new Date());
 
-  // The member's own connection, found through their own principal and nothing a request names.
-  async function memberConnection(c: SyncSettingsContext): Promise<ConnectionRow | null> {
-    const row = await selectConnectionStatement(
-      requireChokepointFirmContext(c).firmDatabase,
-      CALENDAR_SYNC_CATEGORY,
-      requireChokepointUserId(c),
-    ).first<ConnectionRow>();
-    return row !== null && row.adapter_id === MICROSOFT_CALENDAR_ADAPTER_ID ? row : null;
-  }
+  const ports = { http, credentialStoreForFirm, now };
+  const memberConnection = memberAccount;
+  const memberCalendars = (c: SyncSettingsContext, connection: ConnectionRow) =>
+    memberAccountCalendars(c, connection, ports);
 
-  async function memberCalendars(
-    c: SyncSettingsContext,
-    connection: ConnectionRow,
-  ): Promise<MemberCalendarsOutcome> {
-    const application = resolveMicrosoftApplication(c.env, c.req.url);
-    if (application === undefined) return { kind: "unavailable" };
-    const outcome = await listMemberCalendars({
-      http,
-      now,
-      application,
-      credentials: memberCalendarCredentialStore(
-        protectedReadContext(c),
-        requireChokepointUserId(c),
-        credentialStoreForFirm,
-      ),
-      credentialRef: connection.credential_ref,
-    });
-    // The provider said the account must be signed in to again. Recorded, so the Connected
-    // Accounts page says so the next time it is opened, whichever page found out.
-    if (outcome.kind === "sign-in-again" && connection.status !== "needs_reauth") {
-      await updateConnectionStatusStatement(
-        requireChokepointFirmContext(c).firmDatabase,
-        connection.id as IntegrationConnectionId,
-        "needs_reauth",
-        now().toISOString(),
-      ).run();
-    }
-    return outcome;
-  }
-
-  async function settingsBody(
-    c: SyncSettingsContext,
-    connection: ConnectionRow | null,
-    calendars: MemberCalendarsOutcome | null,
-  ) {
-    const database = requireChokepointFirmContext(c).firmDatabase;
-    const [subjects, rules] = await Promise.all([
-      readSyncSubjects(database),
-      connection === null
-        ? Promise.resolve([])
-        : readSyncRules(database, connection.id as IntegrationConnectionId),
-    ]);
-    return {
-      account:
-        connection === null
-          ? null
-          : {
-              id: connection.id,
-              provider: "microsoft" as const,
-              accountLabel: connection.account_label,
-              status:
-                calendars?.kind === "sign-in-again" ? ("needs_reauth" as const) : connection.status,
-              connectedAt: connection.created_at,
-            },
-      calendars: calendars?.kind === "listed" ? [...calendars.calendars] : null,
-      subjects,
-      rules,
-    };
-  }
+  const settingsBody = memberSyncSettings;
 
   // GET /api/v1/me/calendar-sync
   app.openapi(

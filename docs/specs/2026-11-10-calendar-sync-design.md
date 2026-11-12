@@ -184,6 +184,25 @@ event on each pass replaces the delta cursor for now, so `connection_sync_state`
 (`apps/api-worker/src/calendar-sync/provider-changes.ts`,
 `packages/calendar/src/sync-issue-statements.ts`).
 
+As built, an edit to a copy is now applied, by the owner's ruling of 2026-11-10 that an edit made
+in Outlook changes the Magna Carta event without asking. It supersedes the open question in the
+paragraph above for edits; a deleted copy is still only a question and never cancels anything, and
+a deadline's copy is still put back. The edit goes through the calendar's own service as an
+ordinary edit by that member (`apps/api-worker/src/calendar-sync/apply-provider-edit.ts`), so the
+event's shape is validated, the audit row names the member, a moved matter event raises the same
+`rescheduled` topic it would from its own window, and a second audit row,
+`calendar_sync.provider_edit_applied`, says the change came from the member's calendar. It is an
+edit in place and not a continuance. Three limits keep it to what the member could have done and
+what a copy can faithfully say. The member must hold `calendar:manage`; without it the edit stays
+a question. Only the days and times are carried, plus the title and place where the firm's limit
+is full detail; a copy sent with minimal detail has a title the platform wrote, so an edit to that
+alone is put back. A series' first day is never moved from a copy, because Graph's documentation
+does not settle where a dragged series begins, and a changed single day of a series is still not
+read. After an edit is applied every account with a rule is asked for a pass, so colleagues'
+copies follow, and this member's own copy is written once more in full, which also sets right any
+part of the edit that was not carried. When the event and the copy both changed between two
+passes, the event wins: a pass sends before it looks.
+
 For deadlines the narrow scope means the matters the member is responsible for and the wide one
 every matter they are assigned to, because a deadline names no person.
 
@@ -220,6 +239,28 @@ client-chosen `transactionId` so a retry cannot make a second copy
 Magna Carta stores an RFC 5545 rule. Google uses the same text; Graph uses a structured pattern, so
 the Microsoft adapter converts both ways, with a test for every shape the repeat editor can produce.
 A rule Graph cannot hold is not sent and raises an issue.
+
+As built, events a member made in Outlook are read into `external_calendar_event`, private to that
+member. The member chooses which of their account's calendars are shown
+(`calendar_sync_shown_calendar`, replaced whole through
+`PUT /api/v1/me/calendar-sync/shown-calendars`); a calendar shared to them read-only is as good a
+choice as their own. At the end of each pass `apps/api-worker/src/calendar-sync/shown-calendars.ts`
+asks the provider for each chosen calendar's view of a window (a month back, a year ahead) and
+makes the table agree: a new event is written, one whose version tag changed is written again, and
+one the provider no longer lists is removed, unless the provider's list was cut short. A copy this
+platform wrote is left out, a single one by its identifier in `calendar_sync_link` and a day of a
+series by the series it belongs to. The window is asked through Graph's `calendarView`, which lays
+a series out as its days, so the table holds one row per day and no repeat rule; that is the one
+departure from the table as designed above, which carried a rule. A whole-day event is stored as
+civil days and a timed one as two instants, because the provider answers in its own zone and the
+reader's screen decides the day and hour. The read route
+(`GET /api/v1/me/calendar-sync/account-events`) finds the account through the session member and
+nothing a request names, and answers from the table without asking the provider. On the web the events are one calendar in the rail, `My Outlook Calendar`, listed only
+for a member who chose a calendar and painted with their own titles at the reader's hour
+(`apps/web/src/lib/calendar/own-account-events.ts`). Colleagues see
+nothing, not even busy time, which leaves that open question as it was. Attaching one of these
+events to a matter is not built. The whole window is read again on each pass; a delta cursor is the
+next step if that proves slow.
 
 As built for Graph, a series leaves as one event carrying a `recurrence` pattern and range
 ([recurrencePattern](https://learn.microsoft.com/en-us/graph/api/resources/recurrencepattern?view=graph-rest-1.0),

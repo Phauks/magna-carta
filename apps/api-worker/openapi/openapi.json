@@ -27026,13 +27026,21 @@
             "items": {
               "$ref": "#/components/schemas/CalendarSyncRule"
             }
+          },
+          "shownCalendars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncShownCalendar"
+            },
+            "description": "The account's calendars the member chose to be shown their own events from. Empty until they choose one."
           }
         },
         "required": [
           "account",
           "calendars",
           "subjects",
-          "rules"
+          "rules",
+          "shownCalendars"
         ]
       },
       "CalendarSyncProviderCalendar": {
@@ -27148,6 +27156,22 @@
           "scope"
         ]
       },
+      "CalendarSyncShownCalendar": {
+        "type": "object",
+        "properties": {
+          "calendarRemoteId": {
+            "type": "string"
+          },
+          "calendarName": {
+            "type": "string",
+            "description": "The calendar's name when it was chosen, shown when the provider is unreachable."
+          }
+        },
+        "required": [
+          "calendarRemoteId",
+          "calendarName"
+        ]
+      },
       "CalendarSyncRulesReplace": {
         "type": "object",
         "properties": {
@@ -27243,6 +27267,120 @@
         },
         "required": [
           "limits"
+        ]
+      },
+      "CalendarSyncShownCalendarsReplace": {
+        "type": "object",
+        "properties": {
+          "calendarRemoteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "maxItems": 50,
+            "description": "The member's whole choice of calendars to be shown. A calendar absent from it is no longer read, and what was read from it is removed."
+          }
+        },
+        "required": [
+          "calendarRemoteIds"
+        ]
+      },
+      "CalendarSyncAccountEventList": {
+        "type": "object",
+        "properties": {
+          "shownCalendars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncShownCalendar"
+            },
+            "description": "The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSyncAccountEvent"
+            }
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when the window held more events than one answer carries."
+          }
+        },
+        "required": [
+          "shownCalendars",
+          "events",
+          "truncated"
+        ]
+      },
+      "CalendarSyncAccountEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The provider's own identifier for the event."
+          },
+          "calendarRemoteId": {
+            "type": "string"
+          },
+          "calendarName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wholeDay": {
+            "type": "boolean"
+          },
+          "startsOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first day of a whole-day event, as YYYY-MM-DD. Null on a timed one."
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last day a whole-day event covers. Null on a timed one."
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The instant a timed event starts. Null on a whole-day one. The reader's screen decides which day and hour that is."
+          },
+          "endsAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "calendarRemoteId",
+          "calendarName",
+          "title",
+          "location",
+          "wholeDay",
+          "startsOn",
+          "endsOn",
+          "startsAt",
+          "endsAt"
         ]
       },
       "CalendarSyncIssueList": {
@@ -91325,6 +91463,226 @@
           },
           "422": {
             "description": "A subject or calendar named cannot be used; `errors` says which subject and why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/shown-calendars": {
+      "put": {
+        "description": "Replaces the session member's choice of which of their own account's calendars are shown to them in the firm's calendar. Events from a calendar no longer chosen are removed at once. Nothing is shown to anybody else, and nothing is changed at the provider.",
+        "operationId": "calendarSync.replaceMyShownCalendars",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.replaceMyShownCalendars",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarSyncShownCalendarsReplace"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's calendar sync settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has no connected account",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A calendar named is not one the account has; `errors` says which",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The member's provider could not be asked for their calendars, so nothing was saved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/calendar-sync/account-events": {
+      "get": {
+        "description": "The session member's own events inside a window, as last read from the calendars of their account they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.",
+        "operationId": "calendarSync.listMyAccountEvents",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.listMyAccountEvents",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The window's first day, as YYYY-MM-DD."
+            },
+            "required": true,
+            "description": "The window's first day, as YYYY-MM-DD.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The window's last day, as YYYY-MM-DD."
+            },
+            "required": true,
+            "description": "The window's last day, as YYYY-MM-DD.",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's own events in the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncAccountEventList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The window is not two days in order, or is longer than a year",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -170,12 +170,12 @@ export interface SyncingConnectionRow {
 }
 
 // The accounts a change to the calendar could matter to: every connected calendar account that has
-// a rule, or still has a copy out from a rule since removed. An account with neither has nothing to
-// send and nothing to take back.
+// a rule, still has a copy out from a rule since removed, or has chosen a calendar of its own to be
+// shown. An account with none of those has nothing to send, take back or read.
 export function selectSyncingConnectionsStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
-      `SELECT connection.id AS id, connection.principal_ref AS principal_ref FROM integration_connection AS connection WHERE connection.category = ?1 AND connection.status = 'connected' AND (EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_RULE_TABLE} AS rule WHERE rule.connection_id = connection.id) OR EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_LINK_TABLE} AS link WHERE link.connection_id = connection.id))`,
+      `SELECT connection.id AS id, connection.principal_ref AS principal_ref FROM integration_connection AS connection WHERE connection.category = ?1 AND connection.status = 'connected' AND (EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_RULE_TABLE} AS rule WHERE rule.connection_id = connection.id) OR EXISTS (SELECT 1 FROM ${CALENDAR_SYNC_LINK_TABLE} AS link WHERE link.connection_id = connection.id) OR EXISTS (SELECT 1 FROM calendar_sync_shown_calendar AS shown WHERE shown.connection_id = connection.id))`,
     )
     .bind(CALENDAR_SYNC_CATEGORY);
 }

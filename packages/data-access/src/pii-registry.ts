@@ -234,6 +234,22 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent integration_connection; holds the copy as sent to the member and as their calendar has it",
   },
+  // Which of their own calendars a member chose to be shown. It names a person only through its
+  // connection, and holds the calendar's name as their provider gives it.
+  {
+    table: "calendar_sync_shown_calendar",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; the member's own choice of calendars",
+  },
+  // A member's own events, read from their provider for them alone. Titles and places are theirs
+  // and nobody else's, and the provider keeps the original.
+  {
+    table: "external_calendar_event",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; a private copy of the member's own calendar, re-read from the provider",
+  },
   // What the firm lets leave for members' calendars. The rule is the firm's and outlives whoever
   // last saved it; the reference to that member is configuration provenance.
   {

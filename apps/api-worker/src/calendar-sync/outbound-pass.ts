@@ -32,13 +32,18 @@ import { addCalendarDays, civilDateOf } from "@magna-carta/civil-time/civil-date
 import { lastOccurrenceOf, parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import type { IntegrationProblem } from "@magna-carta/integrations/problem";
-import { noticeProviderChanges, readingOfWrite } from "./provider-changes.ts";
+import {
+  noticeProviderChanges,
+  readingOfWrite,
+  type ProviderChangesInput,
+} from "./provider-changes.ts";
 
 // ONE PASS OVER ONE MEMBER'S CONNECTED ACCOUNT: MAKE THEIR CALENDAR AGREE WITH THEIR RULES.
 //
 // The decision of what to send is made in @magna-carta/calendar/sync-outbound, from what is in the
 // firm's database and nothing else. Once everything is sent, ./provider-changes.ts looks at what
-// the member did to the copies and raises each difference as a question for them. This module is the part that touches things: it reads the inputs, asks the
+// the member did to the copies, and an edit is carried to the event or raised as a question for
+// them. This module is the part that touches things: it reads the inputs, asks the
 // provider for each difference in turn, and records what the provider answered. Every write to the
 // link table happens beside the provider call it describes, so a pass that stops anywhere leaves a
 // table the next pass can continue from.
@@ -68,6 +73,8 @@ export interface OutboundPassReport {
   updated: number;
   removed: number;
   refused: number;
+  // Edits a member made to a copy in their own calendar, carried to the event.
+  applied: number;
   // Copies a member changed or deleted in their own calendar, raised as questions for them.
   flagged: number;
   // Deadline copies a member changed, written again as they were sent.
@@ -81,6 +88,11 @@ export interface OutboundPassInput {
   readonly port: CalendarSyncPort;
   readonly now: () => Date;
   readonly newTransactionId: () => string;
+  // What to do with a copy the member edited. Absent, every edit is a question for them.
+  readonly applyProviderEdit?: ProviderChangesInput["applyEdit"];
+  // Called once when this pass changed an event in the firm's calendar, so every other account
+  // the event is in, and this one, sends it again.
+  readonly onEventsChanged?: () => Promise<void>;
 }
 
 // The window is cut on the UTC date. Being a day out at either edge of a two-year window changes
@@ -157,6 +169,7 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     updated: 0,
     removed: 0,
     refused: 0,
+    applied: 0,
     flagged: 0,
     putBack: 0,
   };
@@ -304,7 +317,10 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     desired,
     digestFor: (copy) => digests.get(copy) ?? "",
     stamp: input.now().toISOString(),
+    ...(input.applyProviderEdit === undefined ? {} : { applyEdit: input.applyProviderEdit }),
   });
+  report.applied = noticed.report.applied;
+  if (noticed.report.applied > 0) await input.onEventsChanged?.();
   report.flagged = noticed.report.flagged;
   report.putBack = noticed.report.putBack;
   if (noticed.kind === "stopped") {

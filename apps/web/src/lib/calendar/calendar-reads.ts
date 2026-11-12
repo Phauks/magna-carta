@@ -46,6 +46,7 @@ import {
   entryFromAvailability,
   entryFromFirmEvent,
   entryFromMatterEvent,
+  entryFromOwnAccountEvent,
   entryFromTimelineRow,
   entriesFromSeries,
   mergeByRecord,
@@ -56,12 +57,13 @@ import {
   type EntryContext,
 } from "./calendar-entries.ts";
 import type { CalendarScope } from "./calendar-scope.ts";
+import { readOwnAccountEvents } from "./own-account-events.ts";
 import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
 import { calendarLayer, FIRM_CALENDAR_KINDS } from "./calendar-vocabulary.ts";
 import { FIRM_OWN_CALENDARS, type CalendarSource } from "./calendar-sources.ts";
 
 /** Which of the plan's reads a failure belongs to, in the words a notice uses. */
-export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings";
+export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings" | "ownEvents";
 
 export interface CalendarReadFailure {
   readonly read: CalendarReadName;
@@ -270,7 +272,39 @@ async function readOneCalendar(
       return readRoomCalendar(fetchImpl, source, source.kind.resourceId, window, context);
     case "layer":
       return readLayerCalendar(fetchImpl, source, source.kind.layerKey, window, context);
+    case "ownAccount":
+      return readOwnAccountCalendar(source, window, context);
   }
+}
+
+/**
+ * The reader's own events from their connected account: one read of what a sync pass last stored
+ * for them, which never waits on their provider. Not paged, because one person's own month is
+ * small; the server says when it answered with less than everything.
+ */
+async function readOwnAccountCalendar(
+  source: CalendarSource,
+  window: CalendarWindow,
+  context: EntryContext,
+): Promise<CalendarWindowResult> {
+  const outcome = await readOwnAccountEvents({ from: window.from, to: window.to });
+  if (outcome.kind !== "ok") {
+    return {
+      entries: [],
+      failures: collectFailures([["ownEvents", outcome.failure]]),
+      truncated: false,
+    };
+  }
+  const entries: CalendarEntry[] = [];
+  for (const event of outcome.value.events) {
+    const entry = entryFromOwnAccountEvent(event, context);
+    // The server's window is a day wide of the reader's on each side, since it cannot know their
+    // zone; the days the entry actually lands on are checked here.
+    if (entry !== null && windowOverlaps(window, entry.date, entry.endDate ?? null)) {
+      entries.push(taggedWith(entry, source.key));
+    }
+  }
+  return { entries, failures: [], truncated: outcome.value.truncated };
 }
 
 /**
@@ -533,6 +567,7 @@ const READ_SUBJECTS: Record<CalendarReadName, string> = {
   deadlines: "the deadlines",
   firmEvents: "the firm's own events",
   bookings: "the resource's bookings",
+  ownEvents: "your own Outlook events",
 };
 
 /**

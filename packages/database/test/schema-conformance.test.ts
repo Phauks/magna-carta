@@ -226,6 +226,10 @@ describe("schema conformance (fitness functions)", () => {
       // Where a record came from is the pair itself: one source record is linked once to each kind
       // of record it became, so a surrogate key would let the same link exist twice.
       "source_record_link",
+      // A member's choice is the pair of their account and one of its calendars.
+      "calendar_sync_shown_calendar",
+      // A member's own event is the pair of their account and the provider's identifier for it.
+      "external_calendar_event",
       // A comment names a colleague once.
       "matter_task_comment_mention",
     ]);

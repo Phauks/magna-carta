@@ -19,6 +19,7 @@ It is a framework and not a one-off script for three reasons. The transfer has t
 2. **No contact with LEAP yet.** Nothing in the design may wait on an answer from LEAP.
 3. **Sample files will be uploaded from a computer** when convenient. They refine the readers and mappings; they do not block the framework.
 4. **Learn from LEAP's published API, then build.** The reference is public and was read in full on 2026-11-10.
+5. **The firm decides, matter by matter, whether a matter's earlier money is view-only** (2026-11-12). Section 6 sets out what that choice is and what the author added to make it buildable.
 
 Everything else in this document is the author's recommendation.
 
@@ -83,11 +84,21 @@ Why one table and not a column on each entity:
 
 ## 6. Money
 
-Recommended, and not yet ruled on by the owner.
+The owner ruled on 2026-11-12 that a firm decides, for each matter, when importing, whether that matter's earlier money is view-only. The choice and its two answers are the ruling. The default, the point at which the choice locks, and the rules both answers share are the author's recommendation.
 
-- **Imported money is view-only history.** Trust and office transactions from the source are kept as dated, read-only records beside the live ledger, and an opening balance per matter is posted to the ledger at cutover. They are not replayed through the live posting rules, which were written for entries made here (approval, authority, rate lookup) and would reject or reinterpret history. This is the pattern LEAP itself uses for firms arriving from elsewhere.
+**The choice.** Each matter in a transfer carries a money handling of one of two values, set by the operator before the matter's money is loaded.
+
+- **View-only history.** The matter's trust and office transactions from the source are kept as dated, read-only records beside the live ledger, and an opening balance is posted to the ledger at cutover. Nothing here can edit, reverse or re-bill them. This is the pattern LEAP itself uses for firms arriving from elsewhere.
+- **Live.** The matter's transactions are written into the live ledger as entries, dated as the source dated them and marked as transferred, so they can be worked on here as any entry can: an unbilled time entry billed, an open invoice paid, a trust line reversed by a correcting entry.
+
+**What the author recommends around it.**
+
+- **The default is view-only.** A firm that makes no choice gets the safe answer for every matter, and a firm-wide default the operator can set covers the common case of "all open matters live, all closed matters view-only" without a decision per matter.
+- **Live entries are written, not replayed.** The live posting rules were written for entries made here (approval, authority, rate lookup) and would reject or reinterpret history. A live matter's entries are inserted as the source recorded them, through a transfer-only path that keeps the ledger's structural rules (balanced, append-only, never negative in trust) and skips the rules about how an entry is made.
+- **A live matter that fails the structural rules falls back, loudly.** If a matter's history cannot be written as a valid ledger (a trust balance that went negative in the source, for instance), the rehearsal report names the matter and the reason, and the operator either fixes the cause or sets the matter to view-only. It is never switched silently.
+- **The choice locks at cutover.** It can be changed freely across rehearsals. Once the live firm is written, a view-only matter stays view-only and a live matter stays live, because converting either afterwards would rewrite a ledger people have since posted to.
 - **One rounding rule.** Floating-point amounts become integer minor units by rounding half away from zero. Each matter's converted total is compared with the source's own total, and a difference is reported, never absorbed.
-- **The gate.** Cutover is refused unless every matter's opening trust balance equals the source's balance, the total equals the bank, and the view-only history for each matter sums to its opening balance.
+- **The gate is the same for both.** Cutover is refused unless every matter's trust balance equals the source's balance and the total equals the bank. For a view-only matter the history must also sum to its opening balance; for a live matter the ledger's own running balance is the figure compared.
 - **Rates.** A historical time entry keeps the rate the source charged. It is not re-rated from a rate card.
 
 ## 7. Record mapping at a glance
@@ -108,8 +119,8 @@ Detail belongs to each slice. This table fixes the targets so slices do not drif
 | Emails                                     | `email_message` and its participants and attachments                | Depends on LEAP storing the original message                         |
 | Fees and time                              | `time_entry`, `fee_entry`                                           | Rate kept as charged                                                 |
 | Cost recoveries                            | `cost_entry`                                                        | Status lookup                                                        |
-| Invoices, receipts, credits                | View-only history; open items as live invoices                      | Section 6                                                            |
-| Trust ledger                               | View-only history plus opening balances                             | Section 6                                                            |
+| Invoices, receipts, credits                | View-only history or live entries, by the matter's money handling   | Section 6                                                            |
+| Trust ledger                               | View-only history plus an opening balance, or live ledger entries   | Section 6                                                            |
 | Document register, power money             | Custodian packets and items                                         | LEAP's location is one free-text field                               |
 | Critical dates, tasks, appointments        | `matter_deadline`, `matter_task`, `matter_event`                    | Whether the extract includes them                                    |
 | Precedents                                 | `document_template`                                                 | LEAP merge fields need a lookup to ours                              |
@@ -122,24 +133,24 @@ Detail belongs to each slice. This table fixes the targets so slices do not drif
 4. **Matters and parties**, with the matter-type and role lookups.
 5. **Rehearsal report**, once there are two record kinds to count.
 6. **Documents and emails.**
-7. **Money**: view-only history, opening balances, the trust gate.
+7. **Money**: the per-matter money handling, view-only history and opening balances, the transfer-only path for live entries, the trust gate.
 8. **Matter details, custody, dates and tasks, precedents.**
 9. **Cutover runbook.**
 
-Slices 2 to 5 need no decision from the owner. Slice 7 needs section 6 ruled on.
+Slices 2 to 5 need no decision from the owner. Slice 7 is built on the owner's ruling in section 6; the author's additions there are open to correction before it starts.
 
 ## 9. Lessons taken from the source
 
 From reading LEAP's reference. Each is either adopted here or already held by `docs/conventions/api.md`.
 
-- **Adopted:** an outside system's key kept on records (LEAP's `legacyCardId`), generalized as section 5. Imported money held as view-only history (section 6).
+- **Adopted:** an outside system's key kept on records (LEAP's `legacyCardId`), generalized as section 5. Imported money held as view-only history, which the owner made a choice per matter (section 6).
 - **Worth its own decision:** a changes-since feed on list endpoints. LEAP's `rowVersion` and `lastRowVersion` let a client fetch only what changed. Magna Carta's lists are cursor-paged and have no general equivalent.
 - **Worth its own design:** a complete, self-describing export of a firm's own data. LEAP has no whole-matter export, which is the reason this framework is needed at all. A firm should be able to leave Magna Carta without one.
 - **Already avoided:** endpoints versioned one at a time (288 on v1, 48 on v2, 13 on v3 at once), the same key under four spellings, misspellings frozen into a contract, money as floating point, regional fields inside core records, and eight different error shapes.
 
 ## 10. Open questions for the owner
 
-1. Is imported money held as view-only history with opening balances (section 6), or is full history replayed into the live ledger?
+1. Section 6's additions to the owner's ruling: is view-only the right default, and may the choice lock at cutover?
 2. Do closed and archived matters transfer, or stay in a LEAP archive?
 3. What does a joint card (two people on one People card) become?
 4. Which definable-table fields and matter types are worth carrying?

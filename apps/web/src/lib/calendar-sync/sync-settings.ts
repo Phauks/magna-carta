@@ -7,6 +7,7 @@
 import type {
   CalendarSyncProviderCalendar,
   CalendarSyncRule,
+  CalendarSyncShownCalendar,
   CalendarSyncSubject,
 } from "@magna-carta/api-client";
 import type { GridColumn } from "@magna-carta/design-system/data-table";
@@ -173,4 +174,81 @@ export function syncingSummary(rules: readonly CalendarSyncRule[]): string {
   return rules.length === 1
     ? "1 event type is set to sync."
     : `${rules.length} event types are set to sync.`;
+}
+
+/**
+ * One row of "From Outlook to Magna Carta": one of the account's calendars, and whether the member
+ * chose to be shown what is in it.
+ */
+export interface ShownCalendarChoice {
+  readonly remoteId: string;
+  readonly name: string;
+  readonly shown: boolean;
+}
+
+/** The column the switch sits in. */
+export const SHOWN_COLUMN_ID = "shown";
+
+/**
+ * The account's calendars as the provider lists them, each with the member's choice. Where the
+ * provider could not be asked, the calendars already chosen are listed under the names they had
+ * when chosen, so the page still says what is being read. A chosen calendar the account no longer
+ * has is listed too, so it can be turned off.
+ */
+export function shownCalendarChoices(
+  calendars: readonly CalendarSyncProviderCalendar[] | null,
+  shown: readonly CalendarSyncShownCalendar[],
+): ShownCalendarChoice[] {
+  const shownIds = new Set(shown.map((calendar) => calendar.calendarRemoteId));
+  const listed = (calendars ?? []).map((calendar) => ({
+    remoteId: calendar.remoteId,
+    name: calendar.isDefault ? `${calendar.name} (My Main One)` : calendar.name,
+    shown: shownIds.has(calendar.remoteId),
+  }));
+  const listedIds = new Set(listed.map((choice) => choice.remoteId));
+  const unlisted = shown
+    .filter((calendar) => !listedIds.has(calendar.calendarRemoteId))
+    .map((calendar) => ({
+      remoteId: calendar.calendarRemoteId,
+      name: calendar.calendarName,
+      shown: true,
+    }));
+  return [...listed, ...unlisted];
+}
+
+export function shownCalendarColumns(): GridColumn<ShownCalendarChoice>[] {
+  return [
+    { id: "name", label: "Outlook Calendar", anchored: true, value: (choice) => choice.name },
+    {
+      id: SHOWN_COLUMN_ID,
+      label: "Show in Magna Carta",
+      value: (choice) => (choice.shown ? "Shown" : "Not Shown"),
+    },
+  ];
+}
+
+/**
+ * The member's whole choice with one calendar turned on or off, as the save sends it. A chosen
+ * calendar the account no longer has is dropped on the way, because the save is checked against
+ * the account as it stands and would be refused for naming it.
+ */
+export function shownIdsWithChange(
+  choices: readonly ShownCalendarChoice[],
+  calendars: readonly CalendarSyncProviderCalendar[],
+  remoteId: string,
+  shown: boolean,
+): string[] {
+  const inAccount = new Set(calendars.map((calendar) => calendar.remoteId));
+  return choices
+    .filter((choice) => (choice.remoteId === remoteId ? shown : choice.shown))
+    .map((choice) => choice.remoteId)
+    .filter((id) => inAccount.has(id));
+}
+
+/** How many calendars are shown, for the plate's one-line summary. */
+export function shownSummary(shown: readonly CalendarSyncShownCalendar[]): string {
+  if (shown.length === 0) return "None of your Outlook calendars is shown in Magna Carta.";
+  return shown.length === 1
+    ? "1 Outlook calendar is shown in Magna Carta, to you only."
+    : `${shown.length} Outlook calendars are shown in Magna Carta, to you only.`;
 }
