@@ -27,6 +27,28 @@ export interface ConversionMessage {
   readonly to: FormatId;
 }
 
+// A request for a video version's playable copy (packages/file-manager/src/playable-copy.ts). It
+// rides the conversion queue because it is the same kind of work — CPU-bound in an engine Container,
+// at the lane's low concurrency, dead-lettered after its retries — but it is not a ConversionJob: its
+// state lives on the version's own row, where every reader of that version already looks, so it has
+// no coordinator object. `kind` tells the two apart; a ConversionMessage carries none, so a message
+// already in flight when this shape arrived still routes where it was going.
+export interface PlayableCopyMessage {
+  readonly kind: "playable-copy";
+  readonly firmId: string;
+  // The firm's recorded bucket, carried for the same reason a ConversionMessage carries it.
+  readonly bucketName: string;
+  readonly versionId: string;
+}
+
+export type ConversionQueueMessage = ConversionMessage | PlayableCopyMessage;
+
+export function isPlayableCopyMessage(
+  message: ConversionQueueMessage,
+): message is PlayableCopyMessage {
+  return "kind" in message && message.kind === "playable-copy";
+}
+
 export interface ConversionCoordinator {
   start(message: ConversionMessage): Promise<ConversionJobState>; // persists queued + enqueues once
   markRunning(): Promise<void>;

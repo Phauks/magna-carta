@@ -294,7 +294,7 @@ export function selectVersionObjectsOfFileStatement(
     database
       // fitness:allow-no-status
       .prepare(
-        `SELECT id, r2_key, content_sha256, export_r2_key FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 ORDER BY version_number ASC`,
+        `SELECT id, r2_key, content_sha256, export_r2_key, playable_copy_r2_key FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 ORDER BY version_number ASC`,
       )
       .bind(fileId)
   );

@@ -1271,6 +1271,11 @@ export interface VersionObjectToDestroy {
    * version's bytes and named by no other row, so it goes wherever the version's object goes.
    */
   readonly exportR2Key: string | null;
+  /**
+   * The version's playable copy (a video converted for every browser), when one was made. Derived
+   * from the version's bytes the same way, so it goes wherever the version's object goes.
+   */
+  readonly playableCopyR2Key: string | null;
 }
 
 export interface VersionObjectRetained extends VersionObjectToDestroy {
@@ -1320,6 +1325,7 @@ export async function purgeableVersionObjects(
     r2_key: string;
     content_sha256: string | null;
     export_r2_key: string | null;
+    playable_copy_r2_key: string | null;
   }>();
   const destroy: VersionObjectToDestroy[] = [];
   const retained: VersionObjectRetained[] = [];
@@ -1336,10 +1342,22 @@ export async function purgeableVersionObjects(
       version.export_r2_key === null || version.export_r2_key === version.r2_key
         ? null
         : version.export_r2_key;
+    const playableCopyR2Key = version.playable_copy_r2_key;
     if (heldBy > 0) {
-      retained.push({ versionId: version.id, r2Key: version.r2_key, exportR2Key, heldBy });
+      retained.push({
+        versionId: version.id,
+        r2Key: version.r2_key,
+        exportR2Key,
+        playableCopyR2Key,
+        heldBy,
+      });
     } else {
-      destroy.push({ versionId: version.id, r2Key: version.r2_key, exportR2Key });
+      destroy.push({
+        versionId: version.id,
+        r2Key: version.r2_key,
+        exportR2Key,
+        playableCopyR2Key,
+      });
     }
   }
   return { destroy, retained };
