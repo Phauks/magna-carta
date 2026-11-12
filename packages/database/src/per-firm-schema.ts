@@ -8447,6 +8447,63 @@ export const connectionSyncIssue = sqliteTable(
   ],
 );
 
+// Which of a member's own calendars at their provider the firm's calendar shows back to them. The
+// member's choice, one row per calendar chosen; no row means nothing of theirs is read. The name
+// is the calendar's as it stood when chosen, shown where the provider cannot be asked.
+export const calendarSyncShownCalendar = sqliteTable(
+  "calendar_sync_shown_calendar",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    calendarRemoteId: text("calendar_remote_id").notNull(),
+    calendarName: text("calendar_name").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.calendarRemoteId] }),
+    check("calendar_sync_shown_calendar_id_check", sql`length(${table.calendarRemoteId}) > 0`),
+  ],
+);
+
+// One event in a member's own calendar at their provider, as a pass last read it from a calendar
+// that member chose to be shown. PRIVATE TO THAT MEMBER: the row belongs to their connection, every
+// read is by connection, and a connection is found from the session member's own principal. It is
+// not the firm's record of anything, is not on any matter, and is replaced by whatever the provider
+// says next. A series is one row per day it falls on, so there is no repeat rule to interpret.
+//
+// A whole-day event is two civil days with an inclusive last day. A timed one is two instants,
+// because the provider answers in its own zone and the screen decides which day and hour that is
+// for the person looking. The check keeps a row to exactly one of the two shapes.
+export const externalCalendarEvent = sqliteTable(
+  "external_calendar_event",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    remoteEventId: text("remote_event_id").notNull(),
+    calendarRemoteId: text("calendar_remote_id").notNull(),
+    remoteVersionTag: text("remote_version_tag"),
+    title: text("title").notNull(),
+    locationText: text("location_text"),
+    wholeDay: integer("whole_day", { mode: "boolean" }).notNull(),
+    startsOn: text("starts_on"), // YYYY-MM-DD, whole-day rows only
+    endsOn: text("ends_on"),
+    startsAt: text("starts_at"), // an instant, timed rows only
+    endsAt: text("ends_at"),
+    readAt: text("read_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.remoteEventId] }),
+    check(
+      "external_calendar_event_shape_check",
+      sql`(${table.wholeDay} = 1 AND ${table.startsOn} IS NOT NULL AND ${table.endsOn} IS NOT NULL AND ${table.startsAt} IS NULL AND ${table.endsAt} IS NULL) OR (${table.wholeDay} = 0 AND ${table.startsOn} IS NULL AND ${table.endsOn} IS NULL AND ${table.startsAt} IS NOT NULL AND ${table.endsAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
 // Who is at a firm meeting: mostly members, sometimes a Directory entity (the bank's relationship
 // manager), sometimes an external who belongs in nobody's conflicts corpus (a visiting CLE speaker).
 // A second table rather than a nullable firm_event_id on matter_event_participant, because that

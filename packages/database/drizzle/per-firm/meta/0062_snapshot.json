@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5e9b35d6-cc69-40e2-9308-d10273b5b69f",
+  "id": "df959152-726e-4b1a-89fe-ee650670d767",
   "prevId": "d1dcf56a-96c6-4048-8830-81ebc1ca5dc8",
   "tables": {
     "account_balance": {
@@ -992,6 +992,71 @@
         "calendar_sync_rule_calendar_check": {
           "name": "calendar_sync_rule_calendar_check",
           "value": "length(\"calendar_sync_rule\".\"calendar_remote_id\") > 0"
+        }
+      }
+    },
+    "calendar_sync_shown_calendar": {
+      "name": "calendar_sync_shown_calendar",
+      "columns": {
+        "connection_id": {
+          "name": "connection_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calendar_remote_id": {
+          "name": "calendar_remote_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calendar_name": {
+          "name": "calendar_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "calendar_sync_shown_calendar_connection_id_integration_connection_id_fk": {
+          "name": "calendar_sync_shown_calendar_connection_id_integration_connection_id_fk",
+          "tableFrom": "calendar_sync_shown_calendar",
+          "tableTo": "integration_connection",
+          "columnsFrom": [
+            "connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "calendar_sync_shown_calendar_connection_id_calendar_remote_id_pk": {
+          "columns": [
+            "connection_id",
+            "calendar_remote_id"
+          ],
+          "name": "calendar_sync_shown_calendar_connection_id_calendar_remote_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "calendar_sync_shown_calendar_id_check": {
+          "name": "calendar_sync_shown_calendar_id_check",
+          "value": "length(\"calendar_sync_shown_calendar\".\"calendar_remote_id\") > 0"
         }
       }
     },
@@ -9355,6 +9420,127 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "external_calendar_event": {
+      "name": "external_calendar_event",
+      "columns": {
+        "connection_id": {
+          "name": "connection_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "remote_event_id": {
+          "name": "remote_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calendar_remote_id": {
+          "name": "calendar_remote_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "remote_version_tag": {
+          "name": "remote_version_tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "location_text": {
+          "name": "location_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "whole_day": {
+          "name": "whole_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "starts_on": {
+          "name": "starts_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ends_on": {
+          "name": "ends_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "external_calendar_event_connection_id_integration_connection_id_fk": {
+          "name": "external_calendar_event_connection_id_integration_connection_id_fk",
+          "tableFrom": "external_calendar_event",
+          "tableTo": "integration_connection",
+          "columnsFrom": [
+            "connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "external_calendar_event_connection_id_remote_event_id_pk": {
+          "columns": [
+            "connection_id",
+            "remote_event_id"
+          ],
+          "name": "external_calendar_event_connection_id_remote_event_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "external_calendar_event_shape_check": {
+          "name": "external_calendar_event_shape_check",
+          "value": "(\"external_calendar_event\".\"whole_day\" = 1 AND \"external_calendar_event\".\"starts_on\" IS NOT NULL AND \"external_calendar_event\".\"ends_on\" IS NOT NULL AND \"external_calendar_event\".\"starts_at\" IS NULL AND \"external_calendar_event\".\"ends_at\" IS NULL) OR (\"external_calendar_event\".\"whole_day\" = 0 AND \"external_calendar_event\".\"starts_on\" IS NULL AND \"external_calendar_event\".\"ends_on\" IS NULL AND \"external_calendar_event\".\"starts_at\" IS NOT NULL AND \"external_calendar_event\".\"ends_at\" IS NOT NULL)"
+        }
+      }
     },
     "fee_entry": {
       "name": "fee_entry",
@@ -19883,13 +20069,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "personal_room_id": {
-          "name": "personal_room_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -19906,14 +20085,6 @@
         }
       },
       "indexes": {
-        "meeting_personal_room_open_session_unique_index": {
-          "name": "meeting_personal_room_open_session_unique_index",
-          "columns": [
-            "personal_room_id"
-          ],
-          "isUnique": true,
-          "where": "\"meeting\".\"personal_room_id\" IS NOT NULL AND \"meeting\".\"status\" <> 'ended'"
-        },
         "meeting_matter_event_unique_index": {
           "name": "meeting_matter_event_unique_index",
           "columns": [
@@ -19993,19 +20164,6 @@
           ],
           "columnsTo": [
             "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_personal_room_id_meeting_personal_room_id_fk": {
-          "name": "meeting_personal_room_id_meeting_personal_room_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "meeting_personal_room",
-          "columnsFrom": [
-            "personal_room_id"
-          ],
-          "columnsTo": [
-            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -20867,116 +21025,6 @@
         "meeting_message_participant_kind_check": {
           "name": "meeting_message_participant_kind_check",
           "value": "\"meeting_message\".\"participant_kind\" IN ('member', 'guest')"
-        }
-      }
-    },
-    "meeting_personal_room": {
-      "name": "meeting_personal_room",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "owner_user_id": {
-          "name": "owner_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "link_code": {
-          "name": "link_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "medium": {
-          "name": "medium",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'video'"
-        },
-        "lobby": {
-          "name": "lobby",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'on'"
-        },
-        "link_replaced_at": {
-          "name": "link_replaced_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "meeting_personal_room_owner_unique_index": {
-          "name": "meeting_personal_room_owner_unique_index",
-          "columns": [
-            "owner_user_id"
-          ],
-          "isUnique": true
-        },
-        "meeting_personal_room_link_code_unique_index": {
-          "name": "meeting_personal_room_link_code_unique_index",
-          "columns": [
-            "link_code"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "meeting_personal_room_owner_user_id_member_user_id_fk": {
-          "name": "meeting_personal_room_owner_user_id_member_user_id_fk",
-          "tableFrom": "meeting_personal_room",
-          "tableTo": "member",
-          "columnsFrom": [
-            "owner_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "meeting_personal_room_medium_check": {
-          "name": "meeting_personal_room_medium_check",
-          "value": "\"meeting_personal_room\".\"medium\" IN ('video', 'audio')"
-        },
-        "meeting_personal_room_lobby_check": {
-          "name": "meeting_personal_room_lobby_check",
-          "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
-        },
-        "meeting_personal_room_link_code_shape_check": {
-          "name": "meeting_personal_room_link_code_shape_check",
-          "value": "length(\"meeting_personal_room\".\"link_code\") = 10 AND \"meeting_personal_room\".\"link_code\" NOT GLOB '*[^a-z0-9]*'"
         }
       }
     },

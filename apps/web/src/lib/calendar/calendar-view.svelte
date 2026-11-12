@@ -174,7 +174,11 @@
     context: () => context.entryContext,
     contextReady: () => context.ready,
     // The catalog is built from what the context already read: the roster and the bookable things.
-    catalog: () => ({ members: context.members, resources: context.resources }),
+    catalog: () => ({
+      members: context.members,
+      resources: context.resources,
+      ownAccount: context.hasOwnAccountCalendars,
+    }),
   });
 
   /*

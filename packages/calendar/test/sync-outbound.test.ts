@@ -186,6 +186,7 @@ describe("a series", () => {
         localKind: "matter_event",
         localId: "matterEvent_1",
         calendarRemoteId: "cal-1",
+        detail: "full",
         event: providerEventFor(candidateRow, "full"),
       });
     expect(text(series)).not.toBe(text(candidate));

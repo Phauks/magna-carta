@@ -38,6 +38,13 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
   // nothing to earn. Thirty a minute is a member working down a five-hundred-question queue at
   // reading pace twice over, and a small fraction of what a loop sends.
   "meeting-question-upvote": { limit: 30, windowSeconds: 60 },
+  // A calendar provider telling this deployment that members' calendars changed. Keyed by the
+  // caller's address, and the caller is a handful of the provider's own servers carrying every
+  // connected member's notices between them, so the default budget would refuse real notices on
+  // an ordinary morning. A refused notice is retried by the provider and costs only time; the
+  // ceiling is here to bound a stranger posting at the address, each of whose requests costs one
+  // lookup that finds no secret.
+  "provider-notice": { limit: 3000, windowSeconds: 60 },
 };
 
 /**

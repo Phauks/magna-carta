@@ -15,10 +15,14 @@ import {
   integrationCredentialStoreForFirm,
   type CredentialStoreForFirm,
 } from "../plugins/credential-store.ts";
+import { providerEditApplier } from "./apply-provider-edit.ts";
+import { keepWatch, newWatchSecret, watchAddressFor, type WatchState } from "./change-watch.ts";
 import { openMemberCalendarPort } from "./member-calendars.ts";
 import { memberCalendarCredentialStore } from "./member-credential-store.ts";
 import { resolveMicrosoftApplication } from "./microsoft-application.ts";
 import { runOutboundPass, type OutboundPassReport } from "./outbound-pass.ts";
+import { requestCalendarSync } from "./request-sync.ts";
+import { readShownCalendars } from "./shown-calendars.ts";
 
 // One connected account's pass, with everything it needs found from the deployment and the firm's
 // own database. The object that schedules passes (connection-sync.ts) calls this and decides only
@@ -31,7 +35,12 @@ export interface ConnectionIdentity {
 }
 
 export type ConnectionPassOutcome =
-  | { readonly kind: "settled" | "more" | "unavailable"; readonly report: OutboundPassReport }
+  // `watch` is the provider's change watch as the account should remember it after this pass.
+  | {
+      readonly kind: "settled" | "more" | "unavailable";
+      readonly report: OutboundPassReport;
+      readonly watch: WatchState | null;
+    }
   // The provider refused the sign-in. The connection is marked, so the member is told on their
   // Connected Accounts page, and nothing runs until they sign in again.
   | { readonly kind: "sign-in-again" }
@@ -45,6 +54,7 @@ export interface ConnectionPassOverrides {
   readonly http?: HttpClient;
   readonly now?: () => Date;
   readonly credentialStoreForFirm?: CredentialStoreForFirm;
+  readonly newWatchSecret?: () => string;
 }
 
 interface ConnectionRow {
@@ -62,6 +72,8 @@ export async function runConnectionPass(
   env: Bindings,
   identity: ConnectionIdentity,
   overrides: ConnectionPassOverrides = {},
+  // The watch the account remembers from its last pass.
+  watch: WatchState | null = null,
 ): Promise<ConnectionPassOutcome> {
   const application = resolveMicrosoftApplication(env, NO_REQUEST_ORIGIN);
   if (application === undefined) return { kind: "dormant" };
@@ -123,7 +135,16 @@ export async function runConnectionPass(
   if (opened.kind === "unavailable") {
     return {
       kind: "unavailable",
-      report: { created: 0, updated: 0, removed: 0, refused: 0, flagged: 0, putBack: 0 },
+      report: {
+        created: 0,
+        updated: 0,
+        removed: 0,
+        refused: 0,
+        applied: 0,
+        flagged: 0,
+        putBack: 0,
+      },
+      watch,
     };
   }
 
@@ -134,7 +155,35 @@ export async function runConnectionPass(
     port: opened.port,
     now,
     newTransactionId: () => crypto.randomUUID(),
+    applyProviderEdit: providerEditApplier({
+      database,
+      memberUserId: identity.memberUserId,
+      now,
+    }),
+    // An edit carried back changes an event other members may have copies of. Asking is all that
+    // is needed: each account's own pass finds the difference.
+    onEventsChanged: () => requestCalendarSync(env, identity.firmId, database),
   });
   if (outcome.kind === "sign-in-again") return markSignInAgain();
-  return outcome;
+  // A provider that could not be reached for the pass is not asked about the watch either.
+  if (outcome.kind === "unavailable") return { ...outcome, watch };
+  // The other direction: the member's own events, from the calendars they chose to be shown. A
+  // provider that falters here costs nothing already read, and the next pass asks again.
+  const shown = await readShownCalendars({
+    database,
+    connectionId: identity.connectionId,
+    port: opened.port,
+    now,
+  });
+  if (shown.kind === "sign-in-again") return markSignInAgain();
+  return {
+    ...outcome,
+    watch: await keepWatch({
+      port: opened.port,
+      current: watch,
+      address: watchAddressFor(env, identity),
+      now,
+      newSecret: overrides.newWatchSecret ?? newWatchSecret,
+    }),
+  };
 }

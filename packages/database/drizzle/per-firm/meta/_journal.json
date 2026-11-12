@@ -439,8 +439,15 @@
     {
       "idx": 62,
       "version": "6",
+      "when": 1794304613576,
+      "tag": "20261110T095653_shown-calendars-and-external-events",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
       "when": 1794275055847,
-      "tag": "20261110T090301_meeting-personal-room",
+      "tag": "20261112T194512_meeting-personal-room",
       "breakpoints": true
     }
   ]

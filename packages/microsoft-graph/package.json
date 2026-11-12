@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./sign-in": "./src/sign-in.ts",
-    "./calendar-sync": "./src/calendar-sync-adapter.ts"
+    "./calendar-sync": "./src/calendar-sync-adapter.ts",
+    "./change-notices": "./src/change-notices.ts"
   },
   "scripts": {
     "test": "vp test run"

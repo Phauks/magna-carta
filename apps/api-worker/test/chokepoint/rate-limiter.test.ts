@@ -37,6 +37,7 @@ describe("BUCKETS", () => {
       "incident-report": { limit: 5, windowSeconds: 300 },
       "guest-arrival": { limit: 20, windowSeconds: 60 },
       "meeting-question-upvote": { limit: 30, windowSeconds: 60 },
+      "provider-notice": { limit: 3000, windowSeconds: 60 },
     });
   });
 

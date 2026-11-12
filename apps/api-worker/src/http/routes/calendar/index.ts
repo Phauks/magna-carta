@@ -1,3 +1,4 @@
+import { registerProviderNoticeRoutes } from "./provider-notices.ts";
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { requestCalendarSync } from "../../../calendar-sync/request-sync.ts";
@@ -6,6 +7,7 @@ import {
   optionalChokepointFirmId,
 } from "../../chokepoint/context-accessors.ts";
 import { runInBackground } from "../../deferred-work.ts";
+import { registerCalendarAccountEventRoutes } from "./account-events.ts";
 import { registerCalendarRoutes } from "./calendar.ts";
 import { registerConnectedAccountsRoutes } from "./connected-accounts.ts";
 import { registerCalendarSeriesRoutes } from "./series.ts";
@@ -47,6 +49,7 @@ const SYNC_AFFECTING_PATHS = [
   "/api/v1/calendar/event-types/:eventTypeId/deactivate",
   "/api/v1/calendar-sync/firm-limits",
   "/api/v1/me/calendar-sync/rules",
+  "/api/v1/me/calendar-sync/shown-calendars",
   "/api/v1/me/calendar-sync/issues/:localKind/:localId/put-back",
 ] as const;
 
@@ -76,8 +79,12 @@ export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: Doma
   registerConnectedAccountsRoutes(domain, chokepoint, deps.connectedAccounts);
   // What the firm lets leave for those accounts, and which event types each member sends where.
   registerCalendarSyncSettingsRoutes(domain, chokepoint, deps.connectedAccounts);
+  // A member's own events shown back to them: which of their calendars, and what is in them.
+  registerCalendarAccountEventRoutes(domain, chokepoint, deps.connectedAccounts);
   // The copies a member changed in their own calendar, and their answer to each.
   registerCalendarSyncIssueRoutes(domain, chokepoint, deps.connectedAccounts);
+  // Where a calendar provider says a member's calendar changed.
+  registerProviderNoticeRoutes(domain, chokepoint);
   // Repeating settings: the days a series falls on in a window, and one day of it changed.
   registerCalendarSeriesRoutes(domain, chokepoint);
   app.route("/", domain);
