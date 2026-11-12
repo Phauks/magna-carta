@@ -251,6 +251,13 @@ is still an `ActionDialog` inside it, not a panel of its own.
     read a failure and how to add a screen or a panel. The arithmetic is `geometry.ts`, unit tested.
     So the panels carry NO `max-h-*` utility any more (the stage caps them; a `max-h-screen` would
     reach past it), only their `max-w-*`, and no app code knows how the stage works.
+- **`RecordWindow` takes an optional `aside` snippet, a third column after the tabs** (the task
+  window's comment thread is the first). It is a fixed column (`size.record-aside`), its own recipe
+  in `record-window.css`, never the frame's, and a window carrying one opens to
+  `size.record-window-wide` (`max-w-record-window-wide`) so the record and its tabs keep their
+  geometry. It renders as a labelled `<section>`, not `<aside>`, because a complementary landmark
+  may not sit inside a dialog. Without `aside` the DOM is byte-identical to the two-pane window, so
+  the frame's four screenshot stories are untouched.
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
