@@ -63457,7 +63457,7 @@
         "x-mc-authenticated": true,
         "x-mc-permission": "files:upload",
         "x-mc-resource": "matter",
-        "x-mc-audited": false,
+        "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",

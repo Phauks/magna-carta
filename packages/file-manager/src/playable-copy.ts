@@ -193,8 +193,7 @@ export function selectVersionForPlayableCopyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${VERSION_COLUMNS} FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
-        `WHERE v.id = ?1 AND v.status = 'clean'`,
+      `SELECT ${VERSION_COLUMNS} FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id WHERE v.id = ?1 AND v.status = 'clean'`,
     )
     .bind(versionId);
 }
@@ -207,8 +206,7 @@ export function selectCurrentVersionForPlayableCopyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${VERSION_COLUMNS} FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id ` +
-        `WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+      `SELECT ${VERSION_COLUMNS} FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(fileId);
 }

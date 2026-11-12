@@ -1,5 +1,7 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
+import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import {
   decidePlayableCopyRequest,
   markVersionPlayableCopyPendingStatement,
@@ -15,6 +17,7 @@ import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
+  requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
@@ -108,7 +111,7 @@ const requestMeta: RouteMeta = {
   authenticated: true,
   permission: "files:upload",
   resource: "matter",
-  audited: false,
+  audited: true,
   idempotency: "optional",
   rateLimit: "default",
 };
@@ -230,6 +233,7 @@ export function registerPlayableCopyRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
+      const userId = requireChokepointUserId(c);
       const { id } = c.req.valid("param");
       const version = await readCurrentVersionForPlayableCopy(firm.firmDatabase, id);
       if (version === undefined) return problemJson(c, NOT_FOUND);
@@ -251,6 +255,15 @@ export function registerPlayableCopyRoutes(
           {
             statements: [
               markVersionPlayableCopyPendingStatement(firm.firmDatabase, version.id, requestedAt),
+              // Only a request that starts work is recorded: it is the one that spends engine time.
+              insertAuditLogStatement(firm.firmDatabase, {
+                id: newIdentifier("auditLog"),
+                event: "file.playable_copy_requested",
+                actorUserId: userId,
+                subjectId: version.id,
+                metadata: { sourceFormat: decision.sourceFormat },
+                now: requestedAt,
+              }),
             ],
             outboxMessages: [],
           },
