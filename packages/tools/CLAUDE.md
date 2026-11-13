@@ -60,7 +60,7 @@ Seams (see `docs/specs/2026-06-16-tools-area-design.md`, ADR-0101 — written wh
 area, so read its screen shape as history rather than as the plan): the contextual entry points and
 the integration Dispatch/health branching are what is left. Role-seeding is **done** — every manifest
 has a `role_permission` seed behind it, the last five in
-`packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql`
+`packages/database/drizzle/per-firm/20260908T000000_baseline.sql` (the seed was folded into the per-firm baseline)
 — and is no longer a seam to be picked up later; see the rule above. Five tools have a page today
 (the attorney-license lookup, the network speed test, the safe website viewer, the WHOIS lookup and
 the File Workbench); the rest read "Soon" on their rail row, which is the state the row is built for.

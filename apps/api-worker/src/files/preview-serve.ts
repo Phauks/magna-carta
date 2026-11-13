@@ -35,23 +35,42 @@ export function parseSingleByteRange(
   return { offset, length: endInclusive - offset + 1 };
 }
 
-function frameAncestorsFor(filesOrigin: string): string {
-  // Who may embed a preview rendition: ANY app subdomain under the shared parent of the files host —
-  // firms get branded per-firm subdomains (<firm>.<parent>), and the cookieless delivery host is one
-  // neutral sibling under the same parent. So frame-ancestors is a wildcard over the parent, not a
-  // single fixed app host. This does not weaken authorization: the signed, firm-scoped token names a
-  // single object, so a firm only ever holds tokens for its own files — the embedding origin was
-  // never the gate. files.<parent> -> *.<parent> (strip the first label).
-  return `https://*.${filesOrigin.replace(/^[^.]+\./, "")}`;
+/**
+ * The app's own host, read from APP_BASE_URL: the one address the product is served from. The files
+ * host lives on a SEPARATE registrable domain (so no app cookie ever rides a request for untrusted
+ * bytes), which means the app's pages cannot be found by looking under the files host's parent; they
+ * are found from the app's own address. Null when the address is missing or is not https, and then
+ * nothing is granted.
+ */
+export function appHostFor(appBaseUrl: string | undefined): string | null {
+  if (appBaseUrl === undefined) return null;
+  try {
+    const url = new URL(appBaseUrl);
+    return url.protocol === "https:" ? url.hostname : null;
+  } catch {
+    return null;
+  }
+}
+
+function frameAncestorsFor(appHost: string | null): string {
+  // Who may embed a preview rendition: the app's own host and any subdomain of it — firms get branded
+  // per-firm subdomains (<firm>.<app host>). This does not weaken authorization: the signed,
+  // firm-scoped token names a single object, so a firm only ever holds tokens for its own files — the
+  // embedding origin was never the gate. With no app host known, nothing may embed.
+  return appHost === null ? "'none'" : `https://${appHost} https://*.${appHost}`;
 }
 
 /**
- * The requesting page, when it is one of the app's own: an https origin on a subdomain of the same
- * parent the files host sits under (frame-ancestors names the same set), and never the files host
- * itself. Anything else, a missing Origin included, is granted nothing.
+ * The requesting page, when it is one of the app's own: an https origin on the app's host or a
+ * subdomain of it (frame-ancestors names the same set), and never the files host itself. Anything
+ * else, a missing Origin included, is granted nothing.
  */
-export function readerOriginFor(origin: string | null, filesOrigin: string): string | null {
-  if (origin === null) return null;
+export function readerOriginFor(
+  origin: string | null,
+  appHost: string | null,
+  filesOrigin: string,
+): string | null {
+  if (origin === null || appHost === null) return null;
   let url: URL;
   try {
     url = new URL(origin);
@@ -59,8 +78,8 @@ export function readerOriginFor(origin: string | null, filesOrigin: string): str
     return null;
   }
   if (url.protocol !== "https:" || url.origin !== origin) return null;
-  const parent = filesOrigin.replace(/^[^.]+\./, "");
-  if (url.hostname === filesOrigin || !url.hostname.endsWith(`.${parent}`)) return null;
+  if (url.hostname === filesOrigin) return null;
+  if (url.hostname !== appHost && !url.hostname.endsWith(`.${appHost}`)) return null;
   return url.origin;
 }
 
@@ -110,7 +129,8 @@ export function registerPreviewServeRoute(
     if (payload.verdict !== "playable") return previewNoLongerValid();
 
     // Derive EVERY response header + bucket + key ONLY from the verified payload, never the URL/query.
-    const frameAncestors = frameAncestorsFor(filesOrigin);
+    const appHost = appHostFor(c.env.APP_BASE_URL);
+    const frameAncestors = frameAncestorsFor(appHost);
     const rangeHeader = c.req.header("range") ?? null;
     const ifRange = c.req.header("if-range") ?? null;
 
@@ -151,7 +171,7 @@ export function registerPreviewServeRoute(
       headers = buildSafeDeliveryHeaders({
         sniffedContentType: payload.sniffedContentType,
         frameAncestors,
-        readerOrigin: readerOriginFor(c.req.header("origin") ?? null, filesOrigin),
+        readerOrigin: readerOriginFor(c.req.header("origin") ?? null, appHost, filesOrigin),
       });
       headers.set("ETag", head.httpEtag);
     } catch {

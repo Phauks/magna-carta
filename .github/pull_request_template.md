@@ -39,11 +39,11 @@ Language: docs/conventions/documentation-style.md. Definition of done: docs/conv
 - [ ] Feature ledger: `roadmap.d/` node status flipped (the register `docs/now.md` renders on `main`, never on the branch)
 - [ ] `ROADMAP.md` reflects the new status
 - [ ] Slice status: `status.d/<slice>.md` edited, `vp run status-build` run, `STATUS.md` and `STATUS.json` committed
-- [ ] Active-work note at `docs/active-work/<branch>.md`, retired **in this pull request** with `vp run retire-note <branch> --with-merge` (the worktree and branch are cleared locally afterwards)
+- [ ] Active-work note: only if a `status.d/` fragment or an `in-build` `roadmap.d/` node points at one; then retired **in this pull request** with `vp run retire-note <branch> --with-merge`
 
 ## Verification
 
-<!-- There is no hosted check: `pnpm gate` on the branch is the gate of record and the merge bar (docs/conventions/build-performance.md). Paste its summary block. State the actual result, including any dimension it reported FAILED, NOT RUN or skipped by a flag, and why that is acceptable for this change; a check that did not run is not a check that passed. -->
+<!-- Paste the summary block of `pnpm gate` as run on this branch (a cloud session runs `pnpm gate --checks-only --skip containers,audit,rust`); the hosted `gate` check runs the rest. State the actual result, including any dimension that FAILED, did not run, or was skipped, and any failing check this merges past (see the merge bar in CLAUDE.md). A check that did not run is not a check that passed. -->
 
 - `pnpm gate` (full, on this branch):
 - Dimensions not run, and why:

@@ -27,6 +27,7 @@
   import { onDestroy, untrack } from "svelte";
   import { page } from "$app/state";
   import { beforeNavigate, goto } from "$app/navigation";
+  import { closeMeetingTab } from "$lib/meetings/meeting-tab.ts";
   import { createQuery } from "@tanstack/svelte-query";
   import { meetingsGetOptions } from "@magna-carta/api-client";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -310,6 +311,10 @@
     departedMeetingId = id;
     client.leave();
     await leaveMeeting(id);
+    // The meeting has a tab of its own, so leaving closes it and hands the member back to the tab
+    // they came from. A browser closes only a tab a page opened; where it will not, this tab goes
+    // back to the event instead.
+    closeMeetingTab();
     await goto(backAddress);
   }
 
@@ -1310,7 +1315,7 @@
   onkeydown={unlockSoundsOnPress}
 />
 
-<div class="flex h-full min-h-0 flex-col gap-16">
+<div class="flex h-full min-h-0 flex-col gap-16 p-16">
   <ScreenHeader
     {title}
     back="meetings"

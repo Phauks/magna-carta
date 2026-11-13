@@ -65,7 +65,7 @@ tables would mean unioning them back together on the read every member makes mos
 firm.
 
 **Nothing derives a date from another date.** A task stores the deadline's own civil-date columns and
-resolves them through `packages/calendar/src/time-zone.ts`. A task template with a "+14 days" offset
+resolves them through `packages/civil-time/src/time-zone.ts`. A task template with a "+14 days" offset
 is the docketing engine this platform has spent a subsystem refusing to build, wearing a different
 hat, and `test/no-arithmetic.test.ts` is the calendar's own source scan applied here.
 

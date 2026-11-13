@@ -3562,7 +3562,31 @@ generalizes to:
   only ever say what they are granting, not what they are not granting. Simpler permission windows."**
   One design-system window: what is being allowed, who is asking, the list of grants. No "will not"
   list. Generalizes: **a request tells the reader what they are agreeing to and stops.** Decision:
-  `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`.
+  `docs/decisions/0508-a-permission-request-states-only-what-it-grants.md`.
 - **Email matching "could be bad or dangerous" if wrong, and needs "a good long conversation".** No
   mailbox is connected until that design is settled. Not a visual ruling; recorded so a later build
   does not fold email into the calendar pages.
+
+### 2026-11-13 — the person form: errors without text, optional parts behind a button, the country last
+
+The owner, working through New Person. What was said, and what each part generalizes to:
+
+- **"If there are ever errors in a field, no text, but you can highlight them in red."** Prompted by a
+  postal-code sentence, and by an email hint that pushed its row out of line. Generalizes: **a field
+  in error turns red and prints nothing under itself**; the message is the control's accessible
+  description and hover text. `LabelledField` owns it (`packages/design-system/CLAUDE.md`). A hint
+  still prints; a refusal beside a commit still reads as a sentence.
+- **"For adding to organization, as with certain other things, just make an add to organization
+  button, at which point the fields would populate. This reduces clutter."** Generalizes: **an
+  optional part of a form that most entries leave empty starts as one Add button**, opens its fields
+  when pressed, and closes again once its entry is added. On New Person that is other names,
+  addresses, identifiers and organizations; the ways to reach someone stay open because nearly every
+  person has one.
+- **"Other name should be just a button, but if invoked, duplicates all functionality of the general
+  name area."** Generalizes: **a second instance of something is the whole of the first**, never a
+  cut-down row of it.
+- **"Place country last in address, it is assumed USA."** Generalizes: **a field whose answer is
+  nearly always the same goes last and starts on that answer**, even where it decides the shape of
+  the fields above it.
+- **"Use → Type", then "remove type for address"** (the place / mailing / PO box choice). Recorded so
+  a later build does not bring the question back; a new address is recorded as a physical place.

@@ -137,6 +137,11 @@
     type UploadReadinessReport,
   } from "$lib/file-manager/upload-readiness-api.ts";
   import {
+    CONNECTED_SERVICES_SECTION_LABEL,
+    connectedServiceRow,
+    connectedServicesSectionPills,
+  } from "./connected-services-model.ts";
+  import {
     READINESS_CHECK_IN_FLIGHT_NOTICE,
     UPLOAD_READINESS_SECTION_LABEL,
     uploadReadinessRow,
@@ -446,6 +451,8 @@
   const workersPills = $derived(
     deploymentRows === null ? [] : workersSectionPills(deploymentRows.rest),
   );
+  const connectedServices = $derived(value?.connectedServices ?? []);
+  const connectedPills = $derived(connectedServicesSectionPills(connectedServices));
   const databasePills = $derived(healthValue === null ? [] : databaseSectionPills(healthValue));
   const readinessPills = $derived(
     readinessReport === null ? [] : uploadReadinessSectionPills(readinessReport),
@@ -977,6 +984,35 @@
               {/each}
             </div>
           {/if}
+        </VersionPanelSection>
+      {/if}
+      {#if connectedServices.length > 0}
+        <Separator />
+        <!-- The outside services the deployment depends on, which run no build of ours and so are
+             not Workers rows: whether each is set up and accepting this deployment, read with the
+             Workers and refreshed with them. -->
+        <VersionPanelSection
+          label={CONNECTED_SERVICES_SECTION_LABEL}
+          preference={PANEL_SECTION_FOLDS.connected}
+          pills={connectedPills}
+          loading={false}
+          refreshing={loading}
+          loadingLabel="Checking the outside services"
+          onRetry={() => void refresh({ fresh: true })}
+        >
+          {#snippet fixture()}
+            {@render healthRow({
+              name: "Cloudflare Realtime (meetings)",
+              reading: "healthy",
+              status: "Connected",
+              detail: "A meeting session opened just now.",
+            })}
+          {/snippet}
+          <div class="flex flex-col">
+            {#each connectedServices as service (service.id)}
+              {@render healthRow(connectedServiceRow(service))}
+            {/each}
+          </div>
         </VersionPanelSection>
       {/if}
     {/if}

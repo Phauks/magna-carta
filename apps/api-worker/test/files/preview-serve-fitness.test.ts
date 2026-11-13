@@ -19,10 +19,11 @@ describe("cookieless preview surface — standing fitness guard", () => {
     expect(h.get("Content-Disposition")).toBe("attachment");
   });
 
-  it("a valid playable token serves 200 with a wildcard frame-ancestors (any branded firm subdomain may embed)", async () => {
-    // The frame-ancestors source is a wildcard over the parent of FILES_ORIGIN, not a single fixed
-    // app host — branded per-firm subdomains (<firm>.<parent>) must be able to embed the rendition.
-    // The signed firm-scoped token is the authorization gate, so the wildcard cannot cross tenants.
+  it("a valid playable token serves 200 with frame-ancestors over the app's host (any branded firm subdomain may embed)", async () => {
+    // The frame-ancestors source is the app's host (APP_BASE_URL) and a wildcard over it, never the
+    // files host's own domain, which is a separate registrable domain from the app — branded per-firm
+    // subdomains (<firm>.<app host>) must be able to embed the rendition. The signed firm-scoped
+    // token is the authorization gate, so the wildcard cannot cross tenants.
     const filesOrigin = env.FILES_ORIGIN;
     if (filesOrigin === undefined) throw new Error("test env must set FILES_ORIGIN");
     const r2Key = "files/happy/v1";
@@ -37,15 +38,16 @@ describe("cookieless preview surface — standing fitness guard", () => {
     const res = await SELF.fetch(`https://${filesOrigin}/api/files-preview/${token}`);
     expect(res.status).toBe(200);
     const csp = res.headers.get("Content-Security-Policy") ?? "";
-    const expectedAncestors = `https://*.${filesOrigin.replace(/^[^.]+\./, "")}`;
-    expect(csp).toContain(`frame-ancestors ${expectedAncestors}`);
+    const appHost = new URL(env.APP_BASE_URL ?? "").hostname;
+    expect(csp).toContain(`frame-ancestors https://${appHost} https://*.${appHost}`);
+    expect(csp).not.toContain(filesOrigin.replace(/^[^.]+\./, ""));
     // No single fixed app host is baked into the policy.
     expect(csp).not.toContain("//app.");
     expect(res.headers.get("Content-Disposition")).toBe("attachment");
     expect(res.headers.get("Content-Type")).toBe("video/mp4");
   });
 
-  it("grants CORS read access to an app page under the same parent, and to nobody else", async () => {
+  it("grants CORS read access to the app's own pages, and to nobody else", async () => {
     const filesOrigin = env.FILES_ORIGIN;
     if (filesOrigin === undefined) throw new Error("test env must set FILES_ORIGIN");
     const r2Key = "files/cors/v1";
@@ -57,7 +59,7 @@ describe("cookieless preview surface — standing fitness guard", () => {
       verdict: "playable",
       exp: Math.floor(Date.now() / 1000) + 300,
     });
-    const appPage = `https://smith-law.${filesOrigin.replace(/^[^.]+\./, "")}`;
+    const appPage = `https://smith-law.${new URL(env.APP_BASE_URL ?? "").hostname}`;
     const ours = await SELF.fetch(`https://${filesOrigin}/api/files-preview/${token}`, {
       headers: { Origin: appPage, Range: "bytes=0-3" },
     });
@@ -69,6 +71,12 @@ describe("cookieless preview surface — standing fitness guard", () => {
     });
     expect(theirs.headers.get("Access-Control-Allow-Origin")).toBeNull();
     await theirs.arrayBuffer();
+    // A page on the files host's own domain (an open document in the editor) is not the app.
+    const editor = await SELF.fetch(`https://${filesOrigin}/api/files-preview/${token}`, {
+      headers: { Origin: `https://doc1.${filesOrigin.replace(/^[^.]+\./, "")}` },
+    });
+    expect(editor.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    await editor.arrayBuffer();
   });
 
   it("a non-preview path on the files host does not leak the SPA shell", async () => {

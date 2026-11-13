@@ -39,6 +39,9 @@ export interface PlayableCopyMessage {
   // The firm's recorded bucket, carried for the same reason a ConversionMessage carries it.
   readonly bucketName: string;
   readonly versionId: string;
+  // Who asked: the filed copy is recorded as uploaded by them. Optional so a message sent before the
+  // copy was filed still parses; such a copy is filed with no uploader.
+  readonly requestedBy?: string;
 }
 
 export type ConversionQueueMessage = ConversionMessage | PlayableCopyMessage;

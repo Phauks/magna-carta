@@ -51,6 +51,19 @@
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
+  /*
+   * Invalid: the danger edge, and nothing else. A field's error is never printed under it (owner
+   * ruling 2026-11-13, in labelled-field.svelte); the edge is how a sighted reader finds the field,
+   * and the error stays the control's accessible description. Declared after focus so a field that
+   * is both focused and invalid still reads as invalid.
+   */
+  .mc-input[aria-invalid="true"] {
+    border-color: var(--mc-status-danger);
+  }
+  .mc-input[aria-invalid="true"]:focus-visible {
+    border-color: var(--mc-status-danger);
+    outline-color: var(--mc-status-danger);
+  }
   .mc-input:disabled {
     background-color: var(--mc-action-disabled);
     color: var(--mc-action-disabled-foreground);
