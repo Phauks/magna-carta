@@ -194,6 +194,26 @@
   }
 
   /**
+   * Copy the connection's last few minutes as text, for a member to paste to whoever is helping
+   * with a stutter or a frozen picture. Numbers and handles only (diagnostic-text.ts).
+   */
+  async function copyDiagnostics(): Promise<void> {
+    const text = client.diagnostics.copyableText({
+      userAgent: navigator.userAgent,
+      processors: navigator.hardwareConcurrency ?? null,
+      background: client.appliedEffects?.background ?? effectsPreference.current.background,
+      layout: client.speakerView ? "speaker" : "gallery",
+      copiedAt: new Date(),
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Diagnostics copied. Paste them into a message.");
+    } catch {
+      toast.error("Could not copy the diagnostics.");
+    }
+  }
+
+  /**
    * Copy the room's address for somebody at the firm. It opens the same room for any member who may
    * join it; a person outside the firm is sent a guest link from Guests instead.
    */
@@ -1762,6 +1782,7 @@
             {uplink}
             participants={connectionRoom}
             events={wireEvents}
+            onCopy={() => void copyDiagnostics()}
           />
         {/snippet}
 
