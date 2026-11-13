@@ -219,12 +219,12 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Eleven service bindings in wrangler.jsonc reference dedicated workers that do not run under the
+      // Twelve service bindings in wrangler.jsonc reference dedicated workers that do not run under the
       // local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), magna-carta-bundle
       // (BUNDLE_SERVICE), magna-carta-file-repair (FILE_REPAIR_SERVICE), magna-carta-recovery
       // (RECOVERY_SERVICE), magna-carta-ocr (OCR_SERVICE), magna-carta-sign (SIGN_SERVICE),
-      // magna-carta-discovery (DISCOVERY_SERVICE), and the three version-read-only bindings
-      // (EDIT_SERVICE, STATUS_SERVICE, WEB_SERVICE).
+      // magna-carta-discovery (DISCOVERY_SERVICE), magna-carta-search (SEARCH_SERVICE), and the three
+      // version-read-only bindings (EDIT_SERVICE, STATUS_SERVICE, WEB_SERVICE).
       // Miniflare requires all to exist, so register minimal stubs. The scan stub returns the no-engine
       // RawScanResult (an honest unscanned, never a fake clean, plus a malware-marker branch for the
       // file-repair re-scan test); the convert stub only satisfies startup validation (conversion tests
@@ -275,6 +275,15 @@ export default defineConfig({
           },
           {
             name: "magna-carta-discovery",
+            modules: true,
+            script: `export default { fetch() { return new Response("stub", { status: 503 }); } };`,
+          },
+          // The keyword engine. No Container runs under the pool, so the honest answer is a worker
+          // that is bound and has no engine behind it: every operation is refused with a 503, which
+          // the port reads as an engine fault. A test that wants an engine injects a port; a test of
+          // the deployment with no binding at all passes an env without SEARCH_SERVICE.
+          {
+            name: "magna-carta-search",
             modules: true,
             script: `export default { fetch() { return new Response("stub", { status: 503 }); } };`,
           },
