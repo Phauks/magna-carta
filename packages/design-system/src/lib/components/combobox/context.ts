@@ -15,3 +15,13 @@ export const COMBOBOX_LISTBOX_ID = Symbol("mc-combobox-listbox-id");
 export const COMBOBOX_FIELD_ANCHOR = Symbol("mc-combobox-field-anchor");
 
 export type ComboboxFieldAnchor = { element: HTMLElement | null };
+
+/*
+ * Opens the list from the text box itself. Bits opens a combobox from its chevron or a keystroke
+ * only, so a click in the box, which is most of the control and the part a person aims at, did
+ * nothing until they typed. Root owns the open state, so Root provides the one way to open it, and
+ * reports the change through the caller's `onOpenChange` exactly as a chevron press would.
+ */
+export const COMBOBOX_OPENER = Symbol("mc-combobox-opener");
+
+export type ComboboxOpener = { readonly isOpen: boolean; open: () => void };

@@ -40,6 +40,7 @@ import {
 import { resolveMagnusFirmGates } from "../../magnus/consent.ts";
 import { resolveMagnusInferencePort } from "../../magnus/inference-port-binding.ts";
 import type { MagnusTurnJob } from "../../magnus/magnus-types.ts";
+import { modelChoiceForRun } from "../../magnus/model-choice.ts";
 
 // The assistant's work happens HERE, off the request path, because a single firm running long
 // generations synchronously on the hot path consumes shared gateway capacity every other firm is
@@ -154,9 +155,13 @@ export async function handleMagnusTurnJob(
   // The shipped per-firm back-pressure seam, unchanged.
   firmRateGate(job.firmId);
 
-  // The firm's own reasoning model, read through the firm-scoped data-access layer. No model id is a
-  // constant anywhere in this subsystem.
-  const modelId = await resolveReasoningModel(firmDatabase);
+  // The model the member chose in the composer, or the firm's own reasoning model, read through the
+  // firm-scoped data-access layer. No model id is a constant anywhere in this subsystem. The choice is
+  // checked against the catalog again here (./model-choice.ts says why).
+  const { modelId, effort } = modelChoiceForRun(await resolveReasoningModel(firmDatabase), {
+    modelId: job.modelId,
+    effort: job.effort,
+  });
 
   const priorTurns = await readRecentTurns(
     firmDatabase,
@@ -189,6 +194,7 @@ export async function handleMagnusTurnJob(
     // field by typing, because there is no path from a message into it.
     systemPrompt: MAGNUS_SYSTEM_PROMPT,
     messages: window.messages,
+    ...(effort !== null && { effort }),
   });
 
   if (!result.ok) {
@@ -224,6 +230,7 @@ export async function handleMagnusTurnJob(
     // on this read and on every later one. Silent truncation is what produces a confidently wrong
     // answer built on a premise the member believes was in scope.
     contextTruncated: window.truncated,
+    effort,
   });
   if (!completion.ok) {
     await settleFailure(env, job, completion.failureLabel, "failed", modelId);

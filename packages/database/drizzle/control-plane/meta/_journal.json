@@ -71,6 +71,13 @@
       "when": 1794276117834,
       "tag": "20261110T020157_community-board",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794604463232,
+      "tag": "20261113T211423_community-sign-in-and-switch",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,8 @@ export const SERVICE_CODES = {
   cnv: "cnv",
   /** apps/search-worker — the keyword-search engine host. */
   sch: "sch",
+  /** apps/community-worker — the community board on its own host. */
+  cmy: "cmy",
   /** No Worker announced itself. Never minted on purpose; it means a service is missing its call. */
   unk: "unk",
 } as const;
