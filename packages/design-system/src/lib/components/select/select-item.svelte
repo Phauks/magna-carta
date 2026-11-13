@@ -21,6 +21,7 @@
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { Snippet } from "svelte";
   import type { WithoutChildrenOrChild } from "../../internal/types.ts";
+  import { getSelectSearch } from "./select-search.svelte.ts";
 
   let {
     ref = $bindable(null),
@@ -29,8 +30,14 @@
     children: rowContent,
     ...restProps
   }: WithoutChildrenOrChild<SelectPrimitive.ItemProps> & { children?: Snippet } = $props();
+
+  // A row that does not answer the typed query leaves the list altogether, rather than hiding, so
+  // Bits' arrow keys and Home never land on a row nobody can see.
+  const search = getSelectSearch();
+  const shown = $derived(search?.shows(label) ?? true);
 </script>
 
+{#if shown}
 <SelectPrimitive.Item
   bind:ref
   {label}
@@ -48,3 +55,4 @@
     </span>
   {/snippet}
 </SelectPrimitive.Item>
+{/if}

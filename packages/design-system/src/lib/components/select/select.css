@@ -191,4 +191,43 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
+
+  /*
+   * The search read-out at the top of a long list: what has been typed, under a hairline, in the
+   * row's own inset so the typed text lines up with the options it narrows.
+   */
+  .mc-select-search {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    margin-block-end: var(--mc-space-4);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-select-search-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  .mc-select-search-prompt {
+    color: var(--mc-text-muted);
+  }
+  .mc-select-search-query {
+    color: var(--mc-text-default);
+    white-space: pre;
+  }
+  .mc-select-search-empty {
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+  }
 }
